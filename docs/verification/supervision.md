@@ -237,11 +237,37 @@ The blocking and bounded-follow-up mechanisms were validated across six harnesse
 | Harness | Version verified | Mechanism | Observed result |
 | --- | --- | --- | --- |
 | Claude | 2.1.219 | Cooperative blocking `Stop` guard plus `asyncRewake` auto-arm | A fresh unsupervised session ran session start first, reclaimed a stale dead-owner lock, completed two tokenless rewake cycles with no model arm command or guard continuation, and left a competing live owner unchanged. |
-| Codex | 0.142.1 | Blocking `Stop` hook | Hook process root stayed anchored to the trusted checkout and one continuation ran. |
+| Codex | Current tracked adapter | Blocking `Stop` hook plus identity-bound persistent daemon handoff | Portable regressions prove a quiet checkpoint expiry and both ordinary and active-hook Stop paths stay closed until one daemon-owned watcher succeeds. Run the post-install live entry point below to verify activation in an updated plain primary. |
 | OpenCode | 1.17.6 | Passive `session.idle` callback | Throwing could not block, while `promptAsync` scheduled one TUI follow-up; headless remained fail-open. |
 | Pi | 0.80.5 | Passive `agent_settled` callback | Exactly one guard follow-up ran for an unhealthy cycle, with no recursion across tool turns. |
 | Grok | 0.2.112 native and 0.2.73 pre-native | Running-payload adaptive `Stop` | Native false-to-true continuation stayed in one process with two model turns and zero resume launches; the field-absent pre-native process launched exactly one guarded resume. |
 | Cursor | 2026.08.11-e8db854 | Awaited `stop` hook park returning one `followup_message` | Exit 2 ended the turn normally, proving it cannot block; a returned follow-up ran a genuine second turn; a sleeping hook held the boundary open and the wake landed after it; `loop_limit` stopped the hook being invoked at its ceiling. |
+
+### Codex persistent turn-end successor
+
+Portable verification:
+
+```sh
+tests/fm-turnend-guard.test.sh
+tests/fm-afk-launch.test.sh
+tests/fm-daemon.test.sh
+```
+
+These suites cover foreground checkpoint expiry, fail-closed ordinary and active-hook Stop attempts, identity-matched handoff, daemon-owned watcher readiness, repeated start/stop convergence, attended delivery, away-mode precedence, and session-lock loss.
+The other harness cases in the same guard suite preserve Claude, Pi, OpenCode, Cursor, and Grok behavior; Kimi support is unchanged.
+
+Post-install live verification:
+
+```sh
+FM_CODEX_LIVE_E2E=1 tests/fm-codex-continuity-live-e2e.test.sh
+```
+
+Run this once from the updated plain primary checkout after the exact head is merged and activated.
+The test clearly skips a linked worktree or a primary whose tracked Stop registration does not contain `--codex`.
+Its isolated named Herdr lab proves quiet checkpoint expiry, Stop handoff, later same-session wake delivery, captain control with one persistent owner, and clean teardown while the default fleet remains unchanged.
+
+Grok's one-block compatibility path is intentionally separate: its current adaptive Stop route has no verified identity-bound persistent terminal owner that can inject into the same session after the turn ends.
+Applying the Codex owner path there would broaden the adapter and is not justified by the current evidence, so the focused Grok regression continues to pin its existing native block and one-resume fallback rather than claiming Codex-equivalent continuity.
 
 ### Cursor primary park, 2026-08-13
 

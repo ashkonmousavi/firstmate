@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# fm-afk-launch.sh - the single owner of the away-mode daemon TERMINAL lifecycle:
+# fm-afk-launch.sh - the single owner of the persistent supervision daemon
+# TERMINAL lifecycle:
 # launch it in a NON-VISIBLE tracked terminal per backend, record its exact id,
 # tear it down by that exact id, and reconcile a leaked one after a crash.
 #
@@ -35,6 +36,14 @@
 #                              id, then clear state/.afk last.
 #   fm-afk-launch.sh reconcile Close a recorded-but-dead daemon terminal by exact
 #                              id and drop the record (recovery after a crash).
+#   fm-afk-launch.sh start-attended-codex <session-id> <session-lock-pid>
+#                              Reuse the same daemon/terminal lifecycle as an
+#                              attended Codex turn-end successor. Succeeds only
+#                              after the exact Codex session still owns this
+#                              home's lock and one daemon-owned watcher is live.
+#   fm-afk-launch.sh stop-attended-codex
+#                              Tear down only a recorded attended Codex owner;
+#                              never displaces an active away-mode owner.
 #
 # Supported backends: herdr, tmux. Others (zellij, orca, cmux) have no verified
 # non-visible-launch primitive here yet and refuse loudly.
@@ -79,6 +88,8 @@ FM_AFK_LAUNCH_WS_LABEL="firstmate-afk-daemon"
 . "$FM_AFK_LAUNCH_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-supervisor-target-lib.sh
 . "$FM_AFK_LAUNCH_DIR/fm-supervisor-target-lib.sh"
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$FM_AFK_LAUNCH_DIR/fm-session-lock-lib.sh"
 # fm-afk-start.sh provides the daemon-lock liveness helpers and
 # fm_afk_clear_stale_artifacts; it is sourceable (BASH_SOURCE guard) and its
 # main does not run on source. It sets `set -eu`, so turn errexit back off for
@@ -88,6 +99,21 @@ FM_AFK_LAUNCH_WS_LABEL="firstmate-afk-daemon"
 set +e
 
 fm_afk_launch_log() { printf 'fm-afk-launch: %s\n' "$*" >&2; }
+
+fm_afk_launch_codex_owner_key_valid() {
+  local value=${1:-}
+  [ -n "$value" ] || return 1
+  case "$value" in *[!A-Za-z0-9._:-]*) return 1 ;; esac
+}
+
+fm_afk_launch_codex_session_owner_valid() {  # <session-id> <lock-pid>
+  local session_id=$1 lock_pid=$2 recorded_pid
+  fm_afk_launch_codex_owner_key_valid "$session_id" || return 1
+  case "$lock_pid" in ''|*[!0-9]*) return 1 ;; esac
+  recorded_pid=$(cat "$FM_AFK_LAUNCH_STATE/.lock" 2>/dev/null) || return 1
+  [ "$recorded_pid" = "$lock_pid" ] || return 1
+  fm_harness_pid_alive "$lock_pid"
+}
 
 fm_afk_launch_lock_owned() {
   local pid expected actual
@@ -152,14 +178,28 @@ fm_afk_launch_usage() {
 # The command run inside the created terminal. Real launch runs the shared
 # daemon entry; a test overrides it with a harmless placeholder.
 fm_afk_launch_entry_cmd() {
-  printf '%s' "${FM_AFK_LAUNCH_ENTRY:-$FM_ROOT/bin/fm-afk-start.sh}"
+  if [ "${FM_AFK_LAUNCH_RECORD_MODE:-afk}" = attended-codex ]; then
+    printf '%s' "$FM_ROOT/bin/fm-supervise-daemon.sh"
+  else
+    printf '%s' "${FM_AFK_LAUNCH_ENTRY:-$FM_ROOT/bin/fm-afk-start.sh}"
+  fi
 }
 
-fm_afk_launch_record_write() {  # <backend> <target> <extra>
-  local pending
+fm_afk_launch_record_write() {  # <backend> <terminal-target> <extra>
+  local pending mode owner_key owner_pid owner_target
+  mode=${FM_AFK_LAUNCH_RECORD_MODE:-afk}
+  owner_key=${FM_AFK_LAUNCH_OWNER_KEY:--}
+  owner_pid=${FM_AFK_LAUNCH_OWNER_PID:--}
+  owner_target=${FM_AFK_LAUNCH_OWNER_TARGET:--}
   mkdir -p "$FM_AFK_LAUNCH_STATE" || return 1
   pending=$(mktemp "$FM_AFK_LAUNCH_STATE/.afk-daemon-terminal.pending.XXXXXX") || return 1
-  printf '%s\t%s\t%s\n' "$1" "$2" "$3" > "$pending" || { rm -f "$pending"; return 1; }
+  if [ "$mode" = afk ]; then
+    printf '%s\t%s\t%s\n' "$1" "$2" "$3" > "$pending" || { rm -f "$pending"; return 1; }
+  else
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$1" "$2" "$3" "$mode" "$owner_key" "$owner_pid" "$owner_target" > "$pending" \
+      || { rm -f "$pending"; return 1; }
+  fi
   mv "$pending" "$FM_AFK_LAUNCH_RECORD" || { rm -f "$pending"; return 1; }
 }
 
@@ -171,13 +211,23 @@ fm_afk_launch_flag_write() {
 # field (a herdr workspace id, kept for the record's own documentation) is not
 # needed to close by id, so it is discarded. Returns 1 when no record exists.
 fm_afk_launch_record_read() {
-  local extra record
+  local extra record field_count
   FM_AFK_REC_BACKEND=""; FM_AFK_REC_TARGET=""; extra=""
+  FM_AFK_REC_MODE=afk; FM_AFK_REC_OWNER_KEY=-; FM_AFK_REC_OWNER_PID=-
+  FM_AFK_REC_OWNER_TARGET=-
   [ -f "$FM_AFK_LAUNCH_RECORD" ] || return 1
   record=$(cat "$FM_AFK_LAUNCH_RECORD" 2>/dev/null) || record=""
+  field_count=$(printf '%s\n' "$record" | awk -F '\t' 'NR == 1 { print NF }')
   IFS=$'\t' read -r FM_AFK_REC_BACKEND FM_AFK_REC_TARGET extra \
-    < "$FM_AFK_LAUNCH_RECORD" || true
-  if ! printf '%s\n' "$record" | awk -F '\t' 'NF != 3 { bad=1 } END { exit !(NR == 1 && !bad) }' \
+    FM_AFK_REC_MODE FM_AFK_REC_OWNER_KEY FM_AFK_REC_OWNER_PID \
+    FM_AFK_REC_OWNER_TARGET <<< "$record"
+  [ "$field_count" = 7 ] || {
+    FM_AFK_REC_MODE=afk
+    FM_AFK_REC_OWNER_KEY=-
+    FM_AFK_REC_OWNER_PID=-
+    FM_AFK_REC_OWNER_TARGET=-
+  }
+  if ! printf '%s\n' "$record" | awk -F '\t' 'NF != 3 && NF != 7 { bad=1 } END { exit !(NR == 1 && !bad) }' \
     || [ -z "$FM_AFK_REC_BACKEND" ] || [ -z "$FM_AFK_REC_TARGET" ]; then
     fm_afk_launch_log "daemon terminal record is malformed; refusing to act on it"
     return 2
@@ -186,6 +236,17 @@ fm_afk_launch_record_read() {
     herdr) [ -n "$extra" ] ;;
     tmux) : ;;
     none) [ "$FM_AFK_REC_TARGET" = - ] && [ "$extra" = native ] ;;
+    *) return 2 ;;
+  esac || { fm_afk_launch_log "daemon terminal record is malformed; refusing to act on it"; return 2; }
+  case "$FM_AFK_REC_MODE" in
+    afk) [ "$field_count" = 3 ] ;;
+    attended-codex)
+      [ "$field_count" = 7 ] \
+        && fm_afk_launch_codex_owner_key_valid "$FM_AFK_REC_OWNER_KEY" \
+        && [ -n "$FM_AFK_REC_OWNER_TARGET" ] \
+        && [ "$FM_AFK_REC_OWNER_TARGET" != - ]
+      case "$FM_AFK_REC_OWNER_PID" in ''|*[!0-9]*) return 2 ;; esac
+      ;;
     *) return 2 ;;
   esac || { fm_afk_launch_log "daemon terminal record is malformed; refusing to act on it"; return 2; }
 }
@@ -277,6 +338,18 @@ fm_afk_launch_terminal_alive() {  # <backend> <target>
   esac
 }
 
+# The daemon starts bin/fm-watch.sh directly as its child. Bind attended
+# readiness to that existing process relationship so a foreground checkpoint
+# that still owns .watch.lock cannot be mistaken for the persistent successor.
+fm_afk_launch_attended_watcher_owned() {
+  local daemon_pid watcher_pid watcher_ppid
+  daemon_pid=$(daemon_lock_pid 2>/dev/null) || return 1
+  watcher_pid=$(cat "$FM_AFK_LAUNCH_STATE/.watch.lock/pid" 2>/dev/null) || return 1
+  case "$daemon_pid:$watcher_pid" in *[!0-9:]*) return 1 ;; esac
+  watcher_ppid=$(ps -o ppid= -p "$watcher_pid" 2>/dev/null | tr -d '[:space:]') || return 1
+  [ "$watcher_ppid" = "$daemon_pid" ]
+}
+
 fm_afk_launch_wait_ready() {  # <backend> <target>
   local backend=$1 target=$2 attempt=0
   if [ -n "${FM_AFK_LAUNCH_ENTRY:-}" ]; then
@@ -285,7 +358,16 @@ fm_afk_launch_wait_ready() {  # <backend> <target>
   fi
   while [ "$attempt" -lt 100 ]; do
     attempt=$((attempt + 1))
-    daemon_lock_held_by_live_daemon && return 0
+    if daemon_lock_held_by_live_daemon; then
+      if [ "${FM_AFK_LAUNCH_RECORD_MODE:-afk}" != attended-codex ]; then
+        return 0
+      fi
+      if fm_watcher_healthy "$FM_AFK_LAUNCH_STATE" "$FM_ROOT/bin/fm-watch.sh" \
+        "${FM_GUARD_GRACE:-300}" "$FM_HOME" \
+        && fm_afk_launch_attended_watcher_owned; then
+        return 0
+      fi
+    fi
     fm_afk_launch_terminal_alive "$backend" "$target" || return 1
     sleep 0.05
   done
@@ -414,8 +496,10 @@ fm_afk_launch_create_herdr() {  # <captain-target> <captain-backend>
     IFS=$'\t' read -r wsid pane <<< "$recovered"
   fi
   entry=$(fm_afk_launch_entry_cmd)
-  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q %q' \
-    "$FM_HOME" "$captain_target" "$captain_backend" "$entry")
+  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q %q' \
+    "$FM_HOME" "$captain_target" "$captain_backend" \
+    "${FM_AFK_LAUNCH_RECORD_MODE:-afk}" "${FM_AFK_LAUNCH_OWNER_KEY:--}" \
+    "${FM_AFK_LAUNCH_OWNER_PID:--}" "$entry")
   if ! fm_afk_launch_record_write herdr "$session:$pane" "$wsid"; then
     fm_afk_launch_log "failed to persist herdr daemon terminal record; closing $session:$pane"
     fm_afk_launch_close_terminal herdr "$session:$pane"
@@ -441,8 +525,10 @@ fm_afk_launch_create_tmux() {  # <captain-target> <captain-backend>
   nonce="$$-${RANDOM:-0}-$(date '+%s')"
   session="fm-afk-daemon-$hash-$nonce"
   entry=$(fm_afk_launch_entry_cmd)
-  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q %q' \
-    "$FM_HOME" "$captain_target" "$captain_backend" "$entry")
+  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q %q' \
+    "$FM_HOME" "$captain_target" "$captain_backend" \
+    "${FM_AFK_LAUNCH_RECORD_MODE:-afk}" "${FM_AFK_LAUNCH_OWNER_KEY:--}" \
+    "${FM_AFK_LAUNCH_OWNER_PID:--}" "$entry")
   if ! fm_afk_launch_record_write tmux "$session" ""; then
     fm_afk_launch_log "failed to persist planned tmux daemon session '$session'"
     return 1
@@ -570,12 +656,22 @@ fm_afk_launch_start_native() {
   return "$result"
 }
 
-fm_afk_launch_stop() {
+fm_afk_launch_stop_owned() {  # <clear-afk-flag> <required-record-mode> <label>
+  local clear_afk=$1 required_mode=$2 label=$3
   local pid pid_identity current_identity result=0 read_result
   fm_afk_launch_record_read
   read_result=$?
   if [ "$read_result" -eq 2 ]; then
-    fm_afk_launch_log "malformed daemon terminal record; refusing to stop away mode"
+    fm_afk_launch_log "malformed daemon terminal record; refusing to stop $label"
+    return 1
+  fi
+  if [ "$read_result" -eq 0 ] && [ "$required_mode" != any ] \
+    && [ "$FM_AFK_REC_MODE" != "$required_mode" ]; then
+    fm_afk_launch_log "recorded owner is '$FM_AFK_REC_MODE', not '$required_mode'; refusing to stop $label"
+    return 1
+  fi
+  if [ "$read_result" -eq 1 ] && daemon_lock_held_by_live_daemon; then
+    fm_afk_launch_log "live daemon has no terminal ownership record; refusing to stop $label"
     return 1
   fi
   # (1) SIGTERM the daemon so its cleanup trap flushes buffered escalations
@@ -589,7 +685,7 @@ fm_afk_launch_stop() {
   fi
   if [ -n "$pid" ]; then
     if ! kill -TERM "$pid" 2>/dev/null; then
-      fm_afk_launch_log "failed to signal away-mode daemon pid=$pid"
+      fm_afk_launch_log "failed to signal supervision daemon pid=$pid"
       result=1
     fi
     for _ in $(seq 1 40); do
@@ -599,11 +695,11 @@ fm_afk_launch_stop() {
   fi
   if [ -n "$pid" ] && fm_pid_alive "$pid"; then
     current_identity=$(fm_pid_identity "$pid" 2>/dev/null) || {
-      fm_afk_launch_log "could not confirm away-mode daemon exit; preserving lifecycle state"
+      fm_afk_launch_log "could not confirm supervision daemon exit; preserving lifecycle state"
       return 1
     }
     if [ "$current_identity" = "$pid_identity" ]; then
-      fm_afk_launch_log "away-mode daemon did not exit after SIGTERM; preserving lifecycle state"
+      fm_afk_launch_log "supervision daemon did not exit after SIGTERM; preserving lifecycle state"
       return 1
     fi
   fi
@@ -611,17 +707,103 @@ fm_afk_launch_stop() {
   if [ "$read_result" -eq 0 ]; then
     fm_afk_launch_close_recorded || result=1
   fi
-  # (3) Clear the away-mode flag LAST.
-  if ! rm -f "$FM_AFK_LAUNCH_STATE/.afk"; then
-    fm_afk_launch_log "failed to clear away-mode flag"
-    result=1
+  # (3) The away wrapper clears its presence flag LAST. Attended teardown never
+  # mutates it, so it cannot accidentally end a real away-mode session.
+  if [ "$clear_afk" -eq 1 ]; then
+    if ! rm -f "$FM_AFK_LAUNCH_STATE/.afk"; then
+      fm_afk_launch_log "failed to clear away-mode flag"
+      result=1
+    fi
   fi
   if [ "$result" -eq 0 ]; then
-    fm_afk_launch_log "away mode stopped; daemon terminal torn down and .afk cleared"
+    fm_afk_launch_log "$label stopped; daemon terminal torn down"
   else
-    fm_afk_launch_log "away mode stopped; terminal teardown remains recorded for retry"
+    fm_afk_launch_log "$label stopped; terminal teardown remains recorded for retry"
   fi
   return "$result"
+}
+
+fm_afk_launch_stop() {
+  fm_afk_launch_stop_owned 1 any "away mode"
+}
+
+fm_afk_launch_stop_attended_codex() {
+  if [ -e "$FM_AFK_LAUNCH_STATE/.afk" ]; then
+    return 0
+  fi
+  if ! daemon_lock_held_by_live_daemon && [ ! -e "$FM_AFK_LAUNCH_RECORD" ]; then
+    return 0
+  fi
+  fm_afk_launch_stop_owned 0 attended-codex "attended Codex supervision"
+}
+
+fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
+  local session_id=${1:-} session_pid=${2:-}
+  local captain_target captain_backend read_result
+
+  if ! fm_afk_launch_codex_session_owner_valid "$session_id" "$session_pid"; then
+    fm_afk_launch_log "Codex successor refused: session '$session_id' is not the live identity-matched owner of $FM_AFK_LAUNCH_STATE/.lock"
+    return 1
+  fi
+  captain_target=$(discover_supervisor_target) || {
+    fm_afk_launch_log "Codex successor refused: could not resolve the captain supervisor pane (set FM_SUPERVISOR_TARGET)"
+    return 1
+  }
+  captain_backend=$(discover_supervisor_backend) || {
+    fm_afk_launch_log "Codex successor refused: could not resolve the captain supervisor backend (set FM_SUPERVISOR_BACKEND)"
+    return 1
+  }
+  mkdir -p "$FM_AFK_LAUNCH_STATE" || return 1
+
+  if daemon_lock_held_by_live_daemon; then
+    fm_afk_launch_record_read
+    read_result=$?
+    [ "$read_result" -eq 0 ] || {
+      fm_afk_launch_log "Codex successor refused: live daemon has no valid terminal ownership record"
+      return 1
+    }
+    if [ -e "$FM_AFK_LAUNCH_STATE/.afk" ]; then
+      if fm_afk_launch_terminal_alive "$FM_AFK_REC_BACKEND" "$FM_AFK_REC_TARGET" \
+        && fm_watcher_healthy "$FM_AFK_LAUNCH_STATE" "$FM_ROOT/bin/fm-watch.sh" \
+          "${FM_GUARD_GRACE:-300}" "$FM_HOME" \
+        && fm_afk_launch_attended_watcher_owned; then
+        return 0
+      fi
+      fm_afk_launch_log "Codex successor refused: away-mode owner is present but not healthy"
+      return 1
+    fi
+    if [ "$FM_AFK_REC_MODE" != attended-codex ]; then
+      fm_afk_launch_log "Codex successor refused: live daemon belongs to '$FM_AFK_REC_MODE', not an attended Codex session"
+      return 1
+    fi
+    if [ "$FM_AFK_REC_BACKEND" = "$captain_backend" ] \
+      && [ "$FM_AFK_REC_OWNER_TARGET" = "$captain_target" ] \
+      && [ "$FM_AFK_REC_OWNER_KEY" = "$session_id" ] \
+      && [ "$FM_AFK_REC_OWNER_PID" = "$session_pid" ] \
+      && fm_afk_launch_terminal_alive "$FM_AFK_REC_BACKEND" "$FM_AFK_REC_TARGET" \
+      && fm_watcher_healthy "$FM_AFK_LAUNCH_STATE" "$FM_ROOT/bin/fm-watch.sh" \
+        "${FM_GUARD_GRACE:-300}" "$FM_HOME" \
+      && fm_afk_launch_attended_watcher_owned; then
+      return 0
+    fi
+    fm_afk_launch_stop_owned 0 attended-codex "superseded attended Codex supervision" || return 1
+  fi
+
+  fm_afk_launch_reconcile || return 1
+  FM_AFK_LAUNCH_RECORD_MODE=attended-codex
+  FM_AFK_LAUNCH_OWNER_KEY=$session_id
+  FM_AFK_LAUNCH_OWNER_PID=$session_pid
+  FM_AFK_LAUNCH_OWNER_TARGET=$captain_target
+  export FM_AFK_LAUNCH_RECORD_MODE FM_AFK_LAUNCH_OWNER_KEY \
+    FM_AFK_LAUNCH_OWNER_PID FM_AFK_LAUNCH_OWNER_TARGET
+  case "$captain_backend" in
+    herdr) fm_afk_launch_create_herdr "$captain_target" "$captain_backend" ;;
+    tmux) fm_afk_launch_create_tmux "$captain_target" "$captain_backend" ;;
+    *)
+      fm_afk_launch_log "Codex successor unavailable for backend '$captain_backend' (supported: herdr, tmux)"
+      return 1
+      ;;
+  esac
 }
 
 fm_afk_launch_main() {
@@ -638,7 +820,9 @@ fm_afk_launch_main() {
   case "${1:-start}" in
     start) fm_afk_launch_start ;;
     start-native) fm_afk_launch_start_native ;;
+    start-attended-codex) fm_afk_launch_start_attended_codex "${2:-}" "${3:-}" ;;
     stop) fm_afk_launch_stop ;;
+    stop-attended-codex) fm_afk_launch_stop_attended_codex ;;
     reconcile) fm_afk_launch_reconcile ;;
     -h|--help|help) fm_afk_launch_usage ;;
     *) fm_afk_launch_usage >&2; return 2 ;;

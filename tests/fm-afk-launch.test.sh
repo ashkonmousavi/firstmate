@@ -825,6 +825,76 @@ unit_flag_write_failure_aborts() {
   rm -rf "$st"
 }
 
+unit_attended_readiness_rejects_foreground_watcher_overlap() {
+  local st
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-overlap.XXXXXX")
+  mkdir -p "$st/state/.watch.lock"
+  printf '%s\n' 701 > "$st/state/.watch.lock/pid"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    unset FM_AFK_LAUNCH_ENTRY
+    FM_AFK_LAUNCH_RECORD_MODE=attended-codex
+    daemon_lock_held_by_live_daemon() { return 0; }
+    daemon_lock_pid() { printf "%s\n" 700; }
+    fm_watcher_healthy() { return 0; }
+    fm_afk_launch_terminal_alive() { return 0; }
+    sleep() { :; }
+    WATCHER_PARENT=600
+    ps() {
+      if [ "$1" = -o ] && [ "$2" = ppid= ]; then
+        printf "%s\n" "$WATCHER_PARENT"
+      else
+        command ps "$@"
+      fi
+    }
+    ! fm_afk_launch_wait_ready tmux exact-terminal || exit 10
+    WATCHER_PARENT=700
+    fm_afk_launch_wait_ready tmux exact-terminal
+  ' _ "$LAUNCH"; then
+    pass "attended readiness: foreground checkpoint watcher cannot certify the daemon successor"
+  else
+    fail "attended readiness: accepted a healthy watcher not owned by the daemon"
+  fi
+  rm -rf "$st"
+}
+
+unit_attended_lifecycle_is_idempotent_for_exact_owner() {
+  local st
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-idempotent.XXXXXX")
+  mkdir -p "$st/state"
+  printf '%s\n' 4242 > "$st/state/.lock"
+  printf 'herdr\tlab:daemon\tws-daemon\tattended-codex\tcodex-session\t4242\tlab:captain\n' \
+    > "$st/state/.afk-daemon-terminal"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    DAEMON_LIVE=1
+    fm_harness_pid_alive() { [ "$1" = 4242 ]; }
+    discover_supervisor_target() { printf "%s" lab:captain; }
+    discover_supervisor_backend() { printf "%s" herdr; }
+    daemon_lock_held_by_live_daemon() { [ "$DAEMON_LIVE" = 1 ]; }
+    fm_afk_launch_terminal_alive() { return 0; }
+    fm_watcher_healthy() { return 0; }
+    fm_afk_launch_attended_watcher_owned() { return 0; }
+    fm_afk_launch_create_herdr() { : > "$FM_HOME/duplicate-start"; return 1; }
+    fm_afk_launch_start_attended_codex codex-session 4242 || exit 10
+    fm_afk_launch_start_attended_codex codex-session 4242 || exit 11
+    [ ! -e "$FM_HOME/duplicate-start" ] || exit 12
+    fm_afk_launch_stop_owned() {
+      printf "stop\n" >> "$FM_HOME/stops"
+      DAEMON_LIVE=0
+      rm -f "$FM_AFK_LAUNCH_RECORD"
+    }
+    fm_afk_launch_stop_attended_codex || exit 13
+    fm_afk_launch_stop_attended_codex || exit 14
+    [ "$(wc -l < "$FM_HOME/stops" | tr -d " ")" = 1 ]
+  ' _ "$LAUNCH"; then
+    pass "attended lifecycle: repeated exact start/stop converges to one owner and one teardown"
+  else
+    fail "attended lifecycle: repeated exact start/stop duplicated ownership or teardown"
+  fi
+  rm -rf "$st"
+}
+
 # ---------------------------------------------------------------------------
 # E2E herdr: topology invariant.
 # ---------------------------------------------------------------------------
@@ -955,6 +1025,8 @@ unit_clear_failure_aborts_entry
 unit_confirmed_absence_succeeds
 unit_incomplete_restore_retains_backup
 unit_flag_write_failure_aborts
+unit_attended_readiness_rejects_foreground_watcher_overlap
+unit_attended_lifecycle_is_idempotent_for_exact_owner
 e2e_herdr
 e2e_tmux
 

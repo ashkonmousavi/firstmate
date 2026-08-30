@@ -12,14 +12,11 @@
 # declared-wait recheck reach the LLM, and even then as one pre-read digest per
 # batch window.
 #
-# PRESENCE-GATING (the /afk contract). The daemon is the away-mode engine: it
-# injects ONLY when the durable away-mode flag state/.afk is present. Invoking
-# the /afk skill sets that flag and starts this daemon; any real (unmarked)
-# user message clears it and firstmate resumes full responsiveness.
-# When afk is off, normal fm-watch.sh always-on triage is the active mechanism.
-# Any buffered daemon escalations that remain while afk is off survive in
-# state/.subsuper-escalations and are flushed on the next "while you were out"
-# catch-up or when afk is re-entered.
+# DELIVERY-GATING. The daemon injects when either the durable away-mode flag
+# state/.afk is present or its launcher bound it to the live identity-matched
+# Codex session that owns state/.lock. Away mode always takes presentation
+# precedence. Without either proof the daemon stays quiet and preserves any
+# buffered escalation for a later verified owner.
 #
 # IN-BAND OPERATIONAL INPUT. bin/fm-operational-input.sh constructs every
 # current daemon injection as the typed away-supervisor kind after the stable
@@ -186,6 +183,10 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # shellcheck source=bin/fm-busy-lib.sh
 . "$FM_DAEMON_DIR/fm-busy-lib.sh"
 
+# Exact harness/session-lock identity for the attended Codex successor mode.
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$FM_DAEMON_DIR/fm-session-lock-lib.sh"
+
 # --- tunables ---------------------------------------------------------------
 # Supervisor backends this daemon knows how to inject into today. zellij, orca,
 # and cmux are real backends elsewhere in firstmate (bin/fm-backend.sh) but this
@@ -256,6 +257,32 @@ _hash_text() {
 # afk_active: 0 if the durable away-mode flag exists, 1 otherwise.
 afk_active() {  # <state>
   [ -e "$1/$AFK_FLAG_NAME" ]
+}
+
+attended_codex_owner_active() {  # <state>
+  local state=$1 mode session_id session_pid lock_pid
+  mode=${FM_SUPERVISION_DELIVERY_MODE:-afk}
+  [ "$mode" = attended-codex ] || return 1
+  session_id=${FM_SUPERVISION_SESSION_ID:-}
+  session_pid=${FM_SUPERVISION_SESSION_PID:-}
+  [ -n "$session_id" ] || return 1
+  case "$session_id" in *[!A-Za-z0-9._:-]*) return 1 ;; esac
+  case "$session_pid" in ''|*[!0-9]*) return 1 ;; esac
+  lock_pid=$(cat "$state/.lock" 2>/dev/null) || return 1
+  [ "$lock_pid" = "$session_pid" ] || return 1
+  fm_harness_pid_alive "$session_pid"
+}
+
+supervision_delivery_active() {  # <state>
+  afk_active "$1" || attended_codex_owner_active "$1"
+}
+
+supervision_delivery_kind() {  # <state>
+  if afk_active "$1"; then
+    printf '%s' away-supervisor
+  else
+    printf '%s' watcher
+  fi
 }
 
 # afk_enter / afk_exit: write/clear the away-mode flag. Called by the /afk
@@ -1028,7 +1055,7 @@ housekeeping() {  # <state>
   # retry the normal delivery path. If that still cannot confirm, raise a loud
   # wedge alarm while preserving the buffer.
   max_defer=${FM_MAX_DEFER_SECS:-$MAX_DEFER_SECS_DEFAULT}
-  if afk_active "$state" && [ "$max_defer" -gt 0 ] && [ -s "$state/.subsuper-escalations" ]; then
+  if supervision_delivery_active "$state" && [ "$max_defer" -gt 0 ] && [ -s "$state/.subsuper-escalations" ]; then
     oldest=$(_oldest_line_age "$state/.subsuper-escalations")
     # Throttle the alarm to once per max-defer window (the wedge marker doubles
     # as the throttle). A successful flush clears the buffer; a failed one alarms
@@ -1207,18 +1234,18 @@ window_for_task() {  # <task-key> [state]
 #     line, or a previous injection's unsent text), defer entirely - injecting
 #     would merge with the human's text.
 inject_msg() {  # <message> [state]
-  local msg=$1 state target backend retries sleep_s verdict composer encoded
+  local msg=$1 state target backend retries sleep_s verdict composer encoded kind
   state="${2:-$(_state_root)}"
-  # (1) Presence-gate: inject ONLY when afk is active. When afk is off, the
-  # daemon self-handles and stays quiet; firstmate drives the normal always-on
-  # watcher triage. Escalations buffer and survive for the next catch-up flush.
-  afk_active "$state" || { log "inject deferred: afk inactive"; return 1; }
+  # (1) Delivery gate: away presence or an exact live attended Codex session.
+  # Escalations stay durable when neither verified owner is active.
+  supervision_delivery_active "$state" || { log "inject deferred: no active delivery owner"; return 1; }
   # (2) Single-line digest: collapse any embedded newlines so submission via
   # send-keys + Enter is unambiguous regardless of how the TUI composer treats
   # them. Then use the canonical typed envelope so downstream consumers retain
   # the exact away-supervisor kind without interpreting this payload's prose.
   msg=$(_collapse_newlines "$msg")
-  fm_operational_input_encode away-supervisor "$msg" encoded || return 1
+  kind=$(supervision_delivery_kind "$state") || return 1
+  fm_operational_input_encode "$kind" "$msg" encoded || return 1
   msg=$encoded
   target="${FM_SUPERVISOR_TARGET:-$FM_SUPERVISOR_TARGET_DEFAULT}"
   # BACKEND-AWARE (previously a raw `tmux display-message` pane-exists probe):
@@ -1489,7 +1516,7 @@ trim_log() {
 # ============================================================================
 
 fm_super_main() {
-  local STATE
+  local STATE delivery_mode
   STATE="$(_state_root)"
   mkdir -p "$STATE"
 
@@ -1508,6 +1535,21 @@ fm_super_main() {
   local CRASH_WINDOW=${FM_CRASH_WINDOW:-$CRASH_WINDOW_DEFAULT}
   local CRASH_BACKOFF=${FM_CRASH_BACKOFF:-$CRASH_BACKOFF_DEFAULT}
   local CRASH_NORMAL_SLEEP=${FM_CRASH_NORMAL_SLEEP:-$CRASH_NORMAL_SLEEP_DEFAULT}
+
+  delivery_mode=${FM_SUPERVISION_DELIVERY_MODE:-afk}
+  case "$delivery_mode" in
+    afk) ;;
+    attended-codex)
+      if ! attended_codex_owner_active "$STATE"; then
+        echo "error: attended Codex supervision requires the live identity-matched session named by FM_SUPERVISION_SESSION_ID/FM_SUPERVISION_SESSION_PID to own $STATE/.lock" >&2
+        exit 1
+      fi
+      ;;
+    *)
+      echo "error: unsupported supervision delivery mode '$delivery_mode'" >&2
+      exit 1
+      ;;
+  esac
 
   [ -x "$WATCH" ] || { echo "error: watcher not found or not executable: $WATCH" >&2; exit 1; }
 
@@ -1599,7 +1641,7 @@ fm_super_main() {
 
   local afk_status="off"
   afk_active "$STATE" && afk_status="on"
-  log "daemon starting (pid $$); target=$TARGET; target_source=$target_source; backend=$BACKEND; backend_source=$backend_source; afk=$afk_status; inject_skip='${FM_INJECT_SKIP:-$INJECT_SKIP_DEFAULT}'; stale_escalate=${FM_STALE_ESCALATE_SECS:-$STALE_ESCALATE_SECS_DEFAULT}s; batch=${FM_ESCALATE_BATCH_SECS:-$ESCALATE_BATCH_SECS_DEFAULT}s"
+  log "daemon starting (pid $$); target=$TARGET; target_source=$target_source; backend=$BACKEND; backend_source=$backend_source; delivery=$delivery_mode; afk=$afk_status; inject_skip='${FM_INJECT_SKIP:-$INJECT_SKIP_DEFAULT}'; stale_escalate=${FM_STALE_ESCALATE_SECS:-$STALE_ESCALATE_SECS_DEFAULT}s; batch=${FM_ESCALATE_BATCH_SECS:-$ESCALATE_BATCH_SECS_DEFAULT}s"
   migrate_watcher_pause_markers "$STATE"
 
   # --- shutdown: flush buffered escalations, reap child, release lock -------
@@ -1650,6 +1692,11 @@ fm_super_main() {
 
   local rc reason
   while true; do
+    if [ "$delivery_mode" = attended-codex ] \
+      && ! attended_codex_owner_active "$STATE"; then
+      log "attended Codex owner no longer holds the live session lock; shutting down"
+      cleanup
+    fi
     # --- pane-gone guard (preserved) ---------------------------------------
     # With the #29 watcher's enqueue-before-suppress, a wake is no longer
     # swallowed by running the watcher with no injection target. We still back

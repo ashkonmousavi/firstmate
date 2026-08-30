@@ -32,15 +32,11 @@
 # primary checkout - the main home or a genuinely marked secondmate home - and
 # stay a silent, fast no-op inside child task worktrees.
 #
-# Loop-guard, codex/Grok (default) mode: never block twice in the same turn.
-# Codex uses stop_hook_active and Grok uses stopHookActive; typed camel-case
-# takes precedence when both spellings are present. A true value means the
-# current stop attempt already follows a block, so this guard always allows it.
-# Passive harness adapters provide their own one-follow-up guard before calling
-# this script.
-# That bounds those harnesses to at most one forced continuation per turn -
-# never a wedged, un-endable session - while still nagging again on a later turn
-# if the problem persists.
+# Loop-guard, Grok/default mode: never block twice in the same turn. Codex uses
+# --codex and never applies that fail-open: it either verifies the existing
+# persistent daemon/watcher lifecycle as this exact session's successor or
+# keeps the turn closed. Passive harness adapters provide their own bounded
+# follow-up guard before calling this script.
 #
 # Loop-guard, --claude mode (Stop-owned auto-arm cooperation): Claude Code
 # marks EVERY stop after ANY stop-hook-driven continuation stop_hook_active=true,
@@ -75,6 +71,7 @@ GRACE=${FM_GUARD_GRACE:-300}
 WATCH="$SCRIPT_DIR/fm-watch.sh"
 CLAUDE_MODE=0
 CURSOR_MODE=0
+CODEX_MODE=0
 SYNC_WAIT_MS=${FM_CLAUDE_AUTOARM_SYNC_WAIT_MS:-800}
 EPOCH_FRESH=${FM_CLAUDE_AUTOARM_EPOCH_FRESH:-15}
 BLOCK_BUDGET=${FM_CLAUDE_TURNEND_BLOCK_BUDGET:-3}
@@ -86,9 +83,14 @@ for arg in "$@"; do
   case "$arg" in
     --claude) CLAUDE_MODE=1 ;;
     --cursor) CURSOR_MODE=1 ;;
-    *) echo "usage: $(basename "$0") [--claude|--cursor]" >&2; exit 2 ;;
+    --codex) CODEX_MODE=1 ;;
+    *) echo "usage: $(basename "$0") [--claude|--cursor|--codex]" >&2; exit 2 ;;
   esac
 done
+if [ $((CLAUDE_MODE + CURSOR_MODE + CODEX_MODE)) -gt 1 ]; then
+  echo "usage: $(basename "$0") [--claude|--cursor|--codex]" >&2
+  exit 2
+fi
 
 # shellcheck source=bin/fm-supervision-lib.sh
 . "$SCRIPT_DIR/fm-supervision-lib.sh"
@@ -96,6 +98,8 @@ done
 . "$SCRIPT_DIR/fm-primary-scope-lib.sh"
 # shellcheck source=bin/fm-hook-host-lib.sh
 . "$SCRIPT_DIR/fm-hook-host-lib.sh"
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$SCRIPT_DIR/fm-session-lock-lib.sh"
 
 # Read the whole turn-end hook payload once; never block on unreadable/absent
 # stdin.
@@ -125,7 +129,8 @@ STOP_HOOK_ACTIVE=$(printf '%s' "$PAYLOAD" | jq -r '
   else false
   end
 ' 2>/dev/null) || exit 0
-if [ "$CLAUDE_MODE" -eq 0 ] && [ "$STOP_HOOK_ACTIVE" = "true" ]; then
+if [ "$CLAUDE_MODE" -eq 0 ] && [ "$CODEX_MODE" -eq 0 ] \
+  && [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   exit 0
 fi
 
@@ -153,6 +158,7 @@ OWNER_LOCK="$STATE/.claude-autoarm.lock"
 FAILURE_NOTICE="$STATE/.claude-autoarm-failure-notified"
 FAILURE_ALARM="$STATE/.claude-autoarm-failure-alarmed"
 SESSION_ID=$(printf '%s' "$PAYLOAD" | jq -r '.session_id // "unknown"' 2>/dev/null || printf 'unknown')
+CODEX_SUCCESSOR_FAILED=0
 budget_reset() {
   [ "$CLAUDE_MODE" -eq 1 ] || return 0
   fm_lock_try_acquire "$BUDGET_LOCK" || return 0
@@ -163,9 +169,33 @@ budget_reset() {
 fm_supervision_status "$STATE" "$GRACE"
 if [ "$FM_SUP_NEEDED" = false ]; then
   [ -e "$FAILURE_NOTICE" ] || budget_reset
+  if [ "$CODEX_MODE" -eq 1 ]; then
+    FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-afk-launch.sh" stop-attended-codex >/dev/null 2>&1 || true
+  fi
   exit 0
 fi
-if fm_watcher_healthy "$STATE" "$WATCH" "$GRACE" "$FM_HOME"; then
+if [ "$CODEX_MODE" -eq 1 ]; then
+  case "$SESSION_ID" in
+    ''|unknown|*[!A-Za-z0-9._:-]*) CODEX_SUCCESSOR_FAILED=1 ;;
+  esac
+  LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
+  case "$LOCK_PID" in ''|*[!0-9]*) CODEX_SUCCESSOR_FAILED=1 ;; esac
+  if [ "$CODEX_SUCCESSOR_FAILED" -eq 0 ] \
+    && ! fm_session_lock_owned_by_self "$STATE"; then
+    CODEX_SUCCESSOR_FAILED=1
+  fi
+  if [ "$CODEX_SUCCESSOR_FAILED" -eq 0 ]; then
+    if FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+      "$SCRIPT_DIR/fm-afk-launch.sh" start-attended-codex \
+        "$SESSION_ID" "$LOCK_PID" >/dev/null 2>&1; then
+      exit 0
+    fi
+    CODEX_SUCCESSOR_FAILED=1
+  fi
+fi
+if [ "$CODEX_MODE" -eq 0 ] \
+  && fm_watcher_healthy "$STATE" "$WATCH" "$GRACE" "$FM_HOME"; then
   [ "$CLAUDE_MODE" -eq 1 ] || exit 0
   fm_failure_episode_reset "$STATE" && exit 0
   exit 2
@@ -192,6 +222,9 @@ block_stop() {
     fi
     if [ "$CLAUDE_MODE" -eq 1 ]; then
       printf '●  The Stop-owned auto-arm did not claim this home either, so recovery is NOT already under way.\n'
+    fi
+    if [ "$CODEX_MODE" -eq 1 ] && [ "$CODEX_SUCCESSOR_FAILED" -eq 1 ]; then
+      printf '●  The persistent Codex successor could not verify an identity-matched daemon watcher for this session and backend; inspect bin/fm-afk-launch.sh start-attended-codex and state/.supervise-daemon.log before ending the turn.\n'
     fi
     printf '●  %s\n' "$reason"
     printf '●%s\n' "$rule"

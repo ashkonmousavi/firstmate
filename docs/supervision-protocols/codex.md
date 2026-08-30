@@ -1,4 +1,4 @@
-Mode: Codex foreground checkpoint.
+Mode: Codex foreground checkpoint with persistent turn-end handoff.
 
 When this session owns supervision and away mode is not active:
 1. Drain first with `bin/fm-wake-drain.sh`.
@@ -14,3 +14,10 @@ When this session owns supervision and away mode is not active:
 
 Codex cannot reason while a foreground tool call is running.
 The bounded checkpoint returns control regularly so user messages and queued wakes can be handled without relying on background-task wake semantics.
+A quiet checkpoint expiry is not completed supervision.
+When Codex reaches Stop while supervision is still required, the tracked Stop hook binds the existing persistent supervision daemon to this exact Codex session, home lock, backend, and captain-facing target.
+The Stop remains blocked until that daemon owns one healthy watcher child; `stop_hook_active` does not bypass this proof.
+The daemon stays silent while waiting, uses the existing one-shot watcher and durable drain/acknowledgement path, and injects only an actionable wake into the same session.
+The captain may start another turn while that owner remains active.
+The owner retires when supervision is no longer required or the Codex session loses the home lock; away mode keeps precedence if it is active.
+If the current backend cannot provide the verified persistent terminal and same-session injection route, the Stop hook fails closed with its Codex-successor diagnostic.

@@ -2615,6 +2615,49 @@ test_inject_msg_defers_on_unrecognized_composer_state() {
   pass "inject_msg: unrecognized composer states defer by default"
 }
 
+test_attended_codex_delivery_is_lock_bound_with_away_precedence() {
+  local dir state sent
+  dir=$(make_supercase attended-codex-delivery)
+  state="$dir/state"
+  sent="$dir/sent"
+  : > "$sent"
+  printf '%s\n' 4242 > "$state/.lock"
+  (
+    FM_SUPERVISION_DELIVERY_MODE=attended-codex
+    FM_SUPERVISION_SESSION_ID=codex-session
+    FM_SUPERVISION_SESSION_PID=4242
+    fm_harness_pid_alive() { [ "$1" = 4242 ]; }
+    fm_backend_target_exists() { return 0; }
+    pane_is_busy() { return 1; }
+    fm_backend_composer_state() { printf '%s' empty; }
+    fm_backend_send_text_submit() {
+      printf '%s\n' "$3" >> "$sent"
+      printf '%s' empty
+    }
+
+    supervision_delivery_active "$state" \
+      || fail "identity-matched attended Codex owner was not active"
+    FM_SUPERVISOR_BACKEND=herdr FM_SUPERVISOR_TARGET=lab:captain \
+      inject_msg "later worker wake" "$state" \
+      || fail "identity-matched attended Codex owner could not inject"
+    grep -F 'FIRSTMATE_OP: v1 watcher: later worker wake' "$sent" >/dev/null \
+      || fail "attended Codex delivery did not use the watcher operational kind"
+
+    : > "$state/.afk"
+    FM_SUPERVISOR_BACKEND=herdr FM_SUPERVISOR_TARGET=lab:captain \
+      inject_msg "away wake" "$state" \
+      || fail "away presence did not retain delivery ownership"
+    grep -F 'FIRSTMATE_OP: v1 away-supervisor: away wake' "$sent" >/dev/null \
+      || fail "away mode did not take presentation precedence"
+
+    rm -f "$state/.afk"
+    printf '%s\n' 9999 > "$state/.lock"
+    ! supervision_delivery_active "$state" \
+      || fail "stale attended Codex identity remained delivery-active"
+  ) || fail "attended Codex delivery gate subshell failed"
+  pass "daemon delivery: attended Codex is session-lock bound and away mode keeps precedence"
+}
+
 test_afk_start_refuses_when_flag_cannot_be_written
 test_afk_start_ignores_stale_pidfile_without_lock
 test_afk_start_reclaims_stale_daemon_lock_reused_pid
@@ -2738,3 +2781,4 @@ test_inject_msg_herdr_pane_gone_defers
 test_inject_msg_herdr_submits_through_backend_dispatch
 test_inject_msg_defers_on_dead_shell_unknown
 test_inject_msg_defers_on_unrecognized_composer_state
+test_attended_codex_delivery_is_lock_bound_with_away_precedence
