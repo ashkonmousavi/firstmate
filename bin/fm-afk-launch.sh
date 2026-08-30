@@ -769,7 +769,7 @@ fm_afk_launch_stop_attended_codex() {
 
 fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
   local session_id=${1:-} session_pid=${2:-}
-  local captain_target captain_backend read_result session_identity
+  local captain_target captain_backend captain_backend_label read_result session_identity
 
   if ! fm_afk_launch_codex_session_owner_valid "$session_id" "$session_pid"; then
     fm_afk_launch_log "Codex successor refused: session '$session_id' is not the live identity-matched owner of $FM_AFK_LAUNCH_STATE/.lock"
@@ -793,16 +793,6 @@ fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
       fm_afk_launch_log "Codex successor refused: live daemon has no valid terminal ownership record"
       return 1
     }
-    if [ -e "$FM_AFK_LAUNCH_STATE/.afk" ]; then
-      if fm_afk_launch_terminal_alive "$FM_AFK_REC_BACKEND" "$FM_AFK_REC_TARGET" \
-        && fm_watcher_healthy "$FM_AFK_LAUNCH_STATE" "$FM_ROOT/bin/fm-watch.sh" \
-          "${FM_GUARD_GRACE:-300}" "$FM_HOME" \
-        && fm_afk_launch_attended_watcher_owned; then
-        return 0
-      fi
-      fm_afk_launch_log "Codex successor refused: away-mode owner is present but not healthy"
-      return 1
-    fi
     if [ "$FM_AFK_REC_MODE" != attended-codex ]; then
       fm_afk_launch_log "Codex successor refused: live daemon belongs to '$FM_AFK_REC_MODE', not an attended Codex session"
       return 1
@@ -817,6 +807,10 @@ fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
         "${FM_GUARD_GRACE:-300}" "$FM_HOME" \
       && fm_afk_launch_attended_watcher_owned; then
       return 0
+    fi
+    if [ -e "$FM_AFK_LAUNCH_STATE/.afk" ]; then
+      fm_afk_launch_log "Codex successor refused: away-mode owner does not match the current Codex session, backend, and captain target"
+      return 1
     fi
     fm_afk_launch_stop_owned 0 attended-codex "superseded attended Codex supervision" || return 1
   fi
@@ -834,7 +828,11 @@ fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
     herdr) fm_afk_launch_create_herdr "$captain_target" "$captain_backend" ;;
     tmux) fm_afk_launch_create_tmux "$captain_target" "$captain_backend" ;;
     *)
-      fm_afk_launch_log "Codex successor unavailable for backend '$captain_backend' (supported: herdr, tmux)"
+      case "$captain_backend" in
+        ''|*[!A-Za-z0-9._-]*) captain_backend_label=unknown ;;
+        *) captain_backend_label=$captain_backend ;;
+      esac
+      fm_afk_launch_log "Codex successor unavailable for backend '$captain_backend_label' (supported: herdr, tmux); run this Codex primary under Herdr or tmux before ending the turn"
       return 1
       ;;
   esac

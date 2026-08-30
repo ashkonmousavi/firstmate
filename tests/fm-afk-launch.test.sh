@@ -868,12 +868,15 @@ unit_attended_lifecycle_is_idempotent_for_exact_owner() {
     DAEMON_LIVE=0
     TERMINAL_LIVE=0
     SESSION=""
+    CAPTAIN_TARGET=captain:0
+    CAPTAIN_BACKEND=tmux
+    CURRENT_IDENTITY=identity-4242
     CREATES=0
     KILLS=0
     fm_harness_pid_alive() { [ "$1" = 4242 ]; }
-    fm_pid_identity() { [ "$1" = 4242 ] && printf "%s" identity-4242; }
-    discover_supervisor_target() { printf "%s" captain:0; }
-    discover_supervisor_backend() { printf "%s" tmux; }
+    fm_pid_identity() { [ "$1" = 4242 ] && printf "%s" "$CURRENT_IDENTITY"; }
+    discover_supervisor_target() { printf "%s" "$CAPTAIN_TARGET"; }
+    discover_supervisor_backend() { printf "%s" "$CAPTAIN_BACKEND"; }
     daemon_lock_held_by_live_daemon() { [ "$DAEMON_LIVE" = 1 ]; }
     fm_watcher_healthy() { return 0; }
     fm_afk_launch_attended_watcher_owned() { return 0; }
@@ -910,6 +913,23 @@ unit_attended_lifecycle_is_idempotent_for_exact_owner() {
     [ "$FM_AFK_REC_OWNER_TARGET" = captain:0 ] || exit 17
     [ "$FM_AFK_REC_OWNER_IDENTITY" = identity-4242 ] || exit 18
     [ "$CREATES" = 1 ] || exit 19
+    : > "$FM_AFK_LAUNCH_STATE/.afk"
+    fm_afk_launch_start_attended_codex codex-session 4242 || exit 29
+    ! fm_afk_launch_start_attended_codex another-session 4242 || exit 30
+    CAPTAIN_TARGET=captain:1
+    ! fm_afk_launch_start_attended_codex codex-session 4242 || exit 31
+    CAPTAIN_TARGET=captain:0
+    CAPTAIN_BACKEND=herdr
+    ! fm_afk_launch_start_attended_codex codex-session 4242 || exit 32
+    CAPTAIN_BACKEND=tmux
+    CURRENT_IDENTITY=identity-reused
+    ! fm_afk_launch_start_attended_codex codex-session 4242 || exit 33
+    CURRENT_IDENTITY=identity-4242
+    fm_afk_launch_start_attended_codex codex-session 4242 || exit 34
+    [ "$CREATES" = 1 ] || exit 35
+    [ "$KILLS" = 0 ] || exit 36
+    [ -e "$FM_AFK_LAUNCH_RECORD" ] || exit 37
+    rm -f "$FM_AFK_LAUNCH_STATE/.afk"
     DAEMON_LIVE=0
     fm_afk_launch_stop_attended_codex || exit 20
     fm_afk_launch_stop_attended_codex || exit 21
@@ -925,6 +945,46 @@ unit_attended_lifecycle_is_idempotent_for_exact_owner() {
     pass "attended lifecycle: repeated tmux start, verification, stop, and recovery converge exactly"
   else
     fail "attended lifecycle: repeated tmux ownership did not converge through stop and recovery"
+  fi
+  rm -rf "$st"
+}
+
+unit_attended_unsupported_backend_diagnostic_is_sanitized() {
+  local st out status
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-unsupported.XXXXXX")
+  mkdir -p "$st/state"
+  out=$(TEST_BACKEND=tmuxless FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    printf "%s\n" "$$" > "$FM_AFK_LAUNCH_STATE/.lock"
+    fm_harness_pid_alive() { [ "$1" = "$$" ]; }
+    fm_pid_identity() { [ "$1" = "$$" ] && printf "%s" identity-self; }
+    discover_supervisor_target() { printf "%s" captain:0; }
+    discover_supervisor_backend() { printf "%s" "${TEST_BACKEND}"; }
+    daemon_lock_held_by_live_daemon() { return 1; }
+    fm_afk_launch_start_attended_codex codex-session "$$"
+  ' _ "$LAUNCH" 2>&1); status=$?
+  if [ "$status" -ne 0 ] \
+    && [ "$out" = "fm-afk-launch: Codex successor unavailable for backend 'tmuxless' (supported: herdr, tmux); run this Codex primary under Herdr or tmux before ending the turn" ]; then
+    pass "attended backend refusal: names the unsupported backend and supported alternatives"
+  else
+    fail "attended backend refusal: did not emit the exact actionable diagnostic ($out)"
+  fi
+
+  out=$(TEST_BACKEND=$'tmuxless\nunsafe' FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    printf "%s\n" "$$" > "$FM_AFK_LAUNCH_STATE/.lock"
+    fm_harness_pid_alive() { [ "$1" = "$$" ]; }
+    fm_pid_identity() { [ "$1" = "$$" ] && printf "%s" identity-self; }
+    discover_supervisor_target() { printf "%s" captain:0; }
+    discover_supervisor_backend() { printf "%s" "${TEST_BACKEND}"; }
+    daemon_lock_held_by_live_daemon() { return 1; }
+    fm_afk_launch_start_attended_codex codex-session "$$"
+  ' _ "$LAUNCH" 2>&1); status=$?
+  if [ "$status" -ne 0 ] && printf '%s\n' "$out" | grep -F "backend 'unknown'" >/dev/null \
+    && ! printf '%s\n' "$out" | grep -F unsafe >/dev/null; then
+    pass "attended backend refusal: sanitizes an unsafe backend label"
+  else
+    fail "attended backend refusal: surfaced an unsafe backend label ($out)"
   fi
   rm -rf "$st"
 }
@@ -1061,6 +1121,7 @@ unit_incomplete_restore_retains_backup
 unit_flag_write_failure_aborts
 unit_attended_readiness_rejects_foreground_watcher_overlap
 unit_attended_lifecycle_is_idempotent_for_exact_owner
+unit_attended_unsupported_backend_diagnostic_is_sanitized
 e2e_herdr
 e2e_tmux
 

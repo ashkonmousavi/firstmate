@@ -19,13 +19,14 @@
 # buffered escalation for a later verified owner.
 #
 # IN-BAND OPERATIONAL INPUT. bin/fm-operational-input.sh constructs every
-# current daemon injection as the typed away-supervisor kind after the stable
-# FM_OPERATIONAL_PREFIX. A human cannot type its leading U+2063 from a normal
+# current daemon injection as the typed watcher or away-supervisor kind after
+# the stable FM_OPERATIONAL_PREFIX. A human cannot type its leading U+2063 from a normal
 # keyboard at the start of a message, and Herdr transports it as text.
-# Firstmate's contract: a message that starts with the current prefix, or a
-# legacy bare-marker daemon escalation, is internal (stay afk); an unmarked
-# message means the captain is back (exit afk, flush catch-up, resume per-wake
-# responsiveness). The prefix and busy-guard solve the same problem - the
+# Firstmate's contract while away: a message that starts with the current
+# prefix, or a legacy bare-marker daemon escalation, is internal and stays afk;
+# an unmarked message means the captain is back. Without state/.afk, a typed
+# watcher injection follows ordinary supervision instead of entering afk. The
+# prefix and busy-guard solve the same problem - the
 # daemon and the human share one input channel - so they live together under
 # /afk.
 #
@@ -226,7 +227,7 @@ LOG_KEEP_LINES_DEFAULT=2000
 
 # --- presence-gating --------------------------------------------------------
 # bin/fm-operational-input.sh owns the U+2063 FIRSTMATE_OP bytes and typed
-# away-supervisor construction. The away-exit predicate intentionally retains
+# watcher/away-supervisor construction. The away-exit predicate intentionally retains
 # its landed leading-U+2063 compatibility behavior.
 AFK_FLAG_NAME=".afk"
 
@@ -1246,7 +1247,7 @@ inject_msg() {  # <message> [state]
   # (2) Single-line digest: collapse any embedded newlines so submission via
   # send-keys + Enter is unambiguous regardless of how the TUI composer treats
   # them. Then use the canonical typed envelope so downstream consumers retain
-  # the exact away-supervisor kind without interpreting this payload's prose.
+  # the exact attended or away delivery kind without interpreting this payload's prose.
   msg=$(_collapse_newlines "$msg")
   kind=$(supervision_delivery_kind "$state") || return 1
   fm_operational_input_encode "$kind" "$msg" encoded || return 1

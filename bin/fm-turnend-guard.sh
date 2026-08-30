@@ -92,6 +92,11 @@ if [ $((CLAUDE_MODE + CURSOR_MODE + CODEX_MODE)) -gt 1 ]; then
   exit 2
 fi
 
+codex_payload_fail_closed() {
+  printf '%s\n' 'FIRSTMATE CODEX STOP BLOCKED: Stop hook input or prerequisites are invalid; restore jq and the tracked Codex hook installation in an updated plain primary, restart Codex there, and retry Stop.' >&2
+  exit 2
+}
+
 # shellcheck source=bin/fm-supervision-lib.sh
 . "$SCRIPT_DIR/fm-supervision-lib.sh"
 # shellcheck source=bin/fm-primary-scope-lib.sh
@@ -104,12 +109,18 @@ fi
 # Read the whole turn-end hook payload once; never block on unreadable/absent
 # stdin.
 PAYLOAD=$(cat 2>/dev/null || true)
-[ -n "$PAYLOAD" ] || exit 0
+[ -n "$PAYLOAD" ] || {
+  [ "$CODEX_MODE" -eq 1 ] && codex_payload_fail_closed
+  exit 0
+}
 
 # jq is the repo's established JSON dependency (bin/fm-x-poll.sh uses the same
 # "missing jq -> silent no-op" degrade). Without it we cannot safely read the
 # loop-guard field, so we must never block - fail open, not noisy.
-command -v jq >/dev/null 2>&1 || exit 0
+command -v jq >/dev/null 2>&1 || {
+  [ "$CODEX_MODE" -eq 1 ] && codex_payload_fail_closed
+  exit 0
+}
 
 # A Cursor primary also loads the tracked Claude settings, and Cursor's own
 # registration owns its turn boundary through bin/fm-turnend-guard-cursor.sh,
@@ -128,7 +139,10 @@ STOP_HOOK_ACTIVE=$(printf '%s' "$PAYLOAD" | jq -r '
     if ((.stop_hook_active | type) == "boolean") then .stop_hook_active else error("stop_hook_active") end
   else false
   end
-' 2>/dev/null) || exit 0
+' 2>/dev/null) || {
+  [ "$CODEX_MODE" -eq 1 ] && codex_payload_fail_closed
+  exit 0
+}
 if [ "$CLAUDE_MODE" -eq 0 ] && [ "$CODEX_MODE" -eq 0 ] \
   && [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   exit 0
@@ -157,8 +171,11 @@ BUDGET_LOCK="$STATE/.turnend-claude-blocks.lock"
 OWNER_LOCK="$STATE/.claude-autoarm.lock"
 FAILURE_NOTICE="$STATE/.claude-autoarm-failure-notified"
 FAILURE_ALARM="$STATE/.claude-autoarm-failure-alarmed"
-SESSION_ID=$(printf '%s' "$PAYLOAD" | jq -r '.session_id // "unknown"' 2>/dev/null || printf 'unknown')
+SESSION_ID=$(printf '%s' "$PAYLOAD" | jq -r '
+  if has("session_id") and ((.session_id | type) == "string") then .session_id else "unknown" end
+' 2>/dev/null || printf 'unknown')
 CODEX_SUCCESSOR_FAILED=0
+CODEX_SUCCESSOR_REASON=
 budget_reset() {
   [ "$CLAUDE_MODE" -eq 1 ] || return 0
   fm_lock_try_acquire "$BUDGET_LOCK" || return 0
@@ -177,7 +194,7 @@ if [ "$FM_SUP_NEEDED" = false ]; then
 fi
 if [ "$CODEX_MODE" -eq 1 ]; then
   case "$SESSION_ID" in
-    ''|unknown|*[!A-Za-z0-9._:-]*) CODEX_SUCCESSOR_FAILED=1 ;;
+    ''|unknown|*[!A-Za-z0-9._:-]*) codex_payload_fail_closed ;;
   esac
   LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
   case "$LOCK_PID" in ''|*[!0-9]*) CODEX_SUCCESSOR_FAILED=1 ;; esac
@@ -186,11 +203,17 @@ if [ "$CODEX_MODE" -eq 1 ]; then
     CODEX_SUCCESSOR_FAILED=1
   fi
   if [ "$CODEX_SUCCESSOR_FAILED" -eq 0 ]; then
-    if FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+    CODEX_LAUNCH_ERROR=
+    if CODEX_LAUNCH_ERROR=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
       "$SCRIPT_DIR/fm-afk-launch.sh" start-attended-codex \
-        "$SESSION_ID" "$LOCK_PID" >/dev/null 2>&1; then
+        "$SESSION_ID" "$LOCK_PID" 2>&1 >/dev/null); then
       exit 0
     fi
+    case "$CODEX_LAUNCH_ERROR" in
+      "fm-afk-launch: Codex successor unavailable for backend '"*"' (supported: herdr, tmux); run this Codex primary under Herdr or tmux before ending the turn")
+        CODEX_SUCCESSOR_REASON=${CODEX_LAUNCH_ERROR#fm-afk-launch: }
+        ;;
+    esac
     CODEX_SUCCESSOR_FAILED=1
   fi
 fi
@@ -223,10 +246,12 @@ block_stop() {
     if [ "$CLAUDE_MODE" -eq 1 ]; then
       printf '●  The Stop-owned auto-arm did not claim this home either, so recovery is NOT already under way.\n'
     fi
-    if [ "$CODEX_MODE" -eq 1 ] && [ "$CODEX_SUCCESSOR_FAILED" -eq 1 ]; then
-      printf '●  The persistent Codex successor could not verify an identity-matched daemon watcher for this session and backend; inspect bin/fm-afk-launch.sh start-attended-codex and state/.supervise-daemon.log before ending the turn.\n'
+    if [ "$CODEX_MODE" -eq 1 ] && [ "$CODEX_SUCCESSOR_FAILED" -eq 1 ] \
+      && [ -n "$CODEX_SUCCESSOR_REASON" ]; then
+      printf '●  %s\n' "$CODEX_SUCCESSOR_REASON"
+    else
+      printf '●  %s\n' "$reason"
     fi
-    printf '●  %s\n' "$reason"
     printf '●%s\n' "$rule"
   } >&2
   exit 2

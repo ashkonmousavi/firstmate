@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -lc 'payload=$(cat 2>/dev/null || true); [ -n \"$payload\" ] || exit 0; command -v jq >/dev/null 2>&1 || exit 0; root=$(pwd -P) || exit 0; [ -x \"$root/bin/fm-turnend-guard.sh\" ] || exit 0; [ -f \"$root/AGENTS.md\" ] || exit 0; [ -f \"$root/.codex/hooks.json\" ] || exit 0; jq -e \"any(.hooks.Stop[]?.hooks[]?.command?; type == \\\"string\\\" and contains(\\\"fm-turnend-guard.sh\\\"))\" \"$root/.codex/hooks.json\" >/dev/null 2>&1 || exit 0; printf \"%s\" \"$payload\" | \"$root/bin/fm-turnend-guard.sh\" --codex'",
+            "command": "bash -lc 'fail_closed() { printf \"%s\\n\" \"FIRSTMATE CODEX STOP BLOCKED: Stop hook input or prerequisites are invalid; restore jq and the tracked Codex hook installation in an updated plain primary, restart Codex there, and retry Stop.\" >&2; exit 2; }; payload=$(cat 2>/dev/null) || fail_closed; [ -n \"$payload\" ] || fail_closed; command -v jq >/dev/null 2>&1 || fail_closed; root=$(pwd -P 2>/dev/null) || fail_closed; [ -x \"$root/bin/fm-turnend-guard.sh\" ] || fail_closed; [ -f \"$root/AGENTS.md\" ] || fail_closed; [ -f \"$root/.codex/hooks.json\" ] || fail_closed; jq -e \"any(.hooks.Stop[]?.hooks[]?.command?; type == \\\"string\\\" and contains(\\\"fm-turnend-guard.sh\\\") and contains(\\\"--codex\\\"))\" \"$root/.codex/hooks.json\" >/dev/null 2>&1 || fail_closed; printf \"%s\" \"$payload\" | \"$root/bin/fm-turnend-guard.sh\" --codex'",
             "timeout": 30
           }
         ]

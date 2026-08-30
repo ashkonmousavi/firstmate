@@ -20,6 +20,7 @@ TMP_ROOT=$(fm_test_tmproot fm-turnend-guard)
 fm_git_identity fmtest fmtest@example.invalid
 
 REQUIRED_REASON='watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn'
+CODEX_PREREQUISITE_REASON='FIRSTMATE CODEX STOP BLOCKED: Stop hook input or prerequisites are invalid; restore jq and the tracked Codex hook installation in an updated plain primary, restart Codex there, and retry Stop.'
 
 # --- PREDICATE: bin/fm-supervision-lib.sh -----------------------------------
 
@@ -126,7 +127,7 @@ install_guard_scripts() {
 mark_codex_hook_root() {
   local dir=$1
   mkdir -p "$dir/.codex"
-  printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"fm-turnend-guard.sh"}]}]}}\n' > "$dir/.codex/hooks.json"
+  printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"fm-turnend-guard.sh --codex"}]}]}}\n' > "$dir/.codex/hooks.json"
 }
 
 # A primary-shaped checkout: plain (non-worktree) git repo, AGENTS.md, bin/,
@@ -508,6 +509,72 @@ EOF
   [ "$(wc -l < "$dir/successor.calls" | tr -d ' ')" = 2 ] \
     || fail "each Stop attempt must perform exactly one idempotent successor verification"
   pass "fm-turnend-guard --codex: both Stop paths allow only after one verified successor handoff"
+}
+
+test_codex_guard_payload_failures_are_closed() {
+  local dir out status fakebin tool tool_path count
+  dir=$(make_primary_dir "$TMP_ROOT/hook-codex-payload-failures")
+  : > "$dir/state/task1.meta"
+
+  out=$(bash "$dir/bin/fm-turnend-guard.sh" --codex < /dev/null 2>&1); status=$?
+  expect_code 2 "$status" "Codex guard must fail closed on empty stdin"
+  count=$(printf '%s\n' "$out" | grep -cF "$CODEX_PREREQUISITE_REASON")
+  [ "$count" -eq 1 ] || fail "empty Codex payload did not emit exactly one prerequisite diagnostic: $out"
+
+  out=$(printf 'not-json' | bash "$dir/bin/fm-turnend-guard.sh" --codex 2>&1); status=$?
+  expect_code 2 "$status" "Codex guard must fail closed on malformed JSON"
+  count=$(printf '%s\n' "$out" | grep -cF "$CODEX_PREREQUISITE_REASON")
+  [ "$count" -eq 1 ] || fail "malformed Codex payload did not emit exactly one prerequisite diagnostic: $out"
+
+  cat > "$dir/bin/fm-afk-launch.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'called\n' >> "$FM_HOME/successor.calls"
+exit 0
+EOF
+  chmod +x "$dir/bin/fm-afk-launch.sh"
+  fakebin="$dir/fake-codex-invalid-payload"
+  mkdir -p "$fakebin"
+  ln -sf /bin/bash "$fakebin/codex"
+  out=$(CODEX_CASE_HOME="$dir" "$fakebin/codex" -c '
+    printf "%s\n" "$$" > "$CODEX_CASE_HOME/state/.lock"
+    printf "%s" "{\"stop_hook_active\":false,\"session_id\":17}" \
+      | FM_HOME="$CODEX_CASE_HOME" bash "$CODEX_CASE_HOME/bin/fm-turnend-guard.sh" --codex 2>&1
+  '); status=$?
+  expect_code 2 "$status" "Codex guard must reject a non-string session identity"
+  count=$(printf '%s\n' "$out" | grep -cF "$CODEX_PREREQUISITE_REASON")
+  [ "$count" -eq 1 ] || fail "invalid Codex session identity did not emit exactly one prerequisite diagnostic: $out"
+  assert_absent "$dir/successor.calls" "Codex guard passed an invalid session identity to the successor launcher"
+
+  fakebin=$(fm_fakebin "$TMP_ROOT/hook-codex-nojq-fake")
+  for tool in bash sh git cat printf date uname stat mkdir dirname; do
+    tool_path=$(command -v "$tool") || fail "test host must provide $tool"
+    ln -s "$tool_path" "$fakebin/$tool"
+  done
+  out=$(printf '{"stop_hook_active":false}' | PATH="$fakebin" bash "$dir/bin/fm-turnend-guard.sh" --codex 2>&1); status=$?
+  expect_code 2 "$status" "Codex guard must fail closed when jq is unavailable"
+  count=$(printf '%s\n' "$out" | grep -cF "$CODEX_PREREQUISITE_REASON")
+  [ "$count" -eq 1 ] || fail "missing-jq Codex guard did not emit exactly one prerequisite diagnostic: $out"
+  pass "fm-turnend-guard --codex: prerequisite and payload failures emit one closed diagnostic"
+}
+
+test_codex_unsupported_backend_surfaces_launcher_reason() {
+  local dir out status count
+  dir=$(make_primary_dir "$TMP_ROOT/hook-codex-unsupported-backend")
+  : > "$dir/state/task1.meta"
+  cat > "$dir/bin/fm-afk-launch.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "fm-afk-launch: Codex successor unavailable for backend 'zellij' (supported: herdr, tmux); run this Codex primary under Herdr or tmux before ending the turn" >&2
+exit 1
+EOF
+  chmod +x "$dir/bin/fm-afk-launch.sh"
+
+  out=$(run_hook_codex "$dir" false); status=$?
+  expect_code 2 "$status" "unsupported Codex backend must keep Stop closed"
+  count=$(printf '%s\n' "$out" | grep -cF "Codex successor unavailable for backend 'zellij'")
+  [ "$count" -eq 1 ] || fail "unsupported backend did not surface exactly one launcher reason: $out"
+  assert_contains "$out" '(supported: herdr, tmux)' "unsupported backend reason omitted supported alternatives"
+  assert_not_contains "$out" '.supervise-daemon.log' "unsupported backend reason redirected the captain to a nonexistent daemon log"
+  pass "fm-turnend-guard --codex: unsupported backend surfaces one actionable launcher reason"
 }
 
 test_hook_loop_guard_allows_retry() {
@@ -958,6 +1025,42 @@ EOF
   assert_contains "$out" "guard-arg=--codex" "Codex Stop hook must execute the persistent-successor guard mode"
   assert_contains "$out" "$payload" "codex hook must pass the original payload to the guard"
   pass ".codex/hooks.json: Stop hook uses hook process root when payload cwd is outside"
+}
+
+test_codex_hook_prerequisites_fail_closed_before_guard() {
+  local settings command dir out status count fakebin real_bash real_cat
+  settings="$ROOT/.codex/hooks.json"
+  command=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$settings")
+  [ -n "$command" ] || fail "Stop hook command is missing from .codex/hooks.json"
+  dir=$(make_primary_dir "$TMP_ROOT/codex-hook-prerequisites")
+  mark_codex_hook_root "$dir"
+  cat > "$dir/bin/fm-turnend-guard.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'guard-invoked\n' >> "$PWD/guard.calls"
+EOF
+  chmod +x "$dir/bin/fm-turnend-guard.sh"
+
+  out=$(cd "$dir" && bash -c "$command" < /dev/null 2>&1); status=$?
+  expect_code 2 "$status" "tracked Codex Stop hook must fail closed on empty input"
+  count=$(printf '%s\n' "$out" | grep -cF "$CODEX_PREREQUISITE_REASON")
+  [ "$count" -eq 1 ] || fail "empty tracked hook input did not emit exactly one diagnostic: $out"
+  assert_absent "$dir/guard.calls" "tracked hook invoked the guard after rejecting empty input"
+
+  fakebin=$(fm_fakebin "$TMP_ROOT/codex-hook-nojq")
+  real_bash=$(command -v bash) || fail "test host must provide bash"
+  real_cat=$(command -v cat) || fail "test host must provide cat"
+  cat > "$fakebin/bash" <<EOF
+#!/bin/sh
+exec "$real_bash" --noprofile "\$@"
+EOF
+  chmod +x "$fakebin/bash"
+  ln -s "$real_cat" "$fakebin/cat"
+  out=$(printf '{"stop_hook_active":false}' | (cd "$dir" && PATH="$fakebin" "$real_bash" -c "$command") 2>&1); status=$?
+  expect_code 2 "$status" "tracked Codex Stop hook must fail closed when jq is unavailable"
+  count=$(printf '%s\n' "$out" | grep -cF "$CODEX_PREREQUISITE_REASON")
+  [ "$count" -eq 1 ] || fail "missing-jq tracked hook did not emit exactly one diagnostic: $out"
+  assert_absent "$dir/guard.calls" "tracked hook invoked the guard without jq"
+  pass ".codex/hooks.json: Stop prerequisites fail closed before guard execution"
 }
 
 test_codex_hook_ignores_nested_git_root_guard() {
@@ -1861,6 +1964,8 @@ test_hook_ignores_repo_state_when_fm_home_set
 test_hook_uses_state_override
 test_codex_checkpoint_expiry_does_not_allow_active_stop_without_successor
 test_codex_stop_allows_only_after_successor_verification
+test_codex_guard_payload_failures_are_closed
+test_codex_unsupported_backend_surfaces_launcher_reason
 test_hook_loop_guard_allows_retry
 test_hook_blocks_in_secondmate_own_home
 test_hook_silent_in_idle_secondmate_home
@@ -1883,6 +1988,7 @@ test_grok_adapter_invalid_inputs_start_neither_path
 test_grok_adapter_missing_jq_and_no_supervision_allow
 test_tracked_claude_entries_inert_under_grok
 test_codex_hook_uses_process_pwd_when_payload_cwd_is_outside_root
+test_codex_hook_prerequisites_fail_closed_before_guard
 test_codex_hook_ignores_nested_git_root_guard
 test_opencode_plugin_anchors_guard_to_worktree
 test_pi_extension_injects_once_per_logical_agent_run
