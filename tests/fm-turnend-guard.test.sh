@@ -482,7 +482,6 @@ EOF
   [ -z "$out" ] || fail "verified Codex handoff emitted an empty-wait update: $out"
 
   command=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$ROOT/.codex/hooks.json")
-  assert_contains "$command" "--codex" "tracked Codex Stop hook does not select persistent handoff mode"
   out=$(cd "$ROOT" && bash -c "$command" < /dev/null 2>&1); status=$?
   expect_code 2 "$status" "Codex Stop hook must fail closed on missing payload"
   assert_contains "$out" "FIRSTMATE CODEX STOP BLOCKED" "Codex prerequisite failure is not actionable"

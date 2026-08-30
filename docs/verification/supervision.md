@@ -440,6 +440,8 @@ fm-claude-stop-autoarm: ok
 
 The cross-harness evidence combines the 2026-07-17 live pass with Claude's replacement Stop-owned path revalidated on 2026-07-24, all against isolated project and home state.
 No credential material was copied into a fixture.
+The Codex successor lifecycle proof remains explicitly deferred until this change is merged and the tracked hooks are loaded from an updated plain primary checkout.
+Do not run that proof from the linked pre-install worktree because it loads the primary checkout's older Codex hook registration.
 
 ```text
 Claude Code 2.1.219
@@ -452,7 +454,7 @@ grok 0.2.103 (89c3d36fb6f1) [stable]
 | Harness | Exact opt-in command | Observed guarantee |
 | --- | --- | --- |
 | Claude | `FM_CLAUDE_LIVE_E2E=1 tests/fm-claude-stop-autoarm-live-e2e.test.sh` | Session start reclaimed a stale owner before two Stop-owned cycles, and a competing live owner prevented arm, rewake, epoch write, or lock replacement. |
-| Codex | `tests/fm-turnend-guard.test.sh && tests/fm-daemon.test.sh` | Portable regression covers quiet checkpoint expiry, both Stop paths, identity-bound same-session delivery, and away precedence. Re-run the isolated live test only from an updated plain primary checkout; a linked pre-install worktree loads the primary checkout's older hook registration. |
+| Codex | `FM_CODEX_LIVE_E2E=1 HERDR_LAB_HELPER=bin/fm-herdr-lab.sh tests/fm-codex-continuity-live-e2e.test.sh` | Deferred post-merge proof provisions a generated non-default Herdr lab, exercises checkpoint expiry through Stop-owned successor handoff and same-session wake delivery, and passes only when guarded teardown confirms the default-fleet tripwire stayed byte-identical. Portable coverage remains in `tests/fm-turnend-guard.test.sh`, `tests/fm-afk-launch.test.sh`, `tests/fm-daemon.test.sh`, and `tests/fm-watch-arm.test.sh`. |
 | OpenCode | `FM_OPENCODE_LIVE_E2E=1 tests/fm-opencode-primary-live-e2e.test.sh` | A verified successor existed before prompt handling, with no model re-arm or turn-end fallback. |
 | Pi | `FM_PI_LIVE_E2E=1 tests/fm-pi-primary-live-e2e.test.sh` | One initial tool call led to extension-owned successors and clean child retirement on exit. |
 | Grok | `FM_GROK_LIVE_E2E=1 tests/fm-grok-continuity-live-e2e.test.sh` | Native task completion surfaced the actionable close and the cycle ledger recorded `reason=actionable-signal`. |

@@ -1193,11 +1193,14 @@ home_summary_refresh_detached() {
   HOME_SUMMARY_PID=$!
 }
 
+WATCHER_PLANNED_RETIREMENT=0
 watcher_cleanup() {
   local cleanup_status=0 owns_lock=0 transition=release-lock
   if [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${WATCHER_PID:-}" ]; then
     owns_lock=1
-    if [ "${WATCHER_RECOVERY_PENDING:-0}" -eq 1 ] \
+    if [ "${WATCHER_PLANNED_RETIREMENT:-0}" -eq 1 ]; then
+      transition=release-lock-planned
+    elif [ "${WATCHER_RECOVERY_PENDING:-0}" -eq 1 ] \
       && [ "${FM_WATCH_DELIVERED_REASON:-}" = "check: rearm-resurface" ]; then
       transition=release-lock-existing
     fi
@@ -1214,6 +1217,7 @@ watcher_cleanup() {
 }
 trap watcher_cleanup EXIT
 trap 'exit 1' HUP INT TERM
+trap 'WATCHER_PLANNED_RETIREMENT=1; exit 0' USR1
 # This watcher's own pid, as recorded in the lock by fm_lock_claim (which writes
 # ${BASHPID:-$$} from this same main shell). Read directly, never via a command
 # substitution, so it matches the stored holder pid for the self-eviction check.

@@ -184,7 +184,7 @@ fm_afk_launch_entry_cmd() {
 # resolved home, state root, config root, harness identity, delivery owner, and
 # effective X-mode cadence into the terminal server's environment.
 fm_afk_launch_detached_command() {  # <entry> <captain-target> <captain-backend>
-  local entry=$1 captain_target=$2 captain_backend=$3 harness check_interval
+  local entry=$1 captain_target=$2 captain_backend=$3 harness check_interval launch_path
   harness=${FM_DAEMON_PRIMARY_HARNESS:-}
   if [ -z "$harness" ]; then
     harness=$("$FM_ROOT/bin/fm-harness.sh" 2>/dev/null || printf unknown)
@@ -194,8 +194,9 @@ fm_afk_launch_detached_command() {  # <entry> <captain-target> <captain-backend>
     [ ! -f "$FM_AFK_LAUNCH_CONFIG/x-mode.env" ] || . "$FM_AFK_LAUNCH_CONFIG/x-mode.env"
     printf '%s' "${FM_CHECK_INTERVAL:-}"
   ) || return 1
-  printf 'exec env FM_HOME=%q FM_STATE_OVERRIDE=%q FM_CONFIG_OVERRIDE=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_DAEMON_PRIMARY_HARNESS=%q FM_CHECK_INTERVAL=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q FM_SUPERVISION_SESSION_PID_IDENTITY=%q %q' \
-    "$FM_HOME" "$FM_AFK_LAUNCH_STATE" "$FM_AFK_LAUNCH_CONFIG" \
+  launch_path=${PATH:-/usr/bin:/bin}
+  printf 'exec env PATH=%q FM_HOME=%q FM_STATE_OVERRIDE=%q FM_CONFIG_OVERRIDE=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_DAEMON_PRIMARY_HARNESS=%q FM_CHECK_INTERVAL=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q FM_SUPERVISION_SESSION_PID_IDENTITY=%q %q' \
+    "$launch_path" "$FM_HOME" "$FM_AFK_LAUNCH_STATE" "$FM_AFK_LAUNCH_CONFIG" \
     "$captain_target" "$captain_backend" "$harness" "$check_interval" \
     "${FM_SUPERVISION_DELIVERY_MODE:-afk}" \
     "${FM_SUPERVISION_SESSION_ID:--}" "${FM_SUPERVISION_SESSION_PID:--}" \
@@ -377,7 +378,8 @@ fm_afk_launch_terminal_alive() {  # <backend> <target>
 
 fm_afk_launch_wait_ready() {  # <backend> <target>
   local backend=$1 target=$2 attempt=0
-  if [ -n "${FM_AFK_LAUNCH_ENTRY:-}" ]; then
+  if [ -n "${FM_AFK_LAUNCH_ENTRY:-}" ] \
+    && [ "${FM_SUPERVISION_DELIVERY_MODE:-afk}" != attended-codex ]; then
     fm_afk_launch_terminal_alive "$backend" "$target"
     return
   fi
@@ -455,6 +457,27 @@ fm_afk_launch_reconcile() {
   elif [ "$read_result" -eq 2 ]; then
     return 1
   fi
+}
+
+fm_afk_launch_prepare_away_owner() {  # <captain-backend> <captain-target>
+  local captain_backend=$1 captain_target=$2 owner_mode
+  daemon_lock_held_by_live_daemon || return 1
+  if ! fm_afk_launch_owner_read; then
+    fm_afk_launch_log "live daemon ownership is unverifiable; refusing away-mode refresh"
+    return 2
+  fi
+  if ! fm_afk_launch_record_read; then
+    fm_afk_launch_log "live daemon terminal ownership is unverifiable; refusing away-mode refresh"
+    return 2
+  fi
+  if [ "$FM_AFK_OWNER_MODE" = afk ] \
+    && [ "$FM_AFK_OWNER_BACKEND" = "$captain_backend" ] \
+    && [ "$FM_AFK_OWNER_TARGET" = "$captain_target" ]; then
+    return 0
+  fi
+  owner_mode=$FM_AFK_OWNER_MODE
+  fm_afk_launch_stop_owned 0 "$owner_mode" "superseded $owner_mode supervision" || return 2
+  return 1
 }
 
 fm_afk_launch_restore_backup() {  # <backup> <had-afk>
@@ -572,7 +595,7 @@ fm_afk_launch_create_tmux() {  # <captain-target> <captain-backend>
 }
 
 fm_afk_launch_start() {
-  local captain_target captain_backend backup artifact had_afk=0 result
+  local captain_target captain_backend backup artifact had_afk=0 result owner_status
   if [ -e "$FM_AFK_LAUNCH_STATE/.afk-return-catchup" ]; then
     fm_afk_launch_log "return catch-up is still pending; run bin/fm-afk-return.sh check before re-entering away mode"
     return 1
@@ -585,15 +608,20 @@ fm_afk_launch_start() {
 
   mkdir -p "$FM_AFK_LAUNCH_STATE"
 
-  if daemon_lock_held_by_live_daemon; then
-    fm_afk_launch_record_validate_if_present || return 1
-    if ! fm_afk_launch_flag_write; then
-      fm_afk_launch_log "failed to refresh away-mode flag"
-      return 1
-    fi
-    fm_afk_launch_log "daemon already running; refreshed away-mode flag (no new terminal)"
-    return 0
-  fi
+  fm_afk_launch_prepare_away_owner "$captain_backend" "$captain_target"
+  owner_status=$?
+  case "$owner_status" in
+    0)
+      if ! fm_afk_launch_flag_write; then
+        fm_afk_launch_log "failed to refresh away-mode flag"
+        return 1
+      fi
+      fm_afk_launch_log "daemon already running; refreshed away-mode flag (no new terminal)"
+      return 0
+      ;;
+    1) ;;
+    *) return 1 ;;
+  esac
 
   backup=$(mktemp -d "$FM_AFK_LAUNCH_STATE/.afk-launch-backup.XXXXXX") || return 1
   if [ -f "$FM_AFK_LAUNCH_STATE/.afk" ]; then
@@ -641,17 +669,28 @@ fm_afk_launch_start() {
 }
 
 fm_afk_launch_start_native() {
-  local backup artifact had_afk=0 result=0
+  local captain_target captain_backend backup artifact had_afk=0 result=0 owner_status
   mkdir -p "$FM_AFK_LAUNCH_STATE" || return 1
   if [ -e "$FM_AFK_LAUNCH_STATE/.afk-return-catchup" ]; then
     fm_afk_launch_log "return catch-up is still pending; run bin/fm-afk-return.sh check before re-entering away mode"
     return 1
   fi
   if daemon_lock_held_by_live_daemon; then
-    fm_afk_launch_record_validate_if_present || return 1
-    fm_afk_launch_flag_write || return 1
-    fm_afk_launch_log "daemon already running; refreshed away-mode flag"
-    return 0
+    captain_target=$(discover_supervisor_target) || {
+      fm_afk_launch_log "could not resolve the captain supervisor pane (set FM_SUPERVISOR_TARGET)"; return 1; }
+    captain_backend=$(discover_supervisor_backend) || {
+      fm_afk_launch_log "could not resolve the captain supervisor backend (set FM_SUPERVISOR_BACKEND)"; return 1; }
+    fm_afk_launch_prepare_away_owner "$captain_backend" "$captain_target"
+    owner_status=$?
+    case "$owner_status" in
+      0)
+        fm_afk_launch_flag_write || return 1
+        fm_afk_launch_log "daemon already running; refreshed away-mode flag"
+        return 0
+        ;;
+      1) ;;
+      *) return 1 ;;
+    esac
   fi
   backup=$(mktemp -d "$FM_AFK_LAUNCH_STATE/.afk-launch-backup.XXXXXX") || return 1
   if [ -f "$FM_AFK_LAUNCH_STATE/.afk" ]; then
@@ -685,7 +724,7 @@ fm_afk_launch_start_native() {
 
 fm_afk_launch_stop_owned() {  # <clear-afk> <required-mode> <label>
   local clear_afk=$1 required_mode=$2 label=$3
-  local pid pid_identity current_identity result=0 read_result
+  local pid pid_identity current_identity signal=TERM result=0 read_result
   fm_afk_launch_record_read
   read_result=$?
   if [ "$read_result" -eq 2 ]; then
@@ -712,7 +751,8 @@ fm_afk_launch_stop_owned() {  # <clear-afk> <required-mode> <label>
     pid_identity=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
   fi
   if [ -n "$pid" ]; then
-    if ! kill -TERM "$pid" 2>/dev/null; then
+    [ "$required_mode" != attended-codex ] || signal=USR1
+    if ! kill "-$signal" "$pid" 2>/dev/null; then
       fm_afk_launch_log "failed to signal supervision daemon pid=$pid"
       result=1
     fi

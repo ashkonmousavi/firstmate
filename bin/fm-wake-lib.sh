@@ -762,6 +762,10 @@ fm_recovery_transition() {
       fm_lock_release "$target"
       fm_lock_release "$lock"
       ;;
+    release-lock-planned)
+      [ -n "$target" ] || return 1
+      fm_lock_release "$target"
+      ;;
     clear-stale-lock)
       [ -n "$target" ] || return 1
       _fm_recovery_marker_publish "$marker" "${value:-downtime}" || return 1

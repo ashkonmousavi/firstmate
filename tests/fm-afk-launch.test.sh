@@ -174,7 +174,17 @@ unit_attended_readiness_requires_daemon_owned_watcher() {
     ps() { printf "%s\n" "$WATCHER_PARENT"; }
     ! fm_afk_launch_successor_ready tmux detached || exit 10
     WATCHER_PARENT=700
-    fm_afk_launch_successor_ready tmux detached
+    fm_afk_launch_successor_ready tmux detached || exit 11
+    FM_SUPERVISION_DELIVERY_MODE=attended-codex
+    FM_AFK_LAUNCH_ENTRY=/bin/true
+    READY_CHECKS=0
+    fm_afk_launch_successor_ready() {
+      READY_CHECKS=$((READY_CHECKS + 1))
+      [ "$READY_CHECKS" -ge 2 ]
+    }
+    sleep() { :; }
+    fm_afk_launch_wait_ready tmux detached || exit 12
+    [ "$READY_CHECKS" -eq 2 ] || exit 13
   ' _ "$LAUNCH"; then
     pass "attended readiness: only the daemon's watcher can certify the successor"
   else
@@ -819,6 +829,38 @@ unit_refresh_validates_record() {
   rm -rf "$st"
 }
 
+unit_away_start_retires_stale_attended_owner() {
+  local st daemon_pid lock marker
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-stale-attended.XXXXXX")
+  mkdir -p "$st/state"
+  marker="$st/signal"
+  bash -c '
+    trap "printf USR1 > \"$1\"; exit 0" USR1
+    trap "printf TERM > \"$1\"; exit 0" TERM
+    while :; do sleep 0.2; done
+  ' _ "$marker" &
+  daemon_pid=$!
+  lock="$st/state/.supervise-daemon.lock"
+  mkdir -p "$lock"
+  printf '%s' "$daemon_pid" > "$lock/pid"
+  ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$lock/pid-identity" )
+  printf 'attended-codex\told-session\t4242\tidentity-4242\therdr\told:captain\n' \
+    > "$lock/supervision-owner"
+  printf 'none\t-\tnative\n' > "$st/state/.afk-daemon-terminal"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" FM_SUPERVISOR_BACKEND=herdr \
+    FM_SUPERVISOR_TARGET=new:captain "$LAUNCH" start-native >/dev/null 2>&1 \
+    && [ "$(cat "$marker" 2>/dev/null || true)" = USR1 ] \
+    && ! kill -0 "$daemon_pid" 2>/dev/null \
+    && [ -f "$st/state/.afk" ] \
+    && [ "$(cat "$st/state/.afk-daemon-terminal" 2>/dev/null || true)" = $'none\t-\tnative' ]; then
+    pass "away refresh: stale attended ownership is retired before native away preparation"
+  else
+    fail "away refresh: stale attended ownership was reused or retired through the wrong lifecycle"
+  fi
+  wait "$daemon_pid" 2>/dev/null || true
+  rm -rf "$st"
+}
+
 unit_clear_failure_aborts_entry() {
   local st
   st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-clear-fail.XXXXXX")
@@ -1018,6 +1060,7 @@ unit_lock_requires_complete_metadata
 unit_stop_surfaces_afk_removal_failure
 unit_stop_confirms_daemon_exit
 unit_refresh_validates_record
+unit_away_start_retires_stale_attended_owner
 unit_clear_failure_aborts_entry
 unit_confirmed_absence_succeeds
 unit_incomplete_restore_retains_backup

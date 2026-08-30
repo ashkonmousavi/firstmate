@@ -2636,13 +2636,17 @@ test_attended_codex_delivery_is_identity_bound() {
 
     FM_SUPERVISOR_BACKEND=herdr FM_SUPERVISOR_TARGET=lab:captain \
       inject_msg "later worker wake" "$state" || exit 10
-    grep -F 'FIRSTMATE_OP: v1 watcher: later worker wake' "$sent" >/dev/null || exit 11
+    message=$(sed -n '1p' "$sent")
+    fm_operational_input_kind "$message" kind || exit 11
+    [ "$kind" = watcher ] || exit 12
     CURRENT_IDENTITY=identity_reused
-    ! supervision_delivery_active "$state" || exit 12
+    ! supervision_delivery_active "$state" || exit 13
     : > "$state/.afk"
     FM_SUPERVISOR_BACKEND=herdr FM_SUPERVISOR_TARGET=lab:captain \
-      inject_msg "away wake" "$state" || exit 13
-    grep -F 'FIRSTMATE_OP: v1 away-supervisor: away wake' "$sent" >/dev/null || exit 14
+      inject_msg "away wake" "$state" || exit 14
+    message=$(sed -n '2p' "$sent")
+    fm_operational_input_kind "$message" kind || exit 15
+    [ "$kind" = away-supervisor ] || exit 16
   ) || fail "attended Codex delivery lost identity binding or away precedence"
   pass "daemon delivery: attended Codex is identity-bound and away mode keeps precedence"
 }

@@ -1,7 +1,7 @@
 ---
 name: afk
 description: >-
-  Enter away-mode supervision when the captain invokes /afk, says they are going afk, `state/.afk` exists, an incoming message starts with `FM_INJECT_MARK`, or any `state/.subsuper-*` marker is involved.
+  Enter away-mode supervision when the captain invokes /afk, says they are going afk, `state/.afk` exists, an incoming message is a typed `away-supervisor` input or legacy bare `FM_INJECT_MARK`, or any `state/.subsuper-*` marker is involved.
   It sets a durable away-mode flag so the sub-supervisor daemon can self-handle routine wakes and escalate captain-relevant events plus bounded declared-external-wait rechecks as batched digests during walk-away stretches, then exits automatically when any real unmarked message returns firstmate to full per-wake responsiveness.
 user-invocable: true
 metadata:
@@ -46,8 +46,8 @@ batched digest rather than per-wake injections.
    Both paths share `bin/fm-afk-start.sh` as the daemon entry.
    The native path tells it that the launcher already prepared lifecycle state; the terminal-backed path lets the entry perform its existing state setup inside the new terminal.
    It exits immediately if the identity-backed daemon lock already names a live process, otherwise it execs `bin/fm-supervise-daemon.sh` in the foreground.
-   The daemon is **presence-gated**: it injects escalations only while
-   `state/.afk` exists, and stays quiet otherwise.
+   Away-mode delivery is **presence-gated** by `state/.afk`.
+   The same daemon has a separate identity-bound attended Codex owner, whose typed `watcher` inputs follow ordinary wake handling instead of this skill.
 
 3. **Do not separately arm `fm-watch.sh`.** The daemon manages the watcher as
    its child; the singleton lock no-ops a stray arm harmlessly.
@@ -80,7 +80,8 @@ The daemon only batches the notification.
 
 ## Operational prefix contract
 
-The daemon constructs every current injection as the `away-supervisor` kind owned by `bin/fm-operational-input.sh`, beginning with `FM_OPERATIONAL_PREFIX`: `FM_INJECT_MARK` (U+2063 INVISIBLE SEPARATOR) followed by the stable `FIRSTMATE_OP: ` label.
+The daemon constructs away-mode injections as the `away-supervisor` kind owned by `bin/fm-operational-input.sh`, beginning with `FM_OPERATIONAL_PREFIX`: `FM_INJECT_MARK` (U+2063 INVISIBLE SEPARATOR) followed by the stable `FIRSTMATE_OP: ` label.
+When the identity-bound attended Codex owner is active and away mode is not, the same daemon uses the typed `watcher` kind and the ordinary wake route in `AGENTS.md` section 8.
 The bare `FM_INJECT_MARK` form remains accepted for legacy daemon escalations during rollout.
 U+2063 has no normal keyboard keystroke and survives terminal transport as UTF-8 text.
 This is how firstmate tells a daemon escalation apart from a real message in the same pane.

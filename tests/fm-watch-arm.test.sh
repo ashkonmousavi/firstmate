@@ -805,6 +805,29 @@ test_downtime_marker_does_not_follow_symlink() {
   pass "watch-arm: downtime marker publication does not follow symlinks"
 }
 
+test_planned_watcher_retirement_stays_silent() {
+  local dir state fakebin first_out next_out
+  dir=$(make_case planned-watcher-retirement)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  first_out="$dir/first.out"
+  next_out="$dir/next.out"
+
+  start_seed_watcher "$state" "$fakebin" "$first_out"
+  kill -USR1 "$SEED_PID" 2>/dev/null || fail "could not request planned watcher retirement"
+  wait_for_exit "$SEED_PID" 120 || fail "planned watcher retirement did not exit cleanly"
+  [ ! -e "$state/.watch.lock" ] || fail "planned watcher retirement retained the singleton lock"
+  [ ! -e "$state/.watcher-down" ] || fail "planned watcher retirement published a downtime episode"
+
+  start_seed_watcher "$state" "$fakebin" "$next_out"
+  printf 'done: fixture finished\n' > "$state/planned.status"
+  wait_for_exit "$SEED_PID" 120 || fail "successor watcher did not deliver the real wake"
+  grep -q '^signal:' "$next_out" || fail "successor watcher did not surface the real wake"
+  ! grep -F 'check: rearm-resurface' "$next_out" >/dev/null \
+    || fail "planned retirement replayed a false recovery wake"
+  pass "watch-arm: planned watcher retirement stays silent until a real wake"
+}
+
 test_attached_arm_reports_the_delivered_wake
 test_attached_arm_reports_the_delivered_wake_after_drain
 test_attached_arm_still_fails_on_a_wake_it_did_not_deliver
@@ -819,3 +842,4 @@ test_markerless_legacy_queue_is_recovered_on_arm
 test_handling_window_close_keeps_the_acknowledgement_valid
 test_moved_generation_acknowledgement_is_self_healing
 test_downtime_marker_does_not_follow_symlink
+test_planned_watcher_retirement_stays_silent

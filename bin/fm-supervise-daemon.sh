@@ -24,15 +24,11 @@
 # catch-up or when afk is re-entered.
 #
 # IN-BAND OPERATIONAL INPUT. bin/fm-operational-input.sh constructs every
-# current daemon injection as the typed away-supervisor kind after the stable
-# FM_OPERATIONAL_PREFIX. A human cannot type its leading U+2063 from a normal
-# keyboard at the start of a message, and Herdr transports it as text.
-# Firstmate's contract: a message that starts with the current prefix, or a
-# legacy bare-marker daemon escalation, is internal (stay afk); an unmarked
-# message means the captain is back (exit afk, flush catch-up, resume per-wake
-# responsiveness). The prefix and busy-guard solve the same problem - the
-# daemon and the human share one input channel - so they live together under
-# /afk.
+# current daemon injection after the stable FM_OPERATIONAL_PREFIX, using the
+# typed away-supervisor kind in away mode and watcher kind for attended Codex.
+# A human cannot type its leading U+2063 from a normal keyboard at the start of
+# a message, and Herdr transports it as text. The typed kind routes attended
+# wakes through ordinary handling without weakening away-mode precedence.
 #
 # Reliability model (see the /afk skill):
 #   - Nothing is lost in away mode: while state/.afk exists, the watcher reverts
@@ -1650,13 +1646,15 @@ fm_super_main() {
   migrate_watcher_pause_markers "$STATE"
 
   # --- shutdown: flush buffered escalations, reap child, release lock -------
-  local WATCHER_PID="" CUR_TMP=""
+  local WATCHER_PID="" CUR_TMP="" PLANNED_ATTENDED_RETIREMENT=0
   cleanup() {
-    trap - TERM INT
+    local watcher_signal=TERM
+    trap - TERM INT USR1
     wedge_alarm_stop_active_notifier
     escalate_flush "$STATE" 2>/dev/null || true
     if [ -n "${WATCHER_PID:-}" ]; then
-      kill "$WATCHER_PID" 2>/dev/null || true
+      [ "$PLANNED_ATTENDED_RETIREMENT" -ne 1 ] || watcher_signal=USR1
+      kill "-$watcher_signal" "$WATCHER_PID" 2>/dev/null || true
       wait "$WATCHER_PID" 2>/dev/null || true
     fi
     if [ -n "${CUR_TMP:-}" ]; then
@@ -1667,7 +1665,14 @@ fm_super_main() {
     log "daemon shutting down"
     exit 0
   }
+  planned_attended_cleanup() {
+    if [ "${FM_SUPERVISION_DELIVERY_MODE:-afk}" = attended-codex ]; then
+      PLANNED_ATTENDED_RETIREMENT=1
+    fi
+    cleanup
+  }
   trap cleanup TERM INT
+  trap planned_attended_cleanup USR1
 
   # --- crash-loop guard -----------------------------------------------------
   local crash_times=() backoff_secs=$CRASH_NORMAL_SLEEP
