@@ -532,6 +532,7 @@ printf 'called\n' >> "$FM_HOME/successor.calls"
 exit 0
 EOF
   chmod +x "$dir/bin/fm-afk-launch.sh"
+  rm -f "$dir/state/task1.meta"
   fakebin="$dir/fake-codex-invalid-payload"
   mkdir -p "$fakebin"
   ln -sf /bin/bash "$fakebin/codex"

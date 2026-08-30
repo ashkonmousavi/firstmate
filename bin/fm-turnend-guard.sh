@@ -176,6 +176,11 @@ SESSION_ID=$(printf '%s' "$PAYLOAD" | jq -r '
 ' 2>/dev/null || printf 'unknown')
 CODEX_SUCCESSOR_FAILED=0
 CODEX_SUCCESSOR_REASON=
+if [ "$CODEX_MODE" -eq 1 ]; then
+  case "$SESSION_ID" in
+    ''|unknown|*[!A-Za-z0-9._:-]*) codex_payload_fail_closed ;;
+  esac
+fi
 budget_reset() {
   [ "$CLAUDE_MODE" -eq 1 ] || return 0
   fm_lock_try_acquire "$BUDGET_LOCK" || return 0
@@ -193,9 +198,6 @@ if [ "$FM_SUP_NEEDED" = false ]; then
   exit 0
 fi
 if [ "$CODEX_MODE" -eq 1 ]; then
-  case "$SESSION_ID" in
-    ''|unknown|*[!A-Za-z0-9._:-]*) codex_payload_fail_closed ;;
-  esac
   LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
   case "$LOCK_PID" in ''|*[!0-9]*) CODEX_SUCCESSOR_FAILED=1 ;; esac
   if [ "$CODEX_SUCCESSOR_FAILED" -eq 0 ] \

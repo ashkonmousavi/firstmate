@@ -578,6 +578,26 @@ unit_malformed_record_fails_closed() {
   else
     fail "record read: malformed record was acted on or discarded"
   fi
+  printf 'tmux\tsession\t\tattended-codex\tbad/key\t4242\tcaptain:0\tidentity-4242\n' \
+    > "$st/state/.afk-daemon-terminal"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    ! fm_afk_launch_record_read
+  ' _ "$LAUNCH" && [ -e "$st/state/.afk-daemon-terminal" ]; then
+    pass "record read: invalid attended owner key fails closed"
+  else
+    fail "record read: invalid attended owner key was accepted"
+  fi
+  printf 'tmux\tsession\t\tattended-codex\tcodex-session\t4242\t-\tidentity-4242\n' \
+    > "$st/state/.afk-daemon-terminal"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    ! fm_afk_launch_record_read
+  ' _ "$LAUNCH" && [ -e "$st/state/.afk-daemon-terminal" ]; then
+    pass "record read: invalid attended owner target fails closed"
+  else
+    fail "record read: invalid attended owner target was accepted"
+  fi
   rm -rf "$st"
 }
 
@@ -858,6 +878,52 @@ unit_attended_readiness_rejects_foreground_watcher_overlap() {
   rm -rf "$st"
 }
 
+unit_attended_detached_launch_preserves_codex_harness() {
+  local backend st
+  for backend in tmux herdr; do
+    st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-harness-$backend.XXXXXX")
+    mkdir -p "$st/state"
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "${FM_DAEMON_PRIMARY_HARNESS:-unset}" > "$FM_HOME/$FM_SUPERVISOR_BACKEND.harness"\n' \
+      > "$st/capture-entry"
+    chmod +x "$st/capture-entry"
+    if TEST_BACKEND="$backend" ENTRY="$st/capture-entry" FM_HOME="$st" \
+      FM_STATE_OVERRIDE="$st/state" bash -c '
+      . "$1"
+      printf "%s\n" "$$" > "$FM_AFK_LAUNCH_STATE/.lock"
+      fm_harness_pid_alive() { [ "$1" = "$$" ]; }
+      fm_pid_identity() { [ "$1" = "$$" ] && printf "%s" identity-self; }
+      discover_supervisor_target() {
+        if [ "$TEST_BACKEND" = herdr ]; then printf "%s" lab:captain; else printf "%s" captain:0; fi
+      }
+      discover_supervisor_backend() { printf "%s" "$TEST_BACKEND"; }
+      daemon_lock_held_by_live_daemon() { return 1; }
+      fm_afk_launch_entry_cmd() { printf "%s" "$ENTRY"; }
+      fm_afk_launch_wait_ready() { return 0; }
+      fm_backend_source() { return 0; }
+      fm_backend_herdr_server_ensure() { return 0; }
+      fm_backend_herdr_cli() {
+        if [ "$2 $3" = "workspace create" ]; then
+          printf "%s" '\''{"result":{"workspace":{"workspace_id":"ws-exact"},"root_pane":{"pane_id":"pane-exact"}}}'\''
+        elif [ "$2 $3" = "pane run" ]; then
+          bash -c "$5"
+        else
+          return 1
+        fi
+      }
+      tmux() {
+        [ "$1" = new-session ] || return 1
+        bash -c "$5"
+      }
+      fm_afk_launch_start_attended_codex codex-session "$$"
+    ' _ "$LAUNCH" && [ "$(cat "$st/$backend.harness" 2>/dev/null || true)" = codex ]; then
+      pass "attended launch: detached $backend daemon preserves Codex harness identity"
+    else
+      fail "attended launch: detached $backend daemon lost Codex harness identity"
+    fi
+    rm -rf "$st"
+  done
+}
+
 unit_attended_lifecycle_is_idempotent_for_exact_owner() {
   local st
   st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-idempotent.XXXXXX")
@@ -1120,6 +1186,7 @@ unit_confirmed_absence_succeeds
 unit_incomplete_restore_retains_backup
 unit_flag_write_failure_aborts
 unit_attended_readiness_rejects_foreground_watcher_overlap
+unit_attended_detached_launch_preserves_codex_harness
 unit_attended_lifecycle_is_idempotent_for_exact_owner
 unit_attended_unsupported_backend_diagnostic_is_sanitized
 e2e_herdr
