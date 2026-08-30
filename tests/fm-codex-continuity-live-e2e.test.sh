@@ -94,7 +94,23 @@ done
 # Literal backticks are prompt syntax, not shell expansion.
 # shellcheck disable=SC2016
 PROMPT='Run exactly `bin/fm-watch-checkpoint.sh --seconds 1` as one foreground shell call. Do not use a background task and do not run fm-watch-arm.sh. After it expires, reply with exactly CHECKPOINT_DONE.'
-TRACKED_DIFF_BEFORE=$(git -C "$ROOT" diff --binary HEAD | sha256sum | awk '{print $1}')
+tracked_diff_hash() {
+  local output digest rest
+  git -C "$ROOT" diff --binary HEAD > "$LAB/tracked.diff" || return 1
+  if command -v shasum >/dev/null 2>&1; then
+    output=$(shasum -a 256 "$LAB/tracked.diff" 2>/dev/null) || return 1
+  elif command -v sha256sum >/dev/null 2>&1; then
+    output=$(sha256sum "$LAB/tracked.diff" 2>/dev/null) || return 1
+  else
+    return 1
+  fi
+  read -r digest rest <<< "$output" || return 1
+  [ "${#digest}" -eq 64 ] || return 1
+  case "$digest" in *[!0-9A-Fa-f]*) return 1 ;; esac
+  printf '%s' "$digest"
+}
+TRACKED_DIFF_BEFORE=$(tracked_diff_hash) \
+  || fail "could not hash the pre-proof tracked diff"
 {
   printf '#!/usr/bin/env bash\nset -u\n'
   printf 'printf "%%s\\n" "\$\$" > %q\n' "$HOME_DIR/state/.lock"
@@ -163,7 +179,7 @@ wait_for_successor \
 
 [ "$(find "$HOME_DIR/state" -maxdepth 1 -name '*.meta' | wc -l | tr -d ' ')" = 5 ] \
   || fail "checkpoint handoff did not preserve all five in-flight tasks"
-[ "$(awk -F '\t' 'NR == 1 { print NF }' "$HOME_DIR/state/.afk-daemon-terminal")" = 7 ] \
+[ "$(awk -F '\t' 'NR == 1 { print NF }' "$HOME_DIR/state/.afk-daemon-terminal")" = 8 ] \
   || fail "persistent successor terminal record is not the attended ownership shape"
 [ "$(cut -f7 "$HOME_DIR/state/.afk-daemon-terminal")" = "$CAPTAIN_TARGET" ] \
   || fail "successor is not bound to the isolated captain-facing session"
@@ -213,7 +229,8 @@ successor_count=$(lab workspace list | jq --arg prefix 'firstmate-afk-daemon-' \
   '[.result.workspaces[]? | select(.label | startswith($prefix))] | length')
 [ "$successor_count" = 0 ] || fail "successor workspace survived exact teardown"
 
-TRACKED_DIFF_AFTER=$(git -C "$ROOT" diff --binary HEAD | sha256sum | awk '{print $1}')
+TRACKED_DIFF_AFTER=$(tracked_diff_hash) \
+  || fail "could not hash the post-proof tracked diff"
 [ "$TRACKED_DIFF_AFTER" = "$TRACKED_DIFF_BEFORE" ] \
   || fail "read-only Codex live turn mutated the task worktree tracked diff"
 

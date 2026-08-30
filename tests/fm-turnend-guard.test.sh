@@ -939,7 +939,6 @@ test_codex_hook_uses_process_pwd_when_payload_cwd_is_outside_root() {
   [ -f "$settings" ] || fail "tracked .codex/hooks.json is missing"
   command=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$settings")
   [ -n "$command" ] || fail "Stop hook command is missing from .codex/hooks.json"
-  assert_contains "$command" '--codex' "Codex Stop hook must select the persistent-successor guard mode"
   dir=$(make_primary_dir "$TMP_ROOT/codex-hook-root")
   mark_codex_hook_root "$dir"
   expected_root=$(cd "$dir" && pwd -P)
@@ -948,6 +947,7 @@ test_codex_hook_uses_process_pwd_when_payload_cwd_is_outside_root() {
   cat > "$dir/bin/fm-turnend-guard.sh" <<'EOF'
 #!/usr/bin/env bash
 printf 'guard=%s\n' "$0"
+printf 'guard-arg=%s\n' "$@"
 cat
 EOF
   chmod +x "$dir/bin/fm-turnend-guard.sh"
@@ -955,6 +955,7 @@ EOF
   out=$(printf '%s' "$payload" | (cd "$dir" && bash -c "$command") 2>&1); status=$?
   expect_code 0 "$status" "codex hook must execute successfully when payload cwd is outside the firstmate root"
   assert_contains "$out" "guard=$expected_root/bin/fm-turnend-guard.sh" "codex hook must use the hook process root"
+  assert_contains "$out" "guard-arg=--codex" "Codex Stop hook must execute the persistent-successor guard mode"
   assert_contains "$out" "$payload" "codex hook must pass the original payload to the guard"
   pass ".codex/hooks.json: Stop hook uses hook process root when payload cwd is outside"
 }

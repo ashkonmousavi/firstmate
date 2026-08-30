@@ -260,17 +260,21 @@ afk_active() {  # <state>
 }
 
 attended_codex_owner_active() {  # <state>
-  local state=$1 mode session_id session_pid lock_pid
+  local state=$1 mode session_id session_pid session_identity lock_pid current_identity
   mode=${FM_SUPERVISION_DELIVERY_MODE:-afk}
   [ "$mode" = attended-codex ] || return 1
   session_id=${FM_SUPERVISION_SESSION_ID:-}
   session_pid=${FM_SUPERVISION_SESSION_PID:-}
+  session_identity=${FM_SUPERVISION_SESSION_PID_IDENTITY:-}
   [ -n "$session_id" ] || return 1
   case "$session_id" in *[!A-Za-z0-9._:-]*) return 1 ;; esac
   case "$session_pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ -n "$session_identity" ] || return 1
   lock_pid=$(cat "$state/.lock" 2>/dev/null) || return 1
   [ "$lock_pid" = "$session_pid" ] || return 1
-  fm_harness_pid_alive "$session_pid"
+  fm_harness_pid_alive "$session_pid" || return 1
+  current_identity=$(fm_pid_identity "$session_pid" 2>/dev/null) || return 1
+  [ "$current_identity" = "$session_identity" ]
 }
 
 supervision_delivery_active() {  # <state>
@@ -1541,7 +1545,7 @@ fm_super_main() {
     afk) ;;
     attended-codex)
       if ! attended_codex_owner_active "$STATE"; then
-        echo "error: attended Codex supervision requires the live identity-matched session named by FM_SUPERVISION_SESSION_ID/FM_SUPERVISION_SESSION_PID to own $STATE/.lock" >&2
+        echo "error: attended Codex supervision requires the live identity-matched session named by FM_SUPERVISION_SESSION_ID/FM_SUPERVISION_SESSION_PID/FM_SUPERVISION_SESSION_PID_IDENTITY to own $STATE/.lock" >&2
         exit 1
       fi
       ;;

@@ -871,6 +871,7 @@ unit_attended_lifecycle_is_idempotent_for_exact_owner() {
     CREATES=0
     KILLS=0
     fm_harness_pid_alive() { [ "$1" = 4242 ]; }
+    fm_pid_identity() { [ "$1" = 4242 ] && printf "%s" identity-4242; }
     discover_supervisor_target() { printf "%s" captain:0; }
     discover_supervisor_backend() { printf "%s" tmux; }
     daemon_lock_held_by_live_daemon() { [ "$DAEMON_LIVE" = 1 ]; }
@@ -907,18 +908,19 @@ unit_attended_lifecycle_is_idempotent_for_exact_owner() {
     [ "$FM_AFK_REC_OWNER_KEY" = codex-session ] || exit 15
     [ "$FM_AFK_REC_OWNER_PID" = 4242 ] || exit 16
     [ "$FM_AFK_REC_OWNER_TARGET" = captain:0 ] || exit 17
-    [ "$CREATES" = 1 ] || exit 18
+    [ "$FM_AFK_REC_OWNER_IDENTITY" = identity-4242 ] || exit 18
+    [ "$CREATES" = 1 ] || exit 19
     DAEMON_LIVE=0
-    fm_afk_launch_stop_attended_codex || exit 19
     fm_afk_launch_stop_attended_codex || exit 20
-    [ "$KILLS" = 1 ] || exit 21
-    [ ! -e "$FM_AFK_LAUNCH_RECORD" ] || exit 22
-    fm_afk_launch_start_attended_codex codex-session 4242 || exit 23
-    [ "$CREATES" = 2 ] || exit 24
+    fm_afk_launch_stop_attended_codex || exit 21
+    [ "$KILLS" = 1 ] || exit 22
+    [ ! -e "$FM_AFK_LAUNCH_RECORD" ] || exit 23
+    fm_afk_launch_start_attended_codex codex-session 4242 || exit 24
+    [ "$CREATES" = 2 ] || exit 25
     DAEMON_LIVE=0
-    fm_afk_launch_reconcile || exit 25
-    [ "$KILLS" = 2 ] || exit 26
-    [ ! -e "$FM_AFK_LAUNCH_RECORD" ] || exit 27
+    fm_afk_launch_reconcile || exit 26
+    [ "$KILLS" = 2 ] || exit 27
+    [ ! -e "$FM_AFK_LAUNCH_RECORD" ] || exit 28
   ' _ "$LAUNCH"; then
     pass "attended lifecycle: repeated tmux start, verification, stop, and recovery converge exactly"
   else

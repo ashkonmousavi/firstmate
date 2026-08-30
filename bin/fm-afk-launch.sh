@@ -106,13 +106,25 @@ fm_afk_launch_codex_owner_key_valid() {
   case "$value" in *[!A-Za-z0-9._:-]*) return 1 ;; esac
 }
 
+fm_afk_launch_codex_identity_valid() {
+  local value=${1:-}
+  [ -n "$value" ] && [ "$value" != - ] || return 1
+  case "$value" in *$'\t'*|*$'\n'*) return 1 ;; esac
+}
+
 fm_afk_launch_codex_session_owner_valid() {  # <session-id> <lock-pid>
-  local session_id=$1 lock_pid=$2 recorded_pid
+  local session_id=$1 lock_pid=$2 recorded_pid identity current_identity
+  FM_AFK_LAUNCH_SESSION_PID_IDENTITY=
   fm_afk_launch_codex_owner_key_valid "$session_id" || return 1
   case "$lock_pid" in ''|*[!0-9]*) return 1 ;; esac
   recorded_pid=$(cat "$FM_AFK_LAUNCH_STATE/.lock" 2>/dev/null) || return 1
   [ "$recorded_pid" = "$lock_pid" ] || return 1
-  fm_harness_pid_alive "$lock_pid"
+  identity=$(fm_pid_identity "$lock_pid" 2>/dev/null) || return 1
+  fm_afk_launch_codex_identity_valid "$identity" || return 1
+  fm_harness_pid_alive "$lock_pid" || return 1
+  current_identity=$(fm_pid_identity "$lock_pid" 2>/dev/null) || return 1
+  [ "$current_identity" = "$identity" ] || return 1
+  FM_AFK_LAUNCH_SESSION_PID_IDENTITY=$identity
 }
 
 fm_afk_launch_lock_owned() {
@@ -186,18 +198,23 @@ fm_afk_launch_entry_cmd() {
 }
 
 fm_afk_launch_record_write() {  # <backend> <terminal-target> <extra>
-  local pending mode owner_key owner_pid owner_target
+  local pending mode owner_key owner_pid owner_target owner_identity
   mode=${FM_AFK_LAUNCH_RECORD_MODE:-afk}
   owner_key=${FM_AFK_LAUNCH_OWNER_KEY:--}
   owner_pid=${FM_AFK_LAUNCH_OWNER_PID:--}
   owner_target=${FM_AFK_LAUNCH_OWNER_TARGET:--}
+  owner_identity=${FM_AFK_LAUNCH_OWNER_IDENTITY:--}
+  if [ "$mode" != afk ]; then
+    fm_afk_launch_codex_identity_valid "$owner_identity" || return 1
+  fi
   mkdir -p "$FM_AFK_LAUNCH_STATE" || return 1
   pending=$(mktemp "$FM_AFK_LAUNCH_STATE/.afk-daemon-terminal.pending.XXXXXX") || return 1
   if [ "$mode" = afk ]; then
     printf '%s\t%s\t%s\n' "$1" "$2" "$3" > "$pending" || { rm -f "$pending"; return 1; }
   else
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "$1" "$2" "$3" "$mode" "$owner_key" "$owner_pid" "$owner_target" > "$pending" \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$1" "$2" "$3" "$mode" "$owner_key" "$owner_pid" "$owner_target" \
+      "$owner_identity" > "$pending" \
       || { rm -f "$pending"; return 1; }
   fi
   mv "$pending" "$FM_AFK_LAUNCH_RECORD" || { rm -f "$pending"; return 1; }
@@ -214,7 +231,7 @@ fm_afk_launch_record_read() {
   local extra record field_count
   FM_AFK_REC_BACKEND=""; FM_AFK_REC_TARGET=""; extra=""
   FM_AFK_REC_MODE=afk; FM_AFK_REC_OWNER_KEY=-; FM_AFK_REC_OWNER_PID=-
-  FM_AFK_REC_OWNER_TARGET=-
+  FM_AFK_REC_OWNER_TARGET=-; FM_AFK_REC_OWNER_IDENTITY=-
   [ -f "$FM_AFK_LAUNCH_RECORD" ] || return 1
   record=$(cat "$FM_AFK_LAUNCH_RECORD" 2>/dev/null) || record=""
   field_count=$(printf '%s\n' "$record" | awk -F '\t' 'NR == 1 { print NF }')
@@ -225,13 +242,19 @@ fm_afk_launch_record_read() {
   FM_AFK_REC_OWNER_KEY=$(printf '%s\n' "$record" | cut -f5)
   FM_AFK_REC_OWNER_PID=$(printf '%s\n' "$record" | cut -f6)
   FM_AFK_REC_OWNER_TARGET=$(printf '%s\n' "$record" | cut -f7)
-  [ "$field_count" = 7 ] || {
-    FM_AFK_REC_MODE=afk
-    FM_AFK_REC_OWNER_KEY=-
-    FM_AFK_REC_OWNER_PID=-
-    FM_AFK_REC_OWNER_TARGET=-
-  }
-  if ! printf '%s\n' "$record" | awk -F '\t' 'NF != 3 && NF != 7 { bad=1 } END { exit !(NR == 1 && !bad) }' \
+  FM_AFK_REC_OWNER_IDENTITY=$(printf '%s\n' "$record" | cut -f8)
+  case "$field_count" in
+    7) FM_AFK_REC_OWNER_IDENTITY=- ;;
+    8) ;;
+    *)
+      FM_AFK_REC_MODE=afk
+      FM_AFK_REC_OWNER_KEY=-
+      FM_AFK_REC_OWNER_PID=-
+      FM_AFK_REC_OWNER_TARGET=-
+      FM_AFK_REC_OWNER_IDENTITY=-
+      ;;
+  esac
+  if ! printf '%s\n' "$record" | awk -F '\t' 'NF != 3 && NF != 7 && NF != 8 { bad=1 } END { exit !(NR == 1 && !bad) }' \
     || [ -z "$FM_AFK_REC_BACKEND" ] || [ -z "$FM_AFK_REC_TARGET" ]; then
     fm_afk_launch_log "daemon terminal record is malformed; refusing to act on it"
     return 2
@@ -245,11 +268,14 @@ fm_afk_launch_record_read() {
   case "$FM_AFK_REC_MODE" in
     afk) [ "$field_count" = 3 ] ;;
     attended-codex)
-      [ "$field_count" = 7 ] \
+      { [ "$field_count" = 7 ] || [ "$field_count" = 8 ]; } \
         && fm_afk_launch_codex_owner_key_valid "$FM_AFK_REC_OWNER_KEY" \
         && [ -n "$FM_AFK_REC_OWNER_TARGET" ] \
         && [ "$FM_AFK_REC_OWNER_TARGET" != - ]
       case "$FM_AFK_REC_OWNER_PID" in ''|*[!0-9]*) return 2 ;; esac
+      if [ "$field_count" = 8 ]; then
+        fm_afk_launch_codex_identity_valid "$FM_AFK_REC_OWNER_IDENTITY" || return 2
+      fi
       ;;
     *) return 2 ;;
   esac || { fm_afk_launch_log "daemon terminal record is malformed; refusing to act on it"; return 2; }
@@ -500,10 +526,10 @@ fm_afk_launch_create_herdr() {  # <captain-target> <captain-backend>
     IFS=$'\t' read -r wsid pane <<< "$recovered"
   fi
   entry=$(fm_afk_launch_entry_cmd)
-  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q %q' \
+  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q FM_SUPERVISION_SESSION_PID_IDENTITY=%q %q' \
     "$FM_HOME" "$captain_target" "$captain_backend" \
     "${FM_AFK_LAUNCH_RECORD_MODE:-afk}" "${FM_AFK_LAUNCH_OWNER_KEY:--}" \
-    "${FM_AFK_LAUNCH_OWNER_PID:--}" "$entry")
+    "${FM_AFK_LAUNCH_OWNER_PID:--}" "${FM_AFK_LAUNCH_OWNER_IDENTITY:--}" "$entry")
   if ! fm_afk_launch_record_write herdr "$session:$pane" "$wsid"; then
     fm_afk_launch_log "failed to persist herdr daemon terminal record; closing $session:$pane"
     fm_afk_launch_close_terminal herdr "$session:$pane"
@@ -529,10 +555,10 @@ fm_afk_launch_create_tmux() {  # <captain-target> <captain-backend>
   nonce="$$-${RANDOM:-0}-$(date '+%s')"
   session="fm-afk-daemon-$hash-$nonce"
   entry=$(fm_afk_launch_entry_cmd)
-  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q %q' \
+  cmd=$(printf 'exec env FM_HOME=%q FM_SUPERVISOR_TARGET=%q FM_SUPERVISOR_BACKEND=%q FM_SUPERVISION_DELIVERY_MODE=%q FM_SUPERVISION_SESSION_ID=%q FM_SUPERVISION_SESSION_PID=%q FM_SUPERVISION_SESSION_PID_IDENTITY=%q %q' \
     "$FM_HOME" "$captain_target" "$captain_backend" \
     "${FM_AFK_LAUNCH_RECORD_MODE:-afk}" "${FM_AFK_LAUNCH_OWNER_KEY:--}" \
-    "${FM_AFK_LAUNCH_OWNER_PID:--}" "$entry")
+    "${FM_AFK_LAUNCH_OWNER_PID:--}" "${FM_AFK_LAUNCH_OWNER_IDENTITY:--}" "$entry")
   if ! fm_afk_launch_record_write tmux "$session" ""; then
     fm_afk_launch_log "failed to persist planned tmux daemon session '$session'"
     return 1
@@ -743,12 +769,13 @@ fm_afk_launch_stop_attended_codex() {
 
 fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
   local session_id=${1:-} session_pid=${2:-}
-  local captain_target captain_backend read_result
+  local captain_target captain_backend read_result session_identity
 
   if ! fm_afk_launch_codex_session_owner_valid "$session_id" "$session_pid"; then
     fm_afk_launch_log "Codex successor refused: session '$session_id' is not the live identity-matched owner of $FM_AFK_LAUNCH_STATE/.lock"
     return 1
   fi
+  session_identity=$FM_AFK_LAUNCH_SESSION_PID_IDENTITY
   captain_target=$(discover_supervisor_target) || {
     fm_afk_launch_log "Codex successor refused: could not resolve the captain supervisor pane (set FM_SUPERVISOR_TARGET)"
     return 1
@@ -784,6 +811,7 @@ fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
       && [ "$FM_AFK_REC_OWNER_TARGET" = "$captain_target" ] \
       && [ "$FM_AFK_REC_OWNER_KEY" = "$session_id" ] \
       && [ "$FM_AFK_REC_OWNER_PID" = "$session_pid" ] \
+      && [ "$FM_AFK_REC_OWNER_IDENTITY" = "$session_identity" ] \
       && fm_afk_launch_terminal_alive "$FM_AFK_REC_BACKEND" "$FM_AFK_REC_TARGET" \
       && fm_watcher_healthy "$FM_AFK_LAUNCH_STATE" "$FM_ROOT/bin/fm-watch.sh" \
         "${FM_GUARD_GRACE:-300}" "$FM_HOME" \
@@ -798,8 +826,10 @@ fm_afk_launch_start_attended_codex() {  # <session-id> <session-lock-pid>
   FM_AFK_LAUNCH_OWNER_KEY=$session_id
   FM_AFK_LAUNCH_OWNER_PID=$session_pid
   FM_AFK_LAUNCH_OWNER_TARGET=$captain_target
+  FM_AFK_LAUNCH_OWNER_IDENTITY=$session_identity
   export FM_AFK_LAUNCH_RECORD_MODE FM_AFK_LAUNCH_OWNER_KEY \
-    FM_AFK_LAUNCH_OWNER_PID FM_AFK_LAUNCH_OWNER_TARGET
+    FM_AFK_LAUNCH_OWNER_PID FM_AFK_LAUNCH_OWNER_TARGET \
+    FM_AFK_LAUNCH_OWNER_IDENTITY
   case "$captain_backend" in
     herdr) fm_afk_launch_create_herdr "$captain_target" "$captain_backend" ;;
     tmux) fm_afk_launch_create_tmux "$captain_target" "$captain_backend" ;;

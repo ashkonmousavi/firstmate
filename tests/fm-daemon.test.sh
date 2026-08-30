@@ -2626,7 +2626,10 @@ test_attended_codex_delivery_is_lock_bound_with_away_precedence() {
     FM_SUPERVISION_DELIVERY_MODE=attended-codex
     FM_SUPERVISION_SESSION_ID=codex-session
     FM_SUPERVISION_SESSION_PID=4242
+    FM_SUPERVISION_SESSION_PID_IDENTITY=identity-4242
+    CURRENT_IDENTITY=identity-4242
     fm_harness_pid_alive() { [ "$1" = 4242 ]; }
+    fm_pid_identity() { [ "$1" = 4242 ] && printf '%s' "$CURRENT_IDENTITY"; }
     fm_backend_target_exists() { return 0; }
     pane_is_busy() { return 1; }
     fm_backend_composer_state() { printf '%s' empty; }
@@ -2643,6 +2646,10 @@ test_attended_codex_delivery_is_lock_bound_with_away_precedence() {
     grep -F 'FIRSTMATE_OP: v1 watcher: later worker wake' "$sent" >/dev/null \
       || fail "attended Codex delivery did not use the watcher operational kind"
 
+    CURRENT_IDENTITY=identity-reused
+    ! supervision_delivery_active "$state" \
+      || fail "PID-reused attended Codex identity remained delivery-active"
+
     : > "$state/.afk"
     FM_SUPERVISOR_BACKEND=herdr FM_SUPERVISOR_TARGET=lab:captain \
       inject_msg "away wake" "$state" \
@@ -2651,9 +2658,8 @@ test_attended_codex_delivery_is_lock_bound_with_away_precedence() {
       || fail "away mode did not take presentation precedence"
 
     rm -f "$state/.afk"
-    printf '%s\n' 9999 > "$state/.lock"
     ! supervision_delivery_active "$state" \
-      || fail "stale attended Codex identity remained delivery-active"
+      || fail "stale attended Codex process identity remained delivery-active"
   ) || fail "attended Codex delivery gate subshell failed"
   pass "daemon delivery: attended Codex is session-lock bound and away mode keeps precedence"
 }
@@ -2668,6 +2674,7 @@ test_attended_codex_daemon_survives_away_transition() {
     capture="$dir/capture"
     daemon_out="$dir/daemon.out"
     daemon_err="$dir/daemon.err"
+    proc_root="$dir/proc"
     session_pid=""
     daemon_pid=""
     cleanup() {
@@ -2691,11 +2698,27 @@ test_attended_codex_daemon_survives_away_transition() {
       i=$((i + 1))
     done
     [ "$i" -lt 50 ] || exit 9
+    mkdir -p "$proc_root/$session_pid"
+    {
+      printf '%s (codex) S' "$session_pid"
+      i=1
+      while [ "$i" -le 18 ]; do
+        printf ' 0'
+        i=$((i + 1))
+      done
+      printf ' 12345\n'
+    } > "$proc_root/$session_pid/stat"
+    printf 'codex\00060\000' > "$proc_root/$session_pid/cmdline"
+    session_identity=$(FM_PROC_ROOT_OVERRIDE="$proc_root" FM_STATE_OVERRIDE="$state" \
+      bash -c '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$session_pid") \
+      || exit 10
     printf '%s\n' "$session_pid" > "$state/.lock"
     PATH="$fakebin:$PATH" FM_HOME="$dir" FM_ROOT_OVERRIDE="$ROOT" \
       FM_STATE_OVERRIDE="$state" FM_SUPERVISOR_BACKEND=tmux \
       FM_SUPERVISOR_TARGET=fakepane FM_SUPERVISION_DELIVERY_MODE=attended-codex \
       FM_SUPERVISION_SESSION_ID=codex-session FM_SUPERVISION_SESSION_PID="$session_pid" \
+      FM_SUPERVISION_SESSION_PID_IDENTITY="$session_identity" \
+      FM_PROC_ROOT_OVERRIDE="$proc_root" \
       FM_DAEMON_PRIMARY_HARNESS=codex FM_FAKE_TMUX_PANE_ALIVE=1 \
       FM_FAKE_TMUX_CAPTURE="$capture" FM_FAKE_TMUX_SENT="$sent" \
       FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
@@ -2713,13 +2736,13 @@ test_attended_codex_daemon_survives_away_transition() {
       sleep 0.1
       i=$((i + 1))
     done
-    [ "$i" -lt 100 ] || { cat "$daemon_err" >&2; exit 10; }
+    [ "$i" -lt 100 ] || { cat "$daemon_err" >&2; exit 11; }
     : > "$state/.afk"
-    printf '%s\n' 999999 > "$state/.lock"
+    printf 'reused-codex\00060\000' > "$proc_root/$session_pid/cmdline"
     sleep 2
-    is_live_non_zombie "$daemon_pid" || { cat "$daemon_out" "$daemon_err" >&2; exit 11; }
+    is_live_non_zombie "$daemon_pid" || { cat "$daemon_out" "$daemon_err" >&2; exit 12; }
     watcher_pid=$(cat "$state/.watch.lock/pid" 2>/dev/null || true)
-    [ -n "$watcher_pid" ] && is_live_non_zombie "$watcher_pid" || exit 12
+    [ -n "$watcher_pid" ] && is_live_non_zombie "$watcher_pid" || exit 13
     token="CODEX_AWAY_OWNER_$$_$RANDOM"
     printf 'done: %s\n' "$token" > "$state/away-owner.status"
     i=0
@@ -2728,12 +2751,18 @@ test_attended_codex_daemon_survives_away_transition() {
       sleep 0.1
       i=$((i + 1))
     done
-    [ "$i" -lt 100 ] || { cat "$daemon_out" "$daemon_err" >&2; exit 13; }
-    is_live_non_zombie "$daemon_pid" || exit 14
+    [ "$i" -lt 100 ] || { cat "$daemon_out" "$daemon_err" >&2; exit 14; }
+    is_live_non_zombie "$daemon_pid" || exit 15
+    rm -f "$state/.afk"
+    if wait_for_exit "$daemon_pid" 50; then
+      daemon_pid=""
+    else
+      exit 16
+    fi
   ); then
-    pass "daemon delivery: attended ownership promotes to away when the Codex lock disappears"
+    pass "daemon delivery: away ownership survives Codex PID reuse and retires afterward"
   else
-    fail "daemon delivery: attended-to-away transition lost its daemon-owned delivery path"
+    fail "daemon delivery: attended-to-away PID-reuse transition lost ownership"
   fi
 }
 
