@@ -118,6 +118,71 @@ unit_relative_paths_are_absolute_before_daemon_launch() {
   rm -rf "$root"
 }
 
+unit_detached_command_preserves_supervision_environment() {
+  local st entry out
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-detached-env.XXXXXX")
+  mkdir -p "$st/home/state" "$st/home/config"
+  printf 'export FM_CHECK_INTERVAL=30\n' > "$st/home/config/x-mode.env"
+  entry="$st/capture-env"
+  cat > "$entry" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$FM_HOME" "$FM_STATE_OVERRIDE" "$FM_DAEMON_PRIMARY_HARNESS" \
+  "$FM_CHECK_INTERVAL" "$FM_SUPERVISION_DELIVERY_MODE" "$FM_SUPERVISION_SESSION_ID"
+EOF
+  chmod +x "$entry"
+  out=$(FM_HOME="$st/home" FM_STATE_OVERRIDE="$st/home/state" \
+    FM_DAEMON_PRIMARY_HARNESS=codex FM_SUPERVISION_DELIVERY_MODE=attended-codex \
+    FM_SUPERVISION_SESSION_ID=codex-session bash -c '
+      . "$1"
+      cmd=$(fm_afk_launch_detached_command "$2" captain:0 herdr)
+      bash -c "$cmd"
+    ' _ "$LAUNCH" "$entry")
+  if [ "$out" = "$st/home"$'\n'"$st/home/state"$'\n'codex$'\n'30$'\n'attended-codex$'\n'codex-session ]; then
+    pass "detached launch: one command preserves resolved home/state, harness, mode, session, and X-mode cadence"
+  else
+    fail "detached launch: supervision environment diverged ($out)"
+  fi
+  rm -rf "$st"
+}
+
+unit_attended_readiness_requires_daemon_owned_watcher() {
+  local st
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-ready.XXXXXX")
+  mkdir -p "$st/state/.watch.lock"
+  printf '%s\n' 701 > "$st/state/.watch.lock/pid"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
+    . "$1"
+    FM_SUPERVISOR_BACKEND=tmux
+    FM_SUPERVISOR_TARGET=captain:0
+    FM_SUPERVISION_SESSION_ID=codex-session
+    FM_SUPERVISION_SESSION_PID=4242
+    FM_SUPERVISION_SESSION_PID_IDENTITY=identity-4242
+    daemon_lock_held_by_live_daemon() { return 0; }
+    daemon_lock_pid() { printf "%s" 700; }
+    fm_afk_launch_owner_read() {
+      FM_AFK_OWNER_MODE=attended-codex
+      FM_AFK_OWNER_SESSION=codex-session
+      FM_AFK_OWNER_PID=4242
+      FM_AFK_OWNER_IDENTITY=identity-4242
+      FM_AFK_OWNER_BACKEND=tmux
+      FM_AFK_OWNER_TARGET=captain:0
+    }
+    fm_pid_identity() { printf "%s" identity-4242; }
+    fm_afk_launch_terminal_alive() { return 0; }
+    fm_watcher_healthy() { return 0; }
+    WATCHER_PARENT=600
+    ps() { printf "%s\n" "$WATCHER_PARENT"; }
+    ! fm_afk_launch_successor_ready tmux detached || exit 10
+    WATCHER_PARENT=700
+    fm_afk_launch_successor_ready tmux detached
+  ' _ "$LAUNCH"; then
+    pass "attended readiness: only the daemon's watcher can certify the successor"
+  else
+    fail "attended readiness: foreground watcher overlap certified the successor"
+  fi
+  rm -rf "$st"
+}
+
 # ---------------------------------------------------------------------------
 # UNIT 2: a FRESH entry clears; a REFRESH (daemon already alive) preserves the
 # current session's buffered escalations.
@@ -925,6 +990,8 @@ e2e_tmux() {
 
 unit_clear_stale
 unit_relative_paths_are_absolute_before_daemon_launch
+unit_detached_command_preserves_supervision_environment
+unit_attended_readiness_requires_daemon_owned_watcher
 unit_fresh_vs_refresh
 unit_stop_ordering
 unit_stop_rejects_reused_pid

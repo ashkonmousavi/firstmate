@@ -116,6 +116,8 @@ install_guard_scripts() {
   cp "$ROOT/bin/fm-supervision-lib.sh" "$dir/bin/fm-supervision-lib.sh"
   cp "$ROOT/bin/fm-wake-lib.sh" "$dir/bin/fm-wake-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
+  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
+  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
   mkdir -p "$dir/docs"
   cp -R "$ROOT/docs/supervision-protocols" "$dir/docs/supervision-protocols"
   chmod +x "$dir/bin/fm-turnend-guard.sh" "$dir/bin/fm-turnend-guard-grok.sh" "$dir/bin/fm-operational-input.sh" "$dir/bin/fm-supervision-instructions.sh" "$dir/bin/fm-harness.sh"
@@ -124,7 +126,7 @@ install_guard_scripts() {
 mark_codex_hook_root() {
   local dir=$1
   mkdir -p "$dir/.codex"
-  printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"fm-turnend-guard.sh"}]}]}}\n' > "$dir/.codex/hooks.json"
+  printf '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"fm-turnend-guard.sh --codex"}]}]}}\n' > "$dir/.codex/hooks.json"
 }
 
 # A primary-shaped checkout: plain (non-worktree) git repo, AGENTS.md, bin/,
@@ -193,6 +195,24 @@ run_hook() {
   local dir=$1 stop_active=$2 home
   home=$(cd "$dir" && pwd)
   printf '{"stop_hook_active":%s}' "$stop_active" | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1
+}
+
+run_hook_codex() {
+  local dir=$1 stop_active=$2 home fakebin command
+  home=$(cd "$dir" && pwd)
+  command=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$home/.codex/hooks.json")
+  fakebin="$dir/fake-codex-bin"
+  mkdir -p "$fakebin"
+  ln -sf /bin/bash "$fakebin/codex"
+  # shellcheck disable=SC2016 # Expanded by the child shell from the exported fixture variables.
+  CODEX_CASE_HOME="$home" CODEX_STOP_ACTIVE="$stop_active" CODEX_HOOK_COMMAND="$command" \
+    "$fakebin/codex" -c '
+      printf "%s\n" "$$" > "$CODEX_CASE_HOME/state/.lock"
+      printf "{\"stop_hook_active\":%s,\"session_id\":\"codex-session\"}" \
+        "$CODEX_STOP_ACTIVE" \
+        | (cd "$CODEX_CASE_HOME" && CLAUDECODE=1 FM_HOME="$CODEX_CASE_HOME" \
+          bash -c "$CODEX_HOOK_COMMAND") 2>&1
+    '
 }
 
 nonexistent_pid() {
@@ -421,6 +441,52 @@ test_hook_uses_state_override() {
   expect_code 2 "$status" "hook must let FM_STATE_OVERRIDE win over FM_HOME/state"
   assert_contains "$out" "$REQUIRED_REASON" "block reason must contain the exact required instruction"
   pass "fm-turnend-guard: uses FM_STATE_OVERRIDE ahead of FM_HOME/state"
+}
+
+test_codex_checkpoint_expiry_requires_verified_successor() {
+  local dir checkpoint_out checkpoint_status command out status task calls
+  dir=$(make_primary_dir "$TMP_ROOT/hook-codex-successor")
+  mkdir -p "$dir/.codex"
+  cp "$ROOT/.codex/hooks.json" "$dir/.codex/hooks.json"
+  for task in 1 2 3 4 5; do
+    : > "$dir/state/task${task}.meta"
+  done
+
+  checkpoint_out="$dir/checkpoint.out"
+  checkpoint_status=0
+  FM_HOME="$dir" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
+    "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 1 >"$checkpoint_out" 2>/dev/null \
+    || checkpoint_status=$?
+  expect_code 124 "$checkpoint_status" "quiet Codex checkpoint must expire"
+  assert_contains "$(cat "$checkpoint_out")" "checkpoint: no actionable wake within 1s" \
+    "quiet Codex checkpoint result missing"
+  assert_absent "$dir/state/.watch.lock/pid" "checkpoint expiry left a watcher owner"
+
+  cat > "$dir/bin/fm-afk-launch.sh" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_HOME/successor.calls"
+exit "${CODEX_SUCCESSOR_RESULT:-1}"
+EOF
+  chmod +x "$dir/bin/fm-afk-launch.sh"
+
+  out=$(run_hook_codex "$dir" false); status=$?
+  expect_code 2 "$status" "first Codex Stop must stay closed without a successor"
+  assert_contains "$out" "TURN WOULD END BLIND" "first Codex Stop lost its diagnostic"
+  out=$(run_hook_codex "$dir" true); status=$?
+  expect_code 2 "$status" "active Codex Stop must not fail open without a successor"
+  calls=$(wc -l < "$dir/successor.calls" 2>/dev/null || printf 0)
+  [ "$calls" -eq 2 ] || fail "both Codex Stop attempts did not verify the persistent successor"
+
+  out=$(CODEX_SUCCESSOR_RESULT=0 run_hook_codex "$dir" true); status=$?
+  expect_code 0 "$status" "Codex Stop must allow after verified successor handoff"
+  [ -z "$out" ] || fail "verified Codex handoff emitted an empty-wait update: $out"
+
+  command=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$ROOT/.codex/hooks.json")
+  assert_contains "$command" "--codex" "tracked Codex Stop hook does not select persistent handoff mode"
+  out=$(cd "$ROOT" && bash -c "$command" < /dev/null 2>&1); status=$?
+  expect_code 2 "$status" "Codex Stop hook must fail closed on missing payload"
+  assert_contains "$out" "FIRSTMATE CODEX STOP BLOCKED" "Codex prerequisite failure is not actionable"
+  pass "Codex checkpoint expiry keeps Stop closed until one verified persistent successor exists"
 }
 
 test_hook_loop_guard_allows_retry() {
@@ -1770,6 +1836,7 @@ test_hook_x_mode_reason_sources_cadence
 test_hook_x_mode_only_blocks_in_default_mode
 test_hook_ignores_repo_state_when_fm_home_set
 test_hook_uses_state_override
+test_codex_checkpoint_expiry_requires_verified_successor
 test_hook_loop_guard_allows_retry
 test_hook_blocks_in_secondmate_own_home
 test_hook_silent_in_idle_secondmate_home
