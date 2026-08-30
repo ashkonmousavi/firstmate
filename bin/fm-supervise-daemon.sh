@@ -1693,6 +1693,7 @@ fm_super_main() {
   local rc reason
   while true; do
     if [ "$delivery_mode" = attended-codex ] \
+      && ! afk_active "$STATE" \
       && ! attended_codex_owner_active "$STATE"; then
       log "attended Codex owner no longer holds the live session lock; shutting down"
       cleanup

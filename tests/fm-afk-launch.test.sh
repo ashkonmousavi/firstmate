@@ -863,34 +863,66 @@ unit_attended_lifecycle_is_idempotent_for_exact_owner() {
   st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-idempotent.XXXXXX")
   mkdir -p "$st/state"
   printf '%s\n' 4242 > "$st/state/.lock"
-  printf 'herdr\tlab:daemon\tws-daemon\tattended-codex\tcodex-session\t4242\tlab:captain\n' \
-    > "$st/state/.afk-daemon-terminal"
   if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" bash -c '
     . "$1"
-    DAEMON_LIVE=1
+    DAEMON_LIVE=0
+    TERMINAL_LIVE=0
+    SESSION=""
+    CREATES=0
+    KILLS=0
     fm_harness_pid_alive() { [ "$1" = 4242 ]; }
-    discover_supervisor_target() { printf "%s" lab:captain; }
-    discover_supervisor_backend() { printf "%s" herdr; }
+    discover_supervisor_target() { printf "%s" captain:0; }
+    discover_supervisor_backend() { printf "%s" tmux; }
     daemon_lock_held_by_live_daemon() { [ "$DAEMON_LIVE" = 1 ]; }
-    fm_afk_launch_terminal_alive() { return 0; }
     fm_watcher_healthy() { return 0; }
     fm_afk_launch_attended_watcher_owned() { return 0; }
-    fm_afk_launch_create_herdr() { : > "$FM_HOME/duplicate-start"; return 1; }
+    tmux() {
+      case "$1" in
+        new-session)
+          SESSION=$4
+          TERMINAL_LIVE=1
+          DAEMON_LIVE=1
+          CREATES=$((CREATES + 1))
+          ;;
+        has-session)
+          if [ "$TERMINAL_LIVE" = 1 ] && [ "$3" = "$SESSION" ]; then
+            return 0
+          fi
+          printf "can'\''t find session: %s\n" "$3" >&2
+          return 1
+          ;;
+        kill-session)
+          [ "$TERMINAL_LIVE" = 1 ] && [ "$3" = "$SESSION" ] || return 1
+          TERMINAL_LIVE=0
+          KILLS=$((KILLS + 1))
+          ;;
+        *) return 1 ;;
+      esac
+    }
     fm_afk_launch_start_attended_codex codex-session 4242 || exit 10
     fm_afk_launch_start_attended_codex codex-session 4242 || exit 11
-    [ ! -e "$FM_HOME/duplicate-start" ] || exit 12
-    fm_afk_launch_stop_owned() {
-      printf "stop\n" >> "$FM_HOME/stops"
-      DAEMON_LIVE=0
-      rm -f "$FM_AFK_LAUNCH_RECORD"
-    }
-    fm_afk_launch_stop_attended_codex || exit 13
-    fm_afk_launch_stop_attended_codex || exit 14
-    [ "$(wc -l < "$FM_HOME/stops" | tr -d " ")" = 1 ]
+    fm_afk_launch_record_read || exit 12
+    [ "$FM_AFK_REC_BACKEND" = tmux ] || exit 13
+    [ "$FM_AFK_REC_MODE" = attended-codex ] || exit 14
+    [ "$FM_AFK_REC_OWNER_KEY" = codex-session ] || exit 15
+    [ "$FM_AFK_REC_OWNER_PID" = 4242 ] || exit 16
+    [ "$FM_AFK_REC_OWNER_TARGET" = captain:0 ] || exit 17
+    [ "$CREATES" = 1 ] || exit 18
+    DAEMON_LIVE=0
+    fm_afk_launch_stop_attended_codex || exit 19
+    fm_afk_launch_stop_attended_codex || exit 20
+    [ "$KILLS" = 1 ] || exit 21
+    [ ! -e "$FM_AFK_LAUNCH_RECORD" ] || exit 22
+    fm_afk_launch_start_attended_codex codex-session 4242 || exit 23
+    [ "$CREATES" = 2 ] || exit 24
+    DAEMON_LIVE=0
+    fm_afk_launch_reconcile || exit 25
+    [ "$KILLS" = 2 ] || exit 26
+    [ ! -e "$FM_AFK_LAUNCH_RECORD" ] || exit 27
   ' _ "$LAUNCH"; then
-    pass "attended lifecycle: repeated exact start/stop converges to one owner and one teardown"
+    pass "attended lifecycle: repeated tmux start, verification, stop, and recovery converge exactly"
   else
-    fail "attended lifecycle: repeated exact start/stop duplicated ownership or teardown"
+    fail "attended lifecycle: repeated tmux ownership did not converge through stop and recovery"
   fi
   rm -rf "$st"
 }

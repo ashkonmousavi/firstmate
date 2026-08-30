@@ -10,33 +10,37 @@ if [ "${FM_CODEX_LIVE_E2E:-0}" != 1 ]; then
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HERDR_LAB_HELPER='/home/tegris/firstmate/bin/fm-herdr-lab.sh'
 
 fail() {
   printf 'not ok - %s\n' "$1" >&2
   exit 1
 }
 
-for tool in codex git jq herdr; do
-  command -v "$tool" >/dev/null 2>&1 || fail "$tool not found"
-done
-[ -x "$HERDR_LAB_HELPER" ] || fail "Herdr lab helper is not executable at $HERDR_LAB_HELPER"
-
 GIT_DIR=$(git -C "$ROOT" rev-parse --path-format=absolute --git-dir 2>/dev/null) \
-  || fail "cannot resolve the checkout git directory"
+  || { echo "skip: cannot confirm an updated plain primary checkout"; exit 0; }
 GIT_COMMON_DIR=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
-  || fail "cannot resolve the checkout common git directory"
+  || { echo "skip: cannot confirm an updated plain primary checkout"; exit 0; }
 if [ "$GIT_DIR" != "$GIT_COMMON_DIR" ]; then
   echo "skip: Codex continuity live proof requires an updated plain primary checkout"
   exit 0
 fi
+command -v jq >/dev/null 2>&1 \
+  || { echo "skip: cannot inspect the tracked plain-primary Stop registration without jq"; exit 0; }
+TRACKED_HOOKS=$(git -C "$ROOT" show HEAD:.codex/hooks.json 2>/dev/null) \
+  || { echo "skip: plain primary has no tracked Codex hook registration"; exit 0; }
 if ! jq -e '
   any(.hooks.Stop[]?.hooks[]?.command?;
     type == "string" and contains("fm-turnend-guard.sh") and contains("--codex"))
-' "$ROOT/.codex/hooks.json" >/dev/null 2>&1; then
+' <<< "$TRACKED_HOOKS" >/dev/null 2>&1; then
   echo "skip: plain primary tracked Stop registration does not contain --codex"
   exit 0
 fi
+
+HERDR_LAB_HELPER="$ROOT/bin/fm-herdr-lab.sh"
+for tool in codex herdr; do
+  command -v "$tool" >/dev/null 2>&1 || fail "$tool not found"
+done
+[ -x "$HERDR_LAB_HELPER" ] || fail "Herdr lab helper is not executable at $HERDR_LAB_HELPER"
 
 REAL_CODEX=$(command -v codex)
 ORIGINAL_PATH=$PATH

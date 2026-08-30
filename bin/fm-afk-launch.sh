@@ -218,9 +218,13 @@ fm_afk_launch_record_read() {
   [ -f "$FM_AFK_LAUNCH_RECORD" ] || return 1
   record=$(cat "$FM_AFK_LAUNCH_RECORD" 2>/dev/null) || record=""
   field_count=$(printf '%s\n' "$record" | awk -F '\t' 'NR == 1 { print NF }')
-  IFS=$'\t' read -r FM_AFK_REC_BACKEND FM_AFK_REC_TARGET extra \
-    FM_AFK_REC_MODE FM_AFK_REC_OWNER_KEY FM_AFK_REC_OWNER_PID \
-    FM_AFK_REC_OWNER_TARGET <<< "$record"
+  FM_AFK_REC_BACKEND=$(printf '%s\n' "$record" | cut -f1)
+  FM_AFK_REC_TARGET=$(printf '%s\n' "$record" | cut -f2)
+  extra=$(printf '%s\n' "$record" | cut -f3)
+  FM_AFK_REC_MODE=$(printf '%s\n' "$record" | cut -f4)
+  FM_AFK_REC_OWNER_KEY=$(printf '%s\n' "$record" | cut -f5)
+  FM_AFK_REC_OWNER_PID=$(printf '%s\n' "$record" | cut -f6)
+  FM_AFK_REC_OWNER_TARGET=$(printf '%s\n' "$record" | cut -f7)
   [ "$field_count" = 7 ] || {
     FM_AFK_REC_MODE=afk
     FM_AFK_REC_OWNER_KEY=-
