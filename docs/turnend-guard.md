@@ -108,6 +108,7 @@ The camel-case field has precedence when both spellings appear; when it is absen
 The native path returns the shared guard's status and stderr to the same Grok process and never starts `grok --resume`.
 When both capability spellings are absent, the adapter preserves one pre-native `grok --resume` fallback guarded by `GROK_TURNEND_GUARD_ACTIVE` and intentionally omits `--permission-mode`.
 Malformed JSON, a selected field with a non-boolean type, missing `jq`, missing hook prerequisites, or an already-active legacy guard allows the stop without starting either continuation path.
+The pre-native fallback retains a residual blind-stop gap: the outer hook exits 0 after its single `grok --resume` attempt whether or not that process starts or repairs supervision, and `GROK_TURNEND_GUARD_ACTIVE` makes the resumed hook exit 0 without a second repair.
 Grok's project hook requires the checkout to be trusted with `/hooks-trust` or launch-time `--trust`; genuine pre-native builds can run the same tracked hook from an isolated global hook directory.
 
 Cursor cannot block a turn end at all: its blocked-response mapper returns an empty object for the `stop` step, so exit 2 is a silent no-op, verified both statically and live.

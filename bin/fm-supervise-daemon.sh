@@ -974,7 +974,10 @@ wedge_alarm_notify() {  # <summary> <marker>
 # is lost - the buffer and the
 # wake-queue both survive - but the stall stops being invisible.
 inject_wedge_alarm() {  # <state> <age-seconds>
-  local state=$1 age=$2 marker target backend max_defer now notify=1
+  local state=$1 age=$2 marker target backend max_defer now notify=1 owner_label=away-mode
+  if ! afk_active "$state" && attended_codex_owner_active "$state"; then
+    owner_label='attended Codex'
+  fi
   marker="$state/.subsuper-inject-wedged"
   max_defer="${FM_MAX_DEFER_SECS:-$MAX_DEFER_SECS_DEFAULT}"
   # Re-alarm at most once per max-defer window so a long wedge does not spam.
@@ -986,11 +989,11 @@ inject_wedge_alarm() {  # <state> <age-seconds>
     notify=0
   else
     WEDGE_ALARM_LAST_EPOCH=$now
-    log "ERROR: away-mode escalation undelivered ${age}s; inject could not confirm a submit (supervisor pane busy or wedged). Buffer + wake-queue preserved; alarm marker written."
+    log "ERROR: ${owner_label} escalation undelivered ${age}s; inject could not confirm a submit (supervisor pane busy or wedged). Buffer + wake-queue preserved; alarm marker written."
   fi
   {
-    printf 'fm away-mode inject WEDGED: %ss undelivered as of %s\n' "$age" "$(date '+%Y-%m-%dT%H:%M:%S%z')"
-    printf 'The supervisor pane could not accept an escalation. Buffered items:\n'
+    printf 'fm %s inject WEDGED: %ss undelivered as of %s\n' "$owner_label" "$age" "$(date '+%Y-%m-%dT%H:%M:%S%z')"
+    printf 'The %s supervisor delivery could not accept an escalation. Buffered items:\n' "$owner_label"
     cat "$state/.subsuper-escalations" 2>/dev/null
   } 2>/dev/null > "$marker" || true
   target="${FM_SUPERVISOR_TARGET:-$FM_SUPERVISOR_TARGET_DEFAULT}"
@@ -1000,7 +1003,7 @@ inject_wedge_alarm() {  # <state> <age-seconds>
   # the primary, backend-independent signal, so a non-tmux backend just skips
   # this cosmetic extra rather than attempting an unsupported call.
   if [ "$backend" = tmux ]; then
-    tmux display-message -t "$target" "fm: away-mode escalations WEDGED ${age}s — see $marker" 2>/dev/null || true
+    tmux display-message -t "$target" "fm: ${owner_label} escalations WEDGED ${age}s - see $marker" 2>/dev/null || true
   fi
   # Backend-independent active alert. Unlike the tmux flash above (skipped on
   # every non-tmux backend), this can reach the captain even when every pane and
@@ -1008,7 +1011,7 @@ inject_wedge_alarm() {  # <state> <age-seconds>
   # incident fell through. Configurable and best-effort; the marker above stays
   # the durable record whether or not any channel fires.
   if [ "$notify" -eq 1 ]; then
-    wedge_alarm_notify "away-mode escalations WEDGED ${age}s undelivered - see $marker" "$marker"
+    wedge_alarm_notify "${owner_label} escalations WEDGED ${age}s undelivered - see $marker" "$marker"
   fi
 }
 
@@ -1057,7 +1060,8 @@ housekeeping() {  # <state>
   # retry the normal delivery path. If that still cannot confirm, raise a loud
   # wedge alarm while preserving the buffer.
   max_defer=${FM_MAX_DEFER_SECS:-$MAX_DEFER_SECS_DEFAULT}
-  if afk_active "$state" && [ "$max_defer" -gt 0 ] && [ -s "$state/.subsuper-escalations" ]; then
+  if supervision_delivery_active "$state" \
+    && [ "$max_defer" -gt 0 ] && [ -s "$state/.subsuper-escalations" ]; then
     oldest=$(_oldest_line_age "$state/.subsuper-escalations")
     # Throttle the alarm to once per max-defer window (the wedge marker doubles
     # as the throttle). A successful flush clears the buffer; a failed one alarms
@@ -1196,6 +1200,14 @@ housekeeping() {  # <state>
       fi
     done
   fi
+}
+
+attended_retirement_ready() {  # <state>
+  local state=$1
+  [ ! -s "$state/.wake-queue" ] || return 1
+  escalate_flush "$state" || return 1
+  [ ! -s "$state/.subsuper-escalations" ] || return 1
+  [ ! -s "$state/.wake-queue" ]
 }
 
 # Find a recorded or live window target whose task id matches the marker key.
@@ -1651,14 +1663,26 @@ fm_super_main() {
     local watcher_signal=TERM
     trap - TERM INT USR1
     wedge_alarm_stop_active_notifier
-    escalate_flush "$STATE" 2>/dev/null || true
+    [ "$PLANNED_ATTENDED_RETIREMENT" -eq 1 ] \
+      || escalate_flush "$STATE" 2>/dev/null || true
     if [ -n "${WATCHER_PID:-}" ]; then
       [ "$PLANNED_ATTENDED_RETIREMENT" -ne 1 ] || watcher_signal=USR1
       kill "-$watcher_signal" "$WATCHER_PID" 2>/dev/null || true
       wait "$WATCHER_PID" 2>/dev/null || true
+      WATCHER_PID=""
     fi
     if [ -n "${CUR_TMP:-}" ]; then
       rm -f "$CUR_TMP" 2>/dev/null || true
+      CUR_TMP=""
+    fi
+    if [ "$PLANNED_ATTENDED_RETIREMENT" -eq 1 ] \
+      && ! attended_retirement_ready "$STATE"; then
+      PLANNED_ATTENDED_RETIREMENT=0
+      log "attended Codex retirement deferred: durable delivery is still pending"
+      trap cleanup TERM INT
+      trap planned_attended_cleanup USR1
+      start_watcher || true
+      return 1
     fi
     fm_lock_release "$LOCK" 2>/dev/null || true
     rm -f "$PIDFILE" 2>/dev/null || true

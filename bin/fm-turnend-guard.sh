@@ -91,7 +91,8 @@ if [ $((CLAUDE_MODE + CURSOR_MODE + CODEX_MODE)) -gt 1 ]; then
 fi
 
 codex_fail_closed() {
-  printf '%s\n' 'FIRSTMATE CODEX STOP BLOCKED: persistent supervision could not be verified; restore the tracked Codex hooks and jq, then retry Stop from this Herdr or tmux primary session.' >&2
+  printf 'FIRSTMATE CODEX STOP BLOCKED: %s\n' \
+    "${1:-persistent supervision could not be verified; restore the tracked Codex hooks and jq, then retry Stop from this Herdr or tmux primary session.}" >&2
   exit 2
 }
 
@@ -177,8 +178,17 @@ fm_supervision_status "$STATE" "$GRACE"
 if [ "$FM_SUP_NEEDED" = false ]; then
   [ -e "$FAILURE_NOTICE" ] || budget_reset
   if [ "$CODEX_MODE" -eq 1 ]; then
+    LOCK_PID=$(cat "$STATE/.lock" 2>/dev/null || true)
+    case "$LOCK_PID" in ''|*[!0-9]*) exit 0 ;; esac
+    fm_session_lock_owned_by_self "$STATE" || exit 0
+    LOCK_IDENTITY=$(fm_pid_identity "$LOCK_PID" 2>/dev/null) || codex_fail_closed
+    if [ "$FM_SUP_QUEUE_PENDING" = true ] \
+      || [ "$FM_SUP_ESCALATIONS_PENDING" = true ]; then
+      codex_fail_closed 'durable notifications are still queued or delivery is unconfirmed; keep this session open until the attended successor drains them, then retry Stop.'
+    fi
     if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-      "$SCRIPT_DIR/fm-afk-launch.sh" stop-attended-codex >/dev/null 2>&1; then
+      "$SCRIPT_DIR/fm-afk-launch.sh" stop-attended-codex \
+        "$LOCK_PID" "$LOCK_IDENTITY" >/dev/null 2>&1; then
       codex_fail_closed
     fi
   fi

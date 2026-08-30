@@ -55,6 +55,8 @@ FM_HERDR_LAB_STATE_DIR="$TMP_ROOT/lab-state"
 export FM_HERDR_LAB_STATE_DIR
 TARGET=
 DAEMON_STARTED=0
+OWNER_SESSION_PID=
+OWNER_SESSION_IDENTITY=
 
 cleanup() {
   local status=$?
@@ -63,7 +65,8 @@ cleanup() {
     PATH="$FAKEBIN:$ORIGINAL_PATH" FM_HOME="$HOME_DIR" FM_STATE_OVERRIDE="$STATE" \
       FM_CONFIG_OVERRIDE="$CONFIG" FM_ROOT_OVERRIDE="$ROOT" \
       FM_SUPERVISOR_BACKEND=herdr FM_SUPERVISOR_TARGET="$TARGET" \
-      "$ROOT/bin/fm-afk-launch.sh" stop-attended-codex >/dev/null 2>&1 || true
+      "$ROOT/bin/fm-afk-launch.sh" stop-attended-codex \
+        "$OWNER_SESSION_PID" "$OWNER_SESSION_IDENTITY" >/dev/null 2>&1 || true
   fi
   if [ -e "$FM_HERDR_LAB_STATE_DIR/$SESSION.fleet-state.json" ]; then
     if ! PATH="$ORIGINAL_PATH" "$LAB_HELPER" teardown "$SESSION"; then
@@ -230,9 +233,11 @@ wait_for_screen "$FIRST_TOKEN" \
   || fail "Codex did not finish the checkpoint turn"
 wait_for_successor \
   || fail "Stop returned without an identity-matched daemon-owned healthy watcher"
-DAEMON_STARTED=1
 OWNER=$(daemon_owner_path) || fail "successor daemon lock disappeared"
 DAEMON_PID=$(cat "$OWNER/pid" 2>/dev/null) || fail "successor daemon pid is unreadable"
+IFS=$'\t' read -r _ _ OWNER_SESSION_PID OWNER_SESSION_IDENTITY _ _ \
+  < "$OWNER/supervision-owner" || fail "successor session identity is unreadable"
+DAEMON_STARTED=1
 pass "quiet checkpoint expiry handed off to one verified persistent successor"
 
 wait_for_idle || fail "Codex did not return to an available captain conversation"

@@ -2008,6 +2008,77 @@ test_max_defer_afk_inactive_does_not_flush_or_alarm() {
   pass "max-defer does not flush or alarm while afk is inactive"
 }
 
+test_attended_retirement_requires_drained_delivery() {
+  local dir state called
+  dir=$(make_supercase attended-retirement-delivery)
+  state="$dir/state"
+  called="$dir/inject-called"
+  printf 'queued watcher wake\n' > "$state/.wake-queue"
+  escalate_add "$state" "needs-decision: preserve this delivery"
+  (
+    inject_msg() { : > "$called"; return 0; }
+    ! attended_retirement_ready "$state"
+  ) || fail "attended retirement accepted a non-empty durable wake queue"
+  [ ! -e "$called" ] || fail "attended retirement flushed escalation before the durable wake was handled"
+  [ -s "$state/.subsuper-escalations" ] || fail "queued-wake retirement discarded the escalation buffer"
+
+  : > "$state/.wake-queue"
+  (
+    inject_msg() { return 1; }
+    ! attended_retirement_ready "$state"
+  ) || fail "attended retirement accepted an unconfirmed final buffer delivery"
+  [ -s "$state/.subsuper-escalations" ] || fail "failed final delivery discarded the escalation buffer"
+
+  (
+    inject_msg() { return 0; }
+    attended_retirement_ready "$state"
+  ) || fail "attended retirement refused confirmed empty delivery state"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "confirmed final delivery retained the escalation buffer"
+  pass "attended retirement requires an empty queue and confirmed buffer delivery"
+}
+
+test_max_defer_attended_owner_alarms() {
+  local dir state fakebin sent session_pid session_identity daemon_log
+  dir=$(make_bordered_case maxdefer-attended)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  sent="$dir/sent.log"
+  daemon_log="$dir/daemon.log"
+  : > "$sent"
+  printf '╭─────────────────╮\n│ > human draft   │\n╰─────────────────╯\n' > "$dir/composer"
+  escalate_add "$state" "needs-decision: attended delivery"
+  echo $(( $(date +%s) - 600 )) > "$state/.subsuper-escalations.since"
+  sleep 30 & session_pid=$!
+  session_identity=$(FM_STATE_OVERRIDE="$state" bash -c \
+    '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$session_pid") \
+    || fail "could not identify attended max-defer session"
+  printf '%s\n' "$session_pid" > "$state/.lock"
+  (
+    FM_SUPERVISION_DELIVERY_MODE=attended-codex
+    FM_SUPERVISION_SESSION_ID=codex-session
+    FM_SUPERVISION_SESSION_PID=$session_pid
+    FM_SUPERVISION_SESSION_PID_IDENTITY=$session_identity
+    WEDGE_ALARM_LAST_EPOCH=0
+    fm_pid_identity() {
+      [ "$1" = "$session_pid" ] && printf '%s' "$session_identity"
+    }
+    PATH="$fakebin:$PATH" FM_FAKE_COMPOSER="$dir/composer" FM_FAKE_SENT="$sent" \
+      LOG="$daemon_log" FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=captain:0 \
+      FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=60 FM_INJECT_CONFIRM_SLEEP=0.05 \
+      housekeeping "$state"
+  )
+  kill "$session_pid" 2>/dev/null || true
+  wait "$session_pid" 2>/dev/null || true
+  [ ! -s "$sent" ] || fail "attended max-defer typed into a pending captain composer"
+  [ -s "$state/.subsuper-inject-wedged" ] || fail "attended max-defer did not raise a durable alarm"
+  grep -F 'fm attended Codex inject WEDGED' "$state/.subsuper-inject-wedged" >/dev/null \
+    || fail "attended max-defer alarm did not identify its delivery owner"
+  grep -F 'ERROR: attended Codex escalation undelivered' "$daemon_log" >/dev/null \
+    || fail "attended max-defer did not emit an actionable owner-specific diagnostic"
+  [ -s "$state/.subsuper-escalations" ] || fail "attended max-defer discarded the delivery buffer"
+  pass "attended max-defer alarms and preserves an unconfirmed delivery"
+}
+
 # --- backend-independent active wedge alert ---------------------------------
 # These cover the 2026-07-10 overnight-incident fix: the max-defer wedge alarm's
 # ACTIVE alert channel must reach the captain even when the wedged pane and its
@@ -2739,6 +2810,8 @@ test_max_defer_pending_composer_alarms_without_typing
 test_normal_flush_clears_stale_wedge_marker
 test_below_max_defer_does_nothing
 test_max_defer_afk_inactive_does_not_flush_or_alarm
+test_attended_retirement_requires_drained_delivery
+test_max_defer_attended_owner_alarms
 test_wedge_alarm_library_mode_defaults_to_discard
 test_wake_helpers_replace_inherited_notifier_override
 test_wedge_alarm_discard_seam_fires_nothing

@@ -31,6 +31,7 @@ fm_sup_stat_mtime() {
 #   FM_SUP_WATCHER_FRESH  true/false - a watcher beacon within the grace window
 #   FM_SUP_BEACON_DESC    human-readable beacon age, for banners ("never" if absent)
 #   FM_SUP_QUEUE_PENDING  true/false - state/.wake-queue has unread records
+#   FM_SUP_ESCALATIONS_PENDING true/false - daemon delivery buffer is non-empty
 # grace-seconds defaults to $FM_GUARD_GRACE, then 300, matching fm-guard.sh.
 # Always returns 0; callers read the vars, or use fm_supervision_unhealthy below.
 fm_supervision_status() {
@@ -40,6 +41,7 @@ fm_supervision_status() {
   FM_SUP_WATCHER_FRESH=false
   FM_SUP_BEACON_DESC=never
   FM_SUP_QUEUE_PENDING=false
+  FM_SUP_ESCALATIONS_PENDING=false
 
   for meta in "$state"/*.meta; do
     [ -e "$meta" ] || continue
@@ -71,6 +73,8 @@ fm_supervision_status() {
 
   # shellcheck disable=SC2034 # Read by callers (fm-guard.sh) after sourcing.
   [ -s "$state/.wake-queue" ] && FM_SUP_QUEUE_PENDING=true
+  # shellcheck disable=SC2034 # Read by callers after sourcing.
+  [ -s "$state/.subsuper-escalations" ] && FM_SUP_ESCALATIONS_PENDING=true
   return 0
 }
 

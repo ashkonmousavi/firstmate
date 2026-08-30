@@ -71,10 +71,14 @@ test_predicate_queue_pending_flag() {
   mkdir -p "$state"
   fm_supervision_status "$state" 300
   [ "$FM_SUP_QUEUE_PENDING" = false ] || fail "empty/absent wake queue must not read as pending"
+  [ "$FM_SUP_ESCALATIONS_PENDING" = false ] || fail "empty/absent escalation buffer must not read as pending"
   printf 'record\n' > "$state/.wake-queue"
   fm_supervision_status "$state" 300
   [ "$FM_SUP_QUEUE_PENDING" = true ] || fail "a non-empty wake queue must read as pending"
-  pass "fm_supervision_status: FM_SUP_QUEUE_PENDING tracks state/.wake-queue"
+  printf 'delivery\n' > "$state/.subsuper-escalations"
+  fm_supervision_status "$state" 300
+  [ "$FM_SUP_ESCALATIONS_PENDING" = true ] || fail "a non-empty escalation buffer must read as pending"
+  pass "fm_supervision_status tracks pending durable wakes and escalation delivery"
 }
 
 test_predicate_x_mode_needs_supervision() {
@@ -206,8 +210,9 @@ run_hook_codex() {
   ln -sf /bin/bash "$fakebin/codex"
   # shellcheck disable=SC2016 # Expanded by the child shell from the exported fixture variables.
   CODEX_CASE_HOME="$home" CODEX_STOP_ACTIVE="$stop_active" CODEX_HOOK_COMMAND="$command" \
+    CODEX_LOCK_PID_OVERRIDE="${CODEX_LOCK_PID_OVERRIDE:-}" \
     "$fakebin/codex" -c '
-      printf "%s\n" "$$" > "$CODEX_CASE_HOME/state/.lock"
+      printf "%s\n" "${CODEX_LOCK_PID_OVERRIDE:-$$}" > "$CODEX_CASE_HOME/state/.lock"
       printf "{\"stop_hook_active\":%s,\"session_id\":\"codex-session\"}" \
         "$CODEX_STOP_ACTIVE" \
         | (cd "$CODEX_CASE_HOME" && CLAUDECODE=1 FM_HOME="$CODEX_CASE_HOME" \
@@ -486,6 +491,55 @@ EOF
   expect_code 2 "$status" "Codex Stop hook must fail closed on missing payload"
   assert_contains "$out" "FIRSTMATE CODEX STOP BLOCKED" "Codex prerequisite failure is not actionable"
   pass "Codex checkpoint expiry keeps Stop closed until one verified persistent successor exists"
+}
+
+test_codex_no_work_retirement_preserves_pending_delivery_and_foreign_owner() {
+  local dir out status foreign_pid calls
+  dir=$(make_primary_dir "$TMP_ROOT/hook-codex-retirement")
+  mkdir -p "$dir/.codex"
+  cp "$ROOT/.codex/hooks.json" "$dir/.codex/hooks.json"
+  cat > "$dir/bin/fm-afk-launch.sh" <<'EOF'
+#!/usr/bin/env bash
+set -u
+[ "${1:-}" = stop-attended-codex ] || exit 20
+[ "$#" -eq 3 ] || exit 21
+expected=$(
+  FM_STATE_OVERRIDE="$FM_HOME/state" bash -c '. "$1"; fm_pid_identity "$2"' \
+    _ "$FM_HOME/bin/fm-wake-lib.sh" "$2"
+) || exit 22
+[ "$2" = "$(cat "$FM_HOME/state/.lock")" ] || exit 23
+[ "$3" = "$expected" ] || exit 24
+printf 'stop\n' >> "$FM_HOME/retirement.calls"
+EOF
+  chmod +x "$dir/bin/fm-afk-launch.sh"
+
+  printf 'queued watcher wake\n' > "$dir/state/.wake-queue"
+  out=$(run_hook_codex "$dir" false); status=$?
+  expect_code 2 "$status" "Codex Stop must retain its successor while a durable wake is queued"
+  assert_contains "$out" "durable notifications are still queued" "queued-wake retirement diagnostic is not actionable"
+  assert_absent "$dir/retirement.calls" "queued wake reached attended stop"
+
+  : > "$dir/state/.wake-queue"
+  printf 'unconfirmed escalation\n' > "$dir/state/.subsuper-escalations"
+  out=$(run_hook_codex "$dir" true); status=$?
+  expect_code 2 "$status" "Codex Stop must retain its successor while escalation delivery is unconfirmed"
+  assert_absent "$dir/retirement.calls" "unconfirmed escalation reached attended stop"
+
+  : > "$dir/state/.subsuper-escalations"
+  sleep 30 & foreign_pid=$!
+  out=$(CODEX_LOCK_PID_OVERRIDE="$foreign_pid" run_hook_codex "$dir" true); status=$?
+  expect_code 0 "$status" "a read-only foreign-lock Codex session must not perform no-work cleanup"
+  [ -z "$out" ] || fail "foreign-lock no-work cleanup emitted output: $out"
+  assert_absent "$dir/retirement.calls" "foreign-lock session stopped another session's successor"
+  kill "$foreign_pid" 2>/dev/null || true
+  wait "$foreign_pid" 2>/dev/null || true
+
+  out=$(run_hook_codex "$dir" true); status=$?
+  expect_code 0 "$status" "an empty owned lifecycle must retire cleanly"
+  [ -z "$out" ] || fail "clean attended retirement emitted output: $out"
+  calls=$(wc -l < "$dir/retirement.calls" | tr -d '[:space:]')
+  [ "$calls" -eq 1 ] || fail "clean attended retirement invoked stop $calls times"
+  pass "Codex no-work retirement preserves pending delivery and foreign session ownership"
 }
 
 test_hook_loop_guard_allows_retry() {
@@ -1836,6 +1890,7 @@ test_hook_x_mode_only_blocks_in_default_mode
 test_hook_ignores_repo_state_when_fm_home_set
 test_hook_uses_state_override
 test_codex_checkpoint_expiry_requires_verified_successor
+test_codex_no_work_retirement_preserves_pending_delivery_and_foreign_owner
 test_hook_loop_guard_allows_retry
 test_hook_blocks_in_secondmate_own_home
 test_hook_silent_in_idle_secondmate_home

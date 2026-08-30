@@ -861,6 +861,65 @@ unit_away_start_retires_stale_attended_owner() {
   rm -rf "$st"
 }
 
+unit_attended_stop_is_session_identity_bound() {
+  local st session_pid session_identity daemon_pid lock marker
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-attended-stop-owner.XXXXXX")
+  mkdir -p "$st/state"
+  sleep 30 & session_pid=$!
+  session_identity=$(FM_STATE_OVERRIDE="$st/state" bash -c \
+    '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$session_pid") \
+    || fail "could not identify attended session fixture"
+  printf '%s' "$session_pid" > "$st/state/.lock"
+  marker="$st/signal"
+  bash -c '
+    trap "printf USR1 > \"$1\"; exit 0" USR1
+    while :; do sleep 0.2; done
+  ' _ "$marker" &
+  daemon_pid=$!
+  lock="$st/state/.supervise-daemon.lock"
+  mkdir -p "$lock"
+  printf '%s' "$daemon_pid" > "$lock/pid"
+  ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$lock/pid-identity" )
+  printf 'attended-codex\tcodex-session\t%s\t%s\ttmux\tcaptain:0\n' \
+    "$session_pid" "$session_identity" > "$lock/supervision-owner"
+  printf 'none\t-\tnative\n' > "$st/state/.afk-daemon-terminal"
+
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" "$LAUNCH" \
+    stop-attended-codex "$session_pid" wrong-identity >/dev/null 2>&1; then
+    fail "attended stop accepted a mismatched session identity"
+  fi
+  kill -0 "$daemon_pid" 2>/dev/null || fail "mismatched attended stop signaled the daemon"
+  [ ! -e "$marker" ] || fail "mismatched attended stop reached the daemon signal handler"
+  [ -e "$st/state/.afk-daemon-terminal" ] || fail "mismatched attended stop reconciled terminal ownership"
+
+  FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" "$LAUNCH" \
+    stop-attended-codex "$session_pid" "$session_identity" >/dev/null 2>&1 \
+    || fail "identity-matched attended stop was refused"
+  wait "$daemon_pid" 2>/dev/null || true
+  [ "$(cat "$marker" 2>/dev/null || true)" = USR1 ] \
+    || fail "identity-matched attended stop did not use planned retirement"
+  [ ! -e "$st/state/.afk-daemon-terminal" ] \
+    || fail "identity-matched attended stop retained terminal ownership"
+
+  printf 'none\t-\tnative\n' > "$st/state/.afk-daemon-terminal"
+  if FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" "$LAUNCH" \
+    stop-attended-codex "$session_pid" wrong-identity >/dev/null 2>&1; then
+    fail "stale-terminal reconciliation accepted a mismatched session identity"
+  fi
+  [ -e "$st/state/.afk-daemon-terminal" ] \
+    || fail "mismatched stale-terminal cleanup reconciled foreign ownership"
+  FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" "$LAUNCH" \
+    stop-attended-codex "$session_pid" "$session_identity" >/dev/null 2>&1 \
+    || fail "identity-matched stale-terminal reconciliation was refused"
+  [ ! -e "$st/state/.afk-daemon-terminal" ] \
+    || fail "identity-matched stale-terminal reconciliation retained terminal ownership"
+
+  kill "$session_pid" 2>/dev/null || true
+  wait "$session_pid" 2>/dev/null || true
+  rm -rf "$st"
+  pass "attended stop and reconciliation require the expected live session identity"
+}
+
 unit_clear_failure_aborts_entry() {
   local st
   st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-clear-fail.XXXXXX")
@@ -1061,6 +1120,7 @@ unit_stop_surfaces_afk_removal_failure
 unit_stop_confirms_daemon_exit
 unit_refresh_validates_record
 unit_away_start_retires_stale_attended_owner
+unit_attended_stop_is_session_identity_bound
 unit_clear_failure_aborts_entry
 unit_confirmed_absence_succeeds
 unit_incomplete_restore_retains_backup

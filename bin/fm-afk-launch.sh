@@ -40,7 +40,7 @@
 #                              Bind the same daemon lifecycle to this Codex
 #                              session and return only after its watcher owns
 #                              supervision.
-#   fm-afk-launch.sh stop-attended-codex
+#   fm-afk-launch.sh stop-attended-codex <session-lock-pid> <pid-identity>
 #                              Stop only an attended Codex owner; an active
 #                              away-mode owner keeps precedence.
 #
@@ -221,6 +221,20 @@ fm_afk_launch_owner_read() {
     case "$FM_AFK_OWNER_PID" in ''|*[!0-9]*) return 1 ;; esac
     [ -n "$FM_AFK_OWNER_IDENTITY" ] && [ "$FM_AFK_OWNER_IDENTITY" != - ] || return 1
   fi
+}
+
+fm_afk_launch_attended_owner_matches() {  # <session-lock-pid> <pid-identity>
+  local expected_pid=$1 expected_identity=$2 current_identity
+  case "$expected_pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ -n "$expected_identity" ] || return 1
+  [ "$(cat "$FM_AFK_LAUNCH_STATE/.lock" 2>/dev/null || true)" = "$expected_pid" ] \
+    || return 1
+  current_identity=$(fm_pid_identity "$expected_pid" 2>/dev/null) || return 1
+  [ "$current_identity" = "$expected_identity" ] || return 1
+  fm_afk_launch_owner_read || return 1
+  [ "$FM_AFK_OWNER_MODE" = attended-codex ] \
+    && [ "$FM_AFK_OWNER_PID" = "$expected_pid" ] \
+    && [ "$FM_AFK_OWNER_IDENTITY" = "$expected_identity" ]
 }
 
 fm_afk_launch_watcher_owned_by_daemon() {
@@ -794,11 +808,24 @@ fm_afk_launch_stop() {
   fm_afk_launch_stop_owned 1 any "away mode"
 }
 
-fm_afk_launch_stop_attended_codex() {
+fm_afk_launch_stop_attended_codex() {  # <session-lock-pid> <pid-identity>
+  local expected_pid=${1:-} expected_identity=${2:-}
   [ ! -e "$FM_AFK_LAUNCH_STATE/.afk" ] || return 0
   if ! daemon_lock_held_by_live_daemon; then
+    if ! daemon_lock_owner >/dev/null 2>&1 \
+      && [ ! -e "$FM_AFK_LAUNCH_RECORD" ]; then
+      return 0
+    fi
+    if ! fm_afk_launch_attended_owner_matches "$expected_pid" "$expected_identity"; then
+      fm_afk_launch_log "attended Codex owner does not match the expected session; refusing reconciliation"
+      return 1
+    fi
     fm_afk_launch_reconcile
     return
+  fi
+  if ! fm_afk_launch_attended_owner_matches "$expected_pid" "$expected_identity"; then
+    fm_afk_launch_log "attended Codex owner does not match the expected session; refusing stop"
+    return 1
   fi
   fm_afk_launch_stop_owned 0 attended-codex "attended Codex supervision"
 }
@@ -889,7 +916,7 @@ fm_afk_launch_main() {
     start-native) fm_afk_launch_start_native ;;
     stop) fm_afk_launch_stop ;;
     start-attended-codex) fm_afk_launch_start_attended_codex "${2:-}" "${3:-}" ;;
-    stop-attended-codex) fm_afk_launch_stop_attended_codex ;;
+    stop-attended-codex) fm_afk_launch_stop_attended_codex "${2:-}" "${3:-}" ;;
     reconcile) fm_afk_launch_reconcile ;;
     -h|--help|help) fm_afk_launch_usage ;;
     *) fm_afk_launch_usage >&2; return 2 ;;
