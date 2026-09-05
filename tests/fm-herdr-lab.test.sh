@@ -100,6 +100,47 @@ test_refuses_unsafe_names() {
   pass "fm-herdr-lab: names fail closed and require the lab prefix"
 }
 
+test_session_selector_precedes_native_agent_separator() {
+  local name="fm-lab-native-args-$$" fakebin log status=0 expected
+  fakebin="$TMP_ROOT/native-fakebin"
+  log="$TMP_ROOT/native-args.log"
+  mkdir -p "$fakebin"
+  cat > "$fakebin/herdr" <<'SH'
+#!/usr/bin/env bash
+set -u
+i=0
+for arg in "$@"; do
+  i=$((i + 1))
+  printf '%s\t%s\n' "$i" "$arg" >> "$FM_FAKE_NATIVE_LOG"
+done
+SH
+  chmod +x "$fakebin/herdr"
+  : > "$log"
+  PATH="$fakebin:$PATH" FM_FAKE_NATIVE_LOG="$log" \
+    fm_herdr_lab_cli "$name" agent start codex-live --kind codex --pane w1:p1 -- \
+      --dangerously-bypass-hook-trust -c 'model_reasoning_effort="low"' || status=$?
+  expect_code 0 "$status" "native agent run should reach Herdr"
+  expected=$(cat <<EOF
+1	agent
+2	start
+3	codex-live
+4	--kind
+5	codex
+6	--pane
+7	w1:p1
+8	--session
+9	$name
+10	--
+11	--dangerously-bypass-hook-trust
+12	-c
+13	model_reasoning_effort="low"
+EOF
+)
+  [ "$(cat "$log")" = "$expected" ] \
+    || fail "lab session selector crossed the native-agent separator or changed Codex arguments: $(tr '\n' '|' < "$log")"
+  pass "fm-herdr-lab: native agent arguments stay after -- while session isolation stays on Herdr"
+}
+
 test_provision_run_and_guarded_teardown() {
   local name='' line_count status=0 stop_line delete_line
   name="fm-lab-behavior-$$"
@@ -235,6 +276,7 @@ SH
 }
 
 test_refuses_unsafe_names
+test_session_selector_precedes_native_agent_separator
 test_provision_run_and_guarded_teardown
 test_missing_tripwire_blocks_destruction
 test_changed_default_trips_after_teardown

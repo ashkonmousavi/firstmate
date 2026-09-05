@@ -86,6 +86,11 @@
 #                                   supported as supervisor backends; the daemon
 #                                   refuses loudly at startup rather than trying
 #                                   tmux primitives against a non-tmux pane.
+#          FM_CODEX_ATTENDED_THREAD current Codex thread UUID. When set and
+#                                   away mode is off, this same daemon uses
+#                                   `codex queue` as a doorbell for actionable
+#                                   durable wakes. It never drains or acknowledges
+#                                   them; the prompted primary owns that work.
 #          FM_INJECT_SKIP           |-prefixes force-self-handle bypassing
 #                                   classification (default "heartbeat"); empty
 #                                   disables. Use sparingly: it overrides the
@@ -196,6 +201,7 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # pane.
 FM_SUPERVISOR_SUPPORTED_BACKENDS="tmux herdr"
 INJECT_SKIP_DEFAULT="heartbeat"
+FM_CODEX_DOORBELL_OUTSTANDING=${FM_CODEX_DOORBELL_OUTSTANDING:-0}
 STALE_ESCALATE_SECS_DEFAULT=240
 ESCALATE_BATCH_SECS_DEFAULT=90
 HEARTBEAT_SCAN_SECS_DEFAULT=300
@@ -1187,6 +1193,39 @@ window_for_task() {  # <task-key> [state]
 }
 
 # --- injection --------------------------------------------------------------
+# attended_codex_maybe_notify: ring the current Codex thread when the existing
+# durable queue contains work. This is deliberately only a doorbell: the
+# primary's normal fm-wake-drain.sh turn remains the sole presenter and
+# acknowledger, so task, decision, PR, merge, and process-event ownership never
+# enters this delivery path.
+#
+# One live daemon emits at most one doorbell until that queue is observed empty.
+# A crash can forget this in-memory receipt and repeat the notification while
+# the same durable event remains unacknowledged; the repeated typed operational
+# input is harmless because the queue, not the notification, is authoritative.
+# `codex queue` addresses the session directly and never reads or writes the TUI
+# composer. If a captain message arrives in the bounded race after this call,
+# Codex keeps that message queued and it takes control when delivered.
+attended_codex_maybe_notify() {  # <state> <codex-thread>
+  local state=$1 thread=$2 encoded
+  if [ ! -s "$state/.wake-queue" ]; then
+    FM_CODEX_DOORBELL_OUTSTANDING=0
+    return 0
+  fi
+  [ "$FM_CODEX_DOORBELL_OUTSTANDING" -ne 1 ] || return 0
+  [ -n "$thread" ] || { log "attended Codex doorbell failed: missing thread id"; return 1; }
+  command -v codex >/dev/null 2>&1 \
+    || { log "attended Codex doorbell failed: codex not found"; return 1; }
+  fm_operational_input_encode watcher \
+    "Action required. Run bin/fm-wake-drain.sh first, handle every presented item, then use its exact WAKE_ACK_REQUIRED command." \
+    encoded || return 1
+  if ! codex queue --thread "$thread" --message "$encoded" >/dev/null 2>&1; then
+    log "attended Codex doorbell failed for current thread; durable wakes retained"
+    return 1
+  fi
+  FM_CODEX_DOORBELL_OUTSTANDING=1
+}
+
 # inject_msg: send one escalation digest to the supervisor pane.
 # Returns 0 on successful inject (or empty buffer), non-zero if the pane is
 # gone, the supervisor is busy, afk is inactive, or the verified submit cannot
@@ -1489,8 +1528,9 @@ trim_log() {
 # ============================================================================
 
 fm_super_main() {
-  local STATE
+  local STATE CODEX_THREAD
   STATE="$(_state_root)"
+  CODEX_THREAD=${FM_CODEX_ATTENDED_THREAD:-}
   mkdir -p "$STATE"
 
   # Source the portable lock helpers (works on macOS where flock is absent).
@@ -1522,6 +1562,31 @@ fm_super_main() {
   fi
   echo "$$" > "$PIDFILE"
   fm_pid_identity "${BASHPID:-$$}" > "$LOCK/pid-identity" 2>/dev/null || true
+  if [ -n "$CODEX_THREAD" ]; then
+    case "$CODEX_THREAD" in
+      ????????-????-????-????-????????????) ;;
+      *)
+        echo "error: FM_CODEX_ATTENDED_THREAD must be the current Codex thread UUID" >&2
+        fm_lock_release "$LOCK" 2>/dev/null || true
+        rm -f "$PIDFILE" 2>/dev/null || true
+        exit 1
+        ;;
+    esac
+    case "$CODEX_THREAD" in
+      *[!A-Fa-f0-9-]*)
+        echo "error: FM_CODEX_ATTENDED_THREAD must be the current Codex thread UUID" >&2
+        fm_lock_release "$LOCK" 2>/dev/null || true
+        rm -f "$PIDFILE" 2>/dev/null || true
+        exit 1
+        ;;
+    esac
+    if ! printf 'codex-attended:%s\n' "$CODEX_THREAD" > "$LOCK/role"; then
+      echo "error: could not publish attended Codex daemon ownership" >&2
+      fm_lock_release "$LOCK" 2>/dev/null || true
+      rm -f "$PIDFILE" 2>/dev/null || true
+      exit 1
+    fi
+  fi
 
   # --- auto-discover the supervisor BACKEND (tmux vs herdr) first -----------
   # Priority: FM_SUPERVISOR_BACKEND override > $TMUX_PANE (tmux) > $HERDR_ENV=1
@@ -1664,6 +1729,15 @@ fm_super_main() {
       continue
     fi
 
+    # Attended Codex recovery is queue-led. A daemon restarted after a crash
+    # sees the still-unacknowledged row and may ring once again; after the
+    # primary's ordinary drain/ack empties the queue this becomes a silent
+    # in-memory rearm. Away mode continues through the unchanged classifier and
+    # injection path below.
+    if [ -n "$CODEX_THREAD" ] && ! afk_active "$STATE"; then
+      attended_codex_maybe_notify "$STATE" "$CODEX_THREAD" || true
+    fi
+
     # --- (re)start watcher if it has exited --------------------------------
     if [ -z "${WATCHER_PID:-}" ] || ! kill -0 "${WATCHER_PID:-}" 2>/dev/null; then
       if [ -n "${WATCHER_PID:-}" ]; then
@@ -1695,7 +1769,11 @@ fm_super_main() {
           continue
         fi
         log "wake: $reason"
-        if ! handle_durable_wakes "$reason" "$STATE"; then
+        if [ -n "$CODEX_THREAD" ] && ! afk_active "$STATE"; then
+          if ! attended_codex_maybe_notify "$STATE" "$CODEX_THREAD"; then
+            log "attended Codex doorbell was not delivered; durable wakes retained for retry"
+          fi
+        elif ! handle_durable_wakes "$reason" "$STATE"; then
           log "durable wake handling was not acknowledged; restarting for recovery"
         fi
         trim_log

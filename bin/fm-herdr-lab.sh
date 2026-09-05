@@ -13,7 +13,9 @@
 # Session names must begin with "fm-lab-" and can never be "default".
 # The name command sanitizes the label, caps it at 16 characters, and appends
 # process/random suffixes to keep generated socket paths short.
-# Every Herdr call made here carries a trailing --session <session>.
+# Every Herdr call made here carries --session <session>. It is trailing unless
+# a literal -- opens native-agent arguments, in which case it lands immediately
+# before that separator so it remains a Herdr global option.
 # The run command rejects caller-supplied --session flags, any leading option
 # before the subcommand, all session lifecycle operations, and every server
 # operation.
@@ -50,8 +52,17 @@ fm_herdr_lab_tripwire_path() { # <session>
 
 fm_herdr_lab_raw() { # <session> <herdr arguments...>
   local name=$1
+  local -a herdr_args=()
   shift
-  HERDR_SESSION="$name" herdr "$@" --session "$name"
+  while [ "$#" -gt 0 ]; do
+    if [ "$1" = -- ]; then
+      HERDR_SESSION="$name" herdr "${herdr_args[@]}" --session "$name" "$@"
+      return
+    fi
+    herdr_args+=("$1")
+    shift
+  done
+  HERDR_SESSION="$name" herdr "${herdr_args[@]}" --session "$name"
 }
 
 fm_herdr_lab_session_list() { # <session>
