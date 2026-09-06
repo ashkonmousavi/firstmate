@@ -10,7 +10,9 @@
 # The procedure is the one deploy/PROVISIONING.md and the recorded cutover
 # already establish: fetch the new version, prove the start-time requirements it
 # makes of the machine, put its sealed front end on the machine beside the live
-# one and prove the user the app runs as can read it, set the current version
+# one and prove the user the app runs as can read it, record every root it
+# creates or swaps in on the machine as a checkout git may read and prove that
+# user reads the deployed checkout's own commit, set the current version
 # aside, stop the app, check out the exact commit, swap the proved front end
 # into place, reinstall that one unit, verify the bundle, restart, and prove it
 # answers. Proving it answers polls each address for a bounded window rather
@@ -50,7 +52,16 @@
 #     That is asked of the staged copy, before anything is stopped, and it
 #     refuses on the paths that user cannot read and on nothing else: a check
 #     that cannot answer at all is a separate refusal, never reported as an
-#     unreadable release.
+#     unreadable release;
+#   - the user the app runs as still cannot read the deployed checkout's own
+#     commit after the machine has been told to trust that checkout. A checkout
+#     owned by somebody else is one git refuses - "dubious ownership" - and a
+#     unit that reads its own HEAD at start refuses to start on a tree that is
+#     otherwise perfectly fine. That is asked before anything is stopped, and
+#     the refusal names what git said. The trust entry it adds stays: it is the
+#     repair the checkout the machine is ALREADY serving needs, so that one
+#     refusal says the machine was told to trust the checkout rather than
+#     claiming nothing was touched.
 #
 # The fetch happens before the stop for the same reason: a version the machine
 # cannot even obtain must not be discovered after the app is already down.
@@ -63,7 +74,9 @@
 # it stopped being downloadable.
 #
 # It re-runs none of the start-time checks a deploy runs, and says so as it
-# goes. Those checks ask whether a version the machine has never run can start;
+# goes. It records the same trust entries and reports what the app's own account
+# reads, because both are repairs rather than gates, but refuses on neither.
+# Those checks ask whether a version the machine has never run can start;
 # a rollback restores the exact tree and front end this machine already served,
 # and a check that answered no would only keep that version off a site that is
 # already down. The fetch is attempted and not required, for the same reason:
@@ -319,6 +332,7 @@ BUNDLE_NEEDED=0
 SAVED_BUNDLE=0
 STAGE_DIR=''
 READABLE_ERR=''
+IDENTITY_ERR=''
 
 # Every scratch copy goes away on every exit, refusals included, so a refused
 # deploy leaves nothing of its own behind on either side. The staged front end
@@ -329,6 +343,7 @@ cleanup() {
   [ "$PRECHECK_MADE" -eq 0 ] || fm_deploy_ssh "sudo rm -rf '$PRECHECK_DIR'" </dev/null >/dev/null 2>&1 || true
   [ -z "$STAGE_DIR" ] || fm_deploy_ssh "sudo rm -rf '$STAGE_DIR'" </dev/null >/dev/null 2>&1 || true
   [ -z "$READABLE_ERR" ] || rm -f "$READABLE_ERR"
+  [ -z "$IDENTITY_ERR" ] || rm -f "$IDENTITY_ERR"
 }
 trap cleanup EXIT
 
@@ -490,6 +505,39 @@ prove_readable() {
   return 0
 }
 
+# prove_identity <path> <expected-sha>
+# Answers exactly one question - does the account the unit runs as read <path>'s
+# own commit, and read the same one the machine does - and returns 0 for yes, 1
+# for no. IDENTITY_WHY carries the evidence for a no, which is git's own
+# sentence when git is what refused.
+#
+# Root already answered this side of it: DEPLOYED_SHA came from the same read
+# run as root and had to be a real commit before anything got this far, and
+# nothing has touched HEAD since. So there is no second root read here, and no
+# third verdict either: one question, one comparison, and whatever went wrong is
+# named in the refusal rather than sorted into a category of its own.
+IDENTITY_WHY=''
+prove_identity() {
+  local path=$1 expected=$2 out rc=0
+  IDENTITY_ERR=$(mktemp "${TMPDIR:-/tmp}/fm-deploy-identity.XXXXXX") \
+    || { IDENTITY_WHY='this home could not make room to read what the check said'; return 1; }
+  out=$(fm_deploy_ssh "$(fm_deploy_as_user "$UNIT_USER" "git -C '$path' rev-parse HEAD")" \
+    </dev/null 2>"$IDENTITY_ERR") || rc=$?
+  IDENTITY_WHY=$(head -3 "$IDENTITY_ERR" | tr '\n' ' ')
+  rm -f "$IDENTITY_ERR"
+  IDENTITY_ERR=''
+  if [ "$rc" -ne 0 ]; then
+    IDENTITY_WHY=${IDENTITY_WHY:-it gave no reason}
+    return 1
+  fi
+  if [ "$out" != "$expected" ]; then
+    IDENTITY_WHY="it reads ${out:-nothing} where the machine reads $expected"
+    return 1
+  fi
+  IDENTITY_WHY=''
+  return 0
+}
+
 FRONT_END_UNPROVED=''
 if [ "$BUNDLE_NEEDED" -eq 1 ]; then
   # Staged beside the live front end rather than over it: same filesystem, so
@@ -517,6 +565,59 @@ elif [ -n "$FRONT_END_UNPROVED" ] && [ -n "$UNIT_USER" ]; then
   # proved good must not look the same.
   printf 'Whether %s can read the front end for %s is not proved first: %s.\n' \
     "$UNIT_USER" "$TARGET_SHA" "$FRONT_END_UNPROVED"
+fi
+
+# --- prove the account the app runs as reads this checkout's identity ---------
+# The deployed checkout is root-owned while the unit runs as its own service
+# user, and git refuses a repository owned by somebody else. A unit that reads
+# its own HEAD at start then refuses to start on a tree that is perfectly fine,
+# and no release fixes it, because the missing piece is the machine's own git
+# configuration - missing for every start ever asked of it, so the failure is
+# invisible until something actually asks.
+#
+# So every root this tool creates or swaps in on the machine is recorded as one
+# git may read - the deployed checkout and the rollback root alike - and then
+# the read is proved from the only perspective that decides whether the app
+# starts. Nothing under the rollback root is a checkout today: it holds
+# set-aside front ends and read-only extracts, so there is no identity there to
+# read, and its entry is what a checkout appearing there would need.
+#
+# The entry is the one thing written on the machine before the stop that is not
+# taken back on the way out, and deliberately so: it repairs the machine's own
+# configuration for the checkout it is ALREADY serving, it is additive,
+# idempotent, and reversible with `git config --system --unset`, and a refusal
+# after it leaves the running version serving and the machine better off than it
+# was found. A refusal here says exactly that rather than claiming nothing was
+# touched.
+IDENTITY_DETAIL="identity read not checked"
+for identity_root in "$CO" "$FM_DEPLOY_TGT_rollback_root"; do
+  if ! fm_deploy_safe_directory_add "$identity_root"; then
+    if [ "$ROLLBACK" -eq 1 ]; then
+      printf 'The machine would not record %s as a checkout its git may read; %s is a version it already ran, so the rollback goes on.\n' \
+        "$identity_root" "$TARGET_SHA" >&2
+    else
+      refuse "could not record $identity_root on the machine as a checkout its git may read, so the user $UNIT runs as cannot be proved able to read it. $PROJECT is still serving $DEPLOYED_SHA"
+    fi
+  fi
+done
+
+if [ -z "$UNIT_USER" ]; then
+  IDENTITY_DETAIL="identity read not checked ($UNIT runs as root)"
+  printf 'Whether the checkout at %s reads its own commit as the app does is not proved: %s runs as root, which git never refuses.\n' \
+    "$CO" "$UNIT"
+elif prove_identity "$CO" "$DEPLOYED_SHA"; then
+  IDENTITY_DETAIL="identity read at $CO by $UNIT_USER"
+  printf 'The checkout at %s reads its own commit as %s, the user %s runs as.\n' \
+    "$CO" "$UNIT_USER" "$UNIT"
+elif [ "$ROLLBACK" -eq 1 ]; then
+  # Same reason the start-time checks are skipped on a rollback: a refusal here
+  # would only keep a version this machine already served off a site that is
+  # already down.
+  IDENTITY_DETAIL="identity at $CO unreadable by $UNIT_USER: $IDENTITY_WHY"
+  printf '%s, the user %s runs as, still does not read the checkout at %s: %s. %s is a version this machine already ran, so the rollback goes on.\n' \
+    "$UNIT_USER" "$UNIT" "$CO" "$IDENTITY_WHY" "$TARGET_SHA" >&2
+else
+  refuse "$UNIT_USER, the user $UNIT runs as, cannot read the checkout at $CO: $IDENTITY_WHY. The machine was told to trust that checkout and nothing else about it was changed; $PROJECT is still serving $DEPLOYED_SHA"
 fi
 
 # --- perform the update -------------------------------------------------------
@@ -577,7 +678,7 @@ HEALTH_PROBE_DETAIL="health answered $FM_DEPLOY_PROBE_CODE after ${FM_DEPLOY_PRO
 fm_deploy_wait_for_code "$FM_DEPLOY_TGT_public_expect" "$FM_DEPLOY_HEALTH_WINDOW_SECONDS" "$FM_DEPLOY_HEALTH_INTERVAL_SECONDS" \
   curl -s -o /dev/null -w '%{http_code}' --max-time 25 "$FM_DEPLOY_TGT_public_url" \
   || step_failed "the sign-in protected address answered $FM_DEPLOY_PROBE_CODE instead of $FM_DEPLOY_TGT_public_expect after waiting ${FM_DEPLOY_PROBE_ELAPSED}s"
-PROBE_DETAIL="$HEALTH_PROBE_DETAIL; public answered $FM_DEPLOY_PROBE_CODE after ${FM_DEPLOY_PROBE_ELAPSED}s"
+PROBE_DETAIL="$HEALTH_PROBE_DETAIL; public answered $FM_DEPLOY_PROBE_CODE after ${FM_DEPLOY_PROBE_ELAPSED}s; $IDENTITY_DETAIL"
 
 if [ "$ROLLBACK" -eq 1 ]; then
   ledger_append rolled-back "$DEPLOYED_SHA" "$TARGET_SHA" "$AUTHORITY" "restored the version the last attempt came from ($PROBE_DETAIL)"

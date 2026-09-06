@@ -30,6 +30,14 @@
 #       working directory
 #   (g) a rollback after a failed deploy ends with the previous version running
 #       and answering, and re-runs none of the start-time checks
+#   (h) every root the deploy creates or swaps in is recorded as a checkout the
+#       machine's git may read, before anything stops, and the account the app
+#       runs as is proved to read the deployed checkout's own commit; the ledger
+#       records that outcome
+#   (i) a root the machine already carries an entry for is not recorded twice
+#   (j) a rollback records the same roots and reports the same read, but refuses
+#       on neither: it still puts the previous version back, and says in the
+#       ledger what that read found
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -139,6 +147,20 @@ case "\$cmd" in
     ;;
 esac
 case "\$cmd" in
+  # The system-wide list of checkouts this machine's git may read. git exits 1
+  # for a key the machine does not carry, and that is every machine before its
+  # first deploy, so it is what a case gets unless it says otherwise.
+  *'--get-all safe.directory'*)
+    [ -n "\${FMTEST_SAFE_DIRS:-}" ] || exit 1
+    for d in \${FMTEST_SAFE_DIRS}; do printf '%s\n' "\$d"; done ;;
+  # The account the unit runs as reading the deployed checkout's own commit.
+  # FMTEST_IDENTITY_REFUSED is how a case says the machine's git still refuses
+  # that account the checkout, in git's own words. Above the general read below,
+  # which answers for whoever asks.
+  *'sudo -u '*'rev-parse HEAD'*)
+    [ -z "\${FMTEST_IDENTITY_REFUSED:-}" ] \
+      || { printf "fatal: detected dubious ownership in repository at '/opt/demo'\n" >&2; exit 128; }
+    printf '%s\n' "\${FMTEST_HOST_SHA:-$DEPLOYED}" ;;
   *'rev-parse HEAD'*) printf '%s\n' "\${FMTEST_HOST_SHA:-$DEPLOYED}" ;;
   *'/proc/locks'*)    printf '%s\n' "\${FMTEST_RUN_STATE:-idle}" ;;
   # The restart above can win the race with the app's own bind, in which case a
@@ -520,6 +542,80 @@ test_record_live_catches_the_record_up_without_touching_the_machine() {
   pass "--record-live catches the record up on a hand-restored version, and refuses to record one that is not live"
 }
 
+test_every_root_it_touches_is_recorded_as_a_checkout_git_may_read() {
+  local out rc=0 entry stop
+  make_case identity-entries
+  # A root-owned checkout read by a service user is one git refuses over who
+  # owns it, so the deploy records every root it creates or swaps in - the
+  # deployed checkout and the rollback root alike - and then proves the read
+  # from the account whose refusal would keep the app from starting.
+  #
+  # This fixture is a machine carrying no entries at all, where asking for them
+  # is itself a nonzero answer: the first deploy any host ever gets.
+  out=$(run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -eq 0 ] || fail "identity-entries: the deploy did not complete: $out"
+  assert_grep "add safe.directory '/opt/demo'" "$SSH_LOG" \
+    "identity-entries: the deployed checkout was never recorded as one git may read"
+  assert_grep "add safe.directory '/var/lib/demo-deploy/rollback'" "$SSH_LOG" \
+    "identity-entries: the rollback root was never recorded as one git may read"
+  # Recorded while the old version is still serving, like every other answer
+  # this tool can get before it stops anything.
+  entry=$(step_line "add safe.directory '/var/lib/demo-deploy/rollback'")
+  stop=$(step_line 'systemctl stop')
+  [ -n "$entry" ] && [ -n "$stop" ] && [ "$entry" -lt "$stop" ] \
+    || fail "identity-entries: the roots were recorded after the app had already been stopped (entry=$entry stop=$stop)"
+  # The proof is the service account's own read, run from a directory that
+  # account can get back to.
+  assert_grep "cd / && sudo -u 'demo' git -C '/opt/demo' rev-parse HEAD" "$SSH_LOG" \
+    "identity-entries: the app's own account never read the checkout's commit"
+  assert_contains "$out" "reads its own commit as demo" identity-entries
+  assert_grep 'identity read at /opt/demo by demo' "$HOME_DIR/state/deploy-ledger/demo.jsonl" \
+    "identity-entries: the ledger does not record what the identity check found"
+  pass "every root the deploy touches is recorded as a checkout git may read, and the app's own account is proved to read the deployed one"
+}
+
+test_a_rollback_reports_an_unreadable_checkout_instead_of_refusing() {
+  local out rc=0 ledger
+  make_case identity-rollback
+  # The one path where refusing is the wrong answer: the site is already down,
+  # and a version this machine already served is waiting to go back on it. The
+  # trust entry is still recorded and the read is still reported, because both
+  # are repairs rather than gates.
+  out=$(FMTEST_HEALTH=503 run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -ne 0 ] || fail "identity-rollback: the unhealthy deploy did not fail"
+  ledger="$HOME_DIR/state/deploy-ledger/demo.jsonl"
+
+  : > "$SSH_LOG"
+  rc=0
+  out=$(FMTEST_HOST_SHA="$PLAIN" FMTEST_GH_DOWNLOAD_FAILS=1 FMTEST_IDENTITY_REFUSED=1 \
+    run_deploy demo --rollback) || rc=$?
+  [ "$rc" -eq 0 ] || fail "identity-rollback: a read it only reports on refused the rollback: $out"
+  assert_grep "checkout --detach '$DEPLOYED'" "$SSH_LOG" \
+    "identity-rollback: the machine was not returned to the version the failed deploy came from"
+  assert_grep "add safe.directory '/opt/demo'" "$SSH_LOG" \
+    "identity-rollback: the rollback skipped the repair the checkout needs"
+  assert_contains "$out" "does not read the checkout at /opt/demo" identity-rollback
+  assert_contains "$out" "is live at $DEPLOYED" identity-rollback
+  assert_grep 'identity at /opt/demo unreadable by demo' "$ledger" \
+    "identity-rollback: the ledger does not record what the read found"
+  pass "a rollback records the same roots and reports an unreadable checkout without refusing"
+}
+
+test_a_root_the_machine_already_trusts_is_not_recorded_twice() {
+  local out rc=0
+  make_case identity-entries-present
+  # The entry is additive, so re-adding it on every deploy would grow the
+  # machine's configuration by two lines a day. It is asked for only when the
+  # machine does not already carry it.
+  out=$(FMTEST_SAFE_DIRS='/opt/demo /var/lib/demo-deploy/rollback' run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -eq 0 ] || fail "identity-entries-present: the deploy did not complete: $out"
+  assert_no_grep 'add safe.directory' "$SSH_LOG" \
+    "identity-entries-present: a root the machine already trusts was recorded again"
+  assert_grep '"result":"deployed"' "$HOME_DIR/state/deploy-ledger/demo.jsonl" \
+    "identity-entries-present: the deploy was not recorded"
+  pass "a root the machine already carries an entry for is not recorded a second time"
+}
+
 test_a_clean_range_deploys_in_the_documented_order
 test_the_completed_deploy_is_recorded
 test_the_precheck_runs_before_the_stop_and_only_on_host_owned_files
@@ -532,3 +628,6 @@ test_rollback_targets_the_version_the_last_deploy_came_from
 test_an_unhealthy_restart_is_a_failed_deploy_not_a_live_one
 test_a_health_probe_that_wins_the_bind_race_on_retry_still_deploys
 test_a_health_probe_that_never_answers_fails_within_its_window
+test_every_root_it_touches_is_recorded_as_a_checkout_git_may_read
+test_a_root_the_machine_already_trusts_is_not_recorded_twice
+test_a_rollback_reports_an_unreadable_checkout_instead_of_refusing
