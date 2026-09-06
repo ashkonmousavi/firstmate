@@ -25,6 +25,9 @@ set -u
 . "$ROOT/bin/fm-control-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-trace-context-lib.sh"
+# Validates a relaunched task's merge poll with the same code the watcher uses.
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-pr-lib.sh"
 
 CONTROL="$ROOT/bin/fm-control.sh"
 SPAWN="$ROOT/bin/fm-spawn.sh"
@@ -206,6 +209,39 @@ meta_field() {  # <case-dir> <id> <key>
   grep "^$3=" "$1/home/state/$2.meta" | tail -1 | cut -d= -f2-
 }
 
+meta_mode() {  # <case-dir> <id>
+  fm_pr_file_mode "$1/home/state/$2.meta"
+}
+
+# A gh that answers the two fields bin/fm-pr-check.sh reads: the PR's head
+# branch (its branch-identity check) and its head commit (recorded as pr_head=).
+make_gh_stub() {  # <case-dir>
+  cat > "$1/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *headRefName*) printf '%s\n' "${FM_TEST_GH_BRANCH:-fm/task}" ;;
+  *headRefOid*) printf '%s\n' "${FM_TEST_GH_HEAD:-}" ;;
+esac
+exit 0
+SH
+  chmod +x "$1/fakebin/gh"
+}
+
+# Record a PR through the real recording path, so the poll artifacts under test
+# are the ones firstmate actually arms rather than hand-built stand-ins.
+arm_merge_poll() {  # <case-dir> <id> <pr-url>
+  local dir=$1 id=$2 url=$3
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+    FM_TEST_GH_BRANCH="fm/$id" \
+    FM_TEST_GH_HEAD=0123456789abcdef0123456789abcdef01234567 \
+    "$ROOT/bin/fm-pr-check.sh" "$id" "$url" > "$dir/pr-check.out" 2>&1 \
+    || fail "arming the merge poll failed: $(cat "$dir/pr-check.out")"
+}
+
+poll_armed() {  # <case-dir> <id>
+  fm_pr_poll_artifacts_valid "$1/home/state" "$2" "$ROOT/bin/fm-pr-poll.sh"
+}
+
 journal_field() {  # <case-dir> <id> <key>
   grep "^$3=" "$1/home/state/$2.control-relaunch" | tail -1 | cut -d= -f2-
 }
@@ -348,6 +384,31 @@ test_relaunch_preserves_durable_task_metadata() {
   [ "$(meta_field "$dir" rl19 decisions_reviewed)" = 1 ] \
     || fail "the task decision state must survive relaunch"
   pass "fm-control relaunch: durable task metadata survives replacement launch publication"
+}
+
+# A relaunched task must keep polling the PR it already reported. The poll's
+# validator re-reads the task record, so any lifecycle key the relaunch writes
+# and any private mode it drops silently retires the poll: the merge lands and
+# nothing notices. These two defects are independent - restoring the mode alone
+# does not restore validity - so this arms a real poll through the real
+# recording path and checks both after the relaunch.
+test_relaunch_keeps_the_recorded_merge_poll_armed() {
+  local dir out rc
+  dir=$(new_case merge-poll rl42)
+  add_ship_task "$dir" rl42 claude
+  make_gh_stub "$dir"
+  arm_merge_poll "$dir" rl42 https://github.com/example/repo/pull/42
+  poll_armed "$dir" rl42 || fail "the fixture did not arm a valid merge poll"
+
+  out=$(run_control "$dir" rl42 relaunch --note "continuing while the PR is open"); rc=$?
+  expect_code 0 "$rc" "a relaunch with a recorded PR should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl42 pr)" = "https://github.com/example/repo/pull/42" ] \
+    || fail "the task PR must survive relaunch"
+  poll_armed "$dir" rl42 \
+    || fail "relaunch invalidated the merge poll: $(cat "$dir/home/state/rl42.meta")"
+  [ "$(meta_mode "$dir" rl42)" = 600 ] \
+    || fail "relaunch published the task record at mode $(meta_mode "$dir" rl42), not 600"
+  pass "fm-control relaunch: a recorded merge poll stays armed and the record stays private"
 }
 
 test_relaunch_serializes_concurrent_durable_metadata_publication() {
@@ -1498,6 +1559,7 @@ test_relaunch_moves_a_drifted_item_back_in_flight() {
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
 test_relaunch_preserves_durable_task_metadata
+test_relaunch_keeps_the_recorded_merge_poll_armed
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_the_progress_note_to_the_instructions

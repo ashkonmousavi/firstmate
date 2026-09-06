@@ -357,6 +357,58 @@ UNSAFE_LIFECYCLE_IDS=(
   'task$a'
 )
 
+# A task record's pr= block is written last, so a lifecycle key a later writer
+# appends lands after it. bin/fm-pr-lib.sh owns the fixed set of keys allowed
+# there: every key checked below is appended post-block by a real writer, and a
+# record carrying one must still read as a valid PR identity, or that task's
+# merge poll is refused on every subsequent watcher pass and the merge lands
+# unnoticed. The guard itself stays tight - a spawn-owned key after the block
+# means a duplicated or corrupted head, and is still refused.
+test_lifecycle_keys_after_the_pr_block() {
+  local dir meta url head key all=''
+  dir=$(make_case lifecycle-keys)
+  meta="$dir/home/state/task-a.meta"
+  url=https://github.com/my-org/repo/pull/9
+  head=0123456789abcdef0123456789abcdef01234567
+  for key in \
+    x_request=request-9 \
+    x_request_ts=1700000000 \
+    x_followups=0 \
+    x_platform=x \
+    x_reply_max_chars=280 \
+    traceparent=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01 \
+    control_relaunch_tx=236789.20260906T202237Z.24229 \
+    decisions_reviewed=1 \
+    decision_keys=first-call,second-call
+  do
+    write_task_meta "$dir"
+    printf 'pr=%s\npr_head=%s\n%s\n' "$url" "$head" "$key" >> "$meta"
+    fm_pr_metadata_identity_parse "$meta" \
+      || fail "a record carrying $key after its pr block was refused"
+    [ "$FM_PR_META_URL" = "$url" ] || fail "$key changed the parsed PR identity"
+    all="$all$key"$'\n'
+  done
+  write_task_meta "$dir"
+  printf 'pr=%s\npr_head=%s\n%s' "$url" "$head" "$all" >> "$meta"
+  fm_pr_metadata_identity_parse "$meta" \
+    || fail "a record carrying every lifecycle key after its pr block was refused"
+  [ "$FM_PR_META_URL" = "$url" ] || fail "the lifecycle keys changed the parsed PR identity"
+
+  for key in \
+    window=firstmate:fm-other \
+    worktree=/tmp/elsewhere \
+    harness=claude \
+    spawn_gen=s1700000000.1.2 \
+    prerequisite_pr=https://github.com/my-org/repo/pull/8
+  do
+    write_task_meta "$dir"
+    printf 'pr=%s\npr_head=%s\n%s\n' "$url" "$head" "$key" >> "$meta"
+    ! fm_pr_metadata_identity_parse "$meta" \
+      || fail "a record with $key after its pr block was accepted"
+  done
+  pass "a task record stays a valid PR identity across every lifecycle key written after its pr block"
+}
+
 test_parser_matrix() {
   local id row url owner repo number
   while IFS='|' read -r url owner repo number; do
@@ -2135,6 +2187,7 @@ test_gitlab_merged_poll_retires() {
 }
 
 test_parser_matrix
+test_lifecycle_keys_after_the_pr_block
 test_gitlab_merge_watch
 test_merged_poll_retires_once
 test_merged_poll_reregistration_after_notification_is_absorbed

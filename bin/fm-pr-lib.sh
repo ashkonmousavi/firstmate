@@ -323,6 +323,22 @@ fm_pr_regular_destination_on_device_or_absent() {
   [ ! -e "$path" ] || [ "$(fm_pr_file_device "$path")" = "$device" ]
 }
 
+# A task record's pr= block is written last (bin/fm-pr-check.sh), so anything
+# following it is either a lifecycle key a later writer appended or evidence
+# that the spawn-owned head was duplicated into the tail. Only the first is
+# legitimate, so this parser - not each writer - owns the fixed set of keys a
+# post-spawn writer may append after the block. Adding a new post-spawn task
+# record key means adding it here too; without that, the key silently invalidates
+# the record and the task's merge poll stops. Every key below is written after
+# the block by a writer that does not rewrite it:
+#   x_request, x_request_ts, x_followups, x_platform, x_reply_max_chars
+#                                          bin/fm-x-lib.sh's fmx_meta_link_set
+#   traceparent                            bin/fm-spawn.sh's spawn_record_traceparent
+#   control_relaunch_tx                    bin/fm-spawn.sh's relaunch record
+#   decisions_reviewed, decision_keys      bin/fm-captain-hold.sh's complete
+# None of this parser's callers reads a parse failure as proof that a lifecycle
+# key is absent; they compare the parsed PR identity against the poll sidecar,
+# the registration, or the retirement receipt.
 fm_pr_metadata_identity_parse() {
   local file=$1 line value pr_count=0 seen_pr=0 post_pr_invalid=0
   FM_PR_META_PROVIDER=
@@ -353,7 +369,8 @@ fm_pr_metadata_identity_parse() {
           fm_pr_head_valid "$value" || post_pr_invalid=1
         fi
         ;;
-      x_request=*|x_request_ts=*|x_followups=*|x_platform=*|x_reply_max_chars=*)
+      x_request=*|x_request_ts=*|x_followups=*|x_platform=*|x_reply_max_chars=*|\
+      traceparent=*|control_relaunch_tx=*|decisions_reviewed=*|decision_keys=*)
         ;;
       *)
         [ "$seen_pr" -eq 0 ] || post_pr_invalid=1

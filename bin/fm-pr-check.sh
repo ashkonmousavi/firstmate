@@ -71,8 +71,10 @@ if [ "$PREREQUISITE" -eq 1 ]; then
   # task's own delivery. No pr_head-equivalent is captured here: nothing reads
   # it, since the whole point of prerequisite_pr= is that no landed test
   # consults it. prerequisite_pr= is written strictly before any existing
-  # pr=/pr_head=/x_* tail so fm_pr_metadata_identity_parse's exactly-one-pr=
-  # invariant (relied on by the poll/retirement paths below) still holds for a
+  # pr= tail because fm_pr_metadata_identity_parse rejects a record whose pr=
+  # block is followed by anything outside its fixed lifecycle key set, and
+  # prerequisite_pr= is deliberately not in that set: nothing appends it after
+  # the block, so keeping it out keeps the guard as tight as it can be for a
   # task that has already recorded its own real PR.
   META_TMP=
   META_LOCK=

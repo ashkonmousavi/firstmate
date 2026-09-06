@@ -487,12 +487,23 @@ fm_backlog_record_remove() {
   return 0
 }
 
+# Every record published here - a task record or a pending-close record - is
+# private home state under state/. Publication is a rename, which carries the
+# staged file's own mode to the target, so a caller that staged with a plain
+# redirection under the ambient umask would otherwise downgrade a mode-0600
+# record to whatever that umask allows. This helper is the single owner of that
+# mode: it sets 0600 on the staged record before the rename, so no caller has to
+# remember, and it refuses rather than publishing a record it could not confine.
 fm_backlog_record_publish() {
   local source=$1 target=$2 label=$3 root=$4
   fm_backlog_record_present "$source" "$label staged record" "$root" || return 1
   fm_backlog_record_parent_authorized "$target" "$label target" "$root" || return 1
   if [ -e "$target" ] || [ -L "$target" ]; then
     fm_backlog_record_present "$target" "$label target" "$root" || return 1
+  fi
+  if ! chmod 0600 "$source" 2>/dev/null; then
+    FM_BACKLOG_TRANSITION_ERROR="$label staged record could not be confined to its owner at $source"
+    return 1
   fi
   if ! mv -f "$source" "$target" 2>/dev/null || ! fm_backlog_record_present "$target" "$label" "$root"; then
     [ -n "$FM_BACKLOG_TRANSITION_ERROR" ] \
