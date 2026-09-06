@@ -23,6 +23,10 @@
 #       own working directory
 #   (e4) a front end the user the app runs as cannot read refuses before
 #       stopping anything, so the app is still serving the old version
+#   (e5) a deployed checkout whose own commit that user still cannot read after
+#       the machine is told to trust it refuses before stopping anything, in
+#       git's own words, and says what it did change rather than claiming it
+#       changed nothing
 #   (f) a deploy target that is missing a key, that names an unknown key, or
 #       that carries shell metacharacters is refused rather than partly used
 #   (g) every refusal is recorded in the durable ledger
@@ -150,6 +154,14 @@ case "\$cmd" in
     ;;
 esac
 case "\$cmd" in
+  # The account the unit runs as reading the deployed checkout's own commit.
+  # FMTEST_IDENTITY_REFUSED is how a case says the machine's git still refuses
+  # that account the checkout, in git's own words. It has to sit above the
+  # general read below, which answers for whoever asks.
+  *'sudo -u '*'rev-parse HEAD'*)
+    [ -z "\${FMTEST_IDENTITY_REFUSED:-}" ] \
+      || { printf "fatal: detected dubious ownership in repository at '/opt/demo'\n" >&2; exit 128; }
+    printf '%s\n' "\${FMTEST_HOST_SHA:-$DEPLOYED}" ;;
   *'rev-parse HEAD'*) printf '%s\n' "\${FMTEST_HOST_SHA:-$DEPLOYED}" ;;
   *'/proc/locks'*)    printf '%s\n' "\${FMTEST_RUN_STATE:-idle}" ;;
   *'http_code'*)      printf '%s\n' "\${FMTEST_HEALTH:-200}" ;;
@@ -359,6 +371,31 @@ test_a_front_end_the_service_user_cannot_read_refuses_before_touching_the_machin
   assert_grep '"result":"refused"' "$HOME_DIR/state/deploy-ledger/demo.jsonl" \
     "unreadable-front-end: the refusal was not recorded in the ledger"
   pass "a front end the app's own user cannot read refuses before anything on the machine changes"
+}
+
+test_a_checkout_the_service_user_cannot_read_refuses_before_touching_the_machine() {
+  local out rc=0
+  make_case unreadable-checkout-identity
+  # The deployed checkout is root-owned while the unit runs as its own service
+  # user, so git refuses that user the checkout - "dubious ownership" - and a
+  # unit that reads its own HEAD at start refuses to start with it. The machine
+  # is told to trust the checkout first; a read that still fails after that is a
+  # refusal, taken while the old version is still serving.
+  out=$(FMTEST_GH_RC=0 FMTEST_IDENTITY_REFUSED=1 run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -ne 0 ] || fail "unreadable-checkout-identity: deployed onto a checkout the app cannot read its own commit from"
+  assert_contains "$out" "dubious ownership" "unreadable-checkout-identity"
+  assert_contains "$out" "demo, the user demo-app runs as" "unreadable-checkout-identity"
+  # The trust entry is the repair the live checkout needs, so it is made and
+  # kept even when the read after it still fails. The refusal must say so
+  # rather than claim the machine was left untouched.
+  assert_grep "add safe.directory '/opt/demo'" "$SSH_LOG" \
+    "unreadable-checkout-identity: the machine was never told to trust the checkout it is already serving"
+  assert_contains "$out" "cannot read the checkout at /opt/demo" "unreadable-checkout-identity"
+  assert_contains "$out" "still serving" "unreadable-checkout-identity"
+  assert_machine_untouched unreadable-checkout-identity
+  assert_grep '"result":"refused"' "$HOME_DIR/state/deploy-ledger/demo.jsonl" \
+    "unreadable-checkout-identity: the refusal was not recorded in the ledger"
+  pass "a checkout whose own commit the app's user cannot read refuses before anything on the machine is stopped"
 }
 
 test_a_broken_deploy_target_is_refused_rather_than_partly_used() {
@@ -663,6 +700,7 @@ test_an_unreadable_run_state_refuses
 test_an_unobtainable_bundle_refuses_before_touching_the_machine
 test_an_unmet_host_requirement_refuses_before_touching_the_machine
 test_a_front_end_the_service_user_cannot_read_refuses_before_touching_the_machine
+test_a_checkout_the_service_user_cannot_read_refuses_before_touching_the_machine
 test_a_broken_deploy_target_is_refused_rather_than_partly_used
 test_the_merge_trigger_is_inert_without_a_policy
 test_the_merge_trigger_never_deploys_a_reserved_range

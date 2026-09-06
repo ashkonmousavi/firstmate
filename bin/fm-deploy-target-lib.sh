@@ -125,9 +125,36 @@ fm_deploy_ssh() {
 }
 
 # fm_deploy_host_sha
-# The commit the host actually runs. `git rev-parse` is a read; the checkout is
-# root-owned and carries no safe.directory exception on purpose, so this reads
-# it as root rather than working around the ownership check.
+# The commit the host actually runs, read as root, which git never refuses over
+# who owns the checkout. What the account the app runs as reads from the same
+# checkout is a separate question, and fm_deploy_safe_directory_add below is
+# what makes its answer the same one.
 fm_deploy_host_sha() {
   fm_deploy_ssh "sudo git -C '$FM_DEPLOY_TGT_checkout' rev-parse HEAD" 2>/dev/null
+}
+
+# fm_deploy_safe_directory_add <path>
+# Record <path> in the machine's system-wide git configuration as a checkout git
+# may read whoever asks, unless it is recorded there already.
+#
+# A deployed checkout is root-owned while the unit runs as its own service user,
+# and git refuses a repository owned by somebody else - "detected dubious
+# ownership" - so a HEAD read done as that user fails on a tree that is
+# otherwise perfectly fine, and the unit refuses to start for a reason nothing
+# about the release explains. That is not a release defect and no release fixes
+# it: the entry is missing from the machine, and it was missing for every start
+# ever asked of it.
+#
+# The entry is additive, idempotent, and reversible with
+# `git config --system --unset`. Existing entries are read back and matched
+# here rather than inside a nested remote shell, so the add reaches the machine
+# only when it is actually missing and no path has to survive two levels of
+# quoting.
+fm_deploy_safe_directory_add() {
+  local path=$1 existing=''
+  existing=$(fm_deploy_ssh "sudo git config --system --get-all safe.directory" </dev/null 2>/dev/null) || existing=''
+  if printf '%s\n' "$existing" | grep -qxF -- "$path"; then
+    return 0
+  fi
+  fm_deploy_ssh "sudo git config --system --add safe.directory '$path'" </dev/null
 }
