@@ -85,6 +85,9 @@
 #   (bg) a configured required check skipped only because its declared
 #       exemption check succeeded at the same head is accepted
 #   (bh) every configured required check concluding success merges
+#   (bi) a base branch that moved past the PR head refuses the merge and tells
+#       the worker exactly how to recover, without attempting the merge
+#   (bj) a PR head that already contains the current base head still merges
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -103,6 +106,9 @@ MR_HOST=gitlab.example
 MR_PATH=group/subgroup/project
 MR_PROJECT_URL="https://$MR_HOST/$MR_PATH"
 MR_URL="$MR_PROJECT_URL/-/merge_requests/7"
+# The base branch's own head commit, as GitHub's compare endpoint reports it.
+BASE_SHA=dddddddddddddddddddddddddddddddddddddddd
+
 MR_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 MR_STALE_HEAD=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
@@ -128,6 +134,10 @@ make_case() {
     'queued=false' \
     'base=main' > "$case_dir/github-outcome"
   : > "$case_dir/github-rules"
+  printf '%s\n' \
+    'status=ahead' \
+    'behind=0' \
+    "base_sha=$BASE_SHA" > "$case_dir/github-compare"
   printf '1\tci\tcompleted\tsuccess\n' > "$case_dir/github-checks"
   : > "$case_dir/gh.log"
   # No worktree/project on disk; fm-pr-check.sh tolerates a worktree it cannot
@@ -160,6 +170,7 @@ case "\${1:-} \${2:-}" in
     case " \$* " in
       *headRefOid*) printf '%s\n' '$head' ; exit 0 ;;
       *headRefName*) printf '%s\n' 'fm/task-x1' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' 'main' ; exit 0 ;;
     esac
     ;;
   "api graphql")
@@ -169,6 +180,7 @@ case "\${1:-} \${2:-}" in
   api\ *)
     case " \$* " in
       *check-runs*) cat "\$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "\$FM_TEST_GH_COMPARE" ; exit 0 ;;
     esac
     cat "\$FM_TEST_GH_RULES"
     exit 0
@@ -203,6 +215,7 @@ case "\${1:-} \${2:-}" in
     case " \$* " in
       *headRefOid*) printf '%s\n' '$head' ; exit 0 ;;
       *headRefName*) printf '%s\n' 'fm/task-x1' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' 'main' ; exit 0 ;;
       *'--json title'*) printf '%s\n' '$title' ; exit 0 ;;
       *'--json body'*) printf '%s\n' '$body' ; exit 0 ;;
     esac
@@ -214,6 +227,7 @@ case "\${1:-} \${2:-}" in
   api\ *)
     case " \$* " in
       *check-runs*) cat "\$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "\$FM_TEST_GH_COMPARE" ; exit 0 ;;
     esac
     cat "\$FM_TEST_GH_RULES"
     exit 0
@@ -244,6 +258,7 @@ case "\${1:-} \${2:-}" in
     case " \$* " in
       *headRefOid*) printf '%s\n' '$head' ; exit 0 ;;
       *headRefName*) printf '%s\n' 'fm/task-x1' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' 'main' ; exit 0 ;;
     esac
     ;;
   "api graphql")
@@ -253,6 +268,7 @@ case "\${1:-} \${2:-}" in
   api\ *)
     case " \$* " in
       *check-runs*) cat "\$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "\$FM_TEST_GH_COMPARE" ; exit 0 ;;
     esac
     cat "\$FM_TEST_GH_RULES"
     exit 0
@@ -276,6 +292,7 @@ case "\${1:-} \${2:-}" in
     case " \$* " in
       *headRefOid*) printf '%s\n' '$head' ; exit 0 ;;
       *headRefName*) printf '%s\n' 'fm/task-x1' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' 'main' ; exit 0 ;;
     esac
     ;;
   "api graphql")
@@ -285,6 +302,7 @@ case "\${1:-} \${2:-}" in
   api\ *)
     case " \$* " in
       *check-runs*) cat "\$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "\$FM_TEST_GH_COMPARE" ; exit 0 ;;
     esac
     ;;
 esac
@@ -446,6 +464,7 @@ run_pr_merge() {
   FM_TEST_GH_OUTCOME="$case_dir/github-outcome" \
   FM_TEST_GH_RULES="$case_dir/github-rules" \
   FM_TEST_GH_CHECKS="$case_dir/github-checks" \
+  FM_TEST_GH_COMPARE="$case_dir/github-compare" \
   FM_TEST_META_AT_MERGE="$case_dir/meta-at-merge" \
   FM_TEST_REAL_MV="$REAL_MV" \
   FM_TEST_GLAB_LOG="$case_dir/glab.log" \
@@ -899,6 +918,7 @@ case "${1:-} ${2:-}" in
     case " $* " in
       *headRefOid*) printf '%s\n' 8484848484848484848484848484848484848484 ; exit 0 ;;
       *headRefName*) printf '%s\n' 'fm/task-x1' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' 'main' ; exit 0 ;;
     esac
     ;;
   "api graphql")
@@ -908,6 +928,7 @@ case "${1:-} ${2:-}" in
   api\ *)
     case " $* " in
       *check-runs*) cat "$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "$FM_TEST_GH_COMPARE" ; exit 0 ;;
     esac
     exit 1
     ;;
@@ -987,12 +1008,14 @@ case "${1:-} ${2:-}" in
     case " $* " in
       *headRefOid*) printf '%s\n' 8686868686868686868686868686868686868686 ; exit 0 ;;
       *headRefName*) printf '%s\n' 'fm/task-x1' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' 'main' ; exit 0 ;;
     esac
     ;;
   "api graphql") exit 1 ;;
   api\ *)
     case " $* " in
       *check-runs*) cat "$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "$FM_TEST_GH_COMPARE" ; exit 0 ;;
     esac
     ;;
 esac
@@ -2194,6 +2217,68 @@ test_github_required_checks_all_success_merges() {
 # A caller-supplied --match-head-commit would let a stale or attacker-chosen
 # head bypass the live verification this script just performed; the verified
 # head comes only from this script's own read, mirroring GitLab's --sha.
+# --- pre-merge base-currency verification (GitHub) ----------------------------
+# Checks green at a head whose base has since moved never saw the merged
+# result: two pull requests each green on a base lacking the other can each
+# pass and still break the base branch, which is what these two prove.
+
+test_github_stale_base_refuses_with_recovery_instruction() {
+  local case_dir rc
+  case_dir=$(make_case github-base-moved)
+  mkdir -p "$case_dir/wt"
+  add_gh_mocks "$case_dir" b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1
+  printf '%s\n' \
+    'status=diverged' \
+    'behind=3' \
+    "base_sha=$BASE_SHA" > "$case_dir/github-compare"
+  : > "$case_dir/gh-axi.log"
+
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/110 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "github-base-moved: a head that lost the current base must refuse the merge"
+  assert_grep "does not contain base branch main at $BASE_SHA" "$case_dir/stderr" \
+    "github-base-moved: the refusal did not name the base branch and its current head"
+  assert_grep 'comparison status "diverged", behind by 3 commits' "$case_dir/stderr" \
+    "github-base-moved: the refusal did not report the comparison it judged"
+  assert_grep 'rebase this branch onto the current base with no content change, run one fresh validation run on a fresh branch suffix, then report the new green pull request' \
+    "$case_dir/stderr" \
+    "github-base-moved: the refusal did not carry the worker's recovery instruction"
+  assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "github-base-moved: the merge was attempted even though the base had moved"
+  assert_grep 'pr=https://github.com/example/repo/pull/110' "$case_dir/state/task-x1.meta" \
+    "github-base-moved: the refused merge still lost its PR reference"
+  pass "fm-pr-merge refuses a GitHub merge whose base branch moved past the PR head, naming the recovery"
+}
+
+test_github_head_containing_the_base_merges() {
+  local case_dir rc
+  case_dir=$(make_case github-base-current)
+  mkdir -p "$case_dir/wt"
+  add_gh_mocks "$case_dir" b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2
+  printf '%s\n' \
+    'status=ahead' \
+    'behind=0' \
+    "base_sha=$BASE_SHA" > "$case_dir/github-compare"
+  : > "$case_dir/gh-axi.log"
+
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/111 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "github-base-current: a head already containing the base must still merge"
+  assert_grep "already contains base branch main at $BASE_SHA" "$case_dir/stderr" \
+    "github-base-current: the verified containment was not reported"
+  assert_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "github-base-current: the merge was not attempted despite a current base"
+  pass "fm-pr-merge merges a GitHub pull request whose head already contains the current base head"
+}
+
 test_github_match_head_commit_override_refuses_before_recording() {
   local case_dir rc
   case_dir=$(make_case github-match-head-commit-override)
@@ -2644,6 +2729,8 @@ test_github_required_check_pending_refuses
 test_github_required_check_skipped_without_exemption_refuses
 test_github_required_check_skipped_with_exemption_merges
 test_github_required_checks_all_success_merges
+test_github_stale_base_refuses_with_recovery_instruction
+test_github_head_containing_the_base_merges
 test_github_match_head_commit_override_refuses_before_recording
 test_gitlab_url_resolves_and_merges
 test_gitlab_host_comes_from_the_url

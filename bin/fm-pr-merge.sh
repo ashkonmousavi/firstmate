@@ -25,6 +25,20 @@
 # --match-head-commit is rejected the same way GitLab's --sha override is,
 # because the verified head comes only from this script's own live read.
 #
+# The verified head must also already contain the base branch's own current
+# head, read from GitHub's compare endpoint (compare/<base>...<head> must be
+# "ahead" or "identical"); every other status and every unreadable answer
+# refuses. This is the same containment bin/fm-merge-local.sh requires of a
+# local-only landing, judged from forge data because firstmate never writes to a
+# project and so never fetches into one. Two pull requests each green on a base
+# that lacks the other can each pass their own checks and still break the base
+# branch on merge, and disjoint files are no defence because the collision is
+# semantic; the refusal names the base and tells the worker to rebase onto the
+# current base with no content change, run one fresh validation run on a fresh
+# branch suffix, and report the new green pull request. A base branch whose name
+# contains a slash is passed through literally, so such a base is judged only as
+# GitHub's compare path resolves it. GitLab merges do not carry this check.
+#
 # An optional local, gitignored config/required-checks/<project> file (keyed
 # by the basename of this task's recorded project= directory) names checks
 # that must exist and conclude success at that same verified head, one name
@@ -400,6 +414,89 @@ github_read_head_sha() {
   fi
   fm_pr_head_valid "$sha" || return 1
   FM_PR_GITHUB_HEAD=$sha
+}
+
+# Read the pull request's own base branch name, live, in its own view call.
+# Kept apart from the head read so the two answers cannot be confused, the same
+# way github_read_title_body reads what it needs on its own. A branch name
+# carrying whitespace is not a name git can produce, so it is refused rather
+# than pasted into an API path.
+FM_PR_GITHUB_BASE_REF=
+github_read_base_ref() {
+  local ref
+  ref=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
+    --json baseRefName -q .baseRefName 2>/dev/null) || return 1
+  [ -n "$ref" ] || return 1
+  case "$ref" in
+    *[[:space:]]*) return 1 ;;
+  esac
+  FM_PR_GITHUB_BASE_REF=$ref
+}
+
+# Whether the pull request's verified head already contains the base branch's
+# own current head, read from GitHub's compare endpoint rather than from any
+# local clone: firstmate never writes to a project, so no fetch happens here and
+# the forge's own view of the base is what is judged. compare/<base>...<head>
+# reports <head> relative to <base>, so only "ahead" (the base is an ancestor of
+# the head) and "identical" prove containment; every other status, an
+# unrecognised one, an unreadable field, and a failed read all refuse, so a
+# compare that cannot be judged never merges. Green checks at a head built on a
+# base that has since moved are exactly the false evidence this refuses: two
+# pull requests each green on a base lacking the other can each pass and still
+# break the base branch, and disjoint files are no defence because the collision
+# is semantic. The window between this read and the merge call is the same one
+# the check-run read above already has, and --match-head-commit still pins the
+# head; nothing here retries.
+github_base_contained_in_head() {
+  local head=$1 fields line
+  local total=0 named=0
+  local status='' behind='' base_sha=''
+  if ! fields=$(env -u GITHUB_TOKEN -u GH_TOKEN gh api \
+    "repos/$PR_OWNER/$PR_REPO/compare/$FM_PR_GITHUB_BASE_REF...$head" \
+    --jq 'if type == "object" then
+        "status=" + ((.status // "") | tostring),
+        "behind=" + ((.behind_by // "") | tostring),
+        "base_sha=" + ((.base_commit.sha // "") | tostring)
+      else
+        error("compare payload is not an object")
+      end' 2>/dev/null); then
+    printf 'error: could not compare %s at head %s with base branch %s before merging\n' \
+      "$URL" "$head" "$FM_PR_GITHUB_BASE_REF" >&2
+    return 1
+  fi
+  while IFS= read -r line; do
+    total=$((total + 1))
+    case "$line" in
+      status=*) status=${line#status=} ;;
+      behind=*) behind=${line#behind=} ;;
+      base_sha=*) base_sha=${line#base_sha=} ;;
+      *) continue ;;
+    esac
+    named=$((named + 1))
+  done <<COMPARE
+$fields
+COMPARE
+  # Every field named exactly once and no unnamed line, mirroring the GitLab
+  # state read: a value carrying a newline splits into a line no name matches.
+  if [ "$named" -ne 3 ] || [ "$total" -ne 3 ] || ! fm_pr_head_valid "$base_sha"; then
+    printf 'error: could not read the comparison of %s with base branch %s before merging\n' \
+      "$URL" "$FM_PR_GITHUB_BASE_REF" >&2
+    return 1
+  fi
+
+  case "$status" in
+    ahead|identical)
+      printf 'verified: %s at head %s already contains base branch %s at %s\n' \
+        "$URL" "$head" "$FM_PR_GITHUB_BASE_REF" "$base_sha" >&2
+      return 0
+      ;;
+  esac
+  printf 'error: refusing to merge %s: its head %s does not contain base branch %s at %s (comparison status "%s"%s)\n' \
+    "$URL" "$head" "$FM_PR_GITHUB_BASE_REF" "$base_sha" "${status:-unreadable}" \
+    "${behind:+, behind by $behind commits}" >&2
+  printf 'error: the base branch moved after this pull request was validated, so its checks never saw the merged result\n' >&2
+  printf 'error: have the worker rebase this branch onto the current base with no content change, run one fresh validation run on a fresh branch suffix, then report the new green pull request\n' >&2
+  return 1
 }
 
 # Read the pull request's own current title and body, live, for composing an
@@ -861,6 +958,9 @@ case "$PROVIDER" in
     github_read_head_sha \
       || { echo "error: could not read the GitHub pull request's current head commit before merging" >&2; exit 1; }
     github_check_runs_green "$FM_PR_GITHUB_HEAD" || exit 1
+    github_read_base_ref \
+      || { echo "error: could not read the GitHub pull request's base branch before merging" >&2; exit 1; }
+    github_base_contained_in_head "$FM_PR_GITHUB_HEAD" || exit 1
     if ! caller_has_merge_method "$@"; then
       merge_args=(--squash)
     fi
