@@ -147,10 +147,12 @@ case "${1:-} ${2:-}" in
 esac
 case " $* " in
   *check-runs*) cat "$FM_TEST_GH_CHECKS" ; exit 0 ;;
+  */compare/*) cat "$FM_TEST_GH_COMPARE" ; exit 0 ;;
 esac
 case " $* " in
   *" headRefOid "*) printf '%s\n' "${FM_TEST_GH_HEAD:-0123456789abcdef0123456789abcdef01234567}" ;;
   *" headRefName "*) printf '%s\n' "${FM_TEST_GH_BRANCH:-fm/task-a}" ;;
+  *" baseRefName "*) printf '%s\n' "${FM_TEST_GH_BASE:-main}" ;;
   *" state "*)
     [ "${FM_TEST_GH_FAIL:-0}" = 0 ] || exit 1
     [ "${FM_TEST_GH_SLEEP:-0}" = 0 ] || sleep "$FM_TEST_GH_SLEEP"
@@ -189,6 +191,14 @@ SH
   # tests/fm-pr-merge.test.sh's own make_case does. A test that wants to drive
   # a red/pending/missing check-run case overwrites this file first.
   printf '1\tci\tcompleted\tsuccess\n' > "$dir/github-checks"
+  # fm-pr-merge.sh also refuses a head that does not already contain its base
+  # branch (see bin/fm-pr-merge.sh's github_base_contained_in_head); this default
+  # answers that compare read the same contained way tests/fm-pr-merge.test.sh's
+  # own make_case does.
+  printf '%s\n' \
+    'status=ahead' \
+    'behind=0' \
+    'base_sha=dddddddddddddddddddddddddddddddddddddddd' > "$dir/github-compare"
   printf '%s\n' "$dir"
 }
 
@@ -227,7 +237,7 @@ run_merge_entry() {
   FM_ROOT_OVERRIDE="$dir/root" FM_HOME="$dir/home" \
     FM_TEST_GUARD_LOG="$dir/guard.log" FM_TEST_GH_LOG="$dir/gh.log" \
     FM_TEST_GH_AXI_LOG="$dir/gh-axi.log" FM_TEST_GLAB_LOG="$dir/glab.log" \
-    FM_TEST_GH_CHECKS="$dir/github-checks" \
+    FM_TEST_GH_CHECKS="$dir/github-checks" FM_TEST_GH_COMPARE="$dir/github-compare" \
     PATH="$dir/fakebin:$BASE_PATH" \
     "$PR_MERGE" "$@"
 }
