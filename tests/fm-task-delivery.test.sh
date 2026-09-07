@@ -494,6 +494,96 @@ EOF
   pass "fm-spawn: the Surface line is required for every Proof-bar brief whose project is not firstmate itself, and legacy briefs and firstmate-repo tasks keep spawning"
 }
 
+# The Journey line (captain ruling 2026-09-07: substantial or uncertain
+# product-facing work is prepared against the user requirement before it is
+# built) is refused ONLY as an unfilled "{JOURNEY}" placeholder, never for
+# absence. Every scaffold since the line existed emits it, so an unfilled
+# placeholder is the real intake miss, while a brief written before the line
+# existed carries none and must keep spawning. Like Surface, the check is
+# scoped to a Proof-bar brief whose project is not firstmate itself.
+test_ship_spawn_refuses_only_an_unfilled_journey_line() {
+  local rec home proj fakebin id out status
+  rec=$(make_home journey)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  id=journey-unfilled-placeholder
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Fix a typo in a comment.
+
+## Firstmate spec
+Edit the comment text.
+
+# Proof bar
+Prep: Tier 0 - test fixture, not a real change
+Resource: N/A
+Surface: none: cosmetic comment fix, no operator-visible effect
+Journey: {JOURNEY}
+
+# Definition of done
+Delivery contract: mode=direct-PR
+EOF
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "the unfilled \"Journey: {JOURNEY}\" placeholder should be refused"
+  assert_contains "$out" 'Journey line is the unfilled placeholder' \
+    "the unfilled Journey placeholder was not named as unfilled"
+  assert_absent "$home/state/$id.meta" "unfilled-Journey-placeholder spawn wrote task metadata"
+
+  id=journey-none-accepted
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Fix a typo in a comment.
+
+## Firstmate spec
+Edit the comment text.
+
+# Proof bar
+Prep: Tier 0 - test fixture, not a real change
+Resource: N/A
+Surface: none: cosmetic comment fix, no operator-visible effect
+Journey: none: cosmetic comment fix, no product-facing journey
+
+# Definition of done
+Delivery contract: mode=direct-PR
+EOF
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "Journey line is the unfilled placeholder" \
+    "a filled \"Journey: none: ...\" line was rejected as the unfilled placeholder"
+
+  # A brief predating the Journey line carries none at all and still spawns:
+  # absence is never the refusal, only the leftover placeholder is.
+  id=journey-absent-still-spawns
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Fix a typo in a comment.
+
+## Firstmate spec
+Edit the comment text.
+
+# Proof bar
+Prep: Tier 0 - test fixture, not a real change
+Resource: N/A
+Surface: none: cosmetic comment fix, no operator-visible effect
+
+# Definition of done
+Delivery contract: mode=direct-PR
+EOF
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "Journey" \
+    "a brief with no Journey line was refused or warned about one"
+
+  pass "fm-spawn: only an unfilled Journey placeholder is refused; a filled line and a brief predating the line both keep spawning"
+}
+
 # A scout has no merge to govern and a secondmate's posture is fixed, so the flags
 # are refused rather than accepted and quietly ignored.
 test_scout_and_secondmate_refuse_delivery_flags() {
@@ -1311,6 +1401,7 @@ test_ship_spawn_requires_a_valid_delivery_contract
 test_ship_spawn_validates_the_prep_line
 test_ship_spawn_validates_the_resource_line
 test_ship_spawn_validates_the_surface_line
+test_ship_spawn_refuses_only_an_unfilled_journey_line
 test_scout_and_secondmate_refuse_delivery_flags
 test_spawn_refuses_a_brief_mode_mismatch
 test_spawn_notices_a_rigor_downgrade_against_the_registry

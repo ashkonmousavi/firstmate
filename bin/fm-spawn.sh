@@ -22,7 +22,10 @@
 #   (a legacy brief) is never checked for one. When that Proof bar section is
 #   present and the project is not firstmate itself, the spawn also refuses a
 #   missing or unfilled "Surface:" line (the dashboard page, component, or
-#   journey where the operator sees the change, or "none: <reason>").
+#   journey where the operator sees the change, or "none: <reason>"), and an
+#   unfilled "Journey:" line (the preparation the Proof bar defines, or
+#   "none: <reason>"). The Journey line is checked for the unfilled placeholder
+#   only, never for absence, so a brief predating the line keeps spawning.
 #   For a no-mistakes ship, spawn renders `launch-brief.md` with the current
 #   `--intent` contract and the extracted captain intent. A legacy mixed Task is
 #   accepted there only under bin/fm-dod-lib.sh's provenance-marking rules;
@@ -1970,6 +1973,17 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
         SURFACE_BODY=${SURFACE_LINE#Surface: }
         if [ "$SURFACE_BODY" = "{SURFACE}" ]; then
           echo "error: $BRIEF's Surface line is the unfilled placeholder \"Surface: {SURFACE}\"; state the actual page, component, or journey where the operator sees the change, or \"none: <reason>\" when the change has no operator-visible effect, before spawn" >&2
+          exit 1
+        fi
+        # The Journey line is checked only for the unfilled placeholder, not for
+        # absence. Every scaffold since the line existed emits it, so an unfilled
+        # placeholder is the real intake miss; a brief hand-written or generated
+        # before the line existed carries no Journey line at all and keeps
+        # spawning unchanged, exactly as the Prep/Resource/Surface carve-outs do
+        # for their own predecessors.
+        JOURNEY_LINE=$(grep '^Journey: ' "$BRIEF" | head -n 1)
+        if [ "${JOURNEY_LINE#Journey: }" = "{JOURNEY}" ]; then
+          echo "error: $BRIEF's Journey line is the unfilled placeholder \"Journey: {JOURNEY}\"; state the preparation the Proof bar section defines, or \"none: <reason>\" when the work is neither substantial nor uncertain and has no product-facing journey, before spawn" >&2
           exit 1
         fi
       fi

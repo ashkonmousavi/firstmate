@@ -110,11 +110,14 @@ Dispatching on a stale named dependency puts a worker on a base that the thing i
 Match proof to what changed, and stop paying for more:
 
 - Direct proof of the affected behavior, on every change.
-- The integrated journey, once a complete slice exists.
+- The integrated journey, once a complete slice exists: the predefined per-role browser journey run end to end in the deployed-posture mirror, with a screenshot at each meaningful result step and every error captured and dispositioned.
 - Broader acceptance at a capability, release, or stage boundary.
 - Exact-head CI at delivery, which the selected delivery path already owns.
 
 Running stage-boundary acceptance on every slice buys confidence already bought; running none until the end buys none when it is still affordable.
+
+Synthetic or controlled evidence, evidence from a real admitted-data mirror, and evidence from the actual deployment are three separate classes.
+None is ever promoted into another, and a claim rests only on the class that actually produced it.
 
 ## Recording decisions
 

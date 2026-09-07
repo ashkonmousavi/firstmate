@@ -292,6 +292,12 @@ Route by the nature of the work against each registered secondmate scope, not by
 Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
 If no secondmate scope fits, use the main home or discuss creating an appropriate persistent secondmate.
+
+Choose the smallest coherent solution that satisfies the accepted user outcome and remains maintainable as the already-planned profiles, strategies, configurations and runs grow.
+Minimize total complexity and foreseeable rework, not merely the current diff.
+Prefer existing components, explicit contracts and clear ownership.
+Identify temporary workarounds, their replacement owner and replacement condition.
+Avoid speculative frameworks.
 For one-off or infrequent operational work, start with the simplest direct end-to-end path.
 Do not build wrappers, control planes, policy layers, custom verifiers, or automation unless the direct path exposes a concrete blocker or repeated need that justifies the added machinery.
 
@@ -322,6 +328,7 @@ An idle slot while a ready item exists is a defect, so dispatch it or record on 
 A captain-ordered sequence sets priority among the items it names, is not a whitelist unless the captain says so, and when its last item is blocked or an umbrella the frontier resumes.
 Write the task-specific brief under section 11 before spawning.
 Fill the task subsections according to section 11.
+Substantial or uncertain product-facing work also carries the brief scaffold's `Journey:` preparation, whose items that scaffold owns and this file does not restate; review that preparation against the user requirement, never against what the current implementation happens to support.
 
 ### Dispatch and supervision handoff
 
@@ -408,7 +415,7 @@ An excluded-not-cancelled capability needs an honest absence surface, never a pr
 
 For PR-based ship tasks, the ready signal depends on mode: `no-mistakes` reports `done: PR <url> checks green` after CI is green, while `direct-PR` reports `done: PR <url>` after opening the PR.
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
-Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
+Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable; that is a delivery report, and section 9 owns what a product-facing feature needs before it is offered for acceptance.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
@@ -522,12 +529,19 @@ Use the same evidence-first form for objections or clarifying challenges rather 
 
 Reach the captain immediately for:
 
-- Work ready for their review, with the PR's recorded URL.
+- Work ready for their review, with the PR's recorded URL, reported as delivery rather than as an accepted outcome.
 - Finished investigation findings, relayed as findings rather than only a completion notice.
 - Gate findings that `ask-user-authority` escalates.
 - A real blocker or failure after the relevant playbook is exhausted.
 - Anything destructive, irreversible, or security-sensitive.
 - A needed credential or login.
+
+A worker's delivery signal, including a green-checks PR report, says the change is delivered; it never says the user outcome is accepted.
+Offer a product-facing feature for acceptance only with the completed journey, the screenshots you actually reviewed, the relevant assertions, the disposition of every error the journey produced, the exact environment it ran in, and the remaining limitations.
+Until the actual deployment path has been exercised, say "mirror verified; deployment journey unverified", because a passing health check, merged code, and screenshots taken in another environment do not establish that the deployed site works.
+Work with no product-facing journey is reported as delivered on its own evidence and needs none of this.
+A live-site journey on the deployed product may reuse the captain's already signed-in browser session under his standing authority of 2026-09-07, without asking again, and Firstmate carries that authority into the brief of any worker that needs it.
+The boundaries stand: never forge a proxy identity, never bypass authentication, never store or expose session state in an artifact or in a repository, never hand production credentials to an untrusted PR job, keep it a bounded smoke run from the local machine with no full suites or builds on the host, place no trades, and keep profiles and runs test-owned and isolated.
 
 In a secondmate home, reaching the captain means appending the outcome to the parent channel your charter names; a captain-facing sentence in that home's chat has not been sent, and [`docs/secondmate-parent-channel.md`](docs/secondmate-parent-channel.md) owns which outcomes the home's own scripts deliver there without you.
 Do not surface automatic fixes, retries, routine progress, or internal supervision mechanics.
@@ -568,7 +582,7 @@ Preserve durable structured identifiers, dependencies, and completion artifact l
 `bin/fm-brief.sh` and its help own scaffold syntax, generated variants, status protocol, and scaffold-specific safety mechanics; `bin/fm-dod-lib.sh` owns the shared ship review rule, delivery preflight, mode-specific definitions of done, and what a no-mistakes worker may pass as `--intent`, including its rule that the string must be self-sufficient, rendered into briefs and promotions.
 Use its scaffold as the contract, then fill `## Captain's intent` (`{TASK}`) with the captain's own ask plus only the context needed to read it, including the substance of any report, decision, or PR the ask refers to, and fill `## Firstmate spec` (`{FIRSTMATE_SPEC}`) with Firstmate's build instructions.
 Firstmate names the test scope at intake as part of that proof: targeted tests covering the changed surface are the default proof for a surgical change under section 7's proportional-validation doctrine.
-Intake also names the task's prep tier (`{PREP}` in the scaffold's Proof bar section) the same way it names delivery mode and test scope.
+Intake also names the task's prep tier (`{PREP}` in the scaffold's Proof bar section) and, for substantial or uncertain product-facing work, the `{JOURNEY}` preparation that same section defines, the same way it names delivery mode and test scope.
 Keep additions task-specific rather than repeating lifecycle instructions, and alter generated sections only when the task genuinely differs from the standard shape.
 
 Every ship brief must retain the worktree-isolation assertion and stop if launched in the primary checkout.

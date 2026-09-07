@@ -60,24 +60,35 @@ FM_CI_NO_RERUN_LINE='Never re-run a failed CI job or workflow: a red result at a
 
 # fm_proof_bar_section prints the "# Proof bar" section: prep-tier definitions,
 # the sibling "Resource:" RAM/disk envelope, the sibling "Surface:" dashboard-wiring
-# placeholder, evidence contract, scope boundary, and the class-sweep rule B, one
+# placeholder, the sibling "Journey:" preparation, evidence contract, scope
+# boundary, and the class-sweep rule B, one
 # owner shared by bin/fm-brief.sh's ship scaffold and bin/fm-promote.sh's promoted
-# ship instructions, so a promoted worker gets the same Prep, Resource, and Surface
+# ship instructions, so a promoted worker gets the same Prep, Resource, Surface,
+# and Journey
 # contract that fm_ship_batch_rule_block's rule 8 text points back at ("the Proof
-# bar above"). Firstmate fills the "Prep: {PREP}", "Resource: {RESOURCE}", and
-# "Surface: {SURFACE}" placeholders at intake (AGENTS.md section 11); bin/fm-spawn.sh
-# refuses leftover placeholders per its own header. Source of the tier text:
+# bar above"). Firstmate fills the "Prep: {PREP}", "Resource: {RESOURCE}",
+# "Surface: {SURFACE}", and "Journey: {JOURNEY}"
+# placeholders at intake (AGENTS.md section 11); bin/fm-spawn.sh
+# refuses leftover placeholders per its own header. This section is also the one
+# owner of the preparation list itself: AGENTS.md section 7 points here rather
+# than restating the items, so the list cannot drift between the two files.
+# Source of the tier text:
 # data/firstmate-proof-bar-in-intent/prep-tiers.md (captain ruling 2026-09-04), a
 # private record of the ruling, not a runtime pointer target - this section is the
 # tier definitions' one worker-facing owner. The Surface line exists because the
 # dashboard is the only way the operator, user, and admin work with the app
-# (captain ruling 2026-09-05): a feature not wired into it is not built.
+# (captain ruling 2026-09-05): a feature not wired into it is not built. The
+# Journey line exists because a delivered change is not an accepted user outcome
+# (captain ruling 2026-09-07): substantial or uncertain product-facing work is
+# prepared against the user requirement before it is built, not justified
+# afterwards by what the implementation happens to support.
 fm_proof_bar_section() {
   cat <<'EOF'
 # Proof bar
 Prep: {PREP}
 Resource: {RESOURCE}
 Surface: {SURFACE}
+Journey: {JOURNEY}
 
 ## Tier definitions and evidence contract
 Tier 0, none. The default: human-only prose, cosmetic changes, one-site fixes with no callers. State "Prep: Tier 0 - {one reason}". Honesty test: if you would need a search to state that reason, it is not Tier 0.
@@ -85,6 +96,8 @@ Tier 1, mechanism sweep. The change fixes a pattern or mechanism at one site (a 
 Tier 2, wiring trace. The change alters something other code depends on (a signature, a contract, a record shape, a return value, a route, a config key or value). Before your first run: Serena find_referencing_symbols on each changed symbol, PLUS rg for the literal names and values changed - tests and checkers that read source or config as text are invisible to symbol search. Confirm each site is handled, list them. If Serena is unavailable in your runtime, fall back to rg on the symbol name plus an import search, and name which tool produced the list.
 Resource, the RAM/disk envelope this task may use for tests and builds. Firstmate fills it at intake with a concrete bound (for example "one test process at a time, no whole-repo lint or battery locally, PYTHONPYCACHEPREFIX under /dev/shm, check free -g before any browser suite") or "N/A" when the task executes no tests or builds.
 Surface, the page, component, or journey where the operator sees this change in the dashboard. Firstmate fills it at intake with the concrete surface (for example "the run-detail page's Evidence tab") or "none: {reason}" when the change has no operator-visible effect. When a real surface is named, the evidence contract requires real-browser proof at that surface, not just passing tests.
+Journey, the preparation this task carries into the build. Firstmate fills it at intake for substantial or uncertain product-facing work with: the original user outcome and the current gap; preconditions, roles, meaningful choices and supported modes; numbered browser actions with independently justified expected results; the screenshot required at each meaningful result step; the relevant empty, loading, failed, stale, refusal and success states, each marked expected or defect so a log that is supposed to carry entries is not read as a fault and an empty one is not read as proof; the real producers, consumers, stores, API/CLI/scheduler callers and dependencies; the existing components to reuse; the relevant tests and the limits of their fixtures and mocks; the implementation sequence, parallel boundaries and integration owner; and the evidence required before claiming readiness. It is "none: {reason}" when the work is neither substantial nor uncertain, or has no product-facing journey. A design decision that parks or defers part of the outcome is named here: a parked design never silently justifies a required interaction that is missing. Firstmate reviews this preparation against the user requirement, not against what the current implementation happens to support.
+When the Journey line names real preparation, append one status line before your first run stating in your own words what the requirement is, the failure modes you expect, and how you will prove it; "read and understood" does not satisfy it. A "none: {reason}" Journey owes no such line.
 The cap: a Tier 1 or 2 prep that passes 20 minutes or 15 sites stops and reports to firstmate for a scope decision; never prep harder.
 You may raise the stated tier by one with a one-line reason; you may never lower it.
 The evidence contract: paste the prep output as a list, verbatim, under this Proof bar before your first run. One line per site: path and line or symbol, then exactly one disposition - fixed, confirmed unaffected with the reason, or out of scope with the reason and the item that owns it. A site with no disposition is not on the list. No list means no prep happened; "checked, all wired" is not evidence.
@@ -267,6 +280,29 @@ fm_brief_task_content_valid() {  # <file>
   [ -n "$(printf '%s' "$task" | tr -d '[:space:]')" ]
 }
 
+# fm_dod_evidence_rules_block <pr|local> prints the two rules every mode's
+# Definition of done carries: a delivery signal is not product acceptance
+# (AGENTS.md section 9 owns what a product-facing feature needs before it is
+# offered for acceptance), and journey evidence never enters the source tree.
+# One owner for both, so the three mode blocks below cannot drift; before this
+# helper the screenshot rule was written out twice and local-only carried
+# neither. The destination clause is the only mode-specific part: a local-only
+# worker has no PR body to upload into, and its own delivery preflight requires
+# a worktree clean of untracked files, so its evidence must live outside the
+# repository entirely.
+fm_dod_evidence_rules_block() {  # <pr|local>
+  local dest
+  case "$1" in
+    pr) dest='the actual images go into the PR body, uploaded through GitHub' ;;
+    local) dest='the actual images stay outside the repository and your ready report names their path' ;;
+    *) echo "error: fm_dod_evidence_rules_block: unknown destination '$1'" >&2; return 1 ;;
+  esac
+  cat <<EOF
+Your delivery signal reports delivery, never product acceptance: it says this change is committed and its checks passed, not that the user outcome is accepted. Firstmate offers the work for acceptance separately, with the journey evidence.
+No binary screenshots or other media enter the repository tree: prose evidence (for example \`fidelity-check.md\`) cites each one by filename, and $dest.
+EOF
+}
+
 fm_ask_user_escalation_block() {  # <data-dir> <task-id>
   local data=$1 id=$2
   cat <<EOF
@@ -285,9 +321,10 @@ fm_dod_block() {  # <mode> <task-id> <task-record>
 Delivery contract: mode=direct-PR
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
 The task is complete only when committed on your branch.
-Two evidence rules apply to every PR you open:
-1. No binary screenshots or other media enter the repository tree: prose evidence (for example \`fidelity-check.md\`) cites each one by filename, and the actual images go into the PR body, uploaded through GitHub.
-2. The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
+EOF
+      fm_dod_evidence_rules_block pr
+      cat <<EOF
+The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
 Before you push, pass this delivery preflight:
 EOF
       fm_dod_delivery_preflight_block "$id" "$task_record"
@@ -303,6 +340,9 @@ Delivery contract: mode=local-only
 This task ships **local-only**: no remote, no PR, no pipeline.
 The task is complete only when committed on your branch \`fm/$id\`. Do NOT push, do NOT open a PR, do NOT merge.
 Keep your branch a clean fast-forward onto the current default branch - if \`main\` has advanced, rebase onto it so the eventual merge stays a fast-forward.
+EOF
+      fm_dod_evidence_rules_block local
+      cat <<EOF
 Before you report it ready, pass this delivery preflight:
 EOF
       fm_dod_delivery_preflight_block "$id" "$task_record"
@@ -345,9 +385,10 @@ Two firstmate-specific rules layer on top of that guidance:
 Rule F: your \`done: PR {url} checks green\` report requires check conclusions verified at the exact current head sha of the PR branch, never a conclusion recorded against an earlier or stale head.
 If the branch moved after checks last ran, confirm CI reran and passed at the new head before reporting done; per rule 9, a red result at a stale head is never re-run as a shortcut past that.
 
-Two evidence rules apply to every PR you open:
-1. No binary screenshots or other media enter the repository tree: prose evidence (for example \`fidelity-check.md\`) cites each one by filename, and the actual images go into the PR body, uploaded through GitHub.
-2. The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
+EOF
+      fm_dod_evidence_rules_block pr
+      cat <<EOF
+The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
 
 After /no-mistakes reports CI green (the CI-ready return point - do not wait for it to keep monitoring in the background until merge), append \`done: PR {url} checks green\` and stop. You are finished.
 \`done:\` means checks green at the exact head; it is never used for the pre-validation \`working: prepared\` handoff above.

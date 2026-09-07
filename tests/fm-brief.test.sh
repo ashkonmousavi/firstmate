@@ -452,8 +452,16 @@ test_no_mistakes_dod_wording() {
 # no committed binary screenshots (prose cites them by filename, images go into
 # the PR body), and a documentation finding is fixed only by the worker's own
 # commit plus one re-validation since the pipeline's document step is
-# report-only. Both no-mistakes and direct-PR briefs must state both rules;
-# local-only never opens a PR, so neither rule applies there.
+# report-only. Both no-mistakes and direct-PR briefs must state both rules.
+#
+# The captain's 2026-09-07 ruling is the approved contract change that makes the
+# old local-only expectation wrong: "the definition of done for every mode says
+# that the delivery signal is not product acceptance and that evidence stays out
+# of the source tree". Keeping evidence out of the tree was never a property of
+# opening a PR, so local-only now states it too - with its own destination,
+# because local-only has no PR body and its delivery preflight requires a
+# worktree clean of untracked files. Only the report-only DOCUMENT-step rule
+# stays PR-exclusive, and local-only is still asserted not to carry it.
 test_no_binary_evidence_and_document_step_dod_rules() {
   local home id brief
   home="$TMP_ROOT/evidence-rules-home"
@@ -488,12 +496,37 @@ test_no_binary_evidence_and_document_step_dod_rules() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" local-proj --mode local-only >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
   assert_present "$brief" "brief was not scaffolded"
-  assert_no_grep "No binary screenshots or other media enter the repository tree" "$brief" \
-    "local-only DOD must not carry the PR-body evidence rule; local-only never opens a PR"
+  assert_grep "No binary screenshots or other media enter the repository tree" "$brief" \
+    "local-only DOD must also keep evidence out of the source tree (captain ruling 2026-09-07)"
+  assert_grep "the actual images stay outside the repository and your ready report names their path" "$brief" \
+    "local-only DOD must route evidence outside the repository, since its preflight requires no untracked files"
+  assert_no_grep "the actual images go into the PR body" "$brief" \
+    "local-only DOD must not route evidence to a PR body it never opens"
   assert_no_grep "The document step is report-only" "$brief" \
     "local-only DOD must not carry the PR-body document-step rule; local-only never opens a PR"
 
-  pass "fm-brief.sh: no-mistakes and direct-PR DODs ban committed screenshots and require a real documentation commit"
+  pass "fm-brief.sh: every mode's DOD keeps evidence out of the source tree, and only PR modes carry the document-step rule"
+}
+
+# The captain's 2026-09-07 ruling: a delivery signal reports delivery, never
+# product acceptance. Every mode's Definition of done must say so in its own
+# generated brief, so no worker's "done:" line can be read as the user outcome
+# having been accepted.
+test_every_mode_dod_separates_delivery_from_acceptance() {
+  local home id brief mode
+  home="$TMP_ROOT/delivery-acceptance-home"
+  mkdir -p "$home/data"
+  for mode in no-mistakes direct-PR local-only; do
+    id="brief-acceptance-$mode"
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode "$mode" >/dev/null 2>&1
+    brief="$home/data/$id/brief.md"
+    assert_present "$brief" "$mode brief was not scaffolded"
+    assert_grep "Your delivery signal reports delivery, never product acceptance" "$brief" \
+      "$mode DOD must state that the delivery signal is not product acceptance"
+    assert_grep "Firstmate offers the work for acceptance separately, with the journey evidence" "$brief" \
+      "$mode DOD must route acceptance through firstmate with the journey evidence"
+  done
+  pass "fm-brief.sh: every delivery mode's DOD separates the delivery signal from product acceptance"
 }
 
 test_ask_user_escalation_format() {
@@ -1142,6 +1175,62 @@ test_ship_brief_carries_the_surface_line() {
   pass "fm-brief.sh: the ship scaffold carries a fillable Surface line beside Prep and Resource"
 }
 
+# The Proof bar's "Journey: {JOURNEY}" placeholder is the Surface line's twin
+# (captain ruling 2026-09-07): substantial or uncertain product-facing work
+# carries its preparation into the build, and that preparation is reviewed
+# against the user requirement rather than against what the implementation
+# happens to support. This section is also the single owner of the preparation
+# item list, so the definition must carry the items themselves, the "none:"
+# escape, the no-silent-omission rule for a parked design, and the pre-run
+# explanation the builder owes in its own words.
+test_ship_brief_carries_the_journey_line() {
+  local home id brief content
+  home="$TMP_ROOT/journey-home"
+  mkdir -p "$home/data"
+  id="brief-journey-a1"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode local-only >/dev/null 2>&1
+  brief="$home/data/$id/brief.md"
+  assert_present "$brief" "ship brief was not scaffolded"
+  grep -Fqx 'Journey: {JOURNEY}' "$brief" \
+    || fail "ship brief must scaffold the unfilled \"Journey: {JOURNEY}\" placeholder"
+  # It must sit directly under the Surface line, not floating elsewhere in the section.
+  awk '
+    $0 == "Surface: {SURFACE}" { got_surface = 1; next }
+    got_surface { if ($0 == "Journey: {JOURNEY}") found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$brief" || fail "the Journey placeholder must sit directly under the Surface placeholder"
+  assert_grep "Journey, the preparation this task carries into the build" "$brief" \
+    "ship brief must carry the Journey definition beside the Prep, Resource, and Surface definitions"
+  assert_grep "numbered browser actions with independently justified expected results" "$brief" \
+    "the Journey definition must own the preparation item list rather than pointing elsewhere for it"
+  assert_grep "each marked expected or defect" "$brief" \
+    "the Journey definition must distinguish an expected failure from a defect"
+  assert_grep "a parked design never silently justifies a required interaction that is missing" "$brief" \
+    "the Journey definition must forbid a parked design silently excusing a missing interaction"
+  assert_grep "Firstmate reviews this preparation against the user requirement, not against what the current implementation happens to support" "$brief" \
+    "the Journey definition must state the review is against the user requirement"
+  assert_grep '"none: {reason}" when the work is neither substantial nor uncertain' "$brief" \
+    "the Journey definition must state the none escape hatch"
+  assert_grep 'When the Journey line names real preparation, append one status line before your first run' "$brief" \
+    "the Proof bar must require the builder's own pre-run explanation of requirement, failure modes, and proof plan"
+  assert_grep '"read and understood" does not satisfy it' "$brief" \
+    "the pre-run explanation must be in the builder's own words, not an acknowledgement"
+  # Scoped, not a new blanket status obligation: a "none:" Journey owes nothing,
+  # so a Tier 0 change with no product-facing journey gains no ceremony.
+  assert_grep 'A "none: {reason}" Journey owes no such line' "$brief" \
+    "the pre-run explanation must be scoped to a Journey that names real preparation"
+
+  # Firstmate fills {JOURNEY} at intake exactly like {PREP}, {RESOURCE}, and
+  # {SURFACE}; the filled line must be a real, non-placeholder value.
+  content=$(cat "$brief")
+  content=${content//'Journey: {JOURNEY}'/'Journey: none: firstmate instruction text, no product-facing journey'}
+  printf '%s\n' "$content" > "$brief"
+  assert_no_grep '{JOURNEY}' "$brief" "a filled Journey line must leave no leftover placeholder token"
+  grep -Fqx 'Journey: none: firstmate instruction text, no product-facing journey' "$brief" \
+    || fail "the filled Journey line did not carry the real value through"
+  pass "fm-brief.sh: the ship scaffold carries a fillable Journey line beside Prep, Resource, and Surface"
+}
+
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
@@ -1152,6 +1241,7 @@ test_delivery_flags_are_refused_where_they_do_not_apply
 test_faster_paths_use_configured_authority_without_stacked_review
 test_no_mistakes_dod_wording
 test_no_binary_evidence_and_document_step_dod_rules
+test_every_mode_dod_separates_delivery_from_acceptance
 test_ask_user_escalation_format
 test_ship_project_memory_wording
 test_herdr_lab_contract_is_explicit_and_complete
@@ -1169,3 +1259,4 @@ test_task_briefs_carry_project_authority_reconciliation
 test_ship_briefs_batch_findings_before_resubmitting
 test_ship_brief_carries_the_resource_line
 test_ship_brief_carries_the_surface_line
+test_ship_brief_carries_the_journey_line
