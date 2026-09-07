@@ -94,7 +94,7 @@ A reviewer finding at a site NOT on your list is both a real finding to fix and 
 A finding inside this task's stated bar is yours to fix in this run. A finding asking for proof machinery beyond the stated bar is answered out of scope by default (AGENTS.md section 7). A settled family already answered in an earlier round is out of scope; do not reopen it without new evidence.
 
 ## Class-sweep rule (rule B)
-The first finding of a family means sweep the whole repo for the mechanism, fix every site in one commit, and answer every finding in that family in one round with one fix command. Rule 8 under `# Rules` below is this same rule, extended to also apply before your first run whenever you already know the family in advance.
+The first finding of a family means sweep the whole repo for the mechanism under the same cap as the tiers above, give every site found one of the evidence contract's three dispositions - fixed, confirmed unaffected, or out of scope with an owner - and answer every finding in that family in one round with one fix command. Rule 8 under `# Rules` below is this same rule, extended to also apply before your first run whenever you already know the family in advance.
 
 When you run /no-mistakes, copy this entire Proof bar section verbatim into `--intent`'s `Agreed proof contract:` part, alongside the `Captain intent:` part described in the current intent contract section below.
 EOF
@@ -114,7 +114,7 @@ EOF
 fm_ship_batch_rule_block() {  # <n8> <n9> <n10>
   local n8=$1 n9=$2 n10=$3
   cat <<EOF
-$n8. Before your first run, if you already know a fix pattern applies to more than the one site you were asked to change (a parser rule, a validation, a timestamp format, a malformed-input guard), sweep the whole repo for that mechanism, fix every site in one commit, and paste the site list into the Proof bar's Prep line before starting (rule B in the Proof bar above; this is Tier 1 prep done before the run instead of only after a review finds it).
+$n8. Before your first run, if you already know a fix pattern applies to more than the one site you were asked to change (a parser rule, a validation, a timestamp format, a malformed-input guard), sweep the whole repo for that mechanism under the same cap as the Proof bar's tiers, give every site found one of the evidence contract's three dispositions - fixed, confirmed unaffected, or out of scope with an owner - in one commit, and paste the site list into the Proof bar's Prep line before starting (rule B in the Proof bar above; this is Tier 1 prep done before the run instead of only after a review finds it).
    When a review, verification run, or test pass fails anyway, never fix and resubmit the first defect you find.
    Enumerate the COMPLETE finding set first, then check the surfaces that can share each defect's mechanism -
    same pattern, same generator, same template, sibling files - and report or repair the whole batch at once

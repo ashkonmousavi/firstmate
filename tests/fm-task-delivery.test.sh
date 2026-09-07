@@ -784,7 +784,7 @@ STUB
       "$mode: promoted worker's delivery actions were not bound to its verified task root"
     assert_grep "a later \`/no-mistakes\` invocation, a push, a PR command, or the local-only ready report" "$payload" \
       "$mode: promoted worker's root binding did not cover every delivery action"
-    grep -Fqx "8. Before your first run, if you already know a fix pattern applies to more than the one site you were asked to change (a parser rule, a validation, a timestamp format, a malformed-input guard), sweep the whole repo for that mechanism, fix every site in one commit, and paste the site list into the Proof bar's Prep line before starting (rule B in the Proof bar above; this is Tier 1 prep done before the run instead of only after a review finds it)." "$payload" \
+    grep -Fqx "8. Before your first run, if you already know a fix pattern applies to more than the one site you were asked to change (a parser rule, a validation, a timestamp format, a malformed-input guard), sweep the whole repo for that mechanism under the same cap as the Proof bar's tiers, give every site found one of the evidence contract's three dispositions - fixed, confirmed unaffected, or out of scope with an owner - in one commit, and paste the site list into the Proof bar's Prep line before starting (rule B in the Proof bar above; this is Tier 1 prep done before the run instead of only after a review finds it)." "$payload" \
       || fail "$mode: promoted worker did not receive the pre-run mechanism-sweep clause as rule 8"
     assert_grep "Enumerate the COMPLETE finding set first" "$payload" \
       "$mode: promoted worker was not told to enumerate the complete finding set"

@@ -1015,7 +1015,7 @@ test_ship_briefs_batch_findings_before_resubmitting() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
   assert_present "$brief" "ship brief was not scaffolded"
-  grep -Fqx "8. Before your first run, if you already know a fix pattern applies to more than the one site you were asked to change (a parser rule, a validation, a timestamp format, a malformed-input guard), sweep the whole repo for that mechanism, fix every site in one commit, and paste the site list into the Proof bar's Prep line before starting (rule B in the Proof bar above; this is Tier 1 prep done before the run instead of only after a review finds it)." "$brief" \
+  grep -Fqx "8. Before your first run, if you already know a fix pattern applies to more than the one site you were asked to change (a parser rule, a validation, a timestamp format, a malformed-input guard), sweep the whole repo for that mechanism under the same cap as the Proof bar's tiers, give every site found one of the evidence contract's three dispositions - fixed, confirmed unaffected, or out of scope with an owner - in one commit, and paste the site list into the Proof bar's Prep line before starting (rule B in the Proof bar above; this is Tier 1 prep done before the run instead of only after a review finds it)." "$brief" \
     || fail "ship brief must keep the pre-run mechanism-sweep clause as rule 8"
   assert_grep "never fix and resubmit the first defect you find" "$brief" \
     "ship brief must forbid fixing and resubmitting the first defect alone"
