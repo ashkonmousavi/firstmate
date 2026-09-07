@@ -13,7 +13,7 @@ metadata:
 # quota-array-dispatch
 
 This skill is the single owner of the completion-aware profile-array selection procedure.
-`AGENTS.md` section 4 owns the always-loaded intake boundary, load trigger, malformed-config refusal, every-candidate accounting, and strongest-reasoning/tie safety rules.
+`AGENTS.md` section 4 owns the always-loaded intake boundary, load trigger, malformed-config refusal, every-candidate accounting, medium effort floor, and tie safety rules.
 `harness-adapters` owns harness verification, model/provider discovery, and effort fallback.
 `quota-axi` remains data-only: it publishes `spendPriority` as a comparable scalar and never recommends, selects, ranks, or infers a route.
 Do not add a daemon, opaque composite score, routing wrapper, hard-coded model-specific policy, or producer-side route recommendation.
@@ -36,6 +36,7 @@ Firstmate can optionally arm `bin/fm-procevent-quota.sh` for a recurring mid-tas
 ## Read the default TOON
 
 Start each intake by running `quota-axi` once with no `--json`, and reuse that TOON for every candidate.
+An old exhaustion note is never current evidence.
 Post-consolidation quota-axi (the floor owned by `bin/fm-quota-axi-lib.sh`) puts `spendPriority` in the default `quota[]` block beside `effectivePercentRemaining`, `runway`, `confidence`, `limitedBy`, and `resetsAt`.
 Sparse `exhaustion[]` carries finite-runway seconds only for `projected_exhaustion` and `exhausted_now`.
 Sparse `attention[]` names auth, stale, and unmeasurable facts.
@@ -52,13 +53,13 @@ Read `quota-axi auth --json` only when a candidate's credential surface is in qu
 
 For each candidate, preserve explicit `harness`, `model`, and `provider`; `harness-adapters` owns identity, and model/provider never infer harness.
 
-## Three gates, then spendPriority
+## Capability, tools, runway, then spendPriority
 
-Apply the three cheap orthogonal gates first.
+Apply the capability gate first, then verify tools and supported effort, then the runway gate.
 `spendPriority` ranks only among candidates that pass all three.
 It cannot override a hard-gate failure, and it is never hidden inside a new composite score.
 
-### 1. Eligibility
+### 1. Minimum adequate capability
 
 Deterministic shell must never map a model to a provider, a provider to a credential store, or a name prefix to a family.
 You establish those relations yourself, in the open, from the candidate's own authoritative catalog (`harness-adapters` owns the per-harness discovery surface) plus the one intake snapshot.
@@ -91,13 +92,13 @@ Grok prepaid `credits` are unrelated to paid-window headroom; never read them as
 
 Malformed configuration is an actionable error, not a candidate to rank around.
 
-### 2. Reasoning-class fit
+### 2. Available tools and supported effort
 
-Keep only candidates that meet the required reasoning class for this task (a simple bug fix versus very-difficult design).
+Keep only candidates that meet the required reasoning class for this task and can use its required tools at the requested supported effort.
 Never use `spendPriority` or remaining quota to silently replace that class.
-When every remaining candidate is tight, dispatch inside the strongest-reasoning class if one of those candidates can proceed, or stop and report that the strongest-class choice cannot proceed rather than downgrading it to spend or conserve quota.
+Unknown quota is disclosed uncertainty, not exhaustion.
 
-### 3. Runway feasibility floor
+### 3. Sufficient runway to the next useful checkpoint
 
 Known runway that will not last until the inspectable likely-completion horizon fails this gate, even when that candidate has the highest `spendPriority`.
 Read `runway` from the `quota[]` row: `through_reset` passes this generic feasibility floor because the window reaches its refill without exhausting; never compare its `resetsAt` with the completion horizon as though reset were an exhaustion deadline.
@@ -122,7 +123,7 @@ Do not compare headroom against runway by hand.
 Do not use pace or signed reserve as a later tie-break layer.
 Do not read `aheadWindowIds`, `behindWindowIds`, `onPaceWindowIds`, `limitingWindowIds`, or other window-id lists to reconstruct what `spendPriority` already computed.
 
-Genuine ties: stop and report every tied candidate for captain choice.
+Genuine routine ties resolve by the declared task preference.
 Do not select by array order, harness name, or another arbitrary identity ordering.
 Report duplicate concrete profiles as a configuration error.
 

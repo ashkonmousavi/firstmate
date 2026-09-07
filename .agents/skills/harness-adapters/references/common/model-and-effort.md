@@ -12,14 +12,12 @@ Effort precedence is a per-task captain instruction, then applicable dispatch pr
 Never replace either higher-precedence value.
 Use the fallback only when neither specifies effort.
 
-Use `low` for well-understood work with an explicit bounded path and `xhigh` for ambiguous investigation or design.
-Choose intermediate levels as complexity, uncertainty, blast radius, or open-ended reasoning rises.
-If an adapter lacks `xhigh`, cap at its highest supported non-`max` level rather than silently omitting the intent.
-Never select `max` through this fallback; only an explicit per-task or standing captain preference permits it.
+The concrete table in `config/crew-dispatch.json` is authoritative.
+Its classes begin at medium: bounded backend and UI work use medium, bounded review and difficult interaction use high, and difficult cross-module reasoning uses high with xhigh only for a specific unresolved reasoning problem.
+Low is never dispatched, and max, ultra, and premium modes are never automatic.
 
-If requested effort is outside the adapter's accepted set, the spawn records `effort=` in task metadata but emits no effort flag.
-This preserves launch success instead of passing a known-bad value.
-A harness with no verified interactive effort flag follows the same record-and-omit contract.
+The adapter must verify effective effort before launch.
+If a requested effort has no supported launch flag, the spawn refuses before metadata is written; task metadata records only the effort actually passed to the harness.
 
 ## Harness and provider identity
 

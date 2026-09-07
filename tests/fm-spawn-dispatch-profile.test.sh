@@ -470,7 +470,7 @@ test_codex_threads_model_and_effort() {
   pass "codex receives --model and model_reasoning_effort profile flags"
 }
 
-test_codex_omits_invalid_max_effort() {
+test_codex_refuses_unsupported_max_effort_before_metadata() {
   local rec id out status launch
   id=profile-codex-max-z4
   rec=$(make_spawn_case profile-codex-max codex "$id")
@@ -478,13 +478,11 @@ test_codex_omits_invalid_max_effort() {
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --model gpt-5 --effort max)
   status=$?
-  expect_code 0 "$status" "codex spawn with unsupported max effort should omit the effort flag"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 max
-  launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "codex --model 'gpt-5' --dangerously-bypass-approvals-and-sandbox" \
-    "codex launch did not preserve the model flag when max effort was omitted"
-  assert_not_contains "$launch" "model_reasoning_effort" "codex launch must omit unsupported max reasoning effort"
-  pass "codex omits unsupported max effort instead of passing a bad config value"
+  expect_code 1 "$status" "codex spawn with unsupported max effort should refuse"
+  assert_contains "$out" "codex does not support requested effort max" "codex refusal did not name the unsupported effective effort"
+  assert_absent "$HOME_DIR/state/$id.meta" "unsupported effort must not create misleading metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "unsupported effort must not launch Codex"
+  pass "codex refuses unsupported effort before metadata"
 }
 
 test_grok_threads_model_and_reasoning_effort() {
@@ -504,7 +502,7 @@ test_grok_threads_model_and_reasoning_effort() {
   pass "grok receives --model and --reasoning-effort profile flags"
 }
 
-test_grok_omits_invalid_max_reasoning_effort() {
+test_grok_refuses_unsupported_max_effort_before_metadata() {
   local rec id out status launch
   id=profile-grok-max-z6
   rec=$(make_spawn_case profile-grok-max grok "$id")
@@ -512,17 +510,14 @@ test_grok_omits_invalid_max_reasoning_effort() {
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --model grok-4 --effort max)
   status=$?
-  expect_code 0 "$status" "grok spawn with unsupported max reasoning effort should omit the effort flag"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4 max
-  launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "grok --always-approve --model 'grok-4' \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < " \
-    "grok launch did not preserve the model flag and typed brief when max effort was omitted"
-  assert_not_contains "$launch" "--reasoning-effort" "grok launch must omit unsupported max reasoning effort"
-  assert_not_contains "$launch" "--effort" "grok launch must not fall back to --effort for reasoning effort"
-  pass "grok omits unsupported max reasoning effort"
+  expect_code 1 "$status" "grok spawn with unsupported max reasoning effort should refuse"
+  assert_contains "$out" "grok does not support requested effort max" "grok refusal did not name the unsupported effective effort"
+  assert_absent "$HOME_DIR/state/$id.meta" "unsupported effort must not create misleading metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "unsupported effort must not launch Grok"
+  pass "grok refuses unsupported effort before metadata"
 }
 
-test_grok_omits_invalid_xhigh_reasoning_effort() {
+test_grok_refuses_unsupported_xhigh_effort_before_metadata() {
   local rec id out status launch
   id=profile-grok-xhigh-z6b
   rec=$(make_spawn_case profile-grok-xhigh grok "$id")
@@ -531,14 +526,11 @@ test_grok_omits_invalid_xhigh_reasoning_effort() {
   # grok 0.2.99 rejects xhigh (accepted set is only low|medium|high).
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --model grok-4 --effort xhigh)
   status=$?
-  expect_code 0 "$status" "grok spawn with unsupported xhigh reasoning effort should omit the effort flag"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4 xhigh
-  launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "grok --always-approve --model 'grok-4' \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < " \
-    "grok launch did not preserve the model flag and typed brief when xhigh effort was omitted"
-  assert_not_contains "$launch" "--reasoning-effort" "grok launch must omit unsupported xhigh reasoning effort"
-  assert_not_contains "$launch" "--effort" "grok launch must not fall back to --effort for reasoning effort"
-  pass "grok omits unsupported xhigh reasoning effort"
+  expect_code 1 "$status" "grok spawn with unsupported xhigh reasoning effort should refuse"
+  assert_contains "$out" "grok does not support requested effort xhigh" "grok refusal did not name the unsupported effective effort"
+  assert_absent "$HOME_DIR/state/$id.meta" "unsupported effort must not create misleading metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "unsupported effort must not launch Grok"
+  pass "grok refuses unsupported xhigh effort before metadata"
 }
 
 test_cursor_threads_model_workspace_and_omits_effort_axis() {
@@ -611,7 +603,7 @@ test_cursor_failed_catalog_probe_does_not_block_spawn() {
   pass "cursor preserves the requested model when its live catalog is unreachable"
 }
 
-test_opencode_threads_model_and_ignores_effort_axis() {
+test_opencode_refuses_unsupported_effort_before_metadata() {
   local rec id out status launch
   id=profile-opencode-z7
   rec=$(make_spawn_case profile-opencode opencode "$id")
@@ -619,15 +611,11 @@ test_opencode_threads_model_and_ignores_effort_axis() {
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --model anthropic/claude-sonnet-4-5 --effort high)
   status=$?
-  expect_code 0 "$status" "opencode spawn with model and ignored effort should succeed"
-  assert_meta_profile "$HOME_DIR/state/$id.meta" opencode anthropic/claude-sonnet-4-5 high
-  launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "opencode --model 'anthropic/claude-sonnet-4-5' --prompt" \
-    "opencode launch did not thread model"
-  assert_not_contains "$launch" "--effort" "opencode launch must not pass unsupported --effort"
-  assert_not_contains "$launch" "--variant" "opencode launch must not pass run-only --variant"
-  assert_not_contains "$launch" "--thinking" "opencode launch must not pass pi thinking flag"
-  pass "opencode receives --model and omits the unsupported effort axis"
+  expect_code 1 "$status" "opencode spawn with unsupported effort should refuse"
+  assert_contains "$out" "opencode does not support requested effort high" "opencode refusal did not name unsupported effort"
+  assert_absent "$HOME_DIR/state/$id.meta" "unsupported effort must not create misleading metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "unsupported effort must not launch OpenCode"
+  pass "opencode refuses unsupported effort before metadata"
 }
 
 test_pi_threads_model_and_max_effort() {
@@ -864,14 +852,14 @@ test_claude_fable_launches_solo_via_disallowed_tools
 test_claude_non_fable_models_omit_disallowed_tools
 test_claude_fable_allow_delegation_escape_omits_flag
 test_codex_threads_model_and_effort
-test_codex_omits_invalid_max_effort
+test_codex_refuses_unsupported_max_effort_before_metadata
 test_grok_threads_model_and_reasoning_effort
-test_grok_omits_invalid_max_reasoning_effort
-test_grok_omits_invalid_xhigh_reasoning_effort
+test_grok_refuses_unsupported_max_effort_before_metadata
+test_grok_refuses_unsupported_xhigh_effort_before_metadata
 test_cursor_threads_model_workspace_and_omits_effort_axis
 test_cursor_refuses_model_absent_from_live_catalog
 test_cursor_failed_catalog_probe_does_not_block_spawn
-test_opencode_threads_model_and_ignores_effort_axis
+test_opencode_refuses_unsupported_effort_before_metadata
 test_pi_threads_model_and_max_effort
 test_pi_tui_mode_probe_is_safe_for_old_and_new_pi
 test_pi_signed_threads_shared_pi_profile_and_preserves_identity

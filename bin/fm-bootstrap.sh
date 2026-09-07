@@ -1132,7 +1132,7 @@ crew_dispatch_validate() {
       | map({h: .harness, e: .effort})
       | map(select(.e != null))
       | map(select((.h | type) == "string" and verified(.h)))
-      | map(select(. as $p | effort_ok($p.h; $p.e) | not))
+      | map(select(.e == "low" or (. as $p | effort_ok($p.h; $p.e) | not)))
       | map("\(.h):\(.e)")
       | unique;
     if type != "object" then "top-level value must be an object"

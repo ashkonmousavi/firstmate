@@ -427,8 +427,8 @@ if [ "$TRACEPARENT_SET" -eq 1 ]; then
   }
 fi
 case "$EFFORT" in
-  ''|low|medium|high|xhigh|max) ;;
-  *) echo "error: --effort must be one of low, medium, high, xhigh, max" >&2; exit 1 ;;
+  ''|medium|high|xhigh|max) ;;
+  *) echo "error: --effort must be one of medium, high, xhigh, max" >&2; exit 1 ;;
 esac
 
 # --relaunch reuses an existing task's endpoint, worktree, project, and kind,
@@ -3238,6 +3238,19 @@ fi
 META_WINDOW=$T
 [ "$BACKEND" = orca ] && META_WINDOW=$W
 SPAWN_GEN="s$(date +%s).${BASHPID:-$$}.$RANDOM"
+EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT")
+if [ -n "${EFFORT:-}" ] && [ "$EFFORT" != default ] && [ -z "$EFFORTFLAG" ]; then
+  case "$HARNESS:$MODEL" in
+    cursor:*"-$EFFORT")
+      # Cursor has no separate effort flag: its verified model catalog encodes
+      # the effective reasoning class in the selected model id.
+      ;;
+    *)
+      echo "error: $HARNESS does not support requested effort $EFFORT; refusing before task metadata is written" >&2
+      exit 1
+      ;;
+  esac
+fi
 SPAWN_META_PATH="$STATE/$ID.meta"
 if [ "$SPAWN_META_LOCK_HELD" != 1 ]; then
   SPAWN_META_LOCK=$(fm_meta_lock_path "$STATE/$ID.meta") || exit 1
@@ -3369,7 +3382,6 @@ sq_piwatch=$(shell_quote "$PROJ_ABS/.pi/extensions/fm-primary-pi-watch.ts")
 sq_opinput=$(shell_quote "$FM_ROOT/bin/fm-operational-input.sh")
 sq_worktree=$(shell_quote "$WT")
 MODELFLAG=$(model_flag_for_harness "$HARNESS" "$MODEL")
-EFFORTFLAG=$(effort_flag_for_harness "$HARNESS" "$EFFORT")
 DISALLOWEDFLAG=$(disallowed_tools_flag_for_harness "$HARNESS" "$MODEL")
 LAUNCH=${LAUNCH//__MODELFLAG__/$MODELFLAG}
 LAUNCH=${LAUNCH//__EFFORTFLAG__/$EFFORTFLAG}
