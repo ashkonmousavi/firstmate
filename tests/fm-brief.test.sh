@@ -1079,11 +1079,12 @@ test_ship_briefs_batch_findings_before_resubmitting() {
   assert_grep "For a no-mistakes ask-user gate specifically, escalate all ask-user findings as one event plus one snapshot file" "$brief" \
     "the ask-user escalation must render the structured one-event-plus-snapshot contract"
 
-  # The prep-tier cap must route an over-budget prep to a firstmate scope
-  # decision, not unilaterally declare the task "scoped wrong" and pre-decide
-  # that it "gets split" - that call belongs to firstmate, not the worker.
-  assert_grep "The cap: a Tier 1 or 2 prep that passes 20 minutes or 15 sites stops and reports to firstmate for a scope decision; never prep harder." "$brief" \
+  # The prep-tier cap must route its checkpoint to firstmate without treating
+  # unreached consumers as irrelevant or pre-deciding that the task gets split.
+  assert_grep "The cap: at 20 minutes or 15 sites, report a scope checkpoint to firstmate, list unreached consumers as evidence gaps, and continue with reached sites; the cap never proves omitted consumers irrelevant." "$brief" \
     "the Proof bar cap must route to a firstmate scope decision"
+  assert_grep "A reviewer finding at a site NOT on your list is both a real finding to fix and a prep miss" "$brief" \
+    "the Proof bar cap must retain unlisted reviewer findings as prep misses"
   assert_no_grep "gets split" "$brief" \
     "the Proof bar cap must not pre-decide that the task gets split"
   assert_no_grep "the task is scoped wrong" "$brief" \
