@@ -1123,6 +1123,8 @@ test_ship_brief_carries_the_resource_line() {
   ' "$brief" || fail "the Resource placeholder must sit directly under the Prep placeholder"
   assert_grep "Resource, the RAM/disk envelope this task may use for tests and builds" "$brief" \
     "ship brief must carry the Resource tier definition beside the Prep tier definitions"
+  assert_grep "read the available column of free -g with \`free -g | awk '/^Mem:/ { print \$7 }'\` before any browser suite" "$brief" \
+    "ship brief must direct browser-suite memory checks to free's available column"
   assert_grep 'or "N/A" when the task executes no tests or builds' "$brief" \
     "the Resource definition must state the N/A escape hatch for no-test/no-build tasks"
 
