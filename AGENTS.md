@@ -294,8 +294,8 @@ Keep `local-only` work in the main home.
 Send in-scope work to the fitting secondmate unless it is blocked or the captain explicitly redirects it; do not read the secondmate's chat because marked routed replies return through its status or referenced document.
 If no secondmate scope fits, use the main home or discuss creating an appropriate persistent secondmate.
 
-Choose the smallest coherent solution that satisfies the accepted user outcome and remains maintainable as the already-planned profiles, strategies, configurations and runs grow.
-Minimize total complexity and foreseeable rework, not merely the current diff.
+Choose the smallest maintainable change that completes the user outcome and supports the known next requirements.
+Minimise total complexity, not merely the diff size.
 Prefer existing components, explicit contracts and clear ownership.
 Identify temporary workarounds, their replacement owner and replacement condition.
 Avoid speculative frameworks.
