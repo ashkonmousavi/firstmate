@@ -836,6 +836,7 @@ fm_dispatchable_work() {  # <state-dir> [data-dir] [root]
 # Populate the lane-floor fields for one home. Never prints, never writes.
 #   FM_LANE_FLOOR        the configured floor (config/lane-floor, default 10)
 #   FM_LANE_FLOOR_LIVE   unpaused lanes this home is running
+#   FM_LANE_FLOOR_STATE  state directory used by the report's validation counts
 #   FM_LANE_FLOOR_WORK   fm_dispatchable_work's lines, newline separated - the
 #                        evidence for a breach, so it is left EMPTY whenever
 #                        there is none, including when the enumeration was
@@ -850,6 +851,7 @@ fm_lane_floor_compute() {  # <state-dir> [data-dir] [root] [config-dir]
   [ -n "$data" ] || data=$(dirname -- "$state")/data
   [ -n "$config" ] || config=$(dirname -- "$state")/config
   FM_LANE_FLOOR=$(fm_lane_floor_value "$config")
+  FM_LANE_FLOOR_STATE=$state
   FM_LANE_FLOOR_LIVE=$(fm_lane_floor_live "$state")
   FM_LANE_FLOOR_WORK=''
   FM_LANE_FLOOR_COUNT=0
@@ -879,10 +881,24 @@ fm_lane_floor_compute() {  # <state-dir> [data-dir] [root] [config-dir]
 # listed items with the rest disclosed as a count. Always returns 0: like the
 # idle-capacity block above, this is a report, never a gate.
 fm_lane_floor_render() {
-  local shown=0 item
+  local shown=0 item waiting=0 validating=0 meta id last verb
   [ "${FM_LANE_FLOOR_BREACH:-false}" = true ] || return 0
+  for meta in "${FM_LANE_FLOOR_STATE:-}"/*.meta; do
+    [ -e "$meta" ] || continue
+    id=$(basename -- "$meta" .meta)
+    last=$(grep -v '^[[:space:]]*$' "${FM_LANE_FLOOR_STATE:-}/$id.status" 2>/dev/null | tail -1)
+    verb=${last%%:*}
+    verb=${verb%%\[*}
+    verb=${verb#"${verb%%[![:space:]]*}"}
+    verb=${verb%"${verb##*[![:space:]]}"}
+    case "$verb:$last" in
+      paused:*prepared*validation\ slots\ full*) waiting=$((waiting + 1)) ;;
+      working:*no-mistakes\ run*) validating=$((validating + 1)) ;;
+    esac
+  done
   printf 'LANE FLOOR: live=%s floor=%s dispatchable=%s - load the lane-floor skill and dispatch before ending this turn\n' \
     "$FM_LANE_FLOOR_LIVE" "$FM_LANE_FLOOR" "$FM_LANE_FLOOR_COUNT"
+  printf 'VALIDATION: waiting-for-slot=%s live-validation=%s\n' "$waiting" "$validating"
   while IFS= read -r item; do
     [ -n "$item" ] || continue
     if [ "$shown" -ge "$FM_LANE_FLOOR_LIST_LIMIT" ]; then

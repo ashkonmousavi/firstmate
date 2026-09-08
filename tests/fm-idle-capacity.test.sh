@@ -907,6 +907,38 @@ test_lane_floor_counts_non_captain_work_only() {
   pass "lane floor: the breach counts openspec Changes and non-captain holds, never a captain hold"
 }
 
+# A prepared branch waiting for the validation queue is productive, while a
+# no-mistakes run is the validation work currently using a slot.
+test_lane_floor_reports_prepared_waiters_and_live_validation_separately() {
+  local home out
+  home=$(make_home lane-floor-validation-counts 5)
+  make_change "$home" proj alpha 1
+  : > "$home/state/waiter-1.meta"
+  : > "$home/state/waiter-2.meta"
+  : > "$home/state/validator.meta"
+  printf '%s\n' 'paused: prepared, validation slots full' > "$home/state/waiter-1.status"
+  printf '%s\n' 'paused: prepared, validation slots full' > "$home/state/waiter-2.status"
+  printf '%s\n' 'working: no-mistakes run is running' > "$home/state/validator.status"
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"VALIDATION: waiting-for-slot=2 live-validation=1"*) ;;
+    *) fail "the lane-floor report must distinguish prepared validation waiters from live validation, got: $out" ;;
+  esac
+  pass "lane floor: prepared validation waiters and live validation are reported separately"
+}
+
+test_research_first_allows_a_bounded_fair_comparison_for_an_unresolved_material_criterion() {
+  local skill
+  skill="$ROOT/.agents/skills/research-first-decisions/SKILL.md"
+  grep -Fq 'may authorize a bounded local comparison before selection' "$skill" \
+    || fail "research-first must allow an unresolved material criterion to use a bounded comparison"
+  grep -Fq 'identical inputs, versions, conditions, and predeclared criterion' "$skill" \
+    || fail "research-first must require fair comparison conditions"
+  grep -Fq 'the decision it changed' "$skill" \
+    || fail "research-first must preserve the decision changed by a comparison"
+  pass "research-first: an unresolved material criterion may use a bounded fair comparison"
+}
+
 # An external, parked, or future hold whose named event has not fired yet is
 # not dispatchable and would breach the floor forever if counted; a load hold
 # still counts, and once the named event's own date has passed tasks-axi's
@@ -1387,6 +1419,8 @@ test_away_idle_scan_buffers_idle_capacity
 test_away_scan_escalates_idle_capacity_once_per_unchanged_tuple
 test_away_idle_scan_buffers_capacity_held
 test_lane_floor_counts_non_captain_work_only
+test_lane_floor_reports_prepared_waiters_and_live_validation_separately
+test_research_first_allows_a_bounded_fair_comparison_for_an_unresolved_material_criterion
 test_lane_floor_excludes_unmet_event_holds
 test_lane_floor_silent_at_the_floor
 test_lane_floor_malformed_value_falls_back_to_default

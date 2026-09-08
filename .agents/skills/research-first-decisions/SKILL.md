@@ -69,7 +69,7 @@ It carries the frozen plan and its amendments, the evidence per candidate with p
 - **A disposition for every candidate**, one of:
   - **ADOPT** - selected, with the criteria it won on and what it costs.
   - **BENCHMARK FURTHER** - not selected; a named decision criterion remains unresolved after primary-source research, with the missing evidence or public measurement stated.
-    Continue research or route the ambiguity to the captain; bounded local proof never clears this disposition into ADOPT.
+    Continue research, route the ambiguity to the captain, or record the bounded local comparison that can resolve it.
   - **REJECT** - out, with the specific disqualifying evidence.
   - **DEFER** - not now, with what would reopen it.
   No candidate may be left without a disposition; an unaccounted candidate reads as an unexamined one.
@@ -91,14 +91,17 @@ If a question cannot be asked without disclosing private material, it is not a r
 
 ## 6. Selection versus proof
 
-Research selects.
-Only an ADOPT option is selected.
-Bounded local proof may run only after selection and only for an ADOPT option, to verify an integration-specific feasibility or budget claim such as whether it builds here or speaks the protocol this system speaks.
-Local proof never ranks candidates, clears a BENCHMARK FURTHER disposition into ADOPT, changes a disposition, or overturns the research conclusion.
+Research ordinarily selects.
+Only an ADOPT option is selected unless a packet records how a bounded local comparison resolved a material criterion that primary-source research left unresolved.
+Bounded local proof after selection verifies an ADOPT option's named integration-specific feasibility or budget claim, such as whether it builds here or speaks the protocol this system speaks.
 
-A local contest, bake-off, or prototype shoot-out is never a selection gate.
-Building each candidate locally and picking the one that felt best substitutes an afternoon of local effort for the whole public record of how these options behave over time, and it systematically favours whatever is quickest to stand up rather than whatever is right to live with.
-Where a comparison genuinely cannot be settled from primary sources, continue the research or route the ambiguity to the captain, recording BENCHMARK FURTHER or DEFER rather than settling it with a local measurement.
+Where primary-source research leaves a material criterion unresolved, the packet may authorize a bounded local comparison before selection.
+It compares every candidate against identical inputs, versions, conditions, and predeclared criterion.
+Preserve the inputs, versions, conditions, result, and the decision it changed in the packet.
+The comparison may rank candidates and change a disposition only for that unresolved criterion.
+It does not replace the primary-source record or permit a preference-driven bake-off.
+The captain's resource-approval boundary remains unchanged, and this skill does not authorize a run, spend, account, credential, or external service.
+
 Keep proof of an ADOPT option bounded to its named integration claim, and record its result back into the packet.
 If that proof fails, record the failed integration claim and return the decision to research or the captain; the proof does not select a replacement or change a disposition itself.
 
