@@ -15,7 +15,7 @@
 #     when the clone was already current (nothing changed to index);
 #   - fm-merge-local.sh calls it after a successful local-only landing.
 # A second, real-tool group (skipped when `gitnexus` is not installed) proves
-# the actual empirical claim the header makes: a real `gitnexus analyze
+# the actual empirical claim the header makes: a real `gitnexus analyze --force
 # --index-only` run against a throwaway repo leaves that repo's working tree
 # byte-identical (clean git status, no new files) and the index it registers
 # is keyed to that repo's exact HEAD.
@@ -84,7 +84,8 @@ advance_origin() {
 
 # fake_gitnexus <fakebin> <logfile> [fail_analyze]: a `gitnexus` shim that
 # appends "argv: <args>" and "cwd-arg-head: <sha of last arg if a git repo>"
-# to <logfile> for every call, and exits 1 on `analyze` when fail_analyze=1.
+# to <logfile> for every call, rejects `analyze` without `--force`, and exits 1
+# on `analyze` when fail_analyze=1.
 fake_gitnexus() {
   local fakebin=$1 log=$2 fail_analyze=${3:-0}
   cat > "$fakebin/gitnexus" <<SH
@@ -94,6 +95,13 @@ fake_gitnexus() {
   for a in "\$@"; do printf ' %s' "\$a"; done
   printf '\n'
 } >> "$log"
+if [ "\${1:-}" = analyze ]; then
+  force_present=0
+  for a in "\$@"; do
+    [ "\$a" = --force ] && force_present=1
+  done
+  [ "\$force_present" -eq 1 ] || exit 97
+fi
 if [ "\${1:-}" = analyze ] && [ "$fail_analyze" = 1 ]; then
   exit 1
 fi
@@ -147,8 +155,8 @@ assert_present "$mirror/.git" "mirror clone was created under state/gitnexus-mir
 mirror_sha=$(git -C "$mirror" rev-parse HEAD)
 [ "$mirror_sha" = "$head_sha" ] || fail "mirror HEAD ($mirror_sha) does not match project HEAD ($head_sha)"
 
-assert_grep "argv: analyze --index-only --name fm-standalone-proj $mirror" "$log" \
-  "gitnexus was invoked with --index-only against the mirror, not the project clone"
+assert_grep "argv: analyze --force --index-only --name fm-standalone-proj $mirror" "$log" \
+  "gitnexus was forced to rebuild the mirror index, never the project clone"
 assert_no_grep "$proj" "$log" "gitnexus was never invoked with the project clone path"
 pass "fm-gitnexus-reindex.sh indexes a dedicated mirror and never touches the project clone"
 
@@ -267,4 +275,4 @@ mirror_status=$(cd "$mirror" && gitnexus status 2>&1)
 assert_contains "$mirror_status" "Indexed commit: ${head_sha:0:7}" "the real index's recorded commit matches the project's HEAD"
 assert_contains "$mirror_status" "Current commit: ${head_sha:0:7}" "the mirror's checked-out commit matches the project's HEAD"
 gitnexus remove "fm-real-proj" --force >/dev/null 2>&1 || true
-pass "a real gitnexus analyze --index-only run leaves the project byte-identical and indexes its exact HEAD"
+pass "a real forced gitnexus analyze --index-only run leaves the project byte-identical and indexes its exact HEAD"
