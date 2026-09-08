@@ -104,7 +104,7 @@ The evidence contract: paste the prep output as a list, verbatim, under this Pro
 A reviewer finding at a site NOT on your list is both a real finding to fix and a prep miss; record the prep miss in your report.
 
 ## Scope boundary
-A finding inside this task's stated bar is yours to fix in this run. A finding asking for proof machinery beyond the stated bar is answered out of scope by default (AGENTS.md section 7). A settled family already answered in an earlier round is out of scope; do not reopen it without new evidence.
+A finding inside this task's stated bar is yours to fix in this run. A finding asking for proof machinery beyond the stated bar is answered out of scope by default, but the proof bar cannot exclude tests needed to keep already accepted behavior correct, as the Validate subsection of AGENTS.md section 7 requires. A settled family already answered in an earlier round is out of scope; do not reopen it without new evidence.
 
 ## Class-sweep rule (rule B)
 The first finding of a family means sweep the whole repo for the mechanism under the same cap as the tiers above, give every site found one of the evidence contract's three dispositions - fixed, confirmed unaffected, or out of scope with an owner - and answer every finding in that family in one round with one fix command. Rule 8 under `# Rules` below is this same rule, extended to also apply before your first run whenever you already know the family in advance.

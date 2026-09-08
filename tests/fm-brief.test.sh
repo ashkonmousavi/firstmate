@@ -1089,6 +1089,8 @@ test_ship_briefs_batch_findings_before_resubmitting() {
     "the Proof bar cap must not pre-decide that the task gets split"
   assert_no_grep "the task is scoped wrong" "$brief" \
     "the Proof bar cap must not unilaterally declare the task scoped wrong"
+  assert_grep "the proof bar cannot exclude tests needed to keep already accepted behavior correct" "$brief" \
+    "the Scope boundary must retain tests needed for already accepted behavior within the task"
 
   # The Proof bar's own instruction must point at the two-part --intent
   # contract's labeled `Agreed proof contract:` part, not a bare "alongside

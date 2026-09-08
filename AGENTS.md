@@ -408,7 +408,7 @@ Running, fixing, or CI states remain working; parked approval or fix-review stat
 A worker hand-editing, committing, aborting, or restarting during an active validation run duplicates pipeline ownership outside the supersession sequence above; steer it back to the gate response flow.
 The worker reports the PR when CI first becomes green rather than waiting for merge monitoring to finish.
 
-A finding asking for proof machinery beyond the task's stated proof bar is answered out of scope by default.
+A finding asking for proof machinery beyond the task's stated proof bar is answered out of scope by default, but the proof bar cannot exclude tests needed to keep already accepted behavior correct, as the Validate subsection's smallest-downstream-changes sentence requires.
 A finding family that survives two review rounds is redesigned or deferred, never argued a third round.
 An excluded-not-cancelled capability needs an honest absence surface, never a proof of absence.
 

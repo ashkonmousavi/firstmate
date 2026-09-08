@@ -29,6 +29,8 @@ LANE FLOOR: live=4 floor=10 dispatchable=17 - load the lane-floor skill and disp
 ## Procedure
 
 Work the list until live lanes reach the floor, or until the memory bound below stops you.
+Validation concurrency and review serialization never lower the lane floor, and the memory bound below is the only dispatch limiter.
+A lane preparing or proving locally while it waits for a validation slot is productive work, not an idle lane.
 
 1. **Take the list in the order it prints.** Backlog items come first because they are already filed, already scoped, and already carry their delivery mode.
 2. **For a `backlog` line, dispatch it.** Resolve delivery mode and merge posture at intake exactly as any other dispatch, write the brief, and spawn.
