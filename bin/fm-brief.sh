@@ -506,7 +506,7 @@ You are in a disposable git worktree of $REPO, at a detached HEAD on a clean def
 The path check is authoritative: \`git rev-parse --git-dir\` and \`git rev-parse --git-common-dir\` can help inspect the repo, but they do not prove you are outside the primary checkout.
 If the top-level path is the primary checkout or not the worktree you were launched in, STOP - do not branch or commit here - append \`blocked: launched in primary checkout, not an isolated worktree\` to the status file and stop.
 
-Before touching anything, query this project's current GitNexus main index (registered as \`fm-<project-name>\`; see \`bin/fm-gitnexus-reindex.sh\`) for blast radius and consumers, then diff your branch against it, and name the index's commit sha in your prep list.
+Before touching anything, query this project's GitNexus main index for blast radius and consumers. Always pass the repository name explicitly as \`fm-<project-name>\` (never a bare project name, never omitted: your worktree is not a registered path, so an omitted name errors on this machine). Never run \`gitnexus analyze\` inside your worktree; the index lives in a firstmate-owned mirror and is refreshed by bin/fm-gitnexus-reindex.sh. If the MCP server errors, the CLI works the same: \`gitnexus context <symbol> --repo fm-<project-name>\`, \`gitnexus impact\`, \`gitnexus query\`, \`gitnexus cypher\`. Diff your branch against the index and name the index's commit sha in your prep list.
 
 1. First action: create your branch: \`git checkout -b fm/$ID\`$SETUP2
 
