@@ -24,9 +24,9 @@
 # `fm-<label>` alias so a worker's query targets that alias regardless of the
 # mirror's path.
 #
-# GitNexus 1.6.9 incremental re-analysis corrupts `filePath` on File and
-# Function nodes, so every refresh is a forced full rebuild. About 41 seconds
-# for XAUUSD is an acceptable cost for a clean index.
+# Always a full rebuild: gitnexus 1.6.9's incremental analyze blanked filePath
+# on most File and Function nodes (2026-09-08); a forced rebuild costs about a
+# minute and is deterministic.
 #
 # Fail-soft: gitnexus missing, an unreadable project, or any mirror/analyze
 # failure prints one "WARN:" line to stderr and this script still exits 0, so a
