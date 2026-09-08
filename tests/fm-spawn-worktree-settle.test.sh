@@ -46,6 +46,10 @@ case "$*" in
     ;;
 esac
 case "${1:-}" in
+  capture-pane)
+    [ -z "${FM_FAKE_PANE_CAPTURE:-}" ] || cat "$FM_FAKE_PANE_CAPTURE"
+    exit 0
+    ;;
   display-message) printf 'firstmate\n'; exit 0 ;;
   list-windows) exit 0 ;;
   has-session|new-session|new-window|kill-window) exit 0 ;;
@@ -54,7 +58,7 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
-  fm_fake_exit0 "$fakebin" treehouse
+  fm_fake_exit0 "$fakebin" treehouse sleep
   printf '%s\n' "$fakebin"
 }
 
@@ -109,6 +113,19 @@ run_settle_spawn() {
     "$SPAWN" "$id" "$PROJ_DIR" --mode no-mistakes --yolo off 2>&1
 }
 
+run_refused_pool_spawn() {
+  local id=$1 capture=$2
+  FM_ROOT_OVERRIDE='' FM_HOME="$HOME_DIR" \
+    FM_STATE_OVERRIDE="$HOME_DIR/state" FM_DATA_OVERRIDE="$HOME_DIR/data" \
+    FM_PROJECTS_OVERRIDE="$HOME_DIR/projects" FM_CONFIG_OVERRIDE="$HOME_DIR/config" \
+    FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" \
+    FM_FAKE_PANE_PATH="$PROJ_DIR" FM_FAKE_PANE_STALE="$PROJ_DIR" \
+    FM_FAKE_PANE_STALE_READS=60 FM_FAKE_PANE_COUNTFILE="$COUNTFILE" \
+    FM_FAKE_PANE_CAPTURE="$capture" \
+    PATH="$FAKEBIN_DIR:$PATH" \
+    "$SPAWN" "$id" "$PROJ_DIR" --mode no-mistakes --yolo off 2>&1
+}
+
 # A single stale first read (the exact incident) must not be accepted: the
 # loop should keep polling until two consecutive reads agree, landing on the
 # real settled worktree instead.
@@ -150,7 +167,27 @@ test_already_settled_pane_costs_one_confirm_sleep() {
   pass "an already-settled pane confirms via the existing inter-poll sleep, not an extra full cycle"
 }
 
+test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout() {
+  local rec id out status capture case_dir
+  id=settle-pool-refusal-z3
+  rec=$(make_settle_case settle-pool-refusal "$id" 0)
+  read_settle_record "$rec"
+  case_dir=$(dirname "$HOME_DIR")
+  capture="$case_dir/treehouse-refusal-pane.txt"
+  printf '%s\n' 'treehouse: all 16 worktrees are in use or dirty (max_trees = 16)' > "$capture"
+
+  out=$(run_refused_pool_spawn "$id" "$capture")
+  status=$?
+  expect_code 1 "$status" "spawn should fail when treehouse refuses the pool lease"
+  assert_contains "$out" 'all 16 worktrees are in use or dirty (max_trees = 16)' \
+    "spawn did not surface treehouse's pool refusal"
+  assert_not_contains "$out" 'treehouse get did not enter a worktree within 60s' \
+    "spawn kept the generic timeout after treehouse reported its pool refusal"
+  pass "treehouse pool refusal is reported instead of the generic worktree timeout"
+}
+
 test_single_stale_first_read_is_not_accepted
 test_already_settled_pane_costs_one_confirm_sleep
+test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout
 
 echo "# all fm-spawn-worktree-settle tests passed"

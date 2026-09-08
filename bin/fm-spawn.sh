@@ -2804,6 +2804,12 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
     sleep 1
   done
   if [ -z "$WT" ]; then
+    pane=$(fm_backend_capture "$BACKEND" "$WT_TARGET" 120 "$W" 2>/dev/null || true)
+    refusal=$(printf '%s\n' "$pane" | grep -E 'all [0-9]+ worktrees are in use or dirty \(max_trees = [0-9]+\)' | tail -n 1)
+    if [ -n "$refusal" ]; then
+      echo "error: $refusal; inspect window $T" >&2
+      exit 1
+    fi
     echo "error: treehouse get did not enter a worktree within 60s; inspect window $T" >&2
     exit 1
   fi
