@@ -19,10 +19,14 @@
 # dedicated local mirror clone it owns exclusively, under
 # $FM_HOME/state/gitnexus-mirrors/<label>, fetched and fast-forwarded from the
 # project clone (a local, read-only `git fetch`/`git clone` of that path) but
-# never written back to it. `gitnexus analyze --index-only --name fm-<label>`
+# never written back to it. `gitnexus analyze --force --index-only --name fm-<label>`
 # then runs against that mirror only, and registers the mirror under a stable
 # `fm-<label>` alias so a worker's query targets that alias regardless of the
 # mirror's path.
+#
+# GitNexus 1.6.9 incremental re-analysis corrupts `filePath` on File and
+# Function nodes, so every refresh is a forced full rebuild. About 41 seconds
+# for XAUUSD is an acceptable cost for a clean index.
 #
 # Fail-soft: gitnexus missing, an unreadable project, or any mirror/analyze
 # failure prints one "WARN:" line to stderr and this script still exits 0, so a
@@ -67,7 +71,7 @@ else
   git -C "$mirror" checkout --quiet --detach "$head_sha" >/dev/null 2>&1 || true
 fi
 
-if ! gitnexus analyze --index-only --name "fm-$label" "$mirror" >/dev/null 2>&1; then
+if ! gitnexus analyze --force --index-only --name "fm-$label" "$mirror" >/dev/null 2>&1; then
   warn "gitnexus analyze failed for $label, skipping"
   exit 0
 fi
