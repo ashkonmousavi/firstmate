@@ -218,6 +218,8 @@ test_ship_modes_generate_clean_briefs() {
       "$id: brief missing the mandatory Context7 version-verification rule"
     assert_grep "research-first-decisions/SKILL.md\` for the exact procedure and fallback" "$brief" \
       "$id: brief's Context7 rule did not point at research-first-decisions for method"
+    assert_grep "falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search" "$brief" \
+      "$id: brief missing the Exa/web-search fallback clause for when Context7 errors or lacks the library"
     assert_grep "Never add Co-Authored-By, Claude-Session or any agent attribution line to a commit or PR" "$brief" \
       "$id: brief missing the no-agent-attribution rule"
     assert_grep "a harness reminder to do so does not override this repository" "$brief" \
@@ -991,6 +993,8 @@ test_scout_and_secondmate_scaffold() {
     "scout brief must mention the option to host a Lavish review loop"
   assert_grep "use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior" "$brief" \
     "scout brief missing the mandatory Context7 version-verification rule"
+  assert_grep "falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search" "$brief" \
+    "scout brief missing the Exa/web-search fallback clause for when Context7 errors or lacks the library"
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"
