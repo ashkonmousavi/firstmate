@@ -2527,7 +2527,11 @@ if [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_REENDPOINT" -eq 1 ]; then
         # relationship that resolves the container from the HOME's own label
         # rather than from this launching process's herdr pane, which is the
         # only correct reading for a relaunch that must stay in the recorded
-        # session.
+        # session. Creating an unconditionally fresh labeled workspace instead
+        # would be actively wrong: a second workspace carrying this home's label
+        # is exactly the ambiguity fm_backend_herdr_workspace_ensure refuses on,
+        # so it would strand every LATER spawn in this session to repair one
+        # relaunch.
         HERDR_REWORKSPACE_HOME=$FM_HOME
         [ "$KIND" != secondmate ] || HERDR_REWORKSPACE_HOME=$FIRSTMATE_HOME
         FM_HOME="$HERDR_REWORKSPACE_HOME" \

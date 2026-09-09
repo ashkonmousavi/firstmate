@@ -128,6 +128,16 @@ meta_get() {  # <task-id> <key>
   grep -m1 "^$2=" "$STATE_DIR/$1.meta" 2>/dev/null | cut -d= -f2- || true
 }
 
+# pane_cwd: the directory a pane was CREATED in, which is the axis the captain
+# named as "its intended directory". `pane get`'s .result.pane.cwd is frozen at
+# creation time (bin/backends/herdr.sh, fm_backend_herdr_current_path), which is
+# exactly what is wanted here: it reports where the replacement was ROOTED, not
+# wherever a shell later wandered. Asserting it is what separates a record that
+# merely NAMES the recorded worktree from an endpoint actually placed in it.
+pane_cwd() {  # <pane-id>
+  lab pane get "$1" 2>/dev/null | jq -r '.result.pane.cwd // empty'
+}
+
 # make_lane: a real worktree, a real herdr endpoint, and the durable record that
 # names both. <container> is "<session>:<workspace_id>"; pass an empty seeded tab
 # id when adopting a workspace that already holds a task tab.
@@ -315,6 +325,8 @@ OUT=$(run_spawn active-lane --relaunch) \
   || fail "recovery must carry the recorded delivery mode"
 [ "$(meta_get active-lane herdr_pane_id)" = "$ACTIVE_PANE" ] \
   || fail "a dead-but-present endpoint must be ADOPTED, not replaced"
+[ "$(pane_cwd "$ACTIVE_PANE")" = "$ACTIVE_WT" ] \
+  || fail "the recovered lane's endpoint must sit in the recorded local copy on the backend, not only in the record"
 [ "$(meta_get active-lane parked)" = "" ] \
   || fail "a relaunch must not leave a parked marker on a running lane"
 pass "case 2: the active lane recovered once, in its own worktree, with its recorded harness, mode and yolo posture"
@@ -411,6 +423,8 @@ NEW_PANE=$(meta_get gone-pane-lane herdr_pane_id)
   || fail "the replacement must be a NEW pane, not the closed one"
 lab pane get "$NEW_PANE" >/dev/null 2>&1 \
   || fail "the replacement pane should exist"
+[ "$(pane_cwd "$NEW_PANE")" = "$GONE_WT" ] \
+  || fail "the fresh endpoint must be rooted in the recorded local copy on the backend"
 [ "$(meta_get gone-pane-lane herdr_workspace_id)" = "$WS_MAIN" ] \
   || fail "the replacement must stay in the recorded workspace while that workspace exists"
 [ "$(meta_get gone-pane-lane worktree)" = "$GONE_WT" ] \
@@ -455,6 +469,8 @@ SOLO_NEW_PANE=$(meta_get solo-lane herdr_pane_id)
   || fail "the replacement must be rooted in the same recorded worktree"
 lab pane get "$SOLO_NEW_PANE" >/dev/null 2>&1 \
   || fail "the replacement pane must exist"
+[ "$(pane_cwd "$SOLO_NEW_PANE")" = "$SOLO_WT" ] \
+  || fail "the replacement in the FRESH workspace must still be rooted in the recorded local copy on the backend"
 [ "$(meta_get solo-lane window)" = "$SESSION:$SOLO_NEW_PANE" ] \
   || fail "the record must be republished with the new endpoint"
 [ "$(meta_get solo-lane harness)" = "$LAB_HARNESS" ] \
