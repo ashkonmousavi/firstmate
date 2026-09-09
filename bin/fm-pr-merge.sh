@@ -136,10 +136,9 @@
 # A landed merge whose outcome cannot be written is reported loudly rather than
 # misreported as a failed merge.
 # This script merges through gh/glab's server-side API and does not itself run
-# `git push`; if a future change adds one that pushes directly to a project's
-# main/master, prefix that exact command with
-# `FM_PUSH_GUARD_OWNER=fm-pr-merge` so bin/fm-push-guard-pretool-check.sh
-# recognizes it as sanctioned (docs/push-guard.md).
+# `git push`. No owner marker grants a bypass. A future direct push to
+# main/master is refused by the guard and must land through a PR or the
+# guarded local merge instead (docs/push-guard.md).
 # Usage: fm-pr-merge.sh <task-id> <pr-url> [-- <extra forge merge args>]
 set -eu
 

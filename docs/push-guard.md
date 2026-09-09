@@ -12,7 +12,7 @@ Unlike those two, it is **not** scoped to the primary firstmate checkout - see "
 On 2026-09-04, firstmate pushed two configuration commits straight to a project's `main` from a scratch clone, without the pipeline that would have caught the regression; each turned that project's `main` red.
 GitHub branch protection would prevent this, but it needs a paid plan the captain declined, so this seatbelt is the backstop: it denies a direct `git push` to `main` or `master` on any remote before it runs, in any git repository, from any working directory.
 
-Since 2026-09-09 it carries a second boundary that is not branch-scoped at all: a **force push** and a **remote branch deletion** are denied on every branch.
+Since 2026-09-09 it carries a second delivery boundary: destructive publication is refused except for the two state-verified task-branch paths below.
 A force push rewrites published history and a remote delete removes a branch a PR or another worker still depends on, so both are unsafe wherever they land, not only on `main`.
 The sanctioned alternatives are a replacement branch with a fresh suffix, and closing the superseded PR while leaving its branch in place.
 
@@ -64,14 +64,14 @@ The guard **blocks** a `git push` invocation, anywhere shell control can reach i
 - any `git` invocation reaching one of the above through `-C <dir>`, `-c <k>=<v>`, `--git-dir=`, `--work-tree=`, `--namespace=`, or `--exec-path=` global options first
 - any of the above nested inside `(...)`, `{ ...; }`, `$(...)`, backticks, a literal `eval "..."`, or a literal `sh -c "..."`/`bash -c "..."`/`zsh -c "..."` payload
 
-It **also** blocks, on every branch and regardless of the target named, through the same reachability surface:
+It **also** blocks bare `--force`, every lease without an exact expected tip, and every force or lease targeting `main`, `master`, or the default branch, through the same reachability surface:
 
 - `git push --force` and `git push -f`
-- `git push --force-with-lease`, including the `--force-with-lease=<refname>[:<expect>]` attached-argument form
+- `git push --force-with-lease` and every lease that omits an attached `<task-branch>:<expected-sha>`
 - `git push origin +feature-x` and `git push origin +refs/heads/feature-x` (a leading `+` force marker on any refspec, not only one aimed at `main`)
 - `git push -fu origin feature-x` (git's `parse-options` bundles short flags, so a letter cluster carrying `f` requests a force just as `-f` does; a cluster carrying `d` requests a delete)
-- `git push --delete origin feature-x` and `git push -d origin feature-x`
-- `git push origin :feature-x` and `git push origin :refs/heads/feature-x` (a refspec with an empty source, which deletes the remote branch)
+- `git push --delete origin feature-x` and `git push -d origin feature-x` before the task's landing record exists
+- `git push origin :feature-x` and `git push origin :refs/heads/feature-x` before the task's landing record exists
 
 `--force-if-includes` and `--no-force-with-lease` are **not** force requests: the first only qualifies an accompanying `--force-with-lease`, and the second cancels one.
 Neither is denied on its own.
@@ -79,9 +79,10 @@ Neither is denied on its own.
 The guard **allows** everything else, including:
 
 - `git push origin <feature-branch>` (any target that is not `main`/`master`)
+- `git push --force-with-lease=<task-branch>:<expected-sha> <remote> <task-branch>` only when the current worktree is that registered ship task, the lease SHA equals the live remote tip, and the branch is not protected
+- `git push --delete <remote> <task-branch>` only when that same registered task has `landed_pr=` recorded by `bin/fm-pr-merge.sh`
 - `git -C <dir> status`, `git checkout main`, or any non-push `git` subcommand
 - `git push` reached only through indirection this classifier does not treat as a transparent wrapper (`xargs git push ...`, a Makefile target, a helper script that shells out to `git push`)
-- the exact command carrying the owner marker described below
 
 ### The one case text cannot settle: a bare push
 
@@ -90,15 +91,16 @@ For that case, `bin/fm-push-guard-command-policy.mjs` returns a `check-branch` d
 `bin/fm-push-guard-pretool-check.sh` is the only place that resolves it: it runs `git -C <dir-or-cwd> symbolic-ref --quiet --short HEAD` - real, already-committed repository state, never a byte of the submitted command - and denies only when that branch is exactly `main` or `master`.
 When the branch cannot be determined (not a git repository, detached `HEAD`, missing `git`), the transport fails open: this guard denies known `main`/`master` targets, not every ambiguous repository state.
 
-### The owner marker
+### Registered delivery authorization
 
-`bin/fm-pr-merge.sh` (server-side PR merge via `gh`/`glab`) and `bin/fm-merge-local.sh` (a local `git merge --ff-only`) are the two sanctioned paths that land work on `main`; neither currently issues `git push` itself.
-The brief for this guard required that any future exemption for those two owners be an explicit marker they set, never a path pattern, so a command carrying the exact leading assignment `FM_PUSH_GUARD_OWNER=fm-pr-merge` or `FM_PUSH_GUARD_OWNER=fm-merge-local` immediately before the `git push` on the same command line is exempted from this guard.
-This exemption is unexercised by any current call site - it exists so a future change to either owner script has a sanctioned way to push directly without widening this policy into a path-based bypass.
+The two destructive paths above are deliberately state-aware rather than owner-marker exemptions.
+The transport resolves the effective worktree, requires a registered `kind=ship` task record for its current branch, and checks the lease against the remote's current tip.
+It refuses a missing task record, a branch mismatch, a stale lease, an unrecorded landing, every bare `--force`, and every protected target.
+This is the bounded existing-remote authorization in Decision 0055, not general force-push authority.
 
-The marker is applied in `findSites()` before any argument is classified, so it exempts the force and delete denials on exactly the same terms, with no second bypass surface.
-It is also the **only** sanctioned bypass for those two: a repository-wide sweep on 2026-09-09 found no firstmate script that force-pushes or deletes a remote branch, so there is no cleanup path to carve out.
-`bin/fm-fleet-sync.sh` and `bin/fm-teardown.sh` do delete branches, but locally with `git branch -D`, which is not a push and which this guard never sees.
+`bin/fm-pr-merge.sh` lands through the forge and `bin/fm-merge-local.sh` uses a local fast-forward merge, so neither needs a push-guard exemption.
+An `FM_PUSH_GUARD_OWNER` assignment grants no bypass, including for a force or delete.
+`bin/fm-fleet-sync.sh` and `bin/fm-teardown.sh` currently delete branches locally with `git branch -D`, which is not a push and which this guard never sees.
 
 ### Accepted non-goals
 
