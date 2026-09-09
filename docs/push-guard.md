@@ -169,7 +169,7 @@ Run:
 
 ```sh
 bash -n bin/fm-push-guard-pretool-check.sh
-shellcheck bin/fm-push-guard-pretool-check.sh tests/fm-push-guard.test.sh
+bin/fm-lint.sh bin/fm-push-guard-pretool-check.sh tests/fm-push-guard.test.sh
 node --check bin/fm-push-guard-command-policy.mjs
 tests/fm-push-guard.test.sh
 ```

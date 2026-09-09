@@ -27,19 +27,47 @@
 # Explicit paths always bypass this file-set selection and lint exactly the
 # given paths, matching the same config, without the workflow YAML check.
 #
-# Canonical lint defaults to two bounded workers over two stable logical shards.
-# Each shard writes separate diagnostics, and the parent replays those outputs in
-# deterministic shard and root order after every worker finishes. FM_LINT_JOBS=1
-# runs the same shards serially with byte-identical diagnostics and exit selection.
+# Execution is memory-bounded, not throughput-bounded: exactly one ShellCheck
+# process at a time, and exactly one root file per invocation (FM_LINT_BATCH_SIZE).
+#
+# What actually costs memory here is one root's INLINED PROGRAM - the root plus
+# everything --external-sources pulls in transitively - under extended dataflow
+# analysis, and it grows far faster than that program's size. Measured on this
+# tree with ShellCheck 0.11.0 on 2026-09-09:
+#   bin/fm-spawn.sh      690 KB inlined   3.43 GB peak (242 MB with dataflow off)
+#   bin/fm-teardown.sh   790 KB inlined  >6.5 GB peak (684 MB with dataflow off)
+#   77 small roots       964 KB total     197 MB peak in ONE invocation
+# The last row is why batching is not itself the accumulator: ShellCheck frees
+# between roots, so a batch peaks at its worst root, not at their sum. The
+# 2026-09-09 host exhaustion at 7.6 GB was two CONCURRENT shards each carrying
+# one of those large roots at the same time.
+#
+# So the serial pipeline is what removes the multiplier that crashed the host,
+# and one root per invocation is what makes the remaining peak attributable to a
+# single named root instead of to whichever roots a scheduler happened to pair.
+# A root whose inlined program is too large for the host is still too large; that
+# is a property of the root's source graph, not of this runner, and it is why the
+# batch size must stay 1 rather than being traded back for process startup.
+#
+# --external-sources is therefore not a blanket default. A root gets it only
+# when it needs source resolution to be judged correctly, decided per file by
+# fm_lint_needs_source_analysis below. Roots that source nothing are proven to
+# produce byte-identical diagnostics either way, so the verdict is unchanged.
+#
+# The worker writes one diagnostics stream in deterministic root order and the
+# parent replays it after the worker finishes. FM_LINT_JOBS / --jobs is still
+# accepted and still validated as 1 or 2, but it no longer selects concurrency:
+# both values run the same single serial pipeline with byte-identical
+# diagnostics and exit selection.
 #
 # Optional quiet telemetry writes one bounded TSV snapshot of content and source
-# graph identity, wall/CPU/RSS, shard load, and competing ShellCheck processes.
+# graph identity, wall/CPU/RSS, batch bounds, and competing ShellCheck processes.
 #
 # Usage:
 #   fm-lint.sh                         lint the context-selected file set (see above)
 #   fm-lint.sh --fast [path]...       local lint with extended analysis disabled
 #   fm-lint.sh <path>...               lint explicit roots with the same config
-#   fm-lint.sh --jobs <1|2> [path]...  override bounded worker count
+#   fm-lint.sh --jobs <1|2> [path]...  accepted for compatibility; always serial
 #   fm-lint.sh --telemetry <path> ...  write a quiet metrics snapshot
 #   fm-lint.sh --required-version      print the ShellCheck pin
 #   fm-lint.sh --list-files            print the file set that would be linted
@@ -77,8 +105,20 @@ fm_lint_worker_stop() {
   FM_LINT_WORKER_SHELLCHECK_PID=
 }
 
+# fm_lint_needs_source_analysis <path>: true when a root can only be judged
+# correctly with ShellCheck's source analysis. The test is deliberately loose -
+# a source statement OR a `# shellcheck source=` directive, since neither
+# implies the other in this tree - because the two error directions are not
+# symmetric. Adding --external-sources to a root that sources nothing is a
+# proven no-op on diagnostics; omitting it from a root that does source turns
+# the verdict red with SC1091 and loses the suppressions the sourced context
+# provides (SC2154 on a dependency-assigned variable, among others).
+fm_lint_needs_source_analysis() {  # <path>
+  LC_ALL=C grep -qE '^[[:space:]]*(\.|source)[[:space:]]|# shellcheck source=' -- "$1" 2>/dev/null
+}
+
 fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
-  local manifest=$1 output_dir=$2 shard_index=$3 tab index path output rc=0
+  local manifest=$1 output_dir=$2 shard_index=$3 tab index path output rc=0 file_rc
   local -a roots shellcheck_args
   roots=()
   tab=$(printf '\t')
@@ -87,22 +127,29 @@ fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
     roots+=("$path")
   done < "$manifest"
   output="$output_dir/shard.$shard_index"
-  if [ "${#roots[@]}" -gt 0 ]; then
-    trap 'fm_lint_worker_stop; exit 129' HUP
-    trap 'fm_lint_worker_stop; exit 130' INT
-    trap 'fm_lint_worker_stop; exit 143' TERM
-    shellcheck_args=(--norc --external-sources)
+  : > "$output.out"
+  trap 'fm_lint_worker_stop; exit 129' HUP
+  trap 'fm_lint_worker_stop; exit 130' INT
+  trap 'fm_lint_worker_stop; exit 143' TERM
+  # One root per invocation, appended in manifest order, and never two
+  # ShellCheck processes at once: this loop is the memory bound documented in
+  # the header. Do not batch roots back together to save process startup.
+  for path in ${roots[@]+"${roots[@]}"}; do
+    shellcheck_args=(--norc)
     if [ "${FM_LINT_INTERNAL_FAST:-0}" -eq 1 ]; then
       shellcheck_args+=(--extended-analysis=false)
     fi
-    "$FM_LINT_SHELLCHECK" "${shellcheck_args[@]}" -- "${roots[@]}" > "$output.out" 2>&1 &
+    if fm_lint_needs_source_analysis "$path"; then
+      shellcheck_args+=(--external-sources)
+    fi
+    file_rc=0
+    "$FM_LINT_SHELLCHECK" "${shellcheck_args[@]}" -- "$path" >> "$output.out" 2>&1 </dev/null &
     FM_LINT_WORKER_SHELLCHECK_PID=$!
-    wait "$FM_LINT_WORKER_SHELLCHECK_PID" || rc=$?
+    wait "$FM_LINT_WORKER_SHELLCHECK_PID" || file_rc=$?
     FM_LINT_WORKER_SHELLCHECK_PID=
-    trap - HUP INT TERM
-  else
-    : > "$output.out"
-  fi
+    [ "$rc" -ne 0 ] || rc=$file_rc
+  done
+  trap - HUP INT TERM
   printf '%s\n' "$rc" > "$output.rc"
   return "$rc"
 }
@@ -334,18 +381,16 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 TAB=$(printf '\t')
-WEIGHTS="$TMP_ROOT/weights"
 OUTPUT_DIR="$TMP_ROOT/output"
 mkdir -p "$OUTPUT_DIR"
-SHARD_COUNT=2
-worker=0
-while [ "$worker" -lt "$SHARD_COUNT" ]; do
-  : > "$TMP_ROOT/manifest.$worker"
-  worker=$((worker + 1))
-done
+# One serial pipeline, so one manifest. There is no load balancer any more:
+# balancing only existed to keep two concurrent workers busy, and concurrency
+# is exactly what the memory bound in the header removes.
+SHARD_COUNT=1
+BATCH_SIZE=1
+: > "$TMP_ROOT/manifest.0"
 
 index=1
-: > "$WEIGHTS"
 for path in "${ROOTS[@]}"; do
   case "$path" in
     *"$TAB"*|*$'\n'*)
@@ -353,34 +398,8 @@ for path in "${ROOTS[@]}"; do
       exit 2
       ;;
   esac
-  if [ -f "$path" ]; then
-    weight=$(wc -c < "$path" 2>/dev/null | tr -d '[:space:]')
-  else
-    weight=1
-  fi
-  case "$weight" in ''|*[!0-9]*) weight=1 ;; esac
-  printf '%s\t%s\t%s\n' "$weight" "$index" "$path" >> "$WEIGHTS"
+  printf '%s\t%s\n' "$index" "$path" >> "$TMP_ROOT/manifest.0"
   index=$((index + 1))
-done
-
-# Largest-first deterministic greedy assignment keeps the two bounded workers
-# balanced without affecting replay order. Direct bytes are a stable portable
-# proxy after the expensive dynamic adapter source fan-out is cut.
-WORKER_LOADS=(0 0)
-LC_ALL=C sort -t "$TAB" -k1,1nr -k2,2n "$WEIGHTS" > "$WEIGHTS.sorted"
-while IFS="$TAB" read -r weight index path; do
-  worker=0
-  if [ "${WORKER_LOADS[1]}" -lt "${WORKER_LOADS[0]}" ]; then
-    worker=1
-  fi
-  printf '%s\t%s\n' "$index" "$path" >> "$TMP_ROOT/manifest.$worker"
-  WORKER_LOADS[worker]=$((WORKER_LOADS[worker] + weight))
-done < "$WEIGHTS.sorted"
-worker=0
-while [ "$worker" -lt "$SHARD_COUNT" ]; do
-  LC_ALL=C sort -t "$TAB" -k1,1n "$TMP_ROOT/manifest.$worker" > "$TMP_ROOT/manifest.$worker.sorted"
-  mv "$TMP_ROOT/manifest.$worker.sorted" "$TMP_ROOT/manifest.$worker"
-  worker=$((worker + 1))
 done
 
 fm_lint_shellcheck_count() {
@@ -454,24 +473,18 @@ fm_lint_wait_workers() {
   done
 }
 
-if [ "$JOBS" -eq 1 ]; then
-  worker=0
-  while [ "$worker" -lt "$SHARD_COUNT" ]; do
-    fm_lint_start_worker "$worker"
-    fm_lint_wait_workers
-    worker=$((worker + 1))
-  done
-else
-  worker=0
-  while [ "$worker" -lt "$SHARD_COUNT" ]; do
-    fm_lint_start_worker "$worker"
-    worker=$((worker + 1))
-  done
+# JOBS is validated but never starts a second worker: both accepted values run
+# this same one-worker pipeline, and the worker itself runs one ShellCheck at a
+# time. See the memory contract in the header before reintroducing parallelism.
+worker=0
+while [ "$worker" -lt "$SHARD_COUNT" ]; do
+  fm_lint_start_worker "$worker"
   fm_lint_wait_workers
-fi
+  worker=$((worker + 1))
+done
 
-# Replay both stable shards in deterministic order and select the first nonzero
-# shard status. ShellCheck processes every root in a shard after earlier findings.
+# Replay the worker's diagnostics in deterministic root order and select the
+# first nonzero status. The worker runs every root regardless of earlier findings.
 overall_rc=0
 worker=0
 while [ "$worker" -lt "$SHARD_COUNT" ]; do
@@ -575,8 +588,8 @@ EOF
     printf 'source_boundary_directives\t%s\n' "$source_boundaries"
     printf 'source_followed_directives\t%s\n' "$source_followed"
     printf 'source_target_count\t%s\n' "$source_targets"
-    printf 'shard_1_weight_bytes\t%s\n' "${WORKER_LOADS[0]}"
-    printf 'shard_2_weight_bytes\t%s\n' "${WORKER_LOADS[1]:-0}"
+    printf 'batch_size\t%s\n' "$BATCH_SIZE"
+    printf 'max_concurrent_shellcheck\t%s\n' "$SHARD_COUNT"
     printf 'wall_seconds\t%s\n' "$((TELEMETRY_END_EPOCH - TELEMETRY_START_EPOCH))"
     printf 'worker_wall_sum_seconds\t%s\n' "$timing_worker_wall"
     printf 'max_worker_wall_seconds\t%s\n' "$max_worker_wall"

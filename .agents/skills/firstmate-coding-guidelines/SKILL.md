@@ -118,7 +118,10 @@ Run `bin/fm-doc-audience-check.sh`; it enforces classification, README setup rou
 - Plain dash `-`, never an em dash.
 - Never add an agent name as a commit co-author.
 - `bin/*.sh` and `bin/backends/*.sh` must pass `shellcheck`.
-- Run `shellcheck` and every other analyzer one file at a time and never with `-x`/`--external-sources`; a multi-file `-x` run over `bin/` held 7.4 GB and crashed the host on 2026-09-09.
+- Route every lint run through `bin/fm-lint.sh`, including a spot check of one script, rather than calling `shellcheck` yourself.
+- It is bounded to one root per invocation and one process at a time, and it decides per file whether source analysis is needed, so it gives the full verdict without the memory blowup.
+- If you must call an analyzer directly, run it on one file at a time and never pass `-x`/`--external-sources` to that ad-hoc run.
+- ShellCheck's dataflow analysis covers every file one invocation has loaded, so a batched `-x` run over `bin/` held 7.4 GB and crashed the host on 2026-09-09, and even one large root with `-x` costs 3.4 GB.
 - Run `bin/fm-lint.sh` before treating a script change as done; it is the single owner of the lint definition (file set, config, pinned shellcheck version, and pinned actionlint workflow lint) that CI and the no-mistakes pre-push gate both invoke, and it refuses to run under any other version of either linter.
 - When a task names a specific tool, implement the work with that tool, or explicitly flag the substitution and its new dependency footprint for review before shipping.
 - Colocate tests with the existing pattern in `tests/`, name them `<subject>.test.sh`, and extend an existing script rather than inventing a new runner.

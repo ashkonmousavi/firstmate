@@ -1106,6 +1106,98 @@ SH
   pass "seeded dispatcher, adapter, production-owner, and test-local diagnostics preserve parity"
 }
 
+# test_shellcheck_runs_one_root_at_a_time proves the memory bound fm-lint.sh's
+# header states, through the executable interface only: every ShellCheck
+# invocation receives exactly one root file, never two ShellCheck processes
+# overlap, and --external-sources is carried only by the roots that actually
+# need source resolution. Regression origin: 2026-09-09, when batched
+# --external-sources invocations over bin/ held 7.6 GB across two concurrent
+# shards and exhausted the host. The stub records its own argument vector and
+# detects overlap with an atomic lock, so the assertions come from what
+# fm-lint.sh really executed, not from its source text.
+test_shellcheck_runs_one_root_at_a_time() {
+  local tmp fakebin log overlap lockdir plain sourcer directive out
+  local lines bad_batch bad_flag
+  tmp=$(fm_test_tmproot fm-lint-batch-bound)
+  fakebin=$(fm_fakebin "$tmp")
+  log="$tmp/argv.log"
+  overlap="$tmp/overlap.log"
+  lockdir="$tmp/shellcheck.lock"
+  plain="$tmp/plain.sh"
+  sourcer="$tmp/sourcer.sh"
+  directive="$tmp/directive-only.sh"
+  : > "$log"
+  : > "$overlap"
+
+  cat > "$plain" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${1:-ok}"
+SH
+  cat > "$sourcer" <<'SH'
+#!/usr/bin/env bash
+# shellcheck source=/dev/null
+. "$1"
+printf 'ok\n'
+SH
+  # A `# shellcheck source=` directive with no source statement of its own:
+  # neither marker implies the other in this tree, so the selector must treat
+  # their union as needing source analysis.
+  cat > "$directive" <<'SH'
+#!/usr/bin/env bash
+# shellcheck source=tests/lib.sh
+printf 'ok\n'
+SH
+
+  cat > "$fakebin/shellcheck" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = --version ]; then
+  printf 'ShellCheck - shell script analysis tool\nversion: 0.11.0\n'
+  exit 0
+fi
+held=0
+if mkdir "$FM_TEST_LOCK_DIR" 2>/dev/null; then
+  held=1
+else
+  printf 'overlap\n' >> "$FM_TEST_OVERLAP"
+fi
+flags=()
+while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+  flags+=("$1")
+  shift
+done
+[ "$#" -eq 0 ] || shift
+printf '%s|%s|%s\n' "$#" "${flags[*]}" "$*" >> "$FM_TEST_ARGV_LOG"
+sleep 0.1
+[ "$held" -eq 0 ] || rmdir "$FM_TEST_LOCK_DIR" 2>/dev/null || true
+exit 0
+SH
+  chmod +x "$fakebin/shellcheck"
+
+  out=$(PATH="$fakebin:$PATH" GITHUB_ACTIONS='' CI='' FM_LINT_JOBS=2 \
+    FM_TEST_ARGV_LOG="$log" FM_TEST_OVERLAP="$overlap" FM_TEST_LOCK_DIR="$lockdir" \
+    "$LINT" "$plain" "$sourcer" "$directive" 2>&1) \
+    || fail "bounded lint run failed"$'\n'"$out"
+
+  lines=$(grep -c '' "$log")
+  [ "$lines" -eq 3 ] \
+    || fail "expected one ShellCheck invocation per root, got $lines for 3 roots"
+  bad_batch=$(awk -F'|' '$1 != 1 {print}' "$log")
+  [ -z "$bad_batch" ] \
+    || fail "a ShellCheck invocation received more than one root: $bad_batch"
+  [ ! -s "$overlap" ] \
+    || fail "two ShellCheck processes overlapped; the lint owner must run one at a time"
+
+  bad_flag=$(awk -F'|' -v root="$plain" '$3 == root && $2 ~ /--external-sources/ {print}' "$log")
+  [ -z "$bad_flag" ] \
+    || fail "the default pass carried --external-sources for a root that sources nothing"
+  awk -F'|' -v root="$sourcer" '$3 == root && $2 ~ /--external-sources/ {found = 1} END {exit !found}' "$log" \
+    || fail "a root with a source statement lost its source-analysis pass"
+  awk -F'|' -v root="$directive" '$3 == root && $2 ~ /--external-sources/ {found = 1} END {exit !found}' "$log" \
+    || fail "a root with only a source directive lost its source-analysis pass"
+  pass "fm-lint.sh runs one root per ShellCheck invocation, one process at a time, with --external-sources only where a root needs it"
+}
+
+
 test_help_reports_the_complete_interface
 test_list_files_reports_the_shell_inventory
 test_fast_mode_disables_extended_analysis
@@ -1124,6 +1216,7 @@ test_rejects_wrong_shellcheck_version
 test_catches_a_real_lint_defect
 test_ignores_ambient_shellcheck_opts
 test_clean_fixture_passes
+test_shellcheck_runs_one_root_at_a_time
 test_jobs_are_deterministic_and_complete
 test_worker_trees_stop_on_signal
 test_survives_ambient_ancestor_group_signal
