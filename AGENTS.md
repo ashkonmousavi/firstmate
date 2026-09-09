@@ -627,6 +627,7 @@ These skills are not captain-invocable; load them only at their precise triggers
 - `firstmate-codexapp` - load before coordinating a visible Codex Desktop thread, evaluating a Codex App backend request, or reconciling Codex Desktop host-tool smoke evidence for Firstmate work.
 - `firstmate-coding-guidelines` - load before changing firstmate's shared, tracked material, as defined by section 1's list, whether editing directly or briefing a crewmate for a firstmate-repo task.
 - `integration-batch-delivery` - load before deciding whether compatible ready work lands alone or through a combined pull request, and before preparing, validating, landing, recording, or tearing down an integration batch.
+- `no-mistakes-daemon-env` - load before debugging a no-mistakes pipeline step's PATH, tool availability, or a missing custom environment variable, and before proposing a systemd-unit or dotfile change to fix it.
 
 ## 14. Relay
 
