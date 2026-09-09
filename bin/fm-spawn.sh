@@ -2442,6 +2442,42 @@ validate_spawn_worktree() {  # <source> <inspect-target>
   fi
 }
 
+# treehouse leases a pool slot to a PROCESS, not to a task: treehouse-state.json
+# records the holder as owner_pid plus owner_started_at, so every lease in the
+# pool dies with the machine. After a restart `treehouse get` hands out any slot
+# that is clean and sitting at the default branch head, and a parked lane's slot
+# is exactly that: its agent is stopped, its work is committed, and nothing about
+# the slot itself says a task record still names it. It happened on this host at
+# 00:44 on 2026-09-09, when slot 6 - recorded to a parked scout - was re-leased to
+# a new spawn and reset to main.
+#
+# Firstmate cannot fix that inside treehouse: the tool exposes no way to take a
+# lease on a path that already exists (`treehouse get --lease` only acquires a new
+# slot), and hand-writing another tool's state file is not a thing this repo does.
+# So the enforceable half lives here, at the one point where a slot becomes this
+# task's worktree. Refusing costs a spawn; accepting costs the parked lane's
+# branch, which is unlanded work.
+#
+# This runs while the spawn holds the per-home task-set lock, which is the lock
+# that decides which tasks exist, so two concurrent spawns cannot both read the
+# pool as free and both accept the same slot.
+assert_worktree_unclaimed() {  # <worktree>
+  local wt=$1 wt_real meta other other_wt
+  wt_real=$(real_path_or_raw "$wt")
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    other=${meta##*/}
+    other=${other%.meta}
+    [ "$other" != "$ID" ] || continue
+    other_wt=$(fm_meta_get "$meta" worktree)
+    [ -n "$other_wt" ] || continue
+    [ "$(real_path_or_raw "$other_wt")" = "$wt_real" ] || continue
+    echo "error: the worktree pool handed out $wt, but task $other's record already names that worktree; refusing to launch task $ID into it because a second task in one worktree loses the first task's branch. Relaunch $other with bin/fm-control.sh $other relaunch to put it back in its own slot, or tear it down with bin/fm-teardown.sh $other once its work has landed" >&2
+    return 1
+  done
+  return 0
+}
+
 # A pooled slot whose only deviation is a submodule gitlink is stale, not dirty:
 # an earlier refresh moved the superproject and left the submodule checkout on
 # the pin the previous base recorded. The refusal still stands and this gate
@@ -3191,6 +3227,7 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
     exit 1
   fi
 
+  assert_worktree_unclaimed "$WT" || exit 1
   validate_spawn_worktree "treehouse get" "$T"
 
   # Claim the pool slot for this task. The interactive `treehouse get` sent to

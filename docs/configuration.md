@@ -170,6 +170,34 @@ The caller-facing label remains `fm-<id>`, but the actual cmux workspace title i
 Test cleanup must use the guarded path in [`docs/cmux-backend.md`](cmux-backend.md#current-operation-and-safety), never enumerate-and-close every workspace.
 `config/backend` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md).
 
+## Worktree pool leases (treehouse)
+
+A treehouse lease belongs to a process, not to a task.
+`treehouse-state.json` records the holder as `owner_pid` plus `owner_started_at`, so every lease the pool holds dies with the machine, and `treehouse status` then derives each slot's state from the live processes it can see rather than from any durable record.
+
+That is the whole hazard, and it is not restricted to restarts.
+A task whose agent is stopped leaves a slot that is clean, checked out at the default branch head, and running nothing, which is indistinguishable from a slot that was never used.
+A parked lane, a lane waiting on a merge, and a lane an out-of-memory restart emptied all present that way, and the next `treehouse get` may hand one of them out.
+It did on this host at 00:44 on 2026-09-09: slot 6, recorded to a parked scout, was re-leased to a new spawn and reset to the default branch.
+
+Committed work is not what is at risk.
+A branch ref lives in the shared git directory and survives the slot being reset, so what is lost is the slot's own contents - anything uncommitted - and the lane's identity, which is why the remedies below relaunch the lane or return the slot and never reset either.
+
+`treehouse get --lease` acquires a *new* slot durably, and a slot leased that way is never handed out by a later `get` and never removed by `prune` until `treehouse return <path>` releases it.
+[`bin/fm-home-seed.sh`](../bin/fm-home-seed.sh) uses it for secondmate homes for exactly that reason ([`docs/architecture.md`](architecture.md)).
+There is no command that takes a lease on a path that already exists, so Firstmate cannot re-mark the lease of a worktree a task record already names; it refuses and reports instead.
+
+Two checks own that, and each owns its own half:
+
+- [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s `assert_worktree_unclaimed` refuses a pool slot that any other `state/<id>.meta` in this home already records, naming the colliding task id, and it runs while the spawn holds the per-home task-set lock so two concurrent spawns cannot both accept one slot.
+  This is the enforcing half, and it sees only the records of the home it runs in.
+- [`bin/fm-bootstrap.sh`](../bin/fm-bootstrap.sh)'s `report_unleased_task_worktrees` prints one `WORKTREE_LEASE:` line per recorded worktree the pool reads as available with no durable lease.
+  This is the reporting half, and it is what covers the cases the refusal cannot see: another home sharing the same pool, a bare `treehouse get` at a prompt, a `prune`.
+  It reads locally, never over the network, and stays silent when the pool cannot be read at all, because an unreadable pool is not evidence that a lane is exposed.
+
+Switching task spawns themselves to `treehouse get --lease` would remove the hazard at its root rather than guarding it, and would make teardown responsible for `treehouse return`.
+That is a separate change to the spawn's launch and teardown contracts, not part of these checks.
+
 ## Away-mode supervisor backend (FM_SUPERVISOR_BACKEND / FM_SUPERVISOR_TARGET)
 
 The `/afk` sub-supervisor injects escalation digests into firstmate's own pane independently of where new task endpoints are spawned.
