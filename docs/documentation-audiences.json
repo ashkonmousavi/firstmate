@@ -465,6 +465,10 @@
       "audience": "maintainer-verification"
     },
     {
+      "path": "docs/verification/push-guard.md",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "docs/verification/stow-memory.md",
       "audience": "maintainer-verification"
     },

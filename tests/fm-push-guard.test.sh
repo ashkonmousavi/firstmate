@@ -8,7 +8,9 @@
 # the stable transport: it drives the Claude and Codex entry forms and is the
 # only place that queries real repository state (for the one case text cannot
 # settle - a bare push). This suite proves the full refspec decision matrix
-# from docs/push-guard.md, the owner-marker exemption, the bare-push branch
+# from docs/push-guard.md, the force-push and remote-branch-delete denials on
+# every branch and their precedence against a protected target, the
+# owner-marker exemption (including over those two), the bare-push branch
 # check (both outcomes and the fail-open cases), recursion into subshells,
 # substitutions, eval, and sh -c payloads, the fail-open transport behavior,
 # the prefilter fast path, the policy CLI output contract, and shellcheck
@@ -71,15 +73,58 @@ matrix_case B19 deny 'sh -c "git push origin main"'
 matrix_case B20 deny 'eval "git push origin main"'
 matrix_case B21 deny 'git push origin feature:main'
 
+# BLOCK: a force push, on every branch - it rewrites published history
+# wherever it lands, so the target branch is irrelevant.
+matrix_case F01 deny 'git push --force origin feature-x'
+matrix_case F02 deny 'git push -f origin feature-x'
+matrix_case F03 deny 'git push --force-with-lease origin feature-x'
+matrix_case F04 deny 'git push --force-with-lease=refs/heads/feature-x:abc123 origin feature-x'
+matrix_case F05 deny 'git push origin +feature-x'
+matrix_case F06 deny 'git push origin +refs/heads/feature-x'
+matrix_case F07 deny 'git push -fu origin feature-x'
+matrix_case F08 deny '(cd projects/xau && git push --force origin feature-x)'
+matrix_case F09 deny 'sh -c "git push --force origin feature-x"'
+# git requires the lease ref to be ATTACHED, so an unattached one is an
+# ordinary positional. It must not shift the repository/refspec positions in a
+# way that hides a protected target: F11 denies as force, F12 still resolves
+# main and reports protected-branch-push.
+matrix_case F11 deny 'git push --force-with-lease refs/heads/x origin feature-x'
+matrix_case F12 deny 'git push --force-with-lease refs/heads/x origin main'
+
+# BLOCK: a remote branch deletion, on every branch - both spellings.
+matrix_case D01 deny 'git push --delete origin feature-x'
+matrix_case D02 deny 'git push -d origin feature-x'
+matrix_case D03 deny 'git push origin :feature-x'
+matrix_case D04 deny 'git push origin :refs/heads/feature-x'
+# Contract change (2026-09-09): this was matrix_case A05 allow. The guard's
+# earlier "accepted non-goal" that left a delete refspec unguarded is
+# withdrawn - deletion is now denied on every branch, main included - so the
+# old allow expectation is wrong rather than merely weakened.
+matrix_case D05 deny 'git push origin :main'
+matrix_case D06 deny 'eval "git push --delete origin feature-x"'
+# A cluster carrying `d` really is a delete: git's parse-options accepts
+# `-qd`/`-du`/`-nd` and parses them as --quiet/--set-upstream/--dry-run plus
+# --delete, so branch-delete-push is the accurate code for them, not an
+# over-broad fail-closed guess.
+matrix_case D07 deny 'git push -qd origin feature-x'
+matrix_case D08 deny 'git push -du origin feature-x'
+
 # ALLOW: not a push to main/master, or exempted by the owner marker.
 matrix_case A01 allow 'git status'
 matrix_case A02 allow 'git checkout main'
 matrix_case A03 allow 'git push origin feature-x'
 matrix_case A04 allow 'git push origin dev'
-matrix_case A05 allow 'git push origin :main'
 matrix_case A06 allow 'echo "git push origin main"'
 matrix_case A07 allow 'FM_PUSH_GUARD_OWNER=fm-pr-merge git push origin main'
 matrix_case A08 allow 'FM_PUSH_GUARD_OWNER=fm-merge-local git push origin main'
+matrix_case A12 allow 'FM_PUSH_GUARD_OWNER=fm-pr-merge git push --force origin feature-x'
+matrix_case A13 allow 'FM_PUSH_GUARD_OWNER=fm-merge-local git push --delete origin feature-x'
+# Neither of these requests a force: --force-if-includes only qualifies an
+# accompanying --force-with-lease, and --no-force-with-lease cancels one.
+matrix_case A14 allow 'git push --force-if-includes origin feature-x'
+matrix_case A15 allow 'git push --no-force-with-lease origin feature-x'
+matrix_case A16 allow 'git push --dry-run origin feature-x'
+matrix_case A17 allow 'git push -u origin feature-x'
 matrix_case A09 allow 'git push origin main2'
 matrix_case A10 allow 'git push origin mainline'
 matrix_case A11 allow 'git log --grep push'
@@ -224,10 +269,81 @@ test_bare_push_denied_on_main() {
 test_bare_push_denied_on_master() {
   local dir out rc
   dir=$(make_repo_on_branch "$TMP_ROOT/bare-master" master)
-  out=$(cd "$dir" && "$CHECK" --claude --command 'git push --force-with-lease' 2>&1); rc=$?
-  expect_code 2 "$rc" "bare git push --force-with-lease while on master must deny"
+  # Plain `git push`, not `git push --force-with-lease`: since 2026-09-09 a
+  # force flag denies as force-push before the transport ever runs the branch
+  # check, so only an unforced bare push still exercises the master branch of
+  # that check. test_force_push_denied_on_a_feature_branch covers the force
+  # spelling this case used to carry.
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push' 2>&1); rc=$?
+  expect_code 2 "$rc" "bare git push while on master must deny"
   assert_contains "$out" '[protected-branch-push]' "bare-push-on-master deny must carry the reason code"
-  pass "push-guard: git push --force-with-lease denies when the current branch is master"
+  pass "push-guard: bare git push denies when the current branch is master"
+}
+
+# --- force and delete are denied on every branch ---------------------------
+
+# Proves a force push is refused by the flag alone, with no reference to the
+# branch it targets: the repository below sits on a feature branch, which the
+# guard allows for an ordinary push (test_bare_push_allowed_on_feature_branch).
+test_force_push_denied_on_a_feature_branch() {
+  local dir out rc
+  dir=$(make_repo_on_branch "$TMP_ROOT/force-feature" feature-x)
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push --force-with-lease' 2>&1); rc=$?
+  expect_code 2 "$rc" "a bare force push on a feature branch must deny"
+  assert_contains "$out" '[force-push]' "a force push deny must carry the force-push reason code"
+  pass "push-guard: a force push denies on a feature branch, by the flag alone"
+}
+
+# Pins the force-push code itself, which the acceptance matrix only proves is
+# present rather than which code it is.
+test_force_push_reason_code() {
+  local out rc
+  out=$("$CHECK" --command 'git push --force origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "an explicit force push must deny"
+  assert_contains "$out" '[force-push]' "the deny must name the force-push code"
+  assert_contains "$out" 'replacement branch' "the force-push reason must name the sanctioned alternative"
+  pass "push-guard: a force push denies with the force-push reason code"
+}
+
+# Pins the branch-delete-push code, for both the flag and the refspec spelling.
+test_branch_delete_reason_code() {
+  local out rc
+  out=$("$CHECK" --command 'git push --delete origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "a remote branch deletion must deny"
+  assert_contains "$out" '[branch-delete-push]' "the deny must name the branch-delete-push code"
+  assert_contains "$out" 'superseded PR' "the delete reason must name the sanctioned alternative"
+  out=$("$CHECK" --command 'git push origin :feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "a colon delete refspec must deny"
+  assert_contains "$out" '[branch-delete-push]' "the refspec delete must carry the same code"
+  pass "push-guard: a remote branch deletion denies with the branch-delete-push code, both spellings"
+}
+
+# Pins the documented precedence: a protected target keeps reporting
+# protected-branch-push whatever else the command asks for, so every code this
+# guard emitted before force and delete joined it stays stable.
+test_protected_branch_outranks_force_and_delete() {
+  local out rc
+  out=$("$CHECK" --command 'git push --force origin main' 2>&1); rc=$?
+  expect_code 2 "$rc" "a force push to main must deny"
+  assert_contains "$out" '[protected-branch-push]' "a force push to main must still report protected-branch-push"
+  out=$("$CHECK" --command 'git push --delete origin master' 2>&1); rc=$?
+  expect_code 2 "$rc" "deleting master must deny"
+  assert_contains "$out" '[protected-branch-push]' "deleting master must still report protected-branch-push"
+  pass "push-guard: a protected target outranks the force and delete codes"
+}
+
+# The owner marker is applied before any argument is classified, so it must
+# exempt the new denials exactly as it exempts a protected-branch push - and
+# nothing weaker than the exact marker may.
+test_owner_marker_exempts_force_and_delete() {
+  local out rc
+  out=$("$CHECK" --command 'FM_PUSH_GUARD_OWNER=fm-pr-merge git push --force origin feature-x' 2>&1); rc=$?
+  expect_code 0 "$rc" "the owner marker must exempt a force push"
+  [ -z "$out" ] || fail "an exempted force push produced output: $out"
+  out=$("$CHECK" --command 'FM_PUSH_GUARD_OWNER=fm-other git push --force origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "an unrecognized owner marker must not exempt a force push"
+  assert_contains "$out" '[force-push]' "the unrecognized marker must still deny as force-push"
+  pass "push-guard: only the exact owner markers exempt a force push or a branch deletion"
 }
 
 test_bare_push_allowed_on_feature_branch() {
@@ -372,6 +488,11 @@ test_command_flag_direct
 test_bare_push_denied_on_main
 test_bare_push_denied_on_master
 test_bare_push_allowed_on_feature_branch
+test_force_push_denied_on_a_feature_branch
+test_force_push_reason_code
+test_branch_delete_reason_code
+test_protected_branch_outranks_force_and_delete
+test_owner_marker_exempts_force_and_delete
 test_bare_push_dash_c_uses_named_directory
 test_bare_push_allows_when_not_a_git_repo
 test_fail_open_empty_stdin
