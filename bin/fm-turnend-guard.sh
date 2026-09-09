@@ -40,8 +40,10 @@
 # bin/fm-wake-lib.sh. The strict watcher predicate is unchanged everywhere else.
 #
 # Lane floor: this guard also blocks a Claude turn whose fleet is running fewer
-# lanes than config/lane-floor while work is dispatchable without a captain
-# decision (see the "lane floor" section below and docs/turnend-guard.md).
+# productive lanes than config/lane-floor while work is dispatchable without a
+# captain decision - whether this home can dispatch into that shortfall or is
+# capacity-blocked at its concurrency cap (see the "lane floor" section below
+# and docs/turnend-guard.md).
 #
 # Loop-guard, codex/Grok (default) mode: never block twice in the same turn.
 # Codex uses stop_hook_active and Grok uses stopHookActive; typed camel-case
@@ -232,14 +234,22 @@ lane_floor_account() {
   return 0
 }
 
+# Both shortfalls block, and both spend the SAME bounded budget above: a
+# capacity-blocked home can still act - release a finished lane, or tell the
+# captain what is holding capacity - but when capacity genuinely cannot be
+# released, the budget is what ends the turn instead of wedging the session.
 lane_floor_gate() {
-  local rule
+  local rule headline
   [ "$CLAUDE_MODE" -eq 1 ] || return 0
   lane_floor_authority || return 0
   fm_lane_floor_compute "$STATE" "$DATA" "$FM_ROOT" "$CONFIG" || return 0
-  if [ "${FM_LANE_FLOOR_BREACH:-false}" != true ]; then
-    # The breach cleared: a later drop below the floor in this same session gets
-    # its own full budget, never the remainder of an earlier episode's.
+  if [ "${FM_LANE_FLOOR_BREACH:-false}" = true ]; then
+    headline='TURN WOULD END IDLE - LANES ARE BELOW THE FLOOR'
+  elif [ "${FM_LANE_FLOOR_CAPACITY_BLOCKED:-false}" = true ]; then
+    headline='TURN WOULD END SHORT - LANES ARE BELOW THE FLOOR AND CAPACITY IS FULL'
+  else
+    # The shortfall cleared: a later drop below the floor in this same session
+    # gets its own full budget, never the remainder of an earlier episode's.
     rm -f "$LANE_FLOOR_BUDGET_FILE" 2>/dev/null || true
     return 0
   fi
@@ -248,7 +258,7 @@ lane_floor_gate() {
   rule='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
   {
     printf '●%s\n' "$rule"
-    printf '●  TURN WOULD END IDLE - LANES ARE BELOW THE FLOOR\n'
+    printf '●  %s\n' "$headline"
     fm_lane_floor_render | sed 's/^/●  /'
     printf '●%s\n' "$rule"
   } >&2

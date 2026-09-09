@@ -56,9 +56,12 @@ With away mode off the daemon lock proves nothing and the strict watcher predica
 ### Lane floor
 
 A blind fleet is not the only way a turn ends badly.
-A home running fewer lanes than `config/lane-floor` while work is dispatchable without a captain decision wastes the captain's time just as surely, and healthy supervision is exactly the state that would otherwise allow that turn to end.
+A home running fewer productive lanes than `config/lane-floor` while work is dispatchable without a captain decision wastes the captain's time just as surely, and healthy supervision is exactly the state that would otherwise allow that turn to end.
 So the guard evaluates a second, independent blocking condition at both points that would otherwise allow the stop: the idle-home exit and the shared `allow_supervised_stop` contract.
 [`configuration.md`](configuration.md#lane-floor-configlane-floor) owns the floor's default, its inheritance, and what `fm_dispatchable_work` counts as dispatchable.
+
+The condition has two shapes and both block: a shortfall this home can dispatch into, and one at the concurrency cap where releasing a lane, or telling the captain what is holding capacity, is the action instead.
+They share one banner path and one budget, so a home whose capacity genuinely cannot be released is nagged and then allowed to end its turn rather than wedged.
 
 The block is deliberately `--claude` only, because `exit 2` blocks a Claude Stop while the passive OpenCode, Pi, and Cursor adapters render it as a bounded follow-up with different semantics.
 There is deliberately no captain-present or away-mode exemption: the captain asked for this enforced whether or not he is at the keys.

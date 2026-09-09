@@ -39,10 +39,12 @@
 # slots; at or over the cap, FM_IDLE_AT_CAP is true and the report has no idle
 # work to propose dispatching right now.
 # LANE FLOOR. config/lane-floor (a bare integer, default 10) is the captain's
-# standing floor on how many lanes this home keeps running while work exists.
-# fm_lane_floor_report renders its breach and fm_dispatchable_work enumerates
-# the work behind it; see the LANE FLOOR section below for why that enumeration
-# is deliberately broader than the idle-capacity read above.
+# standing floor on how many PRODUCTIVE lanes this home keeps running while work
+# exists. fm_lane_floor_report renders the shortfall, fm_lane_floor_classify
+# decides which lanes count and reports the rest in their own buckets, and
+# fm_dispatchable_work enumerates the work behind it; see the LANE FLOOR section
+# below for why that enumeration is deliberately broader than the idle-capacity
+# read above, and for what "productive" is read from.
 # state/.dispatch-freeze is the captain's own silencing record. Line 1 is the
 # reason, line 2 a YYYY-MM-DD date it stops applying on. Only a captain
 # instruction creates it; no script writes it. While it applies, the block
@@ -622,10 +624,16 @@ fm_idle_capacity_mark_escalated() {  # <state-dir>
 # sat at 3-6 lanes for an hour because the work that could have filled the rest
 # was held under non-capacity reasons or lived in a project's own openspec
 # Changes, neither of which that block can see.
-# EVERY read here fails SOFT to "no breach": a missing tasks-axi, an unreadable
-# registry, an absent projects/ directory, an unreadable project, or a malformed
-# floor contributes no work and never manufactures a breach. A breach is only
-# ever asserted from work this home positively read.
+# A read that could not be COMPLETED fails SOFT: a missing tasks-axi, an
+# unreadable registry, an absent projects/ directory, an unreadable project, a
+# malformed floor, or a reconciler that cannot be run contributes no work and
+# never manufactures a shortfall. A read that COMPLETED is evidence, including
+# one that found a lane dead or indeterminate - so a shortfall is only ever
+# asserted from what this home positively read, never from what it failed to
+# read. The productive-lanes section below owns that boundary for lane state.
+# A shortfall this home has the capacity to dispatch into is reported as a
+# breach; one at the concurrency cap is reported as capacity-blocked, with what
+# could be released, rather than exiting silently.
 FM_LANE_FLOOR_DEFAULT=10
 
 # How many dispatchable items the block lists before disclosing the rest as a count.
@@ -645,30 +653,238 @@ fm_lane_floor_value() {  # [config-dir]
   printf '%s\n' "$floor"
 }
 
-# Lanes this home is actually running: one per state/<id>.meta, minus every task
-# whose newest status event declares a bounded external wait. A paused lane is
-# not progress the floor can count, and it is not a lane the captain's rule
-# wants replaced either - it is simply not occupying dispatch attention.
-# bin/fm-classify-lib.sh's status_is_paused owns the pause-verb contract; this is
-# a deliberate local read of the same leading verb, because this file is
-# self-contained by design (see the header) and the Stop hook path may not pay
-# for that library.
-fm_lane_floor_live() {  # <state-dir>
-  local state=$1 meta id last verb live=0
+# --- productive lanes -------------------------------------------------------
+# What the floor counts. A lane is PRODUCTIVE when it is working, when a
+# pipeline run is driving it, or when it is holding an actionable gate for its
+# own task - and that verdict comes from bin/fm-crew-state.sh, the one owner of
+# a task's CURRENT state. The newest state/<id>.status line is a wake EVENT, not
+# a state (that file's header owns why), so counting its verb read a fleet of
+# waiting holders as a fleet of live lanes: 21 task records, one to three lanes
+# actually computing, and no breach ever reported (captain 2026-09-08).
+# Every other lane is reported in its own bucket rather than folded into the
+# count: a declared external wait, an agent that exited or died with its
+# worktree kept, and a lane whose state was read but is not determinable. A
+# finished lane is not productive either, and it is the one kind of lane a home
+# with no free capacity can release.
+# COST. This shells out once per lane, so classification stops the moment the
+# productive count reaches the floor: a healthy home pays only for the lanes it
+# passes on the way to its floor-th productive one - `floor` reads when they
+# come first, every lane when the dead ones sort ahead of them - and renders
+# nothing, while a home in breach always pays one per lane and has a real defect
+# to report. When it stops early the bucket counts are floor-saturated
+# rather than exact, which is exactly why no breach can render from them. Each
+# read is bounded twice - an outer timeout and the reconciler's own
+# FM_CREW_STATE_NM_TIMEOUT - so a wedged pane cannot hang a turn end. One read
+# costs tens of milliseconds to about two seconds depending on the backend, so a
+# fleet in this state is deliberately allowed to spend that: a shortfall it
+# reports in forty seconds is worth more than the silence it used to return
+# instantly, and there is no correct way to shorten it - counting an unread lane
+# as productive would hide the very breach this exists to find, and counting it
+# as idle would assert one from work never read.
+# FAIL SOFT, PRECISELY. A read that could not be COMPLETED falls back to the
+# pre-reconciliation rule (every lane counts except one whose newest event
+# declares a bounded external wait), so a missing or unrunnable reconciler never
+# manufactures a breach. A read that COMPLETED and reported a dead or
+# indeterminate lane is positive evidence and is counted as such.
+# FM_LANE_FLOOR_CREW_STATE overrides the reconciler command. Tests set it
+# because a real pane, endpoint, and pipeline run cannot be built in a temp dir
+# - the same reason `treehouse` is a PATH shim there.
+FM_LANE_FLOOR_CREW_STATE=${FM_LANE_FLOOR_CREW_STATE:-}
+FM_LANE_FLOOR_STATE_TIMEOUT=${FM_LANE_FLOOR_STATE_TIMEOUT:-8}
+FM_LANE_FLOOR_NM_TIMEOUT=${FM_LANE_FLOOR_NM_TIMEOUT:-2}
+
+# The reconciler this classification runs, or the override when one is set.
+fm_lane_floor_crew_state_cmd() {
+  if [ -n "$FM_LANE_FLOOR_CREW_STATE" ]; then
+    printf '%s\n' "$FM_LANE_FLOOR_CREW_STATE"
+    return 0
+  fi
+  printf '%s/fm-crew-state.sh\n' "$(dirname -- "${BASH_SOURCE[0]}")"
+}
+
+# One lane's reconciled state as "<state> <source>", or nothing at all when the
+# read could not be completed. Both fields are read positionally off the one
+# canonical line bin/fm-crew-state.sh prints, so the free-text detail after them
+# is never parsed.
+fm_lane_floor_crew_state() {  # <state-dir> <id>
+  local cmd out state source
+  cmd=$(fm_lane_floor_crew_state_cmd)
+  [ -n "$cmd" ] && [ -x "$cmd" ] || return 1
+  if command -v timeout >/dev/null 2>&1; then
+    out=$(FM_STATE_OVERRIDE="$1" FM_CREW_STATE_NM_TIMEOUT="$FM_LANE_FLOOR_NM_TIMEOUT" \
+      timeout "$FM_LANE_FLOOR_STATE_TIMEOUT" "$cmd" "$2" 2>/dev/null) || return 1
+  else
+    out=$(FM_STATE_OVERRIDE="$1" FM_CREW_STATE_NM_TIMEOUT="$FM_LANE_FLOOR_NM_TIMEOUT" \
+      "$cmd" "$2" 2>/dev/null) || return 1
+  fi
+  case "$out" in 'state: '*) ;; *) return 1 ;; esac
+  state=${out#state: }
+  state=${state%% *}
+  [ -n "$state" ] || return 1
+  case "$out" in
+    *'source: '*) source=${out#*source: }; source=${source%% *} ;;
+    *) source=none ;;
+  esac
+  printf '%s %s\n' "$state" "$source"
+}
+
+# The newest status EVENT's verb for one task, with any correlation bracket and
+# surrounding whitespace stripped, so "paused [key=x]: ..." reads the same as
+# "paused:". Never a current state on its own - only the soft fallback above and
+# the two validation counters below read it.
+fm_lane_floor_status_verb() {  # <status-line>
+  local verb=${1%%:*}
+  verb=${verb%%\[*}
+  verb=${verb#"${verb%%[![:space:]]*}"}
+  printf '%s\n' "${verb%"${verb##*[![:space:]]}"}"
+}
+
+# Classify every lane this home is running. Never prints, never writes.
+#   FM_LANE_FLOOR_TOTAL       every state/<id>.meta - the number the cap bounds
+#   FM_LANE_FLOOR_PRODUCTIVE  lanes the floor counts (see above)
+#   FM_LANE_FLOOR_GATED       the subset of those holding an actionable gate,
+#                             reported separately so a fleet of gates can never
+#                             read as a fleet of computing lanes
+#   FM_LANE_FLOOR_WAITING     lanes declaring a bounded external wait
+#   FM_LANE_FLOOR_EXITED      agent gone or endpoint dead, worktree kept
+#   FM_LANE_FLOOR_UNKNOWN     state read, but not determinable
+#   FM_LANE_FLOOR_FINISHED    terminal lanes still holding their slot
+#   FM_LANE_FLOOR_SOFT        lanes whose read could not be completed at all
+#   FM_LANE_FLOOR_IDLE        "<id>\t<why>" per finished or exited lane, the
+#                             candidates a full home could release
+#   FM_LANE_FLOOR_POOLS       distinct project roots those lanes record
+#   FM_LANE_FLOOR_WAIT_SLOT   lanes whose own status text says they are prepared
+#   FM_LANE_FLOOR_VALIDATING  lanes whose own status text names a running
+#                             no-mistakes run; both counters are read from that
+#                             text and are independent of the reconciled state
+# The pass stops the moment the productive count reaches the floor, so every
+# count above is floor-saturated rather than exact whenever it did - which is
+# why fm_lane_floor_compute renders nothing from that case.
+fm_lane_floor_classify() {  # <state-dir> <floor>
+  local state=$1 floor=$2 meta id last verb reconciled st src project
+  FM_LANE_FLOOR_TOTAL=0
+  FM_LANE_FLOOR_PRODUCTIVE=0
+  FM_LANE_FLOOR_GATED=0
+  FM_LANE_FLOOR_WAITING=0
+  FM_LANE_FLOOR_EXITED=0
+  FM_LANE_FLOOR_UNKNOWN=0
+  FM_LANE_FLOOR_FINISHED=0
+  FM_LANE_FLOOR_SOFT=0
+  FM_LANE_FLOOR_IDLE=''
+  FM_LANE_FLOOR_POOLS=''
+  FM_LANE_FLOOR_WAIT_SLOT=0
+  FM_LANE_FLOOR_VALIDATING=0
+
+  # The cap's number is a glob count and costs nothing, so it is always exact
+  # even when the classification below stops early.
   for meta in "$state"/*.meta; do
     [ -e "$meta" ] || continue
+    FM_LANE_FLOOR_TOTAL=$((FM_LANE_FLOOR_TOTAL + 1))
+  done
+
+  for meta in "$state"/*.meta; do
+    [ -e "$meta" ] || continue
+    [ "$FM_LANE_FLOOR_PRODUCTIVE" -lt "$floor" ] || break
     id=$(basename -- "$meta" .meta)
     last=$(grep -v '^[[:space:]]*$' "$state/$id.status" 2>/dev/null | tail -1)
-    # Verb before the first colon, with any correlation bracket and surrounding
-    # whitespace stripped, so "paused [key=x]: ..." reads the same as "paused:".
-    verb=${last%%:*}
-    verb=${verb%%\[*}
-    verb=${verb#"${verb%%[![:space:]]*}"}
-    verb=${verb%"${verb##*[![:space:]]}"}
-    [ "$verb" = paused ] && continue
-    live=$((live + 1))
+    verb=$(fm_lane_floor_status_verb "$last")
+    case "$verb:$last" in
+      paused:*prepared*validation\ slots\ full*)
+        FM_LANE_FLOOR_WAIT_SLOT=$((FM_LANE_FLOOR_WAIT_SLOT + 1)) ;;
+      working:*no-mistakes\ run*)
+        FM_LANE_FLOOR_VALIDATING=$((FM_LANE_FLOOR_VALIDATING + 1)) ;;
+    esac
+    project=$(sed -n 's/^project=//p' "$meta" 2>/dev/null | head -1)
+    if [ -n "$project" ]; then
+      case "$FM_LANE_FLOOR_POOLS" in
+        "$project"|"$project"$'\n'*|*$'\n'"$project"|*$'\n'"$project"$'\n'*) ;;
+        '') FM_LANE_FLOOR_POOLS=$project ;;
+        *) FM_LANE_FLOOR_POOLS="$FM_LANE_FLOOR_POOLS"$'\n'"$project" ;;
+      esac
+    fi
+    if reconciled=$(fm_lane_floor_crew_state "$state" "$id"); then
+      st=${reconciled%% *}
+      src=${reconciled##* }
+      case "$st" in
+        working)
+          FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1)) ;;
+        parked|blocked|needs-inspection)
+          FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1))
+          FM_LANE_FLOOR_GATED=$((FM_LANE_FLOOR_GATED + 1)) ;;
+        paused)
+          FM_LANE_FLOOR_WAITING=$((FM_LANE_FLOOR_WAITING + 1)) ;;
+        done|failed)
+          FM_LANE_FLOOR_FINISHED=$((FM_LANE_FLOOR_FINISHED + 1))
+          FM_LANE_FLOOR_IDLE="${FM_LANE_FLOOR_IDLE}${id}"$'\t'"finished, nothing uncommitted"$'\n' ;;
+        unknown)
+          # An endpoint the reconciler could reach and found gone is an exited
+          # agent whose worktree is still held; anything else it could not
+          # determine stays its own bucket rather than being read as death.
+          if [ "$src" = none ]; then
+            FM_LANE_FLOOR_EXITED=$((FM_LANE_FLOOR_EXITED + 1))
+            FM_LANE_FLOOR_IDLE="${FM_LANE_FLOOR_IDLE}${id}"$'\t'"agent gone, nothing uncommitted"$'\n'
+          else
+            FM_LANE_FLOOR_UNKNOWN=$((FM_LANE_FLOOR_UNKNOWN + 1))
+          fi ;;
+        *)
+          # A state this classification does not recognize is not evidence that
+          # the lane is idle, so it is soft exactly like a failed read.
+          FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1))
+          FM_LANE_FLOOR_SOFT=$((FM_LANE_FLOOR_SOFT + 1)) ;;
+      esac
+    elif [ "$verb" = paused ]; then
+      FM_LANE_FLOOR_WAITING=$((FM_LANE_FLOOR_WAITING + 1))
+      FM_LANE_FLOOR_SOFT=$((FM_LANE_FLOOR_SOFT + 1))
+    else
+      FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1))
+      FM_LANE_FLOOR_SOFT=$((FM_LANE_FLOOR_SOFT + 1))
+    fi
   done
-  printf '%s\n' "$live"
+  return 0
+}
+
+# Occupied worktree slots in each pool this home's lanes actually sit in, as
+# "<label>=<occupied>/<total>". Reads the same `treehouse status` listing
+# fm_idle_pool_free above reads, and reports nothing at all for a pool it could
+# not read rather than guessing at a count.
+fm_lane_floor_slots() {
+  local root label out total free line=''
+  [ -n "$FM_LANE_FLOOR_POOLS" ] || return 0
+  command -v treehouse >/dev/null 2>&1 || return 0
+  while IFS= read -r root; do
+    [ -n "$root" ] || continue
+    [ -d "$root" ] || continue
+    out=$(cd -- "$root" 2>/dev/null && treehouse status 2>/dev/null) || continue
+    total=$(printf '%s\n' "$out" | awk '/^[^[:space:]]/ && NF >= 2 { n++ } END { print n + 0 }')
+    free=$(printf '%s\n' "$out" | awk '/^[^[:space:]]/ && $2 == "available" { n++ } END { print n + 0 }')
+    case "$total" in ''|*[!0-9]*) continue ;; esac
+    case "$free" in ''|*[!0-9]*) continue ;; esac
+    [ "$total" -gt 0 ] || continue
+    label=$(basename -- "$root")
+    line="$line $label=$((total - free))/$total"
+  done <<< "$FM_LANE_FLOOR_POOLS"
+  [ -n "$line" ] || return 0
+  printf 'SLOTS:%s\n' "$line"
+}
+
+# The finished or exited lanes whose worktree holds nothing uncommitted, one
+# "<id>\t<why>" line each. Whether that work has LANDED is bin/fm-teardown.sh's
+# test and never this report's, so the wording claims only what the working tree
+# proves. A worktree that cannot be read is left out rather than named.
+fm_lane_floor_releasable() {  # <state-dir>
+  local state=$1 id why worktree dirty
+  [ -n "$FM_LANE_FLOOR_IDLE" ] || return 0
+  command -v git >/dev/null 2>&1 || return 0
+  while IFS=$'\t' read -r id why; do
+    [ -n "$id" ] || continue
+    worktree=$(sed -n 's/^worktree=//p' "$state/$id.meta" 2>/dev/null | head -1)
+    [ -n "$worktree" ] || continue
+    [ -d "$worktree" ] || continue
+    dirty=$(git -C "$worktree" status --porcelain=v1 --untracked-files=all 2>/dev/null) || continue
+    [ -z "$dirty" ] || continue
+    printf '%s\t%s\n' "$id" "$why"
+  done <<< "$FM_LANE_FLOOR_IDLE"
+  return 0
 }
 
 # Title+body text for backlog items that name a Change but are not actually
@@ -835,70 +1051,90 @@ fm_dispatchable_work() {  # <state-dir> [data-dir] [root]
 
 # Populate the lane-floor fields for one home. Never prints, never writes.
 #   FM_LANE_FLOOR        the configured floor (config/lane-floor, default 10)
-#   FM_LANE_FLOOR_LIVE   unpaused lanes this home is running
-#   FM_LANE_FLOOR_STATE  state directory used by the report's validation counts
+#   FM_LANE_FLOOR_CAP    the concurrency cap this home is bounded by
 #   FM_LANE_FLOOR_WORK   fm_dispatchable_work's lines, newline separated - the
-#                        evidence for a breach, so it is left EMPTY whenever
+#                        evidence for a shortfall, so it is left EMPTY whenever
 #                        there is none, including when the enumeration was
-#                        skipped because this home is already at its floor or at
-#                        its concurrency cap
+#                        skipped because this home's productive lanes already
+#                        reach its floor
 #   FM_LANE_FLOOR_COUNT  how many of them
-#   FM_LANE_FLOOR_BREACH true only when this home runs fewer than the floor and
-#                        some work is dispatchable without a captain decision
+#   FM_LANE_FLOOR_SLOTS  the SLOTS line, or empty when no pool could be read
+#   FM_LANE_FLOOR_RELEASABLE  releasable idle lanes, computed only for the
+#                        capacity-blocked case where releasing one is the action
+#   FM_LANE_FLOOR_BREACH true when productive lanes are under the floor, work is
+#                        dispatchable without a captain decision, and this home
+#                        is under its cap - the case a dispatch clears
+#   FM_LANE_FLOOR_CAPACITY_BLOCKED  the same shortfall with the cap reached, so
+#                        no dispatch is possible until a lane is released. It is
+#                        reported rather than suppressed: exiting silently here
+#                        is what hid a fleet of waiting holders from the captain.
+# plus every field fm_lane_floor_classify populates.
 fm_lane_floor_compute() {  # <state-dir> [data-dir] [root] [config-dir]
   local state=$1 data=${2:-} root=${3:-$FM_IDLE_SELF_ROOT} config=${4:-}
-  local meta running=0
   [ -n "$data" ] || data=$(dirname -- "$state")/data
   [ -n "$config" ] || config=$(dirname -- "$state")/config
   FM_LANE_FLOOR=$(fm_lane_floor_value "$config")
-  FM_LANE_FLOOR_STATE=$state
-  FM_LANE_FLOOR_LIVE=$(fm_lane_floor_live "$state")
+  FM_LANE_FLOOR_CAP=$(fm_concurrency_cap_value "$config")
   FM_LANE_FLOOR_WORK=''
   FM_LANE_FLOOR_COUNT=0
+  FM_LANE_FLOOR_SLOTS=''
+  FM_LANE_FLOOR_RELEASABLE=''
   FM_LANE_FLOOR_BREACH=false
-  # Two cheap exits before the enumeration, which reads a backlog and walks
-  # every registered project. A home at or above its floor is the ordinary busy
-  # case and must not pay for that walk on every turn end.
-  [ "$FM_LANE_FLOOR_LIVE" -lt "$FM_LANE_FLOOR" ] || return 0
-  # A home already at its concurrency cap cannot spawn another worker, so there
-  # is no breach to assert: enforcing one would block a turn on a condition the
-  # session has no way to clear. The cap counts every worker, paused included,
-  # because a paused lane still holds its slot.
-  for meta in "$state"/*.meta; do
-    [ -e "$meta" ] || continue
-    running=$((running + 1))
-  done
-  [ "$running" -lt "$(fm_concurrency_cap_value "$config")" ] || return 0
+  FM_LANE_FLOOR_CAPACITY_BLOCKED=false
+  fm_lane_floor_classify "$state" "$FM_LANE_FLOOR"
+  # The cheap exit before the enumeration, which reads a backlog and walks every
+  # registered project. A home whose productive lanes already reach its floor is
+  # the ordinary busy case and must not pay for that walk on every turn end.
+  [ "$FM_LANE_FLOOR_PRODUCTIVE" -lt "$FM_LANE_FLOOR" ] || return 0
   FM_LANE_FLOOR_WORK=$(fm_dispatchable_work "$state" "$data" "$root")
   FM_LANE_FLOOR_COUNT=$(printf '%s\n' "$FM_LANE_FLOOR_WORK" | sed '/^$/d' | wc -l | tr -d '[:space:]')
   case "$FM_LANE_FLOOR_COUNT" in ''|*[!0-9]*) FM_LANE_FLOOR_COUNT=0 ;; esac
-  [ "$FM_LANE_FLOOR_COUNT" -gt 0 ] && FM_LANE_FLOOR_BREACH=true
+  [ "$FM_LANE_FLOOR_COUNT" -gt 0 ] || return 0
+  FM_LANE_FLOOR_SLOTS=$(fm_lane_floor_slots)
+  # The cap counts every worker, paused and finished included, because each one
+  # still holds its worktree slot.
+  if [ "$FM_LANE_FLOOR_TOTAL" -lt "$FM_LANE_FLOOR_CAP" ]; then
+    FM_LANE_FLOOR_BREACH=true
+  else
+    FM_LANE_FLOOR_CAPACITY_BLOCKED=true
+    FM_LANE_FLOOR_RELEASABLE=$(fm_lane_floor_releasable "$state")
+  fi
   return 0
 }
 
-# Render the breach from the fields fm_lane_floor_compute already populated, or
-# nothing at all when there is no breach. Bounded to FM_LANE_FLOOR_LIST_LIMIT
+# Render the shortfall from the fields fm_lane_floor_compute already populated,
+# or nothing at all when there is none. Bounded to FM_LANE_FLOOR_LIST_LIMIT
 # listed items with the rest disclosed as a count. Always returns 0: like the
 # idle-capacity block above, this is a report, never a gate.
 fm_lane_floor_render() {
-  local shown=0 item waiting=0 validating=0 meta id last verb
-  [ "${FM_LANE_FLOOR_BREACH:-false}" = true ] || return 0
-  for meta in "${FM_LANE_FLOOR_STATE:-}"/*.meta; do
-    [ -e "$meta" ] || continue
-    id=$(basename -- "$meta" .meta)
-    last=$(grep -v '^[[:space:]]*$' "${FM_LANE_FLOOR_STATE:-}/$id.status" 2>/dev/null | tail -1)
-    verb=${last%%:*}
-    verb=${verb%%\[*}
-    verb=${verb#"${verb%%[![:space:]]*}"}
-    verb=${verb%"${verb##*[![:space:]]}"}
-    case "$verb:$last" in
-      paused:*prepared*validation\ slots\ full*) waiting=$((waiting + 1)) ;;
-      working:*no-mistakes\ run*) validating=$((validating + 1)) ;;
-    esac
-  done
-  printf 'LANE FLOOR: live=%s floor=%s dispatchable=%s - load the lane-floor skill and dispatch before ending this turn\n' \
-    "$FM_LANE_FLOOR_LIVE" "$FM_LANE_FLOOR" "$FM_LANE_FLOOR_COUNT"
-  printf 'VALIDATION: waiting-for-slot=%s live-validation=%s\n' "$waiting" "$validating"
+  local shown=0 item id why
+  if [ "${FM_LANE_FLOOR_BREACH:-false}" = true ]; then
+    printf 'LANE FLOOR: productive=%s floor=%s dispatchable=%s - load the lane-floor skill and dispatch before ending this turn\n' \
+      "$FM_LANE_FLOOR_PRODUCTIVE" "$FM_LANE_FLOOR" "$FM_LANE_FLOOR_COUNT"
+  elif [ "${FM_LANE_FLOOR_CAPACITY_BLOCKED:-false}" = true ]; then
+    printf 'LANE FLOOR: productive=%s floor=%s dispatchable=%s capacity-blocked cap=%s - load the lane-floor skill: release a lane below, or tell the captain what is holding them\n' \
+      "$FM_LANE_FLOOR_PRODUCTIVE" "$FM_LANE_FLOOR" "$FM_LANE_FLOOR_COUNT" "$FM_LANE_FLOOR_CAP"
+  else
+    return 0
+  fi
+  printf 'LANES: total=%s gated=%s waiting=%s exited=%s unknown=%s finished=%s unreconciled=%s\n' \
+    "$FM_LANE_FLOOR_TOTAL" "$FM_LANE_FLOOR_GATED" "$FM_LANE_FLOOR_WAITING" \
+    "$FM_LANE_FLOOR_EXITED" "$FM_LANE_FLOOR_UNKNOWN" "$FM_LANE_FLOOR_FINISHED" \
+    "$FM_LANE_FLOOR_SOFT"
+  [ -z "$FM_LANE_FLOOR_SLOTS" ] || printf '%s\n' "$FM_LANE_FLOOR_SLOTS"
+  if [ "${FM_LANE_FLOOR_CAPACITY_BLOCKED:-false}" = true ]; then
+    if [ -n "$FM_LANE_FLOOR_RELEASABLE" ]; then
+      printf 'RELEASABLE:\n'
+      while IFS=$'\t' read -r id why; do
+        [ -n "$id" ] || continue
+        printf '  %s (%s)\n' "$id" "$why"
+      done <<< "$FM_LANE_FLOOR_RELEASABLE"
+    else
+      printf 'RELEASABLE: none - no lane here can be released, so tell the captain what is holding capacity\n'
+    fi
+  fi
+  printf 'VALIDATION: waiting-for-slot=%s live-validation=%s\n' \
+    "$FM_LANE_FLOOR_WAIT_SLOT" "$FM_LANE_FLOOR_VALIDATING"
   while IFS= read -r item; do
     [ -n "$item" ] || continue
     if [ "$shown" -ge "$FM_LANE_FLOOR_LIST_LIMIT" ]; then

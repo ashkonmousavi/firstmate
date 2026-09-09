@@ -863,9 +863,39 @@ add_change_blocked() {  # <home> <id> <change> <blocker-id>
   tasks-axi block "$id" --by "$blocker" --file "$home/data/backlog.md" >/dev/null
 }
 
+# A reconciled-current-state stub for the productive count. bin/fm-crew-state.sh
+# reads a real pane, a real backend endpoint, and a real pipeline run, none of
+# which can be built in a temp dir - so it is the second shim in this file for
+# exactly the reason `treehouse` is the first, and FM_LANE_FLOOR_CREW_STATE is
+# the lib's own seam for it. A home with no stub leaves the seam pointing at a
+# path that does not exist, which is the unreadable-reconciler case itself.
+make_crew_state_stub() {  # <home>
+  local home=$1
+  mkdir -p "$home/crewstate"
+  cat > "$home/fakebin/fm-crew-state.sh" <<SH
+#!/usr/bin/env bash
+line="$home/crewstate/\${1:-}"
+[ -f "\$line" ] || exit 1
+cat "\$line"
+SH
+  chmod +x "$home/fakebin/fm-crew-state.sh"
+}
+
+# One lane whose RECONCILED state is <state> from source <source>, with an
+# optional status-log line whose newest verb deliberately disagrees.
+add_lane() {  # <home> <id> <state> <source> [status-line]
+  local home=$1 id=$2 state=$3 source=$4 status=${5:-}
+  make_crew_state_stub "$home"
+  printf 'state: %s · source: %s · fixture\n' "$state" "$source" > "$home/crewstate/$id"
+  : > "$home/state/$id.meta"
+  [ -n "$status" ] && printf '%s\n' "$status" > "$home/state/$id.status"
+  return 0
+}
+
 lane_floor_report() {  # <home>
   local home=$1
-  PATH="$home/fakebin:$PATH" bash -c '
+  PATH="$home/fakebin:$PATH" \
+  FM_LANE_FLOOR_CREW_STATE="$home/fakebin/fm-crew-state.sh" bash -c '
     . "$1/bin/fm-supervision-lib.sh"
     fm_lane_floor_report "$2/state" "$2/data" "$2" "$2/config"' _ "$ROOT" "$home"
 }
@@ -874,7 +904,8 @@ lane_floor_report() {  # <home>
 # genuinely fails rather than being stubbed out.
 lane_floor_report_without_tasks_axi() {  # <home>
   local home=$1
-  PATH="$home/fakebin:/usr/bin:/bin" bash -c '
+  PATH="$home/fakebin:/usr/bin:/bin" \
+  FM_LANE_FLOOR_CREW_STATE="$home/fakebin/fm-crew-state.sh" bash -c '
     . "$1/bin/fm-supervision-lib.sh"
     fm_lane_floor_report "$2/state" "$2/data" "$2" "$2/config"' _ "$ROOT" "$home"
 }
@@ -890,7 +921,7 @@ test_lane_floor_counts_non_captain_work_only() {
   : > "$home/state/live-1.meta"
   out=$(lane_floor_report "$home")
   case "$out" in
-    *"LANE FLOOR: live=1 floor=10 dispatchable=2"*) ;;
+    *"LANE FLOOR: productive=1 floor=10 dispatchable=2"*) ;;
     *) fail "expected the counted LANE FLOOR header, got: $out" ;;
   esac
   case "$out" in
@@ -1124,7 +1155,7 @@ test_lane_floor_does_not_count_a_paused_lane() {
   printf 'working: still going\n' > "$home/state/live-1.status"
   out=$(lane_floor_report "$home")
   case "$out" in
-    *"live=1 "*) ;;
+    *"productive=1 "*) ;;
     *) fail "a lane whose newest event declares an external wait must not count as live, got: $out" ;;
   esac
   pass "lane floor: a paused lane is excluded from the live count"
@@ -1144,7 +1175,7 @@ test_lane_floor_fails_soft_without_tasks_axi() {
   make_change "$home" proj alpha 2
   out=$(lane_floor_report_without_tasks_axi "$home")
   case "$out" in
-    *"LANE FLOOR: live=0 floor=10 dispatchable=1"*) ;;
+    *"LANE FLOOR: productive=0 floor=10 dispatchable=1"*) ;;
     *) fail "a failed backlog read must not suppress the work that WAS read, got: $out" ;;
   esac
   case "$out" in
@@ -1157,10 +1188,12 @@ test_lane_floor_fails_soft_without_tasks_axi() {
   pass "lane floor: an unreadable backlog contributes nothing and suppresses nothing"
 }
 
-# A home at its concurrency cap cannot spawn another worker, so there is no
-# breach to enforce: blocking one would nag for a dispatch the session has no
-# way to perform.
-test_lane_floor_silent_at_the_concurrency_cap() {
+# The cap is still the reason a dispatch cannot happen, but silence was the
+# defect: a fleet of waiting holders at the cap suppressed the report entirely
+# (captain 2026-09-08). The approved contract now reports the shortfall and
+# names what could be released, and dispatch authority is unchanged - which is
+# why the capacity-blocked line never tells the reader to dispatch.
+test_lane_floor_at_the_concurrency_cap_reports_a_shortfall() {
   local home out
   home=$(make_home lane-floor-at-cap 3)
   make_change "$home" proj alpha 2
@@ -1169,18 +1202,28 @@ test_lane_floor_silent_at_the_concurrency_cap() {
   printf '5\n' > "$home/config/lane-floor"
   out=$(lane_floor_report "$home")
   case "$out" in
-    *"LANE FLOOR: live=2 floor=5"*) ;;
+    *"LANE FLOOR: productive=2 floor=5"*) ;;
     *) fail "under the cap the breach must still report, got: $out" ;;
+  esac
+  case "$out" in
+    *capacity-blocked*) fail "under the cap this is an ordinary breach, got: $out" ;;
   esac
   printf '2\n' > "$home/config/concurrency-cap"
   out=$(lane_floor_report "$home")
-  [ -z "$out" ] \
-    || fail "a home at its concurrency cap has nothing to dispatch into, got: $out"
-  pass "lane floor: the concurrency cap bounds the floor, so it never demands an impossible dispatch"
+  case "$out" in
+    *"LANE FLOOR: productive=2 floor=5 dispatchable=1 capacity-blocked cap=2"*) ;;
+    *) fail "a home at its cap must report the shortfall, never exit silently: $out" ;;
+  esac
+  case "$out" in
+    *"dispatch before ending this turn"*) \
+      fail "at the cap there is nothing to dispatch into, so the line must not ask for one: $out" ;;
+  esac
+  pass "lane floor: at the concurrency cap the shortfall is reported, not silently suppressed"
 }
 
 # A paused lane still holds its worktree slot, so it counts against the cap even
-# though it does not count as a live lane.
+# though it is not productive: two lanes at a cap of two is capacity-blocked,
+# which only holds if the paused one was counted.
 test_lane_floor_cap_counts_a_paused_lane() {
   local home out
   home=$(make_home lane-floor-cap-paused 3)
@@ -1190,9 +1233,174 @@ test_lane_floor_cap_counts_a_paused_lane() {
   printf 'paused: waiting on an upstream release\n' > "$home/state/live-2.status"
   printf '2\n' > "$home/config/concurrency-cap"
   out=$(lane_floor_report "$home")
+  case "$out" in
+    *"capacity-blocked cap=2"*) ;;
+    *) fail "a paused lane still occupies its slot and must count against the cap, got: $out" ;;
+  esac
+  pass "lane floor: a paused lane is not productive but still holds its slot against the cap"
+}
+
+# The blind spot itself: a worker sitting quiet while its pipeline run drives CI
+# is productive, and the newest status EVENT says otherwise. Counting the verb
+# is what let a fleet of waiting holders read as a fleet of live lanes.
+test_lane_floor_counts_productive_ci_behind_a_quiet_worker() {
+  local home out
+  home=$(make_home lane-floor-productive-ci 3)
+  make_change "$home" proj alpha 2
+  add_lane "$home" ci-lane working run-step 'paused: waiting on CI'
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"LANE FLOOR: productive=1 "*) ;;
+    *) fail "a lane whose run is driving CI is productive, got: $out" ;;
+  esac
+  case "$out" in
+    *"waiting=0"*) ;;
+    *) fail "the stale paused EVENT must not be read as a declared wait, got: $out" ;;
+  esac
+  pass "lane floor: an active pipeline run behind a quiet worker counts as productive"
+}
+
+# An all-paused fleet at the cap is the exact fleet the captain watched go
+# unreported: nothing is productive, nothing can be dispatched, and nothing can
+# be released either - so the report must say all three rather than nothing.
+test_lane_floor_all_paused_at_cap_reports_capacity_blocked() {
+  local home out
+  home=$(make_home lane-floor-all-paused 3)
+  make_change "$home" proj alpha 2
+  add_lane "$home" wait-1 paused status-log
+  add_lane "$home" wait-2 paused status-log
+  printf '2\n' > "$home/config/concurrency-cap"
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"LANE FLOOR: productive=0 floor=10 dispatchable=1 capacity-blocked cap=2"*) ;;
+    *) fail "an all-paused fleet at the cap must report a capacity-blocked shortfall, got: $out" ;;
+  esac
+  case "$out" in
+    *"waiting=2"*) ;;
+    *) fail "the declared external waits must be reported separately, got: $out" ;;
+  esac
+  case "$out" in
+    *"RELEASABLE: none"*) ;;
+    *) fail "no releasable lane must be stated as an absence, never omitted, got: $out" ;;
+  esac
+  pass "lane floor: an all-paused fleet at the cap reports the shortfall and its empty release list"
+}
+
+# Dead and unreadable endpoints are the other half of the blind spot: an agent
+# that exited with its worktree kept is neither productive nor silently live,
+# and an endpoint whose state could not be read is its own bucket rather than
+# being folded into either.
+test_lane_floor_dead_and_unknown_endpoints_are_not_productive() {
+  local home out
+  home=$(make_home lane-floor-dead-unknown 3)
+  make_change "$home" proj alpha 2
+  add_lane "$home" gone-lane unknown none 'working: still going'
+  add_lane "$home" murky-lane unknown pane
+  add_lane "$home" busy-lane working pane
+  printf 'project=%s\n' "$home" >> "$home/state/busy-lane.meta"
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"LANE FLOOR: productive=1 "*) ;;
+    *) fail "only the reconciled working lane is productive, got: $out" ;;
+  esac
+  case "$out" in
+    *"exited=1"*) ;;
+    *) fail "an agent gone with its worktree kept must be reported, got: $out" ;;
+  esac
+  case "$out" in
+    *"unknown=1"*) ;;
+    *) fail "an unreadable endpoint must be its own bucket, got: $out" ;;
+  esac
+  case "$out" in
+    *"SLOTS: lane-floor-dead-unknown=1/4"*) ;;
+    *) fail "occupied worktree slots must be reported per project, got: $out" ;;
+  esac
+  pass "lane floor: dead and unknown endpoints are neither productive nor silently live"
+}
+
+# A lane parked on a gate is doing something the floor cannot replace by
+# spawning: answering the gate is what moves it. It counts as productive, and it
+# is counted again in `gated` so a fleet that is entirely gates can never read as
+# a fleet of computing lanes.
+test_lane_floor_counts_a_gated_lane_as_productive_and_names_it() {
+  local home out
+  home=$(make_home lane-floor-gated 3)
+  make_change "$home" proj alpha 2
+  add_lane "$home" gate-lane parked run-step
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"LANE FLOOR: productive=1 "*) ;;
+    *) fail "a lane holding an actionable gate is productive, got: $out" ;;
+  esac
+  case "$out" in
+    *"gated=1"*) ;;
+    *) fail "a gated lane must be visible as a gate, not hidden inside the count, got: $out" ;;
+  esac
+  pass "lane floor: a gated lane counts as productive and is reported as a gate"
+}
+
+# The other side of the same rule: a fleet whose every lane really is working is
+# saturated, and saturation is silence.
+test_lane_floor_silent_when_every_lane_is_productive() {
+  local home out
+  home=$(make_home lane-floor-saturated 3)
+  make_change "$home" proj alpha 2
+  add_lane "$home" busy-1 working pane
+  add_lane "$home" busy-2 working run-step
+  printf '2\n' > "$home/config/lane-floor"
+  out=$(lane_floor_report "$home")
   [ -z "$out" ] \
-    || fail "a paused lane still occupies its slot and must count against the cap, got: $out"
-  pass "lane floor: a paused lane is not a live lane but still holds its slot against the cap"
+    || fail "a fleet at its floor with every lane productive must be silent, got: $out"
+  pass "lane floor: true saturation reports no breach"
+}
+
+# A finished lane holding a slot with nothing uncommitted in it is the one thing
+# a capacity-blocked home can act on. Whether that work has LANDED is
+# bin/fm-teardown.sh's test, never this report's, so the wording claims only
+# what the working tree proves.
+test_lane_floor_capacity_blocked_names_a_releasable_lane() {
+  local home out repo dirty
+  home=$(make_home lane-floor-releasable 3)
+  make_change "$home" proj alpha 2
+  repo="$home/clean-worktree"
+  fm_git_init_commit "$repo"
+  dirty="$home/dirty-worktree"
+  fm_git_init_commit "$dirty"
+  printf 'unlanded\n' > "$dirty/scratch.txt"
+  add_lane "$home" finished-lane done run-step
+  printf 'worktree=%s\n' "$repo" >> "$home/state/finished-lane.meta"
+  add_lane "$home" dirty-lane done run-step
+  printf 'worktree=%s\n' "$dirty" >> "$home/state/dirty-lane.meta"
+  printf '2\n' > "$home/config/concurrency-cap"
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *capacity-blocked*) ;;
+    *) fail "two finished lanes at a cap of two is capacity-blocked, got: $out" ;;
+  esac
+  case "$out" in
+    *"finished-lane"*) ;;
+    *) fail "a finished lane with nothing uncommitted must be named releasable, got: $out" ;;
+  esac
+  case "$out" in
+    *"dirty-lane"*) fail "a lane holding uncommitted work must never be named releasable: $out" ;;
+  esac
+  pass "lane floor: a capacity-blocked shortfall names the lanes that can be released"
+}
+
+# The fail-soft floor under all of it: with no reconciler to run at all, the
+# report falls back to the pre-reconciliation rule rather than reading every
+# lane as dead and manufacturing a breach out of a failed read.
+test_lane_floor_unreadable_reconciler_manufactures_no_breach() {
+  local home out
+  home=$(make_home lane-floor-no-reconciler 3)
+  make_change "$home" proj alpha 2
+  : > "$home/state/live-1.meta"
+  printf 'working: still going\n' > "$home/state/live-1.status"
+  printf '1\n' > "$home/config/lane-floor"
+  out=$(lane_floor_report "$home")
+  [ -z "$out" ] \
+    || fail "an unreadable reconciler must never turn a live lane into a breach, got: $out"
+  pass "lane floor: a reconciler that cannot be run fails soft to the status verb"
 }
 
 # The floor governs the fleet, not one home: a secondmate that inherits nothing
@@ -1222,7 +1430,7 @@ test_drain_prints_lane_floor_with_an_empty_queue() {
   make_change "$home" proj alpha 2
   out=$(drain "$home") || fail "the drain failed on an empty queue: $out"
   case "$out" in
-    *"LANE FLOOR: live=0 floor=10 dispatchable=1"*) ;;
+    *"LANE FLOOR: productive=0 floor=10 dispatchable=1"*) ;;
     *) fail "an empty-queue drain must still report the lane-floor breach, got: $out" ;;
   esac
   case "$out" in
@@ -1286,10 +1494,41 @@ test_guard_blocks_a_turn_that_would_end_below_the_floor() {
     *) fail "the block must name the lane floor as the reason, got: $out" ;;
   esac
   case "$out" in
-    *"●  LANE FLOOR: live=0 floor=10 dispatchable=1"*) ;;
+    *"●  LANE FLOOR: productive=0 floor=10 dispatchable=1"*) ;;
     *) fail "the block must carry the counted LANE FLOOR line in banner style, got: $out" ;;
   esac
   pass "lane floor: a Claude turn that would end below the floor is blocked"
+}
+
+# A capacity-blocked shortfall blocks too - releasing a lane, or telling the
+# captain what is holding capacity, is an action this session can take - and it
+# spends the same bounded budget, so a home whose capacity genuinely cannot be
+# released is nagged three times and then allowed to end its turn. A cap of zero
+# is the one shape that reaches this gate with no task in flight, which is what
+# keeps the blind-fleet banner (which owns the in-flight case) out of the way.
+test_guard_blocks_a_capacity_blocked_turn() {
+  local home out rc i blocked=0 first=''
+  home=$(make_home guard-lane-floor-cap 3)
+  install_guard_home "$home"
+  make_change "$home" proj alpha 2
+  printf '0\n' > "$home/config/concurrency-cap"
+  i=1
+  while [ "$i" -le 4 ]; do
+    set +e
+    out=$(guard_stop "$home" lf-cap --claude)
+    rc=$?
+    set -e
+    [ "$rc" -eq 2 ] && blocked=$((blocked + 1))
+    [ "$i" -eq 1 ] && first=$out
+    i=$((i + 1))
+  done
+  case "$first" in
+    *"TURN WOULD END SHORT - LANES ARE BELOW THE FLOOR AND CAPACITY IS FULL"*) ;;
+    *) fail "the block must name capacity as the blocker, not a missing dispatch: $first" ;;
+  esac
+  [ "$blocked" -eq 3 ] \
+    || fail "a capacity-blocked turn must block within the budget and then allow, got $blocked: $out"
+  pass "lane floor: a capacity-blocked turn end is blocked with its own reason, and stays bounded"
 }
 
 test_guard_lane_floor_is_claude_only() {
@@ -1432,13 +1671,21 @@ test_lane_floor_does_not_mismatch_a_change_name_prefix
 test_lane_floor_excludes_archived_changes
 test_lane_floor_does_not_count_a_paused_lane
 test_lane_floor_fails_soft_without_tasks_axi
-test_lane_floor_silent_at_the_concurrency_cap
+test_lane_floor_at_the_concurrency_cap_reports_a_shortfall
 test_lane_floor_cap_counts_a_paused_lane
+test_lane_floor_counts_productive_ci_behind_a_quiet_worker
+test_lane_floor_all_paused_at_cap_reports_capacity_blocked
+test_lane_floor_dead_and_unknown_endpoints_are_not_productive
+test_lane_floor_counts_a_gated_lane_as_productive_and_names_it
+test_lane_floor_silent_when_every_lane_is_productive
+test_lane_floor_capacity_blocked_names_a_releasable_lane
+test_lane_floor_unreadable_reconciler_manufactures_no_breach
 test_lane_floor_is_inherited_by_secondmate_homes
 test_drain_prints_lane_floor_with_an_empty_queue
 test_drain_repeats_the_lane_floor_while_it_holds
 test_drain_silent_when_the_floor_is_met
 test_guard_blocks_a_turn_that_would_end_below_the_floor
+test_guard_blocks_a_capacity_blocked_turn
 test_guard_lane_floor_is_claude_only
 test_guard_lane_floor_check_error_does_not_block
 test_guard_lane_floor_block_budget_is_bounded
