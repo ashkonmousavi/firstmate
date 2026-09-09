@@ -57,7 +57,7 @@ Work the list until productive lanes reach the floor, or until the memory bound 
 Validation concurrency and review serialization never lower the lane floor, and the memory bound below is the only dispatch limiter.
 A lane preparing or proving locally while it waits for a validation slot is productive work, not an idle lane.
 
-1. **Take the list in the order it prints.** Backlog items come first because they are already filed, already scoped, and already carry their delivery mode.
+1. **The printed order is an enumeration, not a priority.** Dispatch in this order instead: first, actionable gates and repairs that unblock other work (shared machinery, supervision, delivery guards, validation tooling); second, the constituents of the next completed application outcome (what the current landing candidate or its immediate successor depends on); third, remaining capacity to useful independent work. Order within a class by actual dependency, never by batch number or list position. Backlog items still precede openspec lines within a class because they are already filed, already scoped, and already carry their delivery mode.
 2. **For a `backlog` line, dispatch it.** Resolve delivery mode and merge posture at intake exactly as any other dispatch, write the brief, and spawn.
    An item whose hold you cannot dispatch under is one the enumeration should not have listed; a `captain` hold, and a still-unmet `external`, `parked`, or `future` hold, are already excluded, so a remaining blocker means the item's own note is wrong.
    Fix the note by recording the exact blocking rule on the item, and move to the next line rather than dispatching blind.
@@ -87,6 +87,6 @@ Say plainly that the fleet is short of its floor because the machine is out of m
 
 - Ending the turn. The turn-end block and the drain escalation both return.
 - Re-reading the list. Nothing is dispatched by looking at it.
-- Deciding the work is low value. That is a captain call, filed as a held item, not an unrecorded skip.
+- Choosing which ready item runs first. That is ordinary engineering and needs no captain call. What stays the captain's is dropping, cancelling, or re-scoping an accepted requirement, and every genuine captain hold is preserved as recorded. A ready item passed over for a higher-priority one still carries a recorded reason, owner, and recheck trigger on the item itself (the wayfinding accounting), so a deprioritized item is never an unrecorded skip and the breach is not cleared by deprioritizing.
 - A lane that is paused, gone, or unreadable. The count already excludes it, so replacing it is exactly the point.
 - Reporting the buckets. Naming what the lanes are doing is not the same as filling the fleet or releasing a slot.
