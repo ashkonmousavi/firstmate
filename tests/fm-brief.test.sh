@@ -1264,19 +1264,25 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
       "$mode DOD did not render the complete constituent binding table"
     assert_grep '`Closed as superseded; not merged.`' "$brief" \
       "$mode DOD did not preserve the required superseded-not-merged statement"
-    assert_grep '| Pipeline-tested head | Landed head |' "$brief" \
-      "$mode DOD did not render the landing record naming which commit was tested and which landed"
-    assert_grep 'Those two are the same commit.' "$brief" \
-      "$mode DOD did not require one commit for both the tested and the landed head"
-    assert_grep 'bin/fm-pr-merge.sh --merge' "$brief" \
-      "$mode DOD did not name the merge method that keeps each constituent head reachable"
+    assert_grep '| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |' "$brief" \
+      "$mode DOD did not render the explicit join review that states what the joins did to each constituent"
+    assert_grep 'is not evidence that every constituent behavior survived' "$brief" \
+      "$mode DOD let an unchanged tree stand in for the join review"
+    assert_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+      "$mode DOD did not render the landing record naming the tested head and the landed squash commit"
+    assert_grep 'These are two different commits' "$brief" \
+      "$mode DOD still claimed the tested head and the landed commit are one commit"
+    assert_grep 'a pull request head that exists is not evidence that it landed' "$brief" \
+      "$mode DOD did not require the landed commit to be read from the forge"
+    assert_no_grep 'bin/fm-pr-merge.sh --merge' "$brief" \
+      "$mode DOD still prescribed the merge-commit landing a squash contract cannot use"
     assert_grep 'bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>' "$brief" \
       "$mode DOD did not render the supported constituent binding command"
   done
   brief="$home/data/brief-integration-batch-local-only/brief.md"
   assert_grep 'A local-only task cannot own a combined pull request' "$brief" \
     "local-only DOD did not refuse an integration-owner role that requires a PR"
-  pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, landing record, merge method, and record binding"
+  pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, join review, squash-honest landing record, and record binding"
 }
 
 test_script_parses

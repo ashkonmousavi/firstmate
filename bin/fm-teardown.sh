@@ -72,9 +72,13 @@
 # recorded pr= at all - the two checks run independently, and passing the safety
 # floor never substitutes for the missing completion link.
 # An absorbed constituent carries the stronger record written by
-# fm-pr-check.sh --absorbed-by. Teardown then also requires the merged combined
-# PR to contain the exact recorded constituent head, that head to be present on
-# current main, and the original PR to remain closed rather than merged.
+# fm-pr-check.sh --absorbed-by. Teardown then also requires the combined PR's
+# permanent head ref to publish the exact head the forge reports as merged and
+# to contain the exact recorded constituent head, the forge-reported commit that
+# merge produced to be present on current main, and the original PR to remain
+# closed rather than merged. The constituent head itself is never required on
+# main: under a squash-merge contract no commit of a pull request ever reaches
+# main, so that requirement refused work that had genuinely landed.
 # local-only projects additionally accept work merged into the local default
 # branch (firstmate performs that merge after configured approval) as a fallback
 # for the common case where there is no remote at all.
@@ -1234,15 +1238,66 @@ default_branch_ref() {
   fi
 }
 
+# Fetch the forge's permanent pull-request head ref and answer with the commit
+# it publishes. GitHub keeps refs/pull/<n>/head forever, including after the head
+# branch is deleted on merge, so this is the one read that still resolves a
+# combined pull request's exact proven head under a squash-merge contract, where
+# no commit of that pull request is ever an ancestor of main (XAUUSD's AGENTS.md
+# decides exactly that for every commit on its main branch, and its
+# scripts/generate_stage_gate_record.py states the same binding-truth contract).
+# The fetch is forced into a private per-invocation ref rather than a branch:
+# forced so a stale ref cannot poison the read, unique so concurrent teardowns
+# sharing one object store cannot collide, and a ref at all so the fetched
+# objects stay pinned for the ancestry check that follows.
+# ensure_commit_object is deliberately left alone here - it short-circuits on a
+# locally present object, which is exactly what this read must not do, and the
+# data-loss safety floor (pr_is_merged) still depends on that behavior.
+# It answers through globals rather than stdout on purpose: a command
+# substitution would run it in a subshell, the recorded ref name would never
+# reach the caller, and every release below would silently free nothing.
+ABSORBED_PR_HEAD_REF=
+ABSORBED_PUBLISHED_HEAD=
+fetch_published_pr_head() {
+  local target=$1 n ref
+  ABSORBED_PUBLISHED_HEAD=
+  n=$(pr_number_from_target "$target") || return 1
+  git -C "$WT" remote get-url origin >/dev/null 2>&1 || return 1
+  ref="refs/fm-teardown/absorbed/$$-$n"
+  git -C "$WT" fetch --quiet --force origin "+refs/pull/$n/head:$ref" >/dev/null 2>&1 || return 1
+  ABSORBED_PR_HEAD_REF=$ref
+  ABSORBED_PUBLISHED_HEAD=$(git -C "$WT" rev-parse --verify --quiet "$ref^{commit}") || return 1
+  [ -n "$ABSORBED_PUBLISHED_HEAD" ]
+}
+
+# Drop the temporary ref on every exit path, refusals included, so a refused
+# teardown never leaves fetched objects pinned forever.
+release_published_pr_head() {
+  [ -n "$ABSORBED_PR_HEAD_REF" ] || return 0
+  git -C "$WT" update-ref -d "$ABSORBED_PR_HEAD_REF" >/dev/null 2>&1 || true
+  ABSORBED_PR_HEAD_REF=
+}
+
 # Validate the stronger landing record produced by fm-pr-check.sh
-# --absorbed-by. The combined PR must be merged, its live head must contain the
-# exact recorded constituent head, the task worktree must not have advanced
-# past that head, the exact head must be reachable from current main, and the
-# original PR must remain closed rather than merged. This check runs even when
-# the constituent branch was pushed, so remote reachability cannot stand in for
-# an actual combined landing.
+# --absorbed-by. The binding connects three separate facts, and all three must
+# hold: the reviewed constituent work (the recorded exact head, still the
+# worktree's own head, on the recorded branch, its original PR still closed
+# rather than merged); the verified combined pull request head (published by the
+# forge under its permanent head ref, agreeing with the head the forge reports
+# as merged, and containing that exact constituent head); and the actual landing
+# (the pull request merged per the forge, and the commit its merge produced
+# present on current main). A pull request head that exists is not evidence it
+# landed, which is why the merge commit is read from the forge and checked
+# rather than inferred.
+# The constituent head itself is never required to be an ancestor of main: under
+# a squash-merge contract it never is, and requiring it refused work that had
+# genuinely landed. Containment is proven against the combined pull request's own
+# head instead. This is a record binding for cleanup only; it waives no
+# re-verification, and no different-files, range-diff, tree or patch equivalence
+# is accepted anywhere in it.
+# This check runs even when the constituent branch was pushed, so remote
+# reachability cannot stand in for an actual combined landing.
 validate_absorbed_constituent_landed() {
-  local current view state remainder combined_head default_ref
+  local current view state remainder combined_head merge_commit published default_ref
   local superseded_provider superseded_host superseded_path
   [ "$BATCH_METADATA_PRESENT" -eq 0 ] && return 0
   [ "$(grep -c '^batch_role=' "$META" 2>/dev/null)" -eq 1 ] \
@@ -1270,20 +1325,43 @@ validate_absorbed_constituent_landed() {
     || { echo "REFUSED: task $ID's constituent worktree head is unreadable." >&2; return 1; }
   [ "$current" = "$BATCH_CONSTITUENT_HEAD" ] \
     || { echo "REFUSED: task $ID has work after recorded constituent head $BATCH_CONSTITUENT_HEAD." >&2; return 1; }
-  view=$(cd "$WT" && gh pr view "$PR_URL" --json state,headRefOid,url \
-    -q '.state + "\t" + .headRefOid + "\t" + .url' 2>/dev/null) || return 1
+  view=$(cd "$WT" && gh pr view "$PR_URL" --json state,headRefOid,mergeCommit,url \
+    -q '.state + "\t" + .headRefOid + "\t" + (.mergeCommit.oid // "") + "\t" + .url' 2>/dev/null) \
+    || { echo "REFUSED: task $ID's combined PR ($PR_URL) could not be read from the forge, so its landing is unconfirmed." >&2; return 1; }
   state=${view%%$'\t'*}
   remainder=${view#*$'\t'}
   combined_head=${remainder%%$'\t'*}
+  remainder=${remainder#*$'\t'}
+  merge_commit=${remainder%%$'\t'*}
   case "$state" in MERGED|merged) ;; *) return 1 ;; esac
-  fm_pr_head_valid "$combined_head" && ensure_commit_object "$PR_URL" "$combined_head" \
+  fm_pr_head_valid "$combined_head" \
     || { echo "REFUSED: task $ID's combined PR head is not inspectable." >&2; return 1; }
-  git -C "$WT" merge-base --is-ancestor "$BATCH_CONSTITUENT_HEAD" "$combined_head" 2>/dev/null \
-    || { echo "REFUSED: task $ID's combined PR does not contain constituent head $BATCH_CONSTITUENT_HEAD." >&2; return 1; }
+  fetch_published_pr_head "$PR_URL" || ABSORBED_PUBLISHED_HEAD=
+  published=$ABSORBED_PUBLISHED_HEAD
+  if [ -z "$published" ]; then
+    release_published_pr_head
+    echo "REFUSED: task $ID's combined PR ($PR_URL) does not expose its permanent head ref; its landing cannot be proven." >&2
+    return 1
+  fi
+  if [ "$published" != "$combined_head" ]; then
+    release_published_pr_head
+    echo "REFUSED: task $ID's combined PR ($PR_URL) does not publish its merged head $combined_head (published $published)." >&2
+    return 1
+  fi
+  if ! git -C "$WT" merge-base --is-ancestor "$BATCH_CONSTITUENT_HEAD" "$published" 2>/dev/null; then
+    release_published_pr_head
+    echo "REFUSED: task $ID's combined PR does not contain constituent head $BATCH_CONSTITUENT_HEAD." >&2
+    return 1
+  fi
+  release_published_pr_head
+  fm_pr_head_valid "$merge_commit" \
+    || { echo "REFUSED: task $ID's combined PR ($PR_URL) is merged but the forge did not report the commit its merge produced." >&2; return 1; }
   default_ref=$(default_branch_ref) \
     || { echo "REFUSED: task $ID cannot refresh the current default branch for constituent proof." >&2; return 1; }
-  git -C "$WT" merge-base --is-ancestor "$BATCH_CONSTITUENT_HEAD" "$default_ref" 2>/dev/null \
-    || { echo "REFUSED: task $ID's constituent head $BATCH_CONSTITUENT_HEAD is not in current main." >&2; return 1; }
+  ensure_commit_object "$PR_URL" "$merge_commit" \
+    || { echo "REFUSED: task $ID's combined PR merge commit $merge_commit is not inspectable." >&2; return 1; }
+  git -C "$WT" merge-base --is-ancestor "$merge_commit" "$default_ref" 2>/dev/null \
+    || { echo "REFUSED: task $ID's combined PR merge commit $merge_commit is not in current main." >&2; return 1; }
   state=$(cd "$WT" && gh pr view "$BATCH_SUPERSEDED_PR" --json state -q .state 2>/dev/null) || state=
   case "$state" in
     CLOSED|closed) ;;
@@ -1292,6 +1370,41 @@ validate_absorbed_constituent_landed() {
       return 1
       ;;
   esac
+  ABSORBED_PROVEN_COMBINED_HEAD=$combined_head
+  ABSORBED_PROVEN_MERGE_COMMIT=$merge_commit
+}
+
+# Preserve the absorbed constituent's proven identities past cleanup. Teardown
+# removes state/<id>.meta, which is where the batch binding lives, so without
+# this the three commit identities the binding connects - the reviewed
+# constituent head, the verified combined pull request head, and the squash
+# commit that landing actually produced on main - would be destroyed by the very
+# cleanup they authorized. data/<id>/ survives teardown (it is where a scout's
+# report already outlives its worktree), so the record is written there.
+# Only a proof that actually passed writes one: the globals stay empty for a
+# non-constituent task and for --force, which skips the proof entirely.
+ABSORBED_PROVEN_COMBINED_HEAD=
+ABSORBED_PROVEN_MERGE_COMMIT=
+record_absorbed_batch_landing() {
+  local dir=$DATA/$ID record
+  [ "$BATCH_ROLE" = constituent ] || return 0
+  [ -n "$ABSORBED_PROVEN_COMBINED_HEAD" ] && [ -n "$ABSORBED_PROVEN_MERGE_COMMIT" ] || return 0
+  record="$dir/batch-landing.md"
+  mkdir -p "$dir" || { echo "REFUSED: task $ID cannot write its durable landing record directory." >&2; return 1; }
+  # shellcheck disable=SC2016 # The backticks below are literal Markdown code
+  # fences in the record's own text, not command substitution.
+  {
+    printf '# Integration batch landing record: %s\n\n' "$ID"
+    printf 'Written by bin/fm-teardown.sh when the absorbed-constituent proof passed, before the task record was removed.\n\n'
+    printf '| Fact | Value |\n| --- | --- |\n'
+    printf '| Reviewed constituent branch | `%s` |\n' "$BATCH_CONSTITUENT_BRANCH"
+    printf '| Reviewed constituent head | `%s` |\n' "$BATCH_CONSTITUENT_HEAD"
+    printf '| Superseded pull request | %s |\n' "$BATCH_SUPERSEDED_PR"
+    printf '| Superseded disposition | %s |\n' "$BATCH_SUPERSEDED_DISPOSITION"
+    printf '| Combined pull request | %s |\n' "$PR_URL"
+    printf '| Verified combined pull request head | `%s` |\n' "$ABSORBED_PROVEN_COMBINED_HEAD"
+    printf '| Landed squash commit on main | `%s` |\n' "$ABSORBED_PROVEN_MERGE_COMMIT"
+  } > "$record" || { echo "REFUSED: task $ID cannot write its durable landing record." >&2; return 1; }
 }
 
 # A ship task that carries a recorded pr= may close (backlog transition, worktree
@@ -2999,6 +3112,9 @@ fi
 
 if [ "$FORCE" != "--force" ]; then
   validate_pr_confirmed_before_close || exit 1
+  # The proof has passed and nothing destructive has run yet: this is the last
+  # point at which the binding's commit identities still exist to be preserved.
+  record_absorbed_batch_landing || exit 1
 fi
 
 # A Herdr close may reposition shared workspace order, so the whole

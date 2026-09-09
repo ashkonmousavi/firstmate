@@ -316,9 +316,12 @@ EOF
 # pull-request-body binding for a task designated as an integration batch's
 # owner. The integration-batch-delivery skill owns when and how batching is
 # selected and performed; this block owns only the worker-facing DoD mechanics
-# and the two table shapes rendered in every ship mode: the membership record
-# that binds each constituent, and the landing record naming which commit the
-# pipeline actually tested and which one actually landed. A local-only owner
+# and the three table shapes rendered in every ship mode: the membership record
+# that binds each constituent, the join review that states what the joins
+# actually did to each constituent's reviewed work, and the landing record
+# naming which commit the pipeline tested and which commit the merge produced.
+# The landing record's two commits differ under a squash-merge contract, so it
+# records both rather than asserting one. A local-only owner
 # must be re-briefed onto a PR-based path because a batch lands through one
 # combined PR.
 fm_integration_batch_dod_block() {  # <mode>
@@ -333,16 +336,25 @@ The combined pull request body must contain this complete table with one row per
 | --- | --- | --- | --- | --- |
 | `<task-id>` | `<branch>` | `<full-sha>` | `<https://...>` | `Closed as superseded; not merged.` |
 
-The body must also contain this complete landing record, one row, filled in before the merge:
+The body must also contain this complete join review, one row per constituent, written from the actual comparison of the candidate against that constituent's own reviewed head:
 
-| Pipeline-tested head | Landed head |
+| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |
+| --- | --- | --- | --- |
+| `<task-id>` | `<what is absent, or None>` | `<what replaced what, and why, or None>` | `<what the join itself had to change, or None>` |
+
+An unchanged tree after a binding merge is not evidence that every constituent behavior survived, so this review is stated explicitly rather than inferred from any tree, diff, or range comparison.
+A row that cannot be filled from a real comparison is a candidate whose verification is not finished.
+
+The body must also contain this complete landing record, one row, completed after the merge:
+
+| Pipeline-tested head | Landed squash commit |
 | --- | --- |
 | `<full-sha>` | `<full-sha>` |
 
-Those two are the same commit. The candidate absorbs current main by merging it in and is proven at that exact head, so a body that cannot state one commit for both is a candidate whose verification is not finished.
-Land the combined pull request with `bin/fm-pr-merge.sh --merge`, never the squash default, so each constituent's exact head stays reachable from main and can be proven landed.
+These are two different commits, and the record states both honestly. The pipeline-tested head is the exact combined head the delivery process proved. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+Land the combined pull request through `bin/fm-pr-merge.sh` under the project's own landing shape; its squash default is correct wherever the project's contract makes every commit on its default branch a squash merge. `--merge` remains available but is not prescribed here.
 After each original pull request is closed with that disposition, bind its task to the combined landing with `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>`.
-Every binding command must succeed, and both completed tables stay in the combined pull request body as the delivery record.
+Every binding command must succeed, and all three completed tables stay in the combined pull request body as the delivery record.
 EOF
   if [ "$mode" = local-only ]; then
     cat <<'EOF'

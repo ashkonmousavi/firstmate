@@ -34,6 +34,11 @@
 #   batch_constituent_head=<exact original PR head sha>
 #   batch_superseded_pr=<canonical original PR url>
 #   batch_superseded_disposition=closed-as-superseded-not-merged
+# Containment is verified against the combined PR's own head and nothing else:
+# the constituent head is never required to reach the default branch, because a
+# project may land every commit there as a squash merge, in which case no commit
+# of any pull request is ever an ancestor of it. bin/fm-teardown.sh proves the
+# same containment at cleanup from the combined PR's permanent refs/pull/<n>/head.
 # A normal later registration refuses to overwrite this evidence; an exact
 # --absorbed-by retry refreshes it idempotently. The metadata parser in
 # bin/fm-pr-lib.sh needs no broader lifecycle-key allowance because the batch

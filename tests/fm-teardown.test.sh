@@ -44,9 +44,15 @@
 #   (o) fm-pr-check rerun after HEAD moved                      -> no stale pr_head
 #   (p) fm-pr-check when local HEAD lags                        -> record remote PR head
 #   (q) no-mistakes + NO pr= recorded, PR discovered by branch  -> ALLOW  (yolo/no-CI merge)
-#   (q2) absorbed constituent + combined PR merged, exact head on main -> ALLOW
-#   (q3) absorbed constituent + combined PR still open                -> REFUSE
-#   (q4) absorbed constituent + combined PR merged, exact head absent from main -> REFUSE
+#   (q2) absorbed constituent + combined PR squash-merged, constituent head in
+#        refs/pull/<n>/head, merge commit on main                            -> ALLOW
+#   (q3) absorbed constituent + combined PR still open                       -> REFUSE
+#   (q4) absorbed constituent + combined PR head lacks the constituent head   -> REFUSE
+#   (q6) absorbed constituent + published PR head ref disagrees with the
+#        head the forge reports as merged                                     -> REFUSE
+#   (q7) absorbed constituent + refs/pull/<n>/head unfetchable                -> REFUSE
+#   (q8) absorbed constituent + reported merge commit absent from main        -> REFUSE
+#   (q9) absorbed constituent + merged state, no merge commit reported        -> REFUSE
 #   (q5) absorbed constituent, commits on no remote-tracking ref             -> ALLOW  (landed-work test)
 #
 # Also covers backlog teardown-lock-race: a git index.lock left in the worktree by a
@@ -340,12 +346,20 @@ append_absorbed_batch_meta() {
     "pr_head=$combined_head" >> "$case_dir/state/task-x1.meta"
 }
 
+# The combined pull request's landing is three separate forge facts, not one:
+# the merged state, the exact head the pipeline proved, and the identity of the
+# squash commit the merge actually produced on main. The mock answers all three
+# so a test can vary any one of them independently.
 add_gh_batch_states() {
   local case_dir=$1 combined_head=$2 combined_state=${3:-MERGED} original_state=${4:-CLOSED}
+  local merge_commit=${5-}
   cat > "$case_dir/fakebin/gh" <<SH
 #!/usr/bin/env bash
 url=\${3:-}
 case "\$url| \$* " in
+  "https://github.com/example/repo/pull/9|"*"state,headRefOid,mergeCommit,url"*)
+    printf '%s\t%s\t%s\t%s\n' '$combined_state' '$combined_head' '$merge_commit' 'https://github.com/example/repo/pull/9'
+    ;;
   "https://github.com/example/repo/pull/9|"*"state,headRefOid,url"*)
     printf '%s\t%s\t%s\n' '$combined_state' '$combined_head' 'https://github.com/example/repo/pull/9'
     ;;
@@ -1304,16 +1318,64 @@ test_prerequisite_pr_ignored_by_teardown() {
   pass "a recorded prerequisite_pr is never read as the task's own delivery by teardown's landed check"
 }
 
-test_absorbed_constituent_teardown_accepts_only_the_exact_combined_landing_on_main() {
-  local case_dir rc constituent_head combined_head
-  case_dir=$(make_case absorbed-combined-landed)
+# Publish a commit under the forge's permanent pull-request head ref. GitHub
+# keeps refs/pull/<n>/head forever, including after the head branch is deleted
+# on merge, which is what lets an absorbed constituent still be proven landed
+# under a squash-merge contract.
+publish_pr_head_ref() {
+  local case_dir=$1 number=$2 sha=$3
+  git -C "$case_dir/wt" push -q origin "$sha:refs/pull/$number/head"
+}
+
+# Land a squash merge on origin's main: one new commit carrying the source
+# head's exact tree, parented on main rather than on the source head, so no
+# commit of the combined pull request is an ancestor of main. This is the shape
+# XAUUSD's own AGENTS.md contract requires of every commit on its main branch.
+land_squash_commit_on_main() {
+  local case_dir=$1 source_head=$2 msg=$3 tree base squash
+  tree=$(git -C "$case_dir/wt" rev-parse "$source_head^{tree}") || return 1
+  git -C "$case_dir/wt" fetch -q origin main || return 1
+  base=$(git -C "$case_dir/wt" rev-parse FETCH_HEAD) || return 1
+  squash=$(printf '%s\n' "$msg" | git -C "$case_dir/wt" commit-tree "$tree" -p "$base") || return 1
+  git -C "$case_dir/wt" push -q origin "$squash:refs/heads/main" || return 1
+  printf '%s\n' "$squash"
+}
+
+assert_constituent_head_absent_from_main() {
+  local case_dir=$1 constituent_head=$2 squash_head=$3 label=$4
+  if git -C "$case_dir/wt" merge-base --is-ancestor "$constituent_head" "$squash_head" 2>/dev/null; then
+    fail "$label: fixture put the constituent head on main; the squash shape requires it absent"
+  fi
+}
+
+# The proof fetches the combined pull request's permanent head ref into a
+# private temporary ref. It must drop that ref again on every path, refusals
+# included, or a teardown pins fetched objects in the shared ref store forever.
+assert_no_leaked_pr_head_ref() {
+  local case_dir=$1 label=$2 leaked
+  leaked=$(git -C "$case_dir/wt" for-each-ref --format='%(refname)' 'refs/fm-teardown/**' 2>/dev/null)
+  [ -z "$leaked" ] \
+    || fail "$label: teardown leaked its temporary pull-request head ref: $leaked"
+}
+
+# (q2) An absorbed constituent is proven landed by the merged combined pull
+# request's own permanent head ref, never by main ancestry. Under a squash-merge
+# contract the constituent's commits are never ancestors of main at all, so a
+# main-ancestry proof refuses work that genuinely landed. This is the headline
+# behavior change: before it, this exact fixture refused with
+# "constituent head ... is not in current main".
+test_absorbed_constituent_teardown_accepts_a_squash_landed_combined_pr() {
+  local case_dir rc constituent_head combined_head squash_head
+  case_dir=$(make_case absorbed-combined-squash-landed)
   write_meta "$case_dir" no-mistakes ship
   wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
   constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
   combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
-  git -C "$case_dir/wt" push -q origin "$combined_head:refs/heads/main"
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  squash_head=$(land_squash_commit_on_main "$case_dir" "$combined_head" "squash landing")
+  assert_constituent_head_absent_from_main "$case_dir" "$constituent_head" "$squash_head" absorbed-combined-squash-landed
   append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
-  add_gh_batch_states "$case_dir" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$squash_head"
   seed_backlog_in_flight "$case_dir"
 
   set +e
@@ -1321,12 +1383,25 @@ test_absorbed_constituent_teardown_accepts_only_the_exact_combined_landing_on_ma
   rc=$?
   set -e
 
-  expect_code 0 "$rc" "absorbed-combined-landed: merged combined PR with exact constituent head on main should tear down"
+  expect_code 0 "$rc" "absorbed-combined-squash-landed: a squash-landed merged combined PR containing the constituent head should tear down: $(cat "$case_dir/stderr")"
   ! grep -q REFUSED "$case_dir/stderr" \
-    || fail "absorbed-combined-landed: teardown printed a REFUSED line"
-  pass "teardown accepts an absorbed constituent only after its exact recorded head lands through the merged combined PR"
+    || fail "absorbed-combined-squash-landed: teardown printed a REFUSED line: $(cat "$case_dir/stderr")"
+  [ ! -f "$case_dir/state/task-x1.meta" ] \
+    || fail "absorbed-combined-squash-landed: teardown left the task record behind"
+  assert_grep "$constituent_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-combined-squash-landed: the durable record lost the reviewed constituent head"
+  assert_grep "$combined_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-combined-squash-landed: the durable record lost the verified combined PR head"
+  assert_grep "$squash_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-combined-squash-landed: the durable record lost the landed squash commit"
+  assert_grep 'https://github.com/example/repo/pull/5' "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-combined-squash-landed: the durable record lost the superseded pull request"
+  assert_no_leaked_pr_head_ref "$case_dir" absorbed-combined-squash-landed
+  pass "teardown proves an absorbed constituent from the merged combined PR's own head ref and landed squash commit, and preserves all three identities past cleanup"
 }
 
+# (q3) A combined pull request that has not merged never proves anything,
+# whatever refs/pull/<n>/head publishes. Preserved refusal.
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr() {
   local case_dir rc constituent_head combined_head
   case_dir=$(make_case absorbed-combined-open)
@@ -1334,9 +1409,10 @@ test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr() {
   wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
   constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
   combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
-  git -C "$case_dir/wt" push -q origin "$combined_head:refs/heads/main"
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  land_squash_commit_on_main "$case_dir" "$combined_head" "squash landing" >/dev/null
   append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
-  add_gh_batch_states "$case_dir" "$combined_head" OPEN CLOSED
+  add_gh_batch_states "$case_dir" "$combined_head" OPEN CLOSED ""
   seed_backlog_in_flight "$case_dir"
 
   set +e
@@ -1351,16 +1427,24 @@ test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr() {
   pass "teardown refuses an absorbed constituent while the combined PR is unmerged"
 }
 
-test_absorbed_constituent_teardown_refuses_when_the_exact_head_is_not_on_main() {
-  local case_dir rc constituent_head combined_head
-  case_dir=$(make_case absorbed-head-not-main)
+# (q4) The combined pull request must actually contain the exact recorded
+# constituent head. Preserved refusal: the binding never waives re-verification,
+# and a different-files or range-diff equivalence is still no substitute for
+# ancestry. The constituent head is placed on main here so that only the
+# containment check can be what refuses.
+test_absorbed_constituent_teardown_refuses_a_combined_pr_without_the_constituent_head() {
+  local case_dir rc constituent_head combined_head base
+  case_dir=$(make_case absorbed-head-not-contained)
   write_meta "$case_dir" no-mistakes ship
   wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
   constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
-  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
-  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/fm/task-x1"
+  git -C "$case_dir/wt" fetch -q origin main
+  base=$(git -C "$case_dir/wt" rev-parse FETCH_HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$base" "unrelated combined integration")
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/main"
   append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
-  add_gh_batch_states "$case_dir" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$constituent_head"
   seed_backlog_in_flight "$case_dir"
 
   set +e
@@ -1368,40 +1452,163 @@ test_absorbed_constituent_teardown_refuses_when_the_exact_head_is_not_on_main() 
   rc=$?
   set -e
 
-  expect_code 1 "$rc" "absorbed-head-not-main: merged combined PR without exact constituent head on main must refuse"
-  assert_grep 'is not in current main' "$case_dir/stderr" \
-    "absorbed-head-not-main: refusal did not name the absent exact constituent head"
-  [ -d "$case_dir/wt" ] || fail "absorbed-head-not-main: refusal removed the constituent worktree"
-  pass "teardown refuses an absorbed constituent whose exact recorded commit did not reach main"
+  expect_code 1 "$rc" "absorbed-head-not-contained: a combined PR lacking the constituent head must refuse"
+  assert_grep 'does not contain constituent head' "$case_dir/stderr" \
+    "absorbed-head-not-contained: refusal did not name the uncontained constituent head"
+  [ -d "$case_dir/wt" ] || fail "absorbed-head-not-contained: refusal removed the constituent worktree"
+  assert_no_leaked_pr_head_ref "$case_dir" absorbed-head-not-contained
+  pass "teardown refuses an absorbed constituent the merged combined PR does not actually contain"
 }
 
-# work_is_landed itself, which the two ALLOW/REFUSE cases above never reach:
-# pushing the combined head there also refreshes origin/main, so the unpushed
-# set is empty and the landed-work test is skipped. After a superseded PR
-# closes, its branch is deleted from the forge and the constituent's commits sit
-# on no remote-tracking ref, so this is the shape a real absorbed constituent
-# tears down in, and the landed-work test must not refuse it. Both of its routes
-# recognize the landing here - the merged combined PR that fm-pr-check.sh
-# --absorbed-by made canonical contains the constituent head, and preserved
-# constituent commits are by construction already in the default branch - so
-# this pins the accepted outcome rather than one implementation route.
+# (q6) The combined head is read from the forge's permanent refs/pull/<n>/head,
+# so a published head that disagrees with the head the forge reports as merged
+# refuses rather than being proven from whatever object happens to sit in the
+# task worktree already. The constituent head is on main here, so the removed
+# main-ancestry proof would have accepted this outright.
+test_absorbed_constituent_teardown_refuses_a_disagreeing_published_pr_head() {
+  local case_dir rc constituent_head combined_head impostor_head
+  case_dir=$(make_case absorbed-pr-head-ref-mismatch)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  impostor_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "impostor integration")
+  [ "$impostor_head" != "$combined_head" ] \
+    || fail "absorbed-pr-head-ref-mismatch: fixture published the same commit twice"
+  publish_pr_head_ref "$case_dir" 9 "$impostor_head"
+  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/main"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$constituent_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-pr-head-ref-mismatch: a published PR head ref disagreeing with the merged head must refuse"
+  assert_grep 'does not publish its merged head' "$case_dir/stderr" \
+    "absorbed-pr-head-ref-mismatch: refusal did not name the disagreeing published head"
+  [ -d "$case_dir/wt" ] || fail "absorbed-pr-head-ref-mismatch: refusal removed the constituent worktree"
+  pass "teardown refuses an absorbed constituent whose combined PR head ref disagrees with the merged head"
+}
+
+# (q7) A combined pull request whose permanent head ref cannot be fetched proves
+# nothing, so teardown refuses rather than falling back to whatever ancestry a
+# local object would satisfy. The constituent head is on main here too, so only
+# the missing published ref can be what refuses.
+test_absorbed_constituent_teardown_refuses_an_unfetchable_pr_head_ref() {
+  local case_dir rc constituent_head combined_head
+  case_dir=$(make_case absorbed-pr-head-ref-missing)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/main"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$constituent_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-pr-head-ref-missing: an unfetchable combined PR head ref must refuse"
+  assert_grep 'permanent head ref' "$case_dir/stderr" \
+    "absorbed-pr-head-ref-missing: refusal did not name the unreadable published head ref"
+  [ -d "$case_dir/wt" ] || fail "absorbed-pr-head-ref-missing: refusal removed the constituent worktree"
+  pass "teardown refuses an absorbed constituent whose combined PR head ref cannot be fetched"
+}
+
+# (q8) A pull request head that exists is not evidence it landed. The forge's
+# own merge result - the squash commit the merge produced - must be present on
+# current main. The constituent head is on main here, so the removed
+# main-ancestry proof would have accepted this reported-but-unlanded merge.
+test_absorbed_constituent_teardown_refuses_a_squash_commit_absent_from_main() {
+  local case_dir rc constituent_head combined_head phantom_head base
+  case_dir=$(make_case absorbed-squash-commit-not-on-main)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/main"
+  git -C "$case_dir/wt" fetch -q origin main
+  base=$(git -C "$case_dir/wt" rev-parse FETCH_HEAD)
+  phantom_head=$(commit_tree_from_wt_head "$case_dir" "$base" "squash commit that never landed")
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$phantom_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-squash-commit-not-on-main: a merge commit absent from main must refuse"
+  assert_grep 'is not in current main' "$case_dir/stderr" \
+    "absorbed-squash-commit-not-on-main: refusal did not name the unlanded squash commit"
+  [ -d "$case_dir/wt" ] || fail "absorbed-squash-commit-not-on-main: refusal removed the constituent worktree"
+  pass "teardown refuses an absorbed constituent whose combined PR merge commit never reached main"
+}
+
+# (q9) A merged state with no readable merge commit leaves the landing itself
+# unrecorded, so there is nothing to preserve past cleanup and nothing to check
+# against main. Refuse rather than proving the binding from two legs of three.
+test_absorbed_constituent_teardown_refuses_an_unreported_squash_commit() {
+  local case_dir rc constituent_head combined_head
+  case_dir=$(make_case absorbed-squash-commit-unreported)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/main"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED ""
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-squash-commit-unreported: an unreported merge commit must refuse"
+  assert_grep 'did not report the commit its merge produced' "$case_dir/stderr" \
+    "absorbed-squash-commit-unreported: refusal did not name the missing merge commit"
+  [ -d "$case_dir/wt" ] || fail "absorbed-squash-commit-unreported: refusal removed the constituent worktree"
+  pass "teardown refuses an absorbed constituent whose combined PR merge commit the forge never reported"
+}
+
+# (q5) This is the case that reaches the data-loss safety floor (work_is_landed)
+# itself, which the ALLOW/REFUSE cases above do not: after a squash landing the
+# constituent's own commits sit on no remote-tracking ref at all, because the
+# superseded pull request's branch is deleted from the forge and no commit of it
+# is an ancestor of main. That is the shape a real absorbed constituent tears
+# down in under a squash-merge contract, and the safety floor must not refuse it.
+# Both of its routes recognize the landing here - the merged combined pull
+# request contains the constituent head, and the squash commit on main carries
+# that same tree - so this pins the accepted outcome rather than one route.
 test_absorbed_constituent_landed_work_test_accepts_commits_on_no_remote_ref() {
-  local case_dir rc constituent_head combined_head unpushed
+  local case_dir rc constituent_head combined_head squash_head unpushed
   case_dir=$(make_case absorbed-landed-work-test)
   write_meta "$case_dir" no-mistakes ship
   wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
   constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
   combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
-  git -C "$case_dir/wt" push -q origin "$combined_head:refs/heads/main"
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  squash_head=$(land_squash_commit_on_main "$case_dir" "$combined_head" "squash landing")
+  assert_constituent_head_absent_from_main "$case_dir" "$constituent_head" "$squash_head" absorbed-landed-work-test
   # Drop every remote-tracking ref, standing in for the closed constituent
-  # branch being deleted from the forge: the commits are on origin's main but on
-  # no remote-tracking ref this worktree holds.
+  # branch being deleted from the forge: nothing this worktree tracks holds the
+  # constituent's commits.
   git -C "$case_dir/wt" update-ref -d refs/remotes/origin/main
   unpushed=$(git -C "$case_dir/wt" log --oneline HEAD --not --remotes --)
   [ -n "$unpushed" ] \
     || fail "absorbed-landed-work-test: fixture did not reach the landed-work test (nothing unpushed)"
   append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
-  add_gh_batch_states "$case_dir" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$squash_head"
   seed_backlog_in_flight "$case_dir"
 
   set +e
@@ -1409,10 +1616,10 @@ test_absorbed_constituent_landed_work_test_accepts_commits_on_no_remote_ref() {
   rc=$?
   set -e
 
-  expect_code 0 "$rc" "absorbed-landed-work-test: commits absorbed by the merged combined PR should count as landed"
+  expect_code 0 "$rc" "absorbed-landed-work-test: commits absorbed by the merged combined PR should count as landed: $(cat "$case_dir/stderr")"
   ! grep -q REFUSED "$case_dir/stderr" \
-    || fail "absorbed-landed-work-test: teardown printed a REFUSED line"
-  pass "teardown's landed-work test accepts a constituent absorbed by the merged combined PR with its commits on no remote-tracking ref"
+    || fail "absorbed-landed-work-test: teardown printed a REFUSED line: $(cat "$case_dir/stderr")"
+  pass "teardown's landed-work test accepts a squash-landed constituent whose commits are on no remote-tracking ref"
 }
 
 setup_replayed_unpushed_patch_case() {
@@ -4017,9 +4224,13 @@ test_no_pr_recorded_fully_pushed_no_discoverable_pr_refuses
 test_no_pr_recorded_fully_pushed_pr_discovered_allows
 test_no_pr_recorded_force_still_allows
 test_prerequisite_pr_ignored_by_teardown
-test_absorbed_constituent_teardown_accepts_only_the_exact_combined_landing_on_main
+test_absorbed_constituent_teardown_accepts_a_squash_landed_combined_pr
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr
-test_absorbed_constituent_teardown_refuses_when_the_exact_head_is_not_on_main
+test_absorbed_constituent_teardown_refuses_a_combined_pr_without_the_constituent_head
+test_absorbed_constituent_teardown_refuses_a_disagreeing_published_pr_head
+test_absorbed_constituent_teardown_refuses_an_unfetchable_pr_head_ref
+test_absorbed_constituent_teardown_refuses_a_squash_commit_absent_from_main
+test_absorbed_constituent_teardown_refuses_an_unreported_squash_commit
 test_absorbed_constituent_landed_work_test_accepts_commits_on_no_remote_ref
 test_replayed_unpushed_patch_refuses_without_force
 test_replayed_unpushed_patch_allows_with_force
