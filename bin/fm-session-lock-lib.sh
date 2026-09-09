@@ -45,6 +45,29 @@ fm_harness_path_name() {  # <path>
   return 1
 }
 
+# Print the first non-option argument after a bare interpreter in flattened
+# process arguments, or return 1. That argument is the interpreter's entry path;
+# later arguments are application input and can never establish harness identity.
+fm_harness_interpreter_entry_path() {  # <args>
+  local args=$1 interpreter rest token
+  args=${args#"${args%%[![:space:]]*}"}
+  [ -n "$args" ] || return 1
+  interpreter=${args%%[[:space:]]*}
+  rest=${args#"$interpreter"}
+  while [ -n "$rest" ]; do
+    rest=${rest#"${rest%%[![:space:]]*}"}
+    [ -n "$rest" ] || break
+    token=${rest%%[[:space:]]*}
+    rest=${rest#"$token"}
+    case "$token" in
+      -*) continue ;;
+    esac
+    printf '%s\n' "$token"
+    return 0
+  done
+  return 1
+}
+
 # True when the process described by command name $1 and full argument string $2
 # is a verified harness. Sets FM_HARNESS_IS_CLAUDE for the ancestry walk.
 #
@@ -59,7 +82,7 @@ fm_harness_path_name() {  # <path>
 #   4. Cursor's own structural identity, owned by bin/fm-cursor-lib.sh.
 FM_HARNESS_IS_CLAUDE=0
 fm_harness_process_matches() {  # <comm> <args>
-  local comm=$1 args=$2 base argv0 name
+  local comm=$1 args=$2 base argv0 name script_path
   FM_HARNESS_IS_CLAUDE=0
   base=$(basename -- "$comm")
   if printf '%s' "$base" | grep -qE "$FM_HARNESS_RE"; then
@@ -74,8 +97,9 @@ fm_harness_process_matches() {  # <comm> <args>
   # Bare interpreter (e.g. node): match the harness name in its script path.
   case "$comm" in
     *node*|*python*)
-      if printf '%s' "$args" | grep -qE "$FM_HARNESS_RE"; then
-        case "$args" in *claude*) FM_HARNESS_IS_CLAUDE=1 ;; esac
+      if script_path=$(fm_harness_interpreter_entry_path "$args") \
+        && printf '%s' "$script_path" | grep -qE "$FM_HARNESS_RE"; then
+        case "$script_path" in *claude*) FM_HARNESS_IS_CLAUDE=1 ;; esac
         return 0
       fi
       ;;

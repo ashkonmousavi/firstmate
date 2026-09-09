@@ -87,6 +87,88 @@ SH
   pass "session-lock: a version-named Claude Code session is identified from its install path and argv[0]"
 }
 
+test_python_plain_argument_is_not_a_harness_and_real_owner_resolves() {
+  local dir fakebin
+  dir="$TMP_ROOT/python-plain-argument"
+  fakebin=$(fm_fakebin "$dir")
+  mkdir -p "$dir/state"
+  cat > "$fakebin/ps" <<'SH'
+#!/usr/bin/env bash
+set -u
+field= pid=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) field=$2; shift 2 ;;
+    -p) pid=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+case "$pid:$field" in
+  710:comm=) printf '%s\n' python ;;
+  710:args=) printf '%s\n' 'python /repo/worker.py /tmp/claude-1000/finding' ;;
+  710:ppid=) printf '%s\n' 720 ;;
+  720:comm=) printf '%s\n' bash ;;
+  720:args=) printf '%s\n' 'bash /repo/launcher.sh' ;;
+  720:ppid=) printf '%s\n' 730 ;;
+  730:comm=) printf '%s\n' claude ;;
+  730:args=) printf '%s\n' claude ;;
+  730:ppid=) printf '%s\n' 1 ;;
+  *:comm=) printf '%s\n' bash ;;
+  *:args=) printf '%s\n' 'bash /repo/check-owner.sh' ;;
+  *:ppid=) printf '%s\n' 710 ;;
+esac
+SH
+  chmod +x "$fakebin/ps"
+  printf '730\n' > "$dir/state/.lock"
+
+  if lib_eval "$fakebin" "fm_harness_process_matches python 'python /repo/worker.py /tmp/claude-1000/finding'"; then
+    fail "a python process whose plain argument names a harness was classified as that harness"
+  fi
+  lib_eval "$fakebin" "fm_session_lock_owned_by_self '$dir/state'" \
+    || fail "a python plain argument hid the real harness ancestor that owns the lock"
+  pass "session-lock: a python plain argument is not harness identity and the real owner still resolves"
+}
+
+test_node_harness_entry_path_is_identified() {
+  lib_eval "$FAKEBIN" "fm_harness_process_matches node 'node --no-warnings /opt/codex/bin/codex-runner.js --prompt neutral'" \
+    || fail "a node process whose entry path names the harness was not identified"
+  pass "session-lock: a node harness entry path is harness identity"
+}
+
+test_harness_detector_ignores_plain_interpreter_arguments() {
+  local dir fakebin got
+  dir="$TMP_ROOT/harness-detector-plain-argument"
+  fakebin=$(fm_fakebin "$dir")
+  cat > "$fakebin/ps" <<'SH'
+#!/usr/bin/env bash
+set -u
+field= pid=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) field=$2; shift 2 ;;
+    -p) pid=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+case "$pid:$field" in
+  991710:comm=) printf '%s\n' python ;;
+  991710:args=) printf '%s\n' 'python /repo/worker.py --finding lock-codex-argv' ;;
+  991710:ppid=) printf '%s\n' 1 ;;
+  *:comm=) printf '%s\n' bash ;;
+  *:args=) printf '%s\n' 'bash /repo/check-harness.sh' ;;
+  *:ppid=) printf '%s\n' 991710 ;;
+esac
+SH
+  chmod +x "$fakebin/ps"
+
+  got=$(CURSOR_AGENT='' CURSOR_INVOKED_AS='' GEMINI_CLI='' CLAUDECODE='' \
+    PI_CODING_AGENT='' GROK_AGENT='' PATH="$fakebin:$PATH" \
+    "$ROOT/bin/fm-harness.sh")
+  [ "$got" = unknown ] \
+    || fail "fm-harness treated a plain interpreter argument as identity, got '$got'"
+  pass "fm-harness: a plain interpreter argument is not harness identity"
+}
+
 test_ordinary_paths_are_never_harness_processes() {
   local dir fakebin shape
   dir="$TMP_ROOT/ordinary-paths"
@@ -357,6 +439,9 @@ test_e2e_daemon_parented_version_named_session_keeps_its_lock() {
 }
 
 test_version_named_session_is_identified_on_both_platforms
+test_python_plain_argument_is_not_a_harness_and_real_owner_resolves
+test_node_harness_entry_path_is_identified
+test_harness_detector_ignores_plain_interpreter_arguments
 test_ordinary_paths_are_never_harness_processes
 test_harness_beyond_a_gap_never_owns_the_lock
 test_competing_version_named_session_is_seen_as_live
