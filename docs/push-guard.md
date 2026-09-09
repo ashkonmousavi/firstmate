@@ -12,6 +12,10 @@ Unlike those two, it is **not** scoped to the primary firstmate checkout - see "
 On 2026-09-04, firstmate pushed two configuration commits straight to a project's `main` from a scratch clone, without the pipeline that would have caught the regression; each turned that project's `main` red.
 GitHub branch protection would prevent this, but it needs a paid plan the captain declined, so this seatbelt is the backstop: it denies a direct `git push` to `main` or `master` on any remote before it runs, in any git repository, from any working directory.
 
+Since 2026-09-09 it carries a second boundary that is not branch-scoped at all: a **force push** and a **remote branch deletion** are denied on every branch.
+A force push rewrites published history and a remote delete removes a branch a PR or another worker still depends on, so both are unsafe wherever they land, not only on `main`.
+The sanctioned alternatives are a replacement branch with a fresh suffix, and closing the superseded PR while leaving its branch in place.
+
 This guard is not a general sandbox.
 It classifies shell command positions only; it never evaluates, expands, sources, or runs any byte of the submitted command.
 Its threat model is an agent mistake - a direct `git push origin main` typed instead of going through a PR - not a deliberately obfuscated bypass.
@@ -23,14 +27,28 @@ A direct push to a project's `main` is unsafe regardless of which checkout the s
 
 In practice this means:
 
-- **Claude**: `.claude/settings.json` locates the script through the fixed `$CLAUDE_PROJECT_DIR` environment variable, which does not change when the shell `cd`s, so the guard fires against a `git push` from any working directory, in any git repository.
+- **Claude**: `.claude/settings.json` locates the script through the fixed `$CLAUDE_PROJECT_DIR` environment variable, which does not change when the shell `cd`s, so within a session whose project directory is a firstmate checkout the guard fires against a `git push` from any working directory, in any git repository.
 - **Codex**: `.codex/hooks.json` re-resolves the script's path from `pwd -P` on every call (the same mechanism its sibling guards already use there) and requires that directory to itself carry `AGENTS.md` and a `.codex/hooks.json` naming this script.
   A Codex session that has `cd`'d away from the firstmate checkout root into a project clone therefore cannot even locate the script, so under Codex this guard's practical reach is bounded to sessions whose tracked `cwd` is still the firstmate checkout root.
   This is a genuine per-harness difference from Claude's reach, not a bug, and it is the same limitation the cd-guard and watcher-arm seatbelt already carry under Codex.
-- Grok, OpenCode, Pi, and Cursor have no registration for this guard.
+- OpenCode, Pi, Grok, Kimi, Cursor, Gemini, and Muse have no registration for this guard.
+  Cursor is the closest: its tracked `.cursor/hooks.json` registers the watcher-arm and cd seatbelts as `preToolUse` entries but not this one.
   This is a documented vendor gap: the guard was built to satisfy the "must work for both Claude and Codex" requirement it shipped under, and extending it to the other harnesses is future work, not a silent omission.
 
-Because the guard is not primary-scoped, it also protects a crewmate or secondmate session that types a direct `git push` to `main` or `master` - a defense-in-depth backstop, since every crewmate brief already forbids that push, not a new restriction.
+## Which sessions actually load it
+
+Every registration this guard has lives in a **tracked repository-root configuration file** - `.claude/settings.json` and `.codex/hooks.json` - so a session loads the guard only when its project root is a firstmate checkout or worktree.
+`bin/fm-spawn.sh` installs no `PreToolUse` hook of any kind for a worker; the `.claude/settings.local.json` it writes into a task worktree carries only the four busy-state hooks (`UserPromptSubmit`, `Stop`, `StopFailure`, `SessionEnd`).
+There is no user-scope registration either.
+
+The consequence is a split by worker kind, not by harness:
+
+- A **firstmate-repo worker** (and firstmate itself) runs in a firstmate worktree that carries these tracked files, so the guard is loaded and blocking.
+- A **project worker** runs in a project worktree that carries neither file, so the guard is **not** loaded, on Claude or on Codex.
+  Under Codex the same session also cannot locate the script, because its registration re-resolves from `pwd -P` and requires that root to carry `AGENTS.md` and a `.codex/hooks.json` naming this script.
+
+For a project worker the crewmate brief's own prohibition is therefore the only thing forbidding a direct, forced, or deleting push; this guard is not a second layer there.
+`docs/verification/push-guard.md` holds the dated per-adapter evidence for both halves of that split.
 
 ## Block vs allow
 
@@ -42,15 +60,26 @@ The guard **blocks** a `git push` invocation, anywhere shell control can reach i
 - `git push origin +main` (a leading `+` force marker on the refspec)
 - `git push origin refs/heads/main` and `git push origin HEAD:refs/heads/main`
 - `git push --all origin` and `git push --mirror origin` (these reach `main`/`master` along with every other ref, from a command line that names no branch at all)
-- a bare `git push`, `git push origin`, or `git push --force-with-lease` (no repository/refspec, or only a repository) when the current branch is `main` or `master` - see "The one case text cannot settle" below
+- a bare `git push` or `git push origin` (no repository/refspec, or only a repository) when the current branch is `main` or `master` - see "The one case text cannot settle" below. A bare `git push --force-with-lease` never reaches that branch check: it is denied as a force push by the flag alone, on every branch
 - any `git` invocation reaching one of the above through `-C <dir>`, `-c <k>=<v>`, `--git-dir=`, `--work-tree=`, `--namespace=`, or `--exec-path=` global options first
 - any of the above nested inside `(...)`, `{ ...; }`, `$(...)`, backticks, a literal `eval "..."`, or a literal `sh -c "..."`/`bash -c "..."`/`zsh -c "..."` payload
+
+It **also** blocks, on every branch and regardless of the target named, through the same reachability surface:
+
+- `git push --force` and `git push -f`
+- `git push --force-with-lease`, including the `--force-with-lease=<refname>[:<expect>]` attached-argument form
+- `git push origin +feature-x` and `git push origin +refs/heads/feature-x` (a leading `+` force marker on any refspec, not only one aimed at `main`)
+- `git push -fu origin feature-x` (git's `parse-options` bundles short flags, so a letter cluster carrying `f` requests a force just as `-f` does; a cluster carrying `d` requests a delete)
+- `git push --delete origin feature-x` and `git push -d origin feature-x`
+- `git push origin :feature-x` and `git push origin :refs/heads/feature-x` (a refspec with an empty source, which deletes the remote branch)
+
+`--force-if-includes` and `--no-force-with-lease` are **not** force requests: the first only qualifies an accompanying `--force-with-lease`, and the second cancels one.
+Neither is denied on its own.
 
 The guard **allows** everything else, including:
 
 - `git push origin <feature-branch>` (any target that is not `main`/`master`)
 - `git -C <dir> status`, `git checkout main`, or any non-push `git` subcommand
-- `git push origin :main` (a refspec that **deletes** the remote `main`) - see "Accepted non-goals"
 - `git push` reached only through indirection this classifier does not treat as a transparent wrapper (`xargs git push ...`, a Makefile target, a helper script that shells out to `git push`)
 - the exact command carrying the owner marker described below
 
@@ -67,11 +96,14 @@ When the branch cannot be determined (not a git repository, detached `HEAD`, mis
 The brief for this guard required that any future exemption for those two owners be an explicit marker they set, never a path pattern, so a command carrying the exact leading assignment `FM_PUSH_GUARD_OWNER=fm-pr-merge` or `FM_PUSH_GUARD_OWNER=fm-merge-local` immediately before the `git push` on the same command line is exempted from this guard.
 This exemption is unexercised by any current call site - it exists so a future change to either owner script has a sanctioned way to push directly without widening this policy into a path-based bypass.
 
+The marker is applied in `findSites()` before any argument is classified, so it exempts the force and delete denials on exactly the same terms, with no second bypass surface.
+It is also the **only** sanctioned bypass for those two: a repository-wide sweep on 2026-09-09 found no firstmate script that force-pushes or deletes a remote branch, so there is no cleanup path to carve out.
+`bin/fm-fleet-sync.sh` and `bin/fm-teardown.sh` do delete branches, but locally with `git branch -D`, which is not a push and which this guard never sees.
+
 ### Accepted non-goals
 
 Consistent with the agent-mistake threat model, the guard deliberately does not chase every construction:
 
-- A refspec that **deletes** the remote branch (`git push origin :main`) is not denied. Deleting `main` is a different, rarer mistake than overwriting it, and is outside the enumerated case list this guard was built against.
 - Indirection through a program this classifier does not treat as a transparent wrapper (`xargs`, a Makefile target, a custom script that shells out to `git push`) is not traced.
 - Obscure git global options with an attached, unenumerated argument form are treated as taking no argument; only the options germane to reaching `push` (`-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace`, `--exec-path`, and `--`) are argument-aware.
 
@@ -83,9 +115,16 @@ If a genuinely ambiguous command shape is found that risks a false allow, the gu
 | --- | --- |
 | `protected-branch-push` | A `git push` targets `main` or `master` on some remote, either explicitly in the refspec or because the current branch resolved to one of them for a bare push. |
 | `push-all-mirror` | A `--all` or `--mirror` push reaches `main`/`master` along with every other ref. |
+| `force-push` | A `git push` requests a force, by flag or by a leading `+` on a refspec, and no protected branch is targeted. |
+| `branch-delete-push` | A `git push` deletes a remote branch, by `--delete`/`-d` or by an empty-source refspec, and no protected branch is targeted. |
 | `unclassifiable-push` | Shell syntax this classifier cannot tokenize, in a command whose raw text mentions both `git` and `push`, is denied rather than guessed at - the same fail-closed stance `bin/fm-arm-command-policy.mjs` takes for its own protected commands. A blocked push costs one clarifying turn; a red `main` costs a captain incident. |
 
-Every deny carries one of these stable codes in square brackets before the shared prose reason: land it through a PR so CI proves it before `main` - use `bin/fm-pr-merge.sh` or `bin/fm-merge-local.sh`.
+Every deny carries exactly one of these stable codes in square brackets before its prose reason.
+`protected-branch-push`, `push-all-mirror`, and `unclassifiable-push` share the reason: land it through a PR so CI proves it before `main` - use `bin/fm-pr-merge.sh` or `bin/fm-merge-local.sh`.
+`force-push` and `branch-delete-push` name their own sanctioned alternative instead.
+
+Precedence is fixed and pinned by `tests/fm-push-guard.test.sh`: a command reaching `main` or `master` reports `protected-branch-push` (or `push-all-mirror`) whatever else it asks for, so `git push --force origin main` and `git push origin :main` both keep the code this guard emitted before force and delete joined it, and the remedy the message names is still the one that matters most.
+`force-push` outranks `branch-delete-push` only because rewriting published history is the more destructive of the two.
 
 ## Transport and fail-open behavior
 
@@ -117,13 +156,14 @@ Identical in shape to `docs/cd-guard.md`:
 | --- | --- | --- |
 | Claude | `.claude/settings.json` PreToolUse Bash hook forwarding stdin with `--claude` | Blocks the tool call; stderr deny object, stdout empty. |
 | Codex | `.codex/hooks.json` PreToolUse hook that anchors from `pwd -P`, verifies the hook-loaded firstmate root, and forwards the payload | Blocks on exit 2 and displays stderr. Confirmed current as of the Codex CLI hooks reference at <https://learn.chatgpt.com/docs/hooks> (redirected from `developers.openai.com/codex/hooks`), which documents the same `hooks.json` schema, `PreToolUse` stdin shape (`tool_input.command`), and `permissionDecision: "deny"` / exit-2 block contract already in use by the cd-guard and watcher-arm registrations this entry copies. |
-| Grok, OpenCode, Pi, Cursor | Not registered | Documented vendor gap (see "Scope" above); a bare `git push` to `main`/`master` from one of these harnesses is not currently intercepted. |
+| OpenCode, Pi, Grok, Kimi, Cursor, Gemini, Muse | Not registered | Documented vendor gap (see "Scope" above); a direct, forced, or deleting `git push` from one of these harnesses is not currently intercepted. |
 
 Each harness runs the push-guard alongside the watcher-arm and cd-guard seatbelts; all are independent checks, and any one deny blocks the command.
+Both registered entries only apply to sessions rooted at a firstmate checkout - see "Which sessions actually load it" above.
 
 ## Automated validation
 
-`tests/fm-push-guard.test.sh` owns the acceptance matrix: every refspec form in "Block vs allow" above, the owner-marker exemption, the bare-push branch check (both branches, and the fail-open cases where the branch cannot be determined), the recursion into subshells/substitutions/eval/`sh -c`, the fail-open transport behavior, the prefilter fast path, the policy CLI output contract, and shellcheck cleanliness via `bin/fm-lint.sh`.
+`tests/fm-push-guard.test.sh` owns the acceptance matrix: every refspec form in "Block vs allow" above, the force and delete denials with their reason codes and their precedence against a protected target, the owner-marker exemption (including over those two, and its refusal of an unrecognized marker), the bare-push branch check (both branches, and the fail-open cases where the branch cannot be determined), the recursion into subshells/substitutions/eval/`sh -c`, the fail-open transport behavior, the prefilter fast path, the policy CLI output contract, and shellcheck cleanliness via `bin/fm-lint.sh`.
 
 Run:
 

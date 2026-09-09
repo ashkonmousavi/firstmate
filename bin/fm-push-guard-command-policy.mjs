@@ -33,10 +33,19 @@
 // commands. A blocked push costs one clarifying turn; a red main costs a
 // captain incident, so ambiguity here favors the deny.
 //
+// Force pushes and remote branch deletions are denied on EVERY branch, not
+// only main/master: a force push rewrites published history and a remote
+// delete removes a branch a PR or another worker still depends on, and both
+// are unsafe wherever they land. The sanctioned alternatives are a replacement
+// branch with a fresh suffix and closing the superseded PR. A repository-wide
+// sweep on 2026-09-09 found no firstmate script that force-pushes or deletes a
+// remote branch (`bin/fm-fleet-sync.sh` and `bin/fm-teardown.sh` delete LOCAL
+// branches with `git branch -D`, which this guard never sees), so the
+// OWNER_MARKERS exemption below is the only sanctioned bypass; because
+// findSites() applies that marker before this file classifies any argument, it
+// covers these denials too without a second bypass surface.
+//
 // Accepted non-goals (documented rather than silently missed):
-//   - `git push origin :main` (a refspec that DELETES the remote branch) is not
-//     denied. Deleting main is a different, rarer mistake than overwriting it,
-//     and is out of the enumerated case list this guard was built against.
 //   - Indirection through a program this classifier does not treat as a
 //     transparent wrapper (`xargs git push ...`, a Makefile target, a custom
 //     script that shells out to `git push`) is not traced. The threat model is
@@ -55,6 +64,10 @@ const REASONS = {
     "a direct git push to main or master is blocked; land it through a PR so CI proves it before main - use bin/fm-pr-merge.sh or bin/fm-merge-local.sh.",
   "push-all-mirror":
     "a --all or --mirror push reaches main or master along with every other ref; land it through a PR so CI proves it before main - use bin/fm-pr-merge.sh or bin/fm-merge-local.sh.",
+  "force-push":
+    "a force push rewrites published history and is blocked on every branch; push a replacement branch with a fresh suffix instead.",
+  "branch-delete-push":
+    "deleting a remote branch is blocked on every branch; close the superseded PR instead and leave its branch in place.",
   "unclassifiable-push":
     "unsupported or malformed shell syntax contains a git push and cannot be classified safely; land it through a PR so CI proves it before main - use bin/fm-pr-merge.sh or bin/fm-merge-local.sh.",
 };
@@ -72,6 +85,33 @@ const GIT_GLOBAL_OPTIONS_WITH_ARG = new Set(["-C", "-c", "--git-dir", "--work-tr
 const GIT_GLOBAL_OPTIONS_WITH_ARG_PREFIXED = ["--git-dir=", "--work-tree=", "--namespace=", "--exec-path="];
 
 const PUSH_OPTIONS_WITH_ARG = new Set(["-o", "--push-option", "--repo", "--receive-pack", "--exec"]);
+
+// `git push`'s own force spellings. `--force-if-includes` is deliberately
+// absent: it only qualifies an accompanying `--force-with-lease` and forces
+// nothing on its own, and `--no-force-with-lease` cancels the lease rather
+// than requesting a force.
+function isForceFlag(value) {
+  if (value === "--force" || value === "-f") return true;
+  return value === "--force-with-lease" || value.startsWith("--force-with-lease=");
+}
+
+function isDeleteFlag(value) {
+  return value === "--delete" || value === "-d";
+}
+
+// git's parse-options bundles short flags, so `-fu` requests a force push just
+// as `-f -u` does. Of `push`'s short options (-f -u -d -n -q -v -o -4 -6) only
+// `f` means force and only `d` means delete, so a letter cluster carrying
+// either is classified by that letter - including a mixed cluster such as
+// `-qd`, which git parses as --quiet --delete, so the delete code it earns is
+// accurate rather than an over-broad fail-closed guess. Confirmed 2026-09-09
+// against git's own parser: `-qd`, `-du`, and `-nd` all pass option parsing
+// and fail later, on the remote.
+function bundledShortFlags(value) {
+  if (!/^-[A-Za-z]+$/.test(value)) return { force: false, delete: false };
+  const letters = value.slice(1);
+  return { force: letters.includes("f"), delete: letters.includes("d") };
+}
 
 function basename(value) {
   return value.split("/").filter(Boolean).at(-1) || value;
@@ -124,6 +164,8 @@ function skipGitGlobalOptions(words, start) {
 function classifyPushArgs(words, dir) {
   let sawAll = false;
   let sawMirror = false;
+  let sawForce = false;
+  let sawDelete = false;
   const positionals = [];
   let onlyPositionals = false;
   for (let i = 0; i < words.length; i += 1) {
@@ -138,6 +180,18 @@ function classifyPushArgs(words, dir) {
         else sawMirror = true;
         continue;
       }
+      if (isForceFlag(value)) {
+        sawForce = true;
+        continue;
+      }
+      if (isDeleteFlag(value)) {
+        sawDelete = true;
+        continue;
+      }
+      const bundled = bundledShortFlags(value);
+      if (bundled.force) sawForce = true;
+      if (bundled.delete) sawDelete = true;
+      if (bundled.force || bundled.delete) continue;
       if (PUSH_OPTIONS_WITH_ARG.has(value)) {
         i += 1;
         continue;
@@ -149,18 +203,33 @@ function classifyPushArgs(words, dir) {
 
   if (sawAll || sawMirror) return { kind: "deny", code: "push-all-mirror" };
 
-  if (positionals.length <= 1) return { kind: "bare", dir };
-
+  // The refspec scan settles three things at once: whether any refspec targets
+  // a protected branch, whether one carries the `+` force marker, and whether
+  // one is the `:branch` delete form.
+  let sawProtectedTarget = false;
   for (const refspecWord of positionals.slice(1)) {
+    if (refspecWord.value.startsWith("+")) sawForce = true;
     const refspec = refspecWord.value.replace(/^\+/, "");
     const colon = refspec.indexOf(":");
     const src = colon === -1 ? refspec : refspec.slice(0, colon);
     const target = colon === -1 ? refspec : refspec.slice(colon + 1);
-    if (colon !== -1 && !src) continue; // a delete refspec (`:main`); see accepted non-goals.
+    if (colon !== -1 && !src) sawDelete = true; // a delete refspec (`:branch`).
     if (!target) continue;
     const normalized = target.replace(/^refs\/heads\//, "");
-    if (normalized === "main" || normalized === "master") return { kind: "deny", code: "protected-branch-push" };
+    if (normalized === "main" || normalized === "master") sawProtectedTarget = true;
   }
+
+  // Fixed precedence, pinned by tests: a protected target reports
+  // protected-branch-push whatever else the command asks for, so every code
+  // this guard emitted before force and delete joined it stays stable, and a
+  // force or delete aimed at main/master still names the remedy that matters
+  // most (land it through a PR). Force outranks delete only because a rewrite
+  // of published history is the more destructive of the two.
+  if (sawProtectedTarget) return { kind: "deny", code: "protected-branch-push" };
+  if (sawForce) return { kind: "deny", code: "force-push" };
+  if (sawDelete) return { kind: "deny", code: "branch-delete-push" };
+
+  if (positionals.length <= 1) return { kind: "bare", dir };
   return null;
 }
 

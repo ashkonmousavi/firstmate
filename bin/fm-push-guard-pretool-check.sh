@@ -5,7 +5,9 @@
 # main from a scratch clone, without the pipeline that would have caught the
 # regression; each turned that project's main red. GitHub branch protection
 # needs a paid plan the captain declined, so this seatbelt denies a direct
-# `git push` to `main` or `master` on any remote before it runs.
+# `git push` to `main` or `master` on any remote before it runs. Since
+# 2026-09-09 it also denies a force push and a remote branch deletion on every
+# branch, not only main/master.
 # bin/fm-push-guard-command-policy.mjs is the sole owner of the block/allow
 # decision for everything text alone can settle; it reuses the shell classifier
 # owned by bin/fm-arm-command-policy.mjs. This wrapper acquires the harness
@@ -28,8 +30,13 @@
 # bounded to sessions whose cwd is still the firstmate checkout root - a
 # documented per-harness difference, not a bug; see docs/push-guard.md. It is
 # registered only for Claude and Codex (see the COMMON RULES this hook was
-# built under); Grok, OpenCode, Pi, and Cursor have no registration for this
-# guard and are a documented vendor gap, not a silent omission.
+# built under); OpenCode, Pi, Grok, Kimi, Cursor, Gemini, and Muse have no
+# registration for this guard and are a documented vendor gap, not a silent
+# omission. Both registrations live in tracked repository-root configuration,
+# so only a session rooted at a firstmate checkout loads this guard at all -
+# bin/fm-spawn.sh installs no PreToolUse hook for a worker, so a PROJECT
+# worker is not covered on either harness; see docs/push-guard.md "Which
+# sessions actually load it" and docs/verification/push-guard.md.
 #
 # Usage:
 #   <PreToolUse JSON on stdin> | bin/fm-push-guard-pretool-check.sh [--claude]
@@ -66,7 +73,7 @@ With no --command, reads a PreToolUse-style JSON payload on stdin
 Not scoped to the primary firstmate checkout: fires against a git push from
 any working directory, in any git repository.
 Exits 0 to allow and 2 to deny a direct `git push` to main or master on any
-remote.
+remote, and a force push or remote branch deletion on every branch.
 The deny reason is written to stderr, with a duplicate decision object on
 stdout unless --claude is supplied.
 Malformed transport and an unavailable classifier runtime fail open, as does a
