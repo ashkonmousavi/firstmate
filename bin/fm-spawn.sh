@@ -1143,6 +1143,10 @@ RAW_LAUNCH=0
 # validation teardown uses, so a malformed, ambiguous, or foreign record
 # refuses here exactly as it refuses there.
 RELAUNCH_PRIOR_HARNESS=
+# 1 when the recorded endpoint is gone and this relaunch must create a fresh one
+# into the recorded worktree. Declared unconditionally so the shared launch code
+# below can read it under `set -u` on the fresh-spawn path too.
+RELAUNCH_REENDPOINT=0
 if [ "$RELAUNCH" -eq 1 ]; then
   [ "${#POS[@]}" -eq 1 ] || {
     echo "error: --relaunch takes the task id only; its project or home comes from the task's own record" >&2
@@ -1176,11 +1180,26 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: backend '$BACKEND' has no recovery-grade agent-state classifier, so a relaunch cannot prove the previous agent exited; refusing rather than risking two agents in one endpoint" >&2
     exit 1
   }
+  # Endpoint disposition. `dead` adopts the recorded endpoint, which is what
+  # keeps an ordinary relaunch a replacement rather than a second copy of the
+  # task. `missing` means the terminal itself is gone - closed by hand, or lost
+  # with its session - and that is NOT a reason to strand a task whose worktree
+  # and unlanded work are still exactly where the previous agent left them: a
+  # fresh endpoint is created on the RECORDED backend and pointed at the
+  # RECORDED worktree, so a lane whose terminal was closed still has a supported
+  # relaunch path. Every other reading still refuses, because an `alive` or
+  # `unreadable` endpoint cannot prove the previous agent exited and two agents
+  # in one endpoint is the failure this gate exists to prevent.
   RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
-  [ "$RELAUNCH_STATE" = dead ] || {
-    echo "error: task $ID's endpoint reads '$RELAUNCH_STATE'; a relaunch requires a positively agent-free endpoint (stop the agent first with bin/fm-control.sh $ID exit)" >&2
-    exit 1
-  }
+  RELAUNCH_REENDPOINT=0
+  case "$RELAUNCH_STATE" in
+    dead) ;;
+    missing) RELAUNCH_REENDPOINT=1 ;;
+    *)
+      echo "error: task $ID's endpoint reads '$RELAUNCH_STATE'; a relaunch requires a positively agent-free endpoint (stop the agent first with bin/fm-control.sh $ID exit)" >&2
+      exit 1
+      ;;
+  esac
   RELAUNCH_PRIOR_HARNESS=$(fm_meta_get "$RELAUNCH_META" harness)
   KIND=$(fm_meta_get "$RELAUNCH_META" kind)
   [ -n "$KIND" ] || KIND=ship
@@ -1204,8 +1223,27 @@ if [ "$RELAUNCH" -eq 1 ]; then
   if [ "$BACKEND" = herdr ]; then
     HERDR_SES=$(fm_meta_get "$RELAUNCH_META" herdr_session)
     HERDR_WORKSPACE_ID=$(fm_meta_get "$RELAUNCH_META" herdr_workspace_id)
-    HERDR_TAB_ID=$(fm_meta_get "$RELAUNCH_META" herdr_tab_id)
-    HERDR_PANE_ID=$(fm_meta_get "$RELAUNCH_META" herdr_pane_id)
+    # A re-endpoint relaunch allocates its own tab and pane below, so the
+    # recorded ids of the endpoint that is GONE must not be carried into the
+    # replacement record - they name a tab this session can no longer address.
+    # The session and workspace are kept: `--relaunch` refuses `--backend`, so
+    # the replacement is created on the recorded backend's own container, never
+    # in a freshly resolved one.
+    if [ "$RELAUNCH_REENDPOINT" -eq 1 ]; then
+      HERDR_TAB_ID=
+      HERDR_PANE_ID=
+      [ -n "$HERDR_SES" ] && [ -n "$HERDR_WORKSPACE_ID" ] || {
+        echo "error: task $ID's endpoint is gone and its record names no herdr session/workspace to recreate it in; refusing rather than placing the replacement in a freshly resolved container" >&2
+        exit 1
+      }
+      fm_backend_herdr_workspace_id_exists "$HERDR_SES" "$HERDR_WORKSPACE_ID" || {
+        echo "error: task $ID's endpoint is gone and its recorded herdr workspace $HERDR_WORKSPACE_ID (session $HERDR_SES) no longer exists; refusing to relaunch into a different workspace" >&2
+        exit 1
+      }
+    else
+      HERDR_TAB_ID=$(fm_meta_get "$RELAUNCH_META" herdr_tab_id)
+      HERDR_PANE_ID=$(fm_meta_get "$RELAUNCH_META" herdr_pane_id)
+    fi
   fi
   # With no explicit harness, a relaunch reuses the harness already recorded
   # for this task. It must NOT fall through to the fresh-spawn config
@@ -2393,7 +2431,45 @@ if [ -e "$STATE/$ID.backlog-close" ] || [ -L "$STATE/$ID.backlog-close" ]; then
 fi
 
 W="fm-$ID"
-if [ "$RELAUNCH" -eq 1 ]; then
+if [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_REENDPOINT" -eq 1 ]; then
+  # Re-endpoint relaunch: the terminal is gone, the work is not. Endpoint and
+  # worktree are INDEPENDENT axes, and this is the one case that needs a fresh
+  # endpoint over a recorded worktree - so it creates only the task's terminal,
+  # in the task's own RECORDED container, already rooted in the RECORDED
+  # worktree. It deliberately does NOT enter the fresh-spawn branch below: that
+  # branch resolves a container from ambient state and then runs `treehouse
+  # get`, which would acquire a SECOND worktree and strand the unlanded work
+  # this relaunch exists to preserve.
+  [ "$KIND" = secondmate ] || WT=$RELAUNCH_WT
+  case "$BACKEND" in
+    tmux)
+      SES=$(fm_backend_tmux_container_ensure)
+      T="$SES:$W"
+      WID=$(fm_backend_tmux_create_task "$SES" "$W" "$WT") || exit 1
+      WT_TARGET="$WID"
+      ;;
+    herdr)
+      SES=$HERDR_SES
+      HERDR_TASK_IDS=$(fm_backend_herdr_create_task "$HERDR_SES:$HERDR_WORKSPACE_ID" "$W" "$WT" "") || exit 1
+      HERDR_TAB_ID=${HERDR_TASK_IDS%% *}
+      HERDR_PANE_ID=${HERDR_TASK_IDS##* }
+      [ -n "$HERDR_TAB_ID" ] && [ -n "$HERDR_PANE_ID" ] || {
+        echo "error: task $ID's replacement terminal was created but herdr returned no tab/pane id; refusing to record an unaddressable endpoint" >&2
+        exit 1
+      }
+      T="$HERDR_SES:$HERDR_PANE_ID"
+      WT_TARGET=$T
+      ;;
+    *)
+      # Unreachable in practice: the state-verified gate above admits only tmux
+      # and herdr. Named rather than assumed, so a future backend gaining a
+      # recovery-grade classifier refuses here instead of creating an endpoint
+      # through an untested path.
+      echo "error: task $ID's endpoint is gone and backend '$BACKEND' has no verified path for recreating one; refusing" >&2
+      exit 1
+      ;;
+  esac
+elif [ "$RELAUNCH" -eq 1 ]; then
   # Adopt the recorded endpoint instead of creating one. This is what keeps a
   # relaunch a REPLACEMENT rather than a second copy of the task: no new
   # terminal, no second worktree, and every uncommitted change left exactly
@@ -2746,20 +2822,70 @@ kimi_spawn_fail() {  # <detail>
 
 if [ "$RELAUNCH" -eq 1 ]; then
   # No worktree is acquired: the recorded one is reused as-is. What must be
-  # proven instead is that the adopted endpoint's shell is actually sitting in
-  # that worktree, so the replacement agent starts where the work is rather
-  # than wherever the pane happened to drift.
+  # proven instead is that the endpoint's shell is actually sitting in that
+  # worktree, so the replacement agent starts where the work is rather than
+  # wherever the pane happened to drift.
+  #
+  # A drift is REPAIRED rather than refused. Refusing was the right first
+  # answer while drift meant "something moved this pane and we do not know
+  # what", but the common cause turned out to be ordinary and recoverable: a
+  # restored session brings the pane back in its creation cwd (the project
+  # clone), not in the worktree its `treehouse get` subshell had entered,
+  # because that subshell did not survive. Refusing there leaves a lane with
+  # intact work and no supported way back, which is strictly worse than
+  # sending the one `cd` that puts the shell where its own record says it
+  # belongs. The reset is bounded, idempotent, and touches nothing but the
+  # pane's own working directory.
   relaunch_wt_real=$(real_path_or_raw "$WT")
   relaunch_seen=
+  relaunch_settled=0
+  relaunch_reset=0
+  # A re-endpoint relaunch created its terminal directly in the recorded
+  # worktree, so it has no drift to repair - but it is still confirmed by the
+  # same poll rather than assumed, because an unreadable new pane must refuse
+  # here too.
   for _ in $(seq 1 10); do
     relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
-    [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ] || break
+    if [ -n "$relaunch_seen" ] && [ "$(real_path_or_raw "$relaunch_seen")" = "$relaunch_wt_real" ]; then
+      relaunch_settled=1
+      break
+    fi
     sleep 0.5
   done
-  if [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ]; then
-    echo "error: task $ID's endpoint is in '${relaunch_seen:-unknown}', not its recorded worktree '$WT'; refusing to relaunch an agent outside the copy holding its work" >&2
+  if [ "$relaunch_settled" -eq 0 ]; then
+    # Reset the drifted shell into its own recorded worktree, then confirm with
+    # TWO CONSECUTIVE AGREEING READS. One read is not proof: a pane's reported
+    # foreground cwd can transiently report a stale path before the shell
+    # catches up with the cd, exactly as the fresh-spawn worktree discovery
+    # below documents for `treehouse get`. Accepting a single read here would
+    # let a still-stale path pass and launch the replacement outside its work.
+    relaunch_reset=1
+    relaunch_drifted_from=${relaunch_seen:-unknown}
+    spawn_send_text_line "$WT_TARGET" "cd -- $(printf '%q' "$WT")" || {
+      echo "error: task $ID's endpoint is in '${relaunch_seen:-unknown}', not its recorded worktree '$WT', and the reset command could not be delivered; refusing to relaunch an agent outside the copy holding its work" >&2
+      exit 1
+    }
+    relaunch_candidate=
+    for _ in $(seq 1 20); do
+      relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
+      if [ -n "$relaunch_seen" ] && [ "$(real_path_or_raw "$relaunch_seen")" = "$relaunch_wt_real" ]; then
+        if [ "$relaunch_candidate" = "$relaunch_wt_real" ]; then
+          relaunch_settled=1
+          break
+        fi
+        relaunch_candidate=$relaunch_wt_real
+      else
+        relaunch_candidate=
+      fi
+      sleep 0.5
+    done
+  fi
+  if [ "$relaunch_settled" -eq 0 ]; then
+    echo "error: task $ID's endpoint is in '${relaunch_seen:-unknown}', not its recorded worktree '$WT', and it did not move there after a reset; refusing to relaunch an agent outside the copy holding its work" >&2
     exit 1
   fi
+  [ "$relaunch_reset" -eq 0 ] \
+    || echo "note: task $ID's endpoint had drifted to '$relaunch_drifted_from' and was reset to its recorded worktree $WT before relaunching" >&2
   [ "$KIND" = secondmate ] || validate_spawn_worktree "relaunch" "$T"
 elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   spawn_send_text_line "$WT_TARGET" 'treehouse get'
@@ -3273,7 +3399,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo tasktmp model effort busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo tasktmp model effort busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id crew_label zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx parked parked_reason", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -3303,11 +3429,19 @@ preserve_relaunch_meta() {
     echo "herdr_workspace_id=$HERDR_WORKSPACE_ID"
     echo "herdr_tab_id=$HERDR_TAB_ID"
     echo "herdr_pane_id=$HERDR_PANE_ID"
-    # Written only on the fresh spawn that allocated it (relaunch never
-    # re-enters the herdr case block, so CREW_LABEL is unset there and the
-    # previously recorded crew_label= line survives untouched through
-    # preserve_relaunch_meta below instead of being renumbered).
-    [ -z "${CREW_LABEL:-}" ] || echo "crew_label=$CREW_LABEL"
+    # crew_label is OWNED by this block rather than carried through
+    # preserve_relaunch_meta, because a re-endpoint relaunch does enter a herdr
+    # create path and could otherwise emit a freshly allocated label alongside
+    # the carried-through old one - two crew_label= lines in one record, which
+    # the exact-value meta readers treat as ambiguous. Written from the fresh
+    # allocation when there is one, and otherwise re-emitted verbatim from the
+    # record being replaced, so an adopting relaunch keeps the label it had.
+    if [ -n "${CREW_LABEL:-}" ]; then
+      echo "crew_label=$CREW_LABEL"
+    elif [ "$RELAUNCH" -eq 1 ]; then
+      RELAUNCH_PRIOR_CREW_LABEL=$(fm_meta_get "$RELAUNCH_META" crew_label)
+      [ -z "$RELAUNCH_PRIOR_CREW_LABEL" ] || echo "crew_label=$RELAUNCH_PRIOR_CREW_LABEL"
+    fi
   fi
   if [ "$BACKEND" = zellij ]; then
     echo "zellij_session=$ZELLIJ_SES"

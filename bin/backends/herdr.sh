@@ -2269,6 +2269,25 @@ fm_backend_herdr_projection_cleanup_exact() {  # <session> <task-pane> <seeded-p
   fi
 }
 
+# fm_backend_herdr_workspace_id_exists: 0 only when the named session currently
+# lists exactly this workspace_id. Used by the re-endpoint relaunch path, which
+# recreates a task's terminal in its own RECORDED container rather than in a
+# freshly resolved one - so it must confirm that container is still there before
+# it stops anything, and refuse rather than silently place the replacement
+# somewhere else. An unreadable or unparseable list returns nonzero, which the
+# caller treats as a refusal, never as absence.
+fm_backend_herdr_workspace_id_exists() {  # <session> <workspace_id>
+  local session=$1 wsid=$2 list
+  [ -n "$wsid" ] || return 1
+  list=$(fm_backend_herdr_cli "$session" workspace list 2>/dev/null) || return 1
+  printf '%s' "$list" | jq -e --arg wsid "$wsid" '
+    (.result.workspaces // null) as $spaces
+    | select(($spaces | type) == "array")
+    | [$spaces[]? | select(.workspace_id == $wsid)]
+    | length == 1
+  ' >/dev/null 2>&1
+}
+
 # fm_backend_herdr_projection_parent_workspace_exact: resolve one exact parent
 # workspace only when its presentation label is unique in the named session.
 fm_backend_herdr_projection_parent_workspace_exact() {  # <session> <parent-label>

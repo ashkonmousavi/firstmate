@@ -32,7 +32,9 @@
 #              the backend's recovery-grade classifier reports the agent gone.
 #              Already-stopped is success (idempotent).
 #   relaunch   Transactionally replace the running agent with a new one, in the
-#              SAME endpoint and SAME worktree, on the same or a newly chosen
+#              SAME worktree - in the SAME endpoint, or in a fresh one on the
+#              recorded backend when that endpoint is gone - on the same or a
+#              newly chosen
 #              harness/model/effort - so switching harness is one ordinary use
 #              of this verb. An explicit `default` model or effort clears that
 #              axis for the replacement. With no explicit axis, a secondmate
@@ -830,7 +832,18 @@ do_relaunch() {
   journal_write noted "${CHECKPOINT_LINES[@]}" "$note_line"
 
   journal_write stopping "${CHECKPOINT_LINES[@]}" "$note_line"
-  exit_result=$(do_exit)
+  # A relaunch whose endpoint is GONE has nothing to stop. `exit` still refuses
+  # a missing endpoint - being asked to stop an agent that has no terminal is a
+  # reconcile-first situation for that verb - but for a relaunch the missing
+  # terminal is the whole reason the caller is here, and the postcondition exit
+  # exists to prove (no agent is running in that endpoint) is already true in
+  # the strongest possible way: the endpoint itself is gone. Classified BEFORE
+  # the transaction stops anything, so this can never mask a live agent.
+  if [ "$(agent_state)" = missing ]; then
+    exit_result='endpoint-missing'
+  else
+    exit_result=$(do_exit)
+  fi
   journal_write exited "${CHECKPOINT_LINES[@]}" "$note_line" "exit_result=$exit_result"
 
   # The launch owner (fm-spawn --relaunch) clears the previous incarnation's
@@ -849,6 +862,19 @@ do_relaunch() {
     die "the replacement agent for $ID could not be launched on $TARGET_HARNESS"
   fi
 
+  # Re-read the endpoint from the record the launch owner just published. An
+  # ordinary relaunch republishes the same endpoint and this is a no-op, but a
+  # relaunch whose terminal was gone has a NEW one, and polling the old target
+  # would report a healthy replacement as never having come up - and then roll
+  # back a transaction that actually succeeded. The identity validation is the
+  # same shared one this script ran at the start, so a malformed republished
+  # record refuses here instead of being polled blind.
+  if fm_backend_validate_task_endpoint "$META" "$ID" >/dev/null 2>&1; then
+    if [ "$FM_BACKEND_VALIDATED_TARGET" != "$T" ]; then
+      echo "note: task $ID's terminal was recreated; its endpoint is now $FM_BACKEND_VALIDATED_TARGET" >&2
+      T=$FM_BACKEND_VALIDATED_TARGET
+    fi
+  fi
   state=$(wait_agent_state "$LAUNCH_WAIT" alive) || {
     die "the replacement agent for $ID did not come up within ${LAUNCH_WAIT}s (endpoint reads '$state')"
   }

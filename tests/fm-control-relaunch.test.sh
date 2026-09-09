@@ -86,6 +86,14 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       case "$payload" in
+        'cd -- '*)
+          # Model the shell actually changing directory, so a relaunch that
+          # resets a drifted pane can be observed moving rather than asserted.
+          target=${payload#'cd -- '}
+          target=${target#\'}
+          target=${target%\'}
+          printf '%s' "$target" > "$D/cwd"
+          ;;
         'export GOTMPDIR='*)
           if [ -n "${FM_FAKE_TRACE_PREPARE:-}" ]; then
             : > "$FM_FAKE_TRACE_PREPARE"
@@ -114,6 +122,27 @@ case "${1:-}" in
     printf 'fakepane\n'; exit 0 ;;
   capture-pane) printf '╭────╮\n│    │\n╰────╯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
+  has-session) exit 0 ;;
+  new-window)
+    # Model creating a task window: register its name in the window inventory
+    # and root the new pane at the -c directory. This is what lets a relaunch
+    # whose recorded endpoint is GONE be observed creating a real replacement
+    # endpoint rather than being asserted to have done so.
+    shift
+    wname=
+    wcwd=
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -n) wname=${2:-}; shift 2 ;;
+        -c) wcwd=${2:-}; shift 2 ;;
+        -t|-F) shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    [ -z "$wname" ] || printf '%s\n' "$wname" >> "$D/windows"
+    [ -z "$wcwd" ] || printf '%s' "$wcwd" > "$D/cwd"
+    printf '@9\n'
+    exit 0 ;;
 esac
 exit 0
 SH
@@ -1510,16 +1539,77 @@ test_spawn_relaunch_refuses_an_unrecorded_task() {
   pass "fm-spawn --relaunch: an unrecorded task is refused"
 }
 
-test_spawn_relaunch_refuses_a_pane_outside_the_worktree() {
+# Proves: a relaunch whose endpoint SHELL has drifted out of the recorded
+# worktree resets that shell back into the worktree and proceeds, instead of
+# refusing. Red before the change (the old code refused with "not its recorded
+# worktree"); green after.
+test_spawn_relaunch_resets_a_pane_outside_the_worktree() {
   local dir out rc
   dir=$(new_case wrongcwd rl18)
   add_ship_task "$dir" rl18 claude
   printf 'zsh' > "$dir/fake/command"
+  # The exact shape a restored session leaves behind: the pane is back in its
+  # creation cwd (the project clone), not the worktree its treehouse subshell
+  # had entered, because that subshell did not survive.
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
   out=$(run_spawn "$dir" rl18 --relaunch --harness claude); rc=$?
-  expect_code 1 "$rc" "a pane outside the worktree should refuse"
-  assert_contains "$out" "not its recorded worktree" "the refusal should name the wrong location"
-  pass "fm-spawn --relaunch: refuses to start a replacement outside the copy holding the work"
+  expect_code 0 "$rc" "a drifted pane should be reset, not refused: $out"
+  assert_not_contains "$out" "refusing to relaunch an agent outside" \
+    "a drifted pane must no longer be refused"
+  assert_contains "$out" "was reset to its recorded worktree" \
+    "the reset should be reported"
+  grep -Fq "cd -- " "$dir/fake/keys" \
+    || fail "no cd was delivered to the drifted pane: $(cat "$dir/fake/keys")"
+  [ "$(cat "$dir/fake/cwd")" = "$dir/wt" ] \
+    || fail "the pane was not left in the recorded worktree: $(cat "$dir/fake/cwd")"
+  [ "$(meta_field "$dir" rl18 worktree)" = "$dir/wt" ] \
+    || fail "the reset changed the recorded worktree: $(meta_field "$dir" rl18 worktree)"
+  pass "fm-spawn --relaunch: a drifted shell is reset into the copy holding the work"
+}
+
+# Proves: a relaunch whose recorded endpoint no longer EXISTS creates a fresh
+# endpoint on the recorded backend, rooted directly in the recorded worktree,
+# records the new endpoint, and never acquires a second worktree. Red before the
+# change (the endpoint-state gate admitted only `dead`); green after.
+test_spawn_relaunch_recreates_a_missing_endpoint() {
+  local dir out rc
+  dir=$(new_case gonewindow rl43)
+  add_ship_task "$dir" rl43 claude
+  # A closed terminal: the window inventory no longer lists it, which is what
+  # makes the recorded endpoint read `missing` rather than `dead`.
+  : > "$dir/fake/windows"
+  printf 'zsh' > "$dir/fake/command"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+  out=$(run_spawn "$dir" rl43 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "a missing endpoint should be recreated, not refused: $out"
+  assert_not_contains "$out" "requires a positively agent-free endpoint" \
+    "a missing endpoint must not be refused as un-agent-free"
+  grep -Fqx "fm-rl43" "$dir/fake/windows" \
+    || fail "no replacement endpoint was created: $(cat "$dir/fake/windows")"
+  [ "$(meta_field "$dir" rl43 worktree)" = "$dir/wt" ] \
+    || fail "recreating the endpoint changed the recorded worktree: $(meta_field "$dir" rl43 worktree)"
+  [ "$(cat "$dir/fake/cwd")" = "$dir/wt" ] \
+    || fail "the replacement endpoint was not rooted in the recorded worktree: $(cat "$dir/fake/cwd")"
+  grep -Fq 'treehouse get' "$dir/fake/keys" \
+    && fail "recreating an endpoint must never acquire a second worktree"
+  [ "$(meta_field "$dir" rl43 window)" = "firstmate:fm-rl43" ] \
+    || fail "the new endpoint was not recorded: $(meta_field "$dir" rl43 window)"
+  pass "fm-spawn --relaunch: a missing endpoint is recreated in the recorded worktree"
+}
+
+# Proves: the endpoint-state gate still refuses a LIVE agent. This is the
+# boundary the two cases above must not have widened - re-endpointing is for a
+# terminal that is gone, never for one that still holds a running agent.
+test_spawn_relaunch_still_refuses_a_live_agent() {
+  local dir out rc
+  dir=$(new_case liveagent rl44)
+  add_ship_task "$dir" rl44 claude
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_spawn "$dir" rl44 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "a live agent should still refuse"
+  assert_contains "$out" "requires a positively agent-free endpoint" \
+    "the refusal should still name the agent-free requirement"
+  pass "fm-spawn --relaunch: a live agent is still refused"
 }
 
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it() {
@@ -1606,6 +1696,8 @@ test_spawn_relaunch_keeps_its_early_meta_lock_continuous
 test_spawn_relaunch_refuses_a_pending_authoritative_close
 test_spawn_relaunch_refuses_contradicting_flags
 test_spawn_relaunch_refuses_an_unrecorded_task
-test_spawn_relaunch_refuses_a_pane_outside_the_worktree
+test_spawn_relaunch_resets_a_pane_outside_the_worktree
+test_spawn_relaunch_recreates_a_missing_endpoint
+test_spawn_relaunch_still_refuses_a_live_agent
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight
