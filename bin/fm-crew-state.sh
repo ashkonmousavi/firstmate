@@ -97,11 +97,17 @@
 #      codex-unverified and kimi-unverified) is a fact about the installed
 #      harness, not evidence about this crew, so it does not MASK the status
 #      log: the log still answers, and the unread pane is named in the detail.
-#      Every OTHER unknown verdict - malformed, gen-mismatch, source-mismatch,
-#      capture-failed - means THIS crew's own wiring is broken and stays loud
-#      as unknown, per fm-busy-lib.sh's "malformed, stale, or untrusted records
-#      -> unknown, never a fallback". Neither path invents certainty from a
-#      pane: one reports a source that actually spoke, the other reports that
+#      A missing record for a CONVERTED adapter (claude, opencode, pi,
+#      pi-signed, gemini) gets the same treatment for a different reason: those
+#      adapters are always armed with a seed record at spawn, so a missing
+#      record there is a genuine wiring defect rather than expected absence -
+#      but it is still a fact about the wiring, not the crew, so it must not
+#      outrank a declared wait either. Every OTHER unknown verdict - malformed,
+#      gen-mismatch, source-mismatch, capture-failed - means THIS crew's own
+#      wiring produced an actively inconsistent record and stays loud as
+#      unknown, per fm-busy-lib.sh's "malformed, stale, or untrusted records ->
+#      unknown, never a fallback". Neither path invents certainty from a pane:
+#      one reports a source that actually spoke, the other reports that
 #      nothing did.
 #   5. Missing meta or torn-down worktree: report unknown · none. If no run is
 #      attributed to this crew, a dead endpoint also reports unknown · none rather
@@ -694,17 +700,32 @@ pane_readable "$BACKEND_TARGET" || emit unknown none "backend target gone: $BACK
 # Only an exact busy verdict reports working here, and only an exact idle
 # verdict permits the status-log fallback below. Missing, malformed, stale, or
 # unverified semantic state remains unknown.
-# PANE_UNVERIFIED holds a verdict that means "this adapter has no verified
-# semantic source AT ALL" (bin/fm-busy-lib.sh answers those two before it ever
-# reads a record). That is a permanent property of the installed harness, not
-# evidence about this crew, so it must not MASK the status log the way a broken
-# record must: a Codex crew that appended `paused: <reason>` reported a real
+# PANE_UNVERIFIED holds a verdict that must not MASK the status log the way a
+# broken record must: a crew that appended `paused: <reason>` reported a real
 # declared wait, and answering `unknown` there loses it and makes the crew look
-# wedge-suspect. Every OTHER unknown - malformed, gen-mismatch, source-mismatch,
-# capture-failed - means this crew's own wiring is broken and stays loud, per
-# fm-busy-lib.sh's "malformed, stale, or untrusted records -> unknown, never a
-# fallback". The reason is still named in whichever line is finally emitted, so
-# no certainty is invented from a pane either way.
+# wedge-suspect. Two different verdicts earn that carve-out, for two different
+# reasons:
+#   codex-unverified, kimi-unverified - "this adapter has no verified semantic
+#     source AT ALL" (bin/fm-busy-lib.sh answers those two before it ever reads
+#     a record). That is a permanent property of the INSTALLED HARNESS, not
+#     evidence about this crew.
+#   missing - a converted adapter (claude, opencode, pi, pi-signed, gemini) is
+#     always armed with a seed record at spawn (bin/fm-busy-event.sh's `arm`),
+#     so a missing record for one of them is never expected absence the way an
+#     unverified Codex or Kimi is; it is a genuine wiring defect (hook
+#     registration, settings path, or record naming). Unlike the permanent,
+#     harness-level unverified case, this carve-out is scoped to a DECLARED
+#     wait (status_is_paused on the log's last line): a wiring gap must not
+#     drop a crew's own paused: line, but it also must not resurrect an
+#     ordinary stale done/working/blocked line that a genuinely unreadable
+#     pane has no business corroborating, so every other verb still falls
+#     through to the unread-pane "unknown" below exactly as before.
+# Every OTHER unknown - malformed, gen-mismatch, source-mismatch,
+# capture-failed - means this crew's own wiring produced an actively
+# INCONSISTENT record (a stale or corrupt one, not merely an absent one) and
+# stays loud, per fm-busy-lib.sh's "malformed, stale, or untrusted records ->
+# unknown, never a fallback". The reason is still named in whichever line is
+# finally emitted, so no certainty is invented from a pane either way.
 PANE_UNVERIFIED=""
 if [ "$KIND" != secondmate ]; then
   BUSY_VERDICT=$(crew_busy_verdict "$BACKEND_TARGET")
@@ -714,6 +735,13 @@ if [ "$KIND" != secondmate ]; then
     *)
       case "${BUSY_VERDICT#* }" in
         codex-unverified|kimi-unverified) PANE_UNVERIFIED=$BUSY_VERDICT ;;
+        missing)
+          if status_is_paused "$LOG_LINE"; then
+            PANE_UNVERIFIED=$BUSY_VERDICT
+          else
+            emit unknown pane "harness state unavailable ($BUSY_VERDICT)"
+          fi
+          ;;
         *) emit unknown pane "harness state unavailable ($BUSY_VERDICT)" ;;
       esac
       ;;

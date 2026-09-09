@@ -2043,6 +2043,34 @@ test_broken_busy_record_still_masks_the_log() {
   pass "a broken busy record still masks the status log, unlike an unverified adapter"
 }
 
+# A converted adapter (claude here) is always armed with a seed record at
+# spawn, so a genuinely MISSING record - never armed, or the sidecar lost -
+# means the adapter's own wiring is broken, not that the crew is unreadable.
+# That is a fact about the wiring rather than about the crew, so it must not
+# mask a declared wait either: this is the direct regression for the
+# 2026-09-09 finding where four live Claude lanes read unknown/missing and
+# their paused: lines were lost, misreading a declared external wait as a
+# wedge or an absent agent.
+test_claude_missing_busy_record_falls_through_to_status_log() {
+  reset_fakes
+  local d; d=$(new_case claude-missing)
+  make_repo_on_branch "$d/wt" fm/feat-clmissing
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-clmissing.meta" "window=fm:fm-feat-clmissing" "worktree=$d/wt" \
+    "kind=ship" "harness=claude"
+  printf 'paused: holding for the install-window cutoff\n' \
+    > "$d/state/feat-clmissing.status"
+  # Deliberately no arm_idle_record: no busy-gen and no busy-state file at all,
+  # so the classifier answers `unknown missing` rather than a canned verdict.
+  local out; out=$(run_crew_state "$d" feat-clmissing)
+  assert_contains "$out" "state: paused" "a declared wait is reported, not unknown"
+  assert_contains "$out" "source: status-log" "the log is named as the source that answered"
+  assert_contains "$out" "install-window cutoff" "the crew's own reason survives"
+  assert_contains "$out" "missing" "the missing busy record is still named, never hidden"
+  assert_not_contains "$out" "state: unknown" "a missing record must not mask a real signal"
+  pass "claude lane with a missing busy record reports its declared wait and still names the gap"
+}
+
 # Codex's semantic busy gate itself. fm-spawn refuses to launch Codex busy
 # wiring while this gate is shut (bin/fm-spawn.sh), and the classifier's
 # `codex-unverified` verdict - which the fall-through above depends on being a
@@ -2286,6 +2314,7 @@ test_passed_with_skips_needs_inspection
 test_codex_unverified_pane_falls_through_to_status_log
 test_codex_unverified_pane_with_no_log_stays_unknown
 test_broken_busy_record_still_masks_the_log
+test_claude_missing_busy_record_falls_through_to_status_log
 test_codex_semantic_gate_is_closed
 test_successor_branch_run_is_attributed
 test_batch_constituent_branch_run_is_attributed
