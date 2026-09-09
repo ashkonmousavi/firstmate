@@ -102,6 +102,9 @@ UNIT
   DEPLOYED=$(git_c rev-parse HEAD)
   commit_file src/engine.py engine "a plain code change"
   PLAIN=$(git_c rev-parse HEAD)
+  commit_file pyproject.toml 'name = "demo"' "add pyproject.toml"
+  commit_file requirements.lock 'alembic==1.13.0' "add requirements.lock"
+  DEPS=$(git_c rev-parse HEAD)
   git_c remote add origin git@github.com:example/demo.git
   git_c update-ref refs/remotes/origin/main "$PLAIN"
 
@@ -206,6 +209,13 @@ case "\$cmd" in
   # Only the bundle install is fed on stdin; draining it for every command
   # would block on a pipe nothing ever closes.
   *'-xzf -'*)         cat >/dev/null 2>&1 || true ;;
+  # The target python's own pip, run after the checkout and before the
+  # restart. FMTEST_PIP_EDITABLE_FAILS and FMTEST_PIP_LOCK_FAILS are how a
+  # case fails one install without touching the other.
+  *'-m pip install -e '*)
+    [ -z "\${FMTEST_PIP_EDITABLE_FAILS:-}" ] || { printf 'ERROR: editable install failed\n' >&2; exit 1; } ;;
+  *'-m pip install --no-deps -r'*)
+    [ -z "\${FMTEST_PIP_LOCK_FAILS:-}" ] || { printf 'ERROR: could not open requirements file\n' >&2; exit 1; } ;;
 esac
 exit 0
 SH
@@ -306,6 +316,63 @@ test_a_clean_range_deploys_in_the_documented_order() {
     "clean-deploy: the sign-in unit's start-time requirement was never checked at all"
   assert_no_grep 'caddy' "$SSH_LOG" "clean-deploy: the TLS unit was touched"
   pass "a clean auto-deployable range deploys in the documented order and touches no other unit"
+}
+
+test_a_range_without_dependency_files_runs_no_install() {
+  local out rc=0
+  make_case no-deps-touched
+  out=$(run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -eq 0 ] || fail "no-deps-touched: an ordinary range failed: $out"
+  assert_no_grep '-m pip' "$SSH_LOG" \
+    "no-deps-touched: a range that never touched pyproject.toml or requirements.lock still ran a pip command"
+  pass "a range that does not touch pyproject.toml or requirements.lock runs no dependency install"
+}
+
+test_a_range_touching_dependencies_installs_both_in_order() {
+  local out rc=0 checkout editable lock restart ledger
+  make_case deps-touched
+  out=$(run_deploy demo "$DEPS") || rc=$?
+  [ "$rc" -eq 0 ] || fail "deps-touched: a dependency-changing range failed: $out"
+  assert_contains "$out" "is live at $DEPS" "deps-touched"
+
+  checkout=$(step_line 'checkout --detach')
+  editable=$(step_line "pip install -e '/opt/demo'")
+  lock=$(step_line "pip install --no-deps -r '/opt/demo/requirements.lock'")
+  restart=$(step_line 'systemctl restart')
+  for step in checkout editable lock restart; do
+    [ -n "${!step}" ] || fail "deps-touched: the $step step never reached the machine: $(tr '\n' '|' < "$SSH_LOG")"
+  done
+  [ "$checkout" -lt "$editable" ] && [ "$editable" -lt "$lock" ] && [ "$lock" -lt "$restart" ] \
+    || fail "deps-touched: dependencies were not installed between the checkout and the restart, in that order: $(tr '\n' '|' < "$SSH_LOG")"
+
+  ledger="$HOME_DIR/state/deploy-ledger/demo.jsonl"
+  assert_grep "dependencies reinstalled for $DEPS (pip install -e; pip install --no-deps -r requirements.lock)" \
+    "$ledger" "deps-touched: the ledger does not record which dependency commands ran"
+  pass "a range touching pyproject.toml or requirements.lock reinstalls both, in order, between the checkout and the restart"
+}
+
+test_an_install_failure_after_the_stop_reports_the_dependency_step() {
+  local out rc case_label
+  for case_label in editable-install lockfile-install; do
+    make_case "deps-install-fails-$case_label"
+    rc=0
+    if [ "$case_label" = editable-install ]; then
+      out=$(FMTEST_PIP_EDITABLE_FAILS=1 run_deploy demo "$DEPS") || rc=$?
+    else
+      out=$(FMTEST_PIP_LOCK_FAILS=1 run_deploy demo "$DEPS") || rc=$?
+    fi
+    [ "$rc" -ne 0 ] || fail "deps-install-fails-$case_label: a failed dependency install was reported as a live deploy"
+    assert_not_contains "$out" "is live at" "deps-install-fails-$case_label"
+    assert_contains "$out" "dependencies" "deps-install-fails-$case_label"
+    assert_contains "$out" "--rollback" "deps-install-fails-$case_label"
+    assert_grep '"result":"failed"' "$HOME_DIR/state/deploy-ledger/demo.jsonl" \
+      "deps-install-fails-$case_label: the failure was not recorded"
+    assert_grep 'checkout --detach' "$SSH_LOG" \
+      "deps-install-fails-$case_label: the checkout never happened before the install was attempted"
+    assert_no_grep 'systemctl restart' "$SSH_LOG" \
+      "deps-install-fails-$case_label: the app was restarted onto a version whose dependencies failed to install"
+  done
+  pass "an install failure after the stop reports dependencies as the failing step, following the existing step_failed discipline"
 }
 
 test_the_completed_deploy_is_recorded() {
@@ -617,6 +684,9 @@ test_a_root_the_machine_already_trusts_is_not_recorded_twice() {
 }
 
 test_a_clean_range_deploys_in_the_documented_order
+test_a_range_without_dependency_files_runs_no_install
+test_a_range_touching_dependencies_installs_both_in_order
+test_an_install_failure_after_the_stop_reports_the_dependency_step
 test_the_completed_deploy_is_recorded
 test_the_precheck_runs_before_the_stop_and_only_on_host_owned_files
 test_a_bundle_the_service_user_cannot_read_never_restarts
