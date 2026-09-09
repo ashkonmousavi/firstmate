@@ -123,12 +123,23 @@ Derive permitted actions from current evidence and authority, never from a label
 
 ## Invocation flow
 
-### 1. Orient
+### 1. Direction first
 
-Identify the current captain intent, the next complete operator outcome, applicable authority, active repair owners, protected landing candidate, and reserved operational windows.
+Before any failure inventory, name the next complete application outcome from the project's own authority: its roadmap, open Changes, and the captain's standing instructions in `data/captain.md`.
+Identify the current captain intent, applicable authority, active repair owners, protected landing candidate, and reserved operational windows.
+
+For every live assignment relevant to that outcome, compare its effective brief (`data/<id>/brief.md`) against the task body, the hold reason, and the owning specification, and record whether the brief actually delivers the outcome.
+A disagreement between them is a finding classified `neglected-obligation`; its repair is rewriting the instruction at its owning source, reclassifying the task, and verifying the worker consumed the correction, not merely filing the finding.
+
+Question stale holds and apparent completion rather than accepting either at face value.
+A hold is stale when its recorded blocking reason no longer matches current records; reopen or reclassify it.
+A task read as done is genuinely done only when its chain requirement, owning specification, effective brief, implementation and consumers, integration and deployment, and user evidence are all complete; an incomplete chain is reopened as an obligation and never counted as done.
+
 Default to evidence since the previous completed pass plus every unresolved carry-forward.
 On the first pass, use a bounded recent window of roughly four hours unless `$ARGUMENTS` supplies another clear window.
 Treat pasted transcripts, old reports, remembered counts, and previous assurances as claims until refreshed.
+
+Bound the pass from here: prioritize promptly (step 5), normally deepen only the highest-impact one to three investigations (curation budgets below), advance repairs through normal supervision, and never freeze independent application progress.
 
 Begin an incomplete scan with `checkpoint-begin` and a unique scan ID.
 Name each authoritative source by a stable source ID and immutable or rotation-aware identity.
@@ -144,6 +155,7 @@ Measure resource behavior because full swap alone does not prove current pressur
 
 ### 3. Check obligations and delivery links lightly
 
+Direction first already deepened the outcome-relevant assignments; broaden the same questioning lightly across the rest of current obligations.
 Use current controlling requirements, ownership records, application paths, and operational paths.
 Look for missing ownership, stale instructions, unsupported completion claims, actual gates, unreliable worker state, duplicate work, unjustified holds, over-broad dependencies, recurring resource or environment failures, repeated verification or landing friction, absorbed-work gaps, incomplete operator journeys, missing consumers, and inconsistent identities or timestamps.
 Account for unfinished accepted obligations whose original task closed.
@@ -185,6 +197,8 @@ Reporting alone is not execution.
 
 ### 7. Prove and close
 
+A repair is proven only by four recorded facts on the finding: the original failure detected, the correction made at its owning source, the correction consumed by the worker or runtime, and the intended application work resumed.
+A green isolated test, a filed task, or a notebook entry alone is not a repair; record all four facts in the finding's existing prose fields rather than treating any one of them as sufficient.
 Substantiate the original failure, show that the correction addresses it, prove normal authorized behavior, prove the actual consumer uses it, and show the blocked work or affected operator journey proceeds.
 For guards, prove both intended refusals and authorized operations.
 For runtime repairs, distinguish isolated behavior from activation in the real tool and environment.
