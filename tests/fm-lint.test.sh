@@ -1208,7 +1208,7 @@ SH
 # 790 KB closure was inlined into one dataflow analysis. Asserted from the
 # argument vector the stub really received, never from the runner's source.
 test_oversized_source_closure_takes_the_bounded_path() {
-  local tmp fakebin log limit small big small_lib big_lib out i
+  local tmp fakebin log limit small big small_lib big_lib out i code
   tmp=$(fm_test_tmproot fm-lint-closure-bound)
   fakebin=$(fm_fakebin "$tmp")
   log="$tmp/argv.log"
@@ -1257,12 +1257,16 @@ SH
 
   awk -F'|' -v root="$small" '$1 == root && $2 ~ /--external-sources/ {found = 1} END {exit !found}' "$log" \
     || fail "a root under the closure limit lost its source-aware pass"
-  awk -F'|' -v root="$small" '$1 == root && $2 ~ /--exclude=SC1091/ {bad = 1} END {exit bad}' "$log" \
-    || fail "a root under the closure limit wrongly excluded SC1091"
+  awk -F'|' -v root="$small" '$1 == root && $2 ~ /--exclude=/ {bad = 1} END {exit bad}' "$log" \
+    || fail "a root under the closure limit wrongly excluded boundary codes"
   awk -F'|' -v root="$big" '$1 == root && $2 ~ /--external-sources/ {bad = 1} END {exit bad}' "$log" \
     || fail "an oversized root still traversed its sources"
-  awk -F'|' -v root="$big" '$1 == root && $2 ~ /--exclude=SC1091/ {found = 1} END {exit !found}' "$log" \
-    || fail "an oversized root did not exclude the SC1091 its own boundary causes"
+  for code in SC1091 SC2034 SC2329; do
+    awk -F'|' -v root="$big" -v code="$code" '$1 == root && $2 ~ ("--exclude=[^ ]*" code) {found = 1} END {exit !found}' "$log" \
+      || fail "an oversized root did not exclude $code, which only its own boundary causes"
+    assert_contains "$out" "$code" \
+      "the bounded root's labelled line did not name $code as excluded"
+  done
   assert_contains "$out" "bounded root $big" \
     "the run did not name the oversized root it bounded"
   assert_not_contains "$out" "bounded root $small" \

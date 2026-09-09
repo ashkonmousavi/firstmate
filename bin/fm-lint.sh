@@ -56,11 +56,13 @@
 # One root per invocation is still not a bound, because a single root can be too
 # large on its own. FM_LINT_MAX_CLOSURE_KB is that bound: a root whose inlined
 # program exceeds it is analyzed WITHOUT source traversal, and the run says so on
-# one labelled line naming the root and its closure size. Such a root keeps every
-# ordinary shell check and loses cross-module dataflow; SC1091 is excluded for it
-# alone, because sources this runner declined to load are a boundary it drew, not
-# a defect in the root. The limit is one constant used identically in CI and
-# locally, so the verdict cannot diverge between them.
+# one labelled line naming the root, its closure size, and what was excluded for
+# it. Such a root keeps every ordinary shell check and loses cross-module
+# dataflow. FM_LINT_BOUNDED_EXCLUDES lists what cannot fairly be reported against
+# it: SC1091 for the sources this runner declined to load, and SC2034 and SC2329
+# for a variable or function whose only consumer lives in one of them. Those are
+# boundaries this runner drew, not defects in the root. Both constants are used
+# identically in CI and locally, so the verdict cannot diverge between them.
 #
 # 320 KB is derived from measurement on this tree, as the point where the full
 # path crosses about 1 GB: 313 KB -> 0.98 GB, 321 KB -> 1.03 GB, 327 KB -> 1.20 GB.
@@ -111,6 +113,10 @@ REQUIRED_SHELLCHECK=0.11.0
 # diverge between them. See the memory contract in the header for how it was
 # derived and what a root above it loses.
 FM_LINT_MAX_CLOSURE_KB=320
+# The codes a bounded root cannot fairly be judged on, because each one reports
+# a consequence of stopping source traversal rather than a defect in the root.
+# Excluded on the bounded path only, and named in that root's labelled line.
+FM_LINT_BOUNDED_EXCLUDES=SC1091,SC2034,SC2329
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$SELF_DIR/fm-lint.sh"
 ROOT="$(cd "$SELF_DIR/.." && pwd)"
@@ -202,13 +208,17 @@ fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
       closure_kb=$(fm_lint_source_closure_kb "$path")
       if [ "$closure_kb" -gt "$FM_LINT_MAX_CLOSURE_KB" ]; then
         # Bounded root: its inlined program is too large to analyze whole, so
-        # stop source traversal here. SC1091 is excluded for this root only,
-        # because sources this runner deliberately declined to load are not a
-        # defect in the root - the same boundary the tree already draws with
-        # `# shellcheck source=/dev/null`. Every other check still runs.
-        shellcheck_args+=(--exclude=SC1091)
-        printf 'fm-lint.sh: bounded root %s (source closure %s KB exceeds the %s KB limit): source traversal stopped, so cross-module dataflow is not analyzed for this root and SC1091 is excluded for it.\n' \
-          "$path" "$closure_kb" "$FM_LINT_MAX_CLOSURE_KB" >> "$output.out"
+        # stop source traversal here. Three codes are excluded for this root
+        # only, because each is a consequence of the boundary rather than a
+        # defect in the root: SC1091 reports the sources this runner declined
+        # to load, and SC2034 and SC2329 report a variable or function whose
+        # only consumer lives in one of those unloaded files. The same boundary
+        # the tree already draws with `# shellcheck source=/dev/null`. Every
+        # other check still runs, and the labelled line below names all three
+        # so the narrowed coverage is visible in the run itself.
+        shellcheck_args+=("--exclude=$FM_LINT_BOUNDED_EXCLUDES")
+        printf 'fm-lint.sh: bounded root %s (source closure %s KB exceeds the %s KB limit): source traversal stopped, so cross-module dataflow is not analyzed for this root and %s are excluded for it.\n' \
+          "$path" "$closure_kb" "$FM_LINT_MAX_CLOSURE_KB" "$FM_LINT_BOUNDED_EXCLUDES" >> "$output.out"
       else
         shellcheck_args+=(--external-sources)
       fi
