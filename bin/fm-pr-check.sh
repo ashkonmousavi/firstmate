@@ -24,18 +24,22 @@
 # --absorbed-by binds an already-PR-ready constituent task to the combined PR
 # that will actually land it. It requires the existing canonical pr= to be a
 # different pull request in the same project, reads that original PR live, and
-# requires it to be CLOSED rather than MERGED. Its exact live branch and head
-# must still match the task worktree, and the combined PR's live head must
-# contain that constituent head. The rewrite preserves these fields before the
+# requires it to be CLOSED rather than MERGED. Its exact live branch must still
+# match the task worktree. Its live head may be an ancestor of the task's exact
+# current head when the task advanced after its original PR closed; the combined
+# PR's permanent head ref must then contain that exact current head. The rewrite
+# preserves both heads before the
 # canonical pr= tail, whose ordinary poll then reports the combined landing for
 # this task:
 #   batch_role=constituent
 #   batch_constituent_branch=<exact original PR branch>
 #   batch_constituent_head=<exact original PR head sha>
+#   absorbed_head=<exact task head proved in the combined PR>
 #   batch_superseded_pr=<canonical original PR url>
 #   batch_superseded_disposition=closed-as-superseded-not-merged
-# Containment is verified against the combined PR's own head and nothing else:
-# the constituent head is never required to reach the default branch, because a
+# Containment is verified against the combined PR's own permanent head ref and
+# nothing else.
+# The absorbed head is never required to reach the default branch, because a
 # project may land every commit there as a squash merge, in which case no commit
 # of any pull request is ever an ancestor of it. bin/fm-teardown.sh proves the
 # same containment at cleanup from the combined PR's permanent refs/pull/<n>/head.
@@ -112,6 +116,36 @@ ORIGINAL_META_HASH=
 RECORDED_URL=
 RECORDED_BATCH_BRANCH=
 RECORDED_BATCH_HEAD=
+RECORDED_ABSORBED_HEAD=
+ABSORBED_PR_HEAD_REF=
+ABSORBED_PUBLISHED_HEAD=
+
+# Fetch a permanent GitHub pull-request head ref into a unique private ref.
+# A task may have advanced after its original PR closed, so a locally present
+# object is not enough evidence of either head's current forge identity.
+fetch_absorbed_pr_head() {
+  local number=$1 ref
+  ABSORBED_PUBLISHED_HEAD=
+  git -C "$WT" remote get-url origin >/dev/null 2>&1 || return 1
+  ref="refs/fm-pr-check/absorbed/$$-$number"
+  git -C "$WT" fetch --quiet --force origin "+refs/pull/$number/head:$ref" >/dev/null 2>&1 || return 1
+  ABSORBED_PR_HEAD_REF=$ref
+  if ! ABSORBED_PUBLISHED_HEAD=$(git -C "$WT" rev-parse --verify --quiet "$ref^{commit}"); then
+    release_absorbed_pr_head
+    return 1
+  fi
+  if [ -z "$ABSORBED_PUBLISHED_HEAD" ]; then
+    release_absorbed_pr_head
+    return 1
+  fi
+}
+
+release_absorbed_pr_head() {
+  [ -n "$ABSORBED_PR_HEAD_REF" ] || return 0
+  git -C "$WT" update-ref -d "$ABSORBED_PR_HEAD_REF" >/dev/null 2>&1 || true
+  ABSORBED_PR_HEAD_REF=
+}
+
 if [ "$ABSORBED_BY" -eq 1 ]; then
   [ -n "$TASK_BRANCH" ] && fm_pr_head_valid "$TASK_HEAD" \
     || { echo "error: absorbed constituent task $ID needs an inspectable branch and head" >&2; exit 1; }
@@ -125,6 +159,7 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
     ORIGINAL_URL=$(grep '^batch_superseded_pr=' "$META" | tail -1 | cut -d= -f2- || true)
     RECORDED_BATCH_BRANCH=$(grep '^batch_constituent_branch=' "$META" | tail -1 | cut -d= -f2- || true)
     RECORDED_BATCH_HEAD=$(grep '^batch_constituent_head=' "$META" | tail -1 | cut -d= -f2- || true)
+    RECORDED_ABSORBED_HEAD=$(grep '^absorbed_head=' "$META" | tail -1 | cut -d= -f2- || true)
   else
     ORIGINAL_URL=$RECORDED_URL
   fi
@@ -172,11 +207,26 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
   esac
   fm_pr_branch_matches_task "$ORIGINAL_BRANCH" "$ID" "$TASK_BRANCH" \
     || { echo "error: original PR $ORIGINAL_URL no longer names task $ID's branch" >&2; exit 1; }
-  fm_pr_head_valid "$ORIGINAL_HEAD" && [ "$ORIGINAL_HEAD" = "$TASK_HEAD" ] \
-    || { echo "error: original PR $ORIGINAL_URL head does not match task $ID's exact current head" >&2; exit 1; }
+  fm_pr_head_valid "$ORIGINAL_HEAD" \
+    || { echo "error: original PR $ORIGINAL_URL head is not inspectable" >&2; exit 1; }
+  fetch_absorbed_pr_head "$ORIGINAL_NUMBER" \
+    || { echo "error: original PR $ORIGINAL_URL does not expose its permanent head ref" >&2; exit 1; }
+  if [ "$ABSORBED_PUBLISHED_HEAD" != "$ORIGINAL_HEAD" ]; then
+    release_absorbed_pr_head
+    echo "error: original PR $ORIGINAL_URL permanent head ref does not match its forge-reported head $ORIGINAL_HEAD" >&2
+    exit 1
+  fi
+  if ! git -C "$WT" merge-base --is-ancestor "$ORIGINAL_HEAD" "$TASK_HEAD" 2>/dev/null; then
+    release_absorbed_pr_head
+    echo "error: original PR $ORIGINAL_URL head $ORIGINAL_HEAD is not an ancestor of task $ID's exact current head $TASK_HEAD" >&2
+    exit 1
+  fi
+  release_absorbed_pr_head
   [ -z "$RECORDED_BATCH_BRANCH" ] \
     || { [ "$RECORDED_BATCH_BRANCH" = "$ORIGINAL_BRANCH" ] && [ "$RECORDED_BATCH_HEAD" = "$ORIGINAL_HEAD" ]; } \
     || { echo "error: existing constituent binding disagrees with the original PR's live branch or head" >&2; exit 1; }
+  [ -z "$RECORDED_ABSORBED_HEAD" ] || [ "$RECORDED_ABSORBED_HEAD" = "$TASK_HEAD" ] \
+    || { echo "error: existing constituent binding disagrees with task $ID's exact current head" >&2; exit 1; }
 fi
 
 if [ "$PREREQUISITE" -eq 1 ]; then
@@ -337,16 +387,26 @@ fi
 if [ "$ABSORBED_BY" -eq 1 ]; then
   fm_pr_head_valid "$PR_HEAD" \
     || { echo "error: could not read combined PR $URL's exact head" >&2; exit 1; }
-  git -C "$WT" cat-file -e "$PR_HEAD^{commit}" 2>/dev/null \
-    || { echo "error: combined PR $URL head $PR_HEAD is not present in the task repository" >&2; exit 1; }
-  git -C "$WT" merge-base --is-ancestor "$ORIGINAL_HEAD" "$PR_HEAD" 2>/dev/null \
-    || { echo "error: combined PR $URL head does not contain constituent head $ORIGINAL_HEAD" >&2; exit 1; }
+  fetch_absorbed_pr_head "$NUMBER" \
+    || { echo "error: combined PR $URL does not expose its permanent head ref" >&2; exit 1; }
+  if [ "$ABSORBED_PUBLISHED_HEAD" != "$PR_HEAD" ]; then
+    release_absorbed_pr_head
+    echo "error: combined PR $URL permanent head ref does not match its forge-reported head $PR_HEAD" >&2
+    exit 1
+  fi
+  if ! git -C "$WT" merge-base --is-ancestor "$TASK_HEAD" "$ABSORBED_PUBLISHED_HEAD" 2>/dev/null; then
+    release_absorbed_pr_head
+    echo "error: combined PR $URL head does not contain task $ID's exact current head $TASK_HEAD" >&2
+    exit 1
+  fi
+  release_absorbed_pr_head
 fi
 
 META_TMP=
 META_LOCK=
 META_LOCK_HELD=0
 pr_check_cleanup() {
+  release_absorbed_pr_head
   fm_pr_poll_cleanup
   [ -z "$META_TMP" ] || rm -f -- "$META_TMP"
   if [ "$META_LOCK_HELD" = 1 ]; then
@@ -372,7 +432,7 @@ STATE_DEVICE=$(fm_pr_file_device "$STATE") || exit 1
 META_TMP=$(mktemp "$STATE/.fm-pr-meta.XXXXXX") || exit 1
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in
-    pr=*|pr_head=*|batch_role=*|batch_constituent_branch=*|batch_constituent_head=*|\
+    pr=*|pr_head=*|batch_role=*|batch_constituent_branch=*|batch_constituent_head=*|absorbed_head=*|\
     batch_superseded_pr=*|batch_superseded_disposition=*) ;;
     *) printf '%s\n' "$line" >> "$META_TMP" || exit 1 ;;
   esac
@@ -381,6 +441,7 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
   printf 'batch_role=constituent\n' >> "$META_TMP" || exit 1
   printf 'batch_constituent_branch=%s\n' "$ORIGINAL_BRANCH" >> "$META_TMP" || exit 1
   printf 'batch_constituent_head=%s\n' "$ORIGINAL_HEAD" >> "$META_TMP" || exit 1
+  printf 'absorbed_head=%s\n' "$TASK_HEAD" >> "$META_TMP" || exit 1
   printf 'batch_superseded_pr=%s\n' "$ORIGINAL_URL" >> "$META_TMP" || exit 1
   printf 'batch_superseded_disposition=closed-as-superseded-not-merged\n' >> "$META_TMP" || exit 1
 fi

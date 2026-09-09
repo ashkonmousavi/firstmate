@@ -47,7 +47,7 @@
 #   (q2) absorbed constituent + combined PR squash-merged, constituent head in
 #        refs/pull/<n>/head, merge commit on main                            -> ALLOW
 #   (q3) absorbed constituent + combined PR still open                       -> REFUSE
-#   (q4) absorbed constituent + combined PR head lacks the constituent head   -> REFUSE
+#   (q4) absorbed constituent + combined PR head lacks the absorbed head      -> REFUSE
 #   (q6) absorbed constituent + published PR head ref disagrees with the
 #        head the forge reports as merged                                     -> REFUSE
 #   (q7) absorbed constituent + refs/pull/<n>/head unfetchable                -> REFUSE
@@ -335,15 +335,16 @@ append_pr_meta_url() {
 }
 
 append_absorbed_batch_meta() {
-  local case_dir=$1 constituent_head=$2 combined_head=$3
+  local case_dir=$1 constituent_head=$2 combined_head=$3 absorbed_head=${4:-}
   printf '%s\n' \
     'batch_role=constituent' \
     'batch_constituent_branch=fm/task-x1' \
     "batch_constituent_head=$constituent_head" \
     'batch_superseded_pr=https://github.com/example/repo/pull/5' \
     'batch_superseded_disposition=closed-as-superseded-not-merged' \
+    "${absorbed_head:+absorbed_head=$absorbed_head}" \
     'pr=https://github.com/example/repo/pull/9' \
-    "pr_head=$combined_head" >> "$case_dir/state/task-x1.meta"
+    "pr_head=$combined_head" | sed '/^$/d' >> "$case_dir/state/task-x1.meta"
 }
 
 # The combined pull request's landing is three separate forge facts, not one:
@@ -1400,6 +1401,41 @@ test_absorbed_constituent_teardown_accepts_a_squash_landed_combined_pr() {
   pass "teardown proves an absorbed constituent from the merged combined PR's own head ref and landed squash commit, and preserves all three identities past cleanup"
 }
 
+# A constituent can receive fixes after its original PR closes. The binding
+# preserves that original PR head but records the later exact absorbed head,
+# and teardown must prove the latter rather than falsely treating the later
+# commits as unlanded work after a squash landing.
+test_absorbed_constituent_teardown_uses_the_exact_absorbed_head_after_original_pr_advanced() {
+  local case_dir rc original_head absorbed_head combined_head squash_head
+  case_dir=$(make_case absorbed-advanced-head)
+  write_meta "$case_dir" no-mistakes ship
+  original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  wt_commit_file "$case_dir" feature.txt hello "fix ci after original PR closed"
+  absorbed_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$absorbed_head" "combined integration")
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  squash_head=$(land_squash_commit_on_main "$case_dir" "$combined_head" "squash landing")
+  assert_constituent_head_absent_from_main "$case_dir" "$absorbed_head" "$squash_head" absorbed-advanced-head
+  append_absorbed_batch_meta "$case_dir" "$original_head" "$combined_head" "$absorbed_head"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$squash_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "absorbed-advanced-head: teardown should prove the exact absorbed head: $(cat "$case_dir/stderr")"
+  assert_grep "$original_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-advanced-head: durable record lost the original PR head"
+  assert_grep "$absorbed_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-advanced-head: durable record lost the exact absorbed head"
+  assert_grep '| Commits from original PR head to absorbed head | 1 |' "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-advanced-head: durable record did not name the commits advanced after the original PR"
+  assert_no_leaked_pr_head_ref "$case_dir" absorbed-advanced-head
+  pass "teardown proves an advanced constituent from its exact absorbed head and preserves both heads"
+}
+
 # (q3) A combined pull request that has not merged never proves anything,
 # whatever refs/pull/<n>/head publishes. Preserved refusal.
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr() {
@@ -1453,7 +1489,7 @@ test_absorbed_constituent_teardown_refuses_a_combined_pr_without_the_constituent
   set -e
 
   expect_code 1 "$rc" "absorbed-head-not-contained: a combined PR lacking the constituent head must refuse"
-  assert_grep 'does not contain constituent head' "$case_dir/stderr" \
+  assert_grep 'does not contain absorbed head' "$case_dir/stderr" \
     "absorbed-head-not-contained: refusal did not name the uncontained constituent head"
   [ -d "$case_dir/wt" ] || fail "absorbed-head-not-contained: refusal removed the constituent worktree"
   assert_no_leaked_pr_head_ref "$case_dir" absorbed-head-not-contained
@@ -4225,6 +4261,7 @@ test_no_pr_recorded_fully_pushed_pr_discovered_allows
 test_no_pr_recorded_force_still_allows
 test_prerequisite_pr_ignored_by_teardown
 test_absorbed_constituent_teardown_accepts_a_squash_landed_combined_pr
+test_absorbed_constituent_teardown_uses_the_exact_absorbed_head_after_original_pr_advanced
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr
 test_absorbed_constituent_teardown_refuses_a_combined_pr_without_the_constituent_head
 test_absorbed_constituent_teardown_refuses_a_disagreeing_published_pr_head

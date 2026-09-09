@@ -79,6 +79,7 @@ Use the exact conditional batch-owner Definition of done and pull-request body t
 Close every original pull request as superseded by the combined pull request, never as merged.
 After that close and before landing, run `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>` for every constituent so its own watcher reports the actual combined landing.
 That command preserves the original pull request identity, records its closed-superseded-not-merged disposition and exact constituent branch and head, verifies that the combined head contains the constituent head, replaces the task's canonical watched `pr=` with the combined pull request, and arms the ordinary merge poll.
+When a constituent advanced after its closed original pull request, it may instead record the original head and exact absorbed head only after proving the former is an ancestor of the latter and the combined head contains the latter; that record captures what the combined run proved, not a waiver.
 The binding connects three facts, and cleanup later proves all three: the reviewed constituent work, the verified combined pull request head, and the actual landing - the pull request merged per the forge and the commit its merge produced present on the default branch.
 
 The landing record's second commit does not exist until the merge has happened, so complete that row in the body immediately after landing rather than leaving it as a placeholder.

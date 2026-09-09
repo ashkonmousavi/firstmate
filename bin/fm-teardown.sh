@@ -74,7 +74,7 @@
 # An absorbed constituent carries the stronger record written by
 # fm-pr-check.sh --absorbed-by. Teardown then also requires the combined PR's
 # permanent head ref to publish the exact head the forge reports as merged and
-# to contain the exact recorded constituent head, the forge-reported commit that
+# to contain the exact absorbed head (or the original PR head for older records), the forge-reported commit that
 # merge produced to be present on current main, and the original PR to remain
 # closed rather than merged. The constituent head itself is never required on
 # main: under a squash-merge contract no commit of a pull request ever reaches
@@ -824,10 +824,11 @@ PR_URL=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
 BATCH_ROLE=$(grep '^batch_role=' "$META" | tail -1 | cut -d= -f2- || true)
 BATCH_CONSTITUENT_BRANCH=$(grep '^batch_constituent_branch=' "$META" | tail -1 | cut -d= -f2- || true)
 BATCH_CONSTITUENT_HEAD=$(grep '^batch_constituent_head=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_ABSORBED_HEAD=$(grep '^absorbed_head=' "$META" | tail -1 | cut -d= -f2- || true)
 BATCH_SUPERSEDED_PR=$(grep '^batch_superseded_pr=' "$META" | tail -1 | cut -d= -f2- || true)
 BATCH_SUPERSEDED_DISPOSITION=$(grep '^batch_superseded_disposition=' "$META" | tail -1 | cut -d= -f2- || true)
 BATCH_METADATA_PRESENT=0
-if grep -q '^batch_\(role\|constituent_branch\|constituent_head\|superseded_pr\|superseded_disposition\)=' "$META" 2>/dev/null; then
+if grep -q '^\(batch_\(role\|constituent_branch\|constituent_head\|superseded_pr\|superseded_disposition\)\|absorbed_head\)=' "$META" 2>/dev/null; then
   BATCH_METADATA_PRESENT=1
 fi
 # tasktmp is recorded by fm-spawn for tasks that set up a per-task temp root
@@ -1297,7 +1298,7 @@ release_published_pr_head() {
 # This check runs even when the constituent branch was pushed, so remote
 # reachability cannot stand in for an actual combined landing.
 validate_absorbed_constituent_landed() {
-  local current view state remainder combined_head merge_commit published default_ref
+  local current proof_head view state remainder combined_head merge_commit published default_ref
   local superseded_provider superseded_host superseded_path
   [ "$BATCH_METADATA_PRESENT" -eq 0 ] && return 0
   [ "$(grep -c '^batch_role=' "$META" 2>/dev/null)" -eq 1 ] \
@@ -1308,6 +1309,8 @@ validate_absorbed_constituent_landed() {
     && [ "$BATCH_ROLE" = constituent ] \
     && [ -n "$BATCH_CONSTITUENT_BRANCH" ] \
     && fm_pr_head_valid "$BATCH_CONSTITUENT_HEAD" \
+    && [ "$(grep -c '^absorbed_head=' "$META" 2>/dev/null)" -le 1 ] \
+    && { [ -z "$BATCH_ABSORBED_HEAD" ] || fm_pr_head_valid "$BATCH_ABSORBED_HEAD"; } \
     && fm_pr_url_parse "$BATCH_SUPERSEDED_PR" \
     && [ "$BATCH_SUPERSEDED_DISPOSITION" = closed-as-superseded-not-merged ] \
     || { echo "REFUSED: task $ID has an incomplete or invalid absorbed-constituent record." >&2; return 1; }
@@ -1323,8 +1326,9 @@ validate_absorbed_constituent_landed() {
     || { echo "REFUSED: task $ID's recorded constituent branch is invalid." >&2; return 1; }
   current=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) \
     || { echo "REFUSED: task $ID's constituent worktree head is unreadable." >&2; return 1; }
-  [ "$current" = "$BATCH_CONSTITUENT_HEAD" ] \
-    || { echo "REFUSED: task $ID has work after recorded constituent head $BATCH_CONSTITUENT_HEAD." >&2; return 1; }
+  proof_head=${BATCH_ABSORBED_HEAD:-$BATCH_CONSTITUENT_HEAD}
+  [ "$current" = "$proof_head" ] \
+    || { echo "REFUSED: task $ID has work after recorded absorbed head $proof_head." >&2; return 1; }
   view=$(cd "$WT" && gh pr view "$PR_URL" --json state,headRefOid,mergeCommit,url \
     -q '.state + "\t" + .headRefOid + "\t" + (.mergeCommit.oid // "") + "\t" + .url' 2>/dev/null) \
     || { echo "REFUSED: task $ID's combined PR ($PR_URL) could not be read from the forge, so its landing is unconfirmed." >&2; return 1; }
@@ -1348,9 +1352,9 @@ validate_absorbed_constituent_landed() {
     echo "REFUSED: task $ID's combined PR ($PR_URL) does not publish its merged head $combined_head (published $published)." >&2
     return 1
   fi
-  if ! git -C "$WT" merge-base --is-ancestor "$BATCH_CONSTITUENT_HEAD" "$published" 2>/dev/null; then
+  if ! git -C "$WT" merge-base --is-ancestor "$proof_head" "$published" 2>/dev/null; then
     release_published_pr_head
-    echo "REFUSED: task $ID's combined PR does not contain constituent head $BATCH_CONSTITUENT_HEAD." >&2
+    echo "REFUSED: task $ID's combined PR does not contain absorbed head $proof_head." >&2
     return 1
   fi
   release_published_pr_head
@@ -1386,10 +1390,12 @@ validate_absorbed_constituent_landed() {
 ABSORBED_PROVEN_COMBINED_HEAD=
 ABSORBED_PROVEN_MERGE_COMMIT=
 record_absorbed_batch_landing() {
-  local dir=$DATA/$ID record
+  local dir=$DATA/$ID record proof_head advanced_count
   [ "$BATCH_ROLE" = constituent ] || return 0
   [ -n "$ABSORBED_PROVEN_COMBINED_HEAD" ] && [ -n "$ABSORBED_PROVEN_MERGE_COMMIT" ] || return 0
   record="$dir/batch-landing.md"
+  proof_head=${BATCH_ABSORBED_HEAD:-$BATCH_CONSTITUENT_HEAD}
+  advanced_count=$(git -C "$WT" rev-list --count "$BATCH_CONSTITUENT_HEAD..$proof_head" 2>/dev/null) || advanced_count=unknown
   mkdir -p "$dir" || { echo "REFUSED: task $ID cannot write its durable landing record directory." >&2; return 1; }
   # shellcheck disable=SC2016 # The backticks below are literal Markdown code
   # fences in the record's own text, not command substitution.
@@ -1398,7 +1404,9 @@ record_absorbed_batch_landing() {
     printf 'Written by bin/fm-teardown.sh when the absorbed-constituent proof passed, before the task record was removed.\n\n'
     printf '| Fact | Value |\n| --- | --- |\n'
     printf '| Reviewed constituent branch | `%s` |\n' "$BATCH_CONSTITUENT_BRANCH"
-    printf '| Reviewed constituent head | `%s` |\n' "$BATCH_CONSTITUENT_HEAD"
+    printf '| Original pull request head | `%s` |\n' "$BATCH_CONSTITUENT_HEAD"
+    printf '| Exact absorbed head | `%s` |\n' "$proof_head"
+    printf '| Commits from original PR head to absorbed head | %s |\n' "$advanced_count"
     printf '| Superseded pull request | %s |\n' "$BATCH_SUPERSEDED_PR"
     printf '| Superseded disposition | %s |\n' "$BATCH_SUPERSEDED_DISPOSITION"
     printf '| Combined pull request | %s |\n' "$PR_URL"
