@@ -225,6 +225,10 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/no-mistakes-daemon-env/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/process-event-sources/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -242,6 +246,18 @@
     },
     {
       "path": ".agents/skills/secondmate-provisioning/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/heal/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/heal/templates/finding.md",
+      "audience": "agent-runtime"
+    },
+    {
+      "path": ".agents/skills/heal/workflow.md",
       "audience": "agent-runtime"
     },
     {
@@ -458,6 +474,10 @@
     },
     {
       "path": "docs/verification/public-followup.md",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "docs/verification/heal-command.md",
       "audience": "maintainer-verification"
     },
     {
