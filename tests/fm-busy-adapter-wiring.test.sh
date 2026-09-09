@@ -17,13 +17,43 @@ set -u
 
 TMP_ROOT=$(fm_test_tmproot fm-busy-adapter-wiring)
 
+# A ship spawn defaults to a lean MCP launch (bin/fm-spawn.sh), which probes
+# pi's --help for --no-extensions and codex's `mcp list --json` before
+# composing the launch; a plain exit-0 stub answers neither, so these two
+# adapters need their own fakes instead of the generic one from fixtures.sh.
+make_pi_help_probe() {
+  local path=$1
+  cat > "$path" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = --help ]; then
+  printf '%s\n' 'Pi 0.84.0' 'Options: --help --tui-mode <mode> --no-extensions'
+fi
+exit 0
+SH
+  chmod +x "$path"
+}
+
+make_codex_mcp_probe() {
+  local path=$1
+  cat > "$path" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = mcp ] && [ "${2:-}" = list ] && [ "${3:-}" = --json ]; then
+  printf '%s\n' '[]'
+fi
+exit 0
+SH
+  chmod +x "$path"
+}
+
 make_spawn_case() {  # <name> <harness> <id>
   local name=$1 harness=$2 id=$3 case_dir home proj wt fakebin
   case_dir="$TMP_ROOT/$name"
   home="$case_dir/home"
   proj="$case_dir/project"
   wt="$case_dir/wt"
-  fakebin=$(make_spawn_fakebin "$case_dir/fake" pi opencode claude codex gemini)
+  fakebin=$(make_spawn_fakebin "$case_dir/fake" opencode claude gemini)
+  make_pi_help_probe "$fakebin/pi"
+  make_codex_mcp_probe "$fakebin/codex"
   fm_test_spawn_home "$home" "$harness"
   fm_git_worktree "$proj" "$wt" "wt-$name"
   fm_test_spawn_brief "$home" "$id"
