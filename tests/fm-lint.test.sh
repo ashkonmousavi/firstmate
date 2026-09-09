@@ -167,6 +167,7 @@ test_help_reports_the_complete_interface() {
   help=$("$LINT" --help) || fail "fm-lint.sh --help failed"
   assert_contains "$help" "--telemetry" "fm-lint.sh --help omitted --telemetry"
   assert_contains "$help" "--required-version" "fm-lint.sh --help omitted --required-version"
+  assert_contains "$help" "--closure-limit-kb" "fm-lint.sh --help omitted --closure-limit-kb"
   assert_contains "$help" "--list-files" "fm-lint.sh --help omitted --list-files"
   assert_contains "$help" "--help" "fm-lint.sh --help omitted --help"
   assert_contains "$help" "--fast" "fm-lint.sh --help omitted --fast"
@@ -1198,6 +1199,78 @@ SH
 }
 
 
+# test_oversized_source_closure_takes_the_bounded_path proves the memory bound
+# that one-root-per-invocation alone cannot give: a root whose inlined source
+# closure exceeds the runner's limit is analyzed without source traversal, with
+# SC1091 excluded for it and one labelled line naming it and its closure size,
+# while a root under the limit still gets the full source-aware pass. Regression
+# origin: 2026-09-09, when bin/fm-teardown.sh alone exceeded 6.5 GB because its
+# 790 KB closure was inlined into one dataflow analysis. Asserted from the
+# argument vector the stub really received, never from the runner's source.
+test_oversized_source_closure_takes_the_bounded_path() {
+  local tmp fakebin log limit small big small_lib big_lib out i
+  tmp=$(fm_test_tmproot fm-lint-closure-bound)
+  fakebin=$(fm_fakebin "$tmp")
+  log="$tmp/argv.log"
+  : > "$log"
+  limit=$("$LINT" --closure-limit-kb) || fail "fm-lint.sh did not report its closure limit"
+  case "$limit" in ''|*[!0-9]*) fail "closure limit is not a number: $limit" ;; esac
+
+  small_lib="$tmp/small-lib.sh"
+  big_lib="$tmp/big-lib.sh"
+  small="$tmp/small-root.sh"
+  big="$tmp/big-root.sh"
+  printf '#!/usr/bin/env bash\nsmall_lib_value=ok\n' > "$small_lib"
+  # Pad past the limit so the closure, not the root, is what crosses it.
+  {
+    printf '#!/usr/bin/env bash\nbig_lib_value=ok\n'
+    i=0
+    while [ "$i" -lt $(( (limit + 32) * 16 )) ]; do
+      printf '# padding line to grow this library past the closure limit\n'
+      i=$((i + 1))
+    done
+  } > "$big_lib"
+  printf '#!/usr/bin/env bash\n# shellcheck source=%s\n. "%s"\nprintf %s\n' \
+    "$small_lib" "$small_lib" "'%s\\n' \"\$small_lib_value\"" > "$small"
+  printf '#!/usr/bin/env bash\n# shellcheck source=%s\n. "%s"\nprintf %s\n' \
+    "$big_lib" "$big_lib" "'%s\\n' \"\$big_lib_value\"" > "$big"
+
+  cat > "$fakebin/shellcheck" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = --version ]; then
+  printf 'ShellCheck - shell script analysis tool\nversion: 0.11.0\n'
+  exit 0
+fi
+flags=()
+while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+  flags+=("$1")
+  shift
+done
+[ "$#" -eq 0 ] || shift
+printf '%s|%s\n' "$*" "${flags[*]}" >> "$FM_TEST_ARGV_LOG"
+exit 0
+SH
+  chmod +x "$fakebin/shellcheck"
+
+  out=$(PATH="$fakebin:$PATH" GITHUB_ACTIONS='' CI='' FM_TEST_ARGV_LOG="$log" \
+    "$LINT" "$small" "$big" 2>&1) || fail "closure-bounded lint run failed"$'\n'"$out"
+
+  awk -F'|' -v root="$small" '$1 == root && $2 ~ /--external-sources/ {found = 1} END {exit !found}' "$log" \
+    || fail "a root under the closure limit lost its source-aware pass"
+  awk -F'|' -v root="$small" '$1 == root && $2 ~ /--exclude=SC1091/ {bad = 1} END {exit bad}' "$log" \
+    || fail "a root under the closure limit wrongly excluded SC1091"
+  awk -F'|' -v root="$big" '$1 == root && $2 ~ /--external-sources/ {bad = 1} END {exit bad}' "$log" \
+    || fail "an oversized root still traversed its sources"
+  awk -F'|' -v root="$big" '$1 == root && $2 ~ /--exclude=SC1091/ {found = 1} END {exit !found}' "$log" \
+    || fail "an oversized root did not exclude the SC1091 its own boundary causes"
+  assert_contains "$out" "bounded root $big" \
+    "the run did not name the oversized root it bounded"
+  assert_not_contains "$out" "bounded root $small" \
+    "the run wrongly reported a root under the limit as bounded"
+  pass "an oversized source closure takes the bounded path and a smaller one keeps the full source-aware pass"
+}
+
+
 test_help_reports_the_complete_interface
 test_list_files_reports_the_shell_inventory
 test_fast_mode_disables_extended_analysis
@@ -1217,6 +1290,7 @@ test_catches_a_real_lint_defect
 test_ignores_ambient_shellcheck_opts
 test_clean_fixture_passes
 test_shellcheck_runs_one_root_at_a_time
+test_oversized_source_closure_takes_the_bounded_path
 test_jobs_are_deterministic_and_complete
 test_worker_trees_stop_on_signal
 test_survives_ambient_ancestor_group_signal

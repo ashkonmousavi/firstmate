@@ -45,14 +45,29 @@
 # So the serial pipeline is what removes the multiplier that crashed the host,
 # and one root per invocation is what makes the remaining peak attributable to a
 # single named root instead of to whichever roots a scheduler happened to pair.
-# A root whose inlined program is too large for the host is still too large; that
-# is a property of the root's source graph, not of this runner, and it is why the
-# batch size must stay 1 rather than being traded back for process startup.
+# That is why the batch size must stay 1 rather than being traded back for
+# process startup.
 #
 # --external-sources is therefore not a blanket default. A root gets it only
 # when it needs source resolution to be judged correctly, decided per file by
 # fm_lint_needs_source_analysis below. Roots that source nothing are proven to
 # produce byte-identical diagnostics either way, so the verdict is unchanged.
+#
+# One root per invocation is still not a bound, because a single root can be too
+# large on its own. FM_LINT_MAX_CLOSURE_KB is that bound: a root whose inlined
+# program exceeds it is analyzed WITHOUT source traversal, and the run says so on
+# one labelled line naming the root and its closure size. Such a root keeps every
+# ordinary shell check and loses cross-module dataflow; SC1091 is excluded for it
+# alone, because sources this runner declined to load are a boundary it drew, not
+# a defect in the root. The limit is one constant used identically in CI and
+# locally, so the verdict cannot diverge between them.
+#
+# 320 KB is derived from measurement on this tree, as the point where the full
+# path crosses about 1 GB: 313 KB -> 0.98 GB, 321 KB -> 1.03 GB, 327 KB -> 1.20 GB.
+# It leaves 25 of 377 roots on the bounded path. Closure size is a good but not
+# perfect predictor - 354 KB -> 0.81 GB and 395 KB -> 1.05 GB are low outliers -
+# so treat the limit as calibrated, not exact, and re-derive it from fresh
+# measurements rather than nudging it to make one root fit.
 #
 # The worker writes one diagnostics stream in deterministic root order and the
 # parent replays it after the worker finishes. FM_LINT_JOBS / --jobs is still
@@ -70,6 +85,7 @@
 #   fm-lint.sh --jobs <1|2> [path]...  accepted for compatibility; always serial
 #   fm-lint.sh --telemetry <path> ...  write a quiet metrics snapshot
 #   fm-lint.sh --required-version      print the ShellCheck pin
+#   fm-lint.sh --closure-limit-kb      print the source-closure limit in KB
 #   fm-lint.sh --list-files            print the file set that would be linted
 #   fm-lint.sh --help                  print this usage
 set -u
@@ -91,6 +107,10 @@ if [ "${FM_LINT_ISOLATED:-0}" != 1 ] && command -v perl >/dev/null 2>&1; then
 fi
 
 REQUIRED_SHELLCHECK=0.11.0
+# The one closure-size limit, identical in CI and locally so the verdict cannot
+# diverge between them. See the memory contract in the header for how it was
+# derived and what a root above it loses.
+FM_LINT_MAX_CLOSURE_KB=320
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SELF="$SELF_DIR/fm-lint.sh"
 ROOT="$(cd "$SELF_DIR/.." && pwd)"
@@ -117,8 +137,47 @@ fm_lint_needs_source_analysis() {  # <path>
   LC_ALL=C grep -qE '^[[:space:]]*(\.|source)[[:space:]]|# shellcheck source=' -- "$1" 2>/dev/null
 }
 
+# fm_lint_source_closure_kb <path>: kilobytes of the program ShellCheck would
+# load for this root under --external-sources - the root itself plus every file
+# reachable through `# shellcheck source=` directives, transitively, with
+# /dev/null boundaries excluded. That inlined program, not the root's own size,
+# is what the peak tracks, so it is what FM_LINT_MAX_CLOSURE_KB gates on.
+fm_lint_source_closure_kb() {  # <path>
+  local root=$1 file dir target bytes total=0 seen=
+  local -a queue
+  queue=("$root")
+  while [ "${#queue[@]}" -gt 0 ]; do
+    file=${queue[0]}
+    queue=(${queue[@]+"${queue[@]:1}"})
+    case "$seen" in *"|$file|"*) continue ;; esac
+    seen="$seen|$file|"
+    [ -f "$file" ] || continue
+    bytes=$(wc -c < "$file" 2>/dev/null | tr -d '[:space:]')
+    case "$bytes" in ''|*[!0-9]*) bytes=0 ;; esac
+    total=$((total + bytes))
+    dir=${file%/*}
+    [ "$dir" != "$file" ] || dir=.
+    while IFS= read -r target; do
+      [ -n "$target" ] && [ "$target" != /dev/null ] || continue
+      if [ -f "$target" ]; then
+        queue+=("$target")
+      elif [ -f "$dir/$target" ]; then
+        queue+=("$dir/$target")
+      fi
+    done < <(awk '
+      /^[[:space:]]*#[[:space:]]*shellcheck[[:space:]]+source=/ {
+        line = $0
+        sub(/^.*source=/, "", line)
+        sub(/[[:space:]].*$/, "", line)
+        if (line != "") { print line }
+      }
+    ' "$file")
+  done
+  printf '%s\n' "$((total / 1024))"
+}
+
 fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
-  local manifest=$1 output_dir=$2 shard_index=$3 tab index path output rc=0 file_rc
+  local manifest=$1 output_dir=$2 shard_index=$3 tab index path output rc=0 file_rc closure_kb
   local -a roots shellcheck_args
   roots=()
   tab=$(printf '\t')
@@ -140,7 +199,19 @@ fm_lint_worker() {  # <manifest> <output-dir> <shard-index>
       shellcheck_args+=(--extended-analysis=false)
     fi
     if fm_lint_needs_source_analysis "$path"; then
-      shellcheck_args+=(--external-sources)
+      closure_kb=$(fm_lint_source_closure_kb "$path")
+      if [ "$closure_kb" -gt "$FM_LINT_MAX_CLOSURE_KB" ]; then
+        # Bounded root: its inlined program is too large to analyze whole, so
+        # stop source traversal here. SC1091 is excluded for this root only,
+        # because sources this runner deliberately declined to load are not a
+        # defect in the root - the same boundary the tree already draws with
+        # `# shellcheck source=/dev/null`. Every other check still runs.
+        shellcheck_args+=(--exclude=SC1091)
+        printf 'fm-lint.sh: bounded root %s (source closure %s KB exceeds the %s KB limit): source traversal stopped, so cross-module dataflow is not analyzed for this root and SC1091 is excluded for it.\n' \
+          "$path" "$closure_kb" "$FM_LINT_MAX_CLOSURE_KB" >> "$output.out"
+      else
+        shellcheck_args+=(--external-sources)
+      fi
     fi
     file_rc=0
     "$FM_LINT_SHELLCHECK" "${shellcheck_args[@]}" -- "$path" >> "$output.out" 2>&1 </dev/null &
@@ -167,6 +238,11 @@ fi
 
 if [ "${1:-}" = "--required-version" ]; then
   printf '%s\n' "$REQUIRED_SHELLCHECK"
+  exit 0
+fi
+
+if [ "${1:-}" = "--closure-limit-kb" ]; then
+  printf '%s\n' "$FM_LINT_MAX_CLOSURE_KB"
   exit 0
 fi
 
