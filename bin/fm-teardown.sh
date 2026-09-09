@@ -29,6 +29,16 @@
 # lift the deferral (it authorizes discarding unlanded WORK, never the
 # captain's question), and bin/fm-captain-hold.sh answer stays the only act
 # that closes the call.
+# NEVER touches a worktree that another task record also names. A treehouse lease
+# is bound to a process, so a restart drops it and the pool can re-lease a clean
+# slot to a different task while this task's record still names the path. When
+# that has happened, teardown closes this task's record and does nothing at all in
+# that worktree - no safety read, run conclusion, process reap, hook removal,
+# return, reset, or branch delete - because none of what is there is this task's.
+# --force does not lift that. See worktree_claimed_by_another_task, and
+# docs/configuration.md "Worktree pool leases (treehouse)" for the allocation side
+# in bin/fm-spawn.sh.
+#
 # REFUSES if the worktree holds work that has not LANDED, because cleanup
 # hard-resets/removes the worktree and kills its processes. This is a
 # preservation test, not an integration test: reachable-from-any-remote means
@@ -1644,6 +1654,45 @@ teardown_treehouse_return() {
   return 1
 }
 
+# Which OTHER task record names this exact worktree, if any.
+#
+# A treehouse lease is bound to a process, so a restart drops it and the pool
+# hands the clean slot to whoever asks next. When that happens the path stops
+# being this task's isolated copy and becomes another live task's, while this
+# task's record still names it. XAUUSD slot 6 is the worked example: it was
+# leased to a scout, the restart dropped the lease, and the pool re-leased the
+# clean slot to xau-int-axe-accessibility-checks, which then did real work in it.
+#
+# Ownership has to hold on both sides. bin/fm-spawn.sh's assert_worktree_unclaimed
+# is the allocation side and refuses to take a recorded slot; this is the cleanup
+# side. A dead process and a clean tree never make a path disposable while another
+# task record names it, so teardown closes this task's record and leaves that path
+# completely alone - no safety read of work that is not this task's, no run
+# conclusion, no process reaping, no hook removal, no return, no reset, no branch
+# delete.
+#
+# --force does not lift this. Force authorizes discarding THIS task's work; it has
+# never authorized destroying another task's, and a reassigned path holds only the
+# other task's.
+worktree_claimed_by_another_task() {  # <worktree>
+  local wt=$1 wt_real meta other other_wt other_real
+  [ -n "$wt" ] || return 0
+  wt_real=$(CDPATH='' cd -- "$wt" 2>/dev/null && pwd -P) || wt_real=$wt
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    other=${meta##*/}
+    other=${other%.meta}
+    [ "$other" != "$ID" ] || continue
+    other_wt=$(fm_meta_get "$meta" worktree)
+    [ -n "$other_wt" ] || continue
+    other_real=$(CDPATH='' cd -- "$other_wt" 2>/dev/null && pwd -P) || other_real=$other_wt
+    [ "$other_real" = "$wt_real" ] || continue
+    printf '%s\n' "$other"
+    return 0
+  done
+  return 0
+}
+
 validate_worktree_teardown_safety() {
   local dirty_raw dirty unpushed_raw unpushed DEFAULT unmerged_raw unmerged branch
   [ -d "$WT" ] || return 0
@@ -2927,7 +2976,13 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] &&
   ORCA_PATH_MATCH_VERIFIED=1
 fi
 
-if [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
+WT_REASSIGNED_TO=$(worktree_claimed_by_another_task "$WT")
+if [ -n "$WT_REASSIGNED_TO" ]; then
+  echo "note: task $ID's recorded worktree $WT is now also recorded by task $WT_REASSIGNED_TO, which is the lane occupying it; the worktree pool re-leased the slot after its process-bound lease was dropped." >&2
+  echo "note: closing task $ID's record without touching that worktree - no work is read, concluded, reaped, returned, reset, or branch-deleted there, because none of it is task $ID's. Task $WT_REASSIGNED_TO keeps the slot." >&2
+fi
+
+if [ -z "$WT_REASSIGNED_TO" ] && [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
   if validate_worktree_teardown_safety; then
     :
   else
@@ -2994,9 +3049,15 @@ fi
 # kind=secondmate: a secondmate home's own runtime lifecycle is owned by the
 # dedicated process-event and firstmate-home removal machinery further below,
 # not by task-worktree cleanup.
-if [ "$KIND" != secondmate ]; then
+if [ "$KIND" != secondmate ] && [ -z "$WT_REASSIGNED_TO" ]; then
   conclude_task_no_mistakes_run "$WT"
   reap_task_worktree_processes worktree "$WT" "$TASK_TMP"
+elif [ "$KIND" != secondmate ]; then
+  # The worktree is task $WT_REASSIGNED_TO's now. Its run and its processes are
+  # that task's live work; concluding or reaping them here would take down a
+  # working lane to close a record. The tasktmp is still this task's own, so it
+  # is reaped on its own.
+  reap_task_worktree_processes tasktmp "$TASK_TMP"
 fi
 
 # Fix 3 (see script header): sweep remote job workers abandoned by an already
@@ -3004,7 +3065,9 @@ fi
 "$SCRIPT_DIR/fm-remote-job-reap-orphans.sh" >&2 || true
 
 # Best-effort: drop the local task branch so the shared repo does not accumulate refs.
-if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
+if [ -n "$WT_REASSIGNED_TO" ] && [ "$KIND" != secondmate ]; then
+  : # the path belongs to task $WT_REASSIGNED_TO; the notes above already said so
+elif [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
   if [ "$ORCA_PATH_MATCH_VERIFIED" != 1 ]; then
     require_orca_worktree_path_match_if_present "$ORCA_WORKTREE_ID" "$WT" || exit 1
     ORCA_PATH_MATCH_VERIFIED=1
