@@ -88,6 +88,14 @@
 #   (bi) a base branch that moved past the PR head refuses the merge and tells
 #       the worker exactly how to recover, without attempting the merge
 #   (bj) a PR head that already contains the current base head still merges
+#   (bk) an XAUUSD rollup missing one battery shard refuses the merge, naming
+#       the shard, even though every check that did report is green
+#   (bl) the same rollup with no overlay installed merges, which is the control
+#       proving the refusal above comes from the installed population
+#   (bm) an XAUUSD required job skipped outside its one declared exemption
+#       refuses the merge, naming the job
+#   (bn) the complete legitimate XAUUSD rollup, carrying its one declared skip,
+#       merges
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -2279,6 +2287,201 @@ test_github_head_containing_the_base_merges() {
   pass "fm-pr-merge merges a GitHub pull request whose head already contains the current base head"
 }
 
+# --- the XAUUSD required-check population ------------------------------------
+# The cases above pin the overlay MECHANISM with two-name fixtures; these four
+# pin the POPULATION a home installs for XAUUSD against a rollup shaped like a
+# real pull request head, which is what makes a missing job detectable at all.
+#
+# Verified 2026-09-09 against four merged pull requests of two shapes -
+# docs-only #433 (head 4bc3c4bc72a07d2686a368cf1d0f37da2c072120) and #434
+# (head 866e2ced30e5cbde1772cce012e8d65517062363), code-touching #431 (head
+# 799b0ee3c77aab8fdfc77bf8db2432b2319afaa9) and #401 (head
+# 023879f571966a7f6febabcd0d7a7dd1d0f906b6) - with
+#   env -u GITHUB_TOKEN -u GH_TOKEN gh api --paginate \
+#     "repos/ashkonmousavi/XAU/commits/<head>/check-runs" \
+#     --jq '.check_runs[] | [.name, .status, .conclusion] | @tsv'
+# Every one of those heads carried exactly these thirteen distinct check names:
+# twelve concluding success and the pushed-tree proving lookup skipped. The
+# names are the job names in the project's xau-ci.yml and xau-ci-attestation.yml
+# workflows, which is what the check-runs API reports; the four battery shards
+# are a matrix whose job name renders its own shard number, so the overlay
+# format's one-name-per-line shape names all four literally.
+XAU_CHECK_NAMES=(
+  'PR must be raised via no-mistakes'
+  'build and seal the Dashboard V2 distribution'
+  'commits carry no agent attribution'
+  'forbid re-runs on pull requests'
+  'forbid re-runs on pull requests (attestation)'
+  'journey smoke (start historical backtest -> completes -> result visible)'
+  'look for a proving pull request with the same pushed tree'
+  'repository'
+  'repository checks'
+  'repository shard 1 of 4'
+  'repository shard 2 of 4'
+  'repository shard 3 of 4'
+  'repository shard 4 of 4'
+)
+# The one intentional skip: the pushed-tree proving lookup runs only on push
+# events, so it is always skipped on a pull request head. Its exemption is
+# anchored to "repository", the battery's fan-in job, because that is the check
+# whose success means the battery this lookup would have reused actually ran
+# here. "repository" carries its own required line too, so a collapsed battery
+# refuses under its own name as well as withdrawing this exemption.
+XAU_SKIPPED_CHECK='look for a proving pull request with the same pushed tree'
+XAU_SKIP_ANCHOR=repository
+
+# write_xau_overlay <config_dir>: the exact overlay a home installs at
+# config/required-checks/XAUUSD.
+write_xau_overlay() {
+  local config_dir=$1 name
+  mkdir -p "$config_dir/required-checks"
+  for name in "${XAU_CHECK_NAMES[@]}"; do
+    if [ "$name" = "$XAU_SKIPPED_CHECK" ]; then
+      printf '%s skippable-if: %s\n' "$name" "$XAU_SKIP_ANCHOR"
+    else
+      printf '%s\n' "$name"
+    fi
+  done > "$config_dir/required-checks/XAUUSD"
+}
+
+# write_xau_rollup <file> [<omit_name>] [<extra_skipped_name>]: a check-runs
+# fixture shaped like a real XAUUSD pull request head - every check completed,
+# the pushed-tree lookup skipped, everything else success - optionally with one
+# check absent or one extra check concluding skipped. Both defects are ones the
+# default judgment accepts on its own, so a refusal can only come from the
+# overlay.
+write_xau_rollup() {
+  local file=$1 omit=${2:-} extra_skipped=${3:-} name conclusion id=1
+  : > "$file"
+  for name in "${XAU_CHECK_NAMES[@]}"; do
+    if [ "$name" = "$omit" ]; then
+      continue
+    fi
+    conclusion=success
+    if [ "$name" = "$XAU_SKIPPED_CHECK" ] || [ "$name" = "$extra_skipped" ]; then
+      conclusion=skipped
+    fi
+    printf '%d\t%s\tcompleted\t%s\n' "$id" "$name" "$conclusion" >> "$file"
+    id=$((id + 1))
+  done
+}
+
+# make_xau_case <name> <head>: a case whose task metadata records a project
+# directory named XAUUSD, so the overlay is keyed exactly as an installed
+# config/required-checks/XAUUSD file is. Echoes the case dir.
+make_xau_case() {
+  local name=$1 head=$2 case_dir
+  case_dir=$(make_case "$name")
+  fm_write_meta "$case_dir/state/task-x1.meta" \
+    "window=fm-task-x1" \
+    "worktree=$case_dir/wt" \
+    "project=$case_dir/XAUUSD" \
+    "kind=ship" \
+    "mode=no-mistakes"
+  mkdir -p "$case_dir/wt" "$case_dir/config/required-checks"
+  add_gh_mocks "$case_dir" "$head"
+  : > "$case_dir/gh-axi.log"
+  printf '%s\n' "$case_dir"
+}
+
+# Advisor finding 8's headline gap: one battery shard never reporting at the
+# head leaves twelve green checks and nothing to fail on. The overlay is what
+# turns that silence into a named refusal.
+test_xau_population_missing_shard_refuses() {
+  local case_dir rc
+  case_dir=$(make_xau_case xau-population-missing-shard \
+    b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1)
+  write_xau_rollup "$case_dir/github-checks" 'repository shard 3 of 4'
+  write_xau_overlay "$case_dir/config"
+
+  set +e
+  FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+    https://github.com/example/repo/pull/301 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "xau-population-missing-shard: a battery shard missing from the rollup must refuse the merge"
+  assert_grep 'required check "repository shard 3 of 4" was not found at head' "$case_dir/stderr" \
+    "xau-population-missing-shard: the absent shard was not named"
+  assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "xau-population-missing-shard: the merge was attempted despite the missing shard"
+  pass "fm-pr-merge refuses an XAUUSD rollup whose battery shard never reported"
+}
+
+# The control for the case above, byte-identical but for the overlay's absence:
+# it proves the refusal comes from the installed population and not from the
+# default judgment, which sees only twelve checks it has no reason to fail.
+test_xau_missing_shard_merges_with_no_overlay_installed() {
+  local case_dir rc
+  case_dir=$(make_xau_case xau-population-missing-shard-uncovered \
+    b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2)
+  write_xau_rollup "$case_dir/github-checks" 'repository shard 3 of 4'
+
+  set +e
+  FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+    https://github.com/example/repo/pull/302 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "xau-population-missing-shard-uncovered: the default judgment cannot see a check that never reported"
+  assert_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "xau-population-missing-shard-uncovered: the merge was not attempted, so this control proves nothing about the overlay"
+  pass "fm-pr-merge merges the same defective XAUUSD rollup when no overlay is installed"
+}
+
+# A required job skipped for any reason other than its one declared exemption -
+# an upstream job failing, a workflow edit, a condition that stopped matching -
+# is exactly the silent hole the default unconditional skip allowance leaves.
+test_xau_population_undeclared_skip_refuses() {
+  local case_dir rc
+  case_dir=$(make_xau_case xau-population-undeclared-skip \
+    b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3)
+  write_xau_rollup "$case_dir/github-checks" '' \
+    'journey smoke (start historical backtest -> completes -> result visible)'
+  write_xau_overlay "$case_dir/config"
+
+  set +e
+  FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+    https://github.com/example/repo/pull/303 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "xau-population-undeclared-skip: a required job skipped with no declared exemption must refuse the merge"
+  assert_grep 'required check "journey smoke (start historical backtest -> completes -> result visible)" concluded "skipped", not success' \
+    "$case_dir/stderr" \
+    "xau-population-undeclared-skip: the improperly skipped journey smoke was not named"
+  assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "xau-population-undeclared-skip: the merge was attempted despite the undeclared skip"
+  pass "fm-pr-merge refuses an XAUUSD rollup whose journey smoke skipped without its declared exemption"
+}
+
+# The legitimate rollup, exactly as all four sampled heads reported it: the
+# overlay must not refuse the one skip it declares, or every XAUUSD merge stops.
+test_xau_population_complete_rollup_merges() {
+  local case_dir rc
+  case_dir=$(make_xau_case xau-population-complete \
+    b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4)
+  write_xau_rollup "$case_dir/github-checks"
+  write_xau_overlay "$case_dir/config"
+
+  set +e
+  FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+    https://github.com/example/repo/pull/304 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "xau-population-complete: the real XAUUSD rollup must merge"
+  assert_no_grep 'required check' "$case_dir/stderr" \
+    "xau-population-complete: a check in the real rollup was refused by the overlay"
+  assert_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "xau-population-complete: the merge was not attempted on a complete legitimate rollup"
+  pass "fm-pr-merge merges a complete XAUUSD rollup carrying its one declared skip"
+}
+
 test_github_match_head_commit_override_refuses_before_recording() {
   local case_dir rc
   case_dir=$(make_case github-match-head-commit-override)
@@ -2731,6 +2934,10 @@ test_github_required_check_skipped_with_exemption_merges
 test_github_required_checks_all_success_merges
 test_github_stale_base_refuses_with_recovery_instruction
 test_github_head_containing_the_base_merges
+test_xau_population_missing_shard_refuses
+test_xau_missing_shard_merges_with_no_overlay_installed
+test_xau_population_undeclared_skip_refuses
+test_xau_population_complete_rollup_merges
 test_github_match_head_commit_override_refuses_before_recording
 test_gitlab_url_resolves_and_merges
 test_gitlab_host_comes_from_the_url
