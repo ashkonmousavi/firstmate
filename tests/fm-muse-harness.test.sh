@@ -262,6 +262,9 @@ EOF
   assert_not_contains "$launch" 'test-key' "muse launch exposed the credential value in worker argv"
   assert_contains "$launch" 'encode launch-brief' "muse launch did not deliver the brief positionally"
   assert_grep 'harness=muse' "$home/state/$id.meta" "muse harness was not recorded in meta"
+  assert_grep 'mcp=lean' "$home/state/$id.meta" "muse ship did not record the lean default"
+  assert_not_contains "$launch" '--mcp-config' "Muse received an MCP flag its adapter does not support"
+  assert_not_contains "$launch" '--no-extensions' "Muse received Pi's extension flag"
   pass "muse spawn launches with autonomy, privacy control, and a positional brief"
 }
 

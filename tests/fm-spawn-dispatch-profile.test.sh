@@ -20,9 +20,9 @@ make_spawn_pi_probe() {
 set -u
 if [ "${1:-}" = --help ]; then
   if [ "${FM_FAKE_PI_VERSION:-0.84.0}" = 0.82.0 ]; then
-    printf '%s\n' 'Pi 0.82.0' 'Options: --help'
+    printf '%s\n' 'Pi 0.82.0' 'Options: --help --no-extensions'
   else
-    printf '%s\n' "Pi ${FM_FAKE_PI_VERSION:-0.84.0}" 'Options: --help --tui-mode <mode>'
+    printf '%s\n' "Pi ${FM_FAKE_PI_VERSION:-0.84.0}" 'Options: --help --tui-mode <mode> --no-extensions'
   fi
 fi
 exit 0
@@ -46,7 +46,18 @@ if [ "${1:-}" = --list-models ]; then
 fi
 exit 0
 SH
-  chmod +x "$fakebin/timeout" "$fakebin/cursor-agent"
+  cat > "$fakebin/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = mcp ] && [ "${2:-}" = list ] && [ "${3:-}" = --json ]; then
+  if [ -n "${FM_FAKE_CODEX_MCP_JSON:-}" ]; then
+    printf '%s\n' "$FM_FAKE_CODEX_MCP_JSON"
+  else
+    printf '%s\n' '[{"name":"gitnexus","enabled":true},{"name":"serena","enabled":true},{"name":"disabled-example","enabled":false}]'
+  fi
+fi
+exit 0
+SH
+  chmod +x "$fakebin/timeout" "$fakebin/cursor-agent" "$fakebin/codex"
   make_spawn_pi_probe "$fakebin" pi
   make_spawn_pi_probe "$fakebin" pi-signed
   printf '%s\n' "$fakebin"
@@ -118,6 +129,169 @@ assert_meta_profile() {
   assert_grep "effort=$effort" "$meta" "meta missing effort=$effort"
 }
 
+assert_meta_mcp() {
+  local meta=$1 mode=$2
+  assert_grep "mcp=$mode" "$meta" "meta missing mcp=$mode"
+}
+
+# Independently proves the public flag contract: ships default lean, scouts
+# retain the full-service launch, and either kind can choose the other mode.
+test_mcp_mode_resolves_from_kind_and_explicit_flag() {
+  local rec id out status launch
+
+  id=mcp-default-ship-z20
+  rec=$(make_spawn_case mcp-default-ship claude "$id")
+  read_case_record "$rec"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "default ship MCP mode should launch"
+  assert_meta_mcp "$HOME_DIR/state/$id.meta" lean
+  launch=$(cat "$LAUNCH_LOG")
+  assert_contains "$launch" "--strict-mcp-config" "default ship did not render Claude's lean MCP boundary"
+  assert_contains "$launch" "--setting-sources 'local'" "default ship did not exclude user and project Claude settings"
+
+  id=mcp-default-scout-z21
+  rec=$(make_spawn_case mcp-default-scout claude "$id")
+  read_case_record "$rec"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
+  status=$?
+  expect_code 0 "$status" "default scout MCP mode should launch"
+  assert_meta_mcp "$HOME_DIR/state/$id.meta" full
+  launch=$(cat "$LAUNCH_LOG")
+  assert_not_contains "$launch" "--strict-mcp-config" "default scout unexpectedly lost its MCP servers"
+  assert_not_contains "$launch" "--setting-sources" "default scout unexpectedly lost its configured settings"
+
+  id=mcp-full-ship-z22
+  rec=$(make_spawn_case mcp-full-ship claude "$id")
+  read_case_record "$rec"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --mcp full)
+  status=$?
+  expect_code 0 "$status" "explicit full-service ship should launch"
+  assert_meta_mcp "$HOME_DIR/state/$id.meta" full
+  assert_not_contains "$(cat "$LAUNCH_LOG")" "--strict-mcp-config" "--mcp full still rendered a lean launch"
+
+  id=mcp-lean-scout-z23
+  rec=$(make_spawn_case mcp-lean-scout claude "$id")
+  read_case_record "$rec"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout --mcp lean)
+  status=$?
+  expect_code 0 "$status" "explicit lean scout should launch"
+  assert_meta_mcp "$HOME_DIR/state/$id.meta" lean
+  assert_contains "$(cat "$LAUNCH_LOG")" "--strict-mcp-config" "--mcp lean did not render a lean scout launch"
+  pass "--mcp resolves lean ships, full scouts, and explicit overrides"
+}
+
+# Proves invalid values fail before any endpoint or task metadata is created.
+test_mcp_mode_rejects_unknown_value_before_spawn() {
+  local rec id out status
+  id=mcp-invalid-z24
+  rec=$(make_spawn_case mcp-invalid claude "$id")
+  read_case_record "$rec"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --mcp enormous)
+  status=$?
+  expect_code 1 "$status" "unknown MCP mode should refuse"
+  assert_contains "$out" "--mcp must be one of lean, full" "invalid MCP mode diagnostic omitted the accepted values"
+  assert_absent "$HOME_DIR/state/$id.meta" "invalid MCP mode wrote task metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "invalid MCP mode created an endpoint launch"
+  pass "--mcp rejects unknown values before spawn"
+}
+
+# Each controllable adapter gets an independently rendered launch assertion.
+# Gemini's boundary is carried in its Firstmate-owned settings sidecar rather
+# than argv, so that file is asserted directly.
+test_lean_mcp_renders_each_firstmate_controlled_harness() {
+  local harness rec id out status launch settings
+  for harness in claude codex pi pi-signed gemini; do
+    id="mcp-render-$harness-z25"
+    rec=$(make_spawn_case "mcp-render-$harness" "$harness" "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "$harness lean ship should launch"
+    assert_meta_mcp "$HOME_DIR/state/$id.meta" lean
+    launch=$(cat "$LAUNCH_LOG")
+    case "$harness" in
+      claude)
+        assert_contains "$launch" "--mcp-config '{\"mcpServers\":{}}' --strict-mcp-config" "Claude lean launch did not replace configured MCP servers"
+        ;;
+      codex)
+        assert_contains "$launch" "mcp_servers.gitnexus.enabled=false" "Codex lean launch did not disable gitnexus"
+        assert_contains "$launch" "mcp_servers.serena.enabled=false" "Codex lean launch did not disable serena"
+        assert_not_contains "$launch" "disabled-example" "Codex lean launch rewrote an already-disabled server"
+        ;;
+      pi|pi-signed)
+        assert_contains "$launch" "--no-extensions" "$harness lean launch did not suppress auto-loaded extensions"
+        assert_contains "$launch" " -e " "$harness lean launch lost Firstmate's explicit turn-end extension"
+        ;;
+      gemini)
+        settings="$HOME_DIR/state/$id.gemini-settings.json"
+        assert_grep '"mcp":{"allowed":[]}' "$settings" "Gemini lean settings did not deny configured MCP servers"
+        ;;
+    esac
+  done
+  pass "lean MCP mode renders every Firstmate-controlled harness boundary"
+}
+
+# These verified adapters expose only user/project persistence, not a safe
+# universal launch override. The test pins that Firstmate does not pretend to
+# enforce lean mode by inventing unsupported flags.
+test_operator_owned_mcp_harnesses_keep_verified_launch_shape() {
+  local harness rec id out status launch
+  for harness in opencode grok cursor; do
+    id="mcp-operator-$harness-z26"
+    rec=$(make_spawn_case "mcp-operator-$harness" "$harness" "$id")
+    read_case_record "$rec"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    expect_code 0 "$status" "$harness operator-owned MCP launch should remain usable"
+    assert_meta_mcp "$HOME_DIR/state/$id.meta" lean
+    launch=$(cat "$LAUNCH_LOG")
+    assert_not_contains "$launch" "--mcp-config" "$harness received an unverified MCP config flag"
+    assert_not_contains "$launch" "--strict-mcp-config" "$harness received Claude's MCP flag"
+    assert_not_contains "$launch" "--no-extensions" "$harness received Pi's extension flag"
+    assert_contains "$out" "cannot enforce --mcp lean" "$harness did not report its operator-owned MCP boundary"
+  done
+  pass "operator-owned MCP adapters remain explicit and use no invented flags"
+}
+
+# Independently proves lean launch refuses when Codex cannot supply a complete
+# effective-server inventory, instead of launching with unknown residents.
+test_codex_lean_mcp_refuses_malformed_inventory() {
+  local rec id out status
+  id=mcp-codex-malformed-z27
+  rec=$(make_spawn_case mcp-codex-malformed codex "$id")
+  read_case_record "$rec"
+  out=$(FM_FAKE_CODEX_MCP_JSON='{"not":"an array"}' \
+    run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 1 "$status" "malformed Codex MCP inventory should refuse"
+  assert_contains "$out" "unsupported shape" "Codex MCP refusal did not name the inventory problem"
+  assert_absent "$HOME_DIR/state/$id.meta" "malformed Codex MCP inventory wrote task metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "malformed Codex MCP inventory launched a pane"
+  pass "Codex lean MCP mode fails closed on malformed effective inventory"
+}
+
+# Independently proves Pi's version probe is a safety gate for lean mode.
+test_pi_lean_mcp_refuses_without_no_extensions_support() {
+  local rec id out status
+  id=mcp-pi-old-z28
+  rec=$(make_spawn_case mcp-pi-old pi "$id")
+  read_case_record "$rec"
+  cat > "$FAKEBIN_DIR/pi" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" != --help ] || printf '%s\n' 'Pi old' 'Options: --help --tui-mode <mode>'
+exit 0
+SH
+  chmod +x "$FAKEBIN_DIR/pi"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 1 "$status" "Pi without --no-extensions should refuse lean mode"
+  assert_contains "$out" "does not advertise --no-extensions" "Pi lean refusal omitted the missing capability"
+  assert_absent "$HOME_DIR/state/$id.meta" "unsupported Pi lean mode wrote task metadata"
+  [ ! -s "$LAUNCH_LOG" ] || fail "unsupported Pi lean mode launched a pane"
+  pass "Pi lean MCP mode fails closed without --no-extensions support"
+}
+
 test_no_profile_keeps_claude_profile_defaults() {
   local rec id out status expected launch
   id=profile-off-z1
@@ -131,7 +305,7 @@ test_no_profile_keeps_claude_profile_defaults() {
   assert_meta_profile "$HOME_DIR/state/$id.meta" claude default default
 
   launch=$(cat "$LAUNCH_LOG")
-  expected="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}' \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < '$HOME_DIR/data/$id/launch-brief.md')\""
+  expected="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}' --setting-sources 'local' --mcp-config '{\"mcpServers\":{}}' --strict-mcp-config \"\$('${ROOT}/bin/fm-operational-input.sh' encode launch-brief < '$HOME_DIR/data/$id/launch-brief.md')\""
   [ "$launch" = "$expected" ] || fail "no-profile claude launch did not use the canonical launch kind"$'\n'"expected: $expected"$'\n'"actual:   $launch"
   pass "no --model/--effort records defaults and types the claude launch instructions"
 }
@@ -345,7 +519,7 @@ test_active_dispatch_profile_allows_explicit_harness() {
   assert_contains "$out" "spawned $id harness=codex" "spawn did not report explicit codex harness"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
+  assert_contains "$launch" "--model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
     "explicit harness launch did not thread model and effort"
   pass "active crew-dispatch profile allows an explicit resolved harness"
 }
@@ -395,7 +569,7 @@ test_claude_threads_model_and_effort() {
   expect_code 0 "$status" "claude spawn with profile flags should succeed"
   assert_meta_profile "$HOME_DIR/state/$id.meta" claude sonnet high
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "claude --dangerously-skip-permissions --settings '{\"feedbackDrafts\":\"off\"}' --model 'sonnet' --effort 'high'" \
+  assert_contains "$launch" "--strict-mcp-config --model 'sonnet' --effort 'high'" \
     "claude launch did not thread model and effort flags"
   assert_not_contains "$launch" "--tui-mode" "non-Pi launches must not receive Pi's TUI mode override"
   pass "claude receives --model and --effort profile flags"
@@ -465,7 +639,7 @@ test_codex_threads_model_and_effort() {
   expect_code 0 "$status" "codex spawn with profile flags should succeed"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "codex --model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
+  assert_contains "$launch" "--model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
     "codex launch did not thread model and reasoning effort config"
   pass "codex receives --model and model_reasoning_effort profile flags"
 }
@@ -630,7 +804,7 @@ test_pi_threads_model_and_max_effort() {
   expect_code 0 "$status" "pi spawn with max effort should succeed"
   assert_meta_profile "$HOME_DIR/state/$id.meta" pi openai-codex/gpt-5.6-sol max
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "FM_PI_HARNESS=pi '$FAKEBIN_DIR/pi' --tui-mode regular --model 'openai-codex/gpt-5.6-sol' --thinking 'max' -e" \
+  assert_contains "$launch" "FM_PI_HARNESS=pi '$FAKEBIN_DIR/pi' --tui-mode regular --no-extensions --model 'openai-codex/gpt-5.6-sol' --thinking 'max' -e" \
     "pi launch did not force the regular TUI while threading the requested model and max thinking level"
   assert_not_contains "$launch" "FM_FIRSTMATE_PI_LAUNCH_BRIEF=" \
     "pi launch still exports the removed Calm input-reroute binding"
@@ -652,7 +826,7 @@ test_pi_signed_threads_shared_pi_profile_and_preserves_identity() {
   assert_contains "$out" "spawned $id harness=pi-signed" "pi-signed spawn did not preserve its visible identity"
   assert_meta_profile "$HOME_DIR/state/$id.meta" pi-signed openai-codex/gpt-5.6-sol max
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "FM_PI_HARNESS=pi-signed '$FAKEBIN_DIR/pi-signed' --tui-mode regular --model 'openai-codex/gpt-5.6-sol' --thinking 'max' -e" \
+  assert_contains "$launch" "FM_PI_HARNESS=pi-signed '$FAKEBIN_DIR/pi-signed' --tui-mode regular --no-extensions --model 'openai-codex/gpt-5.6-sol' --thinking 'max' -e" \
     "pi-signed launch did not force the regular TUI with Pi's model, thinking, and extension semantics"
   assert_contains "$launch" "fm-operational-input.sh' encode launch-brief" \
     "pi-signed launch lost the canonical typed launch-brief envelope"
@@ -747,7 +921,7 @@ test_pi_signed_persistent_secondmate_uses_pi_extensions_and_identity() {
   pass "pi-signed is a distinct persistent secondmate runtime with shared Pi supervision semantics"
 }
 
-test_batch_forwards_shared_profile_flags() {
+test_batch_forwards_shared_profile_and_mcp_flags() {
   local rec id1 id2 out status
   id1=profile-batch-a-z9
   id2=profile-batch-b-z10
@@ -756,14 +930,16 @@ test_batch_forwards_shared_profile_flags() {
   enable_dispatch_profile "$HOME_DIR"
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
-    "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+    "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort high --mcp full)
   status=$?
   expect_code 0 "$status" "batch spawn with shared profile flags should succeed"
   assert_contains "$out" "spawned $id1 harness=codex" "first batch task did not use shared harness"
   assert_contains "$out" "spawned $id2 harness=codex" "second batch task did not use shared harness"
   assert_meta_profile "$HOME_DIR/state/$id1.meta" codex gpt-5 high
   assert_meta_profile "$HOME_DIR/state/$id2.meta" codex gpt-5 high
-  pass "batch dispatch forwards shared --harness, --model, and --effort to every pair"
+  assert_meta_mcp "$HOME_DIR/state/$id1.meta" full
+  assert_meta_mcp "$HOME_DIR/state/$id2.meta" full
+  pass "batch dispatch forwards shared --harness, --model, --effort, and --mcp to every pair"
 }
 
 test_claude_forwards_firstmate_config_dir_when_set() {
@@ -837,6 +1013,12 @@ test_active_dispatch_profile_does_not_block_secondmate_launch() {
 }
 
 test_no_profile_keeps_claude_profile_defaults
+test_mcp_mode_resolves_from_kind_and_explicit_flag
+test_mcp_mode_rejects_unknown_value_before_spawn
+test_lean_mcp_renders_each_firstmate_controlled_harness
+test_operator_owned_mcp_harnesses_keep_verified_launch_shape
+test_codex_lean_mcp_refuses_malformed_inventory
+test_pi_lean_mcp_refuses_without_no_extensions_support
 test_non_cursor_launch_clears_inherited_cursor_markers
 test_relative_home_overrides_launch_with_absolute_cross_process_paths
 test_home_defaults_preserve_absolute_or_resolve_relative_paths
@@ -865,7 +1047,7 @@ test_pi_tui_mode_probe_is_safe_for_old_and_new_pi
 test_pi_signed_threads_shared_pi_profile_and_preserves_identity
 test_pi_signed_missing_binary_refuses_before_endpoint_or_metadata
 test_pi_signed_persistent_secondmate_uses_pi_extensions_and_identity
-test_batch_forwards_shared_profile_flags
+test_batch_forwards_shared_profile_and_mcp_flags
 test_claude_forwards_firstmate_config_dir_when_set
 test_claude_omits_config_dir_prefix_when_unset
 test_non_claude_harness_ignores_config_dir

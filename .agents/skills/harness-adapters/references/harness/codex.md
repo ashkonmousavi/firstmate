@@ -15,6 +15,17 @@ Verified on 2026-06-11 with codex-cli 0.139.0 unless a fact gives a newer versio
 | Effort flag | `-c 'model_reasoning_effort="<low\|medium\|high\|xhigh>"'`, verified on codex-cli 0.142.1 whose installed schema contains `model_reasoning_effort`, active config uses it, and bundled catalog advertises only these four values while omitting `max`. codex-cli >= 0.151 additionally accepts `ultra`, verified live 2026-08-29 against gpt-5.6-sol. |
 | Model discovery | Open the current interactive session's `/model` picker. |
 
+## MCP services
+
+Codex `-c` overlays merge with the effective configuration; an empty
+`mcp_servers={}` override does not clear configured entries. For a lean launch,
+`../../../bin/fm-spawn.sh` reads `codex mcp list --json` and renders one
+`-c 'mcp_servers.<name>.enabled=false'` argument for every enabled server. The
+inventory must contain names safe for Codex's dotted-key parser; malformed,
+unsafe, or unavailable inventory refuses the lean launch. Scouts and
+`--mcp full` skip the inventory and use the ordinary Codex configuration.
+No user or project TOML file is edited.
+
 A directory trust dialog appears on the first run for a repository root: "Do you trust the contents of this directory?"
 Accept it with Enter and verify the instructions begin processing.
 The decision persists for the repository, so later worktrees of the same project skip it.

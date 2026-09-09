@@ -18,6 +18,15 @@ Launch shape: `grok --always-approve "$(cat <brief>)"`.
 | Model | `--model <model>`; discover current account models with `grok models`. |
 | Effort | `--reasoning-effort <low\|medium\|high>`, alias `--effort`; version 0.2.99 rejects `xhigh` and `max` with `use one of: high, medium, low`; `references/common/model-and-effort.md` owns fallback and unsupported-value handling. |
 
+## MCP services
+
+Grok reads MCP servers from user/project `.grok/config.toml`. The verified
+adapter version has per-server configuration but no safe universal
+launch-scoped replacement. Firstmate warns that `--mcp lean` is not enforceable
+and leaves the launch unchanged. The operator owns disabling servers in a lean
+profile; Firstmate must not edit either file. Grok and its config were absent on
+this host during the 2026-09-09 attachment audit.
+
 Reliable Grok rules must account for hook markers as well as the child fast path.
 `../../../docs/turnend-guard.md` under "Harness integrations" owns the marker contract.
 

@@ -16,6 +16,17 @@ Verified on 2026-06-11 across versions 1.15.7 through 1.17.6, with busy-queue be
 | Model discovery | Run `opencode models [provider]` to list available provider/model identifiers. |
 | Trust dialog | None. |
 
+## MCP services
+
+OpenCode reads MCP definitions from user/project configuration, and
+`OPENCODE_CONFIG_CONTENT` deep-merges rather than replacing the existing map.
+Each known server can be disabled with its own `enabled: false`, but the
+verified adapter has no universal launch-scoped disable for unknown entries.
+Firstmate therefore warns that `--mcp lean` is not enforceable and leaves the
+verified launch shape unchanged. The operator owns a preconfigured lean profile;
+Firstmate must not edit either configuration scope. This host had no OpenCode
+binary or configuration during the 2026-09-09 attachment audit.
+
 OpenCode can auto-upgrade in the background, and the running TUI can exit mid-task.
 That behavior was observed live during an upgrade from 1.15.7 to 1.17.3.
 If the pane shows the exit banner, use the verified resume path above.

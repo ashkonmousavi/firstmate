@@ -27,6 +27,18 @@ cleanup_kimi_harness() {
 }
 trap cleanup_kimi_harness EXIT
 
+make_kimi_help_probe() {
+  local path=$1
+  cat > "$path" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = --help ]; then
+  printf '%s\n' 'Kimi CLI' '  --mcp-config-file FILE'
+fi
+exit 0
+SH
+  chmod +x "$path"
+}
+
 make_spawn_fakebin() {
   local dir=$1 fakebin
   fakebin=$(fm_fakebin "$dir")
@@ -132,7 +144,7 @@ exit 0
 SH
   chmod +x "$fakebin/tmux"
   fm_fake_exit0 "$fakebin" treehouse gh-axi gh
-  fm_fake_exit0 "$fakebin" kimi
+  make_kimi_help_probe "$fakebin/kimi"
   ln -s "$JQ_BIN" "$fakebin/jq"
   printf '%s\n' "$fakebin"
 }
@@ -207,8 +219,10 @@ test_kimi_launch_then_send_is_verified() {
   assert_contains "$out" "spawned $id harness=kimi" "kimi spawn did not report success"
 
   launch=$(cat "$CASE_DIR/launch.log")
-  [ "$launch" = "env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI '$FAKEBIN_DIR/kimi' --model 'kimi-code/k3' --auto" ] \
-    || fail "kimi launch did not use the absolute binary, model, and --auto only: $launch"
+  assert_contains "$launch" "'$FAKEBIN_DIR/kimi' --mcp-config-file '$HOME_DIR/state/$id.kimi-mcp-empty.json' --model 'kimi-code/k3' --auto" \
+    "Kimi lean launch did not use the Firstmate-owned empty MCP config"
+  assert_grep '"mcpServers":{}' "$HOME_DIR/state/$id.kimi-mcp-empty.json" \
+    "Kimi lean MCP config was not empty"
   assert_not_contains "$launch" "--effort" "kimi launch emitted a nonexistent effort flag"
   assert_not_contains "$launch" "turn-ended" "kimi launch embedded a turn-end path"
   assert_not_contains "$launch" "__TURNEND__" "kimi launch retained a turn-end placeholder"
@@ -220,6 +234,7 @@ test_kimi_launch_then_send_is_verified() {
   meta="$HOME_DIR/state/$id.meta"
   assert_grep 'model=kimi-code/k3' "$meta" "kimi meta lost the requested model"
   assert_grep 'effort=default' "$meta" "kimi meta did not retain the effective default effort"
+  assert_grep 'mcp=lean' "$meta" "kimi ship did not record its lean MCP default"
   assert_grep "tasktmp=$task_tmp" "$meta" "kimi meta did not record its task temp root"
   assert_present "$task_tmp/gotmp" "kimi spawn did not create its Go temp directory"
   assert_grep "export GOTMPDIR=$task_tmp/gotmp" "$CASE_DIR/tmux-calls.log" \
@@ -448,6 +463,7 @@ test_kimi_teardown_removes_pointer_and_registry_token() {
   assert_absent "$WT_DIR/.fm-kimi-turnend" "Kimi token pointer survived teardown"
   assert_absent "$HOME_DIR/.kimi-code/fm-turn-end.d/$token" "Kimi registry token survived teardown"
   assert_absent "$HOME_DIR/state/$id.kimi-turnend-token" "Kimi token state survived teardown"
+  assert_absent "$HOME_DIR/state/$id.kimi-mcp-empty.json" "Kimi lean MCP sidecar survived teardown"
   pass "fm-teardown: Kimi task pointer and registry token are removed"
 }
 
@@ -459,13 +475,13 @@ test_kimi_falls_back_to_expanded_home_binary() {
   rm "$FAKEBIN_DIR/kimi"
   fallback="$HOME_DIR/.kimi-code/bin/kimi"
   mkdir -p "$(dirname "$fallback")"
-  fm_fake_exit0 "$(dirname "$fallback")" kimi
+  make_kimi_help_probe "$fallback"
   out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
   rc=$?
   expect_code 0 "$rc" "Kimi HOME fallback spawn should succeed"
   launch=$(cat "$CASE_DIR/launch.log")
-  [ "$launch" = "env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI '$fallback' --auto" ] \
-    || fail "Kimi fallback did not expand HOME into an absolute executable: $launch"
+  assert_contains "$launch" "'$fallback' --mcp-config-file '$HOME_DIR/state/$id.kimi-mcp-empty.json' --auto" \
+    "Kimi fallback did not expand HOME or preserve its lean MCP boundary"
   pass "fm-spawn: Kimi fallback expands the active HOME"
 }
 

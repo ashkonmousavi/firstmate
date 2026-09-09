@@ -20,6 +20,14 @@ Verified as a CREWMATE and SCOUT adapter only; `../../../../../bin/fm-spawn.sh` 
 | Model | `-m` / `--model <model>`; discover through the interactive `/model` dialog. There is no `gemini models` subcommand, and the session's exit usage table also names the models actually used. |
 | Effort | None. `gemini --help` on 0.58.0 exposes no effort, reasoning, or thinking flag, so `references/common/model-and-effort.md`'s record-and-omit contract applies. `thinkingLevel` and `thinkingBudget` exist only as generation settings inside `settings.json` and are NOT a verified interactive axis. |
 
+## MCP services
+
+Gemini merges MCP definitions from its settings layers, but system settings can
+constrain the effective set with `mcp.allowed`. For a lean launch,
+`../../../../../bin/fm-spawn.sh` adds `"mcp":{"allowed":[]}` to the existing
+Firstmate-owned `state/<id>.gemini-settings.json`. Scouts and `--mcp full` omit
+that key. No user or project settings file is edited.
+
 ## Trust, and why the two documented options are not equivalent
 
 Every task worktree is a path Gemini has never seen, so an unhandled launch refuses outright:
@@ -30,7 +38,10 @@ The CLI presents those two options as equivalents and they are not.
 A controlled A/B on one worktree - same config home, same prompt, only the trust mechanism changed - showed `--skip-trust` runs the turn while leaving PROJECT configuration unloaded, so the project's own hooks never fire and its `.agents/skills` are never discovered, while `GEMINI_CLI_TRUST_WORKSPACE=true` loads both.
 A firstmate-repo task needs exactly those workspace skills, so the spawn uses the environment variable and `--skip-trust` must not be substituted for it.
 Firstmate's OWN busy hooks do not depend on this, because they ride the system settings layer described below.
-Trusting the workspace loads that project's `.gemini/settings.json`, hooks, MCP servers, and skills, which is the same posture the other adapters already run under in a task worktree.
+Trusting the workspace makes that project's `.gemini/settings.json`, hooks, MCP
+servers, and skills available. A full launch uses that ordinary posture; a lean
+launch's system `mcp.allowed` constraint prevents the discovered MCP servers
+from activating while retaining the project hooks and skills.
 
 The interactive trust dialog is `Do you trust the files in this folder?` with three choices.
 Unlike Claude's, its default selection is the SAFE one: `● 1. Trust folder (<name>)`, with `2. Trust parent folder (<parent>)` and `3. Don't trust` unselected.

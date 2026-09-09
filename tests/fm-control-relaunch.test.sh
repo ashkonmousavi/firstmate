@@ -675,6 +675,23 @@ test_same_harness_relaunch_keeps_the_profile_axes() {
   pass "fm-control relaunch: a same-harness relaunch keeps the profile axes it was running with"
 }
 
+# Independently proves a lane that opted into full services keeps that choice
+# when the control plane replaces its agent in the same endpoint.
+test_same_harness_relaunch_keeps_the_recorded_mcp_mode() {
+  local dir out rc launch
+  dir=$(new_case keepmcp rl42)
+  add_ship_task "$dir" rl42 claude
+  printf 'mcp=full\n' >> "$dir/home/state/rl42.meta"
+  out=$(run_control "$dir" rl42 relaunch --note "same full-service runtime"); rc=$?
+  expect_code 0 "$rc" "a full-service same-harness relaunch should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl42 mcp)" = full ] \
+    || fail "the recorded full MCP mode should carry across a same-harness relaunch"
+  launch=$(tail -n 1 "$dir/fake/literal")
+  assert_not_contains "$launch" "--strict-mcp-config" \
+    "a recorded full-service relaunch unexpectedly rendered Claude's lean boundary"
+  pass "fm-control relaunch: a same-harness relaunch keeps the recorded MCP mode"
+}
+
 test_explicit_model_wins_over_the_recorded_one() {
   local dir out rc
   dir=$(new_case explicit rl7)
@@ -1827,6 +1844,7 @@ test_harness_switch_does_not_carry_the_old_profile_axes
 test_harness_switch_resolves_a_prefixed_recorded_harness
 test_prefixed_recorded_harness_requires_explicit_replacement
 test_same_harness_relaunch_keeps_the_profile_axes
+test_same_harness_relaunch_keeps_the_recorded_mcp_mode
 test_explicit_model_wins_over_the_recorded_one
 test_relaunch_onto_an_unverified_harness_is_refused
 test_prior_harness_turnend_registry_entry_is_cleared

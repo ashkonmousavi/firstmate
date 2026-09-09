@@ -13,6 +13,16 @@ Busy hooks verified 2026-07-28 on Claude Code 2.1.220.
 | Model | `--model <model>`; discover through the interactive `/model` picker, with alias or full-name shape documented by `claude --help`. |
 | Effort | `--effort <low\|medium\|high\|xhigh\|max>`, verified on 2.1.196. |
 
+## MCP and language services
+
+A lean ship launch uses `--setting-sources local` so user and project plugin
+settings do not auto-load, then supplies an empty `--mcp-config` with
+`--strict-mcp-config`. The local source is retained because it carries
+Firstmate's per-task lifecycle hook. This suppresses configured GitNexus,
+Serena, Pyright, and other launch-attached services without changing Claude's
+user or project files. Managed settings remain outside Firstmate's control.
+Scouts and `--mcp full` preserve the ordinary configured sources.
+
 ## Workspace trust
 
 Claude gates a folder it has never seen behind an interactive workspace-trust dialog, so every fresh task worktree would hit it.

@@ -21,6 +21,12 @@ The router owns Muse's task-kind boundary.
 | Composer | Bordered `⟩`, truecolor `38;2;90;160;255`, luminance about 149.9 and narrowly above ghost threshold 128; typed text is `38;2;204;211;219`, about 209.8, with no observed placeholder or ghost. |
 | Effort | `--reasoning-effort`, default `high`, accepts `none\|minimal\|low\|medium\|high\|xhigh\|ultra`; shared values expose low through xhigh, explicit captain `max` maps to `ultra`, and `none` or `minimal` remain unreachable. |
 
+## MCP services
+
+The verified Muse build has no launch-attached MCP mechanism, and its plugin
+engine is unavailable unless separately opted in. `--mcp lean` therefore needs
+no launch change; scouts and full-service lanes use the same Muse command.
+
 ## Credential preflight
 
 Muse reads winning `META_API_KEY` or `${XDG_CONFIG_HOME:-$HOME/.config}/muse/auth.json` written by OIDC device-code `muse login` or `muse auth set --api-key-stdin`.

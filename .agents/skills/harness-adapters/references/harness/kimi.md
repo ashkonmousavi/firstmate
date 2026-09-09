@@ -17,6 +17,15 @@ Verified on 2026-07-25 with Kimi Code CLI 0.29.1.
 | Trust dialog | None observed on a clean first launch in a fresh pooled worktree. |
 | Slash submission | One Enter submits, with no popup swallow or settle hazard. |
 | Environment marker | None; detection uses process ancestry command name `kimi`. |
+
+## MCP services
+
+Kimi loads `~/.kimi/mcp.json` by default when no `--mcp-config-file` is given;
+an inline `--mcp-config` does not by itself prevent that default. A lean launch
+therefore writes an empty Firstmate-owned `state/<id>.kimi-mcp-empty.json` and
+passes it with `--mcp-config-file`. The installed executable must advertise the
+flag or the launch refuses. Relaunch and teardown remove the sidecar. Scouts and
+`--mcp full` retain Kimi's ordinary global/project MCP configuration.
 | Composer | Bordered box with a bare `>` prompt glyph and no observed ghost or placeholder text. |
 | Effort | No verified reasoning-effort flag; `references/common/model-and-effort.md` owns unsupported-value handling. |
 

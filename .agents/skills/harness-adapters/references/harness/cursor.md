@@ -64,6 +64,15 @@ Never pass Cursor `-w` or `--worktree`, which allocates a second copy under `~/.
 The CLI supports repeatable `--add-dir`, but the adapter adds none; positional instructions need no grant to their private directory.
 Example: `../../../bin/fm-spawn.sh <task-id> <project> --scout --harness cursor --model cursor-grok-4.5-high`.
 
+## MCP services
+
+Cursor Agent reads user and project `.cursor/mcp.json`. The installed CLI
+exposes `cursor-agent mcp disable <id>`, which persists state, but no
+launch-scoped config replacement. Firstmate therefore warns that `--mcp lean`
+is not enforceable and leaves the verified launch unchanged. The operator owns
+disabling servers or selecting a lean Cursor profile; Firstmate must not edit
+either configuration scope.
+
 ## Primary integration
 
 Primary supervision is the stop-hook park in `../../../docs/supervision-protocols/cursor.md` through tracked `.cursor/hooks.json`; primary and secondmate launches require `--trust` or hooks do not load.

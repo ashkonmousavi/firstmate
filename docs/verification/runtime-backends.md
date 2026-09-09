@@ -142,6 +142,38 @@ ok - local model ambient-router-gemma4:e4b selected every operation scenario and
 # unavailable native tools: pi-signed grok kimi cursor muse
 ```
 
+### Lean crew launch service check (2026-09-09)
+
+Live checks on this host used Codex CLI 0.153.4 and Claude Code 2.1.266 in
+uniquely named temporary tmux sessions, inspected only each session's process
+descendants, and removed the session after every sample. The machine reported
+9 GB available before the sequence.
+
+The exact lean Codex overrides disabled every enabled entry returned by
+`codex mcp list --json`. Even when the turn explicitly requested GitNexus,
+the descendant tree contained only Codex and no GitNexus, Serena, or Pyright
+process. The same full launch started GitNexus and Serena; Pyright is not a Codex
+MCP entry on this host. The exact lean Claude flags (`--setting-sources local`,
+strict empty `--mcp-config`) left only Claude, while the full launch started
+GitNexus, Serena, Playwright, Claude Context, and Sequential Thinking. Claude's
+enabled Pyright plugin did not start a language-server child during the sampled
+read-only Python-file turn; the lean result therefore makes no stronger claim
+than zero launch-attached Pyright descendants. No user or project configuration
+was changed by the checks.
+
+```text
+codex_lean_gitnexus=absent
+codex_lean_serena=absent
+codex_lean_pyright=absent
+codex_full_gitnexus=present
+codex_full_serena=present
+codex_full_pyright=absent
+claude_lean_forbidden_services=absent
+claude_full_gitnexus=present
+claude_full_serena=present
+claude_full_pyright=absent
+```
+
 The isolated process and endpoint checks used:
 
 ```sh

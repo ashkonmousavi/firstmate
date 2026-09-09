@@ -29,6 +29,15 @@ The router's Detection section owns how launch markers and ancestry select betwe
 Keep the instructions as one positional argument.
 Multiple positional arguments become separate queued messages; the spawn template already preserves the one-argument shape.
 
+## MCP and language-server extensions
+
+Pi attaches MCP adapters and language servers through extensions, including
+auto-discovered user and project extensions. A lean launch adds
+`--no-extensions` while still naming Firstmate's required turn-end extensions
+with explicit `-e` arguments. The selected executable's `--help` must advertise
+`--no-extensions`; otherwise Firstmate refuses the lean launch rather than
+silently loading extensions. Scouts and `--mcp full` retain auto-discovery.
+
 A project trust dialog can appear on the first Pi run in any not-yet-trusted directory, including a clean worktree.
 Accept it with Enter and verify the instructions begin processing.
 The decision persists per path in `~/.pi/agent/trust.json`, so later spawns in the same pooled slot skip it.
