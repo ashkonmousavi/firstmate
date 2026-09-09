@@ -1529,6 +1529,95 @@ test_spawn_relaunch_refuses_contradicting_flags() {
   pass "fm-spawn --relaunch: every identity axis comes from the record, and a contradicting flag refuses"
 }
 
+
+# Proves: `exit` marks the lane parked in its durable record, with the reason,
+# and the marker sits ahead of any pr= tail so the merge-poll identity parse
+# still reads. Red before the change (exit wrote no marker); green after.
+test_exit_records_the_parked_marker() {
+  local dir out rc
+  dir=$(new_case parkmark rl45)
+  add_ship_task "$dir" rl45 claude
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_control "$dir" rl45 exit --reason "resting while the fleet is over capacity"); rc=$?
+  expect_code 0 "$rc" "exit should succeed: $out"
+  [ -n "$(meta_field "$dir" rl45 parked)" ] \
+    || fail "exit did not record a parked marker: $(cat "$dir/home/state/rl45.meta")"
+  case "$(meta_field "$dir" rl45 parked)" in
+    ''|*[!0-9]*) fail "the parked marker is not an epoch: $(meta_field "$dir" rl45 parked)" ;;
+  esac
+  [ "$(meta_field "$dir" rl45 parked_reason)" = "resting while the fleet is over capacity" ] \
+    || fail "exit did not record the parked reason: $(meta_field "$dir" rl45 parked_reason)"
+  assert_contains "$out" "parked=yes" "the exit report should say the lane is now parked"
+  # Every identity axis must survive: exit preserves the endpoint and worktree.
+  [ "$(meta_field "$dir" rl45 worktree)" = "$dir/wt" ] \
+    || fail "exit changed the recorded worktree"
+  [ "$(meta_field "$dir" rl45 window)" = "fmses:fm-rl45" ] \
+    || fail "exit changed the recorded endpoint"
+  pass "fm-control exit: the lane is marked parked in its durable record"
+}
+
+# Proves: a parked lane with an armed merge poll still keeps that poll armed and
+# private. Excluding a parked lane from stale classification must not cost it
+# merge outcomes - those arrive through the check path, not the stale path, and
+# this is the independent assertion of that boundary.
+test_a_parked_lane_keeps_its_merge_poll() {
+  local dir out rc
+  dir=$(new_case parkpoll rl46)
+  add_ship_task "$dir" rl46 claude
+  printf 'pr=https://github.com/o/r/pull/7\n' >> "$dir/home/state/rl46.meta"
+  chmod 600 "$dir/home/state/rl46.meta"
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_control "$dir" rl46 exit --reason "resting"); rc=$?
+  expect_code 0 "$rc" "exit should succeed on a task with a merge poll: $out"
+  [ -n "$(meta_field "$dir" rl46 parked)" ] || fail "the lane was not marked parked"
+  [ "$(meta_field "$dir" rl46 pr)" = "https://github.com/o/r/pull/7" ] \
+    || fail "exit invalidated the merge poll: $(cat "$dir/home/state/rl46.meta")"
+  # The pr= tail must remain LAST, or fm_pr_metadata_identity_parse rejects it.
+  [ "$(grep -c '^parked=' "$dir/home/state/rl46.meta")" = 1 ] \
+    || fail "the parked marker was written more than once"
+  tail -1 "$dir/home/state/rl46.meta" | grep -q '^pr=' \
+    || fail "the parked marker displaced the pr= tail: $(cat "$dir/home/state/rl46.meta")"
+  fm_pr_metadata_identity_parse "$dir/home/state/rl46.meta" \
+    || fail "the parked record no longer parses as a valid merge-poll identity"
+  [ "$(meta_mode "$dir" rl46)" = 600 ] \
+    || fail "the parked record is no longer private: $(meta_mode "$dir" rl46)"
+  pass "fm-control exit: a parked lane keeps its merge poll armed and private"
+}
+
+# Proves: relaunch CLEARS the parked marker. Without this the relaunched lane
+# would keep reading as parked and stay silently excluded from supervision -
+# the worst possible failure of this feature, since the lane is running again.
+test_relaunch_clears_the_parked_marker() {
+  local dir out rc
+  dir=$(new_case parkclear rl47)
+  add_ship_task "$dir" rl47 claude
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_control "$dir" rl47 exit --reason "resting"); rc=$?
+  expect_code 0 "$rc" "exit should succeed: $out"
+  [ -n "$(meta_field "$dir" rl47 parked)" ] || fail "the lane was not marked parked"
+  out=$(run_control "$dir" rl47 relaunch --note "back to work"); rc=$?
+  expect_code 0 "$rc" "relaunch should succeed: $out"
+  [ -z "$(meta_field "$dir" rl47 parked)" ] \
+    || fail "relaunch left the parked marker behind: $(cat "$dir/home/state/rl47.meta")"
+  [ -z "$(meta_field "$dir" rl47 parked_reason)" ] \
+    || fail "relaunch left the parked reason behind: $(cat "$dir/home/state/rl47.meta")"
+  pass "fm-control relaunch: the parked marker is dropped by the republished record"
+}
+
+# Proves --reason stays scoped to exit and stays a single record field.
+test_reason_is_scoped_and_single_line() {
+  local dir out rc
+  dir=$(new_case parkreason rl48)
+  add_ship_task "$dir" rl48 claude
+  out=$(run_control "$dir" rl48 relaunch --note n --reason r); rc=$?
+  expect_code 1 "$rc" "--reason should be refused on relaunch"
+  assert_contains "$out" "--reason applies to 'exit' only" "the refusal should name the scope"
+  out=$(run_control "$dir" rl48 exit --reason "$(printf 'one\ntwo')"); rc=$?
+  expect_code 1 "$rc" "a multi-line reason should be refused"
+  assert_contains "$out" "single line" "the refusal should name the single-line rule"
+  pass "fm-control: --reason is exit-only and single-line"
+}
+
 test_spawn_relaunch_refuses_an_unrecorded_task() {
   local dir out rc
   dir=$(new_case norecord rl17)
@@ -1699,5 +1788,9 @@ test_spawn_relaunch_refuses_an_unrecorded_task
 test_spawn_relaunch_resets_a_pane_outside_the_worktree
 test_spawn_relaunch_recreates_a_missing_endpoint
 test_spawn_relaunch_still_refuses_a_live_agent
+test_exit_records_the_parked_marker
+test_a_parked_lane_keeps_its_merge_poll
+test_relaunch_clears_the_parked_marker
+test_reason_is_scoped_and_single_line
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight

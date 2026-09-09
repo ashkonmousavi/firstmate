@@ -211,7 +211,7 @@ NOTE=
 NOTE_SET=0
 REASON=
 REASON_SET=0
-control_want_value
+control_want_value=
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
     case "$control_arg" in

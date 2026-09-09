@@ -275,6 +275,34 @@ Unlike tmux process-name inspection, native registration can classify Pi without
 The session-start sweep uses this probe.
 Mid-session secondmate agent-process liveness is not implemented because idle secondmates are deliberately exempt from stale-pane escalation and need a separate periodic identity signal.
 
+### A restored task pane is not the incarnation Firstmate launched
+
+Restoring a session restores the pane, not the agent Firstmate put in it, and the two failure shapes are different.
+
+A restored pane with no registered agent classifies as `dead` and is already handled: the husk path replaces it, and relaunch adopts or recreates the endpoint.
+
+A restored pane that Herdr resumed is the harder case, and it is real.
+Measured on this host against Herdr 0.9.0 after the 2026-09-09 restart: a task pane came back with `agent get` reporting a registered `codex` agent - so `fm_backend_herdr_pane_agent_state` answered `live` and the generic probe answered `alive` - while `pane get`'s `foreground_cwd` reported the project clone rather than that task's recorded worktree, and the resumed process carried none of the launch flags `bin/fm-spawn.sh` had started it with.
+Firstmate therefore read a healthy running worker where there was an agent in the wrong directory whose first write outside that directory would block on an approval prompt.
+
+The classifier is not wrong and is not changed: a registered agent genuinely is live.
+What a restored pane cannot tell Firstmate is *whose* incarnation it is.
+
+**Firstmate does not try to make Herdr relaunch the agent for it.**
+The alternative would be to carry a launch command in the presentation journal's restart binding, and that is prohibited rather than merely unsupported: `AGENTS.md` section 2 states that journal is "never task or endpoint authority".
+It records an attempt-and-restart binding for a visual projection and nothing else, and the journal format is not extended here.
+
+The supported shape is the other one.
+A Firstmate task pane that comes back from a restore is treated as a plain terminal, and Firstmate relaunches the task through `bin/fm-control.sh <id> relaunch`, which is the single owner of putting a recorded harness, model, effort, delivery mode and yolo posture back into a recorded worktree ([`agent-control.md`](agent-control.md)).
+That path already covers every restored shape, because it resolves endpoint and worktree independently: a pane whose shell drifted to the creation directory is reset into the recorded worktree, and a pane that did not come back at all is recreated in the task's own recorded session and workspace.
+
+The signal that a restored pane needs that relaunch is the working directory, which is also the cheapest honest one available.
+A pane restored into its creation directory is sitting in the project clone; a pane Firstmate launched is in the task's own worktree, because `treehouse get` moved it there in a subshell that a restore does not recreate.
+`fm_backend_herdr_current_path` reads `foreground_cwd` for exactly this reason - `pane get`'s `cwd` is frozen at creation time and would report the project clone for a healthy pane too.
+
+Operationally: after a server or machine restart, do not read `alive` as "this lane is fine".
+Relaunch the tasks whose panes were restored.
+
 ## Push events and polling fallback
 
 Protocol 16 can subscribe to `pane.agent_status_changed` over one bounded Unix-socket reader.

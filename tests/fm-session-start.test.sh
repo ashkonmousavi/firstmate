@@ -1328,6 +1328,42 @@ EOF
   pass "tmux endpoint liveness is reported per task: alive for a live window, dead for a gone one"
 }
 
+
+# Proves: a PARKED lane is reported as parked, not as a bare `alive`. A parked
+# lane's terminal is deliberately preserved and holds no agent, so the liveness
+# probe alone reads `alive` - which in the digest reads as a healthy running
+# worker and is the opposite of what it is. Red before the parked marker
+# existed (the digest printed a bare alive); green after. The gone-terminal
+# case is asserted alongside it, because after a restart a parked lane can be
+# either and both must say what the lane actually is.
+test_endpoint_liveness_reports_a_parked_lane() {
+  local rec root home fakebin out
+  rec=$(new_world liveness-parked)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_claude "$fakebin"
+  make_fake_tmux "$fakebin" "fm-sess:live-window"
+
+  printf 'window=fm-sess:live-window\nkind=ship\nparked=%s\nparked_reason=resting while the fleet is over capacity\n' \
+    "$(( $(date +%s) - 900 ))" > "$home/state/task-parked.meta"
+  printf 'window=fm-sess:gone-window\nkind=ship\nparked=%s\n' \
+    "$(( $(date +%s) - 900 ))" > "$home/state/task-parked-gone.meta"
+  printf 'window=fm-sess:live-window\nkind=ship\n' > "$home/state/task-running.meta"
+
+  out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH")
+  assert_contains "$out" "endpoint: parked - agent stopped, worktree and branch preserved, relaunch to resume" \
+    "a parked lane with a preserved terminal was not reported parked"
+  assert_contains "$out" "resting while the fleet is over capacity" \
+    "the parked reason was not carried into the digest"
+  assert_contains "$out" "endpoint: parked, terminal gone" \
+    "a parked lane whose terminal is gone was not reported parked"
+  assert_contains "$out" "endpoint: alive (backend=tmux window=fm-sess:live-window)" \
+    "an ordinary running lane on the same window must still report alive"
+  pass "session start: a parked lane is reported parked, never a bare alive or dead"
+}
+
 test_endpoint_liveness_herdr() {
   local rec root home fakebin out
   rec=$(new_world liveness-herdr)
@@ -2588,6 +2624,7 @@ test_status_tail_line_cap
 test_orphan_status_logs_are_printed
 test_endpoint_liveness_tmux
 test_endpoint_liveness_herdr
+test_endpoint_liveness_reports_a_parked_lane
 test_composition_invokes_real_scripts
 test_branch_outcome_replay_respects_captain_barrier_and_lease_sweep
 test_non_pi_session_start_leaves_branch_state_untouched

@@ -1908,6 +1908,82 @@ test_nonterminal_stale_not_working_surfaced() {
   pass "a not-provably-working non-terminal stale is surfaced immediately (never left to wait out the timer)"
 }
 
+# --- non-terminal stale, lane PARKED: absorbed and never re-surfaced ---------
+# The live 2026-09-09 case: fifteen lanes whose agents firstmate had deliberately
+# stopped (bin/fm-control.sh exit, worktree and branch preserved) each cost a
+# supervision turn every few minutes. They were reaching the declared-wait
+# cadence, which exists so a wait on something OUTSIDE firstmate cannot rot
+# invisibly. A parked lane has no such outside: firstmate stopped it and only a
+# firstmate relaunch starts it again, so every re-surface reports a fact
+# firstmate wrote into the record itself. Parked is therefore absorbed with NO
+# re-surface, which is exactly what phase B pins - the same ageing that MUST
+# re-surface a declared pause must leave a parked lane silent.
+test_nonterminal_stale_parked_absorbed_and_never_resurfaced() {
+  local dir state fakebin out capture_file window key pane_hash sig pid back statusf
+  dir=$(make_case nonterminal-stale-parked); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"
+  window="test:fm-parked"
+  printf 'idle placeholder shell' > "$capture_file"
+  # The durable parked marker is the ONLY thing that identifies this lane: its
+  # terminal is deliberately preserved and its last status line is an ordinary
+  # working: line, because the worker exited without writing a terminal status.
+  printf 'window=%s\nkind=ship\nparked=%s\nparked_reason=resting while the fleet is over capacity\n' \
+    "$window" "$(( $(date +%s) - 4000 ))" > "$state/parked.meta"
+  statusf="$state/parked.status"
+  printf 'working: mid-refactor\n' > "$statusf"
+  sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-parked_status"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "idle placeholder shell")
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  # No crew-state verdict is stubbed on purpose: the parked branch must answer
+  # from the record BEFORE any crew-state read, since a stopped agent's pane and
+  # run-step can only ever answer `unknown`.
+  export FM_FAKE_CREW_STATE='state: unknown · source: none · no current-state source available'
+
+  # Phase A: absorbed. No wake, no queued wake, no wedge timer.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_FAKE_TMUX_CURRENT_COMMAND=zsh \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_PAUSE_RESURFACE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "watcher exited for a parked lane (should absorb): $(cat "$out")"
+  fi
+  [ ! -s "$out" ] || fail "parked lane printed a wake reason during absorb: $(cat "$out")"
+  [ ! -s "$state/.wake-queue" ] || fail "parked lane enqueued a wake during absorb"
+  [ "$(cat "$state/.stale-$key" 2>/dev/null || true)" = "$pane_hash" ] || fail "stale suppressor not advanced on parked absorb"
+  [ ! -e "$state/.stale-since-$key" ] || fail "a parked absorb must not start the wedge timer"
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the intentional parked phase-A stop"
+
+  # Phase B: the distinguishing behavior. Age the record well past the
+  # re-surface threshold and change the pane hash - the exact combination that
+  # re-surfaces a declared pause - and require silence anyway.
+  back=$(( $(date +%s) - 5000 ))
+  if [ "$(uname)" = Darwin ]; then touch -mt "$(date -r "$back" '+%Y%m%d%H%M.%S')" "$statusf"
+  else touch -m -d "@$back" "$statusf"; fi
+  sig=$(seen_sig "$statusf"); printf '%s' "$sig" > "$state/.seen-parked_status"
+  : > "$out"
+  printf 'idle placeholder shell (token 2)' > "$capture_file"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_FAKE_TMUX_CURRENT_COMMAND=zsh \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_PAUSE_RESURFACE_SECS=240 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid"; then
+    reap "$pid"; fail "watcher exited for an aged parked lane (should stay absorbed): $(cat "$out")"
+  fi
+  [ ! -s "$out" ] || fail "an aged parked lane re-surfaced: $(cat "$out")"
+  [ ! -s "$state/.wake-queue" ] || fail "an aged parked lane enqueued a wake"
+  [ ! -e "$state/.paused-resurfaced-$key" ] || fail "a parked lane took the declared-wait re-surface cadence"
+  [ ! -e "$state/.stale-since-$key" ] || fail "an aged parked lane started the wedge timer"
+  reap "$pid"
+  ack_stopped_cycle "$state" 2>/dev/null || true
+  unset FM_FAKE_CREW_STATE
+  pass "a parked lane is absorbed and never re-surfaced, however long it sits"
+}
+
 # --- non-terminal stale, crew DECLARED a pause: absorbed, re-surfaced on a long
 #     cadence, never wedge-escalated ------------------------------------------
 # The live 2026-07-09/10 case: a crew intentionally held awaiting an upstream tool
@@ -4149,6 +4225,7 @@ test_afk_busy_declared_pause_hands_off_plain_stale
 test_afk_busy_declared_pause_ticking_pane_hands_off_once
 test_nonterminal_stale_not_working_surfaced
 test_nonterminal_stale_paused_absorbed_then_resurfaced
+test_nonterminal_stale_parked_absorbed_and_never_resurfaced
 test_exited_declared_pause_is_bounded_but_live_gate_surfaces
 test_absorbed_replacement_wait_does_not_inherit_the_old_throttle
 test_live_declared_wait_churn_honors_the_resurface_throttle
