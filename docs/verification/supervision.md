@@ -206,11 +206,12 @@ Each pass polled `state/<id>.busy-state` while a real turn ran.
 | Pi | 0.82.0 | Extension `agent_start` / `agent_settled` with `ctx.isIdle()` | The spawn seed `busy source=fm-spawn`, then `busy source=pi-ext event=agent-start`, then `idle source=pi-ext event=agent-settled`; the turn-end marker was still touched. |
 | OpenCode | 1.17.18 | Plugin `session.status` | In a real TUI pane: seed, then `busy source=opencode-plugin event=session-busy`, then `idle source=opencode-plugin event=session-status-idle`. |
 | Claude | 2.1.220 (Claude Code) | Hooks `UserPromptSubmit`, `Stop`, `StopFailure`, `SessionEnd` | `UserPromptSubmit` fired for the argv launch prompt and each steer, and `Stop` closed every completed turn. A mid-stream Escape interrupt fired no closing hook, which is why the firstmate-controlled clear exists. `StopFailure` and `SessionEnd` are wired from the four hook names present in the installed binary; only the abnormal paths they cover were not reproduced live. |
-| Codex | codex-cli 0.145.0 | None usable | See below; classifies `unknown codex-unverified`. |
+| Codex | codex-cli 0.153.4 | None usable | See below; classifies `unknown codex-unverified`. Refreshed 2026-09-09; the 2026-07-28 verdict for 0.145.0 reproduces unchanged. |
 | Kimi (standalone) | not installed | None usable | No binary on `PATH`, so the gate stays closed and it classifies `unknown kimi-unverified`. |
 | Grok | 0.2.112 | Isolated rendered-tail fallback | Retained unconverted; the approved audit could not credit a live structured-lifecycle run. |
 
-Codex was probed two ways, both refused:
+Codex was probed two ways, both refused.
+The 2026-07-28 probe on 0.145.0 ran:
 
 ```sh
 codex app-server daemon start
@@ -218,9 +219,37 @@ codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-
 ```
 
 The daemon refused with `managed standalone Codex install not found`, and an interactive TUI worker neither starts nor attaches to the app-server control socket, so no client can observe its turns.
-In this 2026-07-28 Codex 0.145.0 semantic-busy probe, Firstmate-written lifecycle project hooks under `<worktree>/.codex/hooks.json` fired for neither an interactive pane whose directory trust was granted nor `codex exec`, in both cases with `--dangerously-bypass-hook-trust`, while an untracked global probe fired in the same runs; Firstmate does not ship, install, recommend, or depend on that global path.
+In that probe, Firstmate-written lifecycle project hooks under `<worktree>/.codex/hooks.json` fired for neither an interactive pane whose directory trust was granted nor `codex exec`, in both cases with `--dangerously-bypass-hook-trust`, while an untracked global probe fired in the same runs; Firstmate does not ship, install, recommend, or depend on that global path.
 Codex also exposes no `StopFailure` hook, so an API-error turn end would need separate coverage even after hook discovery works.
 The app-server protocol schema does define the required lifecycle (`turn/started`, plus a `turn/completed` status of `completed`, `interrupted`, `failed`, or `inProgress`), so the gate is a reachability problem rather than a protocol gap.
+
+### 2026-09-09 refresh against codex-cli 0.153.4
+
+Both probes were re-run on the installed 0.153.4 and both verdicts stand, so the gate stays closed and Codex still classifies `unknown codex-unverified`.
+
+App server, read-only, while eleven live Codex pane workers were running on this host:
+
+```sh
+codex app-server daemon version
+# Error: failed to connect to /home/tegris/.codex/app-server-control/app-server-control.sock
+# Caused by: No such file or directory (os error 2)
+```
+
+The control socket did not exist at all, so none of those eleven interactive workers had started or attached to the shared daemon and no client could observe their turns.
+0.153.4 does add `codex agents` (browse sessions on the shared daemon) and `codex remote-control` over that same daemon; those change what an already-attached session exposes, not whether a Firstmate-launched pane worker attaches, so they do not reopen the gate.
+
+Hooks, run twice from a task worktree carrying its own `.codex/hooks.json` declaring `UserPromptSubmit`, `Stop`, and `SessionStart`, the second time additionally marking that worktree a trusted project inline:
+
+```sh
+codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust 'Reply with exactly PROBE2 and nothing else.'
+codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+  -c 'projects."<task-worktree>".trust_level="trusted"' 'Reply with exactly PROBE3 and nothing else.'
+```
+
+Both runs printed `hook: SessionStart`, `hook: UserPromptSubmit`, and `hook: Stop` as completed, and neither created any marker the worktree's own hook file asked for; the hooks that ran came from the global and plugin layers.
+Codex's own discovery code names the mechanism, and it is one that defeats Firstmate specifically rather than project hooks generally: hook discovery reads `<project>/.codex/hooks.json`, but for a **linked Git worktree** it redirects to the matching folder in the **root checkout** (`codex-rs/config/src/state.rs`, `hooks_config_folder`, retrieved through Context7 for `/openai/codex` on 2026-09-09).
+Every Firstmate task runs in a linked worktree, so a per-task hook file is never the file Codex reads, and the file it does read is a single checkout-wide path that can carry neither a per-task record path nor a per-task gen - and that Firstmate must not write into a project in any case.
+Opening this gate therefore needs a per-task discovery route, not a retry, and it must land together with the `fm-spawn` wiring behind the same gate; `tests/fm-crew-state.test.sh` pins the gate shut in the meantime.
 
 Deterministic entry points:
 

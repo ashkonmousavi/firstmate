@@ -310,6 +310,58 @@ EOF
 # A synthetic, never-real outcome word: proves the catch-all default rather
 # than pinning behavior to any one currently-unmapped real outcome (a future
 # release may map a real word like ci-monitor-interrupted explicitly).
+# A run whose CI monitor stopped before any merge verdict. no-mistakes reports
+# this terminal condition in TWO distinct spellings from ONE cause
+# (internal/types/types.go RunCIMonitorInterrupted = "ci_monitor_interrupted",
+# rendered by internal/cli/axi_drive.go outcomeFor as "ci-monitor-interrupted"),
+# so both are fixtures here. The PR stays open and intact - the daemon merely
+# restarted while babysitting it - so this is neither a pipeline failure nor a
+# green result.
+run_ci_monitor_interrupted_outcome() {  # <branch>
+  cat <<EOF
+run:
+  id: "01RUN"
+  branch: $1
+  status: ci_monitor_interrupted
+  head: "${FM_FAKE_RUN_HEAD:-abc1234}"
+  pr: "https://github.com/o/r/pull/430"
+  findings: none
+outcome: ci-monitor-interrupted
+EOF
+}
+
+run_ci_monitor_interrupted_status() {  # <branch>
+  cat <<EOF
+run:
+  id: "01RUN"
+  branch: $1
+  status: ci_monitor_interrupted
+  head: "${FM_FAKE_RUN_HEAD:-abc1234}"
+  pr: "https://github.com/o/r/pull/430"
+  findings: none
+  steps[3]{step,status,findings,duration_ms}:
+    push,completed,0,4617
+    pr,completed,0,14186
+    ci,skipped,0,0
+EOF
+}
+
+# outcomeForRun's other qualified-pass word (internal/cli/axi_render.go
+# automaticSkips): the run completed, but its PR or CI step was skipped
+# automatically, so nothing proved the change was published and checked.
+run_passed_with_skips() {  # <branch>
+  cat <<EOF
+run:
+  id: "01RUN"
+  branch: $1
+  status: completed
+  head: "${FM_FAKE_RUN_HEAD:-abc1234}"
+  pr: ""
+  findings: none
+outcome: passed-with-skips
+EOF
+}
+
 run_unrecognized_outcome() {  # <branch>
   cat <<EOF
 run:
@@ -1807,6 +1859,293 @@ EOF
   pass "runs-list continuation attribution works when axi answers another branch"
 }
 
+# --- Codex attribution and unmapped-terminal-state coverage -----------------
+# Advisor finding 13.8-2 (2026-09-08): every Codex lane read `unknown` while an
+# explicit run query answered correctly. Two independent mechanisms produced
+# that one symptom, and the four cases below are the closure set for both, each
+# one on a harness=codex lane so the unverified pane is present exactly as it is
+# in production. Codex has no verified semantic busy source on the installed
+# codex-cli (docs/verification/supervision.md), so `fm_busy_classify` answers
+# `unknown codex-unverified` for all four; a correct classification must
+# therefore come from the run record or the status log, never from the pane.
+
+# Closure case 1 of 4: one real running step. The run record is authoritative
+# even though the pane cannot be read at all, so an unverified adapter never
+# downgrades a lane that is provably mid-run.
+test_codex_running_step_beats_unverified_pane() {
+  reset_fakes
+  local d; d=$(new_case codex-running)
+  make_repo_on_branch "$d/wt" fm/feat-cxrun
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cxrun.meta" "window=fm:fm-feat-cxrun" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS="$(run_running fm/feat-cxrun)"
+  local out; out=$(run_crew_state "$d" feat-cxrun)
+  assert_contains "$out" "state: working" "codex running step -> working"
+  assert_contains "$out" "source: run-step" "codex running step -> run-step source"
+  assert_not_contains "$out" "codex-unverified" "a readable run must not mention the pane at all"
+  pass "codex lane with a running step reports working from the run, not the pane"
+}
+
+# Closure case 2 of 4: one actionable parked gate. The gate and its finding
+# count must survive on a Codex lane, because a gate nobody sees is a lane that
+# never gets its decision.
+test_codex_parked_gate_beats_unverified_pane() {
+  reset_fakes
+  local d; d=$(new_case codex-parked)
+  make_repo_on_branch "$d/wt" fm/feat-cxgate
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cxgate.meta" "window=fm:fm-feat-cxgate" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS="$(run_parked fm/feat-cxgate)"
+  local out; out=$(run_crew_state "$d" feat-cxgate)
+  assert_contains "$out" "state: parked" "codex parked gate -> parked"
+  assert_contains "$out" "source: run-step" "codex parked gate -> run-step source"
+  assert_contains "$out" "parked at review" "the gate is named"
+  assert_contains "$out" "ask-user" "an ask-user finding is surfaced for the authority decision"
+  pass "codex lane parked at a gate reports the actionable gate, not unknown"
+}
+
+# Closure case 3 of 4: one finished-but-unmerged run. `ci_monitor_interrupted`
+# means the daemon restarted while babysitting an already-created PR: the PR is
+# open and intact, but nothing ever reported a check verdict. That is neither
+# done nor failed, and it must never read as plain unknown, because unknown is
+# what let this condition sit unnoticed on live lanes.
+test_ci_monitor_interrupted_outcome_needs_inspection() {
+  reset_fakes
+  local d; d=$(new_case cimon-outcome)
+  make_repo_on_branch "$d/wt" fm/feat-cximon
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cximon.meta" "window=fm:fm-feat-cximon" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS="$(run_ci_monitor_interrupted_outcome fm/feat-cximon)"
+  local out; out=$(run_crew_state "$d" feat-cximon)
+  assert_contains "$out" "state: needs-inspection" "ci-monitor-interrupted outcome -> needs-inspection"
+  assert_not_contains "$out" "state: unknown" "the interrupted monitor must not collapse to unknown"
+  assert_not_contains "$out" "state: done" "an unverdicted PR must never read as done"
+  assert_not_contains "$out" "state: failed" "an intact PR must never read as a pipeline failure"
+  assert_contains "$out" "never autonomous" "the detail forbids an autonomous merge"
+  pass "ci-monitor-interrupted outcome reads as needs-inspection, never unknown"
+}
+
+# The same one condition reaches the reader through the `status:` field alone
+# (underscored spelling, no outcome line) whenever the run is read before the
+# outcome word is rendered. Same cause, same required verdict.
+test_ci_monitor_interrupted_status_needs_inspection() {
+  reset_fakes
+  local d; d=$(new_case cimon-status)
+  make_repo_on_branch "$d/wt" fm/feat-cximon2
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cximon2.meta" "window=fm:fm-feat-cximon2" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS="$(run_ci_monitor_interrupted_status fm/feat-cximon2)"
+  local out; out=$(run_crew_state "$d" feat-cximon2)
+  assert_contains "$out" "state: needs-inspection" "ci_monitor_interrupted status -> needs-inspection"
+  assert_not_contains "$out" "state: unknown" "the underscored spelling must not collapse to unknown"
+  assert_not_contains "$out" "state: working" "a stopped monitor is not an active run"
+  pass "ci_monitor_interrupted status reads as needs-inspection, never unknown"
+}
+
+# The coarse runs-ledger route carries the same status word for the same cause,
+# so the third reader of this one condition must agree with the other two.
+test_ci_monitor_interrupted_coarse_needs_inspection() {
+  reset_fakes
+  local d; d=$(new_case cimon-coarse)
+  make_repo_on_branch "$d/wt" fm/feat-cximon3
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cximon3.meta" "window=fm:fm-feat-cximon3" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS="$(run_running fm/other-branch)"
+  FM_FAKE_RUNS_LIST="ci_monitor_interrupted fm/feat-cximon3 ${FM_FAKE_RUN_HEAD:0:8} 2026-09-09 01:30 https://github.com/o/r/pull/430"
+  local out; out=$(run_crew_state "$d" feat-cximon3)
+  assert_contains "$out" "state: needs-inspection" "coarse ci_monitor_interrupted -> needs-inspection"
+  assert_not_contains "$out" "state: unknown" "the ledger route must not collapse to unknown either"
+  pass "ci_monitor_interrupted from the runs ledger reads as needs-inspection"
+}
+
+# outcomeForRun's other qualified pass: publication or checks were skipped
+# automatically, so the run completed without proving the change shipped and
+# passed. It shares passed-with-override's rule - a human looks before merge.
+test_passed_with_skips_needs_inspection() {
+  reset_fakes
+  local d; d=$(new_case passed-skips)
+  make_repo_on_branch "$d/wt" fm/feat-skips
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-skips.meta" "window=fm:fm-feat-skips" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_passed_with_skips fm/feat-skips)"
+  local out; out=$(run_crew_state "$d" feat-skips)
+  assert_contains "$out" "state: needs-inspection" "passed-with-skips -> needs-inspection"
+  assert_not_contains "$out" "state: done" "an automatic skip must never read as done"
+  assert_not_contains "$out" "state: unknown" "a recognized qualified pass is not unknown"
+  pass "passed-with-skips reads as needs-inspection, never done"
+}
+
+# Closure case 4 of 4: one retained idle worker. A Codex crew with NO run that
+# declared a bounded external wait is holding, not wedged. Before this fix the
+# unverified pane verdict terminated the read and answered `unknown`, throwing
+# away the crew's own declared reason; the pane cannot prove idleness, but it
+# also must not MASK the one source that spoke.
+test_codex_unverified_pane_falls_through_to_status_log() {
+  reset_fakes
+  local d; d=$(new_case codex-idle)
+  make_repo_on_branch "$d/wt" fm/feat-cxidle
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cxidle.meta" "window=fm:fm-feat-cxidle" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  printf 'paused: holding a green PR for the drained validation window\n' \
+    > "$d/state/feat-cxidle.status"
+  local out; out=$(run_crew_state "$d" feat-cxidle)
+  assert_contains "$out" "state: paused" "a declared wait is reported, not unknown"
+  assert_contains "$out" "source: status-log" "the log is named as the source that answered"
+  assert_contains "$out" "drained validation window" "the crew's own reason survives"
+  assert_contains "$out" "codex-unverified" "the unreadable pane is still named, never hidden"
+  assert_not_contains "$out" "state: unknown" "an unverified pane must not mask a real signal"
+  pass "codex lane with no run reports its declared wait and still names the unread pane"
+}
+
+# The same fall-through must NOT invent a state when the log has nothing usable:
+# with no run and no mappable log verb, the answer stays unknown and still names
+# the unverified adapter as the reason.
+test_codex_unverified_pane_with_no_log_stays_unknown() {
+  reset_fakes
+  local d; d=$(new_case codex-nolog)
+  make_repo_on_branch "$d/wt" fm/feat-cxnolog
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cxnolog.meta" "window=fm:fm-feat-cxnolog" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  local out; out=$(run_crew_state "$d" feat-cxnolog)
+  assert_contains "$out" "state: unknown" "no run and no log -> still unknown"
+  assert_contains "$out" "source: pane" "the unreadable pane is the reported source"
+  assert_contains "$out" "codex-unverified" "the unverified reason is named"
+  pass "codex lane with no run and no usable log stays unknown, naming the pane"
+}
+
+# The fall-through is scoped to adapters with no verified semantic source AT
+# ALL. A BROKEN record on a converted adapter is a wiring defect and must stay
+# loud rather than quietly reading the log: fm-busy-lib.sh's contract is
+# "malformed, stale, or untrusted records -> unknown, never a fallback".
+test_broken_busy_record_still_masks_the_log() {
+  reset_fakes
+  local d; d=$(new_case broken-record)
+  make_repo_on_branch "$d/wt" fm/feat-broken
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-broken.meta" "window=fm:fm-feat-broken" "worktree=$d/wt" \
+    "kind=ship" "harness=claude"
+  printf 'paused: holding for a window\n' > "$d/state/feat-broken.status"
+  # A record with no armed gen: the incarnation cannot be bound, so the
+  # classifier answers `unknown malformed` - this crew's own wiring is broken.
+  printf 'v1 gen=deadbeef seq=1 state=idle source=claude-hook event=stop ts=1\n' \
+    > "$d/state/feat-broken.busy-state"
+  local out; out=$(run_crew_state "$d" feat-broken)
+  assert_contains "$out" "state: unknown" "a broken busy record stays loud"
+  assert_contains "$out" "source: pane" "the broken record is reported as the pane source"
+  assert_not_contains "$out" "state: paused" "broken wiring must not be papered over by the log"
+  pass "a broken busy record still masks the status log, unlike an unverified adapter"
+}
+
+# Codex's semantic busy gate itself. fm-spawn refuses to launch Codex busy
+# wiring while this gate is shut (bin/fm-spawn.sh), and the classifier's
+# `codex-unverified` verdict - which the fall-through above depends on being a
+# by-design answer rather than a broken-wiring answer - is only correct while it
+# stays shut. Opening it is a change that must land WITH the fm-spawn wiring and
+# a refreshed record in docs/verification/supervision.md, never on its own.
+test_codex_semantic_gate_is_closed() {
+  ( . "$ROOT/bin/fm-busy-lib.sh"
+    if fm_busy_codex_semantic_source; then
+      fail "codex semantic busy gate is open without verified per-task wiring"
+    fi
+    if fm_busy_codex_appserver_observable; then
+      fail "codex app-server turn lifecycle claims observability it has not proven"
+    fi
+    if fm_busy_codex_hooks_verified; then
+      fail "codex lifecycle hooks claim verification they have not passed"
+    fi
+    if [ -n "$(fm_busy_sources_for_harness codex)" ]; then
+      fail "codex trusts a semantic source while its gate is closed"
+    fi
+  ) || return 1
+  pass "codex semantic busy gate stays closed, so codex-unverified is a by-design verdict"
+}
+
+# --- successor and integration-batch branch attribution ---------------------
+# The run that belongs to a task is not always on the branch name checked out
+# right now. bin/fm-pr-lib.sh's fm_pr_branch_matches_task is the ONE owner of
+# the task's branch family, and bin/fm-pr-check.sh --absorbed-by is the ONE
+# writer of the integration-batch binding; both are consumed here rather than
+# re-derived. The head proof is unchanged in every case below.
+
+# A crew that restarted a review round onto fm/<id>-r2 keeps one identity: the
+# run on the successor branch is still this task's run.
+test_successor_branch_run_is_attributed() {
+  reset_fakes
+  local d; d=$(new_case successor-branch)
+  # The worktree still sits on the task's base branch while the pipeline's run
+  # is on the -r2 successor, so exact branch equality does NOT match and only
+  # the task's branch family can bind the run.
+  make_repo_on_branch "$d/wt" fm/feat-succ
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-succ.meta" "window=fm:fm-feat-succ" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS="$(run_running fm/feat-succ-r2)"
+  local out; out=$(run_crew_state "$d" feat-succ)
+  assert_contains "$out" "state: working" "the -r2 successor run is this task's run"
+  assert_contains "$out" "source: run-step" "successor attribution uses the run record"
+  pass "a run on the -rN successor branch is attributed to its task"
+}
+
+# The integration-batch binding fm-pr-check.sh --absorbed-by records is read as
+# written: the combined branch that will actually land this constituent is this
+# task's branch for attribution.
+test_batch_constituent_branch_run_is_attributed() {
+  reset_fakes
+  local d; d=$(new_case batch-branch)
+  make_repo_on_branch "$d/wt" fm/feat-batch
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-batch.meta" "window=fm:fm-feat-batch" "worktree=$d/wt" \
+    "kind=ship" "harness=codex" "batch_role=constituent" \
+    "batch_constituent_branch=fm/combined-batch-1"
+  FM_FAKE_AXI_STATUS="$(run_running fm/combined-batch-1)"
+  local out; out=$(run_crew_state "$d" feat-batch)
+  assert_contains "$out" "state: working" "the combined batch run is this constituent's run"
+  assert_contains "$out" "source: run-step" "batch attribution uses the run record"
+  pass "a run on the recorded integration-batch branch is attributed to its constituent"
+}
+
+# The widened branch predicate must not become branch-name coincidence: an
+# unrelated branch is still not this task's run, so another crew's validation is
+# never reported as this one's.
+test_unrelated_branch_run_is_not_attributed() {
+  reset_fakes
+  local d; d=$(new_case unrelated-branch)
+  make_repo_on_branch "$d/wt" fm/feat-mine
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-mine.meta" "window=fm:fm-feat-mine" "worktree=$d/wt" \
+    "kind=ship" "harness=codex"
+  printf 'paused: holding for a window\n' > "$d/state/feat-mine.status"
+  FM_FAKE_AXI_STATUS="$(run_running fm/someone-elses-work)"
+  local out; out=$(run_crew_state "$d" feat-mine)
+  assert_not_contains "$out" "source: run-step" "another crew's run is never attributed here"
+  assert_contains "$out" "state: paused" "this crew falls back to its own declared wait"
+  pass "an unrelated branch's run is still not attributed after the predicate widened"
+}
+
+# A batch binding must not be honoured unless the task record actually declares
+# the constituent role, so a stale or partial field cannot bind a foreign run.
+test_batch_branch_without_constituent_role_is_not_attributed() {
+  reset_fakes
+  local d; d=$(new_case batch-norole)
+  make_repo_on_branch "$d/wt" fm/feat-norole
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-norole.meta" "window=fm:fm-feat-norole" "worktree=$d/wt" \
+    "kind=ship" "harness=codex" "batch_constituent_branch=fm/combined-batch-9"
+  printf 'paused: holding for a window\n' > "$d/state/feat-norole.status"
+  FM_FAKE_AXI_STATUS="$(run_running fm/combined-batch-9)"
+  local out; out=$(run_crew_state "$d" feat-norole)
+  assert_not_contains "$out" "source: run-step" "no constituent role means no batch attribution"
+  assert_contains "$out" "state: paused" "the crew falls back to its own declared wait"
+  pass "a batch branch without batch_role=constituent is not attributed"
+}
+
 test_active_run_is_authoritative
 test_stale_needs_decision_superseded
 test_stale_blocked_superseded
@@ -1937,5 +2276,20 @@ test_active_fix_round_unfetched_pipeline_head_reports_current
 test_unanchored_unfetched_active_row_does_not_match
 test_unresolved_terminal_row_is_history_not_current
 test_runs_list_continuation_found_when_axi_answers_other_branch
+
+test_codex_running_step_beats_unverified_pane
+test_codex_parked_gate_beats_unverified_pane
+test_ci_monitor_interrupted_outcome_needs_inspection
+test_ci_monitor_interrupted_status_needs_inspection
+test_ci_monitor_interrupted_coarse_needs_inspection
+test_passed_with_skips_needs_inspection
+test_codex_unverified_pane_falls_through_to_status_log
+test_codex_unverified_pane_with_no_log_stays_unknown
+test_broken_busy_record_still_masks_the_log
+test_codex_semantic_gate_is_closed
+test_successor_branch_run_is_attributed
+test_batch_constituent_branch_run_is_attributed
+test_unrelated_branch_run_is_not_attributed
+test_batch_branch_without_constituent_role_is_not_attributed
 
 echo "all fm-crew-state tests passed"

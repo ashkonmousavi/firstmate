@@ -85,6 +85,11 @@
 # installed binary, so Codex classifies unknown codex-unverified rather than
 # falling back to idle, and fm-spawn installs no Codex busy wiring.
 # docs/verification/supervision.md owns the evidence for both probes.
+# Because that verdict is a property of the INSTALLED HARNESS rather than
+# evidence about any one crew, bin/fm-crew-state.sh treats codex-unverified
+# (and kimi-unverified) as "no semantic source exists here" and lets the status
+# log answer instead, while every other unknown - malformed, gen-mismatch,
+# source-mismatch - still means THIS crew's wiring is broken and stays loud.
 #
 # Sourcing: set -u and set -e safe; no subshell-unfriendly globals.
 
@@ -117,12 +122,16 @@ fm_busy_kimi_verified() {
 # fm_busy_codex_appserver_observable: capability/version negotiation for the
 # Codex app-server turn lifecycle. Returns 0 only when a pane worker's turns
 # are observable through the app-server protocol on the installed binary.
-# codex-cli 0.145.0 verdict (live, 2026-07-28): NOT observable. The v2
-# protocol does define the needed turn lifecycle (turn/started plus a
-# turn/completed status of completed, interrupted, failed, or inProgress),
-# but an interactive TUI worker neither starts nor attaches to the
-# app-server daemon, and `codex app-server daemon start` refuses outside the
-# managed standalone install, so no client can observe a pane worker's turns.
+# codex-cli 0.153.4 verdict (live, 2026-09-09): still NOT observable, and
+# 0.145.0's verdict (2026-07-28) stands unchanged. The v2 protocol does define
+# the needed turn lifecycle (turn/started plus a turn/completed status of
+# completed, interrupted, failed, or inProgress), but an interactive TUI worker
+# still neither starts nor attaches to the shared daemon: with eleven live
+# Codex pane workers running on this host, the control socket
+# ~/.codex/app-server-control/app-server-control.sock did not exist at all, so
+# no client could observe any of their turns. 0.153.4 adds `codex agents` and
+# `codex remote-control` over that same daemon, which changes what an ATTACHED
+# session exposes, not whether a firstmate-launched pane worker attaches.
 fm_busy_codex_appserver_observable() {
   return 1
 }
@@ -130,13 +139,24 @@ fm_busy_codex_appserver_observable() {
 # fm_busy_codex_hooks_verified: the sanctioned intermediate - Codex's stable
 # hooks engine (UserPromptSubmit to open a turn, Stop and SessionEnd to close
 # it). Returns 0 only once those hooks are live-verified to fire for a
-# firstmate-launched worker. codex-cli 0.145.0 verdict (live, 2026-07-28):
-# NOT verified. Firstmate-written project hooks under <worktree>/.codex/
-# never fired in an interactive pane whose directory trust was granted, nor
-# under `codex exec`, in either case with --dangerously-bypass-hook-trust,
-# while global hooks fired in the same runs. Codex additionally exposes no
-# StopFailure hook, so an API-error turn end would need separate coverage
-# even after the discovery problem is solved.
+# firstmate-launched worker. codex-cli 0.153.4 verdict (live, 2026-09-09):
+# still NOT verified, reproducing 0.145.0's 2026-07-28 verdict.
+# A hooks.json written into a TASK WORKTREE's own .codex/ fired none of
+# UserPromptSubmit, Stop, or SessionStart under `codex exec` with
+# --dangerously-bypass-hook-trust, with or without that worktree marked a
+# trusted project, while global and plugin hooks fired in the same runs.
+# What was OBSERVED is only that the worktree's own file is never read. Codex's
+# own discovery code documents the mechanism that explains it: hook discovery
+# reads <project>/.codex/hooks.json, but for a LINKED GIT WORKTREE it can
+# redirect to the matching folder in the ROOT checkout
+# (codex-rs/config/src/state.rs hooks_config_folder). If that is the route, it
+# defeats firstmate specifically rather than project hooks generally, because
+# every firstmate task runs in a linked worktree and the redirect target would
+# be one shared checkout-wide path - carrying neither a per-task record path
+# nor a per-task gen, and one firstmate must not write into a project anyway.
+# Either way the gate stays shut: no per-task discovery route is proven.
+# Codex additionally exposes no StopFailure hook, so an API-error turn end
+# would need separate coverage even after the discovery problem is solved.
 fm_busy_codex_hooks_verified() {
   return 1
 }

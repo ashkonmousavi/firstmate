@@ -37,8 +37,17 @@
 #      gone/dead.
 #   2. Matching no-mistakes run for this crew's branch AND current code identity,
 #      active or terminal (from `axi status`, or the coarse `no-mistakes runs`
-#      fallback)? Branch name alone is not enough: a historical run on a reused
-#      branch whose head was rewritten or diverged must not be attributed.
+#      fallback)? "This crew's branch" is the task's branch FAMILY, not just the
+#      name checked out right now: the checked-out branch, the contract-blessed
+#      -fixN/-rN successors owned by fm_pr_branch_matches_task in
+#      bin/fm-pr-lib.sh, and the integration-batch branch recorded in this
+#      task's own metadata by `fm-pr-check.sh --absorbed-by`
+#      (batch_role=constituent plus batch_constituent_branch). Both bindings are
+#      CONSUMED from their existing owners; no second mapping is derived here.
+#      Branch name alone is still not enough: a historical run on a reused
+#      branch whose head was rewritten or diverged must not be attributed, and
+#      widening which NAMES may belong to this task never relaxes that head
+#      proof.
 #      A run matches when its head equals the worktree HEAD, or the worktree HEAD
 #      is an ancestor of the run head (pipeline fix commits advanced the run on
 #      the same line of history). Local work that advanced past the run head, or
@@ -64,7 +73,18 @@
 #      CI check that was still red - no-mistakes 1.64.0+, internal/cli/axi_drive.go
 #      outcomeForRun, identical string in v1.64.0 and v1.65.4) is NEVER folded
 #      into done: it maps to its own needs-inspection state so a merge decision
-#      still requires a human look, never autonomous action.
+#      still requires a human look, never autonomous action. Two sibling
+#      terminal words share that rule rather than collapsing to unknown, which
+#      is what let them sit unnoticed on live lanes: passed-with-skips (the run
+#      completed but its PR or CI step was skipped automatically, so nothing
+#      proved the change shipped and passed), and ci-monitor-interrupted /
+#      ci_monitor_interrupted (the daemon restarted while babysitting an
+#      already-created PR; the PR is open and intact, so this is neither a
+#      failure nor a green result). no-mistakes renders that ONE condition in
+#      two spellings - internal/types/types.go RunCIMonitorInterrupted is the
+#      underscored status, internal/cli/axi_drive.go outcomeFor renders the
+#      hyphenated outcome - and it also reaches the coarse runs-ledger route, so
+#      all three readers below map it identically.
 #   3. Reconcile the status log: if its last line says needs-decision/blocked but
 #      the run-step shows the run moved on, the log is deterministically stale and
 #      is flagged superseded. A genuinely parked run plus a needs-decision log
@@ -73,6 +93,16 @@
 #      recorded backend's pane busy state, then the status log's last line only
 #      when its verb maps to a recognized run-state. Decision-only events such as
 #      `resolved` never become current state or detail.
+#      An adapter with NO verified semantic source at all (bin/fm-busy-lib.sh's
+#      codex-unverified and kimi-unverified) is a fact about the installed
+#      harness, not evidence about this crew, so it does not MASK the status
+#      log: the log still answers, and the unread pane is named in the detail.
+#      Every OTHER unknown verdict - malformed, gen-mismatch, source-mismatch,
+#      capture-failed - means THIS crew's own wiring is broken and stays loud
+#      as unknown, per fm-busy-lib.sh's "malformed, stale, or untrusted records
+#      -> unknown, never a fallback". Neither path invents certainty from a
+#      pane: one reports a source that actually spoke, the other reports that
+#      nothing did.
 #   5. Missing meta or torn-down worktree: report unknown · none. If no run is
 #      attributed to this crew, a dead endpoint also reports unknown · none rather
 #      than trusting a stale status log.
@@ -96,6 +126,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-busy-lib.sh"
 # shellcheck source=bin/fm-nm-run-lib.sh
 . "$SCRIPT_DIR/fm-nm-run-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
 
 ID=${1:-}
 [ -n "$ID" ] || { echo "usage: fm-crew-state.sh <id>" >&2; exit 2; }
@@ -437,6 +469,36 @@ nm_run_head_matches_worktree() {
   fm_nm_head_matches_worktree "$WT" "$run_head"
 }
 
+# 0 when run branch $1 is a branch of THIS task, not merely a branch whose
+# name happens to equal the checked-out one. Three accepted shapes, in the
+# order they are cheapest to prove:
+#   1. exactly the checked-out branch - the historical rule, unchanged;
+#   2. the task's own contract-blessed branch family, whose ONE owner is
+#      fm_pr_branch_matches_task in bin/fm-pr-lib.sh (fm/<id> plus the -fixN
+#      and -rN retry successors bin/fm-pr-check.sh already records a PR under).
+#      A crew that restarted a review round onto fm/<id>-r2 keeps one identity
+#      here instead of losing its run the moment the branch name gains a suffix;
+#   3. the integration-batch branch this task was absorbed into, read from the
+#      binding bin/fm-pr-check.sh --absorbed-by already writes into the task
+#      record (batch_role=constituent plus batch_constituent_branch). Nothing
+#      new is derived: the combined branch is consumed exactly as recorded.
+# This widens ONLY which branch NAMES can belong to this task. The head proof
+# is untouched - every caller below still requires fm_nm_head_matches_worktree
+# or the pipeline-owned-active custody exemption - so the reused-branch
+# misattribution the head rule exists to prevent stays prevented.
+BATCH_ROLE=$(meta_value batch_role)
+BATCH_BRANCH=$(meta_value batch_constituent_branch)
+run_branch_is_this_task() {  # <run-branch>
+  local candidate=${1:-}
+  [ -n "$candidate" ] || return 1
+  [ "$candidate" = "$CREW_BRANCH" ] && return 0
+  if [ "$BATCH_ROLE" = constituent ] && [ -n "$BATCH_BRANCH" ] \
+    && [ "$candidate" = "$BATCH_BRANCH" ]; then
+    return 0
+  fi
+  fm_pr_branch_matches_task "$candidate" "$ID" "$CREW_BRANCH"
+}
+
 HAVE_RUN=0
 # RUN_SOURCE distinguishes the two ways HAVE_RUN=1 can happen: "full" means
 # $RUN_OUT is real `axi status` TOON with step/gate detail (including a
@@ -456,7 +518,7 @@ if [ "$KIND" = ship ] && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/n
     # pipeline owns this branch, the daemon's own branch attribution is
     # authoritative and the lane head need not be a git object here
     # (fm_nm_run_is_pipeline_owned_active in bin/fm-nm-run-lib.sh).
-    if [ -n "$run_branch" ] && [ "$run_branch" = "$CREW_BRANCH" ] \
+    if run_branch_is_this_task "$run_branch" \
       && { nm_run_head_matches_worktree || fm_nm_run_is_pipeline_owned_active "$RUN_OUT"; }; then
       HAVE_RUN=1
     else
@@ -474,7 +536,7 @@ if [ "$KIND" = ship ] && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/n
         # continuation, so its axi TOON is the authoritative run detail
         # (RUN_SOURCE stays full); only a foreign-branch answer leaves
         # coarse status-word detail.
-        [ "$run_branch" = "$CREW_BRANCH" ] || RUN_SOURCE=coarse
+        run_branch_is_this_task "$run_branch" || RUN_SOURCE=coarse
       fi
     fi
   fi
@@ -500,6 +562,10 @@ if [ "$HAVE_RUN" = 1 ]; then
     case "$COARSE_STATUS" in
       running)   RUN_STATE=working; RUN_DETAIL="validating (background run)" ;;
       completed) RUN_STATE="done";  RUN_DETAIL="run completed" ;;
+      ci_monitor_interrupted)
+        RUN_STATE=needs-inspection
+        RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
+        ;;
       failed)    RUN_STATE=failed;  RUN_DETAIL="run failed" ;;
       cancelled) RUN_STATE=failed;  RUN_DETAIL="run cancelled" ;;
       *)         RUN_STATE=unknown; RUN_DETAIL="runs list status: $COARSE_STATUS" ;;
@@ -520,6 +586,14 @@ if [ "$HAVE_RUN" = 1 ]; then
         passed-with-override)
           RUN_STATE=needs-inspection
           RUN_DETAIL="run passed with a CI approval override: needs inspection before merge, never autonomous"
+          ;;
+        passed-with-skips)
+          RUN_STATE=needs-inspection
+          RUN_DETAIL="run passed with an automatic PR/CI skip: needs inspection before merge, never autonomous"
+          ;;
+        ci-monitor-interrupted)
+          RUN_STATE=needs-inspection
+          RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
           ;;
         failed)        RUN_STATE=failed; RUN_DETAIL="run failed" ;;
         cancelled)     RUN_STATE=failed; RUN_DETAIL="run cancelled" ;;
@@ -545,6 +619,10 @@ if [ "$HAVE_RUN" = 1 ]; then
         ci)             RUN_STATE=working; RUN_DETAIL="ci running" ;;
         running|fixing) RUN_STATE=working; RUN_DETAIL="validating ($status)" ;;
         completed)      RUN_STATE="done"; RUN_DETAIL="run completed" ;;
+        ci_monitor_interrupted)
+          RUN_STATE=needs-inspection
+          RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
+          ;;
         failed)         RUN_STATE=failed;  RUN_DETAIL="run failed" ;;
         cancelled)      RUN_STATE=failed;  RUN_DETAIL="run cancelled" ;;
         "")             RUN_STATE=working; RUN_DETAIL="run active" ;;
@@ -616,12 +694,29 @@ pane_readable "$BACKEND_TARGET" || emit unknown none "backend target gone: $BACK
 # Only an exact busy verdict reports working here, and only an exact idle
 # verdict permits the status-log fallback below. Missing, malformed, stale, or
 # unverified semantic state remains unknown.
+# PANE_UNVERIFIED holds a verdict that means "this adapter has no verified
+# semantic source AT ALL" (bin/fm-busy-lib.sh answers those two before it ever
+# reads a record). That is a permanent property of the installed harness, not
+# evidence about this crew, so it must not MASK the status log the way a broken
+# record must: a Codex crew that appended `paused: <reason>` reported a real
+# declared wait, and answering `unknown` there loses it and makes the crew look
+# wedge-suspect. Every OTHER unknown - malformed, gen-mismatch, source-mismatch,
+# capture-failed - means this crew's own wiring is broken and stays loud, per
+# fm-busy-lib.sh's "malformed, stale, or untrusted records -> unknown, never a
+# fallback". The reason is still named in whichever line is finally emitted, so
+# no certainty is invented from a pane either way.
+PANE_UNVERIFIED=""
 if [ "$KIND" != secondmate ]; then
   BUSY_VERDICT=$(crew_busy_verdict "$BACKEND_TARGET")
   case "${BUSY_VERDICT%% *}" in
     busy) emit working pane "harness busy (${BUSY_VERDICT#* })" ;;
     idle) ;;
-    *) emit unknown pane "harness state unavailable ($BUSY_VERDICT)" ;;
+    *)
+      case "${BUSY_VERDICT#* }" in
+        codex-unverified|kimi-unverified) PANE_UNVERIFIED=$BUSY_VERDICT ;;
+        *) emit unknown pane "harness state unavailable ($BUSY_VERDICT)" ;;
+      esac
+      ;;
   esac
 fi
 
@@ -638,8 +733,14 @@ fi
 if [ -n "$LOG_VERB" ]; then
   LOG_STATE=$(map_log_state "$LOG_LINE")
   if [ "$LOG_STATE" != unknown ]; then
-    emit "$LOG_STATE" status-log "$(status_line_note "$LOG_LINE")"
+    LOG_DETAIL=$(status_line_note "$LOG_LINE")
+    [ -z "$PANE_UNVERIFIED" ] || LOG_DETAIL="$LOG_DETAIL${SEP}pane not readable for state ($PANE_UNVERIFIED)"
+    emit "$LOG_STATE" status-log "$LOG_DETAIL"
   fi
 fi
+
+# No usable log either: report the unreadable pane as the reason, exactly as
+# before this fall-through existed.
+[ -z "$PANE_UNVERIFIED" ] || emit unknown pane "harness state unavailable ($PANE_UNVERIFIED)"
 
 emit unknown none "no current-state source available"
