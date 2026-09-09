@@ -681,6 +681,20 @@ if [ "$DEPS_NEEDED" -eq 1 ]; then
   fm_deploy_ssh "sudo '$FM_DEPLOY_TGT_python' -m pip install -e '$CO'" \
     || step_failed "could not install $PROJECT's dependencies: the editable install for $TARGET_SHA failed"
   DEP_COMMANDS="pip install -e"
+
+  # The editable install just run writes its own metadata directory into the
+  # checkout's protected src tree, and deploy/PROVISIONING.md requires it gone:
+  # the launcher and the dashboard service both refuse to run while it is
+  # present. Removed as root, right beside the install that wrote it, and its
+  # absence is proved by a listing rather than assumed from rm's exit status.
+  fm_deploy_ssh "sudo rm -rf '$CO'/src/*.egg-info" \
+    || step_failed "could not remove $PROJECT's editable-install metadata directory under $CO/src for $TARGET_SHA"
+  DEP_COMMANDS="$DEP_COMMANDS; rm -rf src/*.egg-info"
+  EGG_INFO_LEFT=$(fm_deploy_ssh "sudo find '$CO/src' -maxdepth 1 -name '*.egg-info' -print") \
+    || step_failed "could not prove $PROJECT's editable-install metadata directory was removed under $CO/src for $TARGET_SHA"
+  [ -z "$EGG_INFO_LEFT" ] \
+    || step_failed "the editable-install metadata directory $EGG_INFO_LEFT is still present after removal"
+
   if [ "$LOCK_PRESENT" -eq 1 ]; then
     fm_deploy_ssh "sudo '$FM_DEPLOY_TGT_python' -m pip install --no-deps -r '$CO/requirements.lock'" \
       || step_failed "could not install $PROJECT's dependencies: pip install -r requirements.lock for $TARGET_SHA failed"
