@@ -191,9 +191,16 @@ Two checks own that, and each owns its own half:
 
 - [`bin/fm-spawn.sh`](../bin/fm-spawn.sh)'s `assert_worktree_unclaimed` refuses a pool slot that any other `state/<id>.meta` in this home already records, naming the colliding task id, and it runs while the spawn holds the per-home task-set lock so two concurrent spawns cannot both accept one slot.
   This is the enforcing half, and it sees only the records of the home it runs in.
+- [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s `worktree_claimed_by_another_task` is the cleanup side of the same rule.
+  A dead process and a clean tree never make a path disposable while another task record names it, so when the path a task records is also recorded by another task, teardown closes that task's record and touches the worktree in no way at all: it reads no work there, concludes no run, reaps no process, removes no hook, returns nothing, resets nothing, and deletes no branch.
+  `--force` does not lift it, because force is authority to discard the closing task's own work and has never been authority to destroy another task's.
 - [`bin/fm-bootstrap.sh`](../bin/fm-bootstrap.sh)'s `report_unleased_task_worktrees` prints one `WORKTREE_LEASE:` line per recorded worktree the pool reads as available with no durable lease.
   This is the reporting half, and it is what covers the cases the refusal cannot see: another home sharing the same pool, a bare `treehouse get` at a prompt, a `prune`.
   It reads locally, never over the network, and stays silent when the pool cannot be read at all, because an unreadable pool is not evidence that a lane is exposed.
+
+The two sides answer the case together.
+When a restart drops the lease on a slot recorded to task A and the pool re-leases it to task B, which then does real work there, A's record stays closable and B keeps the slot: the spawn side would have refused to hand it to B had B been launched from the same home, and the cleanup side refuses to take it back from B when A is closed.
+What Firstmate cannot do is re-mark the lease itself, so after such a reassignment the slot is held only by B's running process, exactly as it was before.
 
 Switching task spawns themselves to `treehouse get --lease` would remove the hazard at its root rather than guarding it, and would make teardown responsible for `treehouse return`.
 That is a separate change to the spawn's launch and teardown contracts, not part of these checks.

@@ -1523,6 +1523,85 @@ test_spawn_relaunch_refuses_a_pane_outside_the_worktree() {
   pass "fm-spawn --relaunch: refuses to start a replacement outside the copy holding its work"
 }
 
+# The restart shape, end to end: after a restart takes every terminal away, a
+# parked lane stays parked and an active lane resumes exactly once, in its own
+# recorded worktree, on every axis its record already held.
+#
+# A restart is the case where all three of this change's parts meet. It empties
+# the window inventory, so every recorded endpoint reads `missing` rather than
+# `dead`; it drops the process-bound worktree leases, so a stopped lane's slot
+# looks free; and it leaves the durable records as the only truth about what
+# each lane was. Asserting the axes individually elsewhere does not prove they
+# survive together, and "exactly once" is not a property any single relaunch can
+# show.
+test_a_restart_leaves_parked_lanes_parked_and_resumes_active_ones_once() {
+  local dir out rc parked_before second_out second_rc
+  dir=$(new_case restartshape rl45)
+  add_ship_task "$dir" rl45 claude
+  # Pin non-default axes so "the recorded ones" is a claim with content: a
+  # relaunch that silently reset to defaults would still pass on defaults.
+  sed -i 's/^model=.*/model=sonnet/;s/^effort=.*/effort=high/;s/^yolo=.*/yolo=on/' \
+    "$dir/home/state/rl45.meta"
+
+  # A second lane, parked before the restart, sharing the same emptied
+  # inventory. Its record is the only thing that says it must stay stopped.
+  add_ship_task "$dir" rl46 claude
+  printf 'parked=%s\n' "$(( $(date +%s) - 3600 ))" >> "$dir/home/state/rl46.meta"
+  printf 'parked_reason=%s\n' "resting while the fleet is over capacity" >> "$dir/home/state/rl46.meta"
+  parked_before=$(cat "$dir/home/state/rl46.meta")
+
+  # The restart: no terminal came back for anything.
+  : > "$dir/fake/windows"
+  printf 'zsh' > "$dir/fake/command"
+  printf '%s' "$dir/proj" > "$dir/fake/cwd"
+
+  # Through fm-control, which is the path a restart recovery actually uses and
+  # the single owner of putting the recorded axes back (docs/agent-control.md).
+  out=$(run_control "$dir" rl45 relaunch --note "restart: your terminal did not come back"); rc=$?
+  expect_code 0 "$rc" "an active lane must resume after a restart: $out"
+
+  # Resumed into its OWN recorded worktree - never a second one, which is the
+  # failure that would cost the lane its branch.
+  [ "$(meta_field "$dir" rl45 worktree)" = "$dir/wt" ] \
+    || fail "the resumed lane's recorded worktree changed: $(meta_field "$dir" rl45 worktree)"
+  [ "$(cat "$dir/fake/cwd")" = "$dir/wt" ] \
+    || fail "the resumed lane was not rooted in its recorded worktree: $(cat "$dir/fake/cwd")"
+  grep -Fq 'treehouse get' "$dir/fake/keys" \
+    && fail "a restart resume must never acquire a second worktree"
+
+  # On every recorded axis.
+  [ "$(meta_field "$dir" rl45 harness)" = claude ] || fail "harness was not preserved across the restart resume"
+  [ "$(meta_field "$dir" rl45 model)" = sonnet ] || fail "model was not preserved: $(meta_field "$dir" rl45 model)"
+  [ "$(meta_field "$dir" rl45 effort)" = high ] || fail "effort was not preserved: $(meta_field "$dir" rl45 effort)"
+  [ "$(meta_field "$dir" rl45 yolo)" = on ] || fail "yolo was not preserved: $(meta_field "$dir" rl45 yolo)"
+  [ "$(meta_field "$dir" rl45 mode)" = no-mistakes ] || fail "mode was not preserved: $(meta_field "$dir" rl45 mode)"
+
+  # Exactly once: one endpoint for this lane, not one per relaunch attempt.
+  [ "$(grep -Fxc "fm-rl45" "$dir/fake/windows")" = 1 ] \
+    || fail "the restart resume left more than one endpoint for rl45: $(cat "$dir/fake/windows")"
+
+  # "Once" has to hold when a restart sweep runs twice - the second pass sees a
+  # lane that is now running and must leave it alone rather than stack another
+  # agent on it. That is the automated path (fm-spawn --relaunch, which refuses a
+  # live agent); a deliberate `fm-control relaunch` is a different act and is
+  # SUPPOSED to replace a running agent, so it is not what is asserted here.
+  printf 'claude' > "$dir/fake/command"
+  second_out=$(run_spawn "$dir" rl45 --relaunch); second_rc=$?
+  expect_code 1 "$second_rc" "a second restart sweep over an already-resumed lane must not resume it again"
+  assert_contains "$second_out" "requires a positively agent-free endpoint" \
+    "the second sweep was refused for the wrong reason"
+  [ "$(grep -Fxc "fm-rl45" "$dir/fake/windows")" = 1 ] \
+    || fail "the refused second sweep still created an endpoint: $(cat "$dir/fake/windows")"
+
+  # The parked lane was not touched by any of it: same record, byte for byte,
+  # so it is still parked, still carries its reason, and got no endpoint.
+  [ "$(cat "$dir/home/state/rl46.meta")" = "$parked_before" ] \
+    || fail "the parked lane's record changed during another lane's restart resume"
+  grep -Fqx "fm-rl46" "$dir/fake/windows" \
+    && fail "a parked lane was given a terminal by the restart resume"
+  pass "a restart keeps parked lanes parked and resumes an active lane once, in its worktree, on its recorded axes"
+}
+
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it() {
   local dir out rc=0
   command -v tasks-axi >/dev/null 2>&1 || {
@@ -1609,5 +1688,6 @@ test_spawn_relaunch_refuses_a_pending_authoritative_close
 test_spawn_relaunch_refuses_contradicting_flags
 test_spawn_relaunch_refuses_an_unrecorded_task
 test_spawn_relaunch_refuses_a_pane_outside_the_worktree
+test_a_restart_leaves_parked_lanes_parked_and_resumes_active_ones_once
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight
