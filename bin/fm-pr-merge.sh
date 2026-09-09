@@ -68,6 +68,13 @@
 #
 # Merge method on GitHub defaults to --squash when the caller passes none of
 # --squash, --merge, --rebase, or --method after the optional -- separator.
+# One caller must override that default: an integration batch lands with
+# --merge, because each absorbed constituent's binding and teardown proof read
+# that constituent's own exact head from the merged history, and squashing
+# collapses those commits and strands every one of those tasks at cleanup. A
+# standalone pull request keeps the squash default, which is right for a single
+# change with one reviewed outcome. The integration-batch-delivery skill owns
+# that choice; this script only refuses to pick a method on the caller's behalf.
 # The gh-axi merge abstraction always performs the merge; the outcome read that
 # follows it never becomes a prerequisite for reaching that abstraction. After
 # gh-axi returns success, GitHub's live state is read back and accepted only

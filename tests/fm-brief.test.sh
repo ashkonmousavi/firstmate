@@ -1264,13 +1264,19 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
       "$mode DOD did not render the complete constituent binding table"
     assert_grep '`Closed as superseded; not merged.`' "$brief" \
       "$mode DOD did not preserve the required superseded-not-merged statement"
+    assert_grep '| Pipeline-tested head | Landed head |' "$brief" \
+      "$mode DOD did not render the landing record naming which commit was tested and which landed"
+    assert_grep 'Those two are the same commit.' "$brief" \
+      "$mode DOD did not require one commit for both the tested and the landed head"
+    assert_grep 'bin/fm-pr-merge.sh --merge' "$brief" \
+      "$mode DOD did not name the merge method that keeps each constituent head reachable"
     assert_grep 'bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>' "$brief" \
       "$mode DOD did not render the supported constituent binding command"
   done
   brief="$home/data/brief-integration-batch-local-only/brief.md"
   assert_grep 'A local-only task cannot own a combined pull request' "$brief" \
     "local-only DOD did not refuse an integration-owner role that requires a PR"
-  pass "fm-brief.sh: every ship DOD renders one conditional batch-owner PR-body and record binding"
+  pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, landing record, merge method, and record binding"
 }
 
 test_script_parses

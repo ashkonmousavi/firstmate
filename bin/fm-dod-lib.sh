@@ -316,8 +316,11 @@ EOF
 # pull-request-body binding for a task designated as an integration batch's
 # owner. The integration-batch-delivery skill owns when and how batching is
 # selected and performed; this block owns only the worker-facing DoD mechanics
-# and table shape rendered in every ship mode. A local-only owner must be
-# re-briefed onto a PR-based path because a batch lands through one combined PR.
+# and the two table shapes rendered in every ship mode: the membership record
+# that binds each constituent, and the landing record naming which commit the
+# pipeline actually tested and which one actually landed. A local-only owner
+# must be re-briefed onto a PR-based path because a batch lands through one
+# combined PR.
 fm_integration_batch_dod_block() {  # <mode>
   local mode=$1
   cat <<'EOF'
@@ -330,8 +333,16 @@ The combined pull request body must contain this complete table with one row per
 | --- | --- | --- | --- | --- |
 | `<task-id>` | `<branch>` | `<full-sha>` | `<https://...>` | `Closed as superseded; not merged.` |
 
+The body must also contain this complete landing record, one row, filled in before the merge:
+
+| Pipeline-tested head | Landed head |
+| --- | --- |
+| `<full-sha>` | `<full-sha>` |
+
+Those two are the same commit. The candidate absorbs current main by merging it in and is proven at that exact head, so a body that cannot state one commit for both is a candidate whose verification is not finished.
+Land the combined pull request with `bin/fm-pr-merge.sh --merge`, never the squash default, so each constituent's exact head stays reachable from main and can be proven landed.
 After each original pull request is closed with that disposition, bind its task to the combined landing with `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>`.
-Every binding command must succeed, and the completed table stays in the combined pull request body as the delivery record.
+Every binding command must succeed, and both completed tables stay in the combined pull request body as the delivery record.
 EOF
   if [ "$mode" = local-only ]; then
     cat <<'EOF'

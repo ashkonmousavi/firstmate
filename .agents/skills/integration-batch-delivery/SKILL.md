@@ -25,6 +25,12 @@ Preparation may continue in parallel, but landing windows remain serial: one bat
 Assign exactly one integration owner.
 The owner starts the combined branch from current main and integrates the exact reviewed constituent commits without squashing or rebasing them away.
 Use merge commits for conflict resolution so the constituent heads remain reachable and the join is explicit.
+Keep the candidate containing current main at all times, merging main into it rather than rebasing onto it.
+That is what preserves the shape everything else depends on, for two independent reasons.
+A plain `git rebase` carries no `--rebase-merges`, so it flattens the candidate and drops exactly the merge commits each constituent's binding and teardown proof read; and the pipeline only rebases a candidate that does not already contain its target, so a candidate that contains main is left alone (`shouldSkipRebase` returns "already ahead of" at `internal/pipeline/steps/rebase.go:448` in the installed no-mistakes `bdfc272`, honoured by both `tryRebase` and `rebaseWithAgent`).
+A candidate proven this way is also attested on its own exact head, so a project whose attestation refuses merge commits refuses them only in its rebase-equivalence fallback and never sees this candidate: in `.github/workflows/xau-ci-attestation.yml` the rebase-equivalence step runs only when the exact-head recheck failed, and the merge-commit refusal lives in that fallback alone (`scripts/ci_check_rebase_attestation_equivalence.py:296-299` at XAUUSD main `c4b3eee19`).
+That fallback is not a safety net worth planning around either: its equivalence rule is stricter than a byte-identical diff, and it has been observed refusing a genuinely content-free rebase because the predicate follows one import hop beyond the paths the change touched (a moved module the changed test imported).
+Never rebase a batch candidate to make main move under it, and never reach for a different-files or range-diff waiver to excuse the result.
 Select the combined task's existing delivery path so it satisfies every constituent's required review, attestation, checks, and affected user journeys.
 Freeze the bounded membership when the combined validation run starts.
 Work that becomes ready after that point lands alone or enters a later batch.
@@ -34,6 +40,18 @@ Review every join, conflict resolution, changed assumption, and affected consume
 Preserve each constituent's review and evidence, but do not treat that earlier evidence as proof of the joins.
 A material integration change requires renewed review of the affected surface.
 
+## Hold the landing window
+
+While the current candidate is in its final verification - absorbing current main, its checks at that exact head, and the merge - unrelated merges into main hold.
+The hold covers merges only.
+Every other lane keeps building, reviewing, and running its own pipeline throughout; nothing waits for the window except the act of merging.
+This is scheduling discipline, not another queue: it is opened for one candidate that is actually in final verification, never held open for work that has not started.
+
+Firstmate opens the window when the candidate enters that final verification and is the only actor who may release it.
+It releases when the candidate lands, or when firstmate judges the candidate needs substantial further work - a failed check that needs a real fix, or a changed assumption found in the join review.
+Substantial means it goes back through the pipeline rather than finishing this window.
+A released window frees main immediately; the released candidate re-enters the queue behind whatever lands next and is proven again from that new main.
+
 ## Prove and land the combined candidate
 
 Run the selected delivery process once on the frozen combined candidate, including its required review or attestation, checks, and affected user journeys.
@@ -42,8 +60,13 @@ Rule F still requires conclusions at the combined pull request's exact current h
 The `bin/fm-pr-merge.sh` current-main containment guard still applies to that combined head.
 If either condition fails, repair the combined candidate and re-prove the repaired combined head; never reuse evidence from its stale predecessor.
 
-Use a commit-preserving merge method for the combined pull request.
-The GitHub default of `bin/fm-pr-merge.sh` is squash, so an integration batch must pass its explicit merge-commit option.
+When an earlier landing moves main out from under a candidate that already passed, merge the new main into that candidate and run the combined delivery process once more at that exact head.
+That is one combined run, never a restart of each constituent's own pipeline, and it is the only supported answer: rebasing the candidate instead would drop the merge commits every constituent binding reads and push the attestation onto a fallback that refuses merge commits.
+The held landing window is what keeps this rare.
+Record in the combined pull request body which commit the pipeline actually tested and which commit actually landed; under this shape they are the same commit, and a body that cannot say so honestly is a candidate that has not finished its verification.
+
+Land the combined pull request with `bin/fm-pr-merge.sh --merge`.
+The GitHub default of `bin/fm-pr-merge.sh` is squash, which is right for a standalone pull request with one reviewed outcome and wrong here: it would collapse the constituent commits and strand every absorbed constituent at cleanup, because each one's landing proof reads its own exact head from the merged combined history.
 Existing merge authority still decides who may run that guarded merge.
 
 ## Bind and close every constituent
