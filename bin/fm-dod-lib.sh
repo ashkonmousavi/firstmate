@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Single owner of a ship task's shared rule-8 review contract and mode-specific
-# "Definition of done" block.
+# Single owner of a ship task's shared rule-8 review contract, conditional
+# integration-batch owner binding, and mode-specific "Definition of done" block.
 # Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
 # bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
@@ -312,6 +312,34 @@ fm_ask_user_escalation_block() {  # <data-dir> <task-id>
 EOF
 }
 
+# fm_integration_batch_dod_block <mode> prints the exact extra completion and
+# pull-request-body binding for a task designated as an integration batch's
+# owner. The integration-batch-delivery skill owns when and how batching is
+# selected and performed; this block owns only the worker-facing DoD mechanics
+# and table shape rendered in every ship mode. A local-only owner must be
+# re-briefed onto a PR-based path because a batch lands through one combined PR.
+fm_integration_batch_dod_block() {  # <mode>
+  local mode=$1
+  cat <<'EOF'
+## Conditional integration-batch owner definition of done
+
+If firstmate designates this task as an integration owner, load `integration-batch-delivery` and satisfy that skill before using this task's normal delivery signal.
+The combined pull request body must contain this complete table with one row per constituent:
+
+| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |
+| --- | --- | --- | --- | --- |
+| `<task-id>` | `<branch>` | `<full-sha>` | `<https://...>` | `Closed as superseded; not merged.` |
+
+After each original pull request is closed with that disposition, bind its task to the combined landing with `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>`.
+Every binding command must succeed, and the completed table stays in the combined pull request body as the delivery record.
+EOF
+  if [ "$mode" = local-only ]; then
+    cat <<'EOF'
+A local-only task cannot own a combined pull request; report the mismatch and stop until firstmate supplies a PR-based delivery mode.
+EOF
+  fi
+}
+
 fm_dod_block() {  # <mode> <task-id> <task-record>
   local mode=$1 id=$2 task_record=$3
   case "$mode" in
@@ -322,6 +350,7 @@ Delivery contract: mode=direct-PR
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
 The task is complete only when committed on your branch.
 EOF
+      fm_integration_batch_dod_block "$mode"
       fm_dod_evidence_rules_block pr
       cat <<EOF
 The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
@@ -341,6 +370,7 @@ This task ships **local-only**: no remote, no PR, no pipeline.
 The task is complete only when committed on your branch \`fm/$id\`. Do NOT push, do NOT open a PR, do NOT merge.
 Keep your branch a clean fast-forward onto the current default branch - if \`main\` has advanced, rebase onto it so the eventual merge stays a fast-forward.
 EOF
+      fm_integration_batch_dod_block "$mode"
       fm_dod_evidence_rules_block local
       cat <<EOF
 Before you report it ready, pass this delivery preflight:
@@ -359,6 +389,7 @@ The branch is prepared when committed on your branch; being prepared is not the 
 Before you hand the branch to validation, pass this delivery preflight:
 EOF
       fm_dod_delivery_preflight_block "$id" "$task_record"
+      fm_integration_batch_dod_block "$mode"
       cat <<EOF
 When you believe it is prepared, append \`working: prepared - {summary}\` to the status file and stop (\`prepared:\` is not a recognized status verb in bin/fm-classify-lib.sh, so \`working:\` carries it here).
 Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.

@@ -33,9 +33,9 @@
 # project and so never fetches into one. Two pull requests each green on a base
 # that lacks the other can each pass their own checks and still break the base
 # branch on merge, and disjoint files are no defence because the collision is
-# semantic; the refusal names the base and tells the worker to rebase onto the
-# current base with no content change, run one fresh validation run on a fresh
-# branch suffix, and report the new green pull request. A base branch whose name
+# semantic. The refusal names the base and points to the
+# integration-batch-delivery skill, which owns whether the refreshed candidate
+# lands alone or absorbs compatible ready work. A base branch whose name
 # contains a slash is passed through literally, so such a base is judged only as
 # GitHub's compare path resolves it. GitLab merges do not carry this check.
 #
@@ -495,7 +495,7 @@ COMPARE
     "$URL" "$head" "$FM_PR_GITHUB_BASE_REF" "$base_sha" "${status:-unreadable}" \
     "${behind:+, behind by $behind commits}" >&2
   printf 'error: the base branch moved after this pull request was validated, so its checks never saw the merged result\n' >&2
-  printf 'error: have the worker rebase this branch onto the current base with no content change, run one fresh validation run on a fresh branch suffix, then report the new green pull request\n' >&2
+  printf 'error: load integration-batch-delivery and prove the selected standalone or combined candidate at its exact current head\n' >&2
   return 1
 }
 

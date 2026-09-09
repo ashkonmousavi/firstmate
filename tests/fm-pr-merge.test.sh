@@ -2252,7 +2252,7 @@ test_github_stale_base_refuses_with_recovery_instruction() {
     "github-base-moved: the refusal did not name the base branch and its current head"
   assert_grep 'comparison status "diverged", behind by 3 commits' "$case_dir/stderr" \
     "github-base-moved: the refusal did not report the comparison it judged"
-  assert_grep 'rebase this branch onto the current base with no content change, run one fresh validation run on a fresh branch suffix, then report the new green pull request' \
+  assert_grep 'load integration-batch-delivery and prove the selected standalone or combined candidate at its exact current head' \
     "$case_dir/stderr" \
     "github-base-moved: the refusal did not carry the worker's recovery instruction"
   assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \

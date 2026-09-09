@@ -61,6 +61,10 @@
 # refusing otherwise even when the branch is fully landed on some remote with no
 # recorded pr= at all - the two checks run independently, and passing the safety
 # floor never substitutes for the missing completion link.
+# An absorbed constituent carries the stronger record written by
+# fm-pr-check.sh --absorbed-by. Teardown then also requires the merged combined
+# PR to contain the exact recorded constituent head, that head to be present on
+# current main, and the original PR to remain closed rather than merged.
 # local-only projects additionally accept work merged into the local default
 # branch (firstmate performs that merge after configured approval) as a fallback
 # for the common case where there is no remote at all.
@@ -803,6 +807,15 @@ if [ "${FM_TEARDOWN_GUARD_DONE:-0}" != 1 ]; then
 fi
 HOME_PATH=$(grep '^home=' "$META" | cut -d= -f2- || true)
 PR_URL=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_ROLE=$(grep '^batch_role=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_CONSTITUENT_BRANCH=$(grep '^batch_constituent_branch=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_CONSTITUENT_HEAD=$(grep '^batch_constituent_head=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_SUPERSEDED_PR=$(grep '^batch_superseded_pr=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_SUPERSEDED_DISPOSITION=$(grep '^batch_superseded_disposition=' "$META" | tail -1 | cut -d= -f2- || true)
+BATCH_METADATA_PRESENT=0
+if grep -q '^batch_\(role\|constituent_branch\|constituent_head\|superseded_pr\|superseded_disposition\)=' "$META" 2>/dev/null; then
+  BATCH_METADATA_PRESENT=1
+fi
 # tasktmp is recorded by fm-spawn for tasks that set up a per-task temp root
 # (/tmp/fm-<id>/); absent for tasks spawned before that change, so tolerate empty.
 TASK_TMP=$(grep '^tasktmp=' "$META" | cut -d= -f2- || true)
@@ -1188,6 +1201,89 @@ github_pr_confirmed_merged() {
   esac
 }
 
+# Resolve and refresh the default-branch ref used for landed-content checks.
+# A firstmate-repo worktree shares the primary checkout's object store and lands
+# onto its local default branch; every other clone refreshes origin first.
+default_branch_ref() {
+  local name wt_common fm_root_common
+  name=$(default_branch) || return 1
+  wt_common=$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+    && wt_common=$(cd "$wt_common" 2>/dev/null && pwd -P) || wt_common=
+  fm_root_common=$(git -C "$FM_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+    && fm_root_common=$(cd "$fm_root_common" 2>/dev/null && pwd -P) || fm_root_common=
+  if [ -n "$wt_common" ] && [ -n "$fm_root_common" ] && [ "$wt_common" = "$fm_root_common" ]; then
+    git -C "$WT" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1 || return 1
+    printf 'refs/heads/%s\n' "$name"
+  elif git -C "$WT" remote get-url origin >/dev/null 2>&1; then
+    git -C "$WT" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1 || return 1
+    printf 'refs/remotes/origin/%s\n' "$name"
+  elif git -C "$WT" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1; then
+    printf 'refs/heads/%s\n' "$name"
+  else
+    return 1
+  fi
+}
+
+# Validate the stronger landing record produced by fm-pr-check.sh
+# --absorbed-by. The combined PR must be merged, its live head must contain the
+# exact recorded constituent head, the task worktree must not have advanced
+# past that head, the exact head must be reachable from current main, and the
+# original PR must remain closed rather than merged. This check runs even when
+# the constituent branch was pushed, so remote reachability cannot stand in for
+# an actual combined landing.
+validate_absorbed_constituent_landed() {
+  local current view state remainder combined_head default_ref
+  local superseded_provider superseded_host superseded_path
+  [ "$BATCH_METADATA_PRESENT" -eq 0 ] && return 0
+  [ "$(grep -c '^batch_role=' "$META" 2>/dev/null)" -eq 1 ] \
+    && [ "$(grep -c '^batch_constituent_branch=' "$META" 2>/dev/null)" -eq 1 ] \
+    && [ "$(grep -c '^batch_constituent_head=' "$META" 2>/dev/null)" -eq 1 ] \
+    && [ "$(grep -c '^batch_superseded_pr=' "$META" 2>/dev/null)" -eq 1 ] \
+    && [ "$(grep -c '^batch_superseded_disposition=' "$META" 2>/dev/null)" -eq 1 ] \
+    && [ "$BATCH_ROLE" = constituent ] \
+    && [ -n "$BATCH_CONSTITUENT_BRANCH" ] \
+    && fm_pr_head_valid "$BATCH_CONSTITUENT_HEAD" \
+    && fm_pr_url_parse "$BATCH_SUPERSEDED_PR" \
+    && [ "$BATCH_SUPERSEDED_DISPOSITION" = closed-as-superseded-not-merged ] \
+    || { echo "REFUSED: task $ID has an incomplete or invalid absorbed-constituent record." >&2; return 1; }
+  superseded_provider=$FM_PR_PROVIDER
+  superseded_host=$FM_PR_HOST
+  superseded_path=$FM_PR_PATH
+  [ "$FM_PR_URL" != "$PR_URL" ] && fm_pr_url_parse "$PR_URL" \
+    && [ "$superseded_provider" = "$FM_PR_PROVIDER" ] \
+    && [ "$superseded_host" = "$FM_PR_HOST" ] \
+    && [ "$superseded_path" = "$FM_PR_PATH" ] \
+    || { echo "REFUSED: task $ID's superseded and combined PR identities are not a valid same-project pair." >&2; return 1; }
+  fm_pr_branch_matches_task "$BATCH_CONSTITUENT_BRANCH" "$ID" \
+    || { echo "REFUSED: task $ID's recorded constituent branch is invalid." >&2; return 1; }
+  current=$(git -C "$WT" rev-parse --verify HEAD 2>/dev/null) \
+    || { echo "REFUSED: task $ID's constituent worktree head is unreadable." >&2; return 1; }
+  [ "$current" = "$BATCH_CONSTITUENT_HEAD" ] \
+    || { echo "REFUSED: task $ID has work after recorded constituent head $BATCH_CONSTITUENT_HEAD." >&2; return 1; }
+  view=$(cd "$WT" && gh pr view "$PR_URL" --json state,headRefOid,url \
+    -q '.state + "\t" + .headRefOid + "\t" + .url' 2>/dev/null) || return 1
+  state=${view%%$'\t'*}
+  remainder=${view#*$'\t'}
+  combined_head=${remainder%%$'\t'*}
+  case "$state" in MERGED|merged) ;; *) return 1 ;; esac
+  fm_pr_head_valid "$combined_head" && ensure_commit_object "$PR_URL" "$combined_head" \
+    || { echo "REFUSED: task $ID's combined PR head is not inspectable." >&2; return 1; }
+  git -C "$WT" merge-base --is-ancestor "$BATCH_CONSTITUENT_HEAD" "$combined_head" 2>/dev/null \
+    || { echo "REFUSED: task $ID's combined PR does not contain constituent head $BATCH_CONSTITUENT_HEAD." >&2; return 1; }
+  default_ref=$(default_branch_ref) \
+    || { echo "REFUSED: task $ID cannot refresh the current default branch for constituent proof." >&2; return 1; }
+  git -C "$WT" merge-base --is-ancestor "$BATCH_CONSTITUENT_HEAD" "$default_ref" 2>/dev/null \
+    || { echo "REFUSED: task $ID's constituent head $BATCH_CONSTITUENT_HEAD is not in current main." >&2; return 1; }
+  state=$(cd "$WT" && gh pr view "$BATCH_SUPERSEDED_PR" --json state -q .state 2>/dev/null) || state=
+  case "$state" in
+    CLOSED|closed) ;;
+    *)
+      echo "REFUSED: task $ID's original PR ($BATCH_SUPERSEDED_PR) is not closed as superseded and not merged." >&2
+      return 1
+      ;;
+  esac
+}
+
 # A ship task that carries a recorded pr= may close (backlog transition, worktree
 # return, and record removal below) only once that pull request is confirmed
 # merged: this is what actually closes the loop the PR represents, distinct
@@ -1209,6 +1305,7 @@ validate_pr_confirmed_before_close() {
     echo "Merge it, wait for a readable merged state, or get the captain's explicit OK to discard, then --force." >&2
     return 1
   fi
+  validate_absorbed_constituent_landed || return 1
 }
 
 # Is the branch's content already present in the up-to-date default branch? Fetches
@@ -1224,23 +1321,8 @@ validate_pr_confirmed_before_close() {
 # bin/fm-spawn.sh's freshen_spawn_worktree_base does (AGENTS.md task
 # fm-spawn-base-local-main), so it is checked first, before the origin branch.
 content_in_default() {
-  local name ref default_tree merged_tree wt_common fm_root_common
-  name=$(default_branch) || return 1
-  wt_common=$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
-    && wt_common=$(cd "$wt_common" 2>/dev/null && pwd -P) || wt_common=
-  fm_root_common=$(git -C "$FM_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
-    && fm_root_common=$(cd "$fm_root_common" 2>/dev/null && pwd -P) || fm_root_common=
-  if [ -n "$wt_common" ] && [ -n "$fm_root_common" ] && [ "$wt_common" = "$fm_root_common" ]; then
-    git -C "$WT" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1 || return 1
-    ref="refs/heads/$name"
-  elif git -C "$WT" remote get-url origin >/dev/null 2>&1; then
-    git -C "$WT" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1 || return 1
-    ref="refs/remotes/origin/$name"
-  elif git -C "$WT" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1; then
-    ref="refs/heads/$name"
-  else
-    return 1
-  fi
+  local ref default_tree merged_tree
+  ref=$(default_branch_ref) || return 1
   default_tree=$(git -C "$WT" rev-parse --quiet --verify "$ref^{tree}" 2>/dev/null) || return 1
   [ -n "$default_tree" ] || return 1
   merged_tree=$(git -C "$WT" merge-tree --write-tree "$ref" HEAD 2>/dev/null) || return 1

@@ -1246,6 +1246,33 @@ test_ship_brief_carries_the_journey_line() {
   pass "fm-brief.sh: the ship scaffold carries a fillable Journey line beside Prep, Resource, and Surface"
 }
 
+# A batch owner can be briefed through either PR mode, while a local-only brief
+# must still render the mismatch refusal. The shared DoD output owns one exact
+# PR-body table and supported binding command for all three ship scaffolds.
+test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
+  local home id brief mode
+  home="$TMP_ROOT/integration-batch-dod-home"
+  mkdir -p "$home/data"
+  for mode in no-mistakes direct-PR local-only; do
+    id="brief-integration-batch-$mode"
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode "$mode" >/dev/null 2>&1
+    brief="$home/data/$id/brief.md"
+    assert_present "$brief" "$mode brief was not scaffolded"
+    assert_grep '## Conditional integration-batch owner definition of done' "$brief" \
+      "$mode DOD did not render the conditional batch-owner gate"
+    assert_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" \
+      "$mode DOD did not render the complete constituent binding table"
+    assert_grep '`Closed as superseded; not merged.`' "$brief" \
+      "$mode DOD did not preserve the required superseded-not-merged statement"
+    assert_grep 'bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>' "$brief" \
+      "$mode DOD did not render the supported constituent binding command"
+  done
+  brief="$home/data/brief-integration-batch-local-only/brief.md"
+  assert_grep 'A local-only task cannot own a combined pull request' "$brief" \
+    "local-only DOD did not refuse an integration-owner role that requires a PR"
+  pass "fm-brief.sh: every ship DOD renders one conditional batch-owner PR-body and record binding"
+}
+
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
@@ -1275,3 +1302,4 @@ test_ship_briefs_batch_findings_before_resubmitting
 test_ship_brief_carries_the_resource_line
 test_ship_brief_carries_the_surface_line
 test_ship_brief_carries_the_journey_line
+test_every_ship_dod_renders_the_conditional_integration_batch_binding

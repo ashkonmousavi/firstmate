@@ -44,6 +44,10 @@
 #   (o) fm-pr-check rerun after HEAD moved                      -> no stale pr_head
 #   (p) fm-pr-check when local HEAD lags                        -> record remote PR head
 #   (q) no-mistakes + NO pr= recorded, PR discovered by branch  -> ALLOW  (yolo/no-CI merge)
+#   (q2) absorbed constituent + combined PR merged, exact head on main -> ALLOW
+#   (q3) absorbed constituent + combined PR still open                -> REFUSE
+#   (q4) absorbed constituent + combined PR merged, exact head absent from main -> REFUSE
+#   (q5) absorbed constituent, commits on no remote-tracking ref             -> ALLOW  (landed-work test)
 #
 # Also covers backlog teardown-lock-race: a git index.lock left in the worktree by a
 # killed crew process (bin/fm-teardown.sh's teardown_treehouse_return).
@@ -322,6 +326,34 @@ append_pr_meta_for_current_head() {
 append_pr_meta_url() {
   local case_dir=$1
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+}
+
+append_absorbed_batch_meta() {
+  local case_dir=$1 constituent_head=$2 combined_head=$3
+  printf '%s\n' \
+    'batch_role=constituent' \
+    'batch_constituent_branch=fm/task-x1' \
+    "batch_constituent_head=$constituent_head" \
+    'batch_superseded_pr=https://github.com/example/repo/pull/5' \
+    'batch_superseded_disposition=closed-as-superseded-not-merged' \
+    'pr=https://github.com/example/repo/pull/9' \
+    "pr_head=$combined_head" >> "$case_dir/state/task-x1.meta"
+}
+
+add_gh_batch_states() {
+  local case_dir=$1 combined_head=$2 combined_state=${3:-MERGED} original_state=${4:-CLOSED}
+  cat > "$case_dir/fakebin/gh" <<SH
+#!/usr/bin/env bash
+url=\${3:-}
+case "\$url| \$* " in
+  "https://github.com/example/repo/pull/9|"*"state,headRefOid,url"*)
+    printf '%s\t%s\t%s\n' '$combined_state' '$combined_head' 'https://github.com/example/repo/pull/9'
+    ;;
+  "https://github.com/example/repo/pull/5|"*" --json state "*) printf '%s\n' '$original_state' ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$case_dir/fakebin/gh"
 }
 
 commit_tree_from_wt_head() {
@@ -1105,6 +1137,117 @@ test_prerequisite_pr_ignored_by_teardown() {
   expect_code 1 "$rc" "prerequisite-ignored: teardown should refuse unlanded work despite a merged prerequisite_pr"
   grep -q REFUSED "$case_dir/stderr" || fail "prerequisite-ignored: no REFUSED line in stderr"
   pass "a recorded prerequisite_pr is never read as the task's own delivery by teardown's landed check"
+}
+
+test_absorbed_constituent_teardown_accepts_only_the_exact_combined_landing_on_main() {
+  local case_dir rc constituent_head combined_head
+  case_dir=$(make_case absorbed-combined-landed)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  git -C "$case_dir/wt" push -q origin "$combined_head:refs/heads/main"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "absorbed-combined-landed: merged combined PR with exact constituent head on main should tear down"
+  ! grep -q REFUSED "$case_dir/stderr" \
+    || fail "absorbed-combined-landed: teardown printed a REFUSED line"
+  pass "teardown accepts an absorbed constituent only after its exact recorded head lands through the merged combined PR"
+}
+
+test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr() {
+  local case_dir rc constituent_head combined_head
+  case_dir=$(make_case absorbed-combined-open)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  git -C "$case_dir/wt" push -q origin "$combined_head:refs/heads/main"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head" OPEN CLOSED
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-combined-open: an open combined PR must refuse teardown"
+  assert_grep 'is not confirmed merged' "$case_dir/stderr" \
+    "absorbed-combined-open: refusal did not name the unmerged combined PR"
+  [ -d "$case_dir/wt" ] || fail "absorbed-combined-open: refusal removed the constituent worktree"
+  pass "teardown refuses an absorbed constituent while the combined PR is unmerged"
+}
+
+test_absorbed_constituent_teardown_refuses_when_the_exact_head_is_not_on_main() {
+  local case_dir rc constituent_head combined_head
+  case_dir=$(make_case absorbed-head-not-main)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  git -C "$case_dir/wt" push -q origin "$constituent_head:refs/heads/fm/task-x1"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-head-not-main: merged combined PR without exact constituent head on main must refuse"
+  assert_grep 'is not in current main' "$case_dir/stderr" \
+    "absorbed-head-not-main: refusal did not name the absent exact constituent head"
+  [ -d "$case_dir/wt" ] || fail "absorbed-head-not-main: refusal removed the constituent worktree"
+  pass "teardown refuses an absorbed constituent whose exact recorded commit did not reach main"
+}
+
+# work_is_landed itself, which the two ALLOW/REFUSE cases above never reach:
+# pushing the combined head there also refreshes origin/main, so the unpushed
+# set is empty and the landed-work test is skipped. After a superseded PR
+# closes, its branch is deleted from the forge and the constituent's commits sit
+# on no remote-tracking ref, so this is the shape a real absorbed constituent
+# tears down in, and the landed-work test must not refuse it. Both of its routes
+# recognize the landing here - the merged combined PR that fm-pr-check.sh
+# --absorbed-by made canonical contains the constituent head, and preserved
+# constituent commits are by construction already in the default branch - so
+# this pins the accepted outcome rather than one implementation route.
+test_absorbed_constituent_landed_work_test_accepts_commits_on_no_remote_ref() {
+  local case_dir rc constituent_head combined_head unpushed
+  case_dir=$(make_case absorbed-landed-work-test)
+  write_meta "$case_dir" no-mistakes ship
+  wt_commit_file "$case_dir" feature.txt hello "reviewed constituent"
+  constituent_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$constituent_head" "combined integration")
+  git -C "$case_dir/wt" push -q origin "$combined_head:refs/heads/main"
+  # Drop every remote-tracking ref, standing in for the closed constituent
+  # branch being deleted from the forge: the commits are on origin's main but on
+  # no remote-tracking ref this worktree holds.
+  git -C "$case_dir/wt" update-ref -d refs/remotes/origin/main
+  unpushed=$(git -C "$case_dir/wt" log --oneline HEAD --not --remotes --)
+  [ -n "$unpushed" ] \
+    || fail "absorbed-landed-work-test: fixture did not reach the landed-work test (nothing unpushed)"
+  append_absorbed_batch_meta "$case_dir" "$constituent_head" "$combined_head"
+  add_gh_batch_states "$case_dir" "$combined_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "absorbed-landed-work-test: commits absorbed by the merged combined PR should count as landed"
+  ! grep -q REFUSED "$case_dir/stderr" \
+    || fail "absorbed-landed-work-test: teardown printed a REFUSED line"
+  pass "teardown's landed-work test accepts a constituent absorbed by the merged combined PR with its commits on no remote-tracking ref"
 }
 
 setup_replayed_unpushed_patch_case() {
@@ -3706,6 +3849,10 @@ test_no_pr_recorded_fully_pushed_no_discoverable_pr_refuses
 test_no_pr_recorded_fully_pushed_pr_discovered_allows
 test_no_pr_recorded_force_still_allows
 test_prerequisite_pr_ignored_by_teardown
+test_absorbed_constituent_teardown_accepts_only_the_exact_combined_landing_on_main
+test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr
+test_absorbed_constituent_teardown_refuses_when_the_exact_head_is_not_on_main
+test_absorbed_constituent_landed_work_test_accepts_commits_on_no_remote_ref
 test_replayed_unpushed_patch_refuses_without_force
 test_replayed_unpushed_patch_allows_with_force
 test_merged_pr_with_later_local_commit_refuses
