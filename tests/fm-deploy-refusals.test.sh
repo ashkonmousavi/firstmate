@@ -348,6 +348,8 @@ test_a_target_python_that_cannot_run_pip_refuses_before_touching_the_machine() {
   [ "$rc" -ne 0 ] || fail "pip-missing: deployed a dependency-changing range onto a python that cannot run pip"
   assert_contains "$out" "cannot run pip" "pip-missing"
   assert_machine_untouched pip-missing
+  assert_no_grep '.egg-info' "$SSH_LOG" \
+    "pip-missing: the editable-install metadata removal ran before the refusal it depends on"
   pass "a target python that cannot run pip refuses a dependency-changing range before anything on the machine changes"
 }
 
@@ -371,6 +373,8 @@ test_an_unreadable_dependency_file_refuses_before_touching_the_machine() {
     [ "$rc" -ne 0 ] || fail "deps-unreadable-$broken: deployed a range whose $broken cannot be read at the target commit"
     assert_contains "$out" "$broken cannot be read" "deps-unreadable-$broken"
     assert_machine_untouched "deps-unreadable-$broken"
+    assert_no_grep '.egg-info' "$SSH_LOG" \
+      "deps-unreadable-$broken: the editable-install metadata removal ran before the refusal it depends on"
   done
   pass "a dependency file that is present but unreadable at the target commit refuses before anything on the machine changes"
 }

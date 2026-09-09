@@ -214,6 +214,15 @@ case "\$cmd" in
   # case fails one install without touching the other.
   *'-m pip install -e '*)
     [ -z "\${FMTEST_PIP_EDITABLE_FAILS:-}" ] || { printf 'ERROR: editable install failed\n' >&2; exit 1; } ;;
+  # The editable-install metadata directory the install above just wrote is
+  # removed, then its absence is proved by a listing. FMTEST_EGG_INFO_REMOVE_FAILS
+  # is how a case fails the removal itself; FMTEST_EGG_INFO_PERSISTS is how a
+  # case says the directory is still there when the listing checks for it,
+  # even though the removal command itself reported success.
+  *'rm -rf '*'/src/'*'.egg-info'*)
+    [ -z "\${FMTEST_EGG_INFO_REMOVE_FAILS:-}" ] || { printf 'rm: cannot remove: Permission denied\n' >&2; exit 1; } ;;
+  *'find '*'-name '*'.egg-info'*)
+    [ -z "\${FMTEST_EGG_INFO_PERSISTS:-}" ] || printf '%s\n' '/opt/demo/src/demo.egg-info' ;;
   *'-m pip install --no-deps -r'*)
     [ -z "\${FMTEST_PIP_LOCK_FAILS:-}" ] || { printf 'ERROR: could not open requirements file\n' >&2; exit 1; } ;;
 esac
@@ -325,11 +334,13 @@ test_a_range_without_dependency_files_runs_no_install() {
   [ "$rc" -eq 0 ] || fail "no-deps-touched: an ordinary range failed: $out"
   assert_no_grep '-m pip' "$SSH_LOG" \
     "no-deps-touched: a range that never touched pyproject.toml or requirements.lock still ran a pip command"
+  assert_no_grep '.egg-info' "$SSH_LOG" \
+    "no-deps-touched: a range that never touched pyproject.toml or requirements.lock still ran the editable-install metadata removal"
   pass "a range that does not touch pyproject.toml or requirements.lock runs no dependency install"
 }
 
 test_a_range_touching_dependencies_installs_both_in_order() {
-  local out rc=0 checkout editable lock restart ledger
+  local out rc=0 checkout editable egg_info_rm egg_info_find lock restart ledger
   make_case deps-touched
   out=$(run_deploy demo "$DEPS") || rc=$?
   [ "$rc" -eq 0 ] || fail "deps-touched: a dependency-changing range failed: $out"
@@ -337,18 +348,46 @@ test_a_range_touching_dependencies_installs_both_in_order() {
 
   checkout=$(step_line 'checkout --detach')
   editable=$(step_line "pip install -e '/opt/demo'")
+  egg_info_rm=$(step_line "rm -rf '/opt/demo'/src/")
+  egg_info_find=$(step_line "find '/opt/demo/src' -maxdepth 1 -name")
   lock=$(step_line "pip install --no-deps -r '/opt/demo/requirements.lock'")
   restart=$(step_line 'systemctl restart')
-  for step in checkout editable lock restart; do
+  for step in checkout editable egg_info_rm egg_info_find lock restart; do
     [ -n "${!step}" ] || fail "deps-touched: the $step step never reached the machine: $(tr '\n' '|' < "$SSH_LOG")"
   done
-  [ "$checkout" -lt "$editable" ] && [ "$editable" -lt "$lock" ] && [ "$lock" -lt "$restart" ] \
-    || fail "deps-touched: dependencies were not installed between the checkout and the restart, in that order: $(tr '\n' '|' < "$SSH_LOG")"
+  [ "$checkout" -lt "$editable" ] && [ "$editable" -lt "$egg_info_rm" ] \
+    && [ "$egg_info_rm" -lt "$egg_info_find" ] && [ "$egg_info_find" -lt "$lock" ] \
+    && [ "$lock" -lt "$restart" ] \
+    || fail "deps-touched: dependencies were not installed, with the metadata cleanup between the editable install and the lockfile install, between the checkout and the restart, in that order: $(tr '\n' '|' < "$SSH_LOG")"
 
   ledger="$HOME_DIR/state/deploy-ledger/demo.jsonl"
-  assert_grep "dependencies reinstalled for $DEPS (pip install -e; pip install --no-deps -r requirements.lock)" \
+  assert_grep "dependencies reinstalled for $DEPS (pip install -e; rm -rf src/*.egg-info; pip install --no-deps -r requirements.lock)" \
     "$ledger" "deps-touched: the ledger does not record which dependency commands ran"
-  pass "a range touching pyproject.toml or requirements.lock reinstalls both, in order, between the checkout and the restart"
+  pass "a range touching pyproject.toml or requirements.lock reinstalls both and removes the editable-install metadata between them, in order, between the checkout and the restart"
+}
+
+test_the_editable_install_metadata_directory_is_removed_and_proved_absent() {
+  local out rc case_label
+  for case_label in remove-fails still-present; do
+    make_case "egg-info-$case_label"
+    rc=0
+    if [ "$case_label" = remove-fails ]; then
+      out=$(FMTEST_EGG_INFO_REMOVE_FAILS=1 run_deploy demo "$DEPS") || rc=$?
+      assert_contains "$out" "could not remove" "egg-info-$case_label"
+    else
+      out=$(FMTEST_EGG_INFO_PERSISTS=1 run_deploy demo "$DEPS") || rc=$?
+      assert_contains "$out" "/opt/demo/src/demo.egg-info" "egg-info-$case_label"
+      assert_contains "$out" "still present" "egg-info-$case_label"
+    fi
+    [ "$rc" -ne 0 ] || fail "egg-info-$case_label: deployed a version whose editable-install metadata directory was not proved removed"
+    assert_not_contains "$out" "is live at" "egg-info-$case_label"
+    assert_contains "$out" "--rollback" "egg-info-$case_label"
+    assert_grep '"result":"failed"' "$HOME_DIR/state/deploy-ledger/demo.jsonl" \
+      "egg-info-$case_label: the failure was not recorded"
+    assert_no_grep 'systemctl restart' "$SSH_LOG" \
+      "egg-info-$case_label: the app was restarted onto a version whose editable-install metadata directory was not proved removed"
+  done
+  pass "the editable-install metadata directory is removed after the editable install and its absence is proved before the lockfile install and the restart"
 }
 
 test_an_install_failure_after_the_stop_reports_the_dependency_step() {
@@ -686,6 +725,7 @@ test_a_root_the_machine_already_trusts_is_not_recorded_twice() {
 test_a_clean_range_deploys_in_the_documented_order
 test_a_range_without_dependency_files_runs_no_install
 test_a_range_touching_dependencies_installs_both_in_order
+test_the_editable_install_metadata_directory_is_removed_and_proved_absent
 test_an_install_failure_after_the_stop_reports_the_dependency_step
 test_the_completed_deploy_is_recorded
 test_the_precheck_runs_before_the_stop_and_only_on_host_owned_files
