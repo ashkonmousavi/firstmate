@@ -99,7 +99,11 @@
 #          FM_PAUSE_RESURFACE_SECS  seconds a declared wait (external or
 #                                   captain-held) stays declared, idle or busy,
 #                                   before it re-surfaces as a recheck
-#                                   (default 3600)
+#                                   (default 3600); config/pause-resurface-secs
+#                                   overrides it for this home
+#                                   (fm_pause_resurface_secs,
+#                                   fm-classify-lib.sh). A PARKED lane is not a
+#                                   declared wait and never re-surfaces at all.
 #          FM_ESCALATE_BATCH_SECS   buffer window for batched escalation
 #                                   digests; 0 = flush immediately (default 90)
 #          FM_HEARTBEAT_SCAN_SECS   cadence for the catch-all status scan
@@ -1080,6 +1084,19 @@ housekeeping() {  # <state>
       rm -f "$marker"; continue
     fi
     task=$(window_to_task "$win" "$state")
+    # A PARKED lane is checked before the declared-wait gate, and drops the
+    # marker outright rather than taking the bounded recheck a declared wait
+    # gets. Away mode must apply the same policy the watcher does (fm-watch.sh's
+    # pause_state_class and handle_parked_stale own the reasoning): firstmate
+    # stopped this agent itself and preserved everything else, so the lane
+    # cannot change until firstmate relaunches it, and escalating it to a captain
+    # who is away reports nothing they can act on. Its last status line is
+    # whatever the worker wrote before exiting, so no status vocabulary could
+    # identify it - the durable record is the only source that can.
+    if fm_task_is_parked "$state" "$task"; then
+      rm -f "$marker"
+      continue
+    fi
     last=$(last_status_line "$state/$task.status")
     if [ -n "$last" ] && status_is_paused_or_captain_held "$last"; then
       reconcile_pause_tracking "$win" "$state" "$last"
@@ -1112,7 +1129,12 @@ housekeeping() {  # <state>
   # exactly the declaration that needs it. The crew's own latest status line is the
   # authority, and the loop head above already drops the marker the moment that line
   # stops declaring the wait.
-  pause_secs=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}
+  # config/pause-resurface-secs overrides FM_PAUSE_RESURFACE_SECS for this home
+  # (fm_pause_resurface_secs, fm-classify-lib.sh); resolved fresh each tick for
+  # the same reason the wedge threshold above is - the unit tests source this
+  # file once and invoke housekeeping many times under different
+  # FM_CONFIG_OVERRIDE values.
+  pause_secs=$(fm_pause_resurface_secs "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" "$FM_PAUSE_RESURFACE_SECS_DEFAULT")
   for marker in "$state"/.subsuper-paused-*; do
     [ -e "$marker" ] || continue
     key="${marker##*.subsuper-paused-}"
@@ -1121,6 +1143,11 @@ housekeeping() {  # <state>
       rm -f "$marker"; continue
     fi
     task=$(window_to_task "$win" "$state")
+    # A lane parked since this marker was written has nothing left to recheck.
+    if fm_task_is_parked "$state" "$task"; then
+      rm -f "$marker"
+      continue
+    fi
     last=$(last_status_line "$state/$task.status")
     if [ -z "$last" ] || ! status_is_paused_or_captain_held "$last"; then
       reconcile_pause_tracking "$win" "$state" "$last"

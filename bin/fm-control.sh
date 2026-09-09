@@ -3,7 +3,7 @@
 # lifecycle verbs addressed to an exact task id.
 #
 # Usage: fm-control.sh <task-id> interrupt
-#        fm-control.sh <task-id> exit
+#        fm-control.sh <task-id> exit [--reason <text>]
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
 #                                         [--effort <level>]
 #                                         (--note <text> | --note-file <path>)
@@ -31,6 +31,10 @@
 #              busy, then submits the harness's exit command. Postcondition:
 #              the backend's recovery-grade classifier reports the agent gone.
 #              Already-stopped is success (idempotent).
+#              Marks the durable record PARKED (parked=<epoch>, plus the
+#              optional --reason), which is what stops supervision re-surfacing
+#              a lane that cannot change state until it is relaunched. The
+#              relaunch that republishes the record drops the marker.
 #   relaunch   Transactionally replace the running agent with a new one, in the
 #              SAME worktree - in the SAME endpoint, or in a fresh one on the
 #              recorded backend when that endpoint is gone - on the same or a
@@ -205,7 +209,9 @@ MODEL_SET=0
 EFFORT_SET=0
 NOTE=
 NOTE_SET=0
-control_want_value=
+REASON=
+REASON_SET=0
+control_want_value
 for control_arg in "$@"; do
   if [ -n "$control_want_value" ]; then
     case "$control_arg" in
@@ -216,6 +222,7 @@ for control_arg in "$@"; do
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
+      reason) REASON=$control_arg; REASON_SET=1 ;;
       note_file)
         [ -f "$control_arg" ] || die "--note-file '$control_arg' is not a readable file"
         NOTE=$(cat "$control_arg")
@@ -234,6 +241,8 @@ for control_arg in "$@"; do
     --effort=*) NEW_EFFORT=${control_arg#--effort=}; EFFORT_SET=1 ;;
     --note) control_want_value=note ;;
     --note=*) NOTE=${control_arg#--note=}; NOTE_SET=1 ;;
+    --reason) control_want_value=reason ;;
+    --reason=*) REASON=${control_arg#--reason=}; REASON_SET=1 ;;
     --note-file) control_want_value=note_file ;;
     --note-file=*)
       [ -f "${control_arg#--note-file=}" ] || die "--note-file '${control_arg#--note-file=}' is not a readable file"
@@ -252,6 +261,13 @@ if [ "$VERB" != relaunch ]; then
   [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
     || die "--harness, --model, --effort, and --note apply to 'relaunch' only"
 fi
+if [ "$VERB" != exit ]; then
+  [ "$REASON_SET" = 0 ] || die "--reason applies to 'exit' only"
+fi
+[ "$REASON_SET" = 0 ] || [ -n "$REASON" ] || die "--reason requires a non-empty value"
+case "$REASON" in
+  *$'\n'*|*$'\r'*) die "--reason must be a single line: it is recorded as one durable record field" ;;
+esac
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
 [ "$EFFORT_SET" = 0 ] || [ -n "$NEW_EFFORT" ] || die "--effort requires a non-empty value"
@@ -444,6 +460,49 @@ do_interrupt() {
   cancel=$(deliver_interrupt) || return $?
   proof=$(verify_interrupt_running) || return $?
   printf '%s cancel=%s' "$proof" "$cancel"
+}
+
+# record_parked_marker: mark this task's durable record as PARKED - its agent
+# was deliberately stopped and its endpoint, worktree, and branch were all
+# preserved. Written only by the `exit` verb, and dropped by the relaunch that
+# republishes the record (bin/fm-spawn.sh owns parked= and parked_reason= as
+# launch-owned keys), so the marker can only ever describe a lane with no agent.
+#
+# Why the record and not the status log: a parked lane's last status line is
+# whatever its worker wrote before exiting, so nothing in that vocabulary could
+# identify it. The supervision cost this pays for is real - a parked lane cannot
+# change state until firstmate relaunches it, so every re-surface of it is a
+# supervision turn spent re-reading a fact firstmate recorded itself.
+#
+# Best-effort by design: the agent is already stopped and that is the verb's
+# postcondition. Failing to annotate the record must not turn a successful stop
+# into a reported failure, so a write failure warns and the caller still reports
+# the stop. The line is inserted ahead of any pr= tail, because the merge-poll
+# identity parse requires that tail to stay last (bin/fm-pr-lib.sh).
+record_parked_marker() {  # <reason>
+  local reason=${1-} lock tmp line
+  lock=$(fm_meta_lock_path "$META") || return 0
+  fm_lock_acquire_wait "$lock" || return 0
+  tmp="$STATE/.$ID.meta.parked.${BASHPID:-$$}"
+  if {
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        parked=*|parked_reason=*) continue ;;
+        pr=*) break ;;
+      esac
+      printf '%s\n' "$line"
+    done < "$META"
+    printf 'parked=%s\n' "$(date +%s)"
+    [ -z "$reason" ] || printf 'parked_reason=%s\n' "$reason"
+    # Re-read from the pr= line to the end, preserving the tail verbatim.
+    awk '/^pr=/{t=1} t' "$META"
+  } > "$tmp" 2>/dev/null && chmod 0600 "$tmp" 2>/dev/null && mv -f -- "$tmp" "$META" 2>/dev/null; then
+    :
+  else
+    rm -f "$tmp" 2>/dev/null || true
+    echo "warning: task $ID stopped, but its record could not be marked parked; it may resurface for supervision until it is relaunched" >&2
+  fi
+  fm_lock_release "$lock" || true
 }
 
 retire_busy_incarnation() {
@@ -906,7 +965,13 @@ case "$VERB" in
     ;;
   exit)
     result=$(do_exit)
-    echo "$result $ID harness=$HARNESS backend=$BACKEND endpoint=$T worktree=$WT"
+    # The stop succeeded (or was already true), so the lane is now parked: its
+    # agent is gone and its endpoint, worktree and branch are all preserved.
+    # Recording that is what lets supervision stop re-surfacing it, and what
+    # lets the digest and the current-state reader say `parked` instead of
+    # guessing from an endpoint that is alive but holds no agent.
+    record_parked_marker "$REASON"
+    echo "$result $ID harness=$HARNESS backend=$BACKEND endpoint=$T worktree=$WT parked=yes"
     ;;
   relaunch)
     do_relaunch

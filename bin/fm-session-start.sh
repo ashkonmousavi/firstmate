@@ -345,6 +345,8 @@ PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-line-cap-lib.sh
 . "$SCRIPT_DIR/fm-line-cap-lib.sh"
+# shellcheck source=bin/fm-classify-lib.sh
+. "$SCRIPT_DIR/fm-classify-lib.sh"
 
 # One tasks-axi compatibility verdict per session start. The probe costs three
 # tasks-axi subprocesses and this digest needs the same answer twice - here for
@@ -829,7 +831,20 @@ for meta in "$STATE"/*.meta; do
   if [ -n "$window" ]; then
     backend=$(fm_backend_of_meta "$meta")
     if fm_backend_target_exists "$backend" "${target:-$window}" "fm-$id"; then
-      printf 'endpoint: alive (backend=%s window=%s)\n' "$backend" "$window"
+      # A PARKED lane's terminal is alive but deliberately holds no agent
+      # (bin/fm-control.sh exit). Reporting a bare `alive` for it would read as
+      # a healthy running worker, which is the opposite of what it is, so the
+      # record's own marker is named here instead of being inferred from a
+      # terminal that cannot tell the difference.
+      if fm_task_is_parked "$STATE" "$id"; then
+        parked_reason=$(fm_task_parked_reason "$STATE" "$id")
+        printf 'endpoint: parked - agent stopped, worktree and branch preserved, relaunch to resume%s (backend=%s window=%s)\n' \
+          "${parked_reason:+ - $parked_reason}" "$backend" "$window"
+      else
+        printf 'endpoint: alive (backend=%s window=%s)\n' "$backend" "$window"
+      fi
+    elif fm_task_is_parked "$STATE" "$id"; then
+      printf 'endpoint: parked, terminal gone - worktree and branch preserved, relaunch recreates the terminal (backend=%s window=%s)\n' "$backend" "$window"
     else
       printf 'endpoint: dead (backend=%s window=%s)\n' "$backend" "$window"
     fi

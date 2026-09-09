@@ -15,7 +15,16 @@
 # fixed mapping logic, no heuristics and no LLM. Output is one stable, parseable,
 # token-tight line firstmate can read every heartbeat:
 #
-#   state: <working|parked|done|blocked|paused|failed|needs-inspection|unknown> · source: <run-step|pane|status-log|remote-endpoint|none> · <detail>
+#   state: <working|parked|parked-exit|done|blocked|paused|failed|needs-inspection|unknown> · source: <run-step|pane|status-log|remote-endpoint|task-record|none> · <detail>
+#
+#   `parked` and `parked-exit` are different things and are deliberately
+#   different tokens. `parked` is a no-mistakes RUN waiting at an approval or
+#   fix-review gate: there are findings for a human to answer. `parked-exit` is
+#   a LANE whose agent firstmate deliberately stopped through fm-control exit,
+#   preserving its endpoint, worktree and branch; there is no gate and nothing
+#   to answer, only a relaunch to make. Consumers branch on the token
+#   (fm-classify-lib.sh's crew_absorb_class), so collapsing the two would tell
+#   them something false.
 #
 # Logic, in order:
 #   1. Resolve worktree + backend target + kind from state/<id>.meta. A meta
@@ -126,6 +135,34 @@ KIND=$(meta_value kind)
 HARNESS=$(meta_value harness)
 REMOTE_HOST=$(meta_value remote_host)
 [ -n "$KIND" ] || KIND=ship
+
+# A PARKED lane is answered from the durable record, before any pane or run-step
+# read, because the record is the only source that CAN answer it: firstmate
+# stopped the agent itself through bin/fm-control.sh exit and preserved the
+# endpoint, worktree and branch, so the pane is alive but holds no agent and the
+# status log's last line is whatever the worker wrote before exiting. Every
+# other source would therefore answer `unknown`, which reads as "something is
+# wrong here" about a lane that is exactly where firstmate put it.
+#
+# The state token is `parked-exit`, deliberately NOT the existing `parked`.
+# `parked` already means a no-mistakes run waiting at an approval or fix-review
+# gate - findings for a human to answer - and consumers branch on that meaning
+# (bin/fm-classify-lib.sh's crew_absorb_class compares the token directly). A
+# lane whose agent was stopped has no gate and no findings, so reusing the token
+# would tell those consumers something false about it.
+if fm_task_is_parked "$STATE" "$ID"; then
+  PARKED_SINCE=$(fm_task_parked_since "$STATE" "$ID")
+  PARKED_REASON=$(fm_task_parked_reason "$STATE" "$ID")
+  PARKED_DETAIL="agent stopped by firstmate"
+  if [ -n "$PARKED_SINCE" ]; then
+    PARKED_AGE=$(( $(date +%s) - PARKED_SINCE ))
+    [ "$PARKED_AGE" -ge 0 ] || PARKED_AGE=0
+    PARKED_DETAIL="$PARKED_DETAIL ${PARKED_AGE}s ago"
+  fi
+  PARKED_DETAIL="$PARKED_DETAIL; worktree and branch preserved, relaunch to resume"
+  [ -z "$PARKED_REASON" ] || PARKED_DETAIL="$PARKED_DETAIL${SEP}$PARKED_REASON"
+  emit parked-exit task-record "$PARKED_DETAIL"
+fi
 
 # A torn-down (or never-created) worktree has no current state to read. A
 # remote secondmate's recorded worktree is a path on ITS host, so the local

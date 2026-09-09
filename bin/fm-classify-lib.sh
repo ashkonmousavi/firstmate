@@ -99,6 +99,55 @@ FM_CLASSIFY_PAUSED_VERB_DEFAULT='paused'
 # shellcheck disable=SC2034 # Read by the watcher and daemon (fm-watch.sh, fm-supervise-daemon.sh), not this lib.
 FM_PAUSE_RESURFACE_SECS_DEFAULT=3600
 
+# A PARKED lane: its agent was deliberately stopped through bin/fm-control.sh
+# exit, and its worktree, branch, and endpoint were all preserved. The marker is
+# `parked=<epoch>` in state/<id>.meta, written by that verb and dropped by the
+# relaunch that republishes the record (bin/fm-spawn.sh's preserve_relaunch_meta
+# owns it as a launch-owned key), so it can only ever describe a lane with no
+# agent running.
+#
+# Parked is NOT a declared wait. A declared `paused:` wait is expected to clear
+# on its own, which is exactly why it earns the bounded re-surface cadence above:
+# something outside firstmate is going to change, and a forgotten wait must not
+# rot invisibly. A parked lane cannot change state at all until firstmate
+# relaunches it, so re-surfacing it teaches firstmate nothing it did not already
+# record itself, and fifteen of them cost a supervision turn every few minutes.
+# It is therefore absorbed with NO re-surface: the durable record is the reminder.
+#
+# This is deliberately a metadata read rather than a status-log read. A parked
+# lane's last status line is whatever its worker wrote before exiting - usually
+# an ordinary `working:` - so no status vocabulary could identify it.
+fm_task_is_parked() {  # <state-dir> <id>
+  local state=${1-} id=${2-} meta value
+  [ -n "$state" ] && [ -n "$id" ] || return 1
+  meta="$state/$id.meta"
+  [ -f "$meta" ] || return 1
+  value=$(grep -m1 '^parked=' "$meta" 2>/dev/null | cut -d= -f2-) || return 1
+  case "${value//[[:space:]]/}" in
+    ''|0|*[!0-9]*) return 1 ;;
+  esac
+  return 0
+}
+
+# The reason recorded beside that marker, or empty. Free text written once at
+# exit; readers present it and never parse it.
+fm_task_parked_reason() {  # <state-dir> <id>
+  local state=${1-} id=${2-} meta
+  [ -n "$state" ] && [ -n "$id" ] || return 0
+  meta="$state/$id.meta"
+  [ -f "$meta" ] || return 0
+  grep -m1 '^parked_reason=' "$meta" 2>/dev/null | cut -d= -f2- || true
+}
+
+# Epoch second the lane was parked, or empty when it is not parked.
+fm_task_parked_since() {  # <state-dir> <id>
+  local state=${1-} id=${2-} meta value
+  fm_task_is_parked "$state" "$id" || return 0
+  meta="$state/$id.meta"
+  value=$(grep -m1 '^parked=' "$meta" 2>/dev/null | cut -d= -f2-)
+  printf '%s' "${value//[[:space:]]/}"
+}
+
 # Effective wedge-escalation threshold for a home. config/stale-escalate-secs
 # (LOCAL, gitignored per AGENTS.md section 1's project/config split) overrides
 # FM_STALE_ESCALATE_SECS for this home when it holds a valid positive integer;
@@ -126,6 +175,35 @@ fm_stale_escalate_secs() {  # <config-dir> <default-secs>
     esac
   fi
   printf '%s' "${FM_STALE_ESCALATE_SECS:-$default}"
+}
+
+# Effective declared-wait re-surface cadence for a home. config/pause-resurface-secs
+# (LOCAL, gitignored, exactly like config/stale-escalate-secs) overrides
+# FM_PAUSE_RESURFACE_SECS for this home when it holds a valid positive integer;
+# an absent, unreadable, or malformed file falls through to the env var, then to
+# the caller's own default. ONE resolver, for the same reason the wedge threshold
+# has one: the watcher and the away-mode daemon must never read a different
+# effective cadence from the same config directory.
+#
+# Each caller keeps the resolution cadence it already had, and for the same
+# reasons documented above: fm-watch.sh resolves ONCE at startup, matching its
+# existing top-level PAUSE_RESURFACE_SECS assignment and every other config/*
+# knob in this repo, so an operator editing the file mid-session takes effect on
+# the watcher's next restart; fm-supervise-daemon.sh's housekeeping resolves
+# fresh on every tick because its unit tests source that file once and invoke
+# housekeeping many times under different FM_CONFIG_OVERRIDE values, which a
+# value cached at source time would defeat.
+fm_pause_resurface_secs() {  # <config-dir> <default-secs>
+  local config_dir=$1 default=$2 path value
+  path="$config_dir/pause-resurface-secs"
+  if [ -f "$path" ]; then
+    value=$(tr -d '[:space:]' < "$path" 2>/dev/null || true)
+    case "$value" in
+      ''|0|*[!0-9]*) ;;
+      *) printf '%s' "$value"; return ;;
+    esac
+  fi
+  printf '%s' "${FM_PAUSE_RESURFACE_SECS:-$default}"
 }
 
 # The resolution verb and durable-backlog-transfer verb that CLOSE a keyed

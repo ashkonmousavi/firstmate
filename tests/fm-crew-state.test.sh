@@ -1810,9 +1810,73 @@ EOF
 test_active_run_is_authoritative
 test_stale_needs_decision_superseded
 test_stale_blocked_superseded
+
+# --- parked lanes (deliverable B) -------------------------------------------
+
+# Proves: a lane whose agent firstmate deliberately stopped reports parked-exit
+# from its own durable record, NOT `unknown`. Before the parked marker existed,
+# such a lane read unknown/none - its terminal is alive but holds no agent, and
+# its last status line is whatever the worker wrote before exiting - which reads
+# as "something is wrong here" about a lane that is exactly where firstmate put
+# it. Red before the change (no parked branch existed), green after.
+test_a_parked_lane_reports_parked_exit_not_unknown() {
+  reset_fakes
+  local d; d=$(new_case parked-exit)
+  make_repo_on_branch "$d/wt" fm/feat-pk
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-pk.meta" "window=fm:fm-feat-pk" "worktree=$d/wt" "kind=ship" \
+    "parked=$(( $(date +%s) - 90 ))" "parked_reason=resting while the fleet is over capacity"
+  # The real shape: the worker exited without writing a terminal status line.
+  printf 'working: mid-refactor\n' > "$d/state/feat-pk.status"
+  local out; out=$(run_crew_state "$d" feat-pk)
+  assert_contains "$out" "state: parked-exit" "a parked lane should report parked-exit"
+  assert_contains "$out" "source: task-record" "a parked lane is answered from the durable record"
+  assert_contains "$out" "relaunch to resume" "the report should name the action that resumes it"
+  assert_contains "$out" "resting while the fleet is over capacity" "the parked reason should be carried"
+  assert_not_contains "$out" "state: unknown" "a parked lane must not read as unknown"
+  pass "fm-crew-state: a parked lane reports parked-exit from its durable record"
+}
+
+# Proves the two tokens stay distinct. `parked` means a no-mistakes run waiting
+# at a gate with findings for a human; `parked-exit` means a stopped agent with
+# no gate and nothing to answer. bin/fm-classify-lib.sh's crew_absorb_class
+# compares the token directly, so collapsing them would tell every consumer
+# something false.
+test_gate_parked_and_parked_exit_are_different_states() {
+  reset_fakes
+  local d; d=$(new_case parked-token-split)
+  make_repo_on_branch "$d/wt" fm/feat-pt
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-pt.meta" "window=fm:fm-feat-pt" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_parked fm/feat-pt)"
+  local out; out=$(run_crew_state "$d" feat-pt)
+  assert_contains "$out" "state: parked" "a gate-parked run should still report parked"
+  assert_not_contains "$out" "parked-exit" "a gate-parked run must not report parked-exit"
+  assert_contains "$out" "source: run-step" "a gate-parked run is still answered from the run step"
+  pass "fm-crew-state: a gate-parked run and a parked lane are different states"
+}
+
+# Proves the marker is authoritative over a live pane: a parked lane's terminal
+# is deliberately preserved, so a busy-looking pane must not override the record.
+test_the_parked_record_wins_over_the_preserved_terminal() {
+  reset_fakes
+  local d; d=$(new_case parked-over-pane)
+  make_repo_on_branch "$d/wt" fm/feat-po
+  make_fakebin "$d" >/dev/null
+  FM_FAKE_BUSY=1
+  fm_write_meta "$d/state/feat-po.meta" "window=fm:fm-feat-po" "worktree=$d/wt" "kind=ship" \
+    "parked=$(( $(date +%s) - 10 ))"
+  local out; out=$(run_crew_state "$d" feat-po)
+  assert_contains "$out" "state: parked-exit" "the durable record should win over the preserved terminal"
+  pass "fm-crew-state: the parked record wins over a preserved terminal"
+}
+
 test_genuine_parked_not_superseded
 test_scalar_gate_parked_not_superseded
 test_gate_block_parked_not_superseded
+test_a_parked_lane_reports_parked_exit_not_unknown
+test_gate_parked_and_parked_exit_are_different_states
+test_the_parked_record_wins_over_the_preserved_terminal
 test_ci_ready_done_log_beats_monitoring_run
 test_ci_monitoring_checks_green_surfaces_done
 test_top_level_ci_checks_green_surfaces_done

@@ -229,7 +229,7 @@ SECONDMATE_WAKE_STALL_SECS=${FM_SECONDMATE_WAKE_STALL_SECS:-60}
 # (pause_state_class owns that split).
 # These cases re-surface once for a recheck every PAUSE_RESURFACE_SECS - far
 # longer than the wedge threshold, but finite so a forgotten hold cannot rot invisibly.
-PAUSE_RESURFACE_SECS=${FM_PAUSE_RESURFACE_SECS:-$FM_PAUSE_RESURFACE_SECS_DEFAULT}
+PAUSE_RESURFACE_SECS=$(fm_pause_resurface_secs "$CONFIG" "$FM_PAUSE_RESURFACE_SECS_DEFAULT")  # config/pause-resurface-secs (fm-classify-lib.sh) overrides FM_PAUSE_RESURFACE_SECS for this home
 # Consecutive event-path failures (fm_backend_wait_transition returning 2 -
 # connect/subscribe failure) before the push fast-path is disabled for the rest
 # of this watcher process and the loop reverts to pure polling (report section
@@ -848,6 +848,38 @@ handle_paused_stale() {  # <window> <task> <hash>
   triage_log "absorbed stale ($detail, age ${age}s): $win"
 }
 
+# Absorb a stale pane whose lane is PARKED, with no re-surface at all.
+#
+# This is the one absorb in this file that is deliberately unbounded, and the
+# reason is that the usual justification for a bound does not apply. Every other
+# absorb re-surfaces because the thing being waited on lives outside firstmate
+# and could change without telling it, so a forgotten wait would rot invisibly.
+# A parked lane cannot change: firstmate stopped its agent itself, and nothing
+# but a firstmate relaunch can start another one. Re-surfacing it reports a fact
+# firstmate wrote into the record itself, at the cost of a supervision turn per
+# lane per window - which for a fleet of parked lanes is a turn every few
+# minutes, forever, about work that is by definition not moving.
+#
+# What replaces the bound is the durable record: the parked marker is in
+# state/<id>.meta, the session-start digest prints it for every task, and
+# bin/fm-crew-state.sh reports it on demand. A parked lane is therefore visible
+# whenever firstmate looks, rather than insistent when it does not.
+#
+# Clears the same wedge, escalation and write-deferral bookkeeping
+# handle_paused_stale clears, so an undeclared quiet phase before the exit does
+# not resume its count when the lane is relaunched.
+handle_parked_stale() {  # <window> <task> <hash>
+  local win=$1 task=$2 h=$3 key reason
+  key=$(window_key "$win")
+  printf '%s' "$h" > "$STATE/.stale-$key"
+  : > "$STATE/.paused-$key"
+  rm -f "$STATE/.stale-since-$key" "$STATE/.wedge-escalations-$key" \
+        "$STATE/.paused-resurfaced-$key"
+  clear_write_tracking "$key"
+  reason=$(fm_task_parked_reason "$STATE" "$task")
+  triage_log "absorbed stale (parked${reason:+: $reason}, no re-surface until relaunch): $win"
+}
+
 # Apply the busy-pane completed-turn bound to a window whose bound has already
 # crossed, honoring the worker's OWN declared external wait. Prints/queues
 # nothing itself; it only chooses which absorber owns the crossed bound.
@@ -933,6 +965,21 @@ clear_pause_tracking() {  # <window-key>
 pause_state_class() {  # <window> <task>
   local win=$1 task=$2 key last recheck_file class agent_alive kind
   key=$(window_key "$win")
+  # PARKED is checked FIRST, ahead of the declared-wait gate, because a parked
+  # lane's last status line is whatever its worker wrote before exiting -
+  # usually an ordinary `working:` - so it would never reach a check placed
+  # inside that gate. Its agent was deliberately stopped and everything else
+  # preserved (bin/fm-control.sh exit), so it cannot change state at all until
+  # firstmate relaunches it: re-surfacing it teaches firstmate nothing it did
+  # not record itself, and a fleet of them costs a supervision turn every few
+  # minutes. `parked` is therefore absorbed with NO re-surface at all, which is
+  # what separates it from `paused` - a declared wait is expected to clear on
+  # its own, so it must stay on the bounded recheck cadence.
+  if fm_task_is_parked "$STATE" "$task"; then
+    rm -f "$STATE/.paused-rechecked-$key"
+    printf 'parked'
+    return
+  fi
   last=$(last_status_line "$STATE/$task.status")
   recheck_file="$STATE/.paused-rechecked-$key"
   if ! status_is_paused_or_captain_held "$last"; then
@@ -1874,6 +1921,7 @@ EOF
         # firstmate. Detection itself is unchanged from above.
         if [ "$kind" = secondmate ]; then
           case "$(pause_state_class "$w" "$task")" in
+            parked) handle_parked_stale "$w" "$task" "$h" ;;
             paused) handle_paused_stale "$w" "$task" "$h" ;;
             *)      clear_pause_tracking "$key" ;;
           esac
@@ -1953,6 +2001,9 @@ EOF
                 date +%s > "$ssf"
                 triage_log "absorbed non-terminal stale (provably working): $w"
                 ;;
+              parked)
+                handle_parked_stale "$w" "$task" "$h"
+                ;;
               paused)
                 handle_paused_stale "$w" "$task" "$h"
                 ;;
@@ -1964,6 +2015,7 @@ EOF
             task=$(window_to_task "$w" "$STATE")
             if [ -e "$pf" ] || status_is_paused_or_captain_held "$(last_status_line "$STATE/$task.status")"; then
               case "$(pause_state_class "$w" "$task")" in
+                parked)  handle_parked_stale "$w" "$task" "$h" ;;
                 paused)  handle_paused_stale "$w" "$task" "$h" ;;
                 working) clear_pause_state "$key"
                          printf '%s' "$h" > "$sf"
@@ -2009,6 +2061,7 @@ EOF
       task=$(window_to_task "$w" "$STATE")
       if ! afk_present && status_is_paused_or_captain_held "$(last_status_line "$STATE/$task.status")" && [ "$busy_now" -ne 0 ]; then
         case "$(pause_state_class "$w" "$task")" in
+          parked) handle_parked_stale "$w" "$task" "$h" ;;
           paused) handle_paused_stale "$w" "$task" "$h" ;;
           # Inconclusive, but the declared wait itself still stands, so only the
           # per-hash bookkeeping resets. The re-surface throttle bounds the

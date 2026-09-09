@@ -186,6 +186,20 @@ An absent, unreadable, `0`, or non-numeric file falls through to `FM_STALE_ESCAL
 Both the always-on watcher and the away-mode daemon resolve it through the one shared `fm_stale_escalate_secs` function in `bin/fm-classify-lib.sh`, so they cannot read a different effective threshold from the same config directory; the watcher resolves it once at startup (an edit takes effect on the watcher's next restart), while the daemon's `housekeeping` re-reads it every tick.
 Raising this threshold is the direct fix for a home whose panes routinely sit idle inside a long no-mistakes pipeline step without posting a `paused:` line: `bin/fm-classify-lib.sh`'s declared-external-wait vocabulary (`paused:`) and `pause_state_class` already exempt any pane that DOES declare the wait from wedge escalation, rechecking it against `bin/fm-crew-state.sh`'s no-mistakes `axi status` read on this cadence and re-surfacing it for inspection only once per `FM_PAUSE_RESURFACE_SECS` (see that variable below); this knob tunes how often that recheck happens, not whether it happens.
 
+## Declared-wait resurface cadence (config/pause-resurface-secs / FM_PAUSE_RESURFACE_SECS)
+
+`config/pause-resurface-secs` (local, gitignored) overrides `FM_PAUSE_RESURFACE_SECS` for this home: the seconds a declared external wait (`paused:`) or a verified captain-held transfer stays absorbed before it re-surfaces once for a recheck.
+It follows exactly the same rules as [Stale-escalate threshold](#stale-escalate-threshold-configstale-escalate-secs--fm_stale_escalate_secs) above, and for the same reason - an operator should be able to retune a home without exporting an env var into every backend that launches the watcher and the away-mode daemon.
+A file present and holding a valid positive integer wins over the environment variable; an absent, unreadable, `0`, or non-numeric file falls through to `FM_PAUSE_RESURFACE_SECS`, then to the caller's own default (3600).
+Both consumers resolve it through the one shared `fm_pause_resurface_secs` function in `bin/fm-classify-lib.sh`, which owns the contract; the watcher resolves it once at startup (an edit takes effect on its next restart), while the away-mode daemon's `housekeeping` re-reads it every tick.
+
+This cadence governs a declared **wait**, not a parked lane.
+A declared wait is expected to clear on its own, so it must re-surface or a forgotten wait would rot invisibly.
+A **parked** lane - one whose agent firstmate stopped through `bin/fm-control.sh <id> exit`, preserving its endpoint, worktree and branch - cannot change state until firstmate relaunches it, so it is absorbed with no re-surface at all and this knob does not apply to it.
+What replaces the bound there is the durable record: `parked=<epoch>` in `state/<id>.meta`, printed for every task by the session-start digest and reported by `bin/fm-crew-state.sh` as `parked-exit`.
+The relaunch that republishes the record drops the marker.
+
+
 ## Trace context propagation (config/trace-context / FM_TRACE_CONTEXT)
 
 The optional local, gitignored `config/trace-context` presence flag enables default-off native W3C trace-context propagation.
@@ -974,7 +988,7 @@ FM_CAPTAIN_RE='done:|needs-decision:|blocked:|failed:|PR ready|checks green|read
 FM_CLASSIFY_PAUSED_VERB=paused     # leading status verb for a declared external wait; excluded from FM_CAPTAIN_RE and distinct from blocked
 FM_STALE_ESCALATE_SECS=240         # idle seconds before a provably-working stale pane escalates; stale panes whose crew is not provably working surface immediately unless admitted directly to the declared-wait cadence, while a live idle declared wait still surfaces once before that cadence bounds repeats; config/stale-escalate-secs overrides it for this home, see "Stale-escalate threshold" above
 FM_BUSY_TURN_MAX_SECS=3600         # maximum age of a busy pane's latest state/<id>.turn-ended marker, or its state/<id>.meta spawn record before any turn completes, before the same wedge escalation used for a provably-working non-busy stale takes over; inspection-only, never an automatic interrupt or restart; a declared external wait or verified captain-held transfer takes the FM_PAUSE_RESURFACE_SECS recheck below instead
-FM_PAUSE_RESURFACE_SECS=3600       # seconds between bounded rechecks of a declared external wait or verified captain-held transfer, including a live idle pane after its first inconclusive stale wake and a live busy pane past FM_BUSY_TURN_MAX_SECS; the away-mode daemon uses the same setting, ageing its window against the crew's own latest status line rather than pane busy state
+FM_PAUSE_RESURFACE_SECS=3600       # seconds between bounded rechecks of a declared external wait or verified captain-held transfer, including a live idle pane after its first inconclusive stale wake and a live busy pane past FM_BUSY_TURN_MAX_SECS; the away-mode daemon uses the same setting, ageing its window against the crew's own latest status line rather than pane busy state; config/pause-resurface-secs overrides it for this home, see "Declared-wait resurface cadence" above; a PARKED lane is not a declared wait and never re-surfaces
 FM_SECONDMATE_WAKE_STALL_SECS=60   # minimum age of the oldest valid foreign wake-queue row before an endpoint-recorded local secondmate produces one durable parent wake-loop-stall notification; zero or invalid values use 60
 FM_WEDGE_DEMAND_INSPECT_COUNT=3    # consecutive provably-working stale escalations on the same unchanged pane before demand-deep-inspection is added
 FM_WORKTREE_WRITE_PRUNE='.git node_modules .venv venv __pycache__ .mypy_cache .pytest_cache .ruff_cache .tox target dist build .next .cache vendor'   # directory names the wedge detector's task-worktree write probe skips; the default keeps .git out so a supervisor's own read-only git command can never look like crew progress; set it to the empty string to prune nothing, which widens the probe to the whole depth-bounded tree rather than disabling it
