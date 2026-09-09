@@ -783,6 +783,56 @@ SH
   pass "--force closes the record but still refuses to reset a worktree another task records"
 }
 
+# The slot is not leaked: skipping cleanup while a second record names the path
+# defers the return, it does not cancel it. Once the other record is gone, the
+# LAST task to be closed does the ordinary cleanup and the slot goes back to the
+# pool. Without this, "refuse to touch a shared path" would quietly strand a
+# worktree that nothing holds any more.
+test_the_last_record_naming_a_shared_worktree_still_returns_it() {
+  local case_dir rc
+  case_dir=$(make_case reassigned-last-owner)
+  write_meta "$case_dir" local-only ship
+  fm_write_meta "$case_dir/state/second-task.meta" \
+    "window=firstmate:fm-second-task" \
+    "endpoint_task_id=second-task" \
+    "worktree=$case_dir/wt" \
+    "project=$case_dir/project" \
+    "kind=ship" \
+    "mode=local-only" \
+    "spawn_gen=teardown-test-second"
+  cat > "$case_dir/fakebin/treehouse" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$case_dir/treehouse-calls.log"
+exit 0
+SH
+  chmod +x "$case_dir/fakebin/treehouse"
+
+  # Close the first: the shared path is left alone.
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 0 "$rc" "last-owner: closing the first record should succeed"
+  [ ! -f "$case_dir/treehouse-calls.log" ] \
+    || fail "last-owner: the first close returned a path the second record still named"
+
+  # Now let the other claimant go and leave a single record naming the path, the
+  # state the pool is actually in once the reassignment is reconciled. Closing
+  # that last record must return the slot.
+  rm -f "$case_dir/state/second-task.meta"
+  write_meta "$case_dir" local-only ship
+  set +e
+  run_teardown "$case_dir" --force > "$case_dir/stdout2" 2> "$case_dir/stderr2"
+  rc=$?
+  set -e
+  expect_code 0 "$rc" "last-owner: closing the last record should succeed"
+  [ -f "$case_dir/treehouse-calls.log" ] \
+    || fail "last-owner: the slot was never returned - the worktree is leaked"
+  grep -q "return" "$case_dir/treehouse-calls.log" \
+    || fail "last-owner: treehouse was called but not to return the slot: $(cat "$case_dir/treehouse-calls.log")"
+  pass "the last record naming a shared worktree still returns it, so the deferral never leaks a slot"
+}
+
 test_local_only_fork_remote_allows() {
   local case_dir rc
   case_dir=$(make_case fork-allow)
@@ -3929,6 +3979,7 @@ EOF
 test_local_only_fork_remote_allows
 test_cleanup_of_a_reassigned_worktree_leaves_the_occupying_task_untouched
 test_force_does_not_lift_the_reassigned_worktree_guard
+test_the_last_record_naming_a_shared_worktree_still_returns_it
 test_teardown_closes_the_backlog_item_itself
 test_teardown_ready_probe_failure_falls_back_to_legacy_reminder
 test_teardown_manual_backend_leaves_the_backlog_to_the_operator
