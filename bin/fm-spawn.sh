@@ -1147,6 +1147,9 @@ RELAUNCH_PRIOR_HARNESS=
 # into the recorded worktree. Declared unconditionally so the shared launch code
 # below can read it under `set -u` on the fresh-spawn path too.
 RELAUNCH_REENDPOINT=0
+# Set when a re-endpoint relaunch must also recreate the task's herdr WORKSPACE,
+# because the recorded one no longer exists. Declared here for the same reason.
+RELAUNCH_REWORKSPACE=0
 if [ "$RELAUNCH" -eq 1 ]; then
   [ "${#POS[@]}" -eq 1 ] || {
     echo "error: --relaunch takes the task id only; its project or home comes from the task's own record" >&2
@@ -1192,6 +1195,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # in one endpoint is the failure this gate exists to prevent.
   RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
   RELAUNCH_REENDPOINT=0
+  RELAUNCH_REWORKSPACE=0
   case "$RELAUNCH_STATE" in
     dead) ;;
     missing) RELAUNCH_REENDPOINT=1 ;;
@@ -1236,10 +1240,22 @@ if [ "$RELAUNCH" -eq 1 ]; then
         echo "error: task $ID's endpoint is gone and its record names no herdr session/workspace to recreate it in; refusing rather than placing the replacement in a freshly resolved container" >&2
         exit 1
       }
-      fm_backend_herdr_workspace_id_exists "$HERDR_SES" "$HERDR_WORKSPACE_ID" || {
-        echo "error: task $ID's endpoint is gone and its recorded herdr workspace $HERDR_WORKSPACE_ID (session $HERDR_SES) no longer exists; refusing to relaunch into a different workspace" >&2
-        exit 1
-      }
+      # Herdr deletes a workspace whose last pane closes, so the endpoint and
+      # its workspace can BOTH be gone from one closed pane - which is what
+      # happened to eleven parked lanes on 2026-09-09. That is not a reason to
+      # strand work: the recorded SESSION is the container identity a relaunch
+      # must not drift out of, and the workspace inside it is recreated below.
+      # `unknown` still refuses: an unreadable workspace list (a stopped or
+      # unreachable session) cannot prove the workspace is gone, and placing the
+      # replacement on that guess is exactly the drift this gate prevents.
+      case "$(fm_backend_herdr_workspace_presence_state "$HERDR_SES" "$HERDR_WORKSPACE_ID")" in
+        present) ;;
+        dead) RELAUNCH_REWORKSPACE=1 ;;
+        *)
+          echo "error: task $ID's endpoint is gone and its recorded herdr workspace $HERDR_WORKSPACE_ID (session $HERDR_SES) could not be read; refusing rather than placing the replacement in a guessed container" >&2
+          exit 1
+          ;;
+      esac
     else
       HERDR_TAB_ID=$(fm_meta_get "$RELAUNCH_META" herdr_tab_id)
       HERDR_PANE_ID=$(fm_meta_get "$RELAUNCH_META" herdr_pane_id)
@@ -1256,6 +1272,17 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: task $ID has no recorded harness; pass --harness to relaunch it" >&2
     exit 1
   }
+  # Model and effort follow the harness rule for the same reason: with no
+  # explicit axis, a relaunch keeps what the task is already recorded as running
+  # rather than silently resetting it to the adapter default. A harness CHANGE
+  # still resets both, because a model chosen for one adapter does not transfer
+  # to another - the same rule bin/fm-control.sh applies when it resolves a
+  # relaunch profile, restated here so the launch owner is correct on its own
+  # and a direct `--relaunch` recovery cannot quietly downgrade a lane.
+  if [ "$ARG3" = "$RELAUNCH_PRIOR_HARNESS" ]; then
+    [ -n "$MODEL" ] || MODEL=$(fm_meta_get "$RELAUNCH_META" model)
+    [ -n "$EFFORT" ] || EFFORT=$(fm_meta_get "$RELAUNCH_META" effort)
+  fi
 elif [ "$KIND" = secondmate ]; then
   case "${POS[1]:-}" in
     ''|claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse)
@@ -2486,7 +2513,36 @@ if [ "$RELAUNCH" -eq 1 ] && [ "$RELAUNCH_REENDPOINT" -eq 1 ]; then
       ;;
     herdr)
       SES=$HERDR_SES
-      HERDR_TASK_IDS=$(fm_backend_herdr_create_task "$HERDR_SES:$HERDR_WORKSPACE_ID" "$W" "$WT" "") || exit 1
+      # An adopted workspace has no seeded default tab to prune; a freshly
+      # created one does, and create_task is the only function allowed to prune
+      # it (bin/backends/herdr.sh - pruning it while it is the workspace's only
+      # tab would delete the workspace this relaunch just created).
+      HERDR_SEEDED_DEFAULT_TAB_ID=""
+      if [ "$RELAUNCH_REWORKSPACE" -eq 1 ]; then
+        # The recorded workspace is gone. Recreate the task's container inside
+        # the RECORDED session - never a freshly resolved one - through the same
+        # per-home owner an ordinary spawn uses, so the replacement lands in the
+        # home's own workspace when one is still there and in a fresh workspace
+        # rooted at the recorded worktree when none is. `other-home` is the
+        # relationship that resolves the container from the HOME's own label
+        # rather than from this launching process's herdr pane, which is the
+        # only correct reading for a relaunch that must stay in the recorded
+        # session.
+        HERDR_REWORKSPACE_HOME=$FM_HOME
+        [ "$KIND" != secondmate ] || HERDR_REWORKSPACE_HOME=$FIRSTMATE_HOME
+        FM_HOME="$HERDR_REWORKSPACE_HOME" \
+          fm_backend_herdr_workspace_ensure "$HERDR_SES" "$WT" other-home >/dev/null || {
+          echo "error: task $ID's endpoint and its recorded herdr workspace are both gone, and a replacement workspace could not be ensured in the recorded session $HERDR_SES; the local copy and its work are untouched at $WT" >&2
+          exit 1
+        }
+        HERDR_WORKSPACE_ID=$FM_BACKEND_HERDR_WS_ID
+        HERDR_SEEDED_DEFAULT_TAB_ID=$FM_BACKEND_HERDR_WS_SEEDED_TAB_ID
+        [ -n "$HERDR_WORKSPACE_ID" ] || {
+          echo "error: task $ID's replacement herdr workspace was ensured in session $HERDR_SES but returned no workspace id; refusing to record an unaddressable container" >&2
+          exit 1
+        }
+      fi
+      HERDR_TASK_IDS=$(fm_backend_herdr_create_task "$HERDR_SES:$HERDR_WORKSPACE_ID" "$W" "$WT" "$HERDR_SEEDED_DEFAULT_TAB_ID") || exit 1
       HERDR_TAB_ID=${HERDR_TASK_IDS%% *}
       HERDR_PANE_ID=${HERDR_TASK_IDS##* }
       [ -n "$HERDR_TAB_ID" ] && [ -n "$HERDR_PANE_ID" ] || {

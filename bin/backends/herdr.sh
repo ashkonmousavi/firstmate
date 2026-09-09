@@ -2270,12 +2270,15 @@ fm_backend_herdr_projection_cleanup_exact() {  # <session> <task-pane> <seeded-p
 }
 
 # fm_backend_herdr_workspace_id_exists: 0 only when the named session currently
-# lists exactly this workspace_id. Used by the re-endpoint relaunch path, which
-# recreates a task's terminal in its own RECORDED container rather than in a
-# freshly resolved one - so it must confirm that container is still there before
-# it stops anything, and refuse rather than silently place the replacement
-# somewhere else. An unreadable or unparseable list returns nonzero, which the
-# caller treats as a refusal, never as absence.
+# lists exactly this workspace_id. An unreadable or unparseable list returns
+# nonzero, which is why it has no caller left: the re-endpoint relaunch path it
+# was written for must tell a workspace that is CONFIRMED gone (recreate it in
+# the recorded session) from one it simply could not read (refuse), and this
+# predicate collapses both into one nonzero. fm_backend_herdr_workspace_presence_state
+# above is the tri-state reader that distinction needs; prefer it for any new
+# caller, and reach for this one only where a two-state answer is genuinely
+# enough.
+# shellcheck disable=SC2329  # retained adapter predicate; no caller today
 fm_backend_herdr_workspace_id_exists() {  # <session> <workspace_id>
   local session=$1 wsid=$2 list
   [ -n "$wsid" ] || return 1

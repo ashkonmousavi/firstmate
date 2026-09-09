@@ -87,7 +87,11 @@ Refusing there stranded a lane that still held all of its work.
 The reset touches nothing but the pane's own working directory, and a single read is never accepted as proof the shell moved, because a pane's reported directory can lag the `cd`.
 
 A `missing` endpoint is recreated rather than refused for the same reason: a lane whose terminal was closed still has its worktree and every uncommitted change, and before this it had no supported way back.
-The replacement is created in the task's **own recorded container** - the recorded tmux session, or the recorded herdr session and workspace - never in a freshly resolved one, and a herdr workspace that no longer exists refuses instead.
+The replacement is created in the task's **own recorded container** - the recorded tmux session, or the recorded herdr session - never in a freshly resolved one.
+The recorded session is the container identity a relaunch may never drift out of; the workspace inside it is recreated when it has to be.
+Herdr deletes a workspace whose last pane closes, so one closed pane can take the endpoint and its workspace together, and refusing there stranded eleven parked lanes on 2026-09-09.
+A recorded herdr workspace that is confirmed gone is therefore re-ensured inside the recorded session through the same per-home owner an ordinary spawn uses - the home's own workspace when one is still there, a fresh workspace rooted at the recorded worktree when none is - and the record is republished with the new workspace, tab, and pane.
+A workspace whose presence cannot be read at all, which is what a stopped or unreachable session looks like, still refuses: absence has to be proven, not assumed.
 `--relaunch` still refuses `--backend`, so the endpoint can only ever be recreated on the backend already recorded for the task.
 Because the endpoint identity changes, the control plane re-reads it from the republished record before waiting for the replacement to come up, and reports the new endpoint.
 

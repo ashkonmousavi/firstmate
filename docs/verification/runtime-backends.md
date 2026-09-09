@@ -620,6 +620,24 @@ HERDR_LAB_HELPER=bin/fm-herdr-lab.sh \
 
 Observed guarantee: a restored no-agent tab was replaced create-before-close, while a registered live agent caused refusal.
 
+### Park and resume across a session restart
+
+The whole park-and-resume journey, on the real backend inside one guarded lab session, is owned by:
+
+```sh
+HERDR_LAB_HELPER=bin/fm-herdr-lab.sh \
+  tests/fm-herdr-park-resume-lab-e2e.test.sh
+```
+
+Observed on 2026-09-09 against Herdr 0.9.0, protocol 22:
+
+- A lane stopped with `bin/fm-control.sh <id> exit` kept its `parked=` marker across a real session stop and restart; supervision read it as `parked-exit` from the record while its endpoint independently read `dead`, so the marker rather than an absent endpoint is what parks it.
+- A lane that was alive at the restart came back agent-free, recovered with one relaunch into its own recorded worktree carrying its recorded harness, model, effort, delivery mode and merge posture, and a second recovery pass refused the now-live endpoint and left the record byte-identical.
+- A pane closed inside a multi-tab workspace relaunched into a fresh endpoint in the recorded workspace; a pane closed as its workspace's LAST tab took the workspace with it, and relaunch re-ensured a workspace inside the recorded session rather than stranding the lane.
+- An unreadable workspace list still classified as `unknown`, and a relaunch whose recorded local copy was gone still refused with the record untouched.
+
+No model was launched: agent liveness came from Herdr's own `pane report-agent` registry, and the recorded harness was a verified adapter with no binary installed on the host.
+
 ### Launcher workspace placement
 
 Herdr exports its pane identity into every process it manages, checked on 2026-07-30 against Herdr 0.7.5 protocol 17 inside a guarded lab pane:
