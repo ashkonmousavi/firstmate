@@ -152,7 +152,15 @@ SH
 [ -z "${FM_FAKE_LOCK_WAITING:-}" ] || : > "$FM_FAKE_LOCK_WAITING"
 exit 0
 SH
-  chmod +x "$fb/sleep"
+  cat > "$fb/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = mcp ] && [ "${2:-}" = list ] && [ "${3:-}" = --json ]; then
+  [ "${FM_FAKE_CODEX_MCP_FAIL:-0}" != 1 ] || exit 1
+  printf '%s\n' '[]'
+fi
+exit 0
+SH
+  chmod +x "$fb/sleep" "$fb/codex"
 }
 
 # new_case <name> [id] -> echoes a case dir with a live claude ship task.
@@ -219,6 +227,7 @@ run_control() {  # <case-dir> <args...>
     FM_FAKE_TRACE_RELEASE="${FM_FAKE_TRACE_RELEASE:-}" \
     FM_FAKE_META_WRITER_READY="${FM_FAKE_META_WRITER_READY:-}" \
     FM_FAKE_TRACE_EXPORTED="${FM_FAKE_TRACE_EXPORTED:-}" \
+    FM_FAKE_CODEX_MCP_FAIL="${FM_FAKE_CODEX_MCP_FAIL:-0}" \
     "$CONTROL" "$@" 2>&1
 }
 
@@ -1086,10 +1095,11 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
   dir=$(new_case rollback rl13)
   add_ship_task "$dir" rl13 claude
   before=$(cat "$dir/home/state/rl13.meta")
-  # The endpoint's shell is not in the recorded worktree, so the launch owner
-  # refuses AFTER the previous agent has already been stopped.
+  # Fail the lean Codex inventory after the previous agent has stopped. The
+  # launch must not silently fall back to a full-service Codex process.
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
-  out=$(run_control "$dir" rl13 relaunch --harness codex --note "carry this forward"); rc=$?
+  out=$(FM_FAKE_CODEX_MCP_FAIL=1 \
+    run_control "$dir" rl13 relaunch --harness codex --note "carry this forward"); rc=$?
   expect_code 1 "$rc" "a failed launch should fail closed"$'\n'"$out"
   assert_contains "$out" "no agent is running" "the failure should say no agent is running"
   assert_contains "$out" "$dir/wt" "the failure should say where the work is preserved"
@@ -1105,11 +1115,15 @@ test_launch_failure_keeps_the_prior_record_and_reports_it() {
 }
 
 test_prepublication_failure_keeps_concurrent_durable_metadata() {
-  local dir control_pid link_out rc i=0
+  local dir control_pid link_out rc real_mv meta i=0
   dir=$(new_case rollback-race rl30)
   add_ship_task "$dir" rl30 claude
+  real_mv=$(command -v mv)
+  meta="$dir/home/state/rl30.meta"
+  make_mv_failure_stub "$dir"
   printf '%s' "$dir/proj" > "$dir/fake/cwd"
-  FM_FAKE_CWD_RACE_READY="$dir/cwd-race-ready" \
+  FM_REAL_MV="$real_mv" FM_FAKE_META_PUBLISH_MV_FAIL="$meta" \
+    FM_FAKE_CWD_RACE_READY="$dir/cwd-race-ready" \
     run_control "$dir" rl30 relaunch --harness codex --note "preserve concurrent metadata" \
       > "$dir/control.out" &
   control_pid=$!
@@ -1123,6 +1137,7 @@ test_prepublication_failure_keeps_concurrent_durable_metadata() {
     fail "relaunch did not reach its pre-publication endpoint check"
   }
   link_out=$(env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+    FM_REAL_MV="$real_mv" \
     "$X_LINK" rl30 request-30 --carry-count 2 --carry-ts 1700000000 \
       --carry-platform x --carry-max 280 2>&1); rc=$?
   expect_code 0 "$rc" "concurrent durable metadata publication should succeed"$'\n'"$link_out"

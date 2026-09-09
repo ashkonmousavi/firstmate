@@ -92,10 +92,12 @@ fm_test_fake_gh_axi() {
 # --- fake tmux / ssh / sleep ------------------------------------------------
 
 # fm_test_fake_tmux_spawn <fakebin>
-# Spawn-world tmux: pane_current_path from FM_FAKE_PANE_PATH, session named
-# firstmate, window ops succeed, send-keys succeed. When FM_FAKE_LAUNCH_LOG is
-# set, each send-keys -l payload is appended one per line. Optional
-# FM_FAKE_DUPLICATE_WINDOW is printed from list-windows.
+# Spawn-world tmux: pane_current_path from FM_FAKE_PANE_PATH, or from the
+# task-named child of FM_FAKE_PANE_PATH_ROOT when a multi-lane test needs each
+# fake window to report its own worktree. The session is named firstmate,
+# window ops and send-keys succeed, and FM_FAKE_LAUNCH_LOG captures each
+# send-keys -l payload one per line. Optional FM_FAKE_DUPLICATE_WINDOW is
+# printed from list-windows.
 #
 # The pane path defaults to empty when FM_FAKE_PANE_PATH is unset. Window
 # cleanup and option operations are no-ops. Launch logging is env-gated, so
@@ -106,7 +108,24 @@ fm_test_fake_tmux_spawn() {
 #!/usr/bin/env bash
 set -u
 case "$*" in
-  *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
+  *"#{pane_current_path}"*)
+    if [ -n "${FM_FAKE_PANE_PATH_ROOT:-}" ]; then
+      target=
+      prev=
+      for arg in "$@"; do
+        if [ "$prev" = -t ]; then
+          target=$arg
+          break
+        fi
+        prev=$arg
+      done
+      task=${target#*:fm-}
+      printf '%s/%s\n' "$FM_FAKE_PANE_PATH_ROOT" "$task"
+    else
+      printf '%s\n' "${FM_FAKE_PANE_PATH:-}"
+    fi
+    exit 0
+    ;;
 esac
 case "${1:-}" in
   display-message) printf 'firstmate\n'; exit 0 ;;
