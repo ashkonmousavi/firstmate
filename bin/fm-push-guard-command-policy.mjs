@@ -33,17 +33,9 @@
 // commands. A blocked push costs one clarifying turn; a red main costs a
 // captain incident, so ambiguity here favors the deny.
 //
-// Force pushes and remote branch deletions are denied on EVERY branch, not
-// only main/master: a force push rewrites published history and a remote
-// delete removes a branch a PR or another worker still depends on, and both
-// are unsafe wherever they land. The sanctioned alternatives are a replacement
-// branch with a fresh suffix and closing the superseded PR. A repository-wide
-// sweep on 2026-09-09 found no firstmate script that force-pushes or deletes a
-// remote branch (`bin/fm-fleet-sync.sh` and `bin/fm-teardown.sh` delete LOCAL
-// branches with `git branch -D`, which this guard never sees), so the
-// OWNER_MARKERS exemption below is the only sanctioned bypass; because
-// findSites() applies that marker before this file classifies any argument, it
-// covers these denials too without a second bypass surface.
+// A bare force push and an unlanded remote deletion remain unsafe everywhere.
+// The transport grants the two Decision 0055 paths only after checking the
+// registered task record, remote lease tip, and landing record.
 //
 // Accepted non-goals (documented rather than silently missed):
 //   - Indirection through a program this classifier does not treat as a
@@ -79,7 +71,6 @@ const REASONS = {
 // so this exemption is unexercised by any current call site - it exists so a
 // future change to either owner has a sanctioned way to push directly without
 // widening this policy into a path-based bypass.
-const OWNER_MARKERS = new Set(["FM_PUSH_GUARD_OWNER=fm-pr-merge", "FM_PUSH_GUARD_OWNER=fm-merge-local"]);
 
 const GIT_GLOBAL_OPTIONS_WITH_ARG = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"]);
 const GIT_GLOBAL_OPTIONS_WITH_ARG_PREFIXED = ["--git-dir=", "--work-tree=", "--namespace=", "--exec-path="];
@@ -121,9 +112,6 @@ function deny(code) {
   return { decision: "deny", code, reason: REASONS[code] };
 }
 
-function hasOwnerMarker(words, uptoIndex) {
-  return words.slice(0, uptoIndex).some((word) => OWNER_MARKERS.has(word.value));
-}
 
 // Skip git's own global options (before the subcommand). Returns the index of
 // the first word that is not a recognized global option, plus the last `-C`
@@ -166,6 +154,7 @@ function classifyPushArgs(words, dir) {
   let sawMirror = false;
   let sawForce = false;
   let sawDelete = false;
+  let lease = null;
   const positionals = [];
   let onlyPositionals = false;
   for (let i = 0; i < words.length; i += 1) {
@@ -178,6 +167,15 @@ function classifyPushArgs(words, dir) {
       if (value === "--all" || value === "--mirror") {
         if (value === "--all") sawAll = true;
         else sawMirror = true;
+        continue;
+      }
+      if (value.startsWith("--force-with-lease=")) {
+        const match = /^--force-with-lease=(?:refs\/heads\/)?([^:]+):([0-9a-fA-F]{40})$/.exec(value);
+        if (match) {
+          lease = { branch: match[1], expected: match[2].toLowerCase() };
+        } else {
+          sawForce = true;
+        }
         continue;
       }
       if (isForceFlag(value)) {
@@ -226,6 +224,18 @@ function classifyPushArgs(words, dir) {
   // most (land it through a PR). Force outranks delete only because a rewrite
   // of published history is the more destructive of the two.
   if (sawProtectedTarget) return { kind: "deny", code: "protected-branch-push" };
+  const remote = positionals[0]?.value ?? "";
+  const targetSpecs = positionals.slice(1);
+  if (lease && !sawForce && !sawDelete && targetSpecs.length === 1) {
+    const target = targetSpecs[0].value.replace(/^refs\/heads\//, "");
+    if (target === lease.branch) {
+      return { kind: "authorize-lease", dir, remote, branch: target, expected: lease.expected };
+    }
+  }
+  if (sawDelete && !sawForce && targetSpecs.length === 1) {
+    const target = targetSpecs[0].value.replace(/^refs\/heads\//, "");
+    return { kind: "authorize-delete", dir, remote, branch: target };
+  }
   if (sawForce) return { kind: "deny", code: "force-push" };
   if (sawDelete) return { kind: "deny", code: "branch-delete-push" };
 
@@ -315,8 +325,6 @@ function findSites(command, depth) {
     const afterGit = skipGitGlobalOptions(position.words, position.index + 1);
     const subcommand = position.words[afterGit.index];
     if (!subcommand || subcommand.value !== "push") continue;
-    if (hasOwnerMarker(position.words, position.index)) continue;
-
     const pushArgs = position.words.slice(afterGit.index + 1);
     const site = classifyPushArgs(pushArgs, afterGit.dir);
     if (site) sites.push(site);
@@ -330,6 +338,8 @@ function decision(command) {
   if (unparseable) return deny("unclassifiable-push");
   const denySite = sites.find((site) => site.kind === "deny");
   if (denySite) return deny(denySite.code);
+  const authorization = sites.find((site) => site.kind.startsWith("authorize-"));
+  if (authorization) return authorization;
   const bareSite = sites.find((site) => site.kind === "bare");
   if (bareSite) return { decision: "check-branch", dir: bareSite.dir };
   return { decision: "allow" };
@@ -378,6 +388,10 @@ if (invokedDirectly()) {
         process.stdout.write("allow\n");
       } else if (result.decision === "check-branch") {
         process.stdout.write(`check-branch\t${result.dir}\n`);
+      } else if (result.kind === "authorize-lease") {
+        process.stdout.write(`authorize-lease\t${result.dir || "-"}\t${result.remote}\t${result.branch}\t${result.expected}\n`);
+      } else if (result.kind === "authorize-delete") {
+        process.stdout.write(`authorize-delete\t${result.dir || "-"}\t${result.remote}\t${result.branch}\n`);
       } else {
         process.stdout.write(`deny\t${result.code}\t${result.reason}\n`);
       }

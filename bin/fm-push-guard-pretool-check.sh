@@ -115,7 +115,7 @@ if [ "$CMD_SET" -eq 0 ]; then
   [ -n "$PAYLOAD" ] || exit 0
   command -v jq >/dev/null 2>&1 || exit 0
   SCRIPT_DIR_EARLY=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null && pwd) || exit 0
-  # shellcheck source=bin/fm-hook-host-lib.sh
+  # shellcheck source=bin/fm-hook-host-lib.sh disable=SC1091
   . "$SCRIPT_DIR_EARLY/fm-hook-host-lib.sh"
   # This guard is registered only for Claude and Codex, both of which deliver
   # .tool_input.command. A payload stamped by a foreign host (Cursor loads the
@@ -173,6 +173,62 @@ if [ "$DECISION" = "deny" ]; then
   REASON=${REST#*"$TAB"}
   [ -n "$CODE" ] && [ -n "$REASON" ] && [ "$REASON" != "$REST" ] || exit 0
   emit_deny "$CODE" "$REASON"
+fi
+
+guard_task_meta() {  # <directory> <branch>; echoes matching registered ship-task meta
+  local directory=$1 branch=$2 state meta recorded kind recorded_branch
+  state=${FM_STATE_OVERRIDE:-${FM_HOME:-$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd -P)}/state}
+  directory=$(CDPATH='' cd -- "$directory" 2>/dev/null && pwd -P) || return 1
+  for meta in "$state"/*.meta; do
+    if [ ! -f "$meta" ] || [ -L "$meta" ]; then
+      continue
+    fi
+    recorded=$(awk -F= '$1 == "worktree" { value=substr($0, length($1) + 2) } END { print value }' "$meta")
+    kind=$(awk -F= '$1 == "kind" { value=substr($0, length($1) + 2) } END { print value }' "$meta")
+    recorded_branch=$(git -C "$directory" symbolic-ref --quiet --short HEAD 2>/dev/null) || continue
+    if [ "$kind" != ship ] || [ "$recorded" != "$directory" ] || [ "$recorded_branch" != "$branch" ]; then
+      continue
+    fi
+    printf '%s\n' "$meta"
+    return 0
+  done
+  return 1
+}
+
+guard_remote_tip_matches() {  # <directory> <remote> <branch> <expected>
+  local directory=$1 remote=$2 branch=$3 expected=$4 found
+  found=$(git -C "$directory" ls-remote "$remote" "refs/heads/$branch" 2>/dev/null | awk 'NR == 1 { print $1 }') || return 1
+  [ "$found" = "$expected" ]
+}
+
+if [ "$DECISION" = "authorize-lease" ] || [ "$DECISION" = "authorize-delete" ]; then
+  REST=${POLICY_OUTPUT#*"$TAB"}
+  IFS="$TAB" read -r _ DIR REMOTE BRANCH EXPECTED <<EOF
+$DECISION$TAB$REST
+EOF
+  [ "$DIR" != - ] || DIR=""
+  EFFECTIVE_DIR=$DIR
+  [ -n "$EFFECTIVE_DIR" ] || EFFECTIVE_DIR=$(pwd -P) || exit 0
+  command -v git >/dev/null 2>&1 || exit 0
+  DEFAULT_REF=$(git -C "$EFFECTIVE_DIR" symbolic-ref --quiet "refs/remotes/$REMOTE/HEAD" 2>/dev/null || true)
+  if [ "$BRANCH" = main ] || [ "$BRANCH" = master ] || [ "$DEFAULT_REF" = "refs/remotes/$REMOTE/$BRANCH" ]; then
+    emit_deny "protected-branch-push" "a direct git push to main or master is blocked; land it through a PR so CI proves it before main - use bin/fm-pr-merge.sh or bin/fm-merge-local.sh."
+  fi
+  if ! META=$(guard_task_meta "$EFFECTIVE_DIR" "$BRANCH"); then
+    if [ "$DECISION" = "authorize-delete" ]; then
+      emit_deny "branch-delete-push" "deleting a remote branch is blocked unless it is the registered landed task branch; close the superseded PR instead and leave its branch in place."
+    fi
+    emit_deny "force-push" "a force push rewrites published history and is blocked unless it is an exact registered task-branch lease."
+  fi
+  if [ "$DECISION" = "authorize-lease" ]; then
+    if [ -z "$EXPECTED" ] || ! guard_remote_tip_matches "$EFFECTIVE_DIR" "$REMOTE" "$BRANCH" "$EXPECTED"; then
+      emit_deny "force-push" "a force push is blocked unless its exact registered task branch lease names the last verified remote tip."
+    fi
+    exit 0
+  fi
+  awk -F= '$1 == "landed_pr" && length(substr($0, length($1) + 2)) > 0 { found=1 } END { exit !found }' "$META" \
+    || emit_deny "branch-delete-push" "deleting a remote branch is blocked until bin/fm-pr-merge.sh records that task's landing."
+  exit 0
 fi
 
 if [ "$DECISION" = "check-branch" ]; then
