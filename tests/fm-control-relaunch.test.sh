@@ -573,6 +573,23 @@ test_relaunch_requires_a_note_for_a_ship_task() {
   pass "fm-control relaunch: a ship task refuses without the progress note its replacement needs"
 }
 
+# A relaunch replaces an already-recorded task, so a brief from before the
+# intake Prep requirement must warn and launch instead of stranding its work.
+test_relaunch_warns_and_launches_a_legacy_brief_without_prep() {
+  local dir out rc
+  dir=$(new_case legacy-prep rllegacy)
+  add_ship_task "$dir" rllegacy claude
+  sed -i '/^Prep: /d' "$dir/home/data/rllegacy/brief.md"
+
+  out=$(run_control "$dir" rllegacy relaunch --note "continue the recorded work"); rc=$?
+  expect_code 0 "$rc" "a legacy brief without Prep must relaunch: $out"
+  assert_contains "$out" "$dir/home/data/rllegacy/brief.md has no \"Prep:\" line" \
+    "the relaunch warning should name the legacy brief path"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "the replacement agent was not launched after the legacy warning"
+  pass "fm-control relaunch: a legacy brief without Prep warns and launches"
+}
+
 # --- 2. harness switch -------------------------------------------------------
 
 test_harness_switch_moves_the_record_and_clears_prior_wiring() {
@@ -1854,6 +1871,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_the_progress_note_to_the_instructions
 test_relaunch_requires_a_note_for_a_ship_task
+test_relaunch_warns_and_launches_a_legacy_brief_without_prep
 test_harness_switch_moves_the_record_and_clears_prior_wiring
 test_harness_switch_does_not_carry_the_old_profile_axes
 test_harness_switch_resolves_a_prefixed_recorded_harness

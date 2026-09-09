@@ -14,8 +14,10 @@
 #   scaffolded before that line existed warns once and launches on the flag. A
 #   ship or scout spawn also refuses leftover `{TASK}` / `{FIRSTMATE_SPEC}`
 #   placeholders, an empty Task, or an incomplete pair of Task subsections. A
-#   ship spawn additionally refuses a brief with no "Prep:" line at all (the
-#   scaffold's Proof bar section, bin/fm-brief.sh). When that Proof bar
+#   fresh ship spawn additionally refuses a brief with no "Prep:" line at all
+#   (the scaffold's Proof bar section, bin/fm-brief.sh). A relaunch warns and
+#   continues for that one legacy omission because the task already passed
+#   intake before its durable record and worktree existed. When that Proof bar
 #   section is present and the brief's Task text mentions running tests,
 #   builds, a lint battery, or a browser suite, the spawn also refuses a
 #   missing or unfilled "Resource:" line; a brief with no Proof bar section
@@ -2112,21 +2114,26 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if [ "$KIND" = ship ]; then
     PREP_LINE=$(grep '^Prep: ' "$BRIEF" | head -n 1)
     if [ -z "$PREP_LINE" ]; then
-      echo "error: $BRIEF has no \"Prep:\" line; state the prep tier at intake (AGENTS.md section 11) before spawn" >&2
-      exit 1
+      if [ "$RELAUNCH" -eq 1 ]; then
+        echo "warning: $BRIEF has no \"Prep:\" line; relaunching an already-recorded task with a pre-intake legacy brief" >&2
+      else
+        echo "error: $BRIEF has no \"Prep:\" line; state the prep tier at intake (AGENTS.md section 11) before spawn" >&2
+        exit 1
+      fi
+    else
+      PREP_BODY=${PREP_LINE#Prep: }
+      case "$PREP_BODY" in
+        "Tier 1")
+          echo "error: $BRIEF's Prep line is the unfilled placeholder \"Prep: Tier 1\"; state the actual prep tier plus its reasoning or swept site list (AGENTS.md section 11 / the Proof bar) before spawn" >&2
+          exit 1
+          ;;
+        "Tier 0"*|"Tier 1"*|"Tier 2"*) ;;
+        *)
+          echo "error: $BRIEF's Prep line names no recognized tier (Tier 0, 1, or 2); state the prep tier at intake (AGENTS.md section 11) before spawn" >&2
+          exit 1
+          ;;
+      esac
     fi
-    PREP_BODY=${PREP_LINE#Prep: }
-    case "$PREP_BODY" in
-      "Tier 1")
-        echo "error: $BRIEF's Prep line is the unfilled placeholder \"Prep: Tier 1\"; state the actual prep tier plus its reasoning or swept site list (AGENTS.md section 11 / the Proof bar) before spawn" >&2
-        exit 1
-        ;;
-      "Tier 0"*|"Tier 1"*|"Tier 2"*) ;;
-      *)
-        echo "error: $BRIEF's Prep line names no recognized tier (Tier 0, 1, or 2); state the prep tier at intake (AGENTS.md section 11) before spawn" >&2
-        exit 1
-        ;;
-    esac
     # The Resource line is only ever required when this brief carries the
     # "# Proof bar" section (bin/fm-dod-lib.sh's fm_proof_bar_section) AND its
     # own Task text mentions running tests, builds, a lint battery, or a
