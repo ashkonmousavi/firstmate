@@ -167,6 +167,61 @@ test_already_settled_pane_costs_one_confirm_sleep() {
   pass "an already-settled pane confirms via the existing inter-poll sleep, not an extra full cycle"
 }
 
+# The pool hands out a slot another task's record still names, and the spawn
+# refuses it.
+#
+# treehouse binds a lease to a process - owner_pid plus owner_started_at in
+# treehouse-state.json - so a restart drops every lease, and `treehouse status`
+# then reads each slot from the live processes it can see. A lane whose agent is
+# stopped is then indistinguishable from a free slot, and on this host at 00:44
+# on 2026-09-09 slot 6 - recorded to a parked scout - was handed to a new spawn
+# and reset to main. treehouse exposes no way to lease a path that already
+# exists, so this refusal, not a re-taken lease, is what keeps two tasks out of
+# one worktree.
+#
+# The second half matters as much as the first: the settle loop hands back a
+# path this task legitimately owns on almost every spawn, so a guard that
+# refused on any recorded match would refuse every relaunch and every ordinary
+# reuse. Only ANOTHER task's record is a collision.
+#
+# Red before assert_worktree_unclaimed existed: the spawn accepted the slot,
+# exited 0, and wrote a second meta naming the same worktree.
+test_a_worktree_another_task_records_is_refused() {
+  local rec id other out status
+  id=settle-collision-z4
+  other=settle-collision-incumbent
+  rec=$(make_settle_case settle-collision "$id" 0)
+  read_settle_record "$rec"
+
+  # The incumbent is parked: its agent is stopped, which is exactly the state
+  # that makes its slot look free to the pool.
+  printf 'worktree=%s\nwindow=fm-sess:incumbent\nparked=%s\n' \
+    "$WT_DIR" "$(( $(date +%s) - 900 ))" > "$HOME_DIR/state/$other.meta"
+
+  out=$(run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" "spawn must refuse a worktree another task's record names"
+  assert_contains "$out" "task $other's record already names that worktree" \
+    "the refusal did not name the colliding task id"
+  [ ! -f "$HOME_DIR/state/$id.meta" ] \
+    || fail "spawn published a second record naming $WT_DIR after refusing it"
+
+  # The incumbent's own record is untouched - the refusal costs a spawn, never
+  # the lane that already owned the slot.
+  assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$other.meta" \
+    "the refusal disturbed the incumbent task's record"
+
+  # Same pool slot, no other claim: the spawn proceeds. A task's own record is
+  # not a collision either, or every relaunch would refuse.
+  rm -f "$HOME_DIR/state/$other.meta"
+  out=$(run_settle_spawn "$id")
+  status=$?
+  expect_code 0 "$status" "spawn must accept a worktree no other task records"
+  assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$id.meta" \
+    "spawn did not record the worktree once the collision was gone"
+  pass "a pool slot another task's record names is refused by colliding id, and an unclaimed one is not"
+}
+
 test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout() {
   local rec id out status capture case_dir
   id=settle-pool-refusal-z3
@@ -188,6 +243,8 @@ test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout() {
 
 test_single_stale_first_read_is_not_accepted
 test_already_settled_pane_costs_one_confirm_sleep
+test_a_worktree_another_task_records_is_refused
+
 test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout
 
 echo "# all fm-spawn-worktree-settle tests passed"
