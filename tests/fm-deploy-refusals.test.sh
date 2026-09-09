@@ -220,6 +220,26 @@ case "${1:-} ${2:-}" in
     printf 'built\n' > "$out/index.html"
     printf '{}\n' > "$out/bundle-seal.json"
     ;;
+  'api '*)
+    case "${2:-}" in
+      */artifacts)
+        # FMTEST_ARTIFACT_LIST, when set (even empty), names the exact rows this
+        # run's artifact listing carries, one "name<TAB>expired" pair per line -
+        # this is what a case uses to say a name is absent, present, or present
+        # but past its retention. Left unset, the run carries only the bare
+        # bundle-artifact name, not expired: the shape every case that reaches
+        # this download gets unless it says otherwise.
+        if [ -n "${FMTEST_ARTIFACT_LIST+x}" ]; then
+          printf '%s\n' "$FMTEST_ARTIFACT_LIST"
+        else
+          printf '%s\t%s\n' "${FMTEST_ARTIFACT_NAME:-demo-dist}" "${FMTEST_ARTIFACT_EXPIRED:-false}"
+        fi
+        ;;
+      *)
+        printf '%s\n' "${FMTEST_RUN_ATTEMPT:-1}"
+        ;;
+    esac
+    ;;
 esac
 exit 0
 SH
@@ -556,13 +576,68 @@ test_an_expired_artifact_is_still_reported_as_expired() {
   make_case build-expired
   # The one case that is genuinely about retention: the build for this commit
   # ran and succeeded, and only the artifact is gone. Splitting the races out
-  # must not cost this path its own message.
-  out=$(FMTEST_GH_RC=0 FMTEST_BUILD_STATE='completed success' FMTEST_DOWNLOAD_FAILS=1 \
+  # must not cost this path its own message. The bare name is what the run
+  # actually carries here (no attempt override, so the suffixed name is never
+  # present), and the listing marks it expired rather than the download simply
+  # failing, which is what makes this the genuinely-expired case rather than
+  # the merely-absent one below.
+  out=$(FMTEST_GH_RC=0 FMTEST_BUILD_STATE='completed success' FMTEST_ARTIFACT_EXPIRED=true \
     run_deploy demo "$PLAIN") || rc=$?
   [ "$rc" -ne 0 ] || fail "build-expired: deployed a version whose front end was never downloaded"
   assert_contains "$out" "no longer available for download" build-expired
   assert_machine_untouched build-expired
   pass "a green build whose artifact has expired is still reported as an expired artifact"
+}
+
+test_a_suffixed_bundle_artifact_is_downloaded_when_present() {
+  local out rc=0
+  make_case bundle-suffixed-present
+  # The workflow renamed the artifact per run attempt (batch 6's regression):
+  # the run's own attempt number names an artifact this fixture actually
+  # carries, so the download must ask for that exact name rather than the
+  # bare one config/deploy-target still names.
+  out=$(FMTEST_GH_RC=0 FMTEST_BUILD_STATE='completed success' FMTEST_RUN_ATTEMPT=2 \
+    FMTEST_ARTIFACT_LIST=$'demo-dist-2\tfalse' \
+    run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -eq 0 ] || fail "bundle-suffixed-present: a bundle present under the attempt-suffixed name was refused: $out"
+  assert_contains "$out" "is live at $PLAIN" bundle-suffixed-present
+  pass "a bundle artifact named for the run's own attempt is downloaded when the listing shows it"
+}
+
+test_a_bare_bundle_artifact_is_downloaded_when_only_it_is_present() {
+  local out rc=0
+  make_case bundle-bare-present
+  # The old workflow shape: only the bare name config/deploy-target names ever
+  # existed, so the suffixed name the new code tries first is genuinely absent
+  # (not expired), and the fallback to the bare name must still succeed.
+  out=$(FMTEST_GH_RC=0 FMTEST_BUILD_STATE='completed success' FMTEST_RUN_ATTEMPT=2 \
+    run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -eq 0 ] || fail "bundle-bare-present: a bundle present only under the bare name was refused: $out"
+  assert_contains "$out" "is live at $PLAIN" bundle-bare-present
+  pass "a bundle artifact under the bare name is downloaded when the suffixed name is absent"
+}
+
+test_neither_bundle_artifact_name_refuses_naming_both_and_the_run() {
+  local out rc=0
+  make_case bundle-neither-present
+  # Neither name is on the run at all - not expired, just never produced under
+  # either shape. The refusal must name both attempted artifact names and the
+  # run id, and must NOT claim the "no longer available" retention cause,
+  # since the listing never showed either name to exist in the first place.
+  out=$(FMTEST_GH_RC=0 FMTEST_BUILD_STATE='completed success' FMTEST_RUN_ATTEMPT=2 \
+    FMTEST_ARTIFACT_LIST='' \
+    run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -ne 0 ] || fail "bundle-neither-present: deployed although neither bundle artifact name exists on the run"
+  assert_contains "$out" "demo-dist-2" bundle-neither-present
+  assert_contains "$out" "demo-dist" bundle-neither-present
+  assert_contains "$out" "4242" bundle-neither-present
+  case "$out" in
+    *"no longer available"* | *"kept only briefly"*)
+      fail "bundle-neither-present: an absent artifact name was reported as an expired one: $out"
+      ;;
+  esac
+  assert_machine_untouched bundle-neither-present
+  pass "when neither bundle artifact name exists on the run, the refusal names both tried names and the run id, not a false expiry"
 }
 
 test_a_deploy_freeze_pauses_the_trigger_but_not_the_captain() {
@@ -749,6 +824,9 @@ test_an_unreadable_dependency_file_refuses_before_touching_the_machine
 test_a_build_still_running_is_a_race_not_a_missing_bundle
 test_a_build_that_failed_is_named_as_a_failed_build
 test_an_expired_artifact_is_still_reported_as_expired
+test_a_suffixed_bundle_artifact_is_downloaded_when_present
+test_a_bare_bundle_artifact_is_downloaded_when_only_it_is_present
+test_neither_bundle_artifact_name_refuses_naming_both_and_the_run
 test_a_deploy_freeze_pauses_the_trigger_but_not_the_captain
 test_the_permission_flag_alone_is_not_permission
 test_the_captains_words_let_the_same_range_through

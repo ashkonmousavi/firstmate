@@ -420,7 +420,30 @@ if [ -n "$FM_DEPLOY_TGT_bundle_path" ]; then
       'completed success') ;;
       completed*) refuse "the build for $TARGET_SHA finished without succeeding (${run_state#* }), so it produced no front-end bundle to deploy" ;;
     esac
-    gh run download "$run_id" --repo "$GH_REPO" -n "$FM_DEPLOY_TGT_bundle_artifact" -D "$BUNDLE_DIR" >/dev/null 2>&1 \
+    # A workflow may rename the bundle artifact per run attempt (so a rerun does
+    # not collide with the first attempt's upload), so the exact name to ask for
+    # depends on the run's own attempt number, not a name fixed at intake time.
+    # The artifact list's own `expired` flag is what tells a genuinely retired
+    # build apart from a name this run never produced at all: only the former is
+    # the "kept only briefly" cause, and reporting it for the latter sends the
+    # captain looking for a build that is merely named differently than expected.
+    run_attempt=$(gh api "repos/$GH_REPO/actions/runs/$run_id" --jq '.run_attempt' 2>/dev/null) || run_attempt=''
+    suffixed_artifact=''
+    [ -z "$run_attempt" ] || suffixed_artifact="${FM_DEPLOY_TGT_bundle_artifact}-${run_attempt}"
+    artifacts_list=$(gh api "repos/$GH_REPO/actions/runs/$run_id/artifacts" \
+      --jq '.artifacts[] | "\(.name)\t\(.expired)"' 2>/dev/null) || artifacts_list=''
+    bundle_artifact_name=''
+    for candidate in $suffixed_artifact "$FM_DEPLOY_TGT_bundle_artifact"; do
+      [ -n "$candidate" ] || continue
+      expired=$(printf '%s\n' "$artifacts_list" | awk -F'\t' -v n="$candidate" '$1 == n { print $2; exit }')
+      case "$expired" in
+        true) refuse "the front-end bundle built for $TARGET_SHA is no longer available for download (builds are kept only briefly), and this machine cannot build one" ;;
+        false) bundle_artifact_name=$candidate; break ;;
+      esac
+    done
+    [ -n "$bundle_artifact_name" ] \
+      || refuse "no front-end bundle named ${suffixed_artifact:+$suffixed_artifact or }$FM_DEPLOY_TGT_bundle_artifact was found for run $run_id ($TARGET_SHA)"
+    gh run download "$run_id" --repo "$GH_REPO" -n "$bundle_artifact_name" -D "$BUNDLE_DIR" >/dev/null 2>&1 \
       || refuse "the front-end bundle built for $TARGET_SHA is no longer available for download (builds are kept only briefly), and this machine cannot build one"
     [ -n "$(ls -A "$BUNDLE_DIR" 2>/dev/null)" ] || refuse "the downloaded front-end bundle for $TARGET_SHA is empty"
   fi

@@ -253,6 +253,24 @@ case "${1:-}" in
         ;;
     esac
     ;;
+  api)
+    case "${2:-}" in
+      # See tests/fm-deploy-refusals.test.sh's fake gh for the contract:
+      # FMTEST_ARTIFACT_LIST, when set (even empty), names the exact
+      # "name<TAB>expired" rows this run's listing carries. Left unset, the run
+      # carries only the bare bundle-artifact name, not expired.
+      */artifacts)
+        if [ -n "${FMTEST_ARTIFACT_LIST+x}" ]; then
+          printf '%s\n' "$FMTEST_ARTIFACT_LIST"
+        else
+          printf '%s\t%s\n' "${FMTEST_ARTIFACT_NAME:-demo-dist}" "${FMTEST_ARTIFACT_EXPIRED:-false}"
+        fi
+        ;;
+      *)
+        printf '%s\n' "${FMTEST_RUN_ATTEMPT:-1}"
+        ;;
+    esac
+    ;;
 esac
 exit 0
 SH
