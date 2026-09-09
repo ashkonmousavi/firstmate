@@ -77,6 +77,7 @@ run_pr_check() {
 
 install_absorbed_gh() {
   local dir=$1 original_head=$2 combined_head=$3 original_state=${4:-CLOSED}
+  local combined_state=${5:-MERGED} merge_commit=${6:-}
   cat > "$dir/fakebin/gh" <<SH
 #!/usr/bin/env bash
 url=\${3:-}
@@ -84,12 +85,23 @@ case "\$url| \$* " in
   "https://github.com/example/repo/pull/5|"*" --json state "*) printf '%s\n' '$original_state' ;;
   "https://github.com/example/repo/pull/5|"*" --json headRefName "*) printf '%s\n' 'fm/task-a' ;;
   "https://github.com/example/repo/pull/5|"*" --json headRefOid "*) printf '%s\n' '$original_head' ;;
+  "https://github.com/example/repo/pull/9|"*"state,headRefOid,mergeCommit,url"*)
+    printf '%s\t%s\t%s\t%s\n' '$combined_state' '$combined_head' '$merge_commit' 'https://github.com/example/repo/pull/9'
+    ;;
   "https://github.com/example/repo/pull/9|"*" --json headRefName "*) printf '%s\n' 'fm/integration-batch' ;;
   "https://github.com/example/repo/pull/9|"*" --json headRefOid "*) printf '%s\n' '$combined_head' ;;
   *) exit 1 ;;
 esac
 SH
   chmod +x "$dir/fakebin/gh"
+}
+
+land_squash_on_main() {
+  local dir=$1 source_head=$2 tree squash
+  tree=$(git -C "$dir/wt" rev-parse "$source_head^{tree}") || return 1
+  squash=$(printf '%s\n' 'squash landing' | git -C "$dir/wt" commit-tree "$tree") || return 1
+  git -C "$dir/wt" push -q origin "$squash:refs/heads/main" || return 1
+  printf '%s\n' "$squash"
 }
 
 test_mismatched_branch_refused() {
@@ -320,6 +332,123 @@ test_absorbed_constituent_binding_refuses_a_merged_original_pr() {
   pass "fm-pr-check refuses an absorbed binding when the original PR was merged rather than closed"
 }
 
+test_prless_absorbed_constituent_binding_accepts_only_the_exact_head_in_a_merged_combined_pr() {
+  local dir rc absorbed_head combined_head squash_head tree
+  dir=$(make_case absorbed-prless)
+  write_task_meta "$dir" task-a
+  git -C "$dir/wt" branch -m fm/task-a-cancel
+  absorbed_head=$(git -C "$dir/wt" rev-parse HEAD)
+  tree=$(git -C "$dir/wt" rev-parse 'HEAD^{tree}')
+  combined_head=$(printf '%s\n' combined | git -C "$dir/wt" commit-tree "$tree" -p "$absorbed_head")
+  publish_pr_head_ref "$dir" 9 "$combined_head"
+  squash_head=$(land_squash_on_main "$dir" "$combined_head")
+  install_absorbed_gh "$dir" '' "$combined_head" CLOSED MERGED "$squash_head"
+
+  set +e
+  run_pr_check "$dir" --absorbed-by task-a https://github.com/example/repo/pull/9 \
+    > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "absorbed-prless: an exact task head in a squash-landed combined PR should bind: $(cat "$dir/stderr")"
+  assert_grep 'batch_role=constituent' "$dir/state/task-a.meta" \
+    "absorbed-prless: constituent role was not recorded"
+  assert_grep 'batch_constituent_branch=fm/task-a-cancel' "$dir/state/task-a.meta" \
+    "absorbed-prless: exact constituent branch was not recorded"
+  assert_grep 'absorbed_by=https://github.com/example/repo/pull/9' "$dir/state/task-a.meta" \
+    "absorbed-prless: combined PR identity was not recorded explicitly"
+  assert_grep "absorbed_head=$absorbed_head" "$dir/state/task-a.meta" \
+    "absorbed-prless: exact task head was not recorded"
+  assert_grep 'absorbed_original_pr=none' "$dir/state/task-a.meta" \
+    "absorbed-prless: explicit no-original-PR marker was not recorded"
+  assert_grep 'pr=https://github.com/example/repo/pull/9' "$dir/state/task-a.meta" \
+    "absorbed-prless: combined PR did not become the canonical landing"
+  assert_grep "pr_head=$combined_head" "$dir/state/task-a.meta" \
+    "absorbed-prless: exact combined PR head was not recorded"
+  assert_no_grep '^batch_superseded_pr=' "$dir/state/task-a.meta" \
+    "absorbed-prless: binding invented a superseded original PR"
+  assert_no_leaked_absorbed_pr_head_ref "$dir" absorbed-prless
+  pass "fm-pr-check binds a PR-less constituent only through its exact head in a merged combined PR"
+}
+
+test_prless_absorbed_constituent_binding_refuses_when_combined_head_does_not_contain_task_head() {
+  local dir rc absorbed_head combined_head squash_head tree
+  dir=$(make_case absorbed-prless-uncontained)
+  write_task_meta "$dir" task-a
+  absorbed_head=$(git -C "$dir/wt" rev-parse HEAD)
+  tree=$(git -C "$dir/wt" rev-parse 'HEAD^{tree}')
+  combined_head=$(printf '%s\n' unrelated | git -C "$dir/wt" commit-tree "$tree")
+  publish_pr_head_ref "$dir" 9 "$combined_head"
+  squash_head=$(land_squash_on_main "$dir" "$combined_head")
+  install_absorbed_gh "$dir" '' "$combined_head" CLOSED MERGED "$squash_head"
+
+  set +e
+  run_pr_check "$dir" --absorbed-by task-a https://github.com/example/repo/pull/9 \
+    > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-prless-uncontained: a combined head lacking the exact task head must refuse"
+  assert_grep "does not contain task task-a's exact current head $absorbed_head" "$dir/stderr" \
+    "absorbed-prless-uncontained: refusal did not name the missing exact head"
+  assert_no_grep '^absorbed_original_pr=' "$dir/state/task-a.meta" \
+    "absorbed-prless-uncontained: refusal wrote a partial binding"
+  assert_no_leaked_absorbed_pr_head_ref "$dir" absorbed-prless-uncontained
+  pass "fm-pr-check refuses a PR-less constituent absent from the combined PR head"
+}
+
+test_prless_absorbed_constituent_binding_refuses_an_unmerged_combined_pr() {
+  local dir rc absorbed_head combined_head tree
+  dir=$(make_case absorbed-prless-open)
+  write_task_meta "$dir" task-a
+  absorbed_head=$(git -C "$dir/wt" rev-parse HEAD)
+  tree=$(git -C "$dir/wt" rev-parse 'HEAD^{tree}')
+  combined_head=$(printf '%s\n' combined | git -C "$dir/wt" commit-tree "$tree" -p "$absorbed_head")
+  publish_pr_head_ref "$dir" 9 "$combined_head"
+  install_absorbed_gh "$dir" '' "$combined_head" CLOSED OPEN ''
+
+  set +e
+  run_pr_check "$dir" --absorbed-by task-a https://github.com/example/repo/pull/9 \
+    > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-prless-open: an open combined PR must refuse"
+  assert_grep 'combined PR https://github.com/example/repo/pull/9 must be merged before binding a PR-less constituent' "$dir/stderr" \
+    "absorbed-prless-open: refusal did not name the merged requirement"
+  assert_no_grep '^absorbed_original_pr=' "$dir/state/task-a.meta" \
+    "absorbed-prless-open: refusal wrote a partial binding"
+  assert_no_leaked_absorbed_pr_head_ref "$dir" absorbed-prless-open
+  pass "fm-pr-check refuses a PR-less constituent while the combined PR is open"
+}
+
+test_prless_absorbed_constituent_binding_refuses_a_merge_commit_absent_from_current_main() {
+  local dir rc absorbed_head combined_head phantom_merge tree
+  dir=$(make_case absorbed-prless-merge-absent)
+  write_task_meta "$dir" task-a
+  absorbed_head=$(git -C "$dir/wt" rev-parse HEAD)
+  tree=$(git -C "$dir/wt" rev-parse 'HEAD^{tree}')
+  combined_head=$(printf '%s\n' combined | git -C "$dir/wt" commit-tree "$tree" -p "$absorbed_head")
+  publish_pr_head_ref "$dir" 9 "$combined_head"
+  land_squash_on_main "$dir" "$combined_head" >/dev/null
+  phantom_merge=$(printf '%s\n' 'phantom squash landing' | git -C "$dir/wt" commit-tree "$tree")
+  install_absorbed_gh "$dir" '' "$combined_head" CLOSED MERGED "$phantom_merge"
+
+  set +e
+  run_pr_check "$dir" --absorbed-by task-a https://github.com/example/repo/pull/9 \
+    > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-prless-merge-absent: a forge-reported merge commit absent from main must refuse"
+  assert_grep "merge commit $phantom_merge is not on current main" "$dir/stderr" \
+    "absorbed-prless-merge-absent: refusal did not name the unlanded merge commit"
+  assert_no_grep '^absorbed_original_pr=' "$dir/state/task-a.meta" \
+    "absorbed-prless-merge-absent: refusal wrote a partial binding"
+  assert_no_leaked_absorbed_pr_head_ref "$dir" absorbed-prless-merge-absent
+  pass "fm-pr-check refuses a PR-less constituent whose combined merge commit is absent from current main"
+}
+
 test_mismatched_branch_refused
 test_retry_suffix_accepted
 test_prerequisite_recorded_separately
@@ -327,3 +456,7 @@ test_absorbed_constituent_binding_accepts_an_original_head_behind_the_exact_abso
 test_absorbed_constituent_binding_refuses_when_the_combined_head_lacks_the_exact_absorbed_head
 test_absorbed_constituent_binding_refuses_when_original_pr_head_is_not_an_ancestor
 test_absorbed_constituent_binding_refuses_a_merged_original_pr
+test_prless_absorbed_constituent_binding_accepts_only_the_exact_head_in_a_merged_combined_pr
+test_prless_absorbed_constituent_binding_refuses_when_combined_head_does_not_contain_task_head
+test_prless_absorbed_constituent_binding_refuses_an_unmerged_combined_pr
+test_prless_absorbed_constituent_binding_refuses_a_merge_commit_absent_from_current_main

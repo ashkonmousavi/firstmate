@@ -347,6 +347,18 @@ append_absorbed_batch_meta() {
     "pr_head=$combined_head" | sed '/^$/d' >> "$case_dir/state/task-x1.meta"
 }
 
+append_prless_absorbed_batch_meta() {
+  local case_dir=$1 absorbed_head=$2 combined_head=$3 branch=${4:-fm/task-x1}
+  printf '%s\n' \
+    'batch_role=constituent' \
+    "batch_constituent_branch=$branch" \
+    'absorbed_by=https://github.com/example/repo/pull/9' \
+    "absorbed_head=$absorbed_head" \
+    'absorbed_original_pr=none' \
+    'pr=https://github.com/example/repo/pull/9' \
+    "pr_head=$combined_head" >> "$case_dir/state/task-x1.meta"
+}
+
 # The combined pull request's landing is three separate forge facts, not one:
 # the merged state, the exact head the pipeline proved, and the identity of the
 # squash commit the merge actually produced on main. The mock answers all three
@@ -1434,6 +1446,46 @@ test_absorbed_constituent_teardown_uses_the_exact_absorbed_head_after_original_p
     "absorbed-advanced-head: durable record did not name the commits advanced after the original PR"
   assert_no_leaked_pr_head_ref "$case_dir" absorbed-advanced-head
   pass "teardown proves an advanced constituent from its exact absorbed head and preserves both heads"
+}
+
+test_prless_absorbed_constituent_teardown_reads_the_marker_and_preserves_the_landing_proof() {
+  local case_dir rc absorbed_head combined_head squash_head
+  case_dir=$(make_case absorbed-prless-marker)
+  write_meta "$case_dir" no-mistakes ship
+  git -C "$case_dir/wt" branch -m fm/task-x1-cancel
+  wt_commit_file "$case_dir" feature.txt hello "prepared PR-less constituent"
+  absorbed_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$absorbed_head" "combined integration")
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  squash_head=$(land_squash_commit_on_main "$case_dir" "$combined_head" "squash landing")
+  assert_constituent_head_absent_from_main "$case_dir" "$absorbed_head" "$squash_head" absorbed-prless-marker
+  append_prless_absorbed_batch_meta "$case_dir" "$absorbed_head" "$combined_head" fm/task-x1-cancel
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$squash_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "absorbed-prless-marker: teardown should accept the explicit no-original-PR binding: $(cat "$case_dir/stderr")"
+  assert_grep '| Original pull request | None |' "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the explicit no-original-PR fact"
+  # shellcheck disable=SC2016 # Backticks are literal Markdown in the durable record.
+  assert_grep '| Original pull request marker | `absorbed_original_pr=none` |' "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the exact no-original-PR marker"
+  assert_grep '| Absorbed by | https://github.com/example/repo/pull/9 |' "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the absorbed-by field"
+  assert_grep '| Combined pull request | https://github.com/example/repo/pull/9 |' "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the explicit absorbed-by URL"
+  assert_grep "$absorbed_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the exact absorbed head"
+  assert_grep "$combined_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the verified combined head"
+  assert_grep "$squash_head" "$case_dir/data/task-x1/batch-landing.md" \
+    "absorbed-prless-marker: durable record lost the landed squash commit"
+  assert_no_leaked_pr_head_ref "$case_dir" absorbed-prless-marker
+  pass "teardown reads a PR-less constituent marker and preserves its exact landing proof"
 }
 
 # (q3) A combined pull request that has not merged never proves anything,
@@ -4262,6 +4314,7 @@ test_no_pr_recorded_force_still_allows
 test_prerequisite_pr_ignored_by_teardown
 test_absorbed_constituent_teardown_accepts_a_squash_landed_combined_pr
 test_absorbed_constituent_teardown_uses_the_exact_absorbed_head_after_original_pr_advanced
+test_prless_absorbed_constituent_teardown_reads_the_marker_and_preserves_the_landing_proof
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr
 test_absorbed_constituent_teardown_refuses_a_combined_pr_without_the_constituent_head
 test_absorbed_constituent_teardown_refuses_a_disagreeing_published_pr_head

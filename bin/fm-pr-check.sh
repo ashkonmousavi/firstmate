@@ -21,21 +21,22 @@
 # skipped rather than refused, matching the pr_head lookup's own best-effort
 # posture toward a missing gh.
 #
-# --absorbed-by binds an already-PR-ready constituent task to the combined PR
-# that will actually land it. It requires the existing canonical pr= to be a
-# different pull request in the same project, reads that original PR live, and
-# requires it to be CLOSED rather than MERGED. Its exact live branch must still
-# match the task worktree. Its live head may be an ancestor of the task's exact
-# current head when the task advanced after its original PR closed; the combined
-# PR's permanent head ref must then contain that exact current head. The rewrite
-# preserves both heads before the
-# canonical pr= tail, whose ordinary poll then reports the combined landing for
-# this task:
+# --absorbed-by binds a constituent task to the combined PR that actually lands
+# it. A constituent with an original PR preserves the existing proof: that PR
+# must be closed rather than merged, and its exact permanent head may be an
+# ancestor of the task's exact current head. A prepared constituent with no
+# original PR is accepted only after the combined PR is merged, its forge-
+# reported merge commit is on current main, and its permanent head ref contains
+# the task's exact current head. The rewrite preserves the applicable fields
+# before the canonical pr= tail, whose ordinary poll then reports the combined
+# landing for this task:
 #   batch_role=constituent
-#   batch_constituent_branch=<exact original PR branch>
-#   batch_constituent_head=<exact original PR head sha>
+#   batch_constituent_branch=<exact constituent branch>
+#   batch_constituent_head=<exact original PR head sha>  # original-PR only
+#   absorbed_by=<canonical combined PR url>              # PR-less only
 #   absorbed_head=<exact task head proved in the combined PR>
-#   batch_superseded_pr=<canonical original PR url>
+#   absorbed_original_pr=none                            # PR-less only
+#   batch_superseded_pr=<canonical original PR url>      # original-PR only
 #   batch_superseded_disposition=closed-as-superseded-not-merged
 # Containment is verified against the combined PR's own permanent head ref and
 # nothing else.
@@ -92,6 +93,7 @@ if [ ! -f "$META" ] || [ -L "$META" ] || [ "$(fm_pr_file_link_count "$META")" !=
   exit 1
 fi
 WT=$(grep '^worktree=' "$META" | tail -1 | cut -d= -f2- || true)
+PROJ=$(grep '^project=' "$META" | tail -1 | cut -d= -f2- || true)
 if [ "$ABSORBED_BY" -eq 0 ] && [ "$PREREQUISITE" -eq 0 ] \
   && grep -q '^batch_role=constituent$' "$META" 2>/dev/null; then
   echo "error: task $ID already carries an absorbed-constituent binding; use --absorbed-by to refresh the same combined PR" >&2
@@ -117,6 +119,8 @@ RECORDED_URL=
 RECORDED_BATCH_BRANCH=
 RECORDED_BATCH_HEAD=
 RECORDED_ABSORBED_HEAD=
+RECORDED_ABSORBED_BY=
+PRLESS_CONSTITUENT=0
 ABSORBED_PR_HEAD_REF=
 ABSORBED_PUBLISHED_HEAD=
 
@@ -146,15 +150,98 @@ release_absorbed_pr_head() {
   ABSORBED_PR_HEAD_REF=
 }
 
+absorbed_default_branch_ref() {
+  local source_repo=$WT ref name branch wt_common fm_root_common
+  if [ -n "$PROJ" ] && git -C "$PROJ" rev-parse --git-dir >/dev/null 2>&1; then
+    source_repo=$PROJ
+  fi
+  ref=$(git -C "$source_repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+  name=${ref#origin/}
+  if [ -z "$name" ]; then
+    for branch in main master; do
+      if git -C "$source_repo" show-ref --verify --quiet "refs/remotes/origin/$branch" \
+        || git -C "$source_repo" show-ref --verify --quiet "refs/heads/$branch" \
+        || git -C "$WT" ls-remote --exit-code origin "refs/heads/$branch" >/dev/null 2>&1; then
+        name=$branch
+        break
+      fi
+    done
+  fi
+  [ -n "$name" ] || return 1
+  wt_common=$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+    && wt_common=$(cd "$wt_common" 2>/dev/null && pwd -P) || wt_common=
+  fm_root_common=$(git -C "$FM_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+    && fm_root_common=$(cd "$fm_root_common" 2>/dev/null && pwd -P) || fm_root_common=
+  if [ -n "$wt_common" ] && [ -n "$fm_root_common" ] && [ "$wt_common" = "$fm_root_common" ]; then
+    git -C "$WT" rev-parse --quiet --verify "refs/heads/$name" >/dev/null 2>&1 || return 1
+    printf 'refs/heads/%s\n' "$name"
+  else
+    git -C "$WT" fetch --quiet origin "+refs/heads/$name:refs/remotes/origin/$name" >/dev/null 2>&1 || return 1
+    printf 'refs/remotes/origin/%s\n' "$name"
+  fi
+}
+
+verify_prless_combined_landing() {
+  local view state remainder combined_head merge_commit resolved_url default_ref
+  [ "$PROVIDER" = github ] \
+    || { echo "error: binding a PR-less constituent requires a GitHub combined PR with a permanent head ref" >&2; return 1; }
+  view=$(cd "$WT" && gh pr view "$URL" --json state,headRefOid,mergeCommit,url \
+    -q '.state + "\t" + .headRefOid + "\t" + (.mergeCommit.oid // "") + "\t" + .url' 2>/dev/null) \
+    || { echo "error: could not read combined PR $URL's merged landing" >&2; return 1; }
+  state=${view%%$'\t'*}
+  [ "$state" != "$view" ] \
+    || { echo "error: combined PR $URL returned an incomplete merged landing" >&2; return 1; }
+  remainder=${view#*$'\t'}
+  combined_head=${remainder%%$'\t'*}
+  [ "$combined_head" != "$remainder" ] \
+    || { echo "error: combined PR $URL returned an incomplete merged landing" >&2; return 1; }
+  remainder=${remainder#*$'\t'}
+  merge_commit=${remainder%%$'\t'*}
+  [ "$merge_commit" != "$remainder" ] \
+    || { echo "error: combined PR $URL returned an incomplete merged landing" >&2; return 1; }
+  resolved_url=${remainder#*$'\t'}
+  case "$state" in
+    MERGED|merged) ;;
+    *) echo "error: combined PR $URL must be merged before binding a PR-less constituent" >&2; return 1 ;;
+  esac
+  [ "$resolved_url" = "$URL" ] \
+    || { echo "error: combined PR $URL returned a different canonical URL" >&2; return 1; }
+  fm_pr_head_valid "$combined_head" && [ "$combined_head" = "$PR_HEAD" ] \
+    || { echo "error: combined PR $URL's merged head disagrees with its published head" >&2; return 1; }
+  fm_pr_head_valid "$merge_commit" \
+    || { echo "error: combined PR $URL is merged but the forge did not report the commit its merge produced" >&2; return 1; }
+  default_ref=$(absorbed_default_branch_ref) \
+    || { echo "error: could not refresh current main for combined PR $URL" >&2; return 1; }
+  if ! git -C "$WT" cat-file -e "$merge_commit^{commit}" 2>/dev/null \
+    || ! git -C "$WT" merge-base --is-ancestor "$merge_commit" "$default_ref" 2>/dev/null; then
+    echo "error: combined PR $URL merge commit $merge_commit is not on current main" >&2
+    return 1
+  fi
+}
+
 if [ "$ABSORBED_BY" -eq 1 ]; then
   if ! { [ -n "$TASK_BRANCH" ] && fm_pr_head_valid "$TASK_HEAD"; }; then
     echo "error: absorbed constituent task $ID needs an inspectable branch and head" >&2
     exit 1
   fi
-  fm_pr_metadata_identity_parse "$META" \
-    || { echo "error: absorbed constituent task $ID has no valid original pr= record" >&2; exit 1; }
-  RECORDED_URL=$FM_PR_META_URL
-  if [ "$RECORDED_URL" = "$URL" ]; then
+  if fm_pr_metadata_identity_parse "$META"; then
+    RECORDED_URL=$FM_PR_META_URL
+  elif grep -q '^pr=' "$META" 2>/dev/null; then
+    echo "error: absorbed constituent task $ID has an invalid original pr= record" >&2
+    exit 1
+  else
+    PRLESS_CONSTITUENT=1
+  fi
+  if [ "$RECORDED_URL" = "$URL" ] \
+    && [ "$(grep '^absorbed_original_pr=' "$META" | tail -1 | cut -d= -f2- || true)" = none ]; then
+    PRLESS_CONSTITUENT=1
+    RECORDED_ABSORBED_BY=$(grep '^absorbed_by=' "$META" | tail -1 | cut -d= -f2- || true)
+    RECORDED_ABSORBED_HEAD=$(grep '^absorbed_head=' "$META" | tail -1 | cut -d= -f2- || true)
+    [ "$(grep '^batch_role=' "$META" | tail -1 | cut -d= -f2- || true)" = constituent ] \
+      && [ "$RECORDED_ABSORBED_BY" = "$URL" ] \
+      && [ "$RECORDED_ABSORBED_HEAD" = "$TASK_HEAD" ] \
+      || { echo "error: combined PR is already canonical without a valid PR-less constituent binding" >&2; exit 1; }
+  elif [ "$RECORDED_URL" = "$URL" ]; then
     [ "$(grep '^batch_role=' "$META" | tail -1 | cut -d= -f2- || true)" = constituent ] \
       && [ "$(grep '^batch_superseded_disposition=' "$META" | tail -1 | cut -d= -f2- || true)" = closed-as-superseded-not-merged ] \
       || { echo "error: combined PR is already canonical without a valid constituent binding" >&2; exit 1; }
@@ -162,9 +249,12 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
     RECORDED_BATCH_BRANCH=$(grep '^batch_constituent_branch=' "$META" | tail -1 | cut -d= -f2- || true)
     RECORDED_BATCH_HEAD=$(grep '^batch_constituent_head=' "$META" | tail -1 | cut -d= -f2- || true)
     RECORDED_ABSORBED_HEAD=$(grep '^absorbed_head=' "$META" | tail -1 | cut -d= -f2- || true)
-  else
+  elif [ -n "$RECORDED_URL" ]; then
     ORIGINAL_URL=$RECORDED_URL
   fi
+  if [ "$PRLESS_CONSTITUENT" -eq 1 ]; then
+    ORIGINAL_META_HASH=$(fm_pr_sha256 "$META") || exit 1
+  else
   fm_pr_url_parse "$ORIGINAL_URL" \
     || { echo "error: absorbed constituent task $ID has an invalid original PR record" >&2; exit 1; }
   ORIGINAL_PROVIDER=$FM_PR_PROVIDER
@@ -231,6 +321,7 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
     || { echo "error: existing constituent binding disagrees with the original PR's live branch or head" >&2; exit 1; }
   [ -z "$RECORDED_ABSORBED_HEAD" ] || [ "$RECORDED_ABSORBED_HEAD" = "$TASK_HEAD" ] \
     || { echo "error: existing constituent binding disagrees with task $ID's exact current head" >&2; exit 1; }
+  fi
 fi
 
 if [ "$PREREQUISITE" -eq 1 ]; then
@@ -404,6 +495,7 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
     exit 1
   fi
   release_absorbed_pr_head
+  [ "$PRLESS_CONSTITUENT" -eq 0 ] || verify_prless_combined_landing || exit 1
 fi
 
 META_TMP=
@@ -436,18 +528,25 @@ STATE_DEVICE=$(fm_pr_file_device "$STATE") || exit 1
 META_TMP=$(mktemp "$STATE/.fm-pr-meta.XXXXXX") || exit 1
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in
-    pr=*|pr_head=*|batch_role=*|batch_constituent_branch=*|batch_constituent_head=*|absorbed_head=*|\
+    pr=*|pr_head=*|batch_role=*|batch_constituent_branch=*|batch_constituent_head=*|absorbed_by=*|absorbed_head=*|absorbed_original_pr=*|\
     batch_superseded_pr=*|batch_superseded_disposition=*) ;;
     *) printf '%s\n' "$line" >> "$META_TMP" || exit 1 ;;
   esac
 done < "$META"
 if [ "$ABSORBED_BY" -eq 1 ]; then
   printf 'batch_role=constituent\n' >> "$META_TMP" || exit 1
-  printf 'batch_constituent_branch=%s\n' "$ORIGINAL_BRANCH" >> "$META_TMP" || exit 1
-  printf 'batch_constituent_head=%s\n' "$ORIGINAL_HEAD" >> "$META_TMP" || exit 1
-  printf 'absorbed_head=%s\n' "$TASK_HEAD" >> "$META_TMP" || exit 1
-  printf 'batch_superseded_pr=%s\n' "$ORIGINAL_URL" >> "$META_TMP" || exit 1
-  printf 'batch_superseded_disposition=closed-as-superseded-not-merged\n' >> "$META_TMP" || exit 1
+  if [ "$PRLESS_CONSTITUENT" -eq 1 ]; then
+    printf 'batch_constituent_branch=%s\n' "$TASK_BRANCH" >> "$META_TMP" || exit 1
+    printf 'absorbed_by=%s\n' "$URL" >> "$META_TMP" || exit 1
+    printf 'absorbed_head=%s\n' "$TASK_HEAD" >> "$META_TMP" || exit 1
+    printf 'absorbed_original_pr=none\n' >> "$META_TMP" || exit 1
+  else
+    printf 'batch_constituent_branch=%s\n' "$ORIGINAL_BRANCH" >> "$META_TMP" || exit 1
+    printf 'batch_constituent_head=%s\n' "$ORIGINAL_HEAD" >> "$META_TMP" || exit 1
+    printf 'absorbed_head=%s\n' "$TASK_HEAD" >> "$META_TMP" || exit 1
+    printf 'batch_superseded_pr=%s\n' "$ORIGINAL_URL" >> "$META_TMP" || exit 1
+    printf 'batch_superseded_disposition=closed-as-superseded-not-merged\n' >> "$META_TMP" || exit 1
+  fi
 fi
 printf 'pr=%s\n' "$URL" >> "$META_TMP" || exit 1
 [ -z "$PR_HEAD" ] || printf 'pr_head=%s\n' "$PR_HEAD" >> "$META_TMP" || exit 1
