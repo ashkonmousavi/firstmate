@@ -3056,8 +3056,8 @@ elif [ "$KIND" != secondmate ]; then
   # The worktree is task $WT_REASSIGNED_TO's now. Its run and its processes are
   # that task's live work; concluding or reaping them here would take down a
   # working lane to close a record. The tasktmp is still this task's own, so it
-  # is reaped on its own.
-  reap_task_worktree_processes tasktmp "$TASK_TMP"
+  # is reaped on its own - when the record actually has one.
+  [ -z "$TASK_TMP" ] || reap_task_worktree_processes tasktmp "$TASK_TMP"
 fi
 
 # Fix 3 (see script header): sweep remote job workers abandoned by an already
