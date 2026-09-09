@@ -1262,6 +1262,7 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
       "$mode DOD did not render the conditional batch-owner gate"
     assert_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" \
       "$mode DOD did not render the complete constituent binding table"
+    # shellcheck disable=SC2016  # backticks are the literal markdown code-span, not command substitution
     assert_grep '`Closed as superseded; not merged.`' "$brief" \
       "$mode DOD did not preserve the required superseded-not-merged statement"
     assert_grep '| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |' "$brief" \

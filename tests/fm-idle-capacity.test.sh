@@ -1367,9 +1367,9 @@ test_lane_floor_capacity_blocked_names_a_releasable_lane() {
   dirty="$home/dirty-worktree"
   fm_git_init_commit "$dirty"
   printf 'unlanded\n' > "$dirty/scratch.txt"
-  add_lane "$home" finished-lane done run-step
+  add_lane "$home" finished-lane "done" run-step
   printf 'worktree=%s\n' "$repo" >> "$home/state/finished-lane.meta"
-  add_lane "$home" dirty-lane done run-step
+  add_lane "$home" dirty-lane "done" run-step
   printf 'worktree=%s\n' "$dirty" >> "$home/state/dirty-lane.meta"
   printf '2\n' > "$home/config/concurrency-cap"
   out=$(lane_floor_report "$home")

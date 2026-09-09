@@ -147,8 +147,10 @@ release_absorbed_pr_head() {
 }
 
 if [ "$ABSORBED_BY" -eq 1 ]; then
-  [ -n "$TASK_BRANCH" ] && fm_pr_head_valid "$TASK_HEAD" \
-    || { echo "error: absorbed constituent task $ID needs an inspectable branch and head" >&2; exit 1; }
+  if ! { [ -n "$TASK_BRANCH" ] && fm_pr_head_valid "$TASK_HEAD"; }; then
+    echo "error: absorbed constituent task $ID needs an inspectable branch and head" >&2
+    exit 1
+  fi
   fm_pr_metadata_identity_parse "$META" \
     || { echo "error: absorbed constituent task $ID has no valid original pr= record" >&2; exit 1; }
   RECORDED_URL=$FM_PR_META_URL
@@ -184,8 +186,10 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
       ORIGINAL_HEAD=$(cd "$WT" && gh pr view "$ORIGINAL_URL" --json headRefOid -q .headRefOid 2>/dev/null) || ORIGINAL_HEAD=
       ;;
     gitlab)
-      command -v glab >/dev/null 2>&1 && command -v jq >/dev/null 2>&1 \
-        || { echo "error: --absorbed-by requires glab and jq to verify the original merge request" >&2; exit 1; }
+      if ! { command -v glab >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; }; then
+        echo "error: --absorbed-by requires glab and jq to verify the original merge request" >&2
+        exit 1
+      fi
       ORIGINAL_JSON=$(GITLAB_HOST="$ORIGINAL_HOST" glab mr view "$ORIGINAL_NUMBER" \
         -R "https://$ORIGINAL_HOST/$ORIGINAL_PATH" -F json 2>/dev/null) || ORIGINAL_JSON=
       [ -n "$ORIGINAL_JSON" ] || { echo "error: could not read original PR $ORIGINAL_URL" >&2; exit 1; }
