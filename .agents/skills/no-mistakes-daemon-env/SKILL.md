@@ -42,6 +42,42 @@ which unconditionally sources `~/.bashrc` (`~/.profile:13-15`) - that's where PA
 come from, and why they show up in every step subprocess even though the unit's own `Environment=` never
 mentions them.
 
+## Two different subprocess shapes inside one run
+
+A pipeline run can execute commands through two different mechanisms, and they do **not** end up
+with the same environment even though both ultimately descend from the daemon process:
+
+- A configured `commands.*` step (`sctx.Config.Commands.Test` etc., `internal/pipeline/steps/test.go:102`)
+  runs via `runStepShellCommand` -> `runShellCommandWithProcessEnv`, which execs a **non-login**
+  `sh -c '<cmd>'` (`internal/pipeline/steps/common_exec.go:316`) with `stepEnvironment(sctx)` as its
+  env - nil in production, so it inherits the daemon's own cached, one-time-merged `os.Environ()`
+  described above (minimal: no `uv`, no project python, on this host).
+- A coding-agent subprocess (Claude/Codex/etc.) is spawned with the same kind of minimal daemon-derived
+  environment (`gitSafeEnvWithOverlay`, `base := overlay.Apply(nil)` at `internal/agent/env.go:57`, again
+  `nil` base -> the daemon's `os.Environ()`). But when that agent's own tool-use loop decides to run a
+  shell command, the agent CLI itself (not no-mistakes code) wraps it as `bash -lc '<cmd>'` (see the
+  `bash -lc` wrapper literals in `internal/agent/codex_metrics_test.go` and the unwrap comment at
+  `internal/agent/invocationmetrics.go:140`). That `-l` makes it a **fresh, live** login shell at the
+  moment the agent runs it - it re-sources `~/.profile`/`~/.bashrc` right then, independent of and richer
+  than the daemon's own cached startup snapshot (this is the "worker-shell shape": everything currently
+  in the interactive login environment, `uv` included).
+
+Consequence: a variable placed only in `~/.profile` reaches the agent-tool-call path immediately (every
+fresh `bash -lc` re-reads it) but reaches the `commands.*` path only after the **daemon itself** is
+restarted (its login-shell probe is cached once per process lifetime, `internal/shellenv/shellenv.go:54-76`).
+A variable placed on the daemon's own process environment (systemd unit `Environment=`, or a drop-in)
+reaches both paths as soon as the daemon (re)starts with it, because both paths' subprocess trees inherit
+from that one process's environment - the agent's `bash -lc` re-sourcing adds to what it inherited, it
+does not clear it first.
+
+## Drop-in survives the managed-unit refresh
+
+`daemon start`'s managed-unit refresh (`installSystemdUserService`, `internal/daemon/service_systemd.go:13`)
+only ever writes the main unit file (`writeServiceFile` at `:28`) and reloads it (`:31`); nothing in that
+function or elsewhere in `internal/daemon/service_systemd.go` reads, writes, or removes a `<unit>.d/`
+drop-in directory. A drop-in placed there is untouched by any no-mistakes install/refresh path and is
+picked up by systemd's own `daemon-reload` like any other drop-in.
+
 ## Diagnosing what a step actually saw
 
 Do **not** trust `/proc/<daemon-pid>/environ` for anything set after startup - it is frozen at `execve`.
@@ -57,13 +93,12 @@ Cross-check the `pid=` on the neighboring `"daemon process launched"` line again
 
 ## Adding a durable variable
 
-A new key (one the login shell does not already export) can be set durably at either layer without
-conflict, because the merge only overwrites keys the login shell defines:
-- a systemd drop-in / `Environment=` line on the unit, verified to survive the `daemon start`
-  managed-unit refresh, or
-- an export in `~/.profile` (not `~/.bashrc` - that file is off-limits to automated edits; `~/.profile`
-  already carries a precedent one-liner for exactly this, `~/.profile:37`), which becomes part of the
-  login-shell probe's resolved set and gets merged in the same way.
+Prefer a systemd drop-in (`Environment=` line under the unit's `.d/` directory, see above) over a
+`~/.profile` export: the drop-in reaches every pipeline execution path (`commands.*` and agent tool
+calls) as soon as the daemon restarts with it, while a `~/.profile`-only export reaches agent tool
+calls immediately but leaves `commands.*` steps unfixed until the daemon itself is separately
+restarted. Never edit `~/.bashrc` - it is off-limits to automated edits; if a profile-level export is
+chosen anyway, `~/.profile` already carries a precedent one-liner for exactly this at `~/.profile:37`.
 
 Never assume the client (`axi run`) can inject a step-scoped environment variable in production - the
 `StepContext.Env` field (`internal/pipeline/pipeline.go:53`) it would need is documented in source as
