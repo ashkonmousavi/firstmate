@@ -13,8 +13,9 @@
 # one and prove the user the app runs as can read it, record every root it
 # creates or swaps in on the machine as a checkout git may read and prove that
 # user reads the deployed checkout's own commit, set the current version
-# aside, stop the app, check out the exact commit, swap the proved front end
-# into place, reinstall that one unit, verify the bundle, restart, and prove it
+# aside, stop the app, check out the exact commit, reinstall its runtime
+# dependencies when the range needs that, swap the proved front end into
+# place, reinstall that one unit, verify the bundle, restart, and prove it
 # answers. Proving it answers polls each address for a bounded window rather
 # than asking once, because a restart returns as soon as systemd accepts it,
 # not once the app is actually listening, and a probe landing in that gap gets
@@ -48,6 +49,14 @@
 #     not hold yet. Those validators run read-only, from <sha>'s own copy, as
 #     the user the unit runs as, BEFORE anything is stopped, and the refusal
 #     names the validator and the unit that would have refused to start;
+#   - the range from what is live to <sha> touches pyproject.toml or
+#     requirements.lock, and either the target python cannot run pip or one of
+#     those two files cannot be read at <sha>. Reinstalling dependencies is the
+#     one further requirement deploy/PROVISIONING.md makes of such a range,
+#     and this is asked before anything is stopped, exactly like the other
+#     start-time requirements above; an install failure once the app IS
+#     stopped follows the same step_failed discipline as every other step
+#     past that point, naming dependencies as what failed;
 #   - the user the app runs as cannot read the front end obtained for <sha>.
 #     That is asked of the staged copy, before anything is stopped, and it
 #     refuses on the paths that user cannot read and on nothing else: a check
@@ -306,6 +315,28 @@ fi
 if [ -n "$PERMISSION" ]; then
   require_captains_words
   AUTHORITY=captain
+fi
+
+# --- prove the range's runtime dependencies can actually be installed ---------
+# deploy/PROVISIONING.md's own contract: the editable install and the lockfile
+# install run again whenever the checkout moves to a new commit whose range
+# touches either file, or the app fails at import once it is already stopped.
+# Both dependency-file checks read the LOCAL clone this home already has,
+# which is what the sealed bundle and every other target-commit read in this
+# script trust; a rollback restores a version the machine already ran, so it
+# re-runs none of this, matching the header's rollback discipline.
+DEPS_NEEDED=0
+LOCK_PRESENT=0
+DEPENDENCY_DETAIL=''
+if [ "$ROLLBACK" -eq 0 ] && fm_deploy_range_touches_dependencies "$REPO" "$DEPLOYED_SHA" "$TARGET_SHA"; then
+  DEPS_NEEDED=1
+  fm_deploy_file_unreadable_at "$REPO" "$TARGET_SHA" pyproject.toml \
+    && refuse "pyproject.toml cannot be read at $TARGET_SHA, so its dependencies cannot be installed. Nothing was changed"
+  fm_deploy_file_unreadable_at "$REPO" "$TARGET_SHA" requirements.lock \
+    && refuse "requirements.lock cannot be read at $TARGET_SHA, so its dependencies cannot be installed. Nothing was changed"
+  fm_deploy_file_present_at "$REPO" "$TARGET_SHA" requirements.lock && LOCK_PRESENT=1
+  fm_deploy_ssh "sudo '$FM_DEPLOY_TGT_python' -m pip --version" </dev/null >/dev/null 2>&1 \
+    || refuse "the target python ($FM_DEPLOY_TGT_python) cannot run pip, so $TARGET_SHA's dependencies cannot be installed. Nothing was changed"
 fi
 
 # --- refuse mid-run -----------------------------------------------------------
@@ -646,6 +677,18 @@ step_failed() {
 
 fm_deploy_ssh "sudo git -C '$CO' checkout --detach '$TARGET_SHA'" || step_failed "could not switch the machine to $TARGET_SHA"
 
+if [ "$DEPS_NEEDED" -eq 1 ]; then
+  fm_deploy_ssh "sudo '$FM_DEPLOY_TGT_python' -m pip install -e '$CO'" \
+    || step_failed "could not install $PROJECT's dependencies: the editable install for $TARGET_SHA failed"
+  DEP_COMMANDS="pip install -e"
+  if [ "$LOCK_PRESENT" -eq 1 ]; then
+    fm_deploy_ssh "sudo '$FM_DEPLOY_TGT_python' -m pip install --no-deps -r '$CO/requirements.lock'" \
+      || step_failed "could not install $PROJECT's dependencies: pip install -r requirements.lock for $TARGET_SHA failed"
+    DEP_COMMANDS="$DEP_COMMANDS; pip install --no-deps -r requirements.lock"
+  fi
+  DEPENDENCY_DETAIL="dependencies reinstalled for $TARGET_SHA ($DEP_COMMANDS)"
+fi
+
 if [ -n "$STAGE_DIR" ]; then
   # A rename of the copy already proved readable, not a fresh install: whatever
   # goes live is the exact tree the check above passed. STAGE_DIR is cleared by
@@ -679,6 +722,7 @@ fm_deploy_wait_for_code "$FM_DEPLOY_TGT_public_expect" "$FM_DEPLOY_HEALTH_WINDOW
   curl -s -o /dev/null -w '%{http_code}' --max-time 25 "$FM_DEPLOY_TGT_public_url" \
   || step_failed "the sign-in protected address answered $FM_DEPLOY_PROBE_CODE instead of $FM_DEPLOY_TGT_public_expect after waiting ${FM_DEPLOY_PROBE_ELAPSED}s"
 PROBE_DETAIL="$HEALTH_PROBE_DETAIL; public answered $FM_DEPLOY_PROBE_CODE after ${FM_DEPLOY_PROBE_ELAPSED}s; $IDENTITY_DETAIL"
+[ -z "$DEPENDENCY_DETAIL" ] || PROBE_DETAIL="$PROBE_DETAIL; $DEPENDENCY_DETAIL"
 
 if [ "$ROLLBACK" -eq 1 ]; then
   ledger_append rolled-back "$DEPLOYED_SHA" "$TARGET_SHA" "$AUTHORITY" "restored the version the last attempt came from ($PROBE_DETAIL)"

@@ -78,6 +78,10 @@ make_case() {
     "$HOME_DIR/state" "$REPO"
 
   git_c init -q -b main
+  # Kept loose for the whole fixture: a case that corrupts one blob's own
+  # object file (see corrupt_blob below) depends on it never having been
+  # rolled into a pack.
+  git_c config gc.auto 0
   commit_file README.md base "base"
   # The sign-in unit's start is gated on a file the MACHINE owns rather than one
   # the release brings. Without a unit set carrying one, every assertion about
@@ -106,6 +110,15 @@ UNIT
   PLAIN=$(git_c rev-parse HEAD)
   commit_file dashboard/v2/src/app.tsx app "a design change"
   DESIGN=$(git_c rev-parse HEAD)
+  # A sibling of DESIGN, not a descendant of it: a range onto DEPS must touch
+  # only the dependency files, never the reserved design surface too, or the
+  # captain's-gate refusal would fire first and the dependency checks below
+  # would never be exercised.
+  git_c checkout -q --detach "$PLAIN"
+  commit_file pyproject.toml 'name = "demo"' "add pyproject.toml"
+  commit_file requirements.lock 'alembic==1.13.0' "add requirements.lock"
+  DEPS=$(git_c rev-parse HEAD)
+  git_c checkout -q --detach "$DESIGN"
   git_c remote add origin git@github.com:example/demo.git
   git_c update-ref refs/remotes/origin/main "$DESIGN"
   # A real clone has origin/HEAD, and that is the ref the reporter prefers, so
@@ -165,6 +178,10 @@ case "\$cmd" in
   *'rev-parse HEAD'*) printf '%s\n' "\${FMTEST_HOST_SHA:-$DEPLOYED}" ;;
   *'/proc/locks'*)    printf '%s\n' "\${FMTEST_RUN_STATE:-idle}" ;;
   *'http_code'*)      printf '%s\n' "\${FMTEST_HEALTH:-200}" ;;
+  # The target python's own pip. FMTEST_PIP_MISSING is how a case says the
+  # configured interpreter cannot run it at all.
+  *'-m pip --version'*)
+    [ -z "\${FMTEST_PIP_MISSING:-}" ] || { printf 'pip: command not found\n' >&2; exit 127; } ;;
   # Only the bundle install is fed on stdin; draining it for every command
   # would block on a pipe nothing ever closes.
   *'-xzf -'*)         cat >/dev/null 2>&1 || true ;;
@@ -322,6 +339,40 @@ test_an_unreadable_run_state_refuses() {
   assert_contains "$out" "could not tell" "unreadable-run-state"
   assert_machine_untouched unreadable-run-state
   pass "an unreadable run state refuses rather than assuming the app is idle"
+}
+
+test_a_target_python_that_cannot_run_pip_refuses_before_touching_the_machine() {
+  local out rc=0
+  make_case pip-missing
+  out=$(FMTEST_PIP_MISSING=1 run_deploy demo "$DEPS") || rc=$?
+  [ "$rc" -ne 0 ] || fail "pip-missing: deployed a dependency-changing range onto a python that cannot run pip"
+  assert_contains "$out" "cannot run pip" "pip-missing"
+  assert_machine_untouched pip-missing
+  pass "a target python that cannot run pip refuses a dependency-changing range before anything on the machine changes"
+}
+
+# corrupt_blob <sha> <path>: deletes the loose object <sha>:<path> resolves to,
+# leaving the tree and commit objects (and so `ls-tree`) intact. That is what
+# makes a path present-but-unreadable a distinct, real condition from a path
+# the tree simply does not carry, rather than something this suite has to fake.
+corrupt_blob() {
+  local sha=$1 path=$2 oid
+  oid=$(git_c rev-parse "$sha:$path")
+  rm -f "$REPO/.git/objects/${oid:0:2}/${oid:2}"
+}
+
+test_an_unreadable_dependency_file_refuses_before_touching_the_machine() {
+  local out rc broken
+  for broken in pyproject.toml requirements.lock; do
+    make_case "deps-unreadable-${broken%.*}"
+    corrupt_blob "$DEPS" "$broken"
+    rc=0
+    out=$(run_deploy demo "$DEPS") || rc=$?
+    [ "$rc" -ne 0 ] || fail "deps-unreadable-$broken: deployed a range whose $broken cannot be read at the target commit"
+    assert_contains "$out" "$broken cannot be read" "deps-unreadable-$broken"
+    assert_machine_untouched "deps-unreadable-$broken"
+  done
+  pass "a dependency file that is present but unreadable at the target commit refuses before anything on the machine changes"
 }
 
 test_an_unobtainable_bundle_refuses_before_touching_the_machine() {
@@ -689,6 +740,8 @@ test_a_pending_deploy_stops_waiting_past_its_horizon() {
 
 
 test_a_reserved_range_refuses_before_touching_the_machine
+test_a_target_python_that_cannot_run_pip_refuses_before_touching_the_machine
+test_an_unreadable_dependency_file_refuses_before_touching_the_machine
 test_a_build_still_running_is_a_race_not_a_missing_bundle
 test_a_build_that_failed_is_named_as_a_failed_build
 test_an_expired_artifact_is_still_reported_as_expired

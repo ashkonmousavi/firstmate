@@ -138,6 +138,49 @@ fm_deploy_classify() {
   return 0
 }
 
+# --- runtime dependencies ------------------------------------------------------
+#
+# deploy/PROVISIONING.md's own contract: the editable install and the lockfile
+# install run again whenever the checkout moves to a new commit whose range
+# touches either file. bin/fm-deploy.sh is the only caller; these are shared
+# here only because they read the range the same way fm_deploy_classify does.
+
+FM_DEPLOY_DEPENDENCY_FILES='pyproject.toml requirements.lock'
+
+# fm_deploy_range_touches_dependencies <repo> <from> <to>
+# True when the range's changed-path set includes pyproject.toml or
+# requirements.lock, in which case the target's runtime dependencies must be
+# reinstalled before the unit restarts.
+fm_deploy_range_touches_dependencies() {
+  local repo=$1 from=$2 to=$3 path f
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    for f in $FM_DEPLOY_DEPENDENCY_FILES; do
+      [ "$path" = "$f" ] && return 0
+    done
+  done < <(git -C "$repo" diff --name-only "$from" "$to")
+  return 1
+}
+
+# fm_deploy_file_present_at <repo> <sha> <path>
+# True when <path> is part of <sha>'s tree, whether or not its blob can
+# actually be read.
+fm_deploy_file_present_at() {
+  local repo=$1 sha=$2 path=$3
+  [ -n "$(git -C "$repo" ls-tree -r --name-only "$sha" -- "$path" 2>/dev/null)" ]
+}
+
+# fm_deploy_file_unreadable_at <repo> <sha> <path>
+# True only when <path> IS part of <sha>'s tree and its blob cannot be read -
+# a corrupt or incomplete local object store, not an absent file. A file <sha>
+# simply does not carry is not this function's concern: the caller treats
+# "not there" as "nothing to install", never as a fault to refuse over.
+fm_deploy_file_unreadable_at() {
+  local repo=$1 sha=$2 path=$3
+  fm_deploy_file_present_at "$repo" "$sha" "$path" || return 1
+  ! git -C "$repo" cat-file -e "$sha:$path" 2>/dev/null
+}
+
 # fm_deploy_json_escape <text>
 # Minimal JSON string escaping for the durable ledger.
 fm_deploy_json_escape() {
