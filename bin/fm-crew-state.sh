@@ -64,7 +64,11 @@
 #      fm_nm_runs_status_for_worktree in bin/fm-nm-run-lib.sh).
 #      The run-step is AUTHORITATIVE: running/fixing -> working, ci -> working,
 #      awaiting_approval/fix_review -> parked (with gate findings), terminal
-#      passed/checks-passed -> done, failed/cancelled -> failed. EXCEPT: while
+#      passed/checks-passed -> done, failed/cancelled -> failed. A cancelled
+#      merge monitor remains failed unless the latest status event supersedes it
+#      with a declared wait, or with a checks-green delivery line whose recorded
+#      pull request is still open and green at its recorded head. Genuine failed
+#      runs never receive that exception. EXCEPT: while
 #      the active step is ci, `axi status` alone cannot tell "still waiting on
 #      checks" from "checks green, waiting on merge" (see nm_ci_checks_state) -
 #      a ci-step log-tail check overrides working -> done once checks read
@@ -389,6 +393,58 @@ log_reports_ci_ready() {
   esac
 }
 
+# Extract one deliberately scalar body from gh-axi's stable api_response wrapper.
+# Callers constrain the scalar's grammar after this read, so JSON strings,
+# multiline bodies, truncation, or any other response shape fail closed.
+gh_axi_api_scalar() {  # <path> <jq-expression>
+  local output value
+  output=$(cd "$WT" && gh-axi api "$1" --jq "$2" 2>/dev/null) || return 1
+  value=$(printf '%s\n' "$output" | awk '
+    /^  body: "/ {
+      count++
+      sub(/^  body: "/, "")
+      sub(/"$/, "")
+      answer=$0
+    }
+    END {
+      if (count == 1 && answer != "") print answer
+      else exit 1
+    }
+  ') || return 1
+  printf '%s' "$value"
+}
+
+# 0 only when the latest checks-green status line names this task's recorded
+# GitHub pull request and a live, fakeable gh-axi read proves that exact recorded
+# head is still open with every check complete and acceptable. This is a narrow
+# cancelled-monitor corroboration, not another general PR or crew-state
+# classifier. The merge path retains ownership of merge-readiness policy.
+recorded_pr_is_open_green() {
+  local pr_url pr_head identity checks total completed bad check_query
+  log_reports_ci_ready || return 1
+  command -v gh-axi >/dev/null 2>&1 || return 1
+  pr_url=$(meta_value pr)
+  pr_head=$(meta_value pr_head)
+  fm_pr_url_parse "$pr_url" || return 1
+  [ "$FM_PR_PROVIDER" = github ] || return 1
+  fm_pr_head_valid "$pr_head" || return 1
+  case "$LOG_LINE" in *"$FM_PR_URL"*) ;; *) return 1 ;; esac
+
+  identity=$(gh_axi_api_scalar "/repos/$FM_PR_PATH/pulls/$FM_PR_NUMBER" \
+    '.state + "|" + .head.sha') || return 1
+  [ "$identity" = "open|$pr_head" ] || return 1
+
+  # shellcheck disable=SC2016 # $checks is a jq binding, not a shell variable.
+  check_query='[.check_runs[]] as $checks | [($checks | length), ([$checks[] | select(.status == "completed")] | length), ([$checks[] | select(.status != "completed" or ((.conclusion // "") != "success" and (.conclusion // "") != "neutral" and (.conclusion // "") != "skipped"))] | length)] | map(tostring) | join("|")'
+  checks=$(gh_axi_api_scalar "/repos/$FM_PR_PATH/commits/$pr_head/check-runs?per_page=100" \
+    "$check_query") || return 1
+  IFS='|' read -r total completed bad <<EOF
+$checks
+EOF
+  case "$total:$completed:$bad" in *[!0-9:]*|:*|*::*|*:) return 1 ;; esac
+  [ "$total" -gt 0 ] && [ "$completed" -eq "$total" ] && [ "$bad" -eq 0 ]
+}
+
 nm_ci_step_status() {
   local row rest
   row=$(printf '%s\n' "$RUN_OUT" | grep -E '^[[:space:]]*ci,[[:space:]]*"?(running|fixing)"?[[:space:]]*,' | head -1)
@@ -553,6 +609,7 @@ fi
 if [ "$HAVE_RUN" = 1 ]; then
   RUN_STATE=working
   RUN_DETAIL=""
+  RUN_CANCELLED=0
   CI_STEP_STATUS=""
   CI_LOG_STATE=""
   RUN_STATUS=""
@@ -573,7 +630,7 @@ if [ "$HAVE_RUN" = 1 ]; then
         RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
         ;;
       failed)    RUN_STATE=failed;  RUN_DETAIL="run failed" ;;
-      cancelled) RUN_STATE=failed;  RUN_DETAIL="run cancelled" ;;
+      cancelled) RUN_STATE=failed;  RUN_DETAIL="run cancelled"; RUN_CANCELLED=1 ;;
       *)         RUN_STATE=unknown; RUN_DETAIL="runs list status: $COARSE_STATUS" ;;
     esac
   else
@@ -602,7 +659,7 @@ if [ "$HAVE_RUN" = 1 ]; then
           RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
           ;;
         failed)        RUN_STATE=failed; RUN_DETAIL="run failed" ;;
-        cancelled)     RUN_STATE=failed; RUN_DETAIL="run cancelled" ;;
+        cancelled)     RUN_STATE=failed; RUN_DETAIL="run cancelled"; RUN_CANCELLED=1 ;;
         *)             RUN_STATE=unknown; RUN_DETAIL="outcome: $outcome" ;;
       esac
     elif [ -n "$awaiting" ] || [ "$status" = awaiting_approval ] || [ "$status" = fix_review ] || [ -n "$gate_status" ] || [ "$has_gate" = 1 ]; then
@@ -630,7 +687,7 @@ if [ "$HAVE_RUN" = 1 ]; then
           RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
           ;;
         failed)         RUN_STATE=failed;  RUN_DETAIL="run failed" ;;
-        cancelled)      RUN_STATE=failed;  RUN_DETAIL="run cancelled" ;;
+        cancelled)      RUN_STATE=failed;  RUN_DETAIL="run cancelled"; RUN_CANCELLED=1 ;;
         "")             RUN_STATE=working; RUN_DETAIL="run active" ;;
         *)              RUN_STATE=working; RUN_DETAIL="run active ($status)" ;;
       esac
@@ -666,6 +723,21 @@ if [ "$HAVE_RUN" = 1 ]; then
     fi
     if [ "$CI_LOG_STATE" != not-ready ]; then
       emit "done" status-log "$(status_line_note "$LOG_LINE")${SEP}run still monitoring PR"
+    fi
+  fi
+
+  # Cancellation remains a failure by default. Only the latest non-empty status
+  # event can supersede it: a declared wait, or a checks-green delivery line
+  # corroborated live at the recorded pull-request head. Looking for a pause
+  # anywhere in the append-only log would let an old wait hide later activity.
+  # Genuine failed outcomes never set RUN_CANCELLED and therefore never enter
+  # this cancelled-monitor-only exception.
+  if [ "$RUN_CANCELLED" -eq 1 ]; then
+    if status_is_paused "$LOG_LINE"; then
+      emit paused status-log "$(status_line_note "$LOG_LINE")${SEP}declared wait supersedes cancelled merge monitor"
+    fi
+    if recorded_pr_is_open_green; then
+      emit paused status-log "$(status_line_note "$LOG_LINE")${SEP}open green PR at recorded head supersedes cancelled merge monitor"
     fi
   fi
 

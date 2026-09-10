@@ -122,7 +122,25 @@ case "${1:-}" in
 esac
 exit 0
 SH
-  chmod +x "$fb/no-mistakes" "$fb/tmux" "$fb/herdr"
+  cat > "$fb/gh-axi" <<'SH'
+#!/usr/bin/env bash
+set -u
+printf '%s\n' "$*" >> "${FM_FAKE_GH_AXI_CALLS:-/dev/null}"
+case "$*" in
+  api*/pulls/*)
+    printf 'api_response:\n  body: "%s|%s"\n  truncated: false\n' \
+      "${FM_FAKE_PR_STATE:-}" "${FM_FAKE_PR_HEAD:-}"
+    ;;
+  api*/check-runs*)
+    printf 'api_response:\n  body: "%s|%s|%s"\n  truncated: false\n' \
+      "${FM_FAKE_PR_CHECKS_TOTAL:-0}" \
+      "${FM_FAKE_PR_CHECKS_COMPLETED:-0}" \
+      "${FM_FAKE_PR_CHECKS_BAD:-0}"
+    ;;
+  *) exit 1 ;;
+esac
+SH
+  chmod +x "$fb/no-mistakes" "$fb/tmux" "$fb/herdr" "$fb/gh-axi"
   printf '%s\n' "$fb"
 }
 
@@ -170,8 +188,16 @@ reset_fakes() {
   FM_FAKE_HERDR_MISSING=0
   FM_FAKE_HERDR_AGENT_STATUS=""
   FM_FAKE_CI_LOGS=""
+  FM_FAKE_GH_AXI_CALLS=""
+  FM_FAKE_PR_STATE=""
+  FM_FAKE_PR_HEAD=""
+  FM_FAKE_PR_CHECKS_TOTAL=0
+  FM_FAKE_PR_CHECKS_COMPLETED=0
+  FM_FAKE_PR_CHECKS_BAD=0
   export FM_FAKE_AXI_STATUS FM_FAKE_AXI_STATUS_RUN FM_FAKE_RUNS_LIST FM_FAKE_BUSY FM_FAKE_BUSY_TEXT FM_FAKE_TMUX_MISSING
   export FM_FAKE_HERDR_BUSY FM_FAKE_HERDR_MISSING FM_FAKE_HERDR_AGENT_STATUS FM_FAKE_CI_LOGS
+  export FM_FAKE_GH_AXI_CALLS FM_FAKE_PR_STATE FM_FAKE_PR_HEAD
+  export FM_FAKE_PR_CHECKS_TOTAL FM_FAKE_PR_CHECKS_COMPLETED FM_FAKE_PR_CHECKS_BAD
 }
 
 # --- run-object fixtures (TOON, as `no-mistakes axi status` emits) -----------
@@ -288,6 +314,33 @@ run:
   pr: ""
   findings: none
 outcome: failed
+EOF
+}
+
+run_cancelled_outcome() {  # <branch>
+  cat <<EOF
+run:
+  id: "01RUN"
+  branch: $1
+  status: cancelled
+  head: "${FM_FAKE_RUN_HEAD:-abc1234}"
+  pr: "https://github.com/o/r/pull/2"
+  findings: none
+outcome: cancelled
+error: "cancelled: aborted by user"
+EOF
+}
+
+run_cancelled_status() {  # <branch>
+  cat <<EOF
+run:
+  id: "01RUN"
+  branch: $1
+  status: cancelled
+  head: "${FM_FAKE_RUN_HEAD:-abc1234}"
+  pr: "https://github.com/o/r/pull/2"
+  findings: none
+error: "cancelled: aborted by user"
 EOF
 }
 
@@ -766,6 +819,160 @@ test_terminal_failed() {
   assert_contains "$out" "state: failed" "failed run -> failed"
   assert_contains "$out" "source: run-step" "failed -> run-step source"
   pass "terminal failed run is authoritative"
+}
+
+# A deliberately cancelled merge monitor is no longer the product verdict once
+# the worker's latest event declares the bounded external wait that follows it.
+# This is red on the historical unconditional cancelled -> failed mapping.
+test_cancelled_outcome_then_latest_declared_pause_reads_paused() {
+  reset_fakes
+  local d; d=$(new_case cancelled-then-pause)
+  make_repo_on_branch "$d/wt" fm/feat-cancel-pause
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cancel-pause.meta" \
+    "window=fm:fm-feat-cancel-pause" "worktree=$d/wt" "kind=ship"
+  printf 'working: cancelling the redundant merge monitor\npaused: holding the green pull request for its landing turn\n' \
+    > "$d/state/feat-cancel-pause.status"
+  FM_FAKE_AXI_STATUS="$(run_cancelled_outcome fm/feat-cancel-pause)"
+  local out; out=$(run_crew_state "$d" feat-cancel-pause)
+  assert_contains "$out" "state: paused" "a later declared wait overrides only the cancelled monitor verdict"
+  assert_contains "$out" "source: status-log" "the later declaration is the paused-state source"
+  assert_not_contains "$out" "state: failed" "a deliberately cancelled monitor is not a failed product"
+  pass "cancelled outcome followed by the latest declared pause reads paused"
+}
+
+# A checks-green delivery line carries the same hold meaning when the recorded
+# pull request is still open, its current head is the recorded pr_head, and all
+# checks at that head are complete and green. The fake gh-axi shadows the real
+# forge client and records both reads, so this proof cannot reach the real forge.
+test_cancelled_status_then_latest_open_green_done_pr_reads_paused() {
+  reset_fakes
+  local d; d=$(new_case cancelled-then-green-done)
+  make_repo_on_branch "$d/wt" fm/feat-cancel-green
+  make_fakebin "$d" >/dev/null
+  : > "$d/gh-axi.calls"
+  fm_write_meta "$d/state/feat-cancel-green.meta" \
+    "window=fm:fm-feat-cancel-green" "worktree=$d/wt" "kind=ship" \
+    "pr=https://github.com/o/r/pull/2" "pr_head=$FM_FAKE_RUN_HEAD"
+  printf 'done: PR https://github.com/o/r/pull/2 checks green\n' \
+    > "$d/state/feat-cancel-green.status"
+  FM_FAKE_AXI_STATUS="$(run_cancelled_status fm/feat-cancel-green)"
+  FM_FAKE_GH_AXI_CALLS="$d/gh-axi.calls"
+  FM_FAKE_PR_STATE=open
+  FM_FAKE_PR_HEAD=$FM_FAKE_RUN_HEAD
+  FM_FAKE_PR_CHECKS_TOTAL=3
+  FM_FAKE_PR_CHECKS_COMPLETED=3
+  FM_FAKE_PR_CHECKS_BAD=0
+  local out; out=$(run_crew_state "$d" feat-cancel-green)
+  assert_contains "$out" "state: paused" "an open green PR at recorded pr_head overrides only cancelled"
+  assert_contains "$out" "source: status-log" "the verified done line is the paused-state source"
+  [ "$(wc -l < "$d/gh-axi.calls" | tr -d '[:space:]')" -eq 2 ] \
+    || fail "the fake forge should receive exactly the PR identity and check reads"
+  pass "cancelled status with a latest verified open-green PR declaration reads paused"
+}
+
+# The recorded head is part of the declaration proof, not an advisory cache. A
+# newer live head makes the checks-green line stale and leaves cancelled failed.
+test_cancelled_done_pr_at_a_different_live_head_stays_failed() {
+  reset_fakes
+  local d; d=$(new_case cancelled-green-stale-head)
+  make_repo_on_branch "$d/wt" fm/feat-cancel-stale-head
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cancel-stale-head.meta" \
+    "window=fm:fm-feat-cancel-stale-head" "worktree=$d/wt" "kind=ship" \
+    "pr=https://github.com/o/r/pull/2" "pr_head=$FM_FAKE_RUN_HEAD"
+  printf 'done: PR https://github.com/o/r/pull/2 checks green\n' \
+    > "$d/state/feat-cancel-stale-head.status"
+  FM_FAKE_AXI_STATUS="$(run_cancelled_status fm/feat-cancel-stale-head)"
+  FM_FAKE_PR_STATE=open
+  FM_FAKE_PR_HEAD=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  FM_FAKE_PR_CHECKS_TOTAL=3
+  FM_FAKE_PR_CHECKS_COMPLETED=3
+  FM_FAKE_PR_CHECKS_BAD=0
+  local out; out=$(run_crew_state "$d" feat-cancel-stale-head)
+  assert_contains "$out" "state: failed" "a different live PR head cannot corroborate the declaration"
+  assert_contains "$out" "run cancelled" "a stale recorded head keeps cancelled detail"
+  pass "a cancelled run with a stale checks-green PR head remains failed"
+}
+
+# A live head match is still insufficient when any check is pending or has a
+# non-green conclusion. The cancelled failure remains visible.
+test_cancelled_done_pr_with_a_non_green_check_stays_failed() {
+  reset_fakes
+  local d; d=$(new_case cancelled-green-bad-check)
+  make_repo_on_branch "$d/wt" fm/feat-cancel-bad-check
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cancel-bad-check.meta" \
+    "window=fm:fm-feat-cancel-bad-check" "worktree=$d/wt" "kind=ship" \
+    "pr=https://github.com/o/r/pull/2" "pr_head=$FM_FAKE_RUN_HEAD"
+  printf 'done: PR https://github.com/o/r/pull/2 checks green\n' \
+    > "$d/state/feat-cancel-bad-check.status"
+  FM_FAKE_AXI_STATUS="$(run_cancelled_status fm/feat-cancel-bad-check)"
+  FM_FAKE_PR_STATE=open
+  FM_FAKE_PR_HEAD=$FM_FAKE_RUN_HEAD
+  FM_FAKE_PR_CHECKS_TOTAL=3
+  FM_FAKE_PR_CHECKS_COMPLETED=3
+  FM_FAKE_PR_CHECKS_BAD=1
+  local out; out=$(run_crew_state "$d" feat-cancel-bad-check)
+  assert_contains "$out" "state: failed" "a non-green check cannot corroborate the declaration"
+  assert_contains "$out" "run cancelled" "a non-green PR keeps cancelled detail"
+  pass "a cancelled run with a non-green PR remains failed"
+}
+
+# Counterexample: the coarse runs-list source retains today's exact cancelled
+# failure when no later declaration exists.
+test_coarse_cancelled_with_no_later_declaration_stays_failed_with_detail() {
+  reset_fakes
+  local d short; d=$(new_case cancelled-coarse-no-declaration)
+  make_repo_on_branch "$d/wt" fm/feat-cancel-coarse
+  short=$(git -C "$d/wt" rev-parse --short=7 HEAD)
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-cancel-coarse.meta" \
+    "window=fm:fm-feat-cancel-coarse" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_running fm/other-crew)"
+  FM_FAKE_RUNS_LIST="  cancelled  fm/feat-cancel-coarse ${short}  2026-09-09 21:40"
+  local out; out=$(run_crew_state "$d" feat-cancel-coarse)
+  assert_contains "$out" "state: failed" "cancelled without a later declaration remains failed"
+  assert_contains "$out" "source: run-step" "the unchanged cancellation remains run-step sourced"
+  assert_contains "$out" "run cancelled" "the unchanged cancellation keeps its exact detail"
+  pass "coarse cancelled run with no later declaration stays failed with existing detail"
+}
+
+# Ordering counterexample: finding a pause anywhere in the append-only log is
+# insufficient. A later working event means the historical pause cannot suppress
+# the cancelled run that followed it.
+test_pause_before_cancelled_outcome_does_not_suppress_failure() {
+  reset_fakes
+  local d; d=$(new_case pause-before-cancelled)
+  make_repo_on_branch "$d/wt" fm/feat-pause-before-cancel
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-pause-before-cancel.meta" \
+    "window=fm:fm-feat-pause-before-cancel" "worktree=$d/wt" "kind=ship"
+  printf 'paused: earlier external wait\nworking: cancelling the obsolete monitor after the wait cleared\n' \
+    > "$d/state/feat-pause-before-cancel.status"
+  FM_FAKE_AXI_STATUS="$(run_cancelled_outcome fm/feat-pause-before-cancel)"
+  local out; out=$(run_crew_state "$d" feat-pause-before-cancel)
+  assert_contains "$out" "state: failed" "an earlier pause cannot override a later cancellation"
+  assert_contains "$out" "run cancelled" "the ordering counterexample keeps cancelled detail"
+  pass "a pause before cancellation does not suppress the failure"
+}
+
+# Scope counterexample: a real failed run remains authoritative even when the
+# latest status event declares a wait. This repair is cancelled-only.
+test_failed_outcome_with_later_declared_pause_remains_failed() {
+  reset_fakes
+  local d; d=$(new_case failed-then-pause)
+  make_repo_on_branch "$d/wt" fm/feat-failed-pause
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/feat-failed-pause.meta" \
+    "window=fm:fm-feat-failed-pause" "worktree=$d/wt" "kind=ship"
+  printf 'paused: waiting after a genuine pipeline failure\n' \
+    > "$d/state/feat-failed-pause.status"
+  FM_FAKE_AXI_STATUS="$(run_failed fm/feat-failed-pause)"
+  local out; out=$(run_crew_state "$d" feat-failed-pause)
+  assert_contains "$out" "state: failed" "a genuine failed run remains failed behind a pause"
+  assert_contains "$out" "run failed" "the genuine failure keeps its existing detail"
+  pass "a genuine failed run is unchanged by a later pause"
 }
 
 # A passed-with-override outcome is a distinct exceptional result, never
@@ -2258,6 +2465,13 @@ test_top_level_fixing_ci_running_after_green_stays_working
 test_top_level_fixing_done_log_stays_working
 test_terminal_passed
 test_terminal_failed
+test_cancelled_outcome_then_latest_declared_pause_reads_paused
+test_cancelled_status_then_latest_open_green_done_pr_reads_paused
+test_cancelled_done_pr_at_a_different_live_head_stays_failed
+test_cancelled_done_pr_with_a_non_green_check_stays_failed
+test_coarse_cancelled_with_no_later_declaration_stays_failed_with_detail
+test_pause_before_cancelled_outcome_does_not_suppress_failure
+test_failed_outcome_with_later_declared_pause_remains_failed
 test_terminal_passed_with_override
 test_terminal_unrecognized_outcome
 test_cross_branch_attribution_via_runs_list
