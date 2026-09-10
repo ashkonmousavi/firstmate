@@ -98,6 +98,45 @@ expect_failure() {
   assert_contains "$out" "$expected" "refusal did not explain '$expected'"
 }
 
+# A copy of the real fm-heal.sh and its sourced dependencies, placed in a
+# scratch bin/ directory with no ".agents/skills/heal/templates/finding.md"
+# beside it, so the finding template is unreadable for any invocation of the
+# copy without touching this repo's own tracked template.
+broken_template_heal() {
+  local dir="$TMP_ROOT/broken-template-bin"
+  mkdir -p "$dir"
+  cp "$ROOT/bin/fm-heal.sh" "$dir/fm-heal.sh"
+  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/fm-session-lock-lib.sh"
+  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/fm-cursor-lib.sh"
+  printf '%s\n' "$dir/fm-heal.sh"
+}
+
+run_owned_bin() {
+  local bin=$1 home=$2
+  shift 2
+  FM_HOME="$home" PATH="$FAKEBIN:$BASE_PATH" /bin/bash -c '
+    printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+    "$@"
+  ' _ "$bin" "$@"
+}
+
+set_meta_field() {
+  python3 - "$1" "$2" "$3" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path, field, value = sys.argv[1], sys.argv[2], sys.argv[3]
+target = Path(path)
+lines = target.read_text(encoding="utf-8").splitlines(keepends=True)
+end = next(i for i, line in enumerate(lines[1:], start=1) if line.rstrip("\r\n") == "---")
+meta = json.loads("".join(lines[1:end]))
+meta[field] = value
+body = "".join(lines[end + 1:])
+target.write_text("---\n" + json.dumps(meta, indent=2, sort_keys=True) + "\n---\n" + body, encoding="utf-8")
+PY
+}
+
 # The heal skill (.agents/skills/heal/SKILL.md) has no automated task/status
 # consumer: /heal is invoked manually by the captain or an agent, and that
 # manual invocation IS the ordinary consumer of bin/fm-heal.sh. This helper
@@ -601,6 +640,64 @@ SH
   pass "heal privacy: the detailed ledger is excluded from startup memory and the startup digest"
 }
 
+test_missing_finding_template_fails_cleanly_not_with_a_traceback() {
+  local heal_home broken_heal out status
+  heal_home=$(new_home missing-template)
+  run_owned "$heal_home" init >/dev/null
+  new_finding "$heal_home" tmplgap template-gap
+  broken_heal=$(broken_template_heal)
+  set +e
+  out=$(run_owned_bin "$broken_heal" "$heal_home" rebuild-index 2>&1)
+  status=$?
+  set -e
+  [ "$status" -eq 2 ] || fail "missing finding template did not fail with the named-error exit code (got $status)"
+  assert_contains "$out" 'heal: cannot read finding template' \
+    "missing finding template did not fail with the same named error record_template uses"
+  assert_not_contains "$out" 'Traceback' "missing finding template surfaced a raw traceback instead of a clean failure"
+  pass "heal templates: an unreadable finding template fails cleanly like record_template, not with a raw traceback"
+}
+
+test_body_only_publish_does_not_demand_fields_it_already_lacks() {
+  local heal_home finding candidate
+  heal_home=$(new_home body-only-publish)
+  run_owned "$heal_home" init >/dev/null
+  new_finding "$heal_home" legacy legacy-fingerprint
+  run_owned "$heal_home" transition legacy Active --reason 'repair started' --owner task:repair >/dev/null
+  finding="$heal_home/data/heal/findings/legacy.md"
+  current_summary_candidate "$finding" "$finding"
+  set_meta_field "$finding" next_action ""
+  candidate="$TMP_ROOT/body-only-candidate.md"
+  cp "$finding" "$candidate"
+  run_owned "$heal_home" publish legacy --candidate "$candidate" \
+    || fail "body-only publish of an existing record was blocked by fields it already lacked"
+  [ "$(meta_field "$finding" next_action)" = "" ] || fail "body-only publish invented a next action never supplied"
+  pass "heal publish: a body-only publish of an existing record is not blocked by fields it already lacked"
+}
+
+test_bare_transition_carries_forward_existing_triage_fields() {
+  local heal_home finding candidate
+  heal_home=$(new_home transition-carry-forward)
+  run_owned "$heal_home" init >/dev/null
+  new_finding "$heal_home" carry carry-fingerprint
+  finding="$heal_home/data/heal/findings/carry.md"
+  candidate="$TMP_ROOT/carry-candidate.md"
+  current_summary_candidate "$finding" "$candidate"
+  run_owned "$heal_home" publish carry --candidate "$candidate" \
+    --verified-at 2026-09-09T12:00:00Z --evidence evidence:carry-triage \
+    --next-action 'exercise the bounded correction' \
+    --proof-required 'one accepted correction' \
+    --trigger 'consumer team confirms the correction landed' >/dev/null
+  [ "$(meta_field "$finding" next_action)" = 'exercise the bounded correction' ] || fail "setup did not record the next action"
+  run_owned "$heal_home" transition carry Active --reason 'repair started' --owner task:repair >/dev/null
+  [ "$(meta_field "$finding" next_action)" = 'exercise the bounded correction' ] \
+    || fail "bare transition cleared the next action publish had just set"
+  [ "$(meta_field "$finding" proof_required)" = 'one accepted correction' ] \
+    || fail "bare transition cleared the proof required publish had just set"
+  [ "$(meta_field "$finding" release_trigger)" = 'consumer team confirms the correction landed' ] \
+    || fail "bare transition cleared the release trigger publish had just set"
+  pass "heal transition: a bare transition that omits triage flags carries the record's existing values forward"
+}
+
 test_refresh_updates_the_current_repair_without_a_fake_state_change
 test_draft_publication_is_refused_and_visible_without_blocking_other_work
 test_new_recurrence_invalidates_old_consumer_proof_but_repeat_notices_do_not
@@ -612,3 +709,6 @@ test_historical_verification_does_not_reopen_a_corrected_defect
 test_legitimate_hold_and_ownerless_obligation_stay_distinct
 test_branch_only_correction_stays_unverified_until_consumer_proof
 test_heal_ledger_is_absent_from_startup_memory_and_digest
+test_missing_finding_template_fails_cleanly_not_with_a_traceback
+test_body_only_publish_does_not_demand_fields_it_already_lacks
+test_bare_transition_carries_forward_existing_triage_fields

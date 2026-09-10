@@ -41,6 +41,12 @@
 # Triage-field updates require a verification time and evidence; a candidate's
 # original metadata must still match the record, and template instructions must
 # be replaced with the current account. Index refresh notices are advisory only.
+# The triage-completeness guards for Active, Blocked, Unverified, and Fixed
+# only fire when this call itself refreshes verification or triage fields; a
+# body-only publish of an existing record is never blocked on fields it
+# already lacked before the call. publish replaces the record body wholesale;
+# retaining material history when composing the candidate is a workflow
+# instruction (see .agents/skills/heal/workflow.md), not a helper invariant.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -402,13 +408,17 @@ def ensure_ledger(root: Path, script_dir: Path) -> None:
         atomic_write(checkpoint, checkpoint_text(initial_checkpoint()))
     index = root / "INDEX.md"
     if not index.exists():
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
 
 
-def unfilled_summary(body: str) -> bool:
-    template = Path(sys.argv[2]).parent / ".agents" / "skills" / "heal" / "templates" / "finding.md"
+def unfilled_summary(script_dir: Path, body: str) -> bool:
+    template = script_dir.parent / ".agents" / "skills" / "heal" / "templates" / "finding.md"
+    try:
+        text = template.read_text(encoding="utf-8")
+    except OSError as exc:
+        fail(f"cannot read finding template: {exc}")
     instructions = {
-        line for line in template.read_text(encoding="utf-8").splitlines()
+        line for line in text.splitlines()
         if line.startswith("- ") and "{{" not in line
     }
     return bool(instructions.intersection(body.splitlines()))
@@ -419,11 +429,11 @@ def index_text(value: str, limit: int) -> str:
     return value if len(value) <= limit else value[:limit - 3] + "..."
 
 
-def finding_link(path: Path, meta: dict, body: str, prefix: str = "") -> str:
+def finding_link(script_dir: Path, path: Path, meta: dict, body: str, prefix: str = "") -> str:
     row = f"- [{meta['id']}]({prefix}findings/{meta['id']}.md) | {meta['severity']} | {meta['state']} | {index_text(meta['title'], 240)}"
     if meta["state"] != "Closed":
         gaps = []
-        if unfilled_summary(body):
+        if unfilled_summary(script_dir, body):
             gaps.append("draft summary")
         if not meta["last_verification"]:
             gaps.append("not verified")
@@ -453,7 +463,7 @@ def load_current(root: Path) -> tuple[list[tuple[Path, dict, str]], list[tuple[P
     return records, damaged
 
 
-def rebuild_index(root: Path, limit: int) -> None:
+def rebuild_index(root: Path, script_dir: Path, limit: int) -> None:
     if limit < 1 or limit > 100:
         fail("index limit must be between 1 and 100")
     require_safe_dir(root, create=True)
@@ -480,7 +490,7 @@ def rebuild_index(root: Path, limit: int) -> None:
         shown = unresolved[:limit]
         if len(unresolved) > limit:
             lines.append(f"Showing {len(shown)} of {len(unresolved)} unresolved findings.\n\n")
-        lines.extend(finding_link(path, meta, body) for path, meta, body in shown)
+        lines.extend(finding_link(script_dir, path, meta, body) for path, meta, body in shown)
     indexes = root / "indexes"
     if len(unresolved) > limit:
         require_safe_dir(indexes, create=True)
@@ -493,14 +503,14 @@ def rebuild_index(root: Path, limit: int) -> None:
                 f"Total unresolved across all pages: {len(unresolved)}.\n\n",
             ]
             for path, meta, body in unresolved[offset : offset + 50]:
-                page_lines.append(finding_link(path, meta, body, "../"))
+                page_lines.append(finding_link(script_dir, path, meta, body, "../"))
             atomic_write(page, "".join(page_lines))
         lines.append("\n## Complete unresolved indexes\n\n")
         for page in page_paths:
             lines.append(f"- [{page.name}](indexes/{page.name})\n")
     if closed:
         lines.append("\n## Recent closed awaiting archival\n\n")
-        lines.extend(finding_link(path, meta, body) for path, meta, body in closed[:3])
+        lines.extend(finding_link(script_dir, path, meta, body) for path, meta, body in closed[:3])
     if damaged:
         lines.append("\n## Damaged records\n\n")
         for path, reason in damaged:
@@ -729,7 +739,7 @@ def main() -> int:
         }
         body = record_template(script_dir, meta, evidence, observed)
         atomic_write(root / "findings" / f"{finding_id}.md", render_record(meta, body))
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
         print(f"created={finding_id}")
         return 0
 
@@ -768,7 +778,7 @@ def main() -> int:
             require_owner()
             os.replace(path, destination)
         atomic_write(destination, render_record(meta, body))
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
         print(f"finding={meta['id']} new_occurrence={'yes' if new_occurrence else 'no'}")
         return 0
 
@@ -780,7 +790,7 @@ def main() -> int:
         meta["last_verification"] = verified
         body = append_history(body, verified, f"Current state verified from `{evidence}` without recording a recurrence.")
         atomic_write(path, render_record(meta, body))
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
         print(f"verified={meta['id']}")
         return 0
 
@@ -794,9 +804,9 @@ def main() -> int:
         reason = clean_text(args.reason, "reason")
         evidence = clean_text(args.evidence, "evidence", allow_empty=True)
         owner = clean_text(args.owner, "owner", allow_empty=True) or meta["owner"]
-        trigger = clean_text(args.trigger, "trigger", allow_empty=True)
-        next_action = clean_text(args.next_action, "next_action", allow_empty=True)
-        proof_required = clean_text(args.proof_required, "proof_required", allow_empty=True)
+        trigger = clean_text(args.trigger, "trigger", allow_empty=True) or meta["release_trigger"]
+        next_action = clean_text(args.next_action, "next_action", allow_empty=True) or meta["next_action"]
+        proof_required = clean_text(args.proof_required, "proof_required", allow_empty=True) or meta["proof_required"]
         consumer_proof = clean_text(args.consumer_proof, "consumer_proof", allow_empty=True)
         if destination == "Active" and (not owner or owner == "none"):
             fail("Active requires an existing owner")
@@ -847,7 +857,7 @@ def main() -> int:
             require_owner()
             os.replace(path, destination_path)
         atomic_write(destination_path, render_record(meta, body))
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
         print(f"transition={source}->{destination}")
         return 0
 
@@ -860,7 +870,7 @@ def main() -> int:
         candidate_meta, candidate_body = parse_record(candidate)
         if candidate_meta != current_meta:
             fail("publish candidate changed protected metadata; use the owning subcommand")
-        if unfilled_summary(candidate_body):
+        if unfilled_summary(script_dir, candidate_body):
             fail("unfilled finding template; replace the scaffold with the current account before publication")
         updates = {}
         for field in ("title", "owner", "next_action", "proof_required", "consumer_proof", "blocking_reason", "severity", "classification"):
@@ -879,18 +889,18 @@ def main() -> int:
             candidate_meta.update(updates)
             candidate_meta["last_verification"] = verified
             candidate_body = append_history(candidate_body, verified, f"Current account refreshed from `{evidence}`.")
-        state = candidate_meta["state"]
-        if state in {"Active", "Blocked", "Unverified"}:
-            if candidate_meta["owner"] in {"", "none"} or not candidate_meta["next_action"]:
-                fail("current repair account requires an owner and next action")
-        if state == "Blocked" and (not candidate_meta["blocking_reason"] or not candidate_meta["release_trigger"]):
-            fail("Blocked account must retain its reason and release trigger; use transition when the hold clears")
-        if state == "Unverified" and not candidate_meta["proof_required"]:
-            fail("Unverified account must name the remaining proof")
-        if state == "Closed" and candidate_meta["disposition"] == "Fixed" and not candidate_meta["consumer_proof"]:
-            fail("Fixed closure requires consuming-workflow proof")
+            state = candidate_meta["state"]
+            if state in {"Active", "Blocked", "Unverified"}:
+                if candidate_meta["owner"] in {"", "none"} or not candidate_meta["next_action"]:
+                    fail("current repair account requires an owner and next action")
+            if state == "Blocked" and (not candidate_meta["blocking_reason"] or not candidate_meta["release_trigger"]):
+                fail("Blocked account must retain its reason and release trigger; use transition when the hold clears")
+            if state == "Unverified" and not candidate_meta["proof_required"]:
+                fail("Unverified account must name the remaining proof")
+            if state == "Closed" and candidate_meta["disposition"] == "Fixed" and not candidate_meta["consumer_proof"]:
+                fail("Fixed closure requires consuming-workflow proof")
         atomic_write(path, render_record(candidate_meta, candidate_body))
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
         print(f"published={current_meta['id']}")
         return 0
 
@@ -912,12 +922,12 @@ def main() -> int:
             fail(f"archive destination already exists: {destination}")
         require_owner()
         os.replace(path, destination)
-        rebuild_index(root, 20)
+        rebuild_index(root, script_dir, 20)
         print(f"archived={destination.relative_to(root).as_posix()}")
         return 0
 
     if command == "rebuild-index":
-        rebuild_index(root, args.limit)
+        rebuild_index(root, script_dir, args.limit)
         print(f"rebuilt={root / 'INDEX.md'}")
         return 0
 
