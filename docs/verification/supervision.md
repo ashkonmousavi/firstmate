@@ -520,6 +520,25 @@ ok - unacknowledged recovery is announced at most once per generation and the su
 FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=59357
 ```
 
+The Claude Stop-owned re-announcement bound was verified on 2026-09-10 with ShellCheck 0.11.0, real arm and watcher processes, and isolated homes outside the repository.
+Bare `bin/fm-watch-arm.sh` re-arms, the invocation Claude's Stop hook uses, modelled goal-evaluator-only turns after a delivered recovery and settled on one supervised cycle without repeating the recovery wake.
+A genuine down stretch whose drain-and-acknowledge handshake was lost was announced exactly once, and queued work, a pending steering-inbox record, an open decision, and crew close work still surfaced.
+
+```sh
+bin/fm-test-run.sh tests/fm-watch-recovery-loop.test.sh
+```
+
+Observed output:
+
+```text
+ok - goal-only Stop re-arms after a delivered recovery keep one supervised cycle and never repeat the recovery wake
+ok - a genuine down stretch is announced exactly once across bare re-arms, and a handled recovery stays quiet
+ok - bare Stop re-arms still surface queued work, a pending inbox record, an open decision, and crew close work
+ok - a resurfacing handling successor stays alive and supervises instead of going blind
+ok - unacknowledged recovery is announced at most once per generation and the successor stays alive
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=87894
+```
+
 Deterministic entry points:
 
 ```sh

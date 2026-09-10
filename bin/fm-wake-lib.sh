@@ -561,12 +561,13 @@ _fm_recovery_marker_write_locked() {
 }
 
 # Preserve a pending or announced episode's generation across downtime
-# republication so its outstanding acknowledgement remains usable, and keep an
-# already-announced generation announced so it cannot be re-presented until a
-# new down stretch mints a new generation.
+# republication so its outstanding acknowledgement remains usable. The
+# republication is itself the new down stretch, so an announced episode returns
+# to pending and is presented once more; a start with no republication since
+# the announcement leaves it announced (see the reopen guard below).
 # docs/watcher-continuity.md owns the recovery contract and sequence-safety rationale.
 _fm_recovery_marker_publish() {
-  local marker=$1 kind=${2:-downtime} lock saved_token generation='' status=pending
+  local marker=$1 kind=${2:-downtime} lock saved_token generation=''
   case "$kind" in handling|downtime) ;; *) return 1 ;; esac
   lock="${marker}.lock"
   fm_lock_acquire_wait "$lock" || return 1
@@ -581,19 +582,14 @@ _fm_recovery_marker_publish() {
     saved_token=$FM_RECOVERY_MARKER_TOKEN
     if fm_recovery_marker_read "$marker"; then
       case "$FM_RECOVERY_MARKER_TOKEN" in
-        pending:handling:*|pending:downtime:*)
+        pending:handling:*|pending:downtime:*|announced:handling:*|announced:downtime:*)
           generation=${FM_RECOVERY_MARKER_TOKEN##*:}
-          status=pending
-          ;;
-        announced:handling:*|announced:downtime:*)
-          generation=${FM_RECOVERY_MARKER_TOKEN##*:}
-          status=announced
           ;;
       esac
     fi
     FM_RECOVERY_MARKER_TOKEN=$saved_token
   fi
-  if ! _fm_recovery_marker_write_locked "$marker" "$kind" "$generation" "$status"; then
+  if ! _fm_recovery_marker_write_locked "$marker" "$kind" "$generation" pending; then
     fm_lock_release "$lock"
     return 1
   fi
@@ -745,27 +741,35 @@ _fm_recovery_marker_arm_check() {
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 }
 
-# A non-successor watcher start after an announced-but-unacked episode is a new
-# down stretch: mint a fresh pending generation so a still-open decision or
-# buried note can be presented once more. Handling successors must not call
-# this, because Option B re-arm is not a new down stretch.
+# A watcher start alone is not a down stretch: Claude's Stop hook arms every
+# cycle as a non-successor start, so re-opening on the start re-announced one
+# recovery after every idle goal-only turn. A real down stretch since the
+# announcement has already returned the episode to pending by republication.
+# A start re-opens an announced-but-unacked episode only while its durable
+# queue rows remain, minting a fresh pending generation so that work is
+# presented again. Handling successors must not call this, because Option B
+# re-arm is not a new down stretch.
 _fm_recovery_marker_reopen_announced() {
   local marker=$1 lock
   lock="${marker}.lock"
-  fm_lock_acquire_wait "$lock" || return 1
-  if ! fm_recovery_marker_read "$marker"; then
-    fm_lock_release "$lock"
-    return 0
+  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
+  if ! fm_lock_acquire_wait "$lock"; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    return 1
   fi
-  case "$FM_RECOVERY_MARKER_TOKEN" in
-    announced:*)
-      if ! _fm_recovery_marker_write_locked "$marker" downtime ""; then
-        fm_lock_release "$lock"
-        return 1
-      fi
-      ;;
-  esac
+  if fm_recovery_marker_read "$marker" && [ -s "$FM_WAKE_QUEUE" ]; then
+    case "$FM_RECOVERY_MARKER_TOKEN" in
+      announced:*)
+        if ! _fm_recovery_marker_write_locked "$marker" downtime ""; then
+          fm_lock_release "$lock"
+          fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+          return 1
+        fi
+        ;;
+    esac
+  fi
   fm_lock_release "$lock"
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
 }
 
 fm_recovery_transition() {
