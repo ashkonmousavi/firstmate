@@ -944,6 +944,28 @@ STUB
     "promoted local-only worker lost its no-remote contract"
   assert_no_grep "no-mistakes axi respond" "$TMP_ROOT/promote-dod/payload-promote-dod-direct-pr" \
     "promoted direct-PR worker received the pipeline gate contract"
+
+  id=promote-dod-constituent
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 \
+    || fail "constituent: scout brief generation should succeed"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Prepare one reviewed batch constituent." "Hand it to the named integration owner."
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" \
+    --mode no-mistakes --yolo off --batch-constituent-of integration-owner 2>&1) \
+    || fail "constituent: promotion should succeed"
+  payload="$TMP_ROOT/promote-dod/payload-$id"
+  ( cd "$sendroot" \
+    && FM_TEST_CAPTURE="$payload" \
+       eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
+    || fail "constituent: promotion's delivery command did not run"
+  assert_grep "deliver your exact reviewed head and focused evidence to the named integration owner \`integration-owner\`" "$payload" \
+    "promoted batch constituent did not receive the named-owner handoff"
+  assert_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$payload" \
+    "promoted batch constituent was not forbidden from a membership-only pipeline"
+  assert_no_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$payload" \
+    "promoted batch constituent retained the standalone pipeline next step"
   pass "fm-promote: a promoted worker receives the same mode-specific delivery contract a briefed one does"
 }
 

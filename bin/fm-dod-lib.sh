@@ -6,8 +6,10 @@
 # receives. Both paths must hand the worker the same contract: a promoted
 # no-mistakes worker that never received the ask-user escalation rule or the
 # `--yes` ban is the exact delivery hole this single owner exists to close.
-# fm_dod_block <no-mistakes|direct-PR|local-only> <task-id> <task-record> prints
-# the block on stdout with no trailing blank line. The caller validates the mode;
+# fm_dod_block <no-mistakes|direct-PR|local-only> <task-id> <task-record>
+# [batch-owner] [trusted-project-root] prints the block on stdout with no trailing
+# blank line. A non-empty batch owner designates this task as that owner's
+# constituent. The caller validates the mode;
 # an unknown mode is refused rather than silently rendered as the pipeline contract.
 # Every mode's block binds one canonical task worktree and fm/<task-id> ref from
 # the task record, requires a clean worktree, requires every recursively referenced
@@ -303,6 +305,55 @@ No binary screenshots or other media enter the repository tree: prose evidence (
 EOF
 }
 
+# Return 0 only when the consuming project's trusted config explicitly enables
+# bounded Document correction and the installed binary is the build that added
+# that capability. The project file is supplied from the firstmate-owned clone,
+# never from the candidate worktree. A missing, symlinked, malformed, duplicate,
+# or unreadable setting and an unrecognized binary all fail closed. Commit
+# 4fa1bb2 is the installed capability-bearing build; a future binary needs its
+# own recognized capability receipt before this generator may promise the path.
+fm_dod_document_correction_enabled() {  # <trusted-project-root>
+  local project_root=$1 config value version
+  [ -n "$project_root" ] && [ -d "$project_root" ] || return 1
+  config="$project_root/.no-mistakes.yaml"
+  [ -f "$config" ] && [ ! -L "$config" ] && [ -r "$config" ] || return 1
+  value=$(LC_ALL=C awk '
+    /^[[:space:]]*($|#)/ { next }
+    /^[^[:space:]]/ {
+      in_auto_fix = ($0 ~ /^auto_fix:[[:space:]]*(#.*)?$/)
+      next
+    }
+    in_auto_fix && /^[[:space:]]+document:[[:space:]]*/ {
+      line = $0
+      sub(/^[[:space:]]+document:[[:space:]]*/, "", line)
+      sub(/[[:space:]]*(#.*)?$/, "", line)
+      print line
+    }
+  ' "$config") || return 1
+  case "$value" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  [ "$value" -gt 0 ] 2>/dev/null || return 1
+  command -v no-mistakes >/dev/null 2>&1 || return 1
+  version=$(no-mistakes --version 2>/dev/null) || return 1
+  case "$version" in
+    *4fa1bb2*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+fm_dod_document_instruction_block() {  # <trusted-project-root>
+  if fm_dod_document_correction_enabled "$1"; then
+    cat <<'EOF'
+The consuming project's trusted configuration selects bounded in-run document correction and the installed no-mistakes build supports it: the pipeline's correction turn applies an accepted documentation fix in-run. You owe an honest completed Test recheck and a valid attestation, never a skipped Test step and never your own out-of-band commit plus a fresh run for that accepted finding.
+EOF
+  else
+    cat <<'EOF'
+The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
+EOF
+  fi
+}
+
 fm_ask_user_escalation_block() {  # <data-dir> <task-id>
   local data=$1 id=$2
   cat <<EOF
@@ -312,29 +363,55 @@ fm_ask_user_escalation_block() {  # <data-dir> <task-id>
 EOF
 }
 
-# fm_integration_batch_dod_block <mode> prints the exact extra completion and
+# fm_integration_batch_dod_block <mode> [batch-owner] prints the exact extra completion and
 # pull-request-body binding for a task designated as an integration batch's
 # owner. The integration-batch-delivery skill owns when and how batching is
 # selected and performed; this block owns only the worker-facing DoD mechanics
-# and the three table shapes rendered in every ship mode: the membership record
-# that binds each constituent, the join review that states what the joins
+# and the table shapes rendered in every ship mode: the route-specific membership
+# records that bind each constituent, the join review that states what the joins
 # actually did to each constituent's reviewed work, and the landing record
 # naming which commit the pipeline tested and which commit the merge produced.
 # The landing record's two commits differ under a squash-merge contract, so it
 # records both rather than asserting one. A local-only owner
 # must be re-briefed onto a PR-based path because a batch lands through one
 # combined PR.
-fm_integration_batch_dod_block() {  # <mode>
-  local mode=$1
+fm_integration_batch_dod_block() {  # <mode> [batch-owner]
+  local mode=$1 batch_owner=${2:-}
+  if [ -n "$batch_owner" ]; then
+    cat <<EOF
+## Conditional integration-batch definition of done
+
+Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
+When your branch is prepared, deliver your exact reviewed head and focused evidence to the named integration owner \`$batch_owner\` and stop.
+Do not start a standalone no-mistakes pipeline merely to become a batch member.
+Still satisfy any independently required publication obligation imposed by the selected delivery route.
+EOF
+    return 0
+  fi
   cat <<'EOF'
-## Conditional integration-batch owner definition of done
+## Conditional integration-batch definition of done
 
 If firstmate designates this task as an integration owner, load `integration-batch-delivery` and satisfy that skill before using this task's normal delivery signal.
-The combined pull request body must contain this complete table with one row per constituent:
+Use exactly one of the following two record routes for each constituent.
+Never fabricate a constituent pull request or mark one merged merely to make it eligible for the batch.
+Preserve every independently required publication obligation imposed by the constituent's selected delivery route.
+
+For every PR-backed constituent, the combined pull request body must contain this row shape:
 
 | Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |
 | --- | --- | --- | --- | --- |
 | `<task-id>` | `<branch>` | `<full-sha>` | `<https://...>` | `Closed as superseded; not merged.` |
+
+Close each original pull request with that disposition.
+Before the combined pull request lands, bind each PR-backed constituent with `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>` under the existing pre-landing checks.
+
+For every PR-less constituent, the combined pull request body must contain this row shape:
+
+| PR-less constituent task | Branch | Exact reviewed head | Disposition |
+| --- | --- | --- | --- |
+| `<task-id>` | `<branch>` | `<full-sha>` | `No original pull request.` |
+
+After the combined pull request merges, bind each PR-less constituent with the same `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>` command under its stricter merged state, default-branch landing, and permanent-head containment checks.
 
 The body must also contain this complete join review, one row per constituent, written from the actual comparison of the candidate against that constituent's own reviewed head:
 
@@ -353,8 +430,7 @@ The body must also contain this complete landing record, one row, completed afte
 
 These are two different commits, and the record states both honestly. The pipeline-tested head is the exact combined head the delivery process proved. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
 Land the combined pull request through `bin/fm-pr-merge.sh` under the project's own landing shape; its squash default is correct wherever the project's contract makes every commit on its default branch a squash merge. `--merge` remains available but is not prescribed here.
-After each original pull request is closed with that disposition, bind its task to the combined landing with `bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>`.
-Every binding command must succeed, and all three completed tables stay in the combined pull request body as the delivery record.
+Every applicable binding command must succeed, and the completed constituent records, join-review table, and landing table stay in the combined pull request body as the delivery record.
 EOF
   if [ "$mode" = local-only ]; then
     cat <<'EOF'
@@ -363,8 +439,8 @@ EOF
   fi
 }
 
-fm_dod_block() {  # <mode> <task-id> <task-record>
-  local mode=$1 id=$2 task_record=$3
+fm_dod_block() {  # <mode> <task-id> <task-record> [batch-owner] [trusted-project-root]
+  local mode=$1 id=$2 task_record=$3 batch_owner=${4:-} project_root=${5:-}
   case "$mode" in
     direct-PR)
       cat <<EOF
@@ -373,7 +449,7 @@ Delivery contract: mode=direct-PR
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
 The task is complete only when committed on your branch.
 EOF
-      fm_integration_batch_dod_block "$mode"
+      fm_integration_batch_dod_block "$mode" "$batch_owner"
       fm_dod_evidence_rules_block pr
       cat <<EOF
 The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
@@ -393,7 +469,7 @@ This task ships **local-only**: no remote, no PR, no pipeline.
 The task is complete only when committed on your branch \`fm/$id\`. Do NOT push, do NOT open a PR, do NOT merge.
 Keep your branch a clean fast-forward onto the current default branch - if \`main\` has advanced, rebase onto it so the eventual merge stays a fast-forward.
 EOF
-      fm_integration_batch_dod_block "$mode"
+      fm_integration_batch_dod_block "$mode" "$batch_owner"
       fm_dod_evidence_rules_block local
       cat <<EOF
 Before you report it ready, pass this delivery preflight:
@@ -412,10 +488,16 @@ The branch is prepared when committed on your branch; being prepared is not the 
 Before you hand the branch to validation, pass this delivery preflight:
 EOF
       fm_dod_delivery_preflight_block "$id" "$task_record"
-      fm_integration_batch_dod_block "$mode"
+      fm_integration_batch_dod_block "$mode" "$batch_owner"
       cat <<EOF
 When you believe it is prepared, append \`working: prepared - {summary}\` to the status file and stop (\`prepared:\` is not a recognized status verb in bin/fm-classify-lib.sh, so \`working:\` carries it here).
+EOF
+      if [ -z "$batch_owner" ]; then
+        cat <<'EOF'
 Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.
+EOF
+      fi
+      cat <<EOF
 
 You drive no-mistakes by responding to its gates, not by implementing fixes.
 Follow the guidance no-mistakes itself provides for the mechanics: it loads when you invoke /no-mistakes, and \`no-mistakes axi run --help\` plus the \`help\` lines in each \`axi\` response are authoritative and version-matched to the installed binary.
@@ -441,9 +523,8 @@ If the branch moved after checks last ran, confirm CI reran and passed at the ne
 
 EOF
       fm_dod_evidence_rules_block pr
+      fm_dod_document_instruction_block "$project_root"
       cat <<EOF
-The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
-
 After /no-mistakes reports CI green (the CI-ready return point - do not wait for it to keep monitoring in the background until merge), append \`done: PR {url} checks green\` and stop. You are finished.
 \`done:\` means checks green at the exact head; it is never used for the pre-validation \`working: prepared\` handoff above.
 EOF

@@ -17,6 +17,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/fixtures.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-brief)
 BRIEF_HOME="$TMP_ROOT/home"
@@ -347,6 +349,9 @@ yolo on a ship brief|brief-refused-b1 some-proj --mode direct-PR --yolo on|--yol
 yolo=value form on a ship brief|brief-refused-b2 some-proj --mode direct-PR --yolo=off|--yolo is not a brief input
 mode on a scout brief|brief-refused-b3 some-proj --scout --mode direct-PR|--mode applies only to ship briefs
 mode on a secondmate charter|brief-refused-b4 --secondmate --no-projects --mode no-mistakes|--mode applies only to ship briefs
+batch constituent on a direct brief|brief-refused-b5 some-proj --mode direct-PR --batch-constituent-of owner-task|--batch-constituent-of applies only to a no-mistakes ship brief
+batch constituent on a scout brief|brief-refused-b6 some-proj --scout --batch-constituent-of owner-task|--batch-constituent-of applies only to a no-mistakes ship brief
+invalid integration owner id|brief-refused-b7 some-proj --mode no-mistakes --batch-constituent-of ../owner|--batch-constituent-of requires a valid integration-owner task id
 ROWS
   pass "fm-brief.sh: --yolo and scout/secondmate --mode are refused, never silently dropped"
 }
@@ -451,7 +456,44 @@ test_no_mistakes_dod_wording() {
     "no-mistakes DOD must state that done: means checks green, not merely committed"
   assert_no_grep "The task is complete only when committed on your branch." "$brief" \
     "no-mistakes DOD must not call a mere commit task-complete"
+  assert_grep "Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix." "$brief" \
+    "no-mistakes DOD must preserve active-pipeline custody"
+  assert_grep "Rule F: your \`done: PR {url} checks green\` report requires check conclusions verified at the exact current head sha of the PR branch" "$brief" \
+    "no-mistakes DOD must preserve rule F's exact-head requirement"
   pass "fm-brief.sh: no-mistakes DOD keeps its apostrophe prose and bans --yes outright"
+}
+
+# A task explicitly prepared for a named integration owner must hand off its
+# reviewed head and focused evidence instead of starting a standalone pipeline
+# merely to qualify for batch membership. An ordinary no-mistakes task keeps
+# the existing standalone next step.
+test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
+  local home brief
+  home="$TMP_ROOT/batch-constituent-handoff-home"
+  mkdir -p "$home/data"
+
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-batch-constituent some-proj \
+    --mode no-mistakes --batch-constituent-of integration-owner >/dev/null 2>&1 \
+    || fail "a named batch constituent brief should scaffold"
+  brief="$home/data/brief-batch-constituent/brief.md"
+  assert_grep "deliver your exact reviewed head and focused evidence to the named integration owner \`integration-owner\`" "$brief" \
+    "a batch constituent was not told to hand its reviewed result to the named integration owner"
+  assert_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$brief" \
+    "a batch constituent was not forbidden from starting a membership-only pipeline"
+  assert_no_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$brief" \
+    "a batch constituent retained the standalone pipeline next step"
+  assert_no_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" \
+    "a PR-less batch constituent was still told to supply the old mandatory original-PR row"
+
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-standalone-next-step some-proj \
+    --mode no-mistakes >/dev/null 2>&1 \
+    || fail "an ordinary no-mistakes brief should scaffold"
+  brief="$home/data/brief-standalone-next-step/brief.md"
+  assert_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$brief" \
+    "an ordinary no-mistakes task lost its standalone pipeline next step"
+  assert_no_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$brief" \
+    "an ordinary no-mistakes task was misclassified as a batch constituent"
+  pass "fm-brief.sh: a named batch constituent hands off its reviewed head without starting a standalone membership pipeline"
 }
 
 # Pin the two evidence rules the captain's 2026-09-05 ruling added to the DOD:
@@ -512,6 +554,71 @@ test_no_binary_evidence_and_document_step_dod_rules() {
     "local-only DOD must not carry the PR-body document-step rule; local-only never opens a PR"
 
   pass "fm-brief.sh: every mode's DOD keeps evidence out of the source tree, and only PR modes carry the document-step rule"
+}
+
+# The no-mistakes Document instruction follows both inputs that make the claim
+# true: the trusted project configuration selects bounded correction and the
+# installed build carries that capability. Zero, unreadable config, or an
+# unrecognized build all fail closed to the established report-only sentence.
+test_document_instruction_follows_trusted_project_config_and_installed_capability() {
+  local home fakebin brief project
+  home="$TMP_ROOT/document-instruction-home"
+  fakebin=$(fm_fakebin "$home")
+  fm_test_fake_no_mistakes "$fakebin"
+  mkdir -p "$home/data" "$home/projects"
+
+  project="$home/projects/in-run-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-7-g4fa1bb2 (4fa1bb2)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-in-run in-run-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a correction-enabled project brief should scaffold"
+  brief="$home/data/brief-document-in-run/brief.md"
+  assert_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "a correction-enabled project did not receive the in-run Document instruction"
+  assert_grep "the pipeline's correction turn applies an accepted documentation fix in-run" "$brief" \
+    "the in-run Document instruction did not assign the accepted fix to the pipeline"
+  assert_grep "an honest completed Test recheck and a valid attestation" "$brief" \
+    "the in-run Document instruction did not require Test recheck and attestation proof"
+  assert_grep "never a skipped Test step and never your own out-of-band commit plus a fresh run" "$brief" \
+    "the in-run Document instruction did not forbid the stale out-of-band correction route"
+  assert_no_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
+    "a correction-enabled project retained the report-only Document instruction"
+
+  project="$home/projects/report-only-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-7-g4fa1bb2 (4fa1bb2)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-report-only report-only-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a report-only project brief should scaffold"
+  brief="$home/data/brief-document-report-only/brief.md"
+  assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
+    "auto_fix.document zero did not preserve the established report-only instruction"
+
+  project="$home/projects/unreadable-project"
+  mkdir -p "$project"
+  ln -s missing-config "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-7-g4fa1bb2 (4fa1bb2)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-unreadable unreadable-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "an unreadable-config project brief should scaffold conservatively"
+  brief="$home/data/brief-document-unreadable/brief.md"
+  assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
+    "an unreadable configuration did not fail closed to report-only"
+
+  project="$home/projects/unsupported-build-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0 (fake)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-unsupported unsupported-build-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "an unrecognized-build project brief should scaffold conservatively"
+  brief="$home/data/brief-document-unsupported/brief.md"
+  assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
+    "an unrecognized installed capability did not fail closed to report-only"
+  pass "fm-brief.sh: Document instructions require trusted configuration and a recognized installed correction capability"
 }
 
 # The captain's 2026-09-07 ruling: a delivery signal reports delivery, never
@@ -1247,8 +1354,9 @@ test_ship_brief_carries_the_journey_line() {
 }
 
 # A batch owner can be briefed through either PR mode, while a local-only brief
-# must still render the mismatch refusal. The shared DoD output owns one exact
-# PR-body table and supported binding command for all three ship scaffolds.
+# must still render the mismatch refusal. The shared DoD output presents the
+# PR-backed and PR-less constituent routes separately, including their different
+# binding moments, without changing the join-review or landing tables.
 test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
   local home id brief mode
   home="$TMP_ROOT/integration-batch-dod-home"
@@ -1258,13 +1366,30 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode "$mode" >/dev/null 2>&1
     brief="$home/data/$id/brief.md"
     assert_present "$brief" "$mode brief was not scaffolded"
-    assert_grep '## Conditional integration-batch owner definition of done' "$brief" \
+    assert_grep '## Conditional integration-batch definition of done' "$brief" \
       "$mode DOD did not render the conditional batch-owner gate"
     assert_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" \
-      "$mode DOD did not render the complete constituent binding table"
+      "$mode DOD did not render the PR-backed constituent table"
     # shellcheck disable=SC2016  # backticks are the literal markdown code-span, not command substitution
     assert_grep '`Closed as superseded; not merged.`' "$brief" \
       "$mode DOD did not preserve the required superseded-not-merged statement"
+    assert_grep 'Before the combined pull request lands, bind each PR-backed constituent' "$brief" \
+      "$mode DOD did not keep PR-backed binding before landing"
+    assert_grep '| PR-less constituent task | Branch | Exact reviewed head | Disposition |' "$brief" \
+      "$mode DOD did not render the PR-less constituent row shape"
+    # shellcheck disable=SC2016  # backticks are literal Markdown code spans.
+    assert_grep '| `<task-id>` | `<branch>` | `<full-sha>` | `No original pull request.` |' "$brief" \
+      "$mode DOD did not record the explicit no-original-PR disposition"
+    assert_grep 'After the combined pull request merges, bind each PR-less constituent' "$brief" \
+      "$mode DOD did not defer PR-less binding until after the combined landing"
+    assert_grep 'merged state, default-branch landing, and permanent-head containment checks' "$brief" \
+      "$mode DOD did not state the stricter PR-less binding proof"
+    assert_no_grep 'this complete table with one row per constituent' "$brief" \
+      "$mode DOD still made the original-PR row mandatory for PR-less constituents"
+    assert_grep 'Never fabricate a constituent pull request or mark one merged merely to make it eligible for the batch.' "$brief" \
+      "$mode DOD did not forbid a fabricated or falsely merged constituent PR"
+    assert_grep "Preserve every independently required publication obligation imposed by the constituent's selected delivery route." "$brief" \
+      "$mode DOD dropped route-specific publication obligations"
     assert_grep '| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |' "$brief" \
       "$mode DOD did not render the explicit join review that states what the joins did to each constituent"
     assert_grep 'is not evidence that every constituent behavior survived' "$brief" \
@@ -1295,7 +1420,9 @@ test_ship_mode_is_explicit_not_registry
 test_delivery_flags_are_refused_where_they_do_not_apply
 test_faster_paths_use_configured_authority_without_stacked_review
 test_no_mistakes_dod_wording
+test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step
 test_no_binary_evidence_and_document_step_dod_rules
+test_document_instruction_follows_trusted_project_config_and_installed_capability
 test_every_mode_dod_separates_delivery_from_acceptance
 test_ask_user_escalation_format
 test_ship_project_memory_wording

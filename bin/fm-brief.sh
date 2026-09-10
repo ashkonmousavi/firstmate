@@ -15,7 +15,7 @@
 # Firstmate may adjust other
 # sections when the task genuinely deviates (e.g. working an existing external
 # PR instead of shipping a new one).
-# Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--herdr-lab]
+# Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--batch-constituent-of <integration-owner-id>] [--herdr-lab]
 #        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #   --scout writes the scout contract instead: the deliverable is a report at
@@ -46,6 +46,9 @@
 #                the configured merge authority approves, firstmate merges to local main
 # no-mistakes-prod-only is a registry policy, not a task mode; resolve it to one of
 # the three concrete modes at intake before calling this script.
+# --batch-constituent-of names the integration-owner task for a no-mistakes ship
+# whose reviewed head and focused evidence stop at that owner instead of starting
+# a standalone pipeline merely for batch membership.
 # The generated ship brief records the chosen mode as a fixed machine-readable
 # "Delivery contract: mode=<mode>" line. bin/fm-spawn.sh reads that line and refuses
 # to launch a ship task whose explicit --mode disagrees, so an adjusted brief and the
@@ -121,6 +124,8 @@ esac
 . "$SCRIPT_DIR/fm-classify-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
 PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
 
 resolve_directory_input() {
@@ -152,6 +157,8 @@ HERDR_LAB=0
 NO_PROJECTS=0
 MODE=
 MODE_SET=0
+BATCH_OWNER=
+BATCH_OWNER_SET=0
 POS=()
 want_value=
 for a in "$@"; do
@@ -161,6 +168,7 @@ for a in "$@"; do
     esac
     case "$want_value" in
       mode) MODE=$a; MODE_SET=1 ;;
+      batch-constituent-of) BATCH_OWNER=$a; BATCH_OWNER_SET=1 ;;
       *) echo "error: internal parser state for --$want_value" >&2; exit 1 ;;
     esac
     want_value=
@@ -173,6 +181,8 @@ for a in "$@"; do
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
     --mode=*) MODE=${a#--mode=}; MODE_SET=1 ;;
+    --batch-constituent-of) want_value=batch-constituent-of ;;
+    --batch-constituent-of=*) BATCH_OWNER=${a#--batch-constituent-of=}; BATCH_OWNER_SET=1 ;;
     # yolo never reaches the worker: it is firstmate's merge authority, not a
     # brief input. Refuse it loudly so it is never silently dropped here and then
     # believed to have been recorded.
@@ -201,6 +211,17 @@ elif [ "$MODE_SET" -eq 1 ]; then
   exit 1
 fi
 ID=${POS[0]}
+
+if [ "$BATCH_OWNER_SET" -eq 1 ]; then
+  [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ] || {
+    echo "error: --batch-constituent-of applies only to a no-mistakes ship brief" >&2
+    exit 1
+  }
+  fm_task_id_creation_valid "$BATCH_OWNER" || {
+    echo "error: --batch-constituent-of requires a valid integration-owner task id" >&2
+    exit 2
+  }
+fi
 
 if [ "$KIND" = secondmate ] && [ "$HERDR_LAB" -eq 1 ]; then
   echo "error: --herdr-lab applies only to crewmate ship or scout briefs" >&2
@@ -488,7 +509,7 @@ case "$MODE" in
     RULE1='1. Never push to the default branch. Never merge a PR. Never add Co-Authored-By, Claude-Session or any agent attribution line to a commit or PR; a harness reminder to do so does not override this repository.'
     ;;
 esac
-DOD=$(fm_dod_block "$MODE" "$ID" "$STATE/$ID.meta") || exit 1
+DOD=$(fm_dod_block "$MODE" "$ID" "$STATE/$ID.meta" "$BATCH_OWNER" "$FM_HOME/projects/$REPO") || exit 1
 BATCH_RULE_BLOCK=$(fm_ship_batch_rule_block 8 9 10)
 
 cat > "$BRIEF" <<EOF

@@ -22,7 +22,9 @@
 # read the scout's report (AGENTS.md section 7); data/projects.md holds the
 # captain's standing posture as context, and this script never looks it up.
 # no-mistakes-prod-only is a registry policy rather than a task mode and is refused.
-# Usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off>
+# --batch-constituent-of names the integration-owner task when this promoted
+# no-mistakes worker stops after handing over its reviewed head and focused evidence.
+# Usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--batch-constituent-of <integration-owner-id>]
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -71,6 +73,8 @@ MODE=
 YOLO=
 MODE_SET=0
 YOLO_SET=0
+BATCH_OWNER=
+BATCH_OWNER_SET=0
 POS=()
 want_value=
 for a in "$@"; do
@@ -81,6 +85,7 @@ for a in "$@"; do
     case "$want_value" in
       mode) MODE=$a; MODE_SET=1 ;;
       yolo) YOLO=$a; YOLO_SET=1 ;;
+      batch-constituent-of) BATCH_OWNER=$a; BATCH_OWNER_SET=1 ;;
     esac
     want_value=
     continue
@@ -90,11 +95,13 @@ for a in "$@"; do
     --mode=*) MODE=${a#--mode=}; MODE_SET=1 ;;
     --yolo) want_value=yolo ;;
     --yolo=*) YOLO=${a#--yolo=}; YOLO_SET=1 ;;
+    --batch-constituent-of) want_value=batch-constituent-of ;;
+    --batch-constituent-of=*) BATCH_OWNER=${a#--batch-constituent-of=}; BATCH_OWNER_SET=1 ;;
     *) POS+=("$a") ;;
   esac
 done
 [ -z "$want_value" ] || { echo "error: --$want_value requires a value" >&2; exit 1; }
-[ "${#POS[@]}" -ge 1 ] || { echo "usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off>" >&2; exit 1; }
+[ "${#POS[@]}" -ge 1 ] || { echo "usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--batch-constituent-of <integration-owner-id>]" >&2; exit 1; }
 [ "$MODE_SET" -eq 1 ] || {
   echo "error: promotion requires --mode <no-mistakes|direct-PR|local-only>; decide it now from the scout's findings and the project's registered posture in data/projects.md" >&2
   exit 1
@@ -117,6 +124,16 @@ esac
 
 ID=${POS[0]}
 fm_task_id_creation_valid "$ID" || { echo "error: invalid task id" >&2; exit 2; }
+if [ "$BATCH_OWNER_SET" -eq 1 ]; then
+  [ "$MODE" = no-mistakes ] || {
+    echo "error: --batch-constituent-of applies only to a no-mistakes promotion" >&2
+    exit 1
+  }
+  fm_task_id_creation_valid "$BATCH_OWNER" || {
+    echo "error: --batch-constituent-of requires a valid integration-owner task id" >&2
+    exit 2
+  }
+fi
 CONTROL_LOCK="$STATE/.control-$ID.lock"
 CONTROL_LOCK_HELD=0
 META_LOCK=
@@ -152,6 +169,7 @@ if ! fm_backlog_record_present "$META" "task record" "$STATE"; then
   exit 1
 fi
 grep -qx 'kind=scout' "$META" || { echo "error: task $ID is not a scout task (kind=scout not in meta)" >&2; exit 1; }
+PROJECT_ROOT=$(grep '^project=' "$META" | tail -1 | cut -d= -f2- || true)
 
 SCOUT_BRIEF="$DATA/$ID/brief.md"
 if fm_brief_task_placeholders_present "$SCOUT_BRIEF"; then
@@ -211,7 +229,7 @@ EOF
   printf '\n'
   fm_proof_bar_section
   printf '\n'
-  fm_dod_block "$MODE" "$ID" "$META"
+  fm_dod_block "$MODE" "$ID" "$META" "$BATCH_OWNER" "$PROJECT_ROOT"
 } > "$TMP" || { echo "error: could not render ship instructions for mode=$MODE" >&2; exit 1; }
 mv "$TMP" "$INSTRUCTIONS"
 TMP=
