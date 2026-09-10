@@ -12,6 +12,10 @@
 #   fm-heal.sh verify ID --verified-at TIME --evidence REF
 #   fm-heal.sh transition ID STATE --reason TEXT [state conditions]
 #   fm-heal.sh publish ID --candidate PATH
+#     [--verified-at TIME --evidence REF] [--title TEXT] [--owner REF]
+#     [--next-action TEXT] [--proof-required TEXT] [--consumer-proof REF]
+#     [--trigger TEXT] [--blocking-reason TEXT] [--severity LEVEL]
+#     [--classification KIND]
 #   fm-heal.sh archive ID [--month YYYY-MM]
 #   fm-heal.sh rebuild-index [--limit N]
 #   fm-heal.sh checkpoint-begin --scan-id ID --window TEXT --started-at TIME
@@ -32,6 +36,11 @@
 # recovers, or replaces that lock and never touches supervisor queue cursors.
 # Whole-file writes use a mode-0600 temporary file in the destination directory,
 # fsync, and atomic replacement. Archive moves use same-filesystem replacement.
+# publish refreshes the current account and optional triage fields together,
+# without changing lifecycle, identity, occurrence counts, or closure authority.
+# Triage-field updates require a verification time and evidence; a candidate's
+# original metadata must still match the record, and template instructions must
+# be replaced with the current account. Index refresh notices are advisory only.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,7 +53,7 @@ HEAL_ROOT="$FM_HOME/data/heal"
 . "$SCRIPT_DIR/fm-session-lock-lib.sh"
 
 usage() {
-  sed -n '2,29{s/^# \{0,1\}//;p;}' "$0"
+  sed -n '2,/^set -eu/{ /^#/ { s/^# \{0,1\}//; p; }; }' "$0"
 }
 
 owner_status() {
@@ -153,7 +162,15 @@ def iso_time(value: str, label: str) -> str:
     value = clean_text(value, label)
     if not ISO_TIME.fullmatch(value):
         fail(f"{label} must be an ISO-8601 UTC timestamp ending in Z")
+    try:
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        fail(f"{label} must be a valid ISO-8601 UTC timestamp")
     return value
+
+
+def newer_than(left: str, right: str) -> bool:
+    return datetime.fromisoformat(left.replace("Z", "+00:00")) > datetime.fromisoformat(right.replace("Z", "+00:00"))
 
 
 def utc_now() -> str:
@@ -388,12 +405,40 @@ def ensure_ledger(root: Path, script_dir: Path) -> None:
         rebuild_index(root, 20)
 
 
-def finding_link(path: Path, meta: dict, prefix: str = "") -> str:
-    return f"- [{meta['id']}]({prefix}findings/{meta['id']}.md) | {meta['severity']} | {meta['state']} | {meta['title']}\n"
+def unfilled_summary(body: str) -> bool:
+    template = Path(sys.argv[2]).parent / ".agents" / "skills" / "heal" / "templates" / "finding.md"
+    instructions = {
+        line for line in template.read_text(encoding="utf-8").splitlines()
+        if line.startswith("- ") and "{{" not in line
+    }
+    return bool(instructions.intersection(body.splitlines()))
 
 
-def load_current(root: Path) -> tuple[list[tuple[Path, dict]], list[tuple[Path, str]]]:
-    records: list[tuple[Path, dict]] = []
+def index_text(value: str, limit: int) -> str:
+    value = " ".join(value.split()).replace("|", "\\|")
+    return value if len(value) <= limit else value[:limit - 3] + "..."
+
+
+def finding_link(path: Path, meta: dict, body: str, prefix: str = "") -> str:
+    row = f"- [{meta['id']}]({prefix}findings/{meta['id']}.md) | {meta['severity']} | {meta['state']} | {index_text(meta['title'], 240)}"
+    if meta["state"] != "Closed":
+        gaps = []
+        if unfilled_summary(body):
+            gaps.append("draft summary")
+        if not meta["last_verification"]:
+            gaps.append("not verified")
+        elif newer_than(meta["latest_occurrence"], meta["last_verification"]):
+            gaps.append("new occurrence")
+        if not meta["next_action"]:
+            gaps.append("no next action")
+        if gaps:
+            row += f" | needs refresh: {', '.join(gaps)}"
+        row += f" | owner: {index_text(meta['owner'], 100)} | next: {index_text(meta['next_action'], 160) or 'unrecorded'}"
+    return row + "\n"
+
+
+def load_current(root: Path) -> tuple[list[tuple[Path, dict, str]], list[tuple[Path, str]]]:
+    records: list[tuple[Path, dict, str]] = []
     damaged: list[tuple[Path, str]] = []
     directory = root / "findings"
     if not directory.exists():
@@ -401,8 +446,8 @@ def load_current(root: Path) -> tuple[list[tuple[Path, dict]], list[tuple[Path, 
     require_safe_dir(directory)
     for path in sorted(directory.glob("*.md")):
         try:
-            meta, _ = parse_record(path)
-            records.append((path, meta))
+            meta, body = parse_record(path)
+            records.append((path, meta, body))
         except HealError as exc:
             damaged.append((path, str(exc)))
     return records, damaged
@@ -417,23 +462,25 @@ def rebuild_index(root: Path, limit: int) -> None:
     severity_rank = {name: index for index, name in enumerate(SEVERITIES)}
     state_rank = {"Active": 0, "Blocked": 1, "Unverified": 2, "Open": 3, "Closed": 4}
     records.sort(key=lambda item: (severity_rank[item[1]["severity"]], state_rank[item[1]["state"]], item[1]["id"]))
-    unresolved = [(path, meta) for path, meta in records if meta["state"] != "Closed"]
-    closed = [(path, meta) for path, meta in records if meta["state"] == "Closed"]
+    unresolved = [(path, meta, body) for path, meta, body in records if meta["state"] != "Closed"]
+    closed = [(path, meta, body) for path, meta, body in records if meta["state"] == "Closed"]
     lines = [
         "# Heal index\n\n",
-        "This file is a rebuildable navigation view; finding records are authoritative.\n\n",
+        "This file is a rebuildable navigation view; finding records are authoritative.\n",
+        "Severity and state order navigation, not execution; choose work by current application impact.\n",
+        "Refresh notices concern these records only and never block application delivery.\n\n",
         f"- Unresolved: {len(unresolved)}\n",
         f"- Current closed awaiting archival: {len(closed)}\n",
         f"- Damaged records requiring recovery: {len(damaged)}\n\n",
-        "## Priority view\n\n",
+        "## Unresolved navigation\n\n",
     ]
     if not unresolved:
         lines.append("No actionable findings.\n")
     else:
         shown = unresolved[:limit]
         if len(unresolved) > limit:
-            lines.append(f"Showing highest-priority {len(shown)} of {len(unresolved)} unresolved findings.\n\n")
-        lines.extend(finding_link(path, meta) for path, meta in shown)
+            lines.append(f"Showing {len(shown)} of {len(unresolved)} unresolved findings.\n\n")
+        lines.extend(finding_link(path, meta, body) for path, meta, body in shown)
     indexes = root / "indexes"
     if len(unresolved) > limit:
         require_safe_dir(indexes, create=True)
@@ -445,15 +492,15 @@ def rebuild_index(root: Path, limit: int) -> None:
                 f"# Complete unresolved heal index {page_number}\n\n",
                 f"Total unresolved across all pages: {len(unresolved)}.\n\n",
             ]
-            for _, meta in unresolved[offset : offset + 50]:
-                page_lines.append(finding_link(root / "findings" / f"{meta['id']}.md", meta, "../"))
+            for path, meta, body in unresolved[offset : offset + 50]:
+                page_lines.append(finding_link(path, meta, body, "../"))
             atomic_write(page, "".join(page_lines))
         lines.append("\n## Complete unresolved indexes\n\n")
         for page in page_paths:
             lines.append(f"- [{page.name}](indexes/{page.name})\n")
     if closed:
         lines.append("\n## Recent closed awaiting archival\n\n")
-        lines.extend(finding_link(path, meta) for path, meta in closed[:3])
+        lines.extend(finding_link(path, meta, body) for path, meta, body in closed[:3])
     if damaged:
         lines.append("\n## Damaged records\n\n")
         for path, reason in damaged:
@@ -558,6 +605,12 @@ def parser() -> argparse.ArgumentParser:
     if command == "publish":
         result.add_argument("id")
         result.add_argument("--candidate", required=True)
+        result.add_argument("--verified-at")
+        result.add_argument("--evidence")
+        for flag in ("title", "owner", "next-action", "proof-required", "consumer-proof", "trigger", "blocking-reason"):
+            result.add_argument(f"--{flag}")
+        result.add_argument("--severity", choices=SEVERITIES)
+        result.add_argument("--classification", choices=CLASSIFICATIONS)
         return result
     if command == "archive":
         result.add_argument("id")
@@ -693,8 +746,14 @@ def main() -> int:
         if new_occurrence:
             meta["occurrence_keys"].append(event_key)
             meta["occurrence_count"] += 1
-            meta["latest_occurrence"] = observed
+            if newer_than(observed, meta["latest_occurrence"]):
+                meta["latest_occurrence"] = observed
             body = append_history(body, observed, f"Independent occurrence recorded from `{evidence}`.")
+            if not meta["last_verification"] or newer_than(observed, meta["last_verification"]):
+                if meta["consumer_proof"]:
+                    body = append_history(body, observed, f"Prior consuming proof requires rechecking after this occurrence: `{meta['consumer_proof']}`.")
+                meta["consumer_proof"] = ""
+                meta["next_action"] = "reconcile this occurrence with the current cause, owner, correction and consumer before reusing prior proof"
             if meta["state"] == "Closed":
                 meta["state"] = "Open"
                 meta["disposition"] = ""
@@ -801,7 +860,37 @@ def main() -> int:
         candidate_meta, candidate_body = parse_record(candidate)
         if candidate_meta != current_meta:
             fail("publish candidate changed protected metadata; use the owning subcommand")
+        if unfilled_summary(candidate_body):
+            fail("unfilled finding template; replace the scaffold with the current account before publication")
+        updates = {}
+        for field in ("title", "owner", "next_action", "proof_required", "consumer_proof", "blocking_reason", "severity", "classification"):
+            value = getattr(args, field)
+            if value is not None:
+                updates[field] = clean_text(value, field, allow_empty=field in {"consumer_proof", "blocking_reason"})
+        if args.trigger is not None:
+            updates["release_trigger"] = clean_text(args.trigger, "trigger", allow_empty=True)
+        if updates or args.verified_at is not None or args.evidence is not None:
+            if args.verified_at is None or args.evidence is None:
+                fail("current-account refresh requires --verified-at and --evidence")
+            verified = iso_time(args.verified_at, "verified_at")
+            evidence = clean_text(args.evidence, "evidence")
+            if current_meta["last_verification"] and newer_than(current_meta["last_verification"], verified):
+                fail("current-account refresh cannot move verification time backwards")
+            candidate_meta.update(updates)
+            candidate_meta["last_verification"] = verified
+            candidate_body = append_history(candidate_body, verified, f"Current account refreshed from `{evidence}`.")
+        state = candidate_meta["state"]
+        if state in {"Active", "Blocked", "Unverified"}:
+            if candidate_meta["owner"] in {"", "none"} or not candidate_meta["next_action"]:
+                fail("current repair account requires an owner and next action")
+        if state == "Blocked" and (not candidate_meta["blocking_reason"] or not candidate_meta["release_trigger"]):
+            fail("Blocked account must retain its reason and release trigger; use transition when the hold clears")
+        if state == "Unverified" and not candidate_meta["proof_required"]:
+            fail("Unverified account must name the remaining proof")
+        if state == "Closed" and candidate_meta["disposition"] == "Fixed" and not candidate_meta["consumer_proof"]:
+            fail("Fixed closure requires consuming-workflow proof")
         atomic_write(path, render_record(candidate_meta, candidate_body))
+        rebuild_index(root, 20)
         print(f"published={current_meta['id']}")
         return 0
 

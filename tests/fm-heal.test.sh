@@ -98,6 +98,132 @@ expect_failure() {
   assert_contains "$out" "$expected" "refusal did not explain '$expected'"
 }
 
+current_summary_candidate() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+from pathlib import Path
+
+source, target = map(Path, sys.argv[1:])
+text = source.read_text(encoding="utf-8")
+metadata, body = text.split("\n---\n", 1)
+history = body.split("## Material history\n", 1)[1]
+target.write_text(metadata + "\n---\n" + """# Installed repair is disabled in its consumer
+
+## Current account
+
+The installed tool can repair documents, but the consuming project disables that step.
+The same consumer failed again; the installed version alone did not settle the finding.
+
+## Cause and ownership
+
+task:consumer-config owns checking the consumer configuration against the accepted repair.
+The remaining question is whether the enabled path preserves the project's bounded correction policy.
+
+## Correction and proof
+
+Next: enable and exercise the bounded path in the consumer's existing validation.
+Proof: one accepted correction committed inside that run, with its application work continuing.
+
+## Representative evidence
+
+- evidence:consumer-config-disabled
+
+## Material history
+""" + history, encoding="utf-8")
+PY
+}
+
+test_refresh_updates_the_current_repair_without_a_fake_state_change() {
+  local heal_home finding candidate before
+  heal_home=$(new_home current-repair)
+  run_owned "$heal_home" init >/dev/null
+  new_finding "$heal_home" consumer consumer-disabled
+  run_owned "$heal_home" transition consumer Active --reason 'tool repair started' --owner task:tool >/dev/null
+  run_owned "$heal_home" transition consumer Unverified --reason 'tool installed' \
+    --evidence tool:installed --proof-required 'exercise the real consumer' >/dev/null
+  finding="$heal_home/data/heal/findings/consumer.md"
+  candidate="$TMP_ROOT/current-repair-candidate.md"
+  before=$(meta_field "$finding" occurrence_keys)
+  current_summary_candidate "$finding" "$candidate"
+  expect_failure 'verified session lock ownership required' run_advisor "$heal_home" publish consumer --candidate "$candidate"
+  expect_failure 'requires --verified-at and --evidence' run_owned "$heal_home" publish consumer \
+    --candidate "$candidate" --owner task:consumer-config
+  run_owned "$heal_home" publish consumer --candidate "$candidate" \
+    --verified-at 2026-09-09T12:10:00Z --evidence evidence:consumer-config-disabled \
+    --title 'Installed repair is disabled in its consumer' --owner task:consumer-config \
+    --next-action 'exercise the bounded correction in the consumer' \
+    --proof-required 'one accepted correction committed inside the same run' >/dev/null \
+    || fail "current repair could not be refreshed without cycling the lifecycle"
+  [ "$(meta_field "$finding" state)" = Unverified ] || fail "refresh changed the lifecycle"
+  [ "$(meta_field "$finding" owner)" = task:consumer-config ] || fail "refresh retained the obsolete repair owner"
+  [ "$(meta_field "$finding" occurrence_keys)" = "$before" ] || fail "refresh fabricated an occurrence"
+  [ "$(meta_field "$finding" last_verification)" = 2026-09-09T12:10:00Z ] || fail "refresh did not bind the observation time"
+  assert_grep 'task:consumer-config' "$heal_home/data/heal/INDEX.md" "index hid the current repair owner"
+  assert_grep 'exercise the bounded correction in the consumer' "$heal_home/data/heal/INDEX.md" "index hid the current next action"
+  assert_not_contains "$(cat "$finding")" 'State the verified symptom' "refresh retained the template as current facts"
+
+  # A candidate made before a later observation cannot overwrite that observation.
+  run_owned "$heal_home" observe --id consumer --event-key consumer-later \
+    --observed-at 2026-09-09T12:11:00Z --notifications 1 --evidence evidence:later >/dev/null
+  before=$(cat "$finding")
+  expect_failure 'changed protected metadata' run_owned "$heal_home" publish consumer --candidate "$candidate" \
+    --verified-at 2026-09-09T12:12:00Z --evidence evidence:stale-candidate
+  [ "$(cat "$finding")" = "$before" ] || fail "stale refresh lost a later observation"
+  pass "heal refresh: current owner, action and narrative update together without inventing a lifecycle transition"
+}
+
+test_draft_publication_is_refused_and_visible_without_blocking_other_work() {
+  local heal_home finding candidate before
+  heal_home=$(new_home draft-summary)
+  run_owned "$heal_home" init >/dev/null
+  new_finding "$heal_home" draft draft-summary
+  finding="$heal_home/data/heal/findings/draft.md"
+  candidate="$TMP_ROOT/draft-summary-candidate.md"
+  cp "$finding" "$candidate"
+  before=$(cat "$finding")
+  assert_grep 'needs refresh' "$heal_home/data/heal/INDEX.md" "unfinished summary looked current in the index"
+  expect_failure 'unfilled finding template' run_owned "$heal_home" publish draft --candidate "$candidate"
+  [ "$(cat "$finding")" = "$before" ] || fail "refused publication changed the finding"
+  new_finding "$heal_home" independent independent-work
+  assert_present "$heal_home/data/heal/findings/independent.md" "one draft blocked unrelated evidence capture"
+  pass "heal summaries: unfinished templates remain visible but cannot be republished as a current account"
+}
+
+test_new_recurrence_invalidates_old_consumer_proof_but_repeat_notices_do_not() {
+  local heal_home finding candidate next_action
+  heal_home=$(new_home consumer-recurrence)
+  run_owned "$heal_home" init >/dev/null
+  new_finding "$heal_home" recurring-consumer consumer-recurrence
+  run_owned "$heal_home" transition recurring-consumer Active --reason 'repair started' --owner task:tool >/dev/null
+  run_owned "$heal_home" transition recurring-consumer Unverified --reason 'partial consuming proof exists' \
+    --evidence tool:installed --proof-required 'remaining affected consumer' \
+    --consumer-proof consumer:first-passed >/dev/null
+  run_owned "$heal_home" verify recurring-consumer --verified-at 2026-09-09T12:05:00Z \
+    --evidence evidence:first-consumer >/dev/null
+  finding="$heal_home/data/heal/findings/recurring-consumer.md"
+  run_owned "$heal_home" observe --id recurring-consumer --event-key new-consumer-failure \
+    --observed-at 2026-09-09T12:06:00Z --notifications 1 --evidence evidence:consumer-failed >/dev/null
+  [ -z "$(meta_field "$finding" consumer_proof)" ] || fail "new failure retained old consuming proof as current"
+  assert_grep 'needs refresh' "$heal_home/data/heal/INDEX.md" "new recurrence was hidden behind prior verification"
+  assert_contains "$(meta_field "$finding" next_action)" 'reconcile' "recurrence kept the obsolete next action"
+
+  candidate="$TMP_ROOT/recurring-consumer-candidate.md"
+  current_summary_candidate "$finding" "$candidate"
+  next_action='inspect the remaining consumer through task:consumer-config'
+  run_owned "$heal_home" publish recurring-consumer --candidate "$candidate" \
+    --verified-at 2026-09-09T12:07:00Z --evidence evidence:triaged \
+    --owner task:consumer-config --next-action "$next_action" >/dev/null
+  run_owned "$heal_home" observe --id recurring-consumer --event-key new-consumer-failure \
+    --observed-at 2026-09-09T12:08:00Z --notifications 1 --evidence evidence:repeat >/dev/null
+  [ "$(meta_field "$finding" next_action)" = "$next_action" ] || fail "repeat notification undid the current triage"
+  [ "$(meta_field "$finding" occurrence_count)" = 2 ] || fail "repeat notification created extra repair work"
+  run_owned "$heal_home" observe --id recurring-consumer --event-key earlier-delayed-event \
+    --observed-at 2026-09-09T12:03:00Z --notifications 1 --evidence evidence:delayed-history >/dev/null
+  [ "$(meta_field "$finding" latest_occurrence)" = 2026-09-09T12:06:00Z ] || fail "late historical evidence moved the latest occurrence backwards"
+  [ "$(meta_field "$finding" next_action)" = "$next_action" ] || fail "late historical evidence undid newer triage"
+  pass "heal recurrence: fresh failures invalidate old consuming proof while duplicate notices preserve current triage"
+}
+
 test_verified_owner_and_read_only_advisor_are_distinct() {
   local home before after loss_home symlink_home outside out status
   home=$(new_home authority)
@@ -254,6 +380,9 @@ SH
   pass "heal privacy: the detailed ledger is excluded from startup memory and the startup digest"
 }
 
+test_refresh_updates_the_current_repair_without_a_fake_state_change
+test_draft_publication_is_refused_and_visible_without_blocking_other_work
+test_new_recurrence_invalidates_old_consumer_proof_but_repeat_notices_do_not
 test_verified_owner_and_read_only_advisor_are_distinct
 test_repeated_notifications_count_one_occurrence
 test_existing_owner_is_linked_without_duplicate_finding

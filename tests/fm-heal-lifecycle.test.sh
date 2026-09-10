@@ -260,7 +260,7 @@ test_index_overflow_reports_all_unresolved_findings_through_compact_links() {
   run_owned "$home" rebuild-index --limit 2 >/dev/null
   index="$home/data/heal/INDEX.md"
   assert_grep 'Unresolved: 4' "$index" "overflow index omitted the explicit unresolved count"
-  assert_grep 'Showing highest-priority 2 of 4 unresolved findings.' "$index" "overflow index did not disclose its priority bound"
+  assert_grep 'Showing 2 of 4 unresolved findings.' "$index" "overflow index did not disclose its reading bound"
   assert_grep 'indexes/unresolved-001.md' "$index" "overflow index did not link the complete compact view"
   complete="$home/data/heal/indexes/unresolved-001.md"
   for id in overflow-a overflow-b overflow-c overflow-d; do

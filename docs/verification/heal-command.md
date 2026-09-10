@@ -49,13 +49,21 @@ The sentinel proves that a fresh Claude Code process discovered `/heal`, invoked
 Both suites use `tests/lib.sh` to allocate temporary homes and never point `FM_HOME` at the live operational home.
 The verified-owner cases construct an isolated harness ancestry and lock record, while advisor cases intentionally provide no owned lock.
 
-The exact commands were:
+The current behavior check was refreshed on 2026-09-09 with:
 
 ```bash
-./tests/fm-heal.test.sh
-./tests/fm-heal-lifecycle.test.sh
+bin/fm-test-run.sh tests/fm-heal.test.sh tests/fm-heal-lifecycle.test.sh
 ```
 
-The first suite reported seven passing cases covering verified-owner mutation, read-only advisor refusal, occurrence and notification accounting, existing-owner deduplication, historical refresh, hold classification, consuming-workflow proof, and startup-memory and digest exclusion.
+The first suite reports ten passing cases covering verified-owner mutation, read-only advisor refusal, occurrence and notification accounting, existing-owner deduplication, historical refresh, hold classification, consuming-workflow proof, startup-memory and digest exclusion, current-account publication, draft visibility, and recurrence invalidation.
 The second suite reported seven passing cases covering every permitted and forbidden lifecycle edge, reasoned dismissal, evidence-bound reopening, interrupted and repeated scans, index and checkpoint recovery, overflow, archive recurrence, and a completed scan with no actionable finding.
-Before `bin/fm-heal.sh` existed, each suite was run once and failed at its first helper-dependent behavior, which established the tests' failure capability before implementation.
+The runner reports `total=2 failed=0 skipped_gate=0`.
+
+The current-account case proves that a finding's owner, next action, remaining proof, narrative and observation time can change together without changing its lifecycle or inventing an occurrence.
+The same case refuses unowned publication, a metadata refresh without observation evidence, and a candidate made before a later occurrence.
+The draft case proves an unfinished template remains visible but cannot be republished as a current account, without blocking another finding's capture.
+The recurrence case proves that a new failure invalidates old consuming proof, while a repeat notification or delayed older observation does not undo newer triage.
+The current-account case failed against the previous helper because `publish` did not accept the refresh fields; it passes with the supported refresh path.
+
+These are isolated helper and lifecycle proofs, not a claim that an agent will always choose the right repair or that a real application's blocker has cleared.
+Harness discovery, argument routing and session-lock detection are unchanged; the helper remains common to all supported harnesses and does not call a runtime backend.

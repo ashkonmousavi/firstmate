@@ -27,7 +27,8 @@ Use the helper for lifecycle transitions, occurrence accounting, source-bound ch
 Never write scan progress before the corresponding finding evidence is safely preserved.
 
 Use current authoritative state to disprove stale reports before promoting repairs.
-Link existing tasks, Changes, releases, and owners instead of creating a parallel queue.
+Refresh the promoted findings' current accounts and link existing tasks, Changes, releases, and owners instead of creating a parallel queue.
+Follow the workflow's distinction between a bounded repair and the wider application outcome; stale notebook cleanup must not become a delivery gate.
 Advance authorized repairs only through their existing owners and supported delivery procedures.
 Do not reserve an idle worker merely to watch for recurrence.
 

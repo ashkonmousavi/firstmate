@@ -55,11 +55,16 @@ Similar symptoms alone do not prove a shared cause.
 
 Use `bin/fm-heal.sh observe` for notifications and occurrences.
 One independently identified incident increments the occurrence count once, while repeated notices increment only the notification count.
-Use `bin/fm-heal.sh verify` for a state refresh that found no recurrence; verification never reopens a closed record.
+Use `bin/fm-heal.sh verify` only when the existing current account still matches the evidence and no recurrence was found; verification never reopens a closed record.
+Changed ownership, configuration, release conditions, or remaining work require refreshing the account, not merely appending a verification line.
 New occurrence evidence against an archived closed record restores the same ID as Open.
 
-To revise a finding's narrative, copy the complete record to a private temporary candidate, edit the body without changing the JSON metadata, and run `bin/fm-heal.sh publish <id> --candidate <path>`.
-Use the owning helper subcommand for metadata, state, occurrence, proof, checkpoint, and archive changes.
+To refresh a finding, copy the complete record to a private temporary candidate and rewrite its current account without changing the copied JSON metadata.
+Use `bin/fm-heal.sh publish` to publish that account together with refreshed triage fields and observation evidence; the script's header owns the flags.
+The helper refuses unfinished template instructions and a candidate whose original metadata no longer matches the record.
+Keep material evidence and history, but replace obsolete current instructions instead of appending their corrections underneath them.
+Use `transition` for lifecycle changes; updating the current owner or next action does not require an artificial state transition.
+The helper records observations and checks their structure; it cannot establish that a claimed cause, owner, or successful journey is true.
 
 Each current record must keep these facts concise and current:
 
@@ -73,6 +78,12 @@ Each current record must keep these facts concise and current:
 - Required proof, results, and what remains unverified.
 - Lifecycle state, closure disposition when closed, and closure evidence.
 - A short history of material changes in understanding.
+
+Before acting on a promoted finding, reconcile its current account against the actual task, effective brief, implementation, consuming configuration and latest proof.
+Replace a retired owner, an already-completed next action, or a cleared release trigger with the current responsible owner and remaining work.
+State what the next action unblocks and the observation that will settle it; if no repair is needed, record the evidenced disposition instead.
+An index refresh notice is a reading aid, never a fleet, merge, or application gate.
+Refresh only the records needed for this pass's decisions; leave other unresolved records discoverable without delaying delivery to tidy them all.
 
 ## Finding lifecycle
 
@@ -117,7 +128,9 @@ Closure dispositions are distinct from lifecycle state:
 - `Captain-authorized-scope` cites the specific captain decision and is never represented as a successful repair.
 
 Unknown evidence never implies completion or inactivity.
-A correction on a branch, absent from its consuming runtime, or lacking the affected journey remains Unverified.
+A correction on a branch, absent from its consuming runtime, or lacking its required consuming proof remains Unverified.
+When new evidence shows the correction is ineffective, move Unverified back to Active through the existing repair owner, or to Blocked only for a current concrete obstacle.
+Inspect the effective consumer and its configuration before repeating an installation or commissioning another implementation of an already-built fix.
 A legitimate hold and an ownerless accepted obligation retain different classifications.
 Derive permitted actions from current evidence and authority, never from a label alone.
 
@@ -133,7 +146,10 @@ A disagreement between them is a finding classified `neglected-obligation`; its 
 
 Question stale holds and apparent completion rather than accepting either at face value.
 A hold is stale when its recorded blocking reason no longer matches current records; reopen or reclassify it.
-A task read as done is genuinely done only when its chain requirement, owning specification, effective brief, implementation and consumers, integration and deployment, and user evidence are all complete; an incomplete chain is reopened as an obligation and never counted as done.
+Distinguish the task's bounded deliverable from the complete application outcome it supports.
+Check the full chain of requirement, owning specification, effective brief, implementation and consumers, integration, deployment and user evidence before calling that application outcome complete.
+A constituent task may close under its existing delivery contract once its own required proof is complete and any remaining integration or journey obligation has a durable owner and release trigger.
+Reopen a task only for an unmet obligation it owns, not merely because a downstream task is unfinished; never keep its worker or worktree alive solely to represent downstream work.
 
 Default to evidence since the previous completed pass plus every unresolved carry-forward.
 On the first pass, use a bounded recent window of roughly four hours unless `$ARGUMENTS` supplies another clear window.
@@ -143,6 +159,7 @@ Bound the pass from here: prioritize promptly (step 5), normally deepen only the
 
 Begin an incomplete scan with `checkpoint-begin` and a unique scan ID.
 Name each authoritative source by a stable source ID and immutable or rotation-aware identity.
+Include the outcome authority and effective assignments actually checked in Direction first, plus the consuming evidence used for promoted findings; an event-log scan alone does not establish direction or completion.
 Do not reuse existing supervisor notification or queue cursors.
 
 ### 2. Contain active harm
@@ -177,6 +194,8 @@ Then record the source identity, cursor, and read time with `checkpoint-source`.
 
 Prioritize active harm, then confirmed shared causes blocking important work, then the next complete operator outcome, then other useful independent work.
 Explain what each promoted repair protects or unblocks.
+Select at most the normal one to three investigations by current impact and readiness, not the index's severity/state ordering or the age of a dramatic title.
+An active correction that releases several important consumers normally precedes an already-contained incident or minor record cleanup.
 Prefer a small correction that releases several consumers over broad cleanup.
 Keep deferred accepted work with its owner and release or recheck condition.
 Do not manufacture scores, findings, tasks, or wasted-time estimates.
@@ -191,6 +210,7 @@ Do not weaken accepted behavior, discard work, bypass combined-code proof, or pr
 Amend an existing owner's instructions before filing a new task.
 Parallelize independent repairs only within measured capacity.
 A dependency blocks only the step that requires it.
+When a release trigger slips or a repair recurs, reassess the hold and its owner instead of repeating the same waiting instruction.
 Coordinate mutable joins and final landing windows through their existing owners.
 Repair the source mechanism and give every temporary workaround an owner and removal condition.
 Reporting alone is not execution.
@@ -203,6 +223,9 @@ Substantiate the original failure, show that the correction addresses it, prove 
 For guards, prove both intended refusals and authorized operations.
 For runtime repairs, distinguish isolated behavior from activation in the real tool and environment.
 For application work, distinguish branch tests, merged code, matching deployment, and user evidence.
+Close a finding against the specific failure it records, while leaving broader application obligations with their existing owners.
+For an assignment defect, a corrected effective brief, verified worker consumption and resumed intended work can prove the assignment repair; they do not prove the resulting application feature is deployed or accepted.
+For a runtime defect, an installed binary is insufficient when the actual consuming configuration bypasses or disables its repair.
 
 Carry eligible work through commit, required checks and review, authorized merge, activation or deployment, affected journey, and safe cleanup through existing owners.
 Preserve unlanded work and bind absorbed work correctly.
@@ -211,7 +234,7 @@ Absence of another incident is not proof that a recurring cause was eliminated.
 
 ### 8. Curate and continue
 
-Refresh finding summaries from new evidence, reconcile owners and release triggers, rebuild the index, and archive eligible closures.
+Rewrite the promoted findings' current summaries from new evidence, reconcile owners and release triggers, rebuild the index, and archive eligible closures.
 Record scan completion only after every expected source identity exactly matches the sources safely preserved in the checkpoint.
 Missing, unreadable, rotated, or truncated input keeps the scan incomplete with the gap stated.
 A diagnostic pass may finish while repairs continue through normal supervision, but pending proof remains visible with an owner and observation trigger.
@@ -219,6 +242,7 @@ A diagnostic pass may finish while repairs continue through normal supervision, 
 Lead the outcome with material change and what it unblocked.
 Suppress unchanged narration.
 Report verified repairs, containment, ongoing work, coverage gaps, owners and triggers, the next application outcome, and only genuine captain decisions.
+For each promoted repair, state the action actually taken or the concrete blocker and next observation; a filed finding alone is not reported as healing.
 
 ## Checkpoint and interruption rules
 
