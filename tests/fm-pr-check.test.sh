@@ -397,7 +397,7 @@ test_prless_absorbed_constituent_binding_refuses_when_combined_head_does_not_con
   pass "fm-pr-check refuses a PR-less constituent absent from the combined PR head"
 }
 
-test_prless_absorbed_constituent_binding_refuses_an_unmerged_combined_pr() {
+test_c6_broken_control_prless_binding_before_combined_merge_refuses() {
   local dir rc absorbed_head combined_head tree
   dir=$(make_case absorbed-prless-open)
   write_task_meta "$dir" task-a
@@ -419,7 +419,7 @@ test_prless_absorbed_constituent_binding_refuses_an_unmerged_combined_pr() {
   assert_no_grep '^absorbed_original_pr=' "$dir/state/task-a.meta" \
     "absorbed-prless-open: refusal wrote a partial binding"
   assert_no_leaked_absorbed_pr_head_ref "$dir" absorbed-prless-open
-  pass "fm-pr-check refuses a PR-less constituent while the combined PR is open"
+  pass "C6 broken control: fm-pr-check refuses premature PR-less binding before the combined PR merges"
 }
 
 test_prless_absorbed_constituent_binding_refuses_a_merge_commit_absent_from_current_main() {
@@ -458,5 +458,5 @@ test_absorbed_constituent_binding_refuses_when_original_pr_head_is_not_an_ancest
 test_absorbed_constituent_binding_refuses_a_merged_original_pr
 test_prless_absorbed_constituent_binding_accepts_only_the_exact_head_in_a_merged_combined_pr
 test_prless_absorbed_constituent_binding_refuses_when_combined_head_does_not_contain_task_head
-test_prless_absorbed_constituent_binding_refuses_an_unmerged_combined_pr
+test_c6_broken_control_prless_binding_before_combined_merge_refuses
 test_prless_absorbed_constituent_binding_refuses_a_merge_commit_absent_from_current_main

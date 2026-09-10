@@ -2482,6 +2482,87 @@ test_xau_population_complete_rollup_merges() {
   pass "fm-pr-merge merges a complete XAUUSD rollup carrying its one declared skip"
 }
 
+# Controlled case C7 proves the final combined application candidate against
+# the live head read by fm-pr-merge. The fixture flags stand in for labels,
+# different-file claims and green constituent evidence; none is an input to the
+# merge guard, so none can replace the current remote population or attestation.
+test_c7_final_combined_candidate_requires_current_xau_population_and_attestation() {
+  local case_dir rc head previous_head
+
+  head=c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7
+  case_dir=$(make_xau_case c7-final-combined-green "$head")
+  write_xau_rollup "$case_dir/github-checks"
+  write_xau_overlay "$case_dir/config"
+  set +e
+  FM_TEST_MAINTENANCE_LABEL=1 FM_TEST_DIFFERENT_FILES=1 FM_TEST_GREEN_CONSTITUENT=1 \
+    FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+      https://github.com/example/repo/pull/307 \
+      > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 0 "$rc" "C7 final combined candidate: a complete current-head XAU population should merge"
+  assert_grep "commits/$head/check-runs" "$case_dir/gh.log" \
+    "C7 final combined candidate: checks were not read at the exact final head"
+  assert_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "C7 final combined candidate: the merge was not attempted after complete current proof"
+
+  head=c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8
+  case_dir=$(make_xau_case c7-final-combined-missing-suite "$head")
+  write_xau_rollup "$case_dir/github-checks" 'journey smoke (start historical backtest -> completes -> result visible)'
+  write_xau_overlay "$case_dir/config"
+  set +e
+  FM_TEST_MAINTENANCE_LABEL=1 FM_TEST_DIFFERENT_FILES=1 FM_TEST_GREEN_CONSTITUENT=1 \
+    FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+      https://github.com/example/repo/pull/308 \
+      > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "C7 final combined candidate: a missing remote application check must refuse"
+  assert_grep 'required check "journey smoke (start historical backtest -> completes -> result visible)" was not found at head' \
+    "$case_dir/stderr" "C7 final combined candidate: the missing application suite was not named"
+  assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "C7 final combined candidate: a maintenance/different-files/green-constituent claim bypassed a missing suite"
+
+  head=c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9
+  case_dir=$(make_xau_case c7-final-combined-skipped-attestation "$head")
+  write_xau_rollup "$case_dir/github-checks" '' 'PR must be raised via no-mistakes'
+  write_xau_overlay "$case_dir/config"
+  set +e
+  FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+    https://github.com/example/repo/pull/309 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "C7 final combined candidate: an improperly skipped attestation must refuse"
+  assert_grep 'required check "PR must be raised via no-mistakes" concluded "skipped", not success' \
+    "$case_dir/stderr" "C7 final combined candidate: the skipped attestation was not named"
+  assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "C7 final combined candidate: an improperly skipped attestation reached merge"
+
+  previous_head=cacacacacacacacacacacacacacacacacacacaca
+  head=cbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcb
+  case_dir=$(make_xau_case c7-final-combined-stale-attestation "$head")
+  write_xau_rollup "$case_dir/github-checks" 'PR must be raised via no-mistakes'
+  write_xau_overlay "$case_dir/config"
+  printf 'head=%s check=PR must be raised via no-mistakes conclusion=success\n' "$previous_head" \
+    > "$case_dir/stale-attestation-receipt"
+  set +e
+  FM_TEST_MAINTENANCE_LABEL=1 FM_TEST_DIFFERENT_FILES=1 FM_TEST_GREEN_CONSTITUENT=1 \
+    FM_CONFIG_OVERRIDE="$case_dir/config" run_pr_merge "$case_dir" task-x1 \
+      https://github.com/example/repo/pull/310 \
+      > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "C7 final combined candidate: an attestation from a stale head must refuse"
+  assert_grep "commits/$head/check-runs" "$case_dir/gh.log" \
+    "C7 final combined candidate: the merge guard did not query the changed final head"
+  assert_grep 'required check "PR must be raised via no-mistakes" was not found at head' \
+    "$case_dir/stderr" "C7 final combined candidate: stale attestation was not refused at the changed head"
+  assert_no_grep 'pr merge' "$case_dir/gh-axi.log" \
+    "C7 final combined candidate: stale attestation or bypass flags reached merge"
+  pass "C7: final combined application merge requires the complete current-head suite and attestation population"
+}
+
 test_github_match_head_commit_override_refuses_before_recording() {
   local case_dir rc
   case_dir=$(make_case github-match-head-commit-override)
@@ -2938,6 +3019,7 @@ test_xau_population_missing_shard_refuses
 test_xau_missing_shard_merges_with_no_overlay_installed
 test_xau_population_undeclared_skip_refuses
 test_xau_population_complete_rollup_merges
+test_c7_final_combined_candidate_requires_current_xau_population_and_attestation
 test_github_match_head_commit_override_refuses_before_recording
 test_gitlab_url_resolves_and_merges
 test_gitlab_host_comes_from_the_url

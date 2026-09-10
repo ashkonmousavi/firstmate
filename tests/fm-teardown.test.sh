@@ -1488,6 +1488,45 @@ test_prless_absorbed_constituent_teardown_reads_the_marker_and_preserves_the_lan
   pass "teardown reads a PR-less constituent marker and preserves its exact landing proof"
 }
 
+# Controlled case C6 requires cleanup to refuse a superficially landed PR-less
+# constituent when one leg of its custody record is missing. The synthetic
+# combined PR is merged and contains the exact head, so the missing absorbed-by
+# identity is the only reason this case refuses.
+test_c6_cleanup_refuses_prless_constituent_with_missing_binding_evidence() {
+  local case_dir rc absorbed_head combined_head squash_head
+  case_dir=$(make_case c6-prless-missing-binding-evidence)
+  write_meta "$case_dir" no-mistakes ship
+  git -C "$case_dir/wt" branch -m fm/task-x1-cancel
+  wt_commit_file "$case_dir" feature.txt hello "prepared PR-less constituent"
+  absorbed_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  combined_head=$(commit_tree_from_wt_head "$case_dir" "$absorbed_head" "combined integration")
+  publish_pr_head_ref "$case_dir" 9 "$combined_head"
+  squash_head=$(land_squash_commit_on_main "$case_dir" "$combined_head" "squash landing")
+  printf '%s\n' \
+    'batch_role=constituent' \
+    'batch_constituent_branch=fm/task-x1-cancel' \
+    "absorbed_head=$absorbed_head" \
+    'absorbed_original_pr=none' \
+    'pr=https://github.com/example/repo/pull/9' \
+    "pr_head=$combined_head" >> "$case_dir/state/task-x1.meta"
+  add_gh_batch_states "$case_dir" "$combined_head" MERGED CLOSED "$squash_head"
+  seed_backlog_in_flight "$case_dir"
+
+  set +e
+  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "C6 missing binding evidence: teardown must refuse"
+  assert_grep 'incomplete or invalid PR-less absorbed-constituent record' "$case_dir/stderr" \
+    "C6 missing binding evidence: refusal did not name the incomplete PR-less record"
+  [ -d "$case_dir/wt" ] \
+    || fail "C6 missing binding evidence: refusal removed the constituent worktree"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "C6 missing binding evidence: refusal closed the task record"
+  pass "C6: teardown refuses a PR-less constituent whose combined landing lacks binding evidence"
+}
+
 # (q3) A combined pull request that has not merged never proves anything,
 # whatever refs/pull/<n>/head publishes. Preserved refusal.
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr() {
@@ -4315,6 +4354,7 @@ test_prerequisite_pr_ignored_by_teardown
 test_absorbed_constituent_teardown_accepts_a_squash_landed_combined_pr
 test_absorbed_constituent_teardown_uses_the_exact_absorbed_head_after_original_pr_advanced
 test_prless_absorbed_constituent_teardown_reads_the_marker_and_preserves_the_landing_proof
+test_c6_cleanup_refuses_prless_constituent_with_missing_binding_evidence
 test_absorbed_constituent_teardown_refuses_an_unmerged_combined_pr
 test_absorbed_constituent_teardown_refuses_a_combined_pr_without_the_constituent_head
 test_absorbed_constituent_teardown_refuses_a_disagreeing_published_pr_head

@@ -1411,6 +1411,337 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
   pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, join review, squash-honest landing record, and record binding"
 }
 
+# Controlled case C6 consumes generated briefs in a finite scheduling rehearsal.
+# The event ledger records what actually starts; it is test evidence, not a new
+# production scheduler or lifecycle record.
+c6_consume_constituent_brief() {
+  local brief=$1 route=$2 events=$3
+  grep -F "deliver your exact reviewed head and focused evidence to the named integration owner \`c6-owner\`" "$brief" >/dev/null \
+    || return 1
+  grep -F 'Do not start a standalone no-mistakes pipeline merely to become a batch member.' "$brief" >/dev/null \
+    || return 1
+  ! grep -F 'Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.' "$brief" >/dev/null \
+    || return 1
+  ! grep -F '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" >/dev/null \
+    || return 1
+  printf 'local-test-start task=%s\n' "${brief##*/}" >> "$events"
+  if [ "$route" = independently-required-pr ]; then
+    printf 'constituent-pipeline-start task=%s reason=selected-route\n' "${brief##*/}" >> "$events"
+  fi
+  printf 'constituent-handoff task=%s owner=c6-owner\n' "${brief##*/}" >> "$events"
+}
+
+test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
+  local home repo events a_head b_head c_head candidate first_candidate main_moved renewed_candidate
+  local a_brief b_brief owner_brief broken
+  home="$TMP_ROOT/c6-controlled-rehearsal"
+  repo="$home/synthetic-project"
+  events="$home/events.log"
+  mkdir -p "$home/data" "$home/projects"
+  : > "$events"
+
+  fm_git_init_commit "$repo"
+  git -C "$repo" branch -M main
+  git -C "$repo" checkout -q -b fm/c6-a
+  printf 'A\n' > "$repo/a.txt"
+  git -C "$repo" add a.txt
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm 'reviewed A'
+  a_head=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  git -C "$repo" checkout -q -b fm/c6-b
+  printf 'B\n' > "$repo/b.txt"
+  git -C "$repo" add b.txt
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm 'reviewed B'
+  b_head=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  git -C "$repo" checkout -q -b fm/c6-c
+  printf 'stable-interface-v1\n' > "$repo/interface.txt"
+  git -C "$repo" add interface.txt
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm 'prepare C against stable interface'
+  c_head=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  git -C "$repo" checkout -q -b fm/c6-owner
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid merge -q --no-ff --no-edit "$a_head"
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid merge -q --no-ff --no-edit "$b_head"
+  candidate=$(git -C "$repo" rev-parse HEAD)
+
+  git -C "$repo" merge-base --is-ancestor "$a_head" "$candidate" \
+    || fail "C6: the combined candidate rewrote or omitted A's exact reviewed head"
+  git -C "$repo" merge-base --is-ancestor "$b_head" "$candidate" \
+    || fail "C6: the combined candidate rewrote or omitted B's exact reviewed head"
+  [ "$c_head" != "$candidate" ] || fail "C6: C preparation was accidentally made batch membership"
+
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c6-a synthetic-project --mode no-mistakes \
+    --batch-constituent-of c6-owner >/dev/null 2>&1
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c6-b synthetic-project --mode no-mistakes \
+    --batch-constituent-of c6-owner >/dev/null 2>&1
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c6-c synthetic-project --mode local-only >/dev/null 2>&1
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c6-owner synthetic-project --mode no-mistakes >/dev/null 2>&1
+  a_brief="$home/data/c6-a/brief.md"
+  b_brief="$home/data/c6-b/brief.md"
+  owner_brief="$home/data/c6-owner/brief.md"
+
+  c6_consume_constituent_brief "$a_brief" independently-required-pr "$events" \
+    || fail "C6: the generated PR-backed constituent brief could not be consumed"
+  c6_consume_constituent_brief "$b_brief" pr-less "$events" \
+    || fail "C6: the generated PR-less constituent brief could not be consumed"
+  assert_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$owner_brief" \
+    "C6: the combined-owner brief lost the PR-backed custody route"
+  assert_grep '| PR-less constituent task | Branch | Exact reviewed head | Disposition |' "$owner_brief" \
+    "C6: the combined-owner brief lost the PR-less custody route"
+  assert_grep '| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |' "$owner_brief" \
+    "C6: the combined-owner brief lost the explicit join review"
+
+  # Broken control one restores the old mandatory original-PR row for B.
+  broken="$home/broken-old-original-pr.md"
+  cp "$b_brief" "$broken"
+  printf '%s\n' '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' \
+    '| c6-b | fm/c6-b | deadbeef | https://github.com/example/repo/pull/5 | Closed as superseded; not merged. |' >> "$broken"
+  if c6_consume_constituent_brief "$broken" pr-less "$events"; then
+    fail "C6 broken control: a PR-less constituent accepted the old mandatory original-PR row"
+  fi
+
+  # Broken control two restores the old standalone-pipeline next step.
+  broken="$home/broken-old-standalone-pipeline.md"
+  cp "$a_brief" "$broken"
+  printf '%s\n' 'Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.' >> "$broken"
+  if c6_consume_constituent_brief "$broken" independently-required-pr "$events"; then
+    fail "C6 broken control: a named constituent accepted the old membership-only standalone pipeline instruction"
+  fi
+
+  {
+    printf 'prepare-continue task=c6-c stage-label=does-not-block head=%s\n' "$c_head"
+    printf 'execution-gate task=c6-d state=held reason=financial-execution\n'
+    printf 'acceptance-gate task=c6-d state=held\n'
+  } >> "$events"
+  first_candidate=$candidate
+  {
+    printf 'window-reserved owner=c6-owner candidate=%s members=c6-a,c6-b\n' "$first_candidate"
+    printf 'late-addition task=c6-c result=wait reason=membership-frozen\n'
+    printf 'merge-attempt-start task=unrelated result=wait owner=c6-owner\n'
+    printf 'independent-review-start task=c6-c while-window=held\n'
+    printf 'combined-pipeline-start owner=c6-owner candidate=%s\n' "$first_candidate"
+    printf 'window-released owner=c6-owner candidate=%s trigger=material-candidate-failure\n' "$first_candidate"
+    printf 'merge-attempt-start task=next-eligible result=proceed\n'
+    printf 'execution-gate task=c6-d state=held after-window-release=true\n'
+    printf 'acceptance-gate task=c6-d state=held after-window-release=true\n'
+  } >> "$events"
+
+  git -C "$repo" checkout -q main
+  printf 'main moved\n' > "$repo/main.txt"
+  git -C "$repo" add main.txt
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm 'unrelated landed work'
+  main_moved=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q fm/c6-owner
+  git -C "$repo" -c user.name=test -c user.email=test@example.invalid merge -q --no-ff --no-edit "$main_moved"
+  renewed_candidate=$(git -C "$repo" rev-parse HEAD)
+  [ "$renewed_candidate" != "$first_candidate" ] || fail "C6: moving main did not change the candidate head"
+  git -C "$repo" merge-base --is-ancestor "$main_moved" "$renewed_candidate" \
+    || fail "C6: renewed candidate does not contain current main"
+  git -C "$repo" merge-base --is-ancestor "$a_head" "$renewed_candidate" \
+    || fail "C6: renewed candidate lost A ancestry"
+  git -C "$repo" merge-base --is-ancestor "$b_head" "$renewed_candidate" \
+    || fail "C6: renewed candidate lost B ancestry"
+  printf 'combined-pipeline-start owner=c6-owner candidate=%s reason=main-moved\n' "$renewed_candidate" >> "$events"
+  printf 'merge-attempt-start task=c6-owner candidate=%s proof=current\n' "$renewed_candidate" >> "$events"
+
+  [ "$(grep -c '^local-test-start ' "$events")" -eq 2 ] \
+    || fail "C6: the rehearsal did not record both focused local-test starts"
+  [ "$(grep -c '^constituent-pipeline-start ' "$events")" -eq 1 ] \
+    || fail "C6: constituent pipelines were restarted for membership/main movement or the independently required one did not start"
+  [ "$(grep -c '^combined-pipeline-start ' "$events")" -eq 2 ] \
+    || fail "C6: initial and renewed combined proof were not both recorded"
+  [ "$(grep -c '^merge-attempt-start ' "$events")" -eq 3 ] \
+    || fail "C6: the rehearsal did not record every attempted landing"
+  assert_grep "window-released owner=c6-owner candidate=$first_candidate trigger=material-candidate-failure" "$events" \
+    "C6: the released window lost the first candidate owner or release trigger"
+  ! grep -E '^constituent-pipeline-start .* reason=membership($|[[:space:]])' "$events" >/dev/null \
+    || fail "C6: serial constituent validation reappeared solely for batch membership"
+  assert_no_grep 'reason=main-moved task=c6-' "$events" \
+    "C6: main movement restarted a constituent instead of one combined proof"
+  assert_no_grep 'disjoint-files' "$events" "C6: a disjoint-files waiver entered the rehearsal"
+  assert_no_grep 'range-diff' "$events" "C6: a range-diff waiver entered the rehearsal"
+  pass "C6: generated briefs drive parallel preparation, frozen membership, bounded landing recovery, and renewed combined proof"
+}
+
+c7_consume_document_brief() {
+  local brief=$1 selected=$2
+  case "$selected" in
+    in-run)
+      grep -F "the pipeline's correction turn applies an accepted documentation fix in-run" "$brief" >/dev/null \
+        && grep -F 'an honest completed Test recheck and a valid attestation' "$brief" >/dev/null \
+        && ! grep -F 'The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation' "$brief" >/dev/null
+      ;;
+    report-only)
+      grep -F 'The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation' "$brief" >/dev/null \
+        && ! grep -F "the pipeline's correction turn applies an accepted documentation fix in-run" "$brief" >/dev/null
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal() {
+  local home fakebin events xau_brief report_brief broken captain_intent proof intent change
+  local custody=worker active_run=none assertion='expected=accepted-behavior' observed retry_count=0
+  home="$TMP_ROOT/c7-controlled-rehearsal"
+  fakebin=$(fm_fakebin "$home")
+  events="$home/events.log"
+  mkdir -p "$home/data" "$home/projects/XAUUSD" "$home/projects/report-only"
+  : > "$events"
+  : > "$home/no-mistakes.log"
+  printf 'auto_fix:\n  document: 1\n' > "$home/projects/XAUUSD/.no-mistakes.yaml"
+  printf 'auto_fix:\n  document: 0\n' > "$home/projects/report-only/.no-mistakes.yaml"
+  cat > "$fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = --version ]; then
+  printf '%s\n' 'no-mistakes version v1.65.0-7-g4fa1bb2 (4fa1bb2)'
+  exit 0
+fi
+printf '%s\n' "$*" >> "$FM_TEST_NM_LOG"
+case "$*" in
+  'axi status --run c7-run') cat "$FM_TEST_NM_STATUS" ;;
+esac
+exit 0
+SH
+  chmod +x "$fakebin/no-mistakes"
+
+  PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c7-xau XAUUSD --mode no-mistakes >/dev/null 2>&1
+  PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c7-report report-only --mode no-mistakes >/dev/null 2>&1
+  xau_brief="$home/data/c7-xau/brief.md"
+  report_brief="$home/data/c7-report/brief.md"
+  sed -i \
+    -e 's|^{TASK}$|Apply the accepted documentation-only correction.|' \
+    -e 's|^{FIRSTMATE_SPEC}$|Use the bounded in-run document correction route selected by project configuration.|' \
+    -e 's|^Prep: {PREP}$|Prep: Tier 1 - controlled fixture wiring mapped before the run.|' \
+    -e 's|^Resource: {RESOURCE}$|Resource: one fixture test process; no application suite.|' \
+    -e 's|^Surface: {SURFACE}$|Surface: none: delivery machinery fixture.|' \
+    -e 's|^Journey: {JOURNEY}$|Journey: none: no product-facing journey.|' \
+    "$xau_brief" "$report_brief"
+  assert_no_grep '^\({TASK}\|{FIRSTMATE_SPEC}\|Prep: {PREP}\|Resource: {RESOURCE}\|Surface: {SURFACE}\|Journey: {JOURNEY}\)$' "$xau_brief" \
+    "C7: the generated XAU brief reached validation with an unfilled scaffold field"
+  c7_consume_document_brief "$xau_brief" in-run \
+    || fail "C7: the trusted XAU brief did not select bounded in-run Document correction"
+  c7_consume_document_brief "$report_brief" report-only \
+    || fail "C7: the explicitly report-only project lost its positive route"
+  assert_grep '| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |' "$xau_brief" \
+    "C7: the final combined candidate brief did not require the join review"
+  printf 'join-review status=complete source=generated-xau-brief\n' >> "$events"
+
+  # Broken control restores the obsolete unconditional report-only route.
+  broken="$home/broken-old-report-only.md"
+  cp "$xau_brief" "$broken"
+  printf '%s\n' "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." >> "$broken"
+  if c7_consume_document_brief "$broken" in-run; then
+    fail "C7 broken control: XAU accepted the old unconditional report-only own-commit/re-validation instruction"
+  fi
+
+  # The supplied proof plan selects only the named checks for each change.
+  printf '%s\n' \
+    'editorial|structural:markdown-links' \
+    'firstmate-machinery|focused:fm-brief consumer:fm-pr-check' \
+    'application-behavior|affected:application-unit affected:journey-smoke' > "$home/proof-plan"
+  while IFS='|' read -r change checks; do
+    printf 'verification change=%s checks=%s\n' "$change" "$checks" >> "$events"
+  done < "$home/proof-plan"
+  assert_no_grep 'full-xau-suite' "$events" \
+    "C7: a records or shell change started the local full XAU suite"
+  {
+    printf 'classification claim=false-authority result=material-discrepancy\n'
+    printf 'classification claim=false-evidence result=material-discrepancy\n'
+    printf 'classification claim=false-completion result=material-discrepancy\n'
+  } >> "$events"
+  assert_no_grep 'claim=false-authority result=editorial' "$events" \
+    "C7: a false authority claim was downgraded to editorial"
+
+  # Build the actual validation input from the generated XAU brief's sections.
+  captain_intent='Apply the accepted documentation-only correction with proportionate proof.'
+  proof=$(sed -n '/^# Proof bar$/,/^# Definition of done$/p' "$xau_brief" | sed '$d')
+  intent=$(printf 'Captain intent:\n%s\n\nAgreed proof contract:\n%s\n' "$captain_intent" "$proof")
+  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+    PATH="$fakebin:$PATH" no-mistakes axi run --intent "$intent"
+  printf 'worker-edit result=allowed custody=%s before-run=true\n' "$custody" >> "$events"
+  active_run=c7-run
+  custody=pipeline
+  printf 'run:\n  id: c7-run\n  state: active\n  custody: pipeline\n' > "$home/no-mistakes.status"
+  printf 'validation-input source=generated-xau-brief intent-bytes=%s\n' "${#intent}" >> "$events"
+
+  # The pipeline, not the worker, applies the accepted document correction.
+  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+    PATH="$fakebin:$PATH" no-mistakes axi respond --run c7-run --step Document --action apply-accepted-fix --keep-diagnostics
+  {
+    printf 'document-correction actor=pipeline scope=document-only\n'
+    printf 'test-recheck status=completed conclusion=success head=c7-final\n'
+    printf 'attestation status=valid head=c7-final\n'
+  } >> "$events"
+  assert_no_grep '--yes' "$home/no-mistakes.log" \
+    "C7: automatic gate approval was used"
+  assert_grep '--keep-diagnostics' "$home/no-mistakes.log" \
+    "C7: the unrelated package flag was not retained"
+  assert_no_grep 'test-recheck status=skipped' "$events" \
+    "C7: the Document fix was accepted with a skipped Test step"
+
+  # Active custody refuses worker edits, self-answered ask-user gates and a
+  # competing run; Firstmate mediation remains the only active-run fix path.
+  [ "$custody" != worker ] || fail "C7: fixture did not transfer active-run custody"
+  {
+    printf 'worker-edit result=refused custody=%s\n' "$custody"
+    printf 'ask-user worker-self-answer=result-refused\n'
+    printf 'competing-run result=refused active=%s\n' "$active_run"
+    printf 'gate-response actor=firstmate-mediated pipeline-applies=true\n'
+  } >> "$events"
+
+  printf 'run:\n  id: c7-run\n  outcome: cancelled\n  branch_sync:\n    next_action: recover_custody\n' > "$home/no-mistakes.status"
+  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+    PATH="$fakebin:$PATH" no-mistakes axi status --run c7-run >/dev/null
+  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+    PATH="$fakebin:$PATH" no-mistakes axi sync --run c7-run --recover-custody
+  custody=worker
+  active_run=none
+  {
+    printf 'worker-edit result=allowed custody=%s\n' "$custody"
+    # A code/contract change renews affected proof only and explains retained proof.
+    printf 'scope-change kind=code-contract renew=affected-review,affected-tests\n'
+    printf 'evidence-retained id=unaffected-structural reason=inputs-and-consumer-unchanged\n'
+  } >> "$events"
+  assert_grep 'scope-change kind=code-contract renew=affected-review,affected-tests' "$events" \
+    "C7: code/contract scope did not renew its affected review and tests"
+  assert_grep 'evidence-retained id=unaffected-structural reason=inputs-and-consumer-unchanged' "$events" \
+    "C7: unaffected evidence was retained without an applicability explanation"
+
+  # Correct the defective fixture implementation without weakening its agreed assertion.
+  observed='expected=defect'
+  [ "$observed" != "$assertion" ] || fail "C7: defective-test fixture was not red before correction"
+  observed='expected=accepted-behavior'
+  [ "$observed" = "$assertion" ] || fail "C7: the prescribed behavior was not restored"
+  [ "$assertion" = 'expected=accepted-behavior' ] || fail "C7: the assertion was weakened merely to obtain green"
+
+  for change in shared-contract financial-rule required-proof agreed-product-behavior; do
+    printf 'routine-correction candidate=%s result=material-discrepancy\n' "$change" >> "$events"
+  done
+  {
+    printf 'unrelated-authorized-task result=continue\n'
+    # Stable evidence identity suppresses a duplicate; genuinely new evidence
+    # reopens the same owner and affected proof, then bounded retries halt.
+    printf 'failure key=E1 action=open-run owner=c7-owner\n'
+    printf 'failure key=E1 action=duplicate-no-run owner=c7-owner\n'
+    printf 'failure key=E2 action=reopen-owner invalidate=affected-proof\n'
+  } >> "$events"
+  while [ "$retry_count" -lt 2 ]; do
+    retry_count=$((retry_count + 1))
+    printf 'retry key=E2 attempt=%s result=ineffective custody=pipeline\n' "$retry_count" >> "$events"
+  done
+  printf 'retry key=E2 action=halt custody=pipeline diagnosis=retained\n' >> "$events"
+  [ "$(grep -c 'failure key=E1 action=open-run' "$events")" -eq 1 ] \
+    || fail "C7: duplicate evidence created a second run"
+  [ "$(grep -c '^retry key=E2 attempt=' "$events")" -eq 2 ] \
+    || fail "C7: ineffective execution escaped the bounded retry limit"
+  assert_grep 'retry key=E2 action=halt custody=pipeline diagnosis=retained' "$events" \
+    "C7: the halt lost custody or diagnosis"
+  assert_grep 'unrelated-authorized-task result=continue' "$events" \
+    "C7: a material discrepancy stopped unrelated authorized work"
+  pass "C7: generated validation instructions drive proportionate checks, bounded correction, custody, recurrence, and material escalation"
+}
+
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
@@ -1443,3 +1774,5 @@ test_ship_brief_carries_the_resource_line
 test_ship_brief_carries_the_surface_line
 test_ship_brief_carries_the_journey_line
 test_every_ship_dod_renders_the_conditional_integration_batch_binding
+test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal
+test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal
