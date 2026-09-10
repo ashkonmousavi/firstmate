@@ -16,6 +16,9 @@ Use the current session and its completed startup digest; do not run session sta
 Treat `$ARGUMENTS` as the optional recent-event window, with a bounded four-hour default on the first pass.
 Older unresolved findings always carry forward regardless of that window.
 
+No automated task/status consumer invokes `bin/fm-heal.sh`; a human or agent runs `/heal`, or exercises the CLI directly the way `tests/fm-heal.test.sh`'s C4 case does.
+Whether a recurring failure actually reaches this workflow through Firstmate's ordinary bounded consuming cycle, without someone explicitly invoking `/heal`, is unverified until observed in production; do not build or assume a second, automatic heal-triggering consumer.
+
 First run `bin/fm-heal.sh owner-status` from the tracked Firstmate code root.
 If it prints `advisor`, remain wholly read-only and follow [workflow.md](workflow.md#read-only-advisor-mode).
 Do not initialize or update the ledger, acquire or recover the fleet lock, start or steer workers, acknowledge queues, or change fleet state.

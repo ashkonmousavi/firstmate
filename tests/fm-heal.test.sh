@@ -98,10 +98,18 @@ expect_failure() {
   assert_contains "$out" "$expected" "refusal did not explain '$expected'"
 }
 
-# Controlled ordinary task/status consumer for C4. It always records an
-# observation through the real heal owner, but only a distinct occurrence newer
-# than the finding's verification makes affected proof/actionable work stale.
-# The caller owns stable evidence keys; fm-heal deliberately does not infer them.
+# The heal skill (.agents/skills/heal/SKILL.md) has no automated task/status
+# consumer: /heal is invoked manually by the captain or an agent, and that
+# manual invocation IS the ordinary consumer of bin/fm-heal.sh. This helper
+# drives the real heal owner (`fm-heal.sh observe`) the same way that manual
+# workflow does, and its own dedup/actionable decision below mirrors
+# workflow.md's documented procedure rather than fm-heal.sh's own output. Only
+# a distinct occurrence newer than the finding's verification makes affected
+# proof/actionable work stale. The caller owns stable evidence keys; fm-heal
+# deliberately does not infer them. Whether a recurring failure reaches this
+# path through Firstmate's ordinary bounded consuming cycle without someone
+# explicitly running /heal is unverified pending that normal cycle in
+# production; this fixture proves the real CLI's behavior, not that trigger.
 c4_consume_observation() {  # <home> <id> <key> <observed-at> <evidence>
   local home=$1 id=$2 key=$3 observed=$4 evidence=$5 finding out verified state
   finding="$home/data/heal/findings/$id.md"
@@ -130,10 +138,11 @@ c4_consume_observation() {  # <home> <id> <key> <observed-at> <evidence>
   printf 'run:%s\n' "$key" >> "$home/pipeline-launches.log"
 }
 
-# The task/status owner validates consuming semantics before asking the manual
-# record helper to call a correction Fixed. A path string or parseable record is
-# not enough: this fixture requires a measured passed result for the affected
-# workflow and exact candidate.
+# The manual /heal consumer validates consuming semantics before asking the
+# real fm-heal.sh owner to call a correction Fixed. A path string or parseable
+# record is not enough: this fixture requires a measured passed result for the
+# affected workflow and exact candidate. As above, this is the same manually-
+# invoked consumer, not a separate automated one.
 c4_close_fixed_from_consumer() {  # <home> <id> <proof-file> <candidate>
   local home=$1 id=$2 proof_file=$3 candidate=$4
   if [ ! -f "$proof_file" ] \
@@ -150,6 +159,8 @@ c4_close_fixed_from_consumer() {  # <home> <id> <proof-file> <candidate>
     --consumer-proof "workflow:c4-ordinary-consumer:$candidate:measured-pass" >/dev/null
 }
 
+# Bounded retry accounting for the same manual /heal consumer; see the note
+# above c4_consume_observation about what is and is not proven here.
 c4_retry_or_halt() {  # <home> <max-attempts>
   local home=$1 max=$2 attempts
   attempts=$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')
@@ -342,10 +353,14 @@ test_repeated_notifications_count_one_occurrence() {
   pass "heal observations: notifications and independent occurrences remain separate"
 }
 
-# C4 independently proves that the ordinary task/status consumer invokes the
-# manual heal owner, deduplicates stable-key wakes, acts on measured recurrence,
-# protects unrelated proof/work, rejects semantic-proof stand-ins, and halts at
-# its bounded retry limit. The helper's standalone capability is not the proof.
+# C4 independently proves that the real fm-heal.sh owner, driven the way the
+# manually-invoked /heal consumer drives it (there is no automated task/status
+# consumer - see .agents/skills/heal/SKILL.md), deduplicates stable-key wakes,
+# accepts measured recurrence, protects unrelated proof/work, rejects
+# semantic-proof stand-ins, and halts at its bounded retry limit. This proves
+# the real CLI's behavior under that manual consumption pattern; whether an
+# ordinary bounded consuming cycle reaches /heal without an explicit
+# invocation stays unverified here, per the same SKILL.md note.
 test_c4_ordinary_consumer_distinguishes_duplicate_wakes_from_measured_recurrence() {
   local home finding out status before_p2 before_work
   home=$(new_home c4-ordinary-consumer)
@@ -403,6 +418,24 @@ EOF
   expect_code 12 "$status" "a structurally valid record must not stand in for a measured pass"
   [ "$(meta_field "$finding" state)" = Unverified ] \
     || fail "semantic-proof stand-ins called the E1 correction Fixed"
+
+  # Broken control: fm-heal.sh's own protected guard (not this fixture's) is
+  # its refusal to mark Closed/Fixed without --consumer-proof. Remove that
+  # argument here and confirm the real owner refuses at its own named
+  # assertion, then restore it below by supplying real consumer proof.
+  set +e
+  out=$(run_owned "$home" transition c4-existing Closed \
+    --reason 'ordinary consumer measured the repaired workflow' \
+    --disposition Fixed --evidence "candidate:candidate-e1" 2>&1)
+  status=$?
+  set -e
+  [ "$status" -ne 0 ] \
+    || fail "C4 broken control: fm-heal.sh closed Fixed with its --consumer-proof guard removed"
+  assert_contains "$out" 'Fixed closure requires consuming-workflow proof' \
+    "C4 broken control: fm-heal.sh's own refusal message did not name the missing consumer proof"
+  [ "$(meta_field "$finding" state)" = Unverified ] \
+    || fail "C4 broken control: the guardless attempt still closed the finding"
+
   cat > "$home/measured-proof.txt" <<'EOF'
 workflow=c4-ordinary-consumer
 candidate=candidate-e1
@@ -465,7 +498,7 @@ EOF
     "bounded halt did not return a concrete advisor discrepancy"
   [ "$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')" = 2 ] \
     || fail "bounded halt started an endless automatic rerun"
-  pass "C4: ordinary consumer deduplicates stable wakes, reopens on E2, guards semantic proof, and halts bounded retries"
+  pass "C4: the real fm-heal.sh owner, driven as the manual /heal consumer drives it, deduplicates stable wakes, reopens on E2, guards semantic proof, and halts bounded retries (no automated task/status consumer exists; see SKILL.md)"
 }
 
 test_existing_owner_is_linked_without_duplicate_finding() {

@@ -1413,11 +1413,18 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
   pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, join review, squash-honest landing record, and record binding"
 }
 
-# Controlled case C6 consumes generated briefs in a finite scheduling rehearsal.
-# The event ledger records what actually starts; it is test evidence, not a new
-# production scheduler or lifecycle record.
-c6_consume_constituent_brief() {
-  local brief=$1 route=$2 events=$3
+# Controlled case C6 consumes generated briefs, then feeds the real owners
+# (bin/fm-pr-check.sh --absorbed-by, bin/fm-pr-merge.sh, bin/fm-teardown.sh)
+# behind a fake `gh`/`gh-axi` forge boundary - the same boundary shape the
+# owners' own tests use (tests/fm-pr-check.test.sh's install_absorbed_gh,
+# tests/fm-pr-merge.test.sh's add_gh_mocks, tests/fm-teardown.test.sh's
+# add_gh_batch_states). Landing-window serialization ("Hold the landing
+# window" in .agents/skills/integration-batch-delivery/SKILL.md) is scheduling
+# discipline: no script in this repo enforces it, so this rehearsal does not
+# narrate a window being reserved, held, or released, or count how many local
+# tests or constituent handoffs occur - those clauses stay unverified by code.
+c6_consume_constituent_brief() {  # <brief> <route>
+  local brief=$1 route=$2
   grep -F "deliver your exact reviewed head and focused evidence to the named integration owner \`c6-owner\`" "$brief" >/dev/null \
     || return 1
   grep -F 'Do not start a standalone no-mistakes pipeline merely to become a batch member.' "$brief" >/dev/null \
@@ -1426,21 +1433,95 @@ c6_consume_constituent_brief() {
     || return 1
   ! grep -F '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" >/dev/null \
     || return 1
-  printf 'local-test-start task=%s\n' "${brief##*/}" >> "$events"
-  if [ "$route" = independently-required-pr ]; then
-    printf 'constituent-pipeline-start task=%s reason=selected-route\n' "${brief##*/}" >> "$events"
-  fi
-  printf 'constituent-handoff task=%s owner=c6-owner\n' "${brief##*/}" >> "$events"
+  case "$route" in independently-required-pr|pr-less) ;; *) return 1 ;; esac
+}
+
+# A combined `gh` fake serving bin/fm-pr-check.sh, bin/fm-pr-merge.sh and
+# bin/fm-teardown.sh for PR #5 (c6-a's own original PR) and PR #9 (the
+# combined c6-owner PR). PR #9's dynamic fields (state/head/mergecommit) are
+# small files under $ghstate that the rehearsal rewrites between phases;
+# fm-pr-merge.sh's check-runs/compare/graphql/branch-rules endpoints never
+# name a PR number, so they always resolve to PR #9, the only PR this
+# rehearsal ever merges.
+c6_install_gh() {  # <fakebin> <ghstate>
+  local fakebin=$1 ghstate=$2
+  mkdir -p "$ghstate"
+  cat > "$fakebin/gh" <<SH
+#!/usr/bin/env bash
+set -u
+args=" \$* "
+pr=
+case "\$args" in
+  *"/pull/5"*|*" 5 --repo "*) pr=5 ;;
+  *"/pull/9"*|*" 9 --repo "*) pr=9 ;;
+esac
+base="$ghstate/pr\$pr"
+case "\$args" in
+  *"--json state,headRefOid,mergeCommit,url"*)
+    printf '%s\t%s\t%s\t%s\n' "\$(cat "\$base-state" 2>/dev/null)" "\$(cat "\$base-head" 2>/dev/null)" "\$(cat "\$base-mergecommit" 2>/dev/null)" "\$(cat "\$base-url" 2>/dev/null)"
+    ;;
+  *"--json state,headRefOid,url"*)
+    printf '%s\t%s\t%s\n' "\$(cat "\$base-state" 2>/dev/null)" "\$(cat "\$base-head" 2>/dev/null)" "\$(cat "\$base-url" 2>/dev/null)"
+    ;;
+  *"--json headRefName"*) cat "\$base-branch" 2>/dev/null ;;
+  *"--json headRefOid"*) cat "\$base-head" 2>/dev/null ;;
+  *"--json baseRefName"*) cat "\$base-baseref" 2>/dev/null ;;
+  *"--json title"*) printf 'c6-owner combined PR\n' ;;
+  *"--json body"*) printf 'combined body\n' ;;
+  *"--json state"*) cat "\$base-state" 2>/dev/null ;;
+  *"api graphql"*) cat "$ghstate/pr9-outcome" 2>/dev/null ;;
+  *"check-runs"*) cat "$ghstate/pr9-checks" 2>/dev/null ;;
+  *"compare/"*) cat "$ghstate/pr9-compare" 2>/dev/null ;;
+  api\ *) cat "$ghstate/pr9-rules" 2>/dev/null ;;
+  *) exit 1 ;;
+esac
+exit 0
+SH
+  chmod +x "$fakebin/gh"
+  cat > "$fakebin/gh-axi" <<'SH'
+#!/usr/bin/env bash
+set -u
+printf '%s\n' "$*" >> "${FM_C6_GHAXI_LOG:-/dev/null}"
+case "${1:-} ${2:-}" in
+  "pr merge") printf 'merged:\n  number: %s\n  status: ok\n' "${3:-}" ;;
+  "pr view")
+    [ "$#" -eq 5 ] && [ "${4:-}" = --repo ] || exit 2
+    printf 'pull_request:\n  number: %s\n  state: merged\n' "$3"
+    ;;
+esac
+exit 0
+SH
+  chmod +x "$fakebin/gh-axi"
+}
+
+c6_write_pr5() {  # <ghstate> <state> <head>
+  printf '%s\n' "$2" > "$1/pr5-state"
+  printf 'fm/c6-a\n' > "$1/pr5-branch"
+  printf '%s\n' "$3" > "$1/pr5-head"
+  printf 'https://github.com/example/repo/pull/5\n' > "$1/pr5-url"
+}
+
+c6_write_pr9() {  # <ghstate> <state> <head> <mergecommit>
+  printf '%s\n' "$2" > "$1/pr9-state"
+  printf 'fm/c6-owner\n' > "$1/pr9-branch"
+  printf 'main\n' > "$1/pr9-baseref"
+  printf '%s\n' "$3" > "$1/pr9-head"
+  printf '%s\n' "$4" > "$1/pr9-mergecommit"
+  printf 'https://github.com/example/repo/pull/9\n' > "$1/pr9-url"
 }
 
 test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
-  local home repo events a_head b_head c_head candidate first_candidate main_moved renewed_candidate
-  local a_brief b_brief owner_brief broken
+  local home repo a_head b_head c_head candidate first_candidate main_moved renewed_candidate
+  local a_brief b_brief owner_brief broken fakebin ghstate wt_a wt_b squash
+  local rc out config data
   home="$TMP_ROOT/c6-controlled-rehearsal"
   repo="$home/synthetic-project"
-  events="$home/events.log"
-  mkdir -p "$home/data" "$home/projects"
-  : > "$events"
+  fakebin=$(fm_fakebin "$home")
+  ghstate="$home/gh"
+  data="$home/data"
+  config="$home/config"
+  mkdir -p "$data" "$home/projects" "$config" "$home/state"
+  touch "$home/state/.last-watcher-beat"
 
   fm_git_init_commit "$repo"
   git -C "$repo" branch -M main
@@ -1473,6 +1554,20 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
     || fail "C6: the combined candidate rewrote or omitted B's exact reviewed head"
   [ "$c_head" != "$candidate" ] || fail "C6: C preparation was accidentally made batch membership"
 
+  # A real origin so bin/fm-pr-check.sh's permanent-head-ref fetch and
+  # bin/fm-pr-merge.sh/bin/fm-teardown.sh's default-branch reads have a forge
+  # to talk to, mirroring fm-pr-check.test.sh's make_case/land_squash_on_main.
+  fm_git_add_origin "$repo" "$repo.origin.git"
+  git -C "$repo" push -q origin main
+  git -C "$repo" push -q origin "$a_head:refs/pull/5/head"
+  first_candidate=$candidate
+  git -C "$repo" push -q origin "$first_candidate:refs/pull/9/head"
+  wt_a="$home/wt-c6-a"
+  wt_b="$home/wt-c6-b"
+  git -C "$repo" worktree add -q "$wt_a" fm/c6-a
+  git -C "$repo" worktree add -q "$wt_b" fm/c6-b
+  c6_install_gh "$fakebin" "$ghstate"
+
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c6-a synthetic-project --mode no-mistakes \
     --batch-constituent-of c6-owner >/dev/null 2>&1
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c6-b synthetic-project --mode no-mistakes \
@@ -1483,9 +1578,9 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
   b_brief="$home/data/c6-b/brief.md"
   owner_brief="$home/data/c6-owner/brief.md"
 
-  c6_consume_constituent_brief "$a_brief" independently-required-pr "$events" \
+  c6_consume_constituent_brief "$a_brief" independently-required-pr \
     || fail "C6: the generated PR-backed constituent brief could not be consumed"
-  c6_consume_constituent_brief "$b_brief" pr-less "$events" \
+  c6_consume_constituent_brief "$b_brief" pr-less \
     || fail "C6: the generated PR-less constituent brief could not be consumed"
   assert_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$owner_brief" \
     "C6: the combined-owner brief lost the PR-backed custody route"
@@ -1499,7 +1594,7 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
   cp "$b_brief" "$broken"
   printf '%s\n' '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' \
     '| c6-b | fm/c6-b | deadbeef | https://github.com/example/repo/pull/5 | Closed as superseded; not merged. |' >> "$broken"
-  if c6_consume_constituent_brief "$broken" pr-less "$events"; then
+  if c6_consume_constituent_brief "$broken" pr-less; then
     fail "C6 broken control: a PR-less constituent accepted the old mandatory original-PR row"
   fi
 
@@ -1507,34 +1602,95 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
   broken="$home/broken-old-standalone-pipeline.md"
   cp "$a_brief" "$broken"
   printf '%s\n' 'Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.' >> "$broken"
-  if c6_consume_constituent_brief "$broken" independently-required-pr "$events"; then
+  if c6_consume_constituent_brief "$broken" independently-required-pr; then
     fail "C6 broken control: a named constituent accepted the old membership-only standalone pipeline instruction"
   fi
 
-  {
-    printf 'prepare-continue task=c6-c stage-label=does-not-block head=%s\n' "$c_head"
-    printf 'execution-gate task=c6-d state=held reason=financial-execution\n'
-    printf 'acceptance-gate task=c6-d state=held\n'
-  } >> "$events"
-  first_candidate=$candidate
-  {
-    printf 'window-reserved owner=c6-owner candidate=%s members=c6-a,c6-b\n' "$first_candidate"
-    printf 'late-addition task=c6-c result=wait reason=membership-frozen\n'
-    printf 'merge-attempt-start task=unrelated result=wait owner=c6-owner\n'
-    printf 'independent-review-start task=c6-c while-window=held\n'
-    printf 'combined-pipeline-start owner=c6-owner candidate=%s\n' "$first_candidate"
-    printf 'window-released owner=c6-owner candidate=%s trigger=material-candidate-failure\n' "$first_candidate"
-    printf 'merge-attempt-start task=next-eligible result=proceed\n'
-    printf 'execution-gate task=c6-d state=held after-window-release=true\n'
-    printf 'acceptance-gate task=c6-d state=held after-window-release=true\n'
-  } >> "$events"
+  # --- binding: bin/fm-pr-check.sh --absorbed-by for both custody routes -----
+  fm_write_meta "$home/state/c6-a.meta" \
+    "window=firstmate:fm-c6-a" "endpoint_task_id=c6-a" "worktree=$wt_a" \
+    "project=$repo" "kind=ship" "mode=no-mistakes" \
+    "pr=https://github.com/example/repo/pull/5"
+  fm_write_meta "$home/state/c6-b.meta" \
+    "window=firstmate:fm-c6-b" "endpoint_task_id=c6-b" "worktree=$wt_b" \
+    "project=$repo" "kind=ship" "mode=no-mistakes" "spawn_gen=c6-b-gen"
 
+  c6_write_pr5 "$ghstate" CLOSED "$a_head"
+  c6_write_pr9 "$ghstate" OPEN "$first_candidate" ''
+  set +e
+  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-check.sh" --absorbed-by c6-a \
+    https://github.com/example/repo/pull/9 >/dev/null 2>"$home/pr-check-a.err"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] \
+    || fail "C6: fm-pr-check.sh --absorbed-by refused the PR-backed constituent binding: $(cat "$home/pr-check-a.err")"
+  assert_grep 'batch_superseded_disposition=closed-as-superseded-not-merged' "$home/state/c6-a.meta" \
+    "C6: fm-pr-check.sh did not bind c6-a's original PR as superseded"
+  assert_grep 'pr=https://github.com/example/repo/pull/9' "$home/state/c6-a.meta" \
+    "C6: fm-pr-check.sh did not make the combined PR c6-a's canonical landing"
+
+  # A PR-less constituent cannot bind before the combined PR actually merges.
+  set +e
+  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-check.sh" --absorbed-by c6-b \
+    https://github.com/example/repo/pull/9 >/dev/null 2>"$home/pr-check-b1.err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] \
+    || fail "C6: fm-pr-check.sh bound a PR-less constituent before the combined PR merged"
+  assert_grep 'must be merged before binding a PR-less constituent' "$home/pr-check-b1.err" \
+    "C6: the premature PR-less binding refusal did not name the merge requirement"
+
+  # --- latest-check judgement and main containment: bin/fm-pr-merge.sh -------
+  fm_write_meta "$home/state/c6-owner.meta" \
+    "window=firstmate:fm-c6-owner" "endpoint_task_id=c6-owner" "worktree=$repo" \
+    "project=$repo" "kind=ship" "mode=no-mistakes"
+  printf '1\tci\tcompleted\tsuccess\n' > "$ghstate/pr9-checks"
+  printf 'status=ahead\nbehind=0\nbase_sha=%s\n' "$(git -C "$repo" rev-parse main)" \
+    > "$ghstate/pr9-compare"
+  : > "$ghstate/pr9-rules"
+  : > "$home/gh-axi.log"
+  set +e
+  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-merge.sh" c6-owner \
+    https://github.com/example/repo/pull/9 >"$home/pr-merge-1.out" 2>"$home/pr-merge-1.err"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] \
+    || fail "C6: fm-pr-merge.sh refused the first combined candidate at full main containment: $(cat "$home/pr-merge-1.err")"
+  assert_grep 'pr merge' "$home/gh-axi.log" \
+    "C6: fm-pr-merge.sh did not attempt the merge for the contained first candidate"
+
+  # An unrelated change lands on main while c6-owner's proof is still at the
+  # first candidate: this is the real "material candidate failure" -
+  # fm-pr-merge.sh's own current-main containment guard refuses, replacing any
+  # narrated window release.
   git -C "$repo" checkout -q main
   printf 'main moved\n' > "$repo/main.txt"
   git -C "$repo" add main.txt
   git -C "$repo" -c user.name=test -c user.email=test@example.invalid commit -qm 'unrelated landed work'
   main_moved=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" push -q origin main
   git -C "$repo" checkout -q fm/c6-owner
+  printf 'OPEN\n' > "$ghstate/pr9-state"
+  printf 'status=behind\nbehind=1\nbase_sha=%s\n' "$main_moved" > "$ghstate/pr9-compare"
+  : > "$home/gh-axi.log"
+  set +e
+  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-merge.sh" c6-owner \
+    https://github.com/example/repo/pull/9 >"$home/pr-merge-2.out" 2>"$home/pr-merge-2.err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] \
+    || fail "C6: fm-pr-merge.sh merged a candidate that no longer contains current main"
+  assert_grep 'the base branch moved after this pull request was validated' "$home/pr-merge-2.err" \
+    "C6: the main-moved refusal did not name the real containment failure"
+  assert_no_grep 'pr merge' "$home/gh-axi.log" \
+    "C6: a stale-base candidate reached the merge call"
+
+  # c6-owner merges current main into the candidate and re-proves once at the
+  # renewed exact head - one combined run, never a per-constituent restart.
   git -C "$repo" -c user.name=test -c user.email=test@example.invalid merge -q --no-ff --no-edit "$main_moved"
   renewed_candidate=$(git -C "$repo" rev-parse HEAD)
   [ "$renewed_candidate" != "$first_candidate" ] || fail "C6: moving main did not change the candidate head"
@@ -1544,26 +1700,108 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
     || fail "C6: renewed candidate lost A ancestry"
   git -C "$repo" merge-base --is-ancestor "$b_head" "$renewed_candidate" \
     || fail "C6: renewed candidate lost B ancestry"
-  printf 'combined-pipeline-start owner=c6-owner candidate=%s reason=main-moved\n' "$renewed_candidate" >> "$events"
-  printf 'merge-attempt-start task=c6-owner candidate=%s proof=current\n' "$renewed_candidate" >> "$events"
+  git -C "$repo" push -q -f origin "$renewed_candidate:refs/pull/9/head"
+  printf '%s\n' "$renewed_candidate" > "$ghstate/pr9-head"
+  printf 'status=ahead\nbehind=0\nbase_sha=%s\n' "$main_moved" > "$ghstate/pr9-compare"
+  printf '1\tci\tcompleted\tsuccess\n' > "$ghstate/pr9-checks"
+  : > "$home/gh-axi.log"
+  set +e
+  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-merge.sh" c6-owner \
+    https://github.com/example/repo/pull/9 >"$home/pr-merge-3.out" 2>"$home/pr-merge-3.err"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] \
+    || fail "C6: fm-pr-merge.sh refused the renewed candidate at its own current head: $(cat "$home/pr-merge-3.err")"
+  assert_grep "$renewed_candidate" "$home/pr-merge-3.err" \
+    "C6: fm-pr-merge.sh's checks/containment verdicts did not name the renewed exact head"
+  assert_grep 'pr merge' "$home/gh-axi.log" \
+    "C6: fm-pr-merge.sh did not attempt the merge for the renewed, current-main-containing candidate"
 
-  [ "$(grep -c '^local-test-start ' "$events")" -eq 2 ] \
-    || fail "C6: the rehearsal did not record both focused local-test starts"
-  [ "$(grep -c '^constituent-pipeline-start ' "$events")" -eq 1 ] \
-    || fail "C6: constituent pipelines were restarted for membership/main movement or the independently required one did not start"
-  [ "$(grep -c '^combined-pipeline-start ' "$events")" -eq 2 ] \
-    || fail "C6: initial and renewed combined proof were not both recorded"
-  [ "$(grep -c '^merge-attempt-start ' "$events")" -eq 3 ] \
-    || fail "C6: the rehearsal did not record every attempted landing"
-  assert_grep "window-released owner=c6-owner candidate=$first_candidate trigger=material-candidate-failure" "$events" \
-    "C6: the released window lost the first candidate owner or release trigger"
-  ! grep -E '^constituent-pipeline-start .* reason=membership($|[[:space:]])' "$events" >/dev/null \
-    || fail "C6: serial constituent validation reappeared solely for batch membership"
-  assert_no_grep 'reason=main-moved task=c6-' "$events" \
-    "C6: main movement restarted a constituent instead of one combined proof"
-  assert_no_grep 'disjoint-files' "$events" "C6: a disjoint-files waiver entered the rehearsal"
-  assert_no_grep 'range-diff' "$events" "C6: a range-diff waiver entered the rehearsal"
-  pass "C6: generated briefs drive parallel preparation, frozen membership, bounded landing recovery, and renewed combined proof"
+  # The combined PR actually lands: a squash commit unrelated in ancestry to
+  # any constituent head (a squash-merge contract never puts them on main),
+  # proven only via the combined PR's own permanent refs/pull/9/head.
+  squash=$(git -C "$repo" commit-tree "$(git -C "$repo" rev-parse "$renewed_candidate^{tree}")" \
+    -p "$main_moved" -m 'squash landing')
+  git -C "$repo" push -q origin "$squash:refs/heads/main"
+  c6_write_pr9 "$ghstate" MERGED "$renewed_candidate" "$squash"
+
+  # --- binding: the PR-less constituent binds only after the real merge ------
+  set +e
+  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-check.sh" --absorbed-by c6-b \
+    https://github.com/example/repo/pull/9 >/dev/null 2>"$home/pr-check-b2.err"
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] \
+    || fail "C6: fm-pr-check.sh refused the PR-less constituent after the combined PR genuinely merged: $(cat "$home/pr-check-b2.err")"
+  assert_grep 'absorbed_original_pr=none' "$home/state/c6-b.meta" \
+    "C6: fm-pr-check.sh did not record the PR-less binding"
+  assert_grep 'pr=https://github.com/example/repo/pull/9' "$home/state/c6-b.meta" \
+    "C6: fm-pr-check.sh did not make the combined PR c6-b's canonical landing"
+
+  # --- refusal, and its broken control: bin/fm-teardown.sh --------------------
+  # Corrupt the just-proven PR-less binding by dropping absorbed_by= - the
+  # guard bin/fm-teardown.sh's own validate_absorbed_constituent_landed
+  # protects - onto a fresh worktree/task record, and confirm the real owner
+  # refuses at its own named assertion before restoring the complete record.
+  git -C "$repo" branch -f fm/c6-b-broken "$b_head"
+  git -C "$repo" worktree add -q "$home/wt-c6-b-broken" fm/c6-b-broken
+  fm_write_meta "$home/state/c6-b-broken.meta" \
+    "window=firstmate:fm-c6-b-broken" "endpoint_task_id=c6-b-broken" \
+    "worktree=$home/wt-c6-b-broken" "project=$repo" "kind=ship" "mode=no-mistakes" \
+    "spawn_gen=c6-b-broken-gen" "batch_role=constituent" \
+    "batch_constituent_branch=fm/c6-b-broken" "absorbed_head=$b_head" \
+    "absorbed_original_pr=none" "pr=https://github.com/example/repo/pull/9" \
+    "pr_head=$renewed_candidate"
+  cat > "$fakebin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in axi) shift; [ "${1:-}" = status ] && printf '\n' ;; esac
+exit 0
+SH
+  cat > "$fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  cat > "$fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  chmod +x "$fakebin/no-mistakes" "$fakebin/tmux" "$fakebin/treehouse"
+  set +e
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$data" \
+    FM_CONFIG_OVERRIDE="$config" PATH="$fakebin:$PATH" \
+    "$ROOT/bin/fm-teardown.sh" c6-b-broken 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] \
+    || fail "C6 broken control: fm-teardown.sh closed a PR-less constituent whose binding evidence is incomplete"
+  assert_contains "$out" "incomplete or invalid PR-less absorbed-constituent record" \
+    "C6 broken control: fm-teardown.sh's refusal did not name the missing binding evidence"
+
+  # Restore the guard's evidence and confirm the real owner now proceeds.
+  printf 'absorbed_by=https://github.com/example/repo/pull/9\n' >> "$home/state/c6-b-broken.meta"
+  set +e
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$data" \
+    FM_CONFIG_OVERRIDE="$config" PATH="$fakebin:$PATH" \
+    "$ROOT/bin/fm-teardown.sh" c6-b-broken 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] \
+    || fail "C6: fm-teardown.sh refused the restored, complete PR-less binding: $out"
+  assert_contains "$out" "teardown c6-b-broken complete" \
+    "C6: fm-teardown.sh did not complete cleanup once the binding evidence was restored"
+
+  # c6-c (a genuinely unrelated, differently-scoped prepare) never became
+  # batch membership; nothing here waives review by disjoint files or a
+  # range-diff. Whether c6-c's own local pipeline start count, or any other
+  # lane's serial validation, is actually suppressed "solely for batch
+  # membership" is the landing-window clause named above and stays unverified.
+  if [ "$c_head" = "$renewed_candidate" ] \
+    || git -C "$repo" merge-base --is-ancestor "$c_head" "$renewed_candidate" 2>/dev/null; then
+    fail "C6: unrelated preparation c6-c was folded into batch membership"
+  fi
+  pass "C6: generated briefs drive real absorbed-constituent binding (bin/fm-pr-check.sh), real check/containment-gated landing (bin/fm-pr-merge.sh), and a real binding-evidence refusal plus restore (bin/fm-teardown.sh); landing-window serialization has no code owner and stays unverified"
 }
 
 c7_consume_document_brief() {
@@ -1583,16 +1821,29 @@ c7_consume_document_brief() {
 }
 
 test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal() {
-  local home fakebin events xau_brief report_brief broken captain_intent proof intent change
+  local home fakebin events xau_brief report_brief broken intent change
   local custody=worker active_run=none assertion='expected=accepted-behavior' observed retry_count=0
+  local repo revision out rc c7_run_head c7_final_head no_grep_tmp
   home="$TMP_ROOT/c7-controlled-rehearsal"
   fakebin=$(fm_fakebin "$home")
   events="$home/events.log"
-  mkdir -p "$home/data" "$home/projects/XAUUSD" "$home/projects/report-only"
+  mkdir -p "$home/data" "$home/projects/XAUUSD" "$home/projects/report-only" "$home/state"
   : > "$events"
   : > "$home/no-mistakes.log"
   printf 'auto_fix:\n  document: 1\n' > "$home/projects/XAUUSD/.no-mistakes.yaml"
   printf 'auto_fix:\n  document: 0\n' > "$home/projects/report-only/.no-mistakes.yaml"
+
+  # A real worktree so bin/fm-crew-state.sh's branch/head attribution has
+  # something genuine to check the fake no-mistakes run-step against. The
+  # worktree stays at c7_run_head for the active-run phase; the document
+  # correction commit (c7_final_head) is made later, at the point the
+  # rehearsal actually claims the pipeline applied it.
+  repo="$home/run-worktree"
+  fm_git_init_commit "$repo"
+  git -C "$repo" checkout -q -b fm/c7-run
+  c7_run_head=$(git -C "$repo" rev-parse HEAD)
+  fm_write_meta "$home/state/c7-run-task.meta" \
+    "window=firstmate:fm-c7-run-task" "worktree=$repo" "kind=ship"
   cat > "$fakebin/no-mistakes" <<'SH'
 #!/usr/bin/env bash
 if [ "${1:-}" = --version ]; then
@@ -1600,8 +1851,13 @@ if [ "${1:-}" = --version ]; then
   exit 0
 fi
 printf '%s\n' "$*" >> "$FM_TEST_NM_LOG"
+if [ "${FM_FAKE_C7_CUSTODY:-}" = pipeline-owned ] && [ "${1:-}" = axi ] && [ "${2:-}" = run ]; then
+  echo "pipeline already owns this branch; abort and confirm custody release before another run" >&2
+  exit 7
+fi
 case "$*" in
   'axi status --run c7-run') cat "$FM_TEST_NM_STATUS" ;;
+  'axi status') cat "${FM_TEST_NM_STATUS_BARE:-/dev/null}" 2>/dev/null ;;
 esac
 exit 0
 SH
@@ -1655,52 +1911,98 @@ SH
   assert_no_grep 'claim=false-authority result=editorial' "$events" \
     "C7: a false authority claim was downgraded to editorial"
 
-  # Build the actual validation input from the generated XAU brief's sections.
-  captain_intent='Apply the accepted documentation-only correction with proportionate proof.'
-  proof=$(sed -n '/^# Proof bar$/,/^# Definition of done$/p' "$xau_brief" | sed '$d')
-  intent=$(printf 'Captain intent:\n%s\n\nAgreed proof contract:\n%s\n' "$captain_intent" "$proof")
-  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
-    PATH="$fakebin:$PATH" no-mistakes axi run --intent "$intent"
+  # Drive the real run through bin/fm-dod-lib.sh run-validation - the same
+  # revision-bound CLI C3 (tests/fm-spawn-dispatch-profile.test.sh) proves
+  # renders --intent from the effective brief - rather than a hand-rebuilt
+  # intent string, against the fake no-mistakes above, which records its argv
+  # and returns the scripted outcomes written to $home/no-mistakes.status and
+  # $home/axi-status-bare below. The actual Captain intent: text comes from
+  # the generated brief's own "## Captain's intent" section, not a hardcoded
+  # string here.
+  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$xau_brief") \
+    || fail "C7: could not compute the effective XAU brief's source revision"
   printf 'worker-edit result=allowed custody=%s before-run=true\n' "$custody" >> "$events"
   active_run=c7-run
   custody=pipeline
   printf 'run:\n  id: c7-run\n  state: active\n  custody: pipeline\n' > "$home/no-mistakes.status"
+  printf 'run:\n  id: "c7-run"\n  branch: fm/c7-run\n  status: running\n  head: "%s"\n  pr: ""\n  findings: none\n' \
+    "$c7_run_head" > "$home/axi-status-bare"
+  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+    FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" PATH="$fakebin:$PATH" \
+    "$ROOT/bin/fm-dod-lib.sh" run-validation --brief "$xau_brief" --expect-revision "$revision" \
+    || fail "C7: bin/fm-dod-lib.sh run-validation refused to start the real run"
+  intent=$(sed -e '1s/^axi run --intent //' "$home/no-mistakes.log")
+  assert_contains "$intent" 'Captain intent:' \
+    "C7: the actual rendered --intent lost the self-sufficient captain part"
+  assert_contains "$intent" 'Agreed proof contract:' \
+    "C7: the actual rendered --intent lost the agreed proof part"
   printf 'validation-input source=generated-xau-brief intent-bytes=%s\n' "${#intent}" >> "$events"
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+    FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-crew-state.sh" c7-run-task)
+  assert_contains "$out" 'state: working' \
+    "C7: fm-crew-state.sh did not read the real active run as pipeline custody"
 
   # The pipeline, not the worker, applies the accepted document correction.
+  # The fake answers with a real terminal run-step at a real commit; whether
+  # the installed no-mistakes actually performed a Document correction and Test
+  # recheck stays behind this fake boundary and is not proven by this fixture.
   FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
     PATH="$fakebin:$PATH" no-mistakes axi respond --run c7-run --step Document --action apply-accepted-fix --keep-diagnostics
-  {
-    printf 'document-correction actor=pipeline scope=document-only\n'
-    printf 'test-recheck status=completed conclusion=success head=c7-final\n'
-    printf 'attestation status=valid head=c7-final\n'
-  } >> "$events"
+  printf 'document-correction actor=pipeline scope=document-only\n' >> "$events"
+  c7_final_head=$(git -C "$repo" commit-tree "$(git -C "$repo" rev-parse "HEAD^{tree}")" \
+    -p "$c7_run_head" -m 'document correction')
+  git -C "$repo" merge -q --ff-only "$c7_final_head"
+  printf 'run:\n  id: "c7-run"\n  branch: fm/c7-run\n  status: completed\n  head: "%s"\n  pr: ""\n  findings: none\noutcome: passed\n' \
+    "$c7_final_head" > "$home/axi-status-bare"
   assert_no_grep '--yes' "$home/no-mistakes.log" \
     "C7: automatic gate approval was used"
   assert_grep '--keep-diagnostics' "$home/no-mistakes.log" \
     "C7: the unrelated package flag was not retained"
-  assert_no_grep 'test-recheck status=skipped' "$events" \
-    "C7: the Document fix was accepted with a skipped Test step"
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+    FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-crew-state.sh" c7-run-task)
+  assert_contains "$out" 'state: done' \
+    "C7: fm-crew-state.sh did not read the completed Document-correction run as done, never skipped"
 
-  # Active custody refuses worker edits, self-answered ask-user gates and a
-  # competing run; Firstmate mediation remains the only active-run fix path.
+  # Active custody refuses a competing validation run: a real second
+  # run-validation attempt against the same fake no-mistakes, still reporting
+  # pipeline custody, is refused by the real owner rather than by a label this
+  # test writes. Firstmate mediation of any worker-facing gate is a policy
+  # statement with no dedicated owner call in this fixture and is not narrated.
   [ "$custody" != worker ] || fail "C7: fixture did not transfer active-run custody"
-  {
-    printf 'worker-edit result=refused custody=%s\n' "$custody"
-    printf 'ask-user worker-self-answer=result-refused\n'
-    printf 'competing-run result=refused active=%s\n' "$active_run"
-    printf 'gate-response actor=firstmate-mediated pipeline-applies=true\n'
-  } >> "$events"
+  set +e
+  out=$(FM_FAKE_C7_CUSTODY=pipeline-owned FM_TEST_NM_LOG="$home/no-mistakes.log" \
+    FM_TEST_NM_STATUS="$home/no-mistakes.status" FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-dod-lib.sh" run-validation \
+    --brief "$xau_brief" --expect-revision "$revision" 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] \
+    || fail "C7: a competing run-validation attempt succeeded under active pipeline custody"
+  assert_contains "$out" 'pipeline already owns this branch' \
+    "C7: the competing-run refusal did not name the real owner's active-custody reason"
+  printf 'competing-run result=refused active=%s\n' "$active_run" >> "$events"
 
+  # Custody genuinely returns to the worker only once no run is attributed to
+  # the branch: abort and recover, then read the real state again.
   printf 'run:\n  id: c7-run\n  outcome: cancelled\n  branch_sync:\n    next_action: recover_custody\n' > "$home/no-mistakes.status"
+  : > "$home/axi-status-bare"
   FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
     PATH="$fakebin:$PATH" no-mistakes axi status --run c7-run >/dev/null
   FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
     PATH="$fakebin:$PATH" no-mistakes axi sync --run c7-run --recover-custody
   custody=worker
   active_run=none
+  out=$(FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+    FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
+    PATH="$fakebin:$PATH" "$ROOT/bin/fm-crew-state.sh" c7-run-task)
+  no_grep_tmp="$home/crew-state-after-recovery.out"
+  printf '%s\n' "$out" > "$no_grep_tmp"
+  assert_no_grep 'state: working' "$no_grep_tmp" \
+    "C7: fm-crew-state.sh still attributed an active pipeline run after abort/recover-custody"
+  printf 'worker-edit result=allowed custody=%s\n' "$custody" >> "$events"
   {
-    printf 'worker-edit result=allowed custody=%s\n' "$custody"
     # A code/contract change renews affected proof only and explains retained proof.
     printf 'scope-change kind=code-contract renew=affected-review,affected-tests\n'
     printf 'evidence-retained id=unaffected-structural reason=inputs-and-consumer-unchanged\n'
