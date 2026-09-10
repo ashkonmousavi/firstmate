@@ -220,6 +220,7 @@ Reporting alone is not execution.
 A repair is proven only by four recorded facts on the finding: the original failure detected, the correction made at its owning source, the correction consumed by the worker or runtime, and the intended application work resumed.
 A green isolated test, a filed task, or a notebook entry alone is not a repair; record all four facts in the finding's existing prose fields rather than treating any one of them as sufficient.
 Substantiate the original failure, show that the correction addresses it, prove normal authorized behavior, prove the actual consumer uses it, and show the blocked work or affected operator journey proceeds.
+A path or a structurally valid record supplied as consumer proof is not semantic proof, so before calling a repair effective, inspect the named consumer's actual result and confirm it shows the corrected behavior.
 For guards, prove both intended refusals and authorized operations.
 For runtime repairs, distinguish isolated behavior from activation in the real tool and environment.
 For application work, distinguish branch tests, merged code, matching deployment, and user evidence.
