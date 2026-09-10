@@ -12,6 +12,7 @@ set -u
 
 SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-spawn-dispatch-profile)
+FABLE_DISALLOWED_TOOLS='Task,Agent,Workflow,RemoteTrigger,Monitor,ScheduleWakeup,SendMessage,EnterWorktree,ExitWorktree,CronCreate,CronDelete,CronList,TaskCreate,TaskGet,TaskList,TaskUpdate,TaskStop,TaskOutput'
 
 make_spawn_pi_probe() {
   local fakebin=$1 tool=$2
@@ -132,6 +133,46 @@ assert_meta_profile() {
 assert_meta_mcp() {
   local meta=$1 mode=$2
   assert_grep "mcp=$mode" "$meta" "meta missing mcp=$mode"
+}
+
+# Execute a rendered Claude command against a fake CLI which applies the
+# installed CLI's documented `--disallowedTools <tools...>` variadic arity.
+# A zero result proves the encoded launch brief remained a positional instead
+# of being consumed as one more denied-tool name.
+claude_rendered_command_keeps_brief_positional() {
+  local fakebin=$1 launch=$2 expected_brief=$3 result_log=$4
+  cat > "$fakebin/claude" <<'SH'
+#!/usr/bin/env bash
+set -u
+consume_denied=0
+denied=
+prompt_seen=0
+for arg in "$@"; do
+  if [ "$consume_denied" -eq 1 ]; then
+    case "$arg" in
+      -*) consume_denied=0 ;;
+      *)
+        if [ -z "$denied" ]; then
+          denied=$arg
+        else
+          denied="$denied $arg"
+        fi
+        continue
+        ;;
+    esac
+  fi
+  case "$arg" in
+    --disallowedTools) consume_denied=1 ;;
+    --disallowedTools=*) denied=${arg#--disallowedTools=} ;;
+    "$FM_FAKE_EXPECTED_BRIEF") prompt_seen=1 ;;
+  esac
+done
+printf 'prompt_seen=%s\ndenied=%s\n' "$prompt_seen" "$denied" > "$FM_FAKE_CLAUDE_PARSE_LOG"
+[ "$prompt_seen" -eq 1 ]
+SH
+  chmod +x "$fakebin/claude"
+  FM_FAKE_EXPECTED_BRIEF="$expected_brief" FM_FAKE_CLAUDE_PARSE_LOG="$result_log" \
+    PATH="$fakebin:$PATH" bash -c "$launch"
 }
 
 # Independently proves the public flag contract: ships default lean, scouts
@@ -580,12 +621,12 @@ test_claude_threads_model_and_effort() {
   pass "claude receives --model and --effort profile flags"
 }
 
-# 2026-09-02 incident: a claude/fable crewmate used the Agent tool to spawn
-# Fable teammates whose descendants inherited the model, exhausting the
-# five-hour Claude allowance in ~22 minutes. fm-spawn now launches a
-# claude/fable crewmate solo via --disallowedTools.
-test_claude_fable_launches_solo_via_disallowed_tools() {
-  local rec id out status launch
+# Independently proves a Fable launch keeps the operational brief outside
+# Claude's variadic deny list while retaining the exact solo-launch inventory.
+# It also rebuilds the swallowed-brief argument order as a counterexample and
+# requires the same parser probe to fail on that old shape.
+test_claude_fable_disallowed_tools_keeps_launch_brief_positional() {
+  local rec id out status launch expected_brief parse_log legacy_launch
   id=profile-claude-fable-z2a
   rec=$(make_spawn_case profile-claude-fable claude "$id")
   read_case_record "$rec"
@@ -595,14 +636,30 @@ test_claude_fable_launches_solo_via_disallowed_tools() {
   expect_code 0 "$status" "claude/fable spawn should succeed"
   assert_meta_profile "$HOME_DIR/state/$id.meta" claude fable high
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "--disallowedTools" "claude/fable launch must carry --disallowedTools"
-  assert_contains "$launch" "Agent" "claude/fable --disallowedTools must name Agent"
-  assert_contains "$launch" "Workflow" "claude/fable --disallowedTools must name Workflow"
-  pass "claude/fable launches solo with delegation tools disallowed"
+  expected_brief=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief < "$HOME_DIR/data/$id/launch-brief.md")
+  parse_log="$CASE_DIR/claude-parse.log"
+
+  assert_contains "$launch" "--disallowedTools='$FABLE_DISALLOWED_TOOLS'" \
+    "claude/fable launch must attach the unchanged deny inventory to its option"
+  if ! claude_rendered_command_keeps_brief_positional "$FAKEBIN_DIR" "$launch" "$expected_brief" "$parse_log"; then
+    fail "claude/fable launch brief was consumed by --disallowedTools"
+  fi
+  [ "$(sed -n '1p' "$parse_log")" = 'prompt_seen=1' ] || \
+    fail "claude/fable launch did not preserve the encoded brief as its own positional argument"
+  [ "$(sed -n '2p' "$parse_log")" = "denied=$FABLE_DISALLOWED_TOOLS" ] || \
+    fail "claude/fable launch changed the delegation-tool deny inventory"
+
+  legacy_launch=${launch/--disallowedTools=/--disallowedTools }
+  if claude_rendered_command_keeps_brief_positional "$FAKEBIN_DIR" "$legacy_launch" "$expected_brief" "$parse_log"; then
+    fail "bare --disallowedTools <list> counterexample unexpectedly preserved the launch brief"
+  fi
+  [ "$(sed -n '1p' "$parse_log")" = 'prompt_seen=0' ] || \
+    fail "bare --disallowedTools <list> counterexample did not reproduce the swallowed brief"
+  pass "claude/fable deny inventory is unchanged and cannot swallow its launch brief"
 }
 
 test_claude_non_fable_models_omit_disallowed_tools() {
-  local rec id out status launch model
+  local rec id out status launch model expected_brief parse_log
   for model in sonnet opus; do
     id="profile-claude-nonfable-$model-z2b"
     rec=$(make_spawn_case "profile-claude-nonfable-$model" claude "$id")
@@ -614,8 +671,15 @@ test_claude_non_fable_models_omit_disallowed_tools() {
     launch=$(cat "$LAUNCH_LOG")
     assert_not_contains "$launch" "--disallowedTools" \
       "claude/$model launch must not carry --disallowedTools"
+    expected_brief=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief < "$HOME_DIR/data/$id/launch-brief.md")
+    parse_log="$CASE_DIR/claude-parse.log"
+    if ! claude_rendered_command_keeps_brief_positional "$FAKEBIN_DIR" "$launch" "$expected_brief" "$parse_log"; then
+      fail "claude/$model launch no longer preserved its existing brief positional"
+    fi
+    [ "$(sed -n '2p' "$parse_log")" = 'denied=' ] || \
+      fail "claude/$model launch unexpectedly gained a deny inventory"
   done
-  pass "claude launches on sonnet and opus omit --disallowedTools"
+  pass "non-Fable Claude launch shape remains free of --disallowedTools"
 }
 
 test_claude_fable_allow_delegation_escape_omits_flag() {
@@ -646,7 +710,8 @@ test_codex_threads_model_and_effort() {
   launch=$(cat "$LAUNCH_LOG")
   assert_contains "$launch" "--model 'gpt-5' -c 'model_reasoning_effort=\"high\"' --dangerously-bypass-approvals-and-sandbox" \
     "codex launch did not thread model and reasoning effort config"
-  pass "codex receives --model and model_reasoning_effort profile flags"
+  assert_not_contains "$launch" "--disallowedTools" "codex launch shape changed with Claude's Fable-only fix"
+  pass "codex launch shape remains unchanged while receiving its profile flags"
 }
 
 test_codex_refuses_unsupported_max_effort_before_metadata() {
@@ -1040,7 +1105,7 @@ test_active_dispatch_profile_allows_explicit_harness
 test_active_dispatch_profile_allows_positional_harness
 test_active_dispatch_profile_allows_raw_launch_command
 test_claude_threads_model_and_effort
-test_claude_fable_launches_solo_via_disallowed_tools
+test_claude_fable_disallowed_tools_keeps_launch_brief_positional
 test_claude_non_fable_models_omit_disallowed_tools
 test_claude_fable_allow_delegation_escape_omits_flag
 test_codex_threads_model_and_effort

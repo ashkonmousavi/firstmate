@@ -1838,11 +1838,13 @@ FABLE_DISALLOWED_TOOLS='Task,Agent,Workflow,RemoteTrigger,Monitor,ScheduleWakeup
 # it (docs/subagent-guard.md) because ordinary crewmate delegation is
 # legitimate. This is a narrower, model-scoped correction at the launch
 # boundary: a claude crewmate launched with model fable never receives Claude
-# Code's own delegation tools, verified against installed claude 2.1.258's
-# `--disallowedTools` (comma or space-separated tool-name list). Comparison is
-# case-insensitive so an alias spelling (Fable, FABLE) cannot bypass it, and
-# only the exact harness=claude, model=fable pair is affected - every other
-# model, including a relaunch onto sonnet or opus, gets no flag at all.
+# Code's own delegation tools, verified against installed claude 2.1.267's
+# `--disallowedTools=<comma-list>`. The value must stay attached because the
+# bare option has variadic `<tools...>` arity and otherwise consumes the launch
+# brief positional that follows it. Comparison is case-insensitive so an alias
+# spelling (Fable, FABLE) cannot bypass it, and only the exact harness=claude,
+# model=fable pair is affected - every other model, including a relaunch onto
+# sonnet or opus, gets no flag at all.
 # FM_FABLE_ALLOW_DELEGATION=1 is the deliberate captain-approved escape,
 # mirroring FM_ALLOW_SUBAGENT's style (bin/fm-subagent-pretool-check.sh):
 # never a default, only ever set for an exact, explicitly authorized task.
@@ -1853,7 +1855,7 @@ disallowed_tools_flag_for_harness() {
   lower_model=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
   [ "$lower_model" = fable ] || return 0
   [ "${FM_FABLE_ALLOW_DELEGATION:-}" != 1 ] || return 0
-  printf -- '--disallowedTools %s ' "$(shell_quote "$FABLE_DISALLOWED_TOOLS")"
+  printf -- '--disallowedTools=%s ' "$(shell_quote "$FABLE_DISALLOWED_TOOLS")"
 }
 
 case "$LAUNCH" in
