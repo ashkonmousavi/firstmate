@@ -47,10 +47,11 @@
 # watcher re-ringing an unacknowledged message and escalating a stuck one. An
 # explicit fire-and-forget record is excluded from that ladder.
 # bin/fm-task-inbox-lib.sh owns the record format, the doorbell line, and the
-# re-ring ladder. The composer pre-check before the ring is ADVISORY only: when
-# the composer visibly holds pending text the ring is skipped with a notice and
-# the watcher re-rings an ordinary record later; no composer verdict is
-# delivery proof on this plane, and a failed ring never fails the send.
+# re-ring ladder. The composer pre-check before the ring permits keystrokes only
+# when the shared classifier proves an empty live-agent composer; any other
+# verdict skips the ring with a notice and the watcher re-rings an ordinary
+# record later. No composer verdict is delivery proof on this plane, and a
+# failed ring never fails the send.
 #
 # TYPED - the LOCAL text that must reach the terminal itself: a harness-native
 # invocation (a leading "/", or a leading "$" to a codex target) must reach
@@ -1006,7 +1007,7 @@ else
     ring_rc=0
     fm_task_inbox_ring "$TARGET_BACKEND" "$T" "$INBOX_RECORD" "$EXPECTED_LABEL" || ring_rc=$?
     case "$ring_rc" in
-      1) echo "fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at $INBOX_RECORD and the watcher will re-ring" >&2 ;;
+      1) echo "fm-send: doorbell skipped (composer is not proven empty); the steer is durably recorded at $INBOX_RECORD and the watcher will re-ring" >&2 ;;
       2) echo "fm-send: doorbell did not reach $T; the steer is durably recorded at $INBOX_RECORD and the watcher will re-ring" >&2 ;;
     esac
     exit 0

@@ -10,8 +10,9 @@
 #   2. Multi-line steers are legal and round-trip byte-exact.
 #   3. A re-send enqueues a NEW sequence and still never retypes a payload,
 #      so the terminal can never truncate, garble, or duplicate a steer.
-#   4. The composer pre-check is advisory: visibly pending text skips the ring
-#      with a notice, and the steer is still durably sent (exit 0).
+#   4. The composer pre-check permits a ring only for an affirmatively empty
+#      live-agent composer; pending and bare-shell states skip it while the
+#      steer is still durably sent (exit 0).
 #   5. A failed doorbell is still a sent steer (exit 0, record durable): the
 #      watcher's re-ring ladder owns delivery from the record on.
 #   6. Carve-outs keep the typed plane: a leading "/" (any harness), a leading
@@ -39,7 +40,8 @@ TMP_ROOT=$(cd "$TMP_ROOT" && pwd)
 
 # Stub tmux: logs literal typed text to FM_SEND_LOG and lets the submit and
 # composer paths reach clean verdicts. FM_FAKE_TMUX_COMPOSER=pending renders a
-# composer visibly holding text; FM_FAKE_TMUX_SEND_FAIL=1 fails send-keys.
+# composer visibly holding text, bare-shell renders a dead shell prompt, and
+# FM_FAKE_TMUX_SEND_FAIL=1 fails send-keys.
 make_stubs() {  # <dir> -> echoes fakebin dir
   local dir=$1 fb="$1/fakebin"
   mkdir -p "$fb"
@@ -66,11 +68,11 @@ case "${1:-}" in
     for a in "$@"; do case "$a" in *cursor_y*) printf '1\n'; exit 0 ;; esac; done
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
-    if [ "${FM_FAKE_TMUX_COMPOSER:-}" = pending ]; then
-      printf '╭──────────────╮\n│ leftover txt │\n╰──────────────╯\n'
-    else
-      printf '╭────╮\n│    │\n╰────╯\n'
-    fi
+    case "${FM_FAKE_TMUX_COMPOSER:-}" in
+      pending) printf '╭──────────────╮\n│ leftover txt │\n╰──────────────╯\n' ;;
+      bare-shell) printf '$ \n' ;;
+      *) printf '╭────╮\n│    │\n╰────╯\n' ;;
+    esac
     exit 0 ;;
   list-windows) exit 0 ;;
 esac
@@ -174,6 +176,18 @@ test_pending_composer_skips_ring_advisorily() {
   assert_contains "$(cat "$err")" "watcher will re-ring" \
     "the skip notice should point at the re-ring"
   pass "fm-send inbox: a visibly pending composer skips the ring, and the steer stays durably sent"
+}
+
+test_bare_shell_records_without_doorbell_keystrokes() {
+  local dir err rc
+  dir=$(setup_case bare-shell); err="$dir/send.err"
+  run_send "$dir" "$err" FM_FAKE_TMUX_COMPOSER=bare-shell -- t1 "inspect the durable record"; rc=$?
+  expect_code 0 "$rc" "a bare-shell inbox steer should remain durably sent"
+  [ -f "$dir/home/state/t1.inbox/001.msg" ] || fail "a bare-shell steer was not recorded"
+  [ ! -s "$dir/send.log" ] || fail "a bare shell must receive no doorbell keystrokes:"$'\n'"$(cat "$dir/send.log")"
+  assert_contains "$(cat "$err")" "watcher will re-ring" \
+    "the bare-shell skip should leave re-ring ownership with the watcher"
+  pass "fm-send inbox: a bare shell records the steer without receiving doorbell keystrokes"
 }
 
 test_failed_ring_is_still_sent() {
@@ -342,6 +356,7 @@ test_text_steer_rides_inbox
 test_multiline_steer_is_legal
 test_resend_enqueues_new_sequence
 test_pending_composer_skips_ring_advisorily
+test_bare_shell_records_without_doorbell_keystrokes
 test_failed_ring_is_still_sent
 test_harness_invocations_stay_typed
 test_explicit_target_stays_typed
