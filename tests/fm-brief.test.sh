@@ -405,6 +405,8 @@ test_no_mistakes_dod_wording() {
     "no-mistakes DOD must render literal backticks around help"
   assert_grep "start the run only through that exact command: it renders the real \`--intent\` from the effective brief and refuses a stale launch package before no-mistakes starts" "$brief" \
     "no-mistakes DOD must route a spawned worker through the source-revision-bound validation consumer"
+  assert_grep "That command also refuses and starts no run while an active no-mistakes run holds your branch at a head other than your current HEAD" "$brief" \
+    "no-mistakes DOD must state run-validation's active-run refusal and its supported release sequence"
   # --intent carries two labeled parts (Codex advisor review 2026-09-04, finding
   # A3): this base text is the one owner both fm-brief.sh and fm-promote.sh
   # render, so it must never say the Captain intent part is the ONLY thing
@@ -1948,13 +1950,16 @@ SH
   active_run=c7-run
   custody=pipeline
   printf 'run:\n  id: c7-run\n  state: active\n  custody: pipeline\n' > "$home/no-mistakes.status"
-  printf 'run:\n  id: "c7-run"\n  branch: fm/c7-run\n  status: running\n  head: "%s"\n  pr: ""\n  findings: none\n' \
-    "$c7_run_head" > "$home/axi-status-bare"
-  FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+  printf 'run:\n  id: "c7-run"\n  branch: fm/c7-run\n  status: running\n  head: "%s"\n  head_sha: "%s"\n  pr: ""\n  findings: none\n' \
+    "$c7_run_head" "$c7_run_head" > "$home/axi-status-bare"
+  # run-validation reads this branch's axi status before axi run, so it runs from
+  # the task worktree, whose HEAD the listed active run holds: a same-head
+  # resubmission that reattaches. The fake logs that status call first.
+  (cd "$repo" && FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
     FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" PATH="$fakebin:$PATH" \
-    "$ROOT/bin/fm-dod-lib.sh" run-validation --brief "$xau_brief" --expect-revision "$revision" \
+    "$ROOT/bin/fm-dod-lib.sh" run-validation --brief "$xau_brief" --expect-revision "$revision") \
     || fail "C7: bin/fm-dod-lib.sh run-validation refused to start the real run"
-  intent=$(sed -e '1s/^axi run --intent //' "$home/no-mistakes.log")
+  intent=$(awk 'f { print; next } /^axi run --intent / { f = 1; sub(/^axi run --intent /, ""); print }' "$home/no-mistakes.log")
   assert_contains "$intent" 'Captain intent:' \
     "C7: the actual rendered --intent lost the self-sufficient captain part"
   assert_contains "$intent" 'Agreed proof contract:' \
@@ -2077,6 +2082,122 @@ SH
   pass "C7: generated briefs select the in-run or report-only Document route and reject the obsolete instruction; run-validation renders the brief's intent and propagates a fake custody refusal; fm-crew-state.sh classifies supplied run listings; the remaining outcomes are fixture-authored labels"
 }
 
+# run-validation reads the current branch's structured `no-mistakes axi status`
+# before `axi run`. This proves that entry-boundary decision against a stub that
+# prints scripted status text and logs argv: an active (running or pending) run
+# holding the branch at another head is refused with exit 4, naming the
+# supported abort, confirmed-stop and branch_sync sequence, and no `axi run`
+# follows; a same-head resubmission, a run whose pipeline head moved but whose
+# submitted head is HEAD, a terminal run at another head, and no run all start
+# the run; an unreadable status (a failing call, unrecognized output, or an
+# active run without head_sha) is refused with exit 5 naming the failure. The
+# installed tool's own supersession is exercised by the isolated C7.4 execution
+# in the G3 evidence records, not here.
+rv_guard_status() {  # <file> <run-status> <head-sha> <submitted-head>
+  printf 'run:\n  id: "01RVGUARD"\n  branch: fm/rv-guard\n  status: %s\n  head: "%s"\n  head_sha: "%s"\nbranch_sync:\n  state: pipeline_owned\n  pipeline:\n    run: "01RVGUARD"\n    status: %s\n    submitted_head: %s\n    current_head: %s\n' \
+    "$2" "${3:0:8}" "$3" "$2" "$4" "$3" > "$1"
+}
+
+rv_guard_run() {  # <dir> <revision> <status-rc>; sets RV_OUT and RV_RC
+  : > "$1/calls.log"
+  if RV_OUT=$(cd "$1/repo" && FM_TEST_RV_LOG="$1/calls.log" FM_TEST_RV_STATUS="$1/status" \
+    FM_TEST_RV_STATUS_RC="$3" PATH="$1/bin:$PATH" \
+    "$ROOT/bin/fm-dod-lib.sh" run-validation --brief "$1/brief.md" --expect-revision "$2" 2>&1); then
+    RV_RC=0
+  else
+    RV_RC=$?
+  fi
+}
+
+test_run_validation_holds_a_different_head_while_a_run_is_active() {
+  local dir head other revision state
+  dir="$TMP_ROOT/run-validation-active-run-guard"
+  mkdir -p "$dir/bin"
+  fm_git_init_commit "$dir/repo"
+  git -C "$dir/repo" checkout -q -b fm/rv-guard
+  head=$(git -C "$dir/repo" rev-parse HEAD)
+  other=0123456789abcdef0123456789abcdef01234567
+  cat > "$dir/bin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${1:-} ${2:-}" >> "$FM_TEST_RV_LOG"
+if [ "${1:-} ${2:-}" = 'axi status' ]; then
+  cat "$FM_TEST_RV_STATUS"
+  exit "${FM_TEST_RV_STATUS_RC:-0}"
+fi
+[ "${1:-} ${2:-}" = 'axi run' ] && exit 0
+exit 9
+SH
+  chmod +x "$dir/bin/no-mistakes"
+  cat > "$dir/brief.md" <<'MD'
+# Task
+
+## Captain's intent
+Hold a different head while a validation run is active.
+
+## Firstmate spec
+Fixture only.
+
+# Proof bar
+Prep: Tier 0 - fixture.
+MD
+  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$dir/brief.md") \
+    || fail "run-validation guard: could not compute the fixture brief revision"
+
+  for state in running pending; do
+    rv_guard_status "$dir/status" "$state" "$other" "$other"
+    rv_guard_run "$dir" "$revision" 0
+    expect_code 4 "$RV_RC" "run-validation guard: a $state run at another head must be refused"
+    assert_contains "$RV_OUT" '01RVGUARD' "run-validation guard: the refusal did not name the active run"
+    assert_contains "$RV_OUT" 'no-mistakes axi abort' "run-validation guard: the refusal did not name the supported abort"
+    assert_contains "$RV_OUT" 'confirm through `no-mistakes axi status` that it has stopped' \
+      "run-validation guard: the refusal did not name the confirmed stop"
+    assert_contains "$RV_OUT" 'branch_sync.next_action' "run-validation guard: the refusal did not name branch_sync.next_action"
+    assert_contains "$RV_OUT" 'rerun this same run-validation command' "run-validation guard: the refusal did not name the rerun"
+    assert_grep 'axi status' "$dir/calls.log" "run-validation guard: status was not read before deciding"
+    assert_no_grep 'axi run' "$dir/calls.log" "run-validation guard: a $state run at another head was superseded anyway"
+  done
+
+  rv_guard_status "$dir/status" running "$head" "$head"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 0 "$RV_RC" "run-validation guard: a same-head resubmission must reattach ($RV_OUT)"
+  assert_grep 'axi run' "$dir/calls.log" "run-validation guard: the same-head resubmission did not reach axi run"
+
+  rv_guard_status "$dir/status" running "$other" "$head"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 0 "$RV_RC" "run-validation guard: HEAD equal to the submitted head must reattach ($RV_OUT)"
+  assert_grep 'axi run' "$dir/calls.log" "run-validation guard: the submitted-head resubmission did not reach axi run"
+
+  for state in completed failed cancelled ci_monitor_interrupted; do
+    rv_guard_status "$dir/status" "$state" "$other" "$other"
+    rv_guard_run "$dir" "$revision" 0
+    expect_code 0 "$RV_RC" "run-validation guard: a $state run must not hold the branch ($RV_OUT)"
+    assert_grep 'axi run' "$dir/calls.log" "run-validation guard: a $state run blocked a fresh run"
+  done
+
+  printf 'current_branch: fm/rv-guard\nruns_on_current_branch: 0\nhelp[1]: Start a run\n' > "$dir/status"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 0 "$RV_RC" "run-validation guard: no run on the branch must start one ($RV_OUT)"
+  assert_grep 'axi run' "$dir/calls.log" "run-validation guard: no run on the branch did not reach axi run"
+
+  printf 'error: daemon socket unreachable\n' > "$dir/status"
+  rv_guard_run "$dir" "$revision" 1
+  expect_code 5 "$RV_RC" "run-validation guard: a failing status call must be refused"
+  assert_contains "$RV_OUT" 'daemon socket unreachable' "run-validation guard: the refusal did not name the status failure"
+  assert_no_grep 'axi run' "$dir/calls.log" "run-validation guard: a failing status call still started a run"
+
+  printf 'unrelated output\n' > "$dir/status"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 5 "$RV_RC" "run-validation guard: unrecognized status output must be refused"
+  assert_no_grep 'axi run' "$dir/calls.log" "run-validation guard: unrecognized status output still started a run"
+
+  printf 'run:\n  id: "01RVGUARD"\n  status: running\n' > "$dir/status"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 5 "$RV_RC" "run-validation guard: an active run without head_sha must be refused"
+  assert_contains "$RV_OUT" 'reports no head_sha' "run-validation guard: the refusal did not name the missing head"
+  assert_no_grep 'axi run' "$dir/calls.log" "run-validation guard: an active run without head_sha still started a run"
+  pass "run-validation: an active run at another head is held with the supported sequence; same head, submitted head, terminal and no run proceed; unreadable status refuses"
+}
+
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
@@ -2112,3 +2233,4 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding
 test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants
 test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal
 test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal
+test_run_validation_holds_a_different_head_while_a_run_is_active
