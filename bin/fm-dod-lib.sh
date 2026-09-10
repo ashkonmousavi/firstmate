@@ -36,7 +36,11 @@
 # one exact `run-validation` command bound to the effective brief's SHA-256.
 # That command renders `--intent` from the current brief and refuses before the
 # tool starts when the receipt is stale, so acknowledgement cannot substitute
-# for validation consuming the refreshed contract. Other mentions of `--intent`
+# for validation consuming the refreshed contract. Before `no-mistakes axi run`
+# it reads the current branch's `no-mistakes axi status`: an active run holding
+# the branch at another head refuses with exit 4 (the installed tool would
+# otherwise let that push supersede it), an unreadable status refuses with exit
+# 5, and a same-head resubmission still reattaches. Other mentions of `--intent`
 # point here rather than restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
@@ -307,6 +311,64 @@ fm_brief_validation_intent() {  # <effective-brief>
   printf '\n'
 }
 
+# fm_dod_active_run_guard holds a fresh submission while an active no-mistakes
+# run holds the current branch at another head. The installed tool lets a push
+# of a different head supersede (cancel) an active run whose pipeline head has
+# not moved, so without this entry-boundary check run-validation would replace
+# the run a worker was told not to touch. Only the branch's structured
+# `no-mistakes axi status` decides: the run's own head or submitted head
+# reattaches as before, no run or a terminal run proceeds, an active run at
+# another head refuses with exit 4, and a status that cannot be read refuses
+# with exit 5. no-mistakes itself is unchanged; the supported release is the
+# abort, a confirmed stop, then branch_sync.next_action.
+fm_dod_active_run_guard() {
+  local status rc parsed has_run run_id run_status run_head submitted known head
+  if status=$(no-mistakes axi status 2>&1); then rc=0; else rc=$?; fi
+  if [ "$rc" -ne 0 ]; then
+    printf "error: run-validation cannot read \`no-mistakes axi status\` (exit %s): %s\nRefusing to start a run without knowing whether one already holds this branch.\n" \
+      "$rc" "$(printf '%s' "$status" | tr '\n' ' ' | cut -c1-400)" >&2
+    return 5
+  fi
+  parsed=$(printf '%s\n' "$status" | awk '
+    function val(line) { sub(/^[^:]*:[ ]*/, "", line); gsub(/^"|"$/, "", line); return line }
+    /^[^ ]/ { section = $0; sub(/:.*/, "", section); sub_section = "" }
+    /^current_branch:/ || /^runs_on_current_branch:/ { known = 1 }
+    section == "run" && /^  id:/ { id = val($0) }
+    section == "run" && /^  status:/ { status = val($0); has_run = 1 }
+    section == "run" && /^  head_sha:/ { head = val($0) }
+    section == "branch_sync" && /^  [^ ]/ { sub_section = $0; sub(/^  /, "", sub_section); sub(/:.*/, "", sub_section) }
+    section == "branch_sync" && sub_section == "pipeline" && /^    submitted_head:/ { submitted = val($0) }
+    END { printf "%s|%s|%s|%s|%s|%s\n", has_run + 0, id, status, head, submitted, known + 0 }
+  ')
+  IFS='|' read -r has_run run_id run_status run_head submitted known <<EOF
+$parsed
+EOF
+  if [ "$has_run" != 1 ]; then
+    [ "$known" = 1 ] && return 0
+    printf "error: run-validation cannot read \`no-mistakes axi status\`: its output names neither a run nor the current branch (%s)\nRefusing to start a run without knowing whether one already holds this branch.\n" \
+      "$(printf '%s' "$status" | tr '\n' ' ' | cut -c1-400)" >&2
+    return 5
+  fi
+  case "$run_status" in
+    completed|failed|cancelled|ci_monitor_interrupted) return 0 ;;
+  esac
+  if [ -z "$run_head" ]; then
+    printf "error: run-validation cannot read \`no-mistakes axi status\`: active run %s (status %s) reports no head_sha\nRefusing to start a run without knowing which head it holds.\n" \
+      "${run_id:-unknown}" "${run_status:-unknown}" >&2
+    return 5
+  fi
+  head=$(git rev-parse HEAD 2>&1) || {
+    printf 'error: run-validation cannot resolve HEAD to compare with active run %s: %s\n' "${run_id:-unknown}" "$head" >&2
+    return 5
+  }
+  if [ "$head" = "$run_head" ] || { [ -n "$submitted" ] && [ "$head" = "$submitted" ]; }; then
+    return 0
+  fi
+  printf "error: run-validation refuses to start a run: active no-mistakes run %s (status %s) holds this branch at %s (submitted %s) but HEAD is %s, and submitting a different head would supersede that run.\nIf replacing it is authorized, abort it with the supported \`no-mistakes axi abort\`, confirm through \`no-mistakes axi status\` that it has stopped, follow its \`branch_sync.next_action\`, then rerun this same run-validation command.\n" \
+    "${run_id:-unknown}" "$run_status" "$run_head" "${submitted:-unknown}" "$head" >&2
+  return 4
+}
+
 fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg...]
   local brief=$1 expected=$2 actual intent arg snapshot
   shift 2
@@ -365,6 +427,7 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
     echo "advisor discrepancy: effective brief changed while validation was being prepared; refuse stale validation and obtain a refreshed launch package" >&2
     return 3
   fi
+  fm_dod_active_run_guard || return
   no-mistakes axi run --intent "$intent" "$@"
 }
 
@@ -638,6 +701,7 @@ EOF
 You drive no-mistakes by responding to its gates, not by implementing fixes.
 Follow the guidance no-mistakes itself provides for the mechanics: it loads when you invoke /no-mistakes, and \`no-mistakes axi run --help\` plus the \`help\` lines in each \`axi\` response are authoritative and version-matched to the installed binary.
 When a spawned worker's launch overlay supplies a source-revision-bound \`run-validation\` command, start the run only through that exact command: it renders the real \`--intent\` from the effective brief and refuses a stale launch package before no-mistakes starts.
+That command also refuses and starts no run while an active no-mistakes run holds your branch at a head other than your current HEAD, or when \`no-mistakes axi status\` cannot be read: if replacing that run is authorized, abort it with the supported \`no-mistakes axi abort\`, confirm through \`no-mistakes axi status\` that it stopped, follow its \`branch_sync.next_action\`, then rerun the same command.
 When starting no-mistakes, pass \`--intent\` as two labeled parts in one string: \`Captain intent:\` and, when this brief carries a Proof bar section, \`Agreed proof contract:\`; neither part alone satisfies the contract then.
 Build the \`Captain intent:\` part from this brief's \`## Captain's intent\` subsection plus any later words the captain actually said.
 For a legacy brief with no such subsection, include only words explicitly labeled \`Captain:\`, \`Captain's words:\`, \`Captain's ask:\`, or \`Captain's intent:\`; never copy its mixed \`# Task\` wholesale. If it has no provenance-marked captain words, stop and ask firstmate instead of starting no-mistakes.

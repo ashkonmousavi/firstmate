@@ -175,7 +175,16 @@ if [ "${1:-}" = axi ] && [ "${2:-}" = abort ]; then
 fi
 if [ "${1:-}" = axi ] && [ "${2:-}" = status ]; then
   printf 'status\n' >> "$FM_FAKE_VALIDATION_CALL_LOG"
-  printf '%s\n' "${FM_FAKE_VALIDATION_CUSTODY:-released}"
+  # run-validation parses this before axi run, so print the real status shapes:
+  # released lists no run on the branch; pipeline-owned lists the cancelled old
+  # run whose unpublished pipeline commits still hold custody (terminal, so
+  # run-validation proceeds and this fake's axi run refusal answers).
+  case "${FM_FAKE_VALIDATION_CUSTODY:-released}" in
+    pipeline-owned)
+      printf 'run:\n  id: "controlled-b"\n  status: cancelled\n  head_sha: "%s"\noutcome: cancelled\ncustody: pipeline-owned\n' \
+        "$(git rev-parse HEAD 2>/dev/null)" ;;
+    *) printf 'current_branch: fixture\nruns_on_current_branch: 0\ncustody: %s\n' "${FM_FAKE_VALIDATION_CUSTODY:-released}" ;;
+  esac
   exit 0
 fi
 exit 9
