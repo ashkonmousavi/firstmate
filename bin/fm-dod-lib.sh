@@ -530,6 +530,7 @@ If firstmate designates this task as an integration owner, load `integration-bat
 Use exactly one of the following two record routes for each constituent.
 Never fabricate a constituent pull request or mark one merged merely to make it eligible for the batch.
 Preserve every independently required publication obligation imposed by the constituent's selected delivery route.
+The combined pull request's body is pipeline output only: never run `gh pr edit` or `gh-axi pr edit` on it, and get every required row and table below into the body through the run's intent, never a hand-edit.
 
 For every PR-backed constituent, the combined pull request body must contain this row shape:
 
@@ -646,6 +647,7 @@ The \`Captain intent:\` part must be self-sufficient: that part plus the codebas
 When the captain's intent refers to a report, decision, or PR ("do items 1, 2, 3, and 7 of the report"), write the substance of the referenced items into the \`Captain intent:\` part in the captain's terms, not only the pointer; that substance is the captain's ask by reference, while Firstmate's build instructions and your own decisions still stay out.
 This replaces the no-mistakes skill's advice to enrich \`--intent\` with decisions and tradeoffs; that advice does not apply to Firstmate-dispatched work.
 Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix.
+The PR body is pipeline output only: never run \`gh pr edit\` or \`gh-axi pr edit\` on it, and required body content goes through the run's intent, never a hand-edit.
 
 Two firstmate-specific rules layer on top of that guidance:
 - ask-user findings are never yours to answer: escalate to firstmate using rule 6's ask-user format and stop.

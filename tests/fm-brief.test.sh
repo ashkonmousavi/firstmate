@@ -1413,6 +1413,27 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
   pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, join review, squash-honest landing record, and record binding"
 }
 
+# A batch owner once hand-edited a combined pull request body outside the
+# no-mistakes pipeline, which stripped the pipeline section and failed the
+# attestation check. Every no-mistakes ship's brief carries both the ordinary
+# completion instructions and the conditional integration-batch section (it
+# may later be designated an owner), so a plain no-mistakes brief with no
+# --batch-constituent-of must state the PR-body-is-pipeline-output rule in
+# both places.
+test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants() {
+  local home brief
+  home="$TMP_ROOT/no-mistakes-pr-body-pipeline-only"
+  mkdir -p "$home/data"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" pr-body-rule some-proj --mode no-mistakes >/dev/null 2>&1
+  brief="$home/data/pr-body-rule/brief.md"
+  # shellcheck disable=SC2016  # backticks are literal Markdown code spans.
+  assert_grep 'The PR body is pipeline output only: never run `gh pr edit` or `gh-axi pr edit` on it' "$brief" \
+    "no-mistakes DOD did not state the PR-body-is-pipeline-output rule in the ordinary variant"
+  assert_grep "The combined pull request's body is pipeline output only: never run \`gh pr edit\` or \`gh-axi pr edit\` on it" "$brief" \
+    "no-mistakes DOD did not state the PR-body-is-pipeline-output rule in the batch-owner variant"
+  pass "fm-brief.sh: the no-mistakes DOD states the PR body is pipeline output only, in both the ordinary and batch-owner variants"
+}
+
 # Controlled case C6 consumes generated briefs, then feeds the real owners
 # (bin/fm-pr-check.sh --absorbed-by, bin/fm-pr-merge.sh, bin/fm-teardown.sh)
 # behind a fake `gh`/`gh-axi` forge boundary - the same boundary shape the
@@ -2078,5 +2099,6 @@ test_ship_brief_carries_the_resource_line
 test_ship_brief_carries_the_surface_line
 test_ship_brief_carries_the_journey_line
 test_every_ship_dod_renders_the_conditional_integration_batch_binding
+test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants
 test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal
 test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal
