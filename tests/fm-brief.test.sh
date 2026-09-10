@@ -1942,6 +1942,8 @@ SH
   # string here.
   revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$xau_brief") \
     || fail "C7: could not compute the effective XAU brief's source revision"
+  # Fixture-authored label: it records this fixture's own custody variable,
+  # not a decision by any owner.
   printf 'worker-edit result=allowed custody=%s before-run=true\n' "$custody" >> "$events"
   active_run=c7-run
   custody=pipeline
@@ -1962,12 +1964,14 @@ SH
     FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
     PATH="$fakebin:$PATH" "$ROOT/bin/fm-crew-state.sh" c7-run-task)
   assert_contains "$out" 'state: working' \
-    "C7: fm-crew-state.sh did not read the real active run as pipeline custody"
+    "C7: fm-crew-state.sh did not classify the supplied active run listing as pipeline custody"
 
-  # The pipeline, not the worker, applies the accepted document correction.
-  # The fake answers with a real terminal run-step at a real commit; whether
-  # the installed no-mistakes actually performed a Document correction and Test
-  # recheck stays behind this fake boundary and is not proven by this fixture.
+  # The Document-step respond below reaches only the fake no-mistakes, which
+  # records its argv. The commit is then made from the existing HEAD^{tree}
+  # and the supplied status reads outcome: passed, so this fixture contains no
+  # documentation change, no executed Test recheck and no attestation: the
+  # assertion only proves fm-crew-state.sh classifies a supplied completed run
+  # as state: done. The events line is a fixture-authored label.
   FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
     PATH="$fakebin:$PATH" no-mistakes axi respond --run c7-run --step Document --action apply-accepted-fix --keep-diagnostics
   printf 'document-correction actor=pipeline scope=document-only\n' >> "$events"
@@ -1984,13 +1988,14 @@ SH
     FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
     PATH="$fakebin:$PATH" "$ROOT/bin/fm-crew-state.sh" c7-run-task)
   assert_contains "$out" 'state: done' \
-    "C7: fm-crew-state.sh did not read the completed Document-correction run as done, never skipped"
+    "C7: fm-crew-state.sh did not classify the supplied completed run listing as done"
 
-  # Active custody refuses a competing validation run: a real second
-  # run-validation attempt against the same fake no-mistakes, still reporting
-  # pipeline custody, is refused by the real owner rather than by a label this
-  # test writes. Firstmate mediation of any worker-facing gate is a policy
-  # statement with no dedicated owner call in this fixture and is not narrated.
+  # A second real bin/fm-dod-lib.sh run-validation attempt reaches the same
+  # fake no-mistakes, and the fake itself prints the active-custody refusal and
+  # exits 7. This proves run-validation invokes no-mistakes and propagates its
+  # refusal text and failing status; it does not exercise the installed tool's
+  # custody guard. Firstmate mediation of any worker-facing gate has no owner
+  # call in this fixture and is not narrated.
   [ "$custody" != worker ] || fail "C7: fixture did not transfer active-run custody"
   set +e
   out=$(FM_FAKE_C7_CUSTODY=pipeline-owned FM_TEST_NM_LOG="$home/no-mistakes.log" \
@@ -2000,13 +2005,15 @@ SH
   rc=$?
   set -e
   [ "$rc" -ne 0 ] \
-    || fail "C7: a competing run-validation attempt succeeded under active pipeline custody"
+    || fail "C7: run-validation exited 0 although the fake no-mistakes refused the second run"
   assert_contains "$out" 'pipeline already owns this branch' \
-    "C7: the competing-run refusal did not name the real owner's active-custody reason"
+    "C7: run-validation did not propagate the fake no-mistakes active-custody refusal text"
   printf 'competing-run result=refused active=%s\n' "$active_run" >> "$events"
 
-  # Custody genuinely returns to the worker only once no run is attributed to
-  # the branch: abort and recover, then read the real state again.
+  # The status and sync calls below reach only the fake, which accepts them
+  # without enforcing any protocol, and the bare run listing is then emptied.
+  # The assertion only proves fm-crew-state.sh stops reporting state: working
+  # once no run is listed; an emptied listing is not a custody-release receipt.
   printf 'run:\n  id: c7-run\n  outcome: cancelled\n  branch_sync:\n    next_action: recover_custody\n' > "$home/no-mistakes.status"
   : > "$home/axi-status-bare"
   FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
@@ -2021,8 +2028,11 @@ SH
   no_grep_tmp="$home/crew-state-after-recovery.out"
   printf '%s\n' "$out" > "$no_grep_tmp"
   assert_no_grep 'state: working' "$no_grep_tmp" \
-    "C7: fm-crew-state.sh still attributed an active pipeline run after abort/recover-custody"
+    "C7: fm-crew-state.sh still reported state: working after the supplied run listing was emptied"
   printf 'worker-edit result=allowed custody=%s\n' "$custody" >> "$events"
+  # From here to the pass line, every events line is a fixture-authored label
+  # asserted back by grep: it proves this fixture's own bookkeeping, not an
+  # owner's proof selection, escalation, recurrence or retry decision.
   {
     # A code/contract change renews affected proof only and explains retained proof.
     printf 'scope-change kind=code-contract renew=affected-review,affected-tests\n'
@@ -2064,7 +2074,7 @@ SH
     "C7: the halt lost custody or diagnosis"
   assert_grep 'unrelated-authorized-task result=continue' "$events" \
     "C7: a material discrepancy stopped unrelated authorized work"
-  pass "C7: generated validation instructions drive proportionate checks, bounded correction, custody, recurrence, and material escalation"
+  pass "C7: generated briefs select the in-run or report-only Document route and reject the obsolete instruction; run-validation renders the brief's intent and propagates a fake custody refusal; fm-crew-state.sh classifies supplied run listings; the remaining outcomes are fixture-authored labels"
 }
 
 test_script_parses
