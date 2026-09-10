@@ -19,7 +19,8 @@
 # failure, never the same result as no matches.
 # The block opens with the fixed machine-readable "Delivery contract: mode=<mode>"
 # line that bin/fm-spawn.sh checks a ship brief against.
-# This file is the one owner of the no-mistakes `--intent` contract: two labeled
+# This file is the one owner of the no-mistakes `--intent` contract and its
+# source-revision-bound validation invocation: two labeled
 # parts in one string, `Captain intent:` (the brief's `## Captain's intent`
 # subsection plus later captain words, never `## Firstmate spec` and never the
 # worker's own tradeoffs) and, when the brief carries a Proof bar section,
@@ -31,8 +32,12 @@
 # the intent refers to is written into it as substance, never left as a pointer.
 # bin/fm-brief.sh scaffolds those two `# Task` subsections; bin/fm-spawn.sh and
 # bin/fm-promote.sh refuse leftover `{TASK}` / `{FIRSTMATE_SPEC}` placeholders
-# through the helpers below. Other mentions of `--intent` point here rather than
-# restating the rule.
+# through the helpers below. A spawned no-mistakes worker's launch overlay carries
+# one exact `run-validation` command bound to the effective brief's SHA-256.
+# That command renders `--intent` from the current brief and refuses before the
+# tool starts when the receipt is stale, so acknowledgement cannot substitute
+# for validation consuming the refreshed contract. Other mentions of `--intent`
+# point here rather than restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
 
@@ -246,7 +251,125 @@ fm_brief_marked_captain_words() {  # <task-body>
   '
 }
 
-fm_brief_intent_overlay() {  # <captain-intent>
+fm_dod_shell_quote() {  # <text>
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
+fm_brief_source_revision() {  # <effective-brief>
+  local file=$1 digest
+  [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+  if command -v sha256sum >/dev/null 2>&1; then
+    digest=$(sha256sum -- "$file") || return 1
+    digest=${digest%% *}
+  elif command -v shasum >/dev/null 2>&1; then
+    digest=$(shasum -a 256 -- "$file") || return 1
+    digest=${digest%% *}
+  else
+    echo "error: no SHA-256 tool is available for the effective brief receipt" >&2
+    return 1
+  fi
+  case "$digest" in ''|*[!0-9A-Fa-f]*) return 1 ;; esac
+  [ "${#digest}" -eq 64 ] || return 1
+  printf 'sha256:%s' "$digest"
+}
+
+fm_brief_validation_intent() {  # <effective-brief>
+  local file=$1 captain proof legacy
+  fm_brief_task_content_valid "$file" || {
+    echo "error: effective brief has no valid Task content: $file" >&2
+    return 1
+  }
+  if fm_brief_task_heading_present "$file" "## Captain's intent"; then
+    captain=$(fm_brief_task_heading_body "$file" "## Captain's intent")
+  else
+    legacy=$(fm_brief_heading_body "$file" "# Task")
+    captain=$(fm_brief_marked_captain_words "$legacy")
+  fi
+  [ -n "$(printf '%s' "$captain" | tr -d '[:space:]')" ] || {
+    echo "error: effective brief has no provenance-marked captain intent: $file" >&2
+    return 1
+  }
+  printf 'Captain intent:\n%s' "$captain"
+  if fm_brief_heading_present "$file" "# Proof bar"; then
+    if grep -Eq '^(Prep|Resource|Surface|Journey): \{[A-Z]+\}$' "$file"; then
+      echo "error: effective brief contains an unfilled Proof bar input: $file" >&2
+      return 1
+    fi
+    proof=$(fm_brief_heading_body "$file" "# Proof bar")
+    [ -n "$(printf '%s' "$proof" | tr -d '[:space:]')" ] || {
+      echo "error: effective brief has an empty Proof bar: $file" >&2
+      return 1
+    }
+    printf '\n\nAgreed proof contract:\n# Proof bar\n%s' "$proof"
+  fi
+  printf '\n'
+}
+
+fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg...]
+  local brief=$1 expected=$2 actual intent arg snapshot
+  shift 2
+  case "${expected#sha256:}" in
+    ''|*[!0-9A-Fa-f]*) echo "error: --expect-revision must be a sha256 receipt" >&2; return 2 ;;
+  esac
+  case "$expected" in sha256:*) ;; *) echo "error: --expect-revision must be a sha256 receipt" >&2; return 2 ;; esac
+  [ "${#expected}" -eq 71 ] || {
+    echo "error: --expect-revision must be a sha256 receipt" >&2
+    return 2
+  }
+  actual=$(fm_brief_source_revision "$brief") || {
+    echo "error: cannot read the effective brief revision: $brief" >&2
+    return 2
+  }
+  if [ "$actual" != "$expected" ]; then
+    echo "advisor discrepancy: effective brief revision changed (expected $expected, current $actual); refuse stale validation and obtain a refreshed launch package" >&2
+    return 3
+  fi
+  for arg in "$@"; do
+    case "$arg" in
+      --intent|--intent=*|-y|--yes)
+        echo "error: run-validation owns --intent and refuses automatic gate approval" >&2
+        return 2
+        ;;
+    esac
+  done
+  snapshot=$(umask 077; mktemp "${TMPDIR:-/tmp}/fm-validation-brief.XXXXXX") || {
+    echo "error: cannot stage the effective brief for validation" >&2
+    return 2
+  }
+  if ! cp "$brief" "$snapshot"; then
+    rm -f -- "$snapshot"
+    echo "error: cannot stage the effective brief for validation" >&2
+    return 2
+  fi
+  actual=$(fm_brief_source_revision "$snapshot") || {
+    rm -f -- "$snapshot"
+    return 2
+  }
+  if [ "$actual" != "$expected" ]; then
+    rm -f -- "$snapshot"
+    echo "advisor discrepancy: effective brief changed while validation was being prepared; refuse stale validation and obtain a refreshed launch package" >&2
+    return 3
+  fi
+  intent=$(fm_brief_validation_intent "$snapshot") || {
+    rm -f -- "$snapshot"
+    return 2
+  }
+  rm -f -- "$snapshot"
+  actual=$(fm_brief_source_revision "$brief") || {
+    echo "error: cannot recheck the effective brief revision: $brief" >&2
+    return 2
+  }
+  if [ "$actual" != "$expected" ]; then
+    echo "advisor discrepancy: effective brief changed while validation was being prepared; refuse stale validation and obtain a refreshed launch package" >&2
+    return 3
+  fi
+  no-mistakes axi run --intent "$intent" "$@"
+}
+
+fm_brief_intent_overlay() {  # <captain-intent> <effective-brief> <source-revision> <runner>
+  local captain_intent=$1 brief=$2 revision=$3 runner=$4
   cat <<'EOF'
 
 # Current no-mistakes intent contract
@@ -255,12 +378,24 @@ Use the serialized captain intent below plus any later words the captain actuall
 
 ## Captain intent authorized for --intent
 EOF
-  printf '%s\n' "$1"
+  printf '%s\n' "$captain_intent"
   cat <<'EOF'
 
 Firstmate-authored constraints, acceptance criteria, implementation details, decisions, and tradeoffs are specification, not captain intent, and stay out of the `Captain intent:` part.
 The Definition of done's rule that the `Captain intent:` part must be self-sufficient still governs this part: resolve any report, decision, or PR the intent above refers to into its substance rather than passing the pointer.
 EOF
+  cat <<'EOF'
+
+## Validation instruction source receipt
+
+Start validation only through the exact revision-bound command below.
+It builds the actual `--intent` input from the effective brief and refuses before no-mistakes starts when that brief no longer matches this launch package.
+EOF
+  printf '%s%s%s\n' 'Effective brief: `' "$brief" '`'
+  printf '%s%s%s\n' 'Source revision: `' "$revision" '`'
+  printf '    %s run-validation --brief %s --expect-revision %s\n' \
+    "$(fm_dod_shell_quote "$runner")" "$(fm_dod_shell_quote "$brief")" \
+    "$(fm_dod_shell_quote "$revision")"
 }
 
 # Accept the current two-subsection contract only when both bodies have content;
@@ -501,6 +636,7 @@ EOF
 
 You drive no-mistakes by responding to its gates, not by implementing fixes.
 Follow the guidance no-mistakes itself provides for the mechanics: it loads when you invoke /no-mistakes, and \`no-mistakes axi run --help\` plus the \`help\` lines in each \`axi\` response are authoritative and version-matched to the installed binary.
+When a spawned worker's launch overlay supplies a source-revision-bound \`run-validation\` command, start the run only through that exact command: it renders the real \`--intent\` from the effective brief and refuses a stale launch package before no-mistakes starts.
 When starting no-mistakes, pass \`--intent\` as two labeled parts in one string: \`Captain intent:\` and, when this brief carries a Proof bar section, \`Agreed proof contract:\`; neither part alone satisfies the contract then.
 Build the \`Captain intent:\` part from this brief's \`## Captain's intent\` subsection plus any later words the captain actually said.
 For a legacy brief with no such subsection, include only words explicitly labeled \`Captain:\`, \`Captain's words:\`, \`Captain's ask:\`, or \`Captain's intent:\`; never copy its mixed \`# Task\` wholesale. If it has no provenance-marked captain words, stop and ask firstmate instead of starting no-mistakes.
@@ -534,3 +670,50 @@ EOF
       return 1 ;;
   esac
 }
+
+fm_dod_cli() {
+  local command=${1:-} brief='' expected=''
+  [ -n "$command" ] || {
+    echo "usage: fm-dod-lib.sh run-validation --brief FILE --expect-revision sha256:HEX [-- AXI-RUN-ARGS...]" >&2
+    return 2
+  }
+  shift
+  case "$command" in
+    run-validation)
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --brief)
+            [ "$#" -ge 2 ] || { echo "error: --brief requires a value" >&2; return 2; }
+            brief=$2
+            shift 2
+            ;;
+          --expect-revision)
+            [ "$#" -ge 2 ] || { echo "error: --expect-revision requires a value" >&2; return 2; }
+            expected=$2
+            shift 2
+            ;;
+          --)
+            shift
+            break
+            ;;
+          *)
+            echo "error: unknown run-validation argument: $1" >&2
+            return 2
+            ;;
+        esac
+      done
+      [ -n "$brief" ] || { echo "error: run-validation requires --brief" >&2; return 2; }
+      [ -n "$expected" ] || { echo "error: run-validation requires --expect-revision" >&2; return 2; }
+      fm_dod_run_validation "$brief" "$expected" "$@"
+      ;;
+    *)
+      echo "error: unknown fm-dod-lib command: $command" >&2
+      return 2
+      ;;
+  esac
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  set -eu
+  fm_dod_cli "$@"
+fi

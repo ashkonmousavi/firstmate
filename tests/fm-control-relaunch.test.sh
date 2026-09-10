@@ -46,6 +46,10 @@ relaunch_cleanup() {
     [ -n "$d" ] && rm -rf "$d"
   done
   rm -rf "$TMP_ROOT"
+  if [ -e "$TMP_ROOT" ]; then
+    /bin/sleep 0.1
+    rm -rf "$TMP_ROOT"
+  fi
 }
 trap relaunch_cleanup EXIT
 
@@ -71,6 +75,11 @@ case "${1:-}" in
       esac
     done
     payload=${1:-}
+    case "$payload" in
+      'Firstmate instruction waiting:'*)
+        [ "${FM_FAKE_RING_FAIL:-0}" != 1 ] || exit 1
+        ;;
+    esac
     if [ "$literal" = 1 ]; then
       printf '%s\n' "$payload" >> "$D/literal"
       case "$payload" in
@@ -180,6 +189,10 @@ new_case() {
 add_ship_task() {
   local dir=$1 id=$2 harness=${3:-claude}
   local home="$dir/home" proj="$dir/proj" wt="$dir/wt"
+  if [ -e "$proj/.git" ] || [ -e "$wt/.git" ]; then
+    proj="$dir/proj-$id"
+    wt="$dir/wt-$id"
+  fi
   fm_git_worktree "$proj" "$wt" "task-$id"
   mkdir -p "$home/data/$id"
   cat > "$home/data/$id/brief.md" <<EOF
@@ -241,6 +254,13 @@ run_spawn() {  # <case-dir> <args...>
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
     "$SPAWN" "$@" 2>&1
+}
+
+run_send_with_lost_doorbell() {  # <case-dir> <id> <message>
+  local dir=$1 id=$2 message=$3
+  env PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+    FM_FAKE_DIR="$dir/fake" FM_FAKE_RING_FAIL=1 FM_SEND_SETTLE=0 \
+    "$ROOT/bin/fm-send.sh" "$id" "$message"
 }
 
 meta_field() {  # <case-dir> <id> <key>
@@ -398,6 +418,67 @@ test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint() {
   assert_grep "/exit" "$dir/fake/literal" "the previous agent should have been exited"
   assert_grep "encode launch-brief" "$dir/fake/literal" "the replacement should have been launched"
   pass "fm-control relaunch: a same-harness relaunch replaces the agent in the same endpoint and worktree"
+}
+
+# C3 step 6 independently proves that a package-B inbox record survives a lost
+# doorbell and that relaunch regenerates the worker-facing launch from B while
+# preserving unlanded work. The real validation-input consumer is exercised in
+# fm-spawn-dispatch-profile.test.sh; this case owns interruption durability.
+test_c3_lost_doorbell_relaunch_consumes_pending_package_before_old_work() {
+  local dir out rc=0 brief revision
+  dir=$(new_case c3-lost-doorbell rl-c3)
+  add_ship_task "$dir" rl-c3 claude
+  printf '%s\n' 'unlanded-A-work' > "$dir/wt/unlanded-a.txt"
+  cat > "$dir/home/data/rl-c3/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Package B replaces schema-v1 with schema-v2 and requires the next worker action to process the durable pending instruction before resuming A work.
+
+## Firstmate spec
+Preserve unlanded code and relaunch the same task from the current effective brief.
+
+# Proof bar
+Prep: Tier 1 - package B relaunch fixture
+Resource: one isolated shell test process
+Surface: none: instruction delivery has no operator-visible surface
+Journey: none: controlled machinery case
+
+P-B: prior P1 is invalidated; schema-v2 proof must be regenerated.
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+EOF
+  run_send_with_lost_doorbell "$dir" rl-c3 \
+    'Package B is durable: consume schema-v2 and invalidate P1 before resuming A.' \
+    >"$dir/send.out" 2>"$dir/send.err" \
+    || fail "a failed package-B doorbell should still count as a durable send"
+  assert_present "$dir/home/state/rl-c3.inbox/001.msg" \
+    "lost doorbell lost the pending package-B record"
+  assert_contains "$(cat "$dir/send.err")" 'will re-ring' \
+    "lost doorbell did not report durable replay ownership"
+
+  out=$(run_control "$dir" rl-c3 relaunch --note \
+    "Interrupted before package B acknowledgement; process pending inbox records before resuming A work") || rc=$?
+  expect_code 0 "$rc" "relaunch after the lost doorbell should succeed"$'\n'"$out"
+  brief="$dir/home/data/rl-c3/launch-brief.md"
+  assert_present "$brief" "relaunch did not regenerate the worker-facing launch brief"
+  assert_grep 'Package B replaces schema-v1 with schema-v2' "$brief" \
+    "replacement worker launch did not consume package B"
+  assert_grep 'prior P1 is invalidated' "$brief" \
+    "replacement worker launch lost package B's proof disposition"
+  assert_grep 'process pending inbox records before resuming A work' \
+    "$dir/home/data/rl-c3/brief.md" \
+    "replacement worker's next action did not prioritize the durable inbox"
+  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ \
+    "$ROOT/bin/fm-dod-lib.sh" "$dir/home/data/rl-c3/brief.md")
+  assert_grep "Source revision: \`$revision\`" "$brief" \
+    "replacement validation instruction was not bound to effective package B"
+  assert_present "$dir/home/state/rl-c3.inbox/001.msg" \
+    "relaunch removed package B before the replacement could acknowledge it"
+  assert_present "$dir/wt/unlanded-a.txt" "relaunch discarded unlanded A work"
+  [ -n "$(git -C "$dir/wt" status --porcelain -- unlanded-a.txt)" ] \
+    || fail "relaunch falsely treated unlanded A work as committed"
+  pass "C3 relaunch: lost doorbell preserves pending B, prioritizes it, and keeps unlanded work"
 }
 
 test_relaunch_preserves_durable_task_metadata() {
@@ -1865,6 +1946,7 @@ test_relaunch_moves_a_drifted_item_back_in_flight() {
 }
 
 test_same_harness_relaunch_keeps_identity_and_reuses_the_endpoint
+test_c3_lost_doorbell_relaunch_consumes_pending_package_before_old_work
 test_relaunch_preserves_durable_task_metadata
 test_relaunch_keeps_the_recorded_merge_poll_armed
 test_relaunch_serializes_concurrent_durable_metadata_publication

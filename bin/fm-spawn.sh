@@ -29,7 +29,10 @@
 #   "none: <reason>"). The Journey line is checked for the unfilled placeholder
 #   only, never for absence, so a brief predating the line keeps spawning.
 #   For a no-mistakes ship, spawn renders `launch-brief.md` with the current
-#   `--intent` contract and the extracted captain intent. A legacy mixed Task is
+#   `--intent` contract, the extracted captain intent, and a validation command
+#   bound to the effective brief's SHA-256 source revision. The command renders
+#   the real `--intent` input from that brief and refuses a stale receipt before
+#   no-mistakes starts. A legacy mixed Task is
 #   accepted there only under bin/fm-dod-lib.sh's provenance-marking rules;
 #   unmarked legacy Tasks stop for migration rather than becoming intent. That
 #   library owns the parsing and intent rules. When the explicit mode carries
@@ -2201,11 +2204,16 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fi
     fi
     SOURCE_BRIEF=$BRIEF
+    SOURCE_REVISION=$(fm_brief_source_revision "$SOURCE_BRIEF") || {
+      echo "error: could not compute the effective brief revision for $SOURCE_BRIEF" >&2
+      exit 1
+    }
     BRIEF="$DATA/$ID/launch-brief.md"
     BRIEF_TMP="$DATA/$ID/.launch-brief.md.${BASHPID:-$$}"
     {
       cat "$SOURCE_BRIEF"
-      fm_brief_intent_overlay "$CAPTAIN_INTENT"
+      fm_brief_intent_overlay "$CAPTAIN_INTENT" "$SOURCE_BRIEF" "$SOURCE_REVISION" \
+        "$FM_ROOT/bin/fm-dod-lib.sh"
     } > "$BRIEF_TMP" || { rm -f -- "$BRIEF_TMP"; echo "error: could not render current intent contract for $SOURCE_BRIEF" >&2; exit 1; }
     if ! mv "$BRIEF_TMP" "$BRIEF"; then
       rm -f -- "$BRIEF_TMP"

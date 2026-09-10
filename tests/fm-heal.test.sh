@@ -98,6 +98,68 @@ expect_failure() {
   assert_contains "$out" "$expected" "refusal did not explain '$expected'"
 }
 
+# Controlled ordinary task/status consumer for C4. It always records an
+# observation through the real heal owner, but only a distinct occurrence newer
+# than the finding's verification makes affected proof/actionable work stale.
+# The caller owns stable evidence keys; fm-heal deliberately does not infer them.
+c4_consume_observation() {  # <home> <id> <key> <observed-at> <evidence>
+  local home=$1 id=$2 key=$3 observed=$4 evidence=$5 finding out verified state
+  finding="$home/data/heal/findings/$id.md"
+  out=$(run_owned "$home" observe --id "$id" --event-key "$key" \
+    --observed-at "$observed" --notifications 1 --evidence "$evidence") || return
+  printf '%s\n' "$out" >> "$home/consumer-observations.log"
+  assert_contains "$out" 'finding=' "ordinary consumer did not invoke the heal observation owner"
+  case "$out" in
+    *'new_occurrence=no'*)
+      state=$(meta_field "$finding" state)
+      [ "$state" = Open ] && [ ! -s "$home/actionable-corrections.log" ] || return 0
+      ;;
+  esac
+  verified=$(meta_field "$finding" last_verification)
+  if [ -n "$verified" ] && [[ "$observed" < "$verified" || "$observed" = "$verified" ]]; then
+    printf 'historical-distinct:%s\n' "$key" >> "$home/consumer-history.log"
+    return 0
+  fi
+  if [ "$(meta_field "$finding" state)" = Open ]; then
+    run_owned "$home" transition "$id" Active \
+      --reason "ordinary consumer accepted actionable evidence $evidence" \
+      --owner task:c4-existing-owner >/dev/null || return
+  fi
+  printf 'invalidated:%s\n' "$evidence" > "$home/affected-proof-P1"
+  printf 'correction:%s\n' "$key" >> "$home/actionable-corrections.log"
+  printf 'run:%s\n' "$key" >> "$home/pipeline-launches.log"
+}
+
+# The task/status owner validates consuming semantics before asking the manual
+# record helper to call a correction Fixed. A path string or parseable record is
+# not enough: this fixture requires a measured passed result for the affected
+# workflow and exact candidate.
+c4_close_fixed_from_consumer() {  # <home> <id> <proof-file> <candidate>
+  local home=$1 id=$2 proof_file=$3 candidate=$4
+  if [ ! -f "$proof_file" ] \
+    || ! grep -Fqx 'workflow=c4-ordinary-consumer' "$proof_file" \
+    || ! grep -Fqx "candidate=$candidate" "$proof_file" \
+    || ! grep -Fqx 'result=passed' "$proof_file" \
+    || ! grep -Eq '^measured_evidence=[^[:space:]].+' "$proof_file"; then
+    printf '%s\n' 'advisor discrepancy: consuming-workflow evidence is absent or not a measured pass' >&2
+    return 12
+  fi
+  run_owned "$home" transition "$id" Closed \
+    --reason 'ordinary consumer measured the repaired workflow' \
+    --disposition Fixed --evidence "candidate:$candidate" \
+    --consumer-proof "workflow:c4-ordinary-consumer:$candidate:measured-pass" >/dev/null
+}
+
+c4_retry_or_halt() {  # <home> <max-attempts>
+  local home=$1 max=$2 attempts
+  attempts=$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')
+  if [ "$attempts" -ge "$max" ]; then
+    printf 'advisor discrepancy: correction retry limit %s reached after the second tool-mechanism failure; automatic rerun halted\n' "$max" >&2
+    return 13
+  fi
+  printf 'run:bounded-retry\n' >> "$home/pipeline-launches.log"
+}
+
 current_summary_candidate() {
   python3 - "$1" "$2" <<'PY'
 import sys
@@ -280,6 +342,132 @@ test_repeated_notifications_count_one_occurrence() {
   pass "heal observations: notifications and independent occurrences remain separate"
 }
 
+# C4 independently proves that the ordinary task/status consumer invokes the
+# manual heal owner, deduplicates stable-key wakes, acts on measured recurrence,
+# protects unrelated proof/work, rejects semantic-proof stand-ins, and halts at
+# its bounded retry limit. The helper's standalone capability is not the proof.
+test_c4_ordinary_consumer_distinguishes_duplicate_wakes_from_measured_recurrence() {
+  local home finding out status before_p2 before_work
+  home=$(new_home c4-ordinary-consumer)
+  run_owned "$home" init >/dev/null
+  new_finding "$home" c4-existing mechanism-c4 recurring-failure task:c4-existing-owner
+  finding="$home/data/heal/findings/c4-existing.md"
+  printf '%s\n' 'proof:P1:E1-current' > "$home/affected-proof-P1"
+  printf '%s\n' 'proof:P2:unaffected-current' > "$home/unaffected-proof-P2"
+  printf '%s\n' 'authorized-work:continuing' > "$home/unrelated-authorized-work"
+  : > "$home/consumer-observations.log"
+  : > "$home/consumer-history.log"
+  : > "$home/actionable-corrections.log"
+  : > "$home/pipeline-launches.log"
+
+  # The existing E1 record is delivered once to its ordinary consumer, which
+  # performs one correction and one pipeline launch. Subsequent self/poll wakes
+  # and an out-of-order retry carry the same stable key.
+  c4_consume_observation "$home" c4-existing event-c4-existing-1 \
+    2026-09-09T12:01:00Z evidence:E1:self \
+    || fail "self wake did not reach the ordinary consumer"
+  c4_consume_observation "$home" c4-existing event-c4-existing-1 \
+    2026-09-09T12:02:00Z evidence:E1:poll \
+    || fail "poll duplicate did not reach the ordinary consumer"
+  c4_consume_observation "$home" c4-existing event-c4-existing-1 \
+    2026-09-09T11:59:00Z evidence:E1:reordered-retry \
+    || fail "reordered retry did not reach the ordinary consumer"
+  [ "$(meta_field "$finding" occurrence_count)" = 1 ] \
+    || fail "E1 self/poll/reordered duplicates created substantive occurrences"
+  [ "$(wc -l < "$home/actionable-corrections.log" | tr -d ' ')" = 1 ] \
+    || fail "duplicate E1 wakes created repeated actionable corrections"
+  [ "$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')" = 1 ] \
+    || fail "duplicate E1 wakes launched the pipeline repeatedly"
+
+  run_owned "$home" transition c4-existing Unverified \
+    --reason 'E1 correction complete but consumer proof pending' \
+    --evidence candidate:e1 --proof-required 'measured ordinary consuming workflow' >/dev/null
+  printf '%s\n' "$home/path-only-proof.json" > "$home/path-only.txt"
+  set +e
+  out=$(c4_close_fixed_from_consumer "$home" c4-existing "$home/path-only.txt" candidate-e1 2>&1)
+  status=$?
+  set -e
+  expect_code 12 "$status" "a file path must not be represented as semantic consuming proof"
+  assert_contains "$out" 'consuming-workflow evidence is absent or not a measured pass' \
+    "path-only semantic refusal did not return its discrepancy"
+  cat > "$home/structural-proof.txt" <<'EOF'
+workflow=c4-ordinary-consumer
+candidate=candidate-e1
+result=not-run
+measured_evidence=record-is-parseable-only
+EOF
+  set +e
+  out=$(c4_close_fixed_from_consumer "$home" c4-existing "$home/structural-proof.txt" candidate-e1 2>&1)
+  status=$?
+  set -e
+  expect_code 12 "$status" "a structurally valid record must not stand in for a measured pass"
+  [ "$(meta_field "$finding" state)" = Unverified ] \
+    || fail "semantic-proof stand-ins called the E1 correction Fixed"
+  cat > "$home/measured-proof.txt" <<'EOF'
+workflow=c4-ordinary-consumer
+candidate=candidate-e1
+result=passed
+measured_evidence=fixture-workflow-E1-consumed-candidate-e1
+EOF
+  c4_close_fixed_from_consumer "$home" c4-existing "$home/measured-proof.txt" candidate-e1 \
+    || fail "measured E1 consumer proof did not close the existing finding"
+  [ "$(meta_field "$finding" state)" = Closed ] || fail "measured E1 proof did not mark the correction Fixed"
+  printf '%s\n' 'proof:P1:E1-fixed' > "$home/affected-proof-P1"
+  run_owned "$home" verify c4-existing --verified-at 2026-09-09T12:05:00Z \
+    --evidence workflow:E1:fixed >/dev/null
+
+  before_p2=$(cat "$home/unaffected-proof-P2")
+  before_work=$(cat "$home/unrelated-authorized-work")
+  c4_consume_observation "$home" c4-existing event-c4-existing-2 \
+    2026-09-09T12:06:00Z evidence:E2:measured-same-cause \
+    || fail "measured E2 did not reach the ordinary consumer"
+  [ "$(meta_field "$finding" occurrence_count)" = 2 ] \
+    || fail "legitimately distinct E2 was not recorded once"
+  [ "$(meta_field "$finding" state)" = Active ] \
+    || fail "E2 did not reopen and reconcile the existing owner into active correction"
+  [ -z "$(meta_field "$finding" disposition)" ] \
+    || fail "E2 retained the earlier Fixed disposition"
+  [ -z "$(meta_field "$finding" closure_evidence)" ] \
+    || fail "E2 retained the earlier closure evidence"
+  [ -z "$(meta_field "$finding" consumer_proof)" ] \
+    || fail "E2 retained affected consuming proof P1"
+  assert_grep 'invalidated:evidence:E2:measured-same-cause' "$home/affected-proof-P1" \
+    "ordinary consumer did not invalidate affected proof P1"
+  [ "$(cat "$home/unaffected-proof-P2")" = "$before_p2" ] \
+    || fail "E2 invalidated unrelated proof P2"
+  [ "$(cat "$home/unrelated-authorized-work")" = "$before_work" ] \
+    || fail "E2 stopped unrelated authorized work"
+  [ "$(wc -l < "$home/actionable-corrections.log" | tr -d ' ')" = 2 ] \
+    || fail "E2 did not create exactly one new actionable correction"
+  [ "$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')" = 2 ] \
+    || fail "E2 did not create exactly one new pipeline launch"
+
+  # A legitimately distinct but delayed measurement remains history: its key is
+  # retained, its timestamp cannot displace E2, and it starts no correction.
+  c4_consume_observation "$home" c4-existing event-c4-historical-distinct \
+    2026-09-09T12:04:00Z evidence:distinct-but-out-of-order \
+    || fail "out-of-order distinct evidence did not reach the ordinary consumer"
+  [ "$(meta_field "$finding" occurrence_count)" = 3 ] \
+    || fail "legitimately distinct historical key was collapsed as a duplicate"
+  [ "$(meta_field "$finding" latest_occurrence)" = 2026-09-09T12:06:00Z ] \
+    || fail "out-of-order evidence moved latest occurrence backwards"
+  [ "$(wc -l < "$home/actionable-corrections.log" | tr -d ' ')" = 2 ] \
+    || fail "historical distinct evidence created current correction work"
+  [ "$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')" = 2 ] \
+    || fail "historical distinct evidence launched a fresh pipeline"
+
+  set +e
+  out=$(c4_retry_or_halt "$home" 2 2>&1)
+  status=$?
+  set -e
+  expect_code 13 "$status" "the second tool-mechanism failure must halt at the bounded retry limit"
+  assert_contains "$out" 'advisor discrepancy: correction retry limit 2 reached' \
+    "bounded halt did not return a concrete advisor discrepancy"
+  [ "$(wc -l < "$home/pipeline-launches.log" | tr -d ' ')" = 2 ] \
+    || fail "bounded halt started an endless automatic rerun"
+  pass "C4: ordinary consumer deduplicates stable wakes, reopens on E2, guards semantic proof, and halts bounded retries"
+}
+
 test_existing_owner_is_linked_without_duplicate_finding() {
   local home out status count
   home=$(new_home existing-owner)
@@ -385,6 +573,7 @@ test_draft_publication_is_refused_and_visible_without_blocking_other_work
 test_new_recurrence_invalidates_old_consumer_proof_but_repeat_notices_do_not
 test_verified_owner_and_read_only_advisor_are_distinct
 test_repeated_notifications_count_one_occurrence
+test_c4_ordinary_consumer_distinguishes_duplicate_wakes_from_measured_recurrence
 test_existing_owner_is_linked_without_duplicate_finding
 test_historical_verification_does_not_reopen_a_corrected_defect
 test_legitimate_hold_and_ownerless_obligation_stay_distinct

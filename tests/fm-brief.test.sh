@@ -403,6 +403,8 @@ test_no_mistakes_dod_wording() {
   # shellcheck disable=SC2016  # single quotes are deliberate: the backticks must stay literal
   assert_grep '`help`' "$brief" \
     "no-mistakes DOD must render literal backticks around help"
+  assert_grep "start the run only through that exact command: it renders the real \`--intent\` from the effective brief and refuses a stale launch package before no-mistakes starts" "$brief" \
+    "no-mistakes DOD must route a spawned worker through the source-revision-bound validation consumer"
   # --intent carries two labeled parts (Codex advisor review 2026-09-04, finding
   # A3): this base text is the one owner both fm-brief.sh and fm-promote.sh
   # render, so it must never say the Captain intent part is the ONLY thing
