@@ -371,6 +371,236 @@ test_release_frees_held_work() {
   pass "release frees held work with the captain's words recorded and the body preserved"
 }
 
+# Controlled case C1.
+# Candidate: the existing captain-answer owner, tasks-axi dependency state, and
+# durable steering inbox, composed by an explicitly supplied affected-task
+# handler rather than by parsing a free-form hold reason.
+# Fixture boundary: make_home's isolated FM_HOME/data/state/config, real
+# tasks-axi against only that fixture backlog, and fake tmux/treehouse/forge/
+# validation commands.
+# Assertions: exact answer integrity, structural release, independent holds,
+# revised task and brief consumption, idempotent replay, two interruption
+# recoveries, and the required authority/digest/mode refusals.
+test_c1_answer_follow_through_updates_dependent_instruction_and_consumption() {
+  local home q w u r q_release w_release q_interrupted w_interrupted fb show rc
+  local pending before_body before_brief before_inbox before_runs after_body after_brief after_inbox after_runs
+  home=$(make_home controlled-c1)
+  q=sample-c1-question
+  w=sample-c1-work
+  u=sample-c1-unrelated
+  r=sample-c1-reserved
+  q_release=sample-c1-release-question
+  w_release=sample-c1-release-work
+  q_interrupted=sample-c1-interrupted-question
+  w_interrupted=sample-c1-interrupted-work
+  fb="$home/fakebin"
+
+  cat > "$fb/tmux" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  display-message) printf 'fakepane\n' ;;
+  capture-pane) printf 'idle\n' ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/tmux"
+
+  run_captain "$home" hold "$q" --title "Choose the routing mode" \
+    --reason "captain routing answer required" --repo sample >/dev/null \
+    || fail "C1 could not create captain-held question Q"
+  tasks_in "$home" add "$w" "Apply the unanswered routing choice" --kind ship --repo sample \
+    --body "Next action: ask which routing choice is approved. Validation intent: prove the unanswered choice later." \
+    --blocked-by "$q" >/dev/null || fail "C1 could not create dependent work W"
+  tasks_in "$home" add "$u" "Independent ready work" --kind ship --repo sample >/dev/null \
+    || fail "C1 could not create unrelated ready work U"
+  tasks_in "$home" add "$r" "Reserved production action" --kind ship --repo sample >/dev/null \
+    || fail "C1 could not create reserved work R"
+  run_captain "$home" hold "$r" --reason "captain production authority is still required" >/dev/null \
+    || fail "C1 could not retain the legitimate reserved-action hold R"
+  mkdir -p "$home/data/$w"
+  cat > "$home/data/$w/brief.md" <<'EOF'
+# Effective brief
+
+Next action: ask which routing choice is approved.
+Validation intent: prove the unanswered choice later.
+EOF
+  write_origin_meta "$home" "$w" ship
+
+  # This is the finite package handler the controlled arrangement supplies.
+  # Its explicit W/Q/revision arguments are the authority boundary: it never
+  # searches prose to guess which task or semantic condition was affected.
+  c1_apply_revision() {  # <home> <work-id> <question-id> <answer> <revision>
+    local c_home=$1 c_work=$2 c_question=$3 c_answer=$4 c_revision=$5 c_show c_body tmp message
+    message="Revision $c_revision: question $c_question was answered exactly: $c_answer Next action: implement guarded routing. Validation intent: prove guarded routing with the supplied answer."
+    c_show=$(tasks_in "$c_home" show "$c_work" --full) || return 1
+    c_body=$(printf '%s\n' "$c_show" | sed -n 's/^  body: //p' | head -1)
+    if ! printf '%s\n' "$c_body" | grep -F "Revision $c_revision" >/dev/null; then
+      tmp="$c_home/$c_work.body"
+      printf 'Revision %s. Captain answer: %s\nNext action: implement guarded routing.\nValidation intent: prove guarded routing with the supplied answer.\n' \
+        "$c_revision" "$c_answer" > "$tmp"
+      tasks_in "$c_home" update "$c_work" --body-file "$tmp" --archive-body >/dev/null || return 1
+      cat > "$c_home/data/$c_work/brief.md" <<EOF
+# Effective brief
+
+Revision $c_revision.
+Captain answer: $c_answer
+Next action: implement guarded routing.
+Validation intent: prove guarded routing with the supplied answer.
+EOF
+    fi
+    if ! grep -R -F "Revision $c_revision:" "$c_home/state/$c_work.inbox" \
+      "$c_home/state/$c_work.inbox/handled" >/dev/null 2>&1; then
+      env PATH="$c_home/fakebin:$PATH" FM_ROOT_OVERRIDE="$c_home" FM_HOME="$c_home" \
+        FM_STATE_OVERRIDE="$c_home/state" FM_DATA_OVERRIDE="$c_home/data" \
+        FM_SEND_SETTLE=0 "$ROOT/bin/fm-send.sh" "$c_work" "$message" >/dev/null 2>&1 || return 1
+    fi
+  }
+
+  c1_consume_revision() {  # <home> <work-id> <answer> <revision>
+    local c_home=$1 c_work=$2 c_answer=$3 c_revision=$4 msg
+    msg=$(find "$c_home/state/$c_work.inbox" -maxdepth 1 -type f -name '*.msg' -print | LC_ALL=C sort | head -1)
+    [ -n "$msg" ] || return 1
+    grep -F "Revision $c_revision:" "$msg" >/dev/null || return 1
+    grep -F "$c_answer" "$msg" >/dev/null || return 1
+    printf 'next-action revision=%s answer=%s action=implement-guarded-routing\n' \
+      "$c_revision" "$c_answer" >> "$c_home/worker-next-actions"
+    printf '%s\n' "--intent revision=$c_revision answer=$c_answer validation=prove-guarded-routing" \
+      >> "$c_home/validation-runs"
+    mkdir -p "$c_home/state/$c_work.inbox/handled"
+    mv "$msg" "$c_home/state/$c_work.inbox/handled/"
+  }
+
+  c1_revision_consumed() {  # <home> <work-id> <answer> <revision>
+    local c_home=$1 c_work=$2 c_answer=$3 c_revision=$4 c_show
+    c_show=$(tasks_in "$c_home" show "$c_work" --full) || return 1
+    printf '%s\n' "$c_show" | grep -F "Revision $c_revision" >/dev/null || return 1
+    grep -F "Revision $c_revision." "$c_home/data/$c_work/brief.md" >/dev/null || return 1
+    grep -F "$c_answer" "$c_home/data/$c_work/brief.md" >/dev/null || return 1
+    grep -F "revision=$c_revision answer=$c_answer" "$c_home/worker-next-actions" >/dev/null || return 1
+    grep -F "revision=$c_revision answer=$c_answer" "$c_home/validation-runs" >/dev/null || return 1
+    ! grep -F "ask which routing choice is approved" "$c_home/data/$c_work/brief.md" >/dev/null
+  }
+
+  # Intentionally broken counterexample: merely closing Q leaves W's effective
+  # consumer inputs stale, so the same acceptance predicate must fail.
+  printf 'Use guarded routing.\n' > "$home/c1-answer.txt"
+  run_captain "$home" answer "$q" --decision-file "$home/c1-answer.txt" >/dev/null \
+    || fail "C1 could not record the authorized exact answer"
+  if c1_revision_consumed "$home" "$w" "Use guarded routing." c1-r1; then
+    fail "C1 broken counterexample passed when Q closed but W still quoted the old question"
+  fi
+
+  show=$(tasks_in "$home" show "$q" --full)
+  assert_contains "$show" "state: done" "C1 did not complete answered question Q"
+  show=$(tasks_in "$home" show "$w" --full)
+  assert_contains "$show" "blocked: no" "C1 did not structurally unblock W after Q completed"
+  show=$(tasks_in "$home" show "$u" --full)
+  assert_contains "$show" "blocked: no" "C1 changed unrelated ready work U"
+  show=$(tasks_in "$home" show "$r" --full)
+  assert_contains "$show" "held: yes" "C1 released legitimate reserved-action hold R"
+
+  c1_apply_revision "$home" "$w" "$q" "Use guarded routing." c1-r1 \
+    || fail "C1 handler could not persist and enqueue W's supplied revision"
+  pending=$(find "$home/state/$w.inbox" -maxdepth 1 -type f -name '*.msg' -print | head -1)
+  [ -n "$pending" ] || fail "C1 lost unfinished follow-through before worker consumption"
+  c1_consume_revision "$home" "$w" "Use guarded routing." c1-r1 \
+    || fail "C1 worker fixture could not consume the supplied revision"
+  c1_revision_consumed "$home" "$w" "Use guarded routing." c1-r1 \
+    || fail "C1 worker next action or validation intent stayed stale"
+
+  before_body=$(tasks_in "$home" show "$w" --full | shasum -a 256 | awk '{print $1}')
+  before_brief=$(shasum -a 256 "$home/data/$w/brief.md" | awk '{print $1}')
+  before_inbox=$(find "$home/state/$w.inbox" -type f -name '*.msg' | wc -l | tr -d ' ')
+  before_runs=$(wc -l < "$home/validation-runs" | tr -d ' ')
+  run_captain "$home" answer "$q" --decision-file "$home/c1-answer.txt" >/dev/null \
+    || fail "C1 exact answer replay was not idempotent"
+  c1_apply_revision "$home" "$w" "$q" "Use guarded routing." c1-r1 \
+    || fail "C1 exact handler replay was not idempotent"
+  after_body=$(tasks_in "$home" show "$w" --full | shasum -a 256 | awk '{print $1}')
+  after_brief=$(shasum -a 256 "$home/data/$w/brief.md" | awk '{print $1}')
+  after_inbox=$(find "$home/state/$w.inbox" -type f -name '*.msg' | wc -l | tr -d ' ')
+  after_runs=$(wc -l < "$home/validation-runs" | tr -d ' ')
+  [ "$before_body|$before_brief|$before_inbox|$before_runs" = \
+    "$after_body|$after_brief|$after_inbox|$after_runs" ] \
+    || fail "C1 exact replay duplicated a revision, inbox record, or validation run"
+
+  printf 'A different answer.\n' > "$home/c1-drift.txt"
+  rc=0
+  run_captain "$home" answer "$q" --decision-file "$home/c1-drift.txt" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || fail "C1 accepted a different digest as an exact retry"
+  rc=0
+  run_captain "$home" answer "$q" --decision-file "$home/c1-answer.txt" --release >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || fail "C1 accepted a release-versus-close mismatch"
+  rc=0
+  run_captain "$home" answer "$u" --decision-file "$home/c1-answer.txt" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || fail "C1 fabricated captain authority over ordinary ready work U"
+
+  # Interruption one: the answer body lands but the close fails, and an exact
+  # restart retry finishes the close without adding or changing the answer.
+  run_captain "$home" hold "$q_interrupted" --title "Choose interrupted routing" \
+    --reason "captain interrupted answer required" --repo sample >/dev/null
+  tasks_in "$home" add "$w_interrupted" "Apply interrupted routing" --kind ship --repo sample \
+    --blocked-by "$q_interrupted" >/dev/null
+  mkdir -p "$home/data/$w_interrupted"
+  printf '# Effective brief\n\nQuestion remains unanswered.\n' > "$home/data/$w_interrupted/brief.md"
+  write_origin_meta "$home" "$w_interrupted" ship
+  cat > "$fb/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = done ] && [ "\${2:-}" = "$q_interrupted" ] && [ ! -e "$home/c1-done-failed" ]; then
+  : > "$home/c1-done-failed"
+  exit 1
+fi
+exec "$TASKS_AXI_BIN" "\$@"
+SH
+  chmod +x "$fb/tasks-axi"
+  rc=0
+  run_captain "$home" answer "$q_interrupted" --decision-file "$home/c1-answer.txt" >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 0 ] || fail "C1 first injected interruption did not stop before close"
+  show=$(tasks_in "$home" show "$q_interrupted" --full)
+  assert_contains "$show" "Resolution recorded by fm-captain-hold" \
+    "C1 first interruption did not occur after answer text persisted"
+  assert_contains "$show" "state: queued" "C1 first interruption unexpectedly closed Q"
+  rm -f "$fb/tasks-axi"
+  run_captain "$home" answer "$q_interrupted" --decision-file "$home/c1-answer.txt" >/dev/null \
+    || fail "C1 restart retry did not finish interrupted answer close"
+  [ "$(tasks_in "$home" show "$q_interrupted" --full | grep -Ec 'Resolution recorded by fm-captain-hold')" -eq 1 ] \
+    || fail "C1 interrupted retry duplicated or changed the answer record"
+
+  # Interruption two: Q is closed and W is structurally released, but the
+  # explicit affected-task update has not run yet. A fresh shell invocation of
+  # the supplied handler finishes it, and the pending steer survives until the
+  # worker consumes it.
+  show=$(tasks_in "$home" show "$w_interrupted" --full)
+  assert_contains "$show" "blocked: no" "C1 second interruption precondition did not release W"
+  if grep -F 'Revision c1-r2' "$home/data/$w_interrupted/brief.md" >/dev/null; then
+    fail "C1 second interruption precondition already updated the dependent brief"
+  fi
+  c1_apply_revision "$home" "$w_interrupted" "$q_interrupted" "Use guarded routing." c1-r2 \
+    || fail "C1 restart lost the pending dependent update"
+  pending=$(find "$home/state/$w_interrupted.inbox" -maxdepth 1 -type f -name '*.msg' -print | head -1)
+  [ -n "$pending" ] || fail "C1 restart did not retain dependent follow-through until consumption"
+  c1_consume_revision "$home" "$w_interrupted" "Use guarded routing." c1-r2 \
+    || fail "C1 restarted worker could not consume the dependent update"
+  c1_revision_consumed "$home" "$w_interrupted" "Use guarded routing." c1-r2 \
+    || fail "C1 restarted worker or validation input used the stale question"
+
+  # The release-versus-complete distinction is structural and explicit.
+  run_captain "$home" hold "$q_release" --title "Release but do not complete" \
+    --reason "captain release answer required" --repo sample >/dev/null
+  tasks_in "$home" add "$w_release" "Work structurally blocked by released Q" --kind ship --repo sample \
+    --blocked-by "$q_release" >/dev/null
+  run_captain "$home" answer "$q_release" --decision-file "$home/c1-answer.txt" --release >/dev/null \
+    || fail "C1 could not exercise answer --release"
+  show=$(tasks_in "$home" show "$q_release" --full)
+  assert_contains "$show" "state: queued" "C1 --release completed Q instead of only lifting its hold"
+  show=$(tasks_in "$home" show "$w_release" --full)
+  assert_contains "$show" "blocked: yes" "C1 guessed that releasing Q completed W's structured dependency"
+  show=$(tasks_in "$home" show "$r" --full)
+  assert_contains "$show" "held: yes" "C1 guessed that unrelated hold prose was a structured Q dependency"
+
+  pass "C1 exact answers revise and reach the named dependent consumer, survive both interruptions, and preserve semantic refusals"
+}
+
 # Deferral is a date, not a live card: hold --until keeps the task out of
 # captain_actionable until due, tasks-axi's own date-gate expiry keeps the task
 # answerable, and Bearings renders the wait as a dated gate.
@@ -1527,6 +1757,7 @@ test_uninventoried_report_decision_refuses_completion
 test_completion_gate_attests_and_transfers
 test_answer_records_and_closes
 test_release_frees_held_work
+test_c1_answer_follow_through_updates_dependent_instruction_and_consumption
 test_deferral_leaves_captains_call_until_due
 test_out_of_band_close_is_recordable
 test_visual_review_uses_shared_completion_owner

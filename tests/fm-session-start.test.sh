@@ -746,7 +746,7 @@ EOF
 # --- lock refusal: read-only path --------------------------------------------
 
 test_lock_refusal_read_only_path() {
-  local rec root home fakebin holder_pid out status
+  local rec root home fakebin holder_pid out status mutable_before mutable_after
   rec=$(new_world lock-refusal)
   IFS='|' read -r root home fakebin <<EOF
 $rec
@@ -762,11 +762,20 @@ EOF
   mkdir -p "$home/other-secondmate/state"
   fm_write_secondmate_meta "$home/state/sm-x.meta" "$home/other-secondmate" "firstmate:fm-sm-x" alpha
   append_wake "$home/state" signal sm-x "done: surfaced before refusal" || fail "seed wake failed"
+  mkdir -p "$home/state/work-x.inbox/handled" "$home/data/work-x"
+  printf 'schema=fm-task-inbox.v1\nat=2026-09-10T00:00:00Z\n--\npending steer must remain\n' \
+    > "$home/state/work-x.inbox/001.msg"
+  fm_write_meta "$home/state/cleanup-x.meta" "kind=ship" "spawn_gen=cleanup-x-generation"
+  printf 'id=cleanup-x\ndata=%s\nspawn_gen=cleanup-x-generation\narg=--note\narg=local%%20main\n' \
+    "$home/data" > "$home/state/cleanup-x.backlog-close"
+  printf '# Current package B\n' > "$home/data/work-x/brief.md"
   git -C "$root" checkout -q -B fm/read-only-tangle
 
   sleep 300 &
   holder_pid=$!
   printf '%s\n' "$holder_pid" > "$home/state/.lock"
+  mutable_before=$(find "$home/state" "$home/data" "$home/config" \
+    -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256)
 
   status=0
   out=$(run_session_start "$home" "$root" "$fakebin:$BASE_PATH") || status=$?
@@ -799,11 +808,29 @@ EOF
   assert_not_contains "$out" "SECONDMATE_SYNC" "mutating secondmate sweep ran during a lock refusal"
   assert_not_contains "$out" "NUDGE_SECONDMATES" "mutating secondmate sweep ran during a lock refusal"
 
+  # Controlled C5.4 mutation tripwire: one whole-tree content receipt plus
+  # explicit lifecycle records proves the refused session did not spawn,
+  # steer, acknowledge a wake, clean an endpoint, or replay recovery.
+  mutable_after=$(find "$home/state" "$home/data" "$home/config" \
+    -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256)
+  [ "$mutable_before" = "$mutable_after" ] \
+    || fail "a lock-refused session mutated fixture state, data, or config"
+  assert_present "$home/state/work-x.inbox/001.msg" \
+    "a lock-refused session acknowledged or consumed a pending steer"
+  assert_present "$home/state/cleanup-x.meta" \
+    "a lock-refused session performed task cleanup"
+  assert_present "$home/state/cleanup-x.backlog-close" \
+    "a lock-refused session replayed pending recovery"
+  [ -s "$home/state/.wake-queue" ] \
+    || fail "a lock-refused session acknowledged the durable wake"
+  [ "$(find "$home/state" -maxdepth 1 -type f -name '*.meta' | wc -l | tr -d ' ')" -eq 2 ] \
+    || fail "a lock-refused session spawned or retired a task record"
+
   # The rest of the digest (read-only-safe) still completed.
   assert_contains "$out" "FLEET STATE" "fleet-state digest section missing on the read-only path"
   assert_contains "$out" "NEXT STEP" "closing reminder missing on the read-only path"
 
-  pass "a lock refusal prints a loud read-only banner, skips every mutating step, and still completes the digest"
+  pass "a lock refusal prints a loud read-only banner and performs no spawn, steer, acknowledgement, cleanup, or recovery mutation"
 }
 
 test_lock_write_failure_read_only_path() {
@@ -954,7 +981,7 @@ EOF
   make_fake_toolchain "$fakebin"
   make_fake_ps_claude "$fakebin"
   # Force a MISSING diagnostic line so the bootstrap section is non-trivial.
-  rm -f "$fakebin/node"
+  rm -f "$fakebin/chrome-devtools-axi"
 
   printf 'window=fm-sess:w1\nkind=ship\n' > "$home/state/task-a.meta"
   printf 'Captain memory that may be truncated away safely.\n' > "$home/data/captain.md"
@@ -993,7 +1020,7 @@ EOF
   assert_contains "$out" "Captain memory that may be truncated away safely." \
     "the ordering fixture did not actually print a memory file"
 
-  missing_line=$(printf '%s\n' "$out" | grep -n 'MISSING: node' | head -1 | cut -d: -f1)
+  missing_line=$(printf '%s\n' "$out" | grep -n 'MISSING: chrome-devtools-axi' | head -1 | cut -d: -f1)
   [ -n "$missing_line" ] || fail "MISSING diagnostic did not appear at all"
   [ "$missing_line" -lt "$fleet_line" ] || fail "actionable MISSING diagnostic was buried after the bulk fleet-state digest"
 
@@ -1394,7 +1421,7 @@ $rec
 EOF
   make_fake_toolchain "$fakebin"
   make_fake_ps_claude "$fakebin"
-  rm -f "$fakebin/node"
+  rm -f "$fakebin/chrome-devtools-axi"
 
   printf 'needs-decision: pick a library\n' > "$home/state/task-z.status"
   append_wake "$home/state" signal task-z.status "needs-decision: pick a library"
@@ -1404,7 +1431,8 @@ EOF
   # fm-lock.sh's own exact success text.
   assert_contains "$out" "lock acquired: harness pid" "fm-lock.sh's real output did not appear (composition, not reimplementation)"
   # fm-bootstrap.sh's own exact MISSING-tool line format.
-  assert_contains "$out" "MISSING: node (install:" "fm-bootstrap.sh's real detect line did not appear verbatim"
+  assert_contains "$out" "MISSING: chrome-devtools-axi (install:" \
+    "fm-bootstrap.sh's real detect line did not appear verbatim"
   # fm-wake-drain.sh's real drained record (raw tab-separated queue line).
   assert_contains "$out" "$(printf 'signal\ttask-z.status\tneeds-decision: pick a library')" "fm-wake-drain.sh's real drained record did not appear"
   assert_contains "$out" "wake annotation: latest wake-EVENT observed at drain, not current state: task-z.status: needs-decision: pick a library" "fm-session-start.sh did not preserve the drain's separate annotation line"

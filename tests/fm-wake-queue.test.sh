@@ -1541,6 +1541,170 @@ test_historical_annotation_skips_announced_status() {
   pass "historical annotations replay nothing already announced and keep everything new"
 }
 
+# Controlled case C5, steps 1 through 3 and 5.
+# Candidate: current task brief plus durable inbox, pending-close marker,
+# captain-held structured record, and generation-bound wake acknowledgement.
+# Fixture boundary: one isolated FM_HOME with its own data/state/config,
+# fixture-only tasks-axi backlog, local fake backend, and no live process,
+# project, forge, deployment, or host operation.
+# Assertions: package B and unfinished records beat stale event A, pending work
+# runs before resume, close/dependency recovery completes, pre-ack replay is
+# lossless, post-ack drain invents no repair, and status prose never substitutes
+# for a structured captain answer.
+test_c5_restart_prefers_current_package_and_unfinished_durable_work() {
+  local dir home state fakebin backlog out1 err1 out2 err2 out3 q w r p pending show
+  dir=$(make_case controlled-c5-restart)
+  home="$dir/home"
+  fakebin="$dir/fakebin"
+  mkdir -p "$home/data" "$home/config"
+  mv "$dir/state" "$home/state"
+  state="$home/state"
+  backlog="$home/data/backlog.md"
+  cp "$ROOT/.tasks.toml" "$home/.tasks.toml"
+  printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' > "$backlog"
+  q=controlled-c5-question
+  w=controlled-c5-work
+  r=controlled-c5-reserved
+  p=controlled-c5-cleanup
+
+  tasks-axi add "$q" "Record package B routing answer" --kind ship --file "$backlog" >/dev/null
+  tasks-axi hold "$q" --reason "captain answer must be durably recorded" --kind captain \
+    --file "$backlog" >/dev/null
+  tasks-axi add "$w" "Resume the current package" --kind ship --blocked-by "$q" \
+    --body "Package A is still active. Validation intent: validate A." --file "$backlog" >/dev/null
+  tasks-axi add "$r" "Reserved production control" --kind ship --file "$backlog" >/dev/null
+  tasks-axi hold "$r" --reason "captain production authority remains required" --kind captain \
+    --file "$backlog" >/dev/null
+  tasks-axi add "$p" "Finish interrupted own-row cleanup" --kind ship --file "$backlog" >/dev/null
+  tasks-axi start "$p" --file "$backlog" >/dev/null
+  fm_write_meta "$state/$p.meta" "kind=ship" "spawn_gen=controlled-c5-p"
+  mkdir -p "$home/data/$w"
+  cat > "$home/data/$w/brief.md" <<'EOF'
+# Effective brief
+
+Package B is current.
+Captain answer supplied by package B: use guarded routing.
+Next action: consume the pending B revision before resuming.
+Validation intent: validate package B guarded routing.
+EOF
+  printf 'working: older event says package A remains active\n' > "$state/$w.status"
+  printf 'needs-decision [key=%s]: choose routing\n' "$q" > "$state/control.status"
+  printf 'resolved [key=%s]: package A guessed an answer\n' "$q" >> "$state/control.status"
+  printf 'Use guarded routing.\n' > "$home/package-b-answer.txt"
+
+  pending=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_task_inbox_write_idempotent "$2" "$3" "$4"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$state" "$w" \
+    'Package B revision: replace package A task text; record the supplied answer; next action and validation intent both use guarded routing.') \
+    || fail "C5 could not write the durable pending B steer"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    . "$2"
+    fm_backlog_close_marker_write "$3" "$4" "$5" "$6" --note "local main"
+  ' _ "$ROOT/bin/fm-tasks-axi-lib.sh" "$ROOT/bin/fm-backlog-transition-lib.sh" \
+    "$state" "$p" "$home/data" controlled-c5-p \
+    || fail "C5 could not stage the pending own-row close marker"
+  append_wake "$state" check package-b-pending \
+    "check: current package B has unfinished inbox, answer, dependency, and close-marker work" \
+    || fail "C5 could not queue the restart work"
+  append_wake "$state" signal "$w.status" "signal: $state/$w.status" \
+    || fail "C5 could not queue the superseded A status event"
+
+  c5_consumed_current_package() {  # <home> <work-id>
+    local c_home=$1 c_work=$2 c_show
+    c_show=$(tasks-axi show "$c_work" --full --file "$c_home/data/backlog.md") || return 1
+    printf '%s\n' "$c_show" | grep -F 'Package B is active.' >/dev/null || return 1
+    grep -F 'next-action package=B routing=guarded' "$c_home/resume-order" >/dev/null || return 1
+    grep -F -- '--intent package=B routing=guarded' "$c_home/validation-intent" >/dev/null || return 1
+  }
+
+  # Restart without conversation: only the durable records above are input.
+  out1="$dir/drain-one.out"
+  err1="$dir/drain-one.err"
+  PATH="$fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+    "$DRAIN" > "$out1" 2> "$err1" || fail "C5 first restart drain failed"
+  grep "$(printf '\tcheck\tpackage-b-pending\t')" "$out1" >/dev/null \
+    || fail "C5 restart did not present the durable pending B work"
+  grep -F 'older event says package A remains active' "$out1" >/dev/null \
+    || fail "C5 fixture did not expose the superseded A event as historical status"
+  grep -F 'RECORD DIVERGENCE' "$out1" >/dev/null \
+    || fail "C5 status-only resolution was treated as structured captain authority"
+  show=$(tasks-axi show "$q" --full --file "$backlog")
+  assert_contains "$show" 'held: yes' \
+    "C5 status prose closed the structured captain-held record"
+  show=$(tasks-axi show "$r" --full --file "$backlog")
+  assert_contains "$show" 'held: yes' "C5 restart lost a genuine reserved control"
+
+  # Intentionally broken counterexample: resuming from the old status event or
+  # treating presentation as consumption cannot satisfy the real consumer.
+  printf 'resume package=A from latest-looking status event\n' > "$home/broken-resume"
+  if c5_consumed_current_package "$home" "$w"; then
+    fail "C5 broken counterexample passed without consuming package B"
+  fi
+
+  # Interrupt before generation-bound acknowledgement. The same raw work must
+  # replay even though the first presentation cursor may already cover A.
+  out2="$dir/drain-two.out"
+  err2="$dir/drain-two.err"
+  PATH="$fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+    "$DRAIN" > "$out2" 2> "$err2" || fail "C5 pre-ack replay drain failed"
+  grep "$(printf '\tcheck\tpackage-b-pending\t')" "$out2" >/dev/null \
+    || fail "C5 pre-ack interruption consumed unresolved work"
+
+  # The finite restart handler consumes inbox B before any resume action,
+  # finishes the close marker, records the supplied answer through its owner,
+  # then updates the affected task text and validation input.
+  grep -F 'Package B revision:' "$pending" >/dev/null \
+    || fail "C5 pending B steer changed before consumption"
+  printf '1 pending-package-B-consumed\n' > "$home/resume-order"
+  mkdir -p "$state/$w.inbox/handled"
+  mv "$pending" "$state/$w.inbox/handled/"
+  PATH="$fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+    FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+    "$ROOT/bin/fm-captain-hold.sh" answer "$q" --decision-file "$home/package-b-answer.txt" >/dev/null \
+    || fail "C5 could not reconcile the structured answer from current package B"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    . "$2"
+    fm_backlog_close_marker_replay "$3" "$4" "$5"
+  ' _ "$ROOT/bin/fm-tasks-axi-lib.sh" "$ROOT/bin/fm-backlog-transition-lib.sh" \
+    "$state" "$state/$p.backlog-close" "$home/data" \
+    || fail "C5 could not finish own-row cleanup through its marker"
+  printf 'Package B is active. Captain answer: use guarded routing. Next action: implement guarded routing. Validation intent: validate package B guarded routing.\n' \
+    > "$home/$w.body"
+  tasks-axi update "$w" --body-file "$home/$w.body" --archive-body --file "$backlog" >/dev/null \
+    || fail "C5 could not update W's current task text"
+  printf '2 next-action package=B routing=guarded\n' >> "$home/resume-order"
+  printf '%s\n' '--intent package=B routing=guarded proof=affected-only' > "$home/validation-intent"
+  printf '3 resume package=B\n' >> "$home/resume-order"
+
+  [ "$(sed -n '1p' "$home/resume-order")" = '1 pending-package-B-consumed' ] \
+    || fail "C5 resumed before processing pending B"
+  [ "$(tasks-axi show "$p" --full --file "$backlog" | sed -n 's/^  state: //p' | head -1)" = "done" ] \
+    || fail "C5 own-row cleanup did not finish through its marker"
+  assert_absent "$state/$p.backlog-close" "C5 applied close marker remained pending"
+  show=$(tasks-axi show "$w" --full --file "$backlog")
+  assert_contains "$show" 'blocked: no' "C5 did not reconcile W's structured dependency"
+  c5_consumed_current_package "$home" "$w" \
+    || fail "C5 worker next action or validation intent did not consume package B"
+  show=$(tasks-axi show "$r" --full --file "$backlog")
+  assert_contains "$show" 'held: yes' "C5 handler released a genuine reserved control"
+
+  ack_drain_err "$state" "$err2" \
+    || fail "C5 could not acknowledge the exact generation after all updates"
+  out3="$dir/drain-three.out"
+  PATH="$fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+    "$DRAIN" > "$out3" 2> "$dir/drain-three.err" || fail "C5 post-ack drain failed"
+  if grep "$(printf '\tcheck\tpackage-b-pending\t')" "$out3" >/dev/null \
+    || grep -F 'RECORD DIVERGENCE' "$out3" >/dev/null \
+    || grep -Fi 'repair' "$out3" >/dev/null; then
+    fail "C5 post-ack drain invented another repair or replayed completed work: $(cat "$out3")"
+  fi
+
+  pass "C5 restart consumes current package and durable pending work before resume, then acknowledges without invented repair"
+}
+
 test_self_held_lock_reclaims_instead_of_deadlocking
 test_bounded_lock_handoff_after_contention
 test_live_presentation_holder_is_deadlined_without_weakening_ack
@@ -1551,6 +1715,7 @@ test_acknowledged_stall_publication_survives_pre_marker_crash
 test_empty_prefix_mate_preserves_other_mate_receipt
 test_self_announced_append_guards
 test_historical_annotation_skips_announced_status
+test_c5_restart_prefers_current_package_and_unfinished_durable_work
 test_concurrent_append_and_drain
 test_signal_catchup_without_running_watcher
 test_stale_enqueue_before_suppressor

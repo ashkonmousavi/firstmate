@@ -1335,6 +1335,123 @@ test_interrupted_destructive_cleanup_leaves_a_recoverable_close() {
   pass "restart recovers closes recorded before destructive cleanup"
 }
 
+# Controlled case C2, steps 3 and 5, and C5's own-row marker recovery.
+# Candidate: guarded teardown plus the existing pending-close replay, composed
+# with an explicitly supplied W revision through the existing task/brief/inbox
+# records.
+# Fixture boundary: make_home's isolated home and synthetic git worktrees, real
+# tasks-axi against only the fixture backlog, and fake backend/forge/treehouse
+# calls.
+# Assertions: physical cleanup precedes own-row closure, replay loses neither
+# completion nor pending instruction work, structured dependency release does
+# not clear prose holds, and an unrelated dirty branch is untouched.
+test_c2_cleanup_replay_preserves_pending_clause_follow_through_and_unlanded_work() {
+  local case_dir home p w marker out rc=0 pending show unrelated_before unrelated_after
+  p=controlled-c2-prerequisite
+  w=controlled-c2-dependent
+  case_dir=$(make_home controlled-c2-cleanup "$p")
+  home=$(home_of "$case_dir")
+
+  sed -i.bak 's/^Delivery contract: mode=.*/Delivery contract: mode=local-only/' \
+    "$home/data/$p/brief.md" && rm -f "$home/data/$p/brief.md.bak"
+  add_item "$case_dir" "$p"
+  out=$(run_spawn "$case_dir" "$p" "$case_dir/project" --mode local-only --yolo off) \
+    || fail "C2 prerequisite spawn failed: $out"
+  tasks-axi add "$w" "Prepare W, integrate after promoted clause" --kind ship \
+    --body "Preparation may proceed. Integration waits for the old unanswered clause." \
+    --blocked-by "$p" --file "$(backlog_of "$case_dir")" >/dev/null \
+    || fail "C2 could not create structured dependent W"
+  tasks-axi hold "$w" --reason "legacy prose says the whole Change must archive" \
+    --file "$(backlog_of "$case_dir")" >/dev/null \
+    || fail "C2 could not create W's independent legacy prose hold"
+  mkdir -p "$home/data/$w"
+  cat > "$home/data/$w/brief.md" <<'EOF'
+# Effective brief
+
+Preparation may proceed.
+Integration waits for the old unanswered clause and the whole Change archive.
+EOF
+  printf 'preparation-complete-before-integration\n' > "$home/data/$w/preparation.receipt"
+
+  # The unrelated O lane is deliberately dirty. Teardown owns only P's lane
+  # and must neither inspect this dirt as P's landing nor discard it.
+  git -C "$case_dir/project" worktree add -q -b unrelated-o "$case_dir/unrelated-o"
+  printf 'unlanded unrelated work\n' > "$case_dir/unrelated-o/unlanded.txt"
+  unrelated_before=$(git -C "$case_dir/unrelated-o" status --porcelain=v1 --untracked-files=all)
+
+  pending=$(FM_STATE_OVERRIDE="$home/state" bash -c '
+    . "$1"
+    fm_task_inbox_write_idempotent "$2" "$3" "$4"
+  ' _ "$ROOT/bin/fm-task-inbox-lib.sh" "$home/state" "$w" \
+    'Revision c2-r1 pending: replace the whole-Change prose with the supplied integration-v2 clause; validation intent is official-main clause evidence.') \
+    || fail "C2 could not enqueue W's supplied pending instruction"
+  [ -f "$pending" ] || fail "C2 pending instruction was not durable before cleanup"
+
+  cat > "$case_dir/fakebin/treehouse" <<SH
+#!/usr/bin/env bash
+case "\${1:-}" in return) printf 'physical-cleanup-complete\n' > "$case_dir/physical-cleanup" ;; esac
+exit 0
+SH
+  chmod +x "$case_dir/fakebin/treehouse"
+  break_verb "$case_dir" "done"
+  marker="$home/state/$p.backlog-close"
+
+  out=$(run_teardown "$case_dir" "$p") || rc=$?
+  [ "$rc" -ne 0 ] || fail "C2 interruption between cleanup and own-row close reported success"
+  assert_present "$case_dir/physical-cleanup" \
+    "C2 did not reach physical cleanup before the injected close failure"
+  assert_present "$marker" "C2 lost the own-row close marker after physical cleanup"
+  assert_absent "$home/state/$p.meta" \
+    "C2 interruption did not occur after endpoint/task-record cleanup"
+  [ "$(row_state "$case_dir" "$p")" = in_flight ] \
+    || fail "C2 injected interruption closed P before restart replay"
+  [ -f "$pending" ] || fail "C2 cleanup discarded W's still-pending instruction update"
+  unrelated_after=$(git -C "$case_dir/unrelated-o" status --porcelain=v1 --untracked-files=all)
+  [ "$unrelated_before" = "$unrelated_after" ] && [ -f "$case_dir/unrelated-o/unlanded.txt" ] \
+    || fail "C2 cleanup discarded or changed unrelated unlanded work O"
+
+  rm -f "$case_dir/fakebin/tasks-axi"
+  out=$(run_bootstrap "$case_dir") \
+    || fail "C2 restart could not replay the existing pending-close marker: $out"
+  [ "$(row_state "$case_dir" "$p")" = "done" ] \
+    || fail "C2 restart lost P completion"
+  assert_absent "$marker" "C2 restart retained an applied pending-close marker"
+  show=$(tasks-axi show "$w" --full --file "$(backlog_of "$case_dir")")
+  assert_contains "$show" "blocked: no" "C2 replay did not clear W's structured dependency"
+  assert_contains "$show" "held: yes" "C2 replay magically cleared W's independent prose hold"
+  if grep -F 'Revision c2-r1' "$home/data/$w/brief.md" >/dev/null; then
+    fail "C2 broken counterexample passed: P completion alone rewrote W's semantic instruction"
+  fi
+  [ -f "$pending" ] || fail "C2 replay lost discoverability of W's pending instruction update"
+
+  # Apply only the exact supplied affected-task revision; no larger Change
+  # scan participates, so unticked unrelated work is irrelevant by design.
+  printf 'Revision c2-r1. Integration waits only for promoted-clause integration-v2 on official main.\n' \
+    > "$home/$w.body"
+  tasks-axi update "$w" --body-file "$home/$w.body" --archive-body \
+    --file "$(backlog_of "$case_dir")" >/dev/null \
+    || fail "C2 could not update W's affected task text"
+  tasks-axi unhold "$w" --file "$(backlog_of "$case_dir")" >/dev/null \
+    || fail "C2 could not replace W's legacy hold after the supplied clause decision"
+  cat > "$home/data/$w/brief.md" <<'EOF'
+# Effective brief
+
+Revision c2-r1.
+Preparation is complete.
+Integration proceeds only with promoted-clause integration-v2 on official main.
+Validation intent: inspect the named clause, not unrelated unticked Change tasks.
+EOF
+  grep -F 'promoted-clause integration-v2' "$home/data/$w/brief.md" >/dev/null \
+    || fail "C2 effective brief did not consume the supplied clause-level decision"
+  mv "$pending" "$home/state/$w.inbox/handled/"
+  tasks-axi ready --file "$(backlog_of "$case_dir")" | grep -F "$w" >/dev/null \
+    || fail "C2 W did not become ready after its exact structured and supplied prose gates cleared"
+  [ -f "$case_dir/unrelated-o/unlanded.txt" ] \
+    || fail "C2 follow-through discarded unrelated unlanded work O"
+
+  pass "C2 pending-close replay preserves completion, exact clause follow-through, independent prose holds, and unrelated unlanded work"
+}
+
 test_completion_refuses_a_close_target_symlinked_to_a_directory() {
   local case_dir home id marker external out rc=0
   id=atomic-close-target-directory-symlink-b8
@@ -2404,6 +2521,7 @@ test_control_character_data_path_is_refused_before_cleanup
 test_completion_preserves_records_when_meta_removal_fails
 test_completion_fails_loudly_and_records_the_close_it_still_owes
 test_interrupted_destructive_cleanup_leaves_a_recoverable_close
+test_c2_cleanup_replay_preserves_pending_clause_follow_through_and_unlanded_work
 test_completion_refuses_a_close_target_symlinked_to_a_directory
 test_completion_fails_when_its_close_marker_cannot_be_removed
 test_recovery_retries_when_a_close_marker_cannot_be_removed
