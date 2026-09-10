@@ -48,6 +48,15 @@
 # --absorbed-by retry refreshes it idempotently. The metadata parser in
 # bin/fm-pr-lib.sh needs no broader lifecycle-key allowance because the batch
 # fields are written before pr=; the existing fixed post-pr tail stays closed.
+# A constituent that actually has an original pull request must have it
+# registered as this task's pr= (an ordinary `fm-pr-check.sh <task-id> <pr-url>`
+# call) before --absorbed-by runs. --absorbed-by cannot tell "genuinely has no
+# original PR" apart from "has one but it was never registered" by itself: it
+# only reads this task's own metadata, so a constituent with no pr= is always
+# read as PR-less. --absorbed-by prints a note naming this when it takes the
+# PR-less path so the choice is never silent (2026-09-10: a constituent's real
+# PR went unregistered and --absorbed-by silently took the stricter PR-less
+# path until the original PR was registered by hand).
 #
 # Usage: fm-pr-check.sh [--prerequisite|--absorbed-by] <task-id> <pr-url>
 set -eu
@@ -231,6 +240,7 @@ if [ "$ABSORBED_BY" -eq 1 ]; then
     exit 1
   else
     PRLESS_CONSTITUENT=1
+    echo "note: task $ID has no recorded pr=, so --absorbed-by is taking the PR-less path; if $ID actually has an original pull request, register it first with '$0 $ID <original-pr-url>' and re-run --absorbed-by so it binds as a PR-backed constituent instead" >&2
   fi
   if [ "$RECORDED_URL" = "$URL" ] \
     && [ "$(grep '^absorbed_original_pr=' "$META" | tail -1 | cut -d= -f2- || true)" = none ]; then

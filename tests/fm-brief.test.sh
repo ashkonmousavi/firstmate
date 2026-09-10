@@ -1413,6 +1413,99 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
   pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, join review, squash-honest landing record, and record binding"
 }
 
+# A task designated as a batch owner AFTER dispatch has no way to get its real
+# constituent and join-review tables into its own brief: fm_integration_batch_dod_block's
+# owner-side "## Conditional integration-batch definition of done" is only an
+# unfilled template. bin/fm-dod-lib.sh render-batch-owner-record is the
+# supported path that renders that post-dispatch record into a new
+# "## Combined candidate record (integration batch)" subsection at the end of
+# the brief's Proof bar, using the same PR-backed, PR-less, join-review, and
+# landing-record table shapes fm_integration_batch_dod_block already renders,
+# and prints the refreshed revision-bound run-validation command. Because the
+# subsection lives inside "# Proof bar", fm_brief_validation_intent carries it
+# into --intent's "Agreed proof contract:" part automatically - the same path
+# the combined pull request body is required to get every row and table
+# through, never a hand-edit.
+test_render_batch_owner_record_carries_the_batch_tables_into_the_run_intent_only() {
+  local home id brief revision out rc intent
+  home="$TMP_ROOT/render-batch-owner-record-home"
+  mkdir -p "$home/data"
+  id="brief-batch-owner-record"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
+  brief="$home/data/$id/brief.md"
+  assert_present "$brief" "render-batch-owner-record: brief was not scaffolded"
+  sed -i \
+    -e 's|^{TASK}$|Do the batch-owner-record thing.|' \
+    -e 's|^{FIRSTMATE_SPEC}$|Render the batch owner record.|' \
+    -e 's|^Prep: {PREP}$|Prep: Tier 0 - no callers.|' \
+    -e 's|^Resource: {RESOURCE}$|Resource: N/A|' \
+    -e 's|^Surface: {SURFACE}$|Surface: none: internal Firstmate tooling.|' \
+    -e 's|^Journey: {JOURNEY}$|Journey: none: no product-facing journey.|' \
+    "$brief"
+  assert_no_grep '^\({TASK}\|{FIRSTMATE_SPEC}\|Prep: {PREP}\|Resource: {RESOURCE}\|Surface: {SURFACE}\|Journey: {JOURNEY}\)$' "$brief" \
+    "render-batch-owner-record: the generated brief still carries an unfilled scaffold field"
+
+  out=$(bash "$ROOT/bin/fm-dod-lib.sh" render-batch-owner-record \
+    --brief "$brief" \
+    --combined-pr https://github.com/example/repo/pull/900 \
+    --designated 2026-09-10 \
+    --runner no-mistakes \
+    --pr-backed 'batch-record-a|fm/batch-record-a|1111111111111111111111111111111111111111|https://github.com/example/repo/pull/10' \
+    --pr-less 'batch-record-b|fm/batch-record-b|2222222222222222222222222222222222222222' \
+    --join 'batch-record-a|None|None|None' \
+    --join 'batch-record-b|None|None|None')
+  rc=$?
+  expect_code 0 "$rc" "render-batch-owner-record: the command refused a well-formed post-dispatch batch-owner record: $out"
+
+  assert_grep '## Combined candidate record (integration batch)' "$brief" \
+    "render-batch-owner-record: the new subsection was not appended to the Proof bar"
+  assert_grep 'The combined pull request is https://github.com/example/repo/pull/900.' "$brief" \
+    "render-batch-owner-record: the combined PR was not named"
+  # shellcheck disable=SC2016  # backticks are literal Markdown code spans.
+  assert_grep '| `batch-record-a` | `fm/batch-record-a` | `1111111111111111111111111111111111111111` | `https://github.com/example/repo/pull/10` | `Closed as superseded; not merged.` |' "$brief" \
+    "render-batch-owner-record: the PR-backed constituent row was not rendered with the real values"
+  # shellcheck disable=SC2016
+  assert_grep '| `batch-record-b` | `fm/batch-record-b` | `2222222222222222222222222222222222222222` | `No original pull request.` |' "$brief" \
+    "render-batch-owner-record: the PR-less constituent row was not rendered with the real values"
+  # shellcheck disable=SC2016
+  assert_grep '| `batch-record-a` | None | None | None |' "$brief" \
+    "render-batch-owner-record: the join review row for the PR-backed constituent was not rendered"
+  # shellcheck disable=SC2016
+  assert_grep '| `batch-record-b` | None | None | None |' "$brief" \
+    "render-batch-owner-record: the join review row for the PR-less constituent was not rendered"
+  assert_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+    "render-batch-owner-record: the landing record table was not rendered"
+
+  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief") \
+    || fail "render-batch-owner-record: could not compute the rewritten brief's own revision"
+  printf '%s\n' "$out" > "$home/render-output"
+  assert_grep "$revision" "$home/render-output" \
+    "render-batch-owner-record: the printed run-validation command was not bound to the rewritten brief's actual revision"
+
+  intent=$(bash -c '. "$1"; fm_brief_validation_intent "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief") \
+    || fail "render-batch-owner-record: could not render the brief's --intent"
+  printf '%s\n' "$intent" > "$home/rendered-intent"
+  assert_grep 'batch-record-a' "$home/rendered-intent" \
+    "render-batch-owner-record: the batch-owner record did not reach --intent's Agreed proof contract"
+  assert_grep 'Closed as superseded; not merged.' "$home/rendered-intent" \
+    "render-batch-owner-record: the PR-backed disposition did not reach --intent"
+
+  set +e
+  out=$(bash "$ROOT/bin/fm-dod-lib.sh" render-batch-owner-record \
+    --brief "$brief" --combined-pr https://github.com/example/repo/pull/900 --designated 2026-09-10 \
+    --runner no-mistakes --pr-backed 'x|y|z|w' --join 'x|None|None|None' 2>&1)
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "render-batch-owner-record: a second call on the same brief should refuse rather than duplicate the subsection"
+  printf '%s\n' "$out" > "$home/render-refusal"
+  assert_grep 'already carries a Combined candidate record subsection' "$home/render-refusal" \
+    "render-batch-owner-record: the refusal did not name the existing subsection"
+  [ "$(grep -c '## Combined candidate record (integration batch)' "$brief")" -eq 1 ] \
+    || fail "render-batch-owner-record: a refused re-run duplicated the subsection anyway"
+
+  pass "fm-dod-lib.sh render-batch-owner-record: renders the post-dispatch batch owner's PR-backed, PR-less, join-review, and landing tables into the brief's Proof bar so they reach --intent, refuses to duplicate an existing subsection"
+}
+
 # A batch owner once hand-edited a combined pull request body outside the
 # no-mistakes pipeline, which stripped the pipeline section and failed the
 # attestation check. Every no-mistakes ship's brief carries both the ordinary
@@ -2109,6 +2202,7 @@ test_ship_brief_carries_the_resource_line
 test_ship_brief_carries_the_surface_line
 test_ship_brief_carries_the_journey_line
 test_every_ship_dod_renders_the_conditional_integration_batch_binding
+test_render_batch_owner_record_carries_the_batch_tables_into_the_run_intent_only
 test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants
 test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal
 test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal

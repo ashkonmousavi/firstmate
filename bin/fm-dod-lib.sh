@@ -673,10 +673,153 @@ EOF
   esac
 }
 
+# fm_batch_owner_record_subsection <combined-pr-url> <designated-date>
+# <pr-backed-items> <pr-less-items> <join-items> [landing-tested] [landing-commit]
+# prints the "## Combined candidate record (integration batch)" subsection body
+# (no leading blank line; the caller inserts one). Each *-items argument is zero
+# or more newline-separated rows, each row's fields "|"-delimited in the same
+# order as that row's table below; an empty items argument omits that table.
+# The table shapes are byte-identical to the ones fm_integration_batch_dod_block
+# renders as an unfilled template, so a worker's later /no-mistakes intent
+# (fm_brief_validation_intent) carries the real values through the Proof bar
+# without a second, drifting copy of the same header row.
+fm_batch_owner_record_subsection() {  # <combined-pr> <designated-date> <pr-backed> <pr-less> <joins> [landing-tested] [landing-commit]
+  local combined_pr=$1 designated=$2 pr_backed=$3 pr_less=$4 joins=$5 landing_tested=${6:-} landing_commit=${7:-}
+  local bt='`'
+  echo '## Combined candidate record (integration batch)'
+  printf 'Firstmate designated this task on %s as the integration owner of one combined candidate, under the captain'"'"'s recovery instruction to choose compatible batches before unnecessary constituent pipelines, review their joins, and verify the final combined candidate.\n' "$designated"
+  printf 'The combined pull request is %s.\n' "$combined_pr"
+  echo 'Its body must carry the tables below verbatim, and they reach it only through this run'"'"'s intent, never through a pull-request edit.'
+
+  if [ -n "$pr_backed" ]; then
+    echo
+    echo '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |'
+    echo '| --- | --- | --- | --- | --- |'
+    printf '%s\n' "$pr_backed" | while IFS='|' read -r task branch head prurl; do
+      [ -n "$task" ] || continue
+      printf "| %s%s%s | %s%s%s | %s%s%s | %s%s%s | %sClosed as superseded; not merged.%s |\\n" \
+        "$bt" "$task" "$bt" "$bt" "$branch" "$bt" "$bt" "$head" "$bt" "$bt" "$prurl" "$bt" "$bt" "$bt"
+    done
+  fi
+
+  if [ -n "$pr_less" ]; then
+    echo
+    echo '| PR-less constituent task | Branch | Exact reviewed head | Disposition |'
+    echo '| --- | --- | --- | --- |'
+    printf '%s\n' "$pr_less" | while IFS='|' read -r task branch head; do
+      [ -n "$task" ] || continue
+      printf "| %s%s%s | %s%s%s | %s%s%s | %sNo original pull request.%s |\\n" \
+        "$bt" "$task" "$bt" "$bt" "$branch" "$bt" "$bt" "$head" "$bt" "$bt" "$bt"
+    done
+  fi
+
+  echo
+  echo '| Constituent task | Changes missing from the candidate | Deliberate replacements | Join repairs |'
+  echo '| --- | --- | --- | --- |'
+  printf '%s\n' "$joins" | while IFS='|' read -r task missing replacements repairs; do
+    [ -n "$task" ] || continue
+    printf "| %s%s%s | %s | %s | %s |\\n" "$bt" "$task" "$bt" "$missing" "$replacements" "$repairs"
+  done
+
+  echo
+  echo '| Pipeline-tested head | Landed squash commit |'
+  echo '| --- | --- |'
+  printf "| %s%s%s | %s%s%s |\\n" \
+    "$bt" "${landing_tested:-<full-sha>}" "$bt" "$bt" "${landing_commit:-<full-sha>}" "$bt"
+}
+
+# fm_dod_append_batch_owner_record <brief> <combined-pr> <designated-date>
+# <runner> <pr-backed-items> <pr-less-items> <join-items> [landing-tested]
+# [landing-commit] inserts fm_batch_owner_record_subsection's output at the end
+# of the brief's "# Proof bar" section (immediately before the next top-level
+# heading, or at end of file when none follows) and prints the refreshed
+# revision-bound run-validation command for the rewritten brief. This is the
+# supported path for a task Firstmate designates as an integration batch owner
+# after that brief was already dispatched: fm_integration_batch_dod_block's own
+# owner-side "## Conditional integration-batch definition of done" template
+# stays unfilled prose, and this is what turns it into the worker's real,
+# revision-bound constituent record without a hand-edit.
+fm_dod_append_batch_owner_record() {  # <brief> <combined-pr> <designated-date> <runner> <pr-backed> <pr-less> <joins> [landing-tested] [landing-commit]
+  local brief=$1 combined_pr=$2 designated=$3 runner=$4 pr_backed=$5 pr_less=$6 joins=$7
+  local landing_tested=${8:-} landing_commit=${9:-}
+  local subsection tmp revision
+  [ -f "$brief" ] && [ ! -L "$brief" ] && [ -r "$brief" ] && [ -w "$brief" ] || {
+    echo "error: brief is not a writable regular file: $brief" >&2
+    return 1
+  }
+  fm_brief_heading_present "$brief" "# Proof bar" || {
+    echo "error: brief has no # Proof bar section to carry the batch-owner record: $brief" >&2
+    return 1
+  }
+  fm_brief_heading_present "$brief" "## Combined candidate record (integration batch)" && {
+    echo "error: brief already carries a Combined candidate record subsection: $brief" >&2
+    return 1
+  }
+  [ -n "$pr_backed" ] || [ -n "$pr_less" ] || {
+    echo "error: render-batch-owner-record requires at least one --pr-backed or --pr-less row" >&2
+    return 1
+  }
+  [ -n "$joins" ] || {
+    echo "error: render-batch-owner-record requires at least one --join row" >&2
+    return 1
+  }
+
+  subsection=$(fm_batch_owner_record_subsection "$combined_pr" "$designated" "$pr_backed" "$pr_less" "$joins" "$landing_tested" "$landing_commit") || return 1
+
+  tmp=$(mktemp "${TMPDIR:-/tmp}/fm-brief-batch-record.XXXXXX") || {
+    echo "error: cannot stage the updated brief" >&2
+    return 1
+  }
+  if ! printf '%s\n' "$subsection" | awk -v brief="$brief" '
+    BEGIN {
+      while ((getline line < brief) > 0) { n++; src[n] = line }
+      close(brief)
+    }
+    { m++; sub_lines[m] = $0 }
+    END {
+      seen_proof = 0
+      inserted = 0
+      for (i = 1; i <= n; i++) {
+        line = src[i]
+        if (!inserted && seen_proof && line ~ /^# / && line != "# Proof bar") {
+          print ""
+          for (j = 1; j <= m; j++) print sub_lines[j]
+          print ""
+          inserted = 1
+        }
+        print line
+        if (line == "# Proof bar") seen_proof = 1
+      }
+      if (!inserted) {
+        print ""
+        for (j = 1; j <= m; j++) print sub_lines[j]
+      }
+    }
+  ' > "$tmp"; then
+    rm -f -- "$tmp"
+    echo "error: cannot render the updated brief" >&2
+    return 1
+  fi
+  mv -- "$tmp" "$brief" || {
+    rm -f -- "$tmp"
+    echo "error: cannot write the updated brief: $brief" >&2
+    return 1
+  }
+
+  revision=$(fm_brief_source_revision "$brief") || {
+    echo "error: cannot compute the refreshed brief revision: $brief" >&2
+    return 1
+  }
+  printf 'Refreshed revision-bound run-validation command:\n'
+  printf '    %s run-validation --brief %s --expect-revision %s\n' \
+    "$(fm_dod_shell_quote "$runner")" "$(fm_dod_shell_quote "$brief")" "$(fm_dod_shell_quote "$revision")"
+}
+
 fm_dod_cli() {
   local command=${1:-} brief='' expected=''
   [ -n "$command" ] || {
     echo "usage: fm-dod-lib.sh run-validation --brief FILE --expect-revision sha256:HEX [-- AXI-RUN-ARGS...]" >&2
+    echo "       fm-dod-lib.sh render-batch-owner-record --brief FILE --combined-pr URL --designated DATE --runner RUNNER [--pr-backed 'task|branch|head|pr-url']... [--pr-less 'task|branch|head']... --join 'task|missing|replacements|repairs' [...] [--landing-tested SHA] [--landing-commit SHA]" >&2
     return 2
   }
   shift
@@ -707,6 +850,51 @@ fm_dod_cli() {
       [ -n "$brief" ] || { echo "error: run-validation requires --brief" >&2; return 2; }
       [ -n "$expected" ] || { echo "error: run-validation requires --expect-revision" >&2; return 2; }
       fm_dod_run_validation "$brief" "$expected" "$@"
+      ;;
+    render-batch-owner-record)
+      local combined_pr='' designated='' runner='' pr_backed='' pr_less='' joins='' landing_tested='' landing_commit='' nl
+      printf -v nl '\n'
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --brief)
+            [ "$#" -ge 2 ] || { echo "error: --brief requires a value" >&2; return 2; }
+            brief=$2; shift 2 ;;
+          --combined-pr)
+            [ "$#" -ge 2 ] || { echo "error: --combined-pr requires a value" >&2; return 2; }
+            combined_pr=$2; shift 2 ;;
+          --designated)
+            [ "$#" -ge 2 ] || { echo "error: --designated requires a value" >&2; return 2; }
+            designated=$2; shift 2 ;;
+          --runner)
+            [ "$#" -ge 2 ] || { echo "error: --runner requires a value" >&2; return 2; }
+            runner=$2; shift 2 ;;
+          --pr-backed)
+            [ "$#" -ge 2 ] || { echo "error: --pr-backed requires a value" >&2; return 2; }
+            pr_backed="${pr_backed:+$pr_backed$nl}$2"; shift 2 ;;
+          --pr-less)
+            [ "$#" -ge 2 ] || { echo "error: --pr-less requires a value" >&2; return 2; }
+            pr_less="${pr_less:+$pr_less$nl}$2"; shift 2 ;;
+          --join)
+            [ "$#" -ge 2 ] || { echo "error: --join requires a value" >&2; return 2; }
+            joins="${joins:+$joins$nl}$2"; shift 2 ;;
+          --landing-tested)
+            [ "$#" -ge 2 ] || { echo "error: --landing-tested requires a value" >&2; return 2; }
+            landing_tested=$2; shift 2 ;;
+          --landing-commit)
+            [ "$#" -ge 2 ] || { echo "error: --landing-commit requires a value" >&2; return 2; }
+            landing_commit=$2; shift 2 ;;
+          *)
+            echo "error: unknown render-batch-owner-record argument: $1" >&2
+            return 2
+            ;;
+        esac
+      done
+      [ -n "$brief" ] || { echo "error: render-batch-owner-record requires --brief" >&2; return 2; }
+      [ -n "$combined_pr" ] || { echo "error: render-batch-owner-record requires --combined-pr" >&2; return 2; }
+      [ -n "$designated" ] || { echo "error: render-batch-owner-record requires --designated" >&2; return 2; }
+      [ -n "$runner" ] || { echo "error: render-batch-owner-record requires --runner" >&2; return 2; }
+      fm_dod_append_batch_owner_record "$brief" "$combined_pr" "$designated" "$runner" \
+        "$pr_backed" "$pr_less" "$joins" "$landing_tested" "$landing_commit"
       ;;
     *)
       echo "error: unknown fm-dod-lib command: $command" >&2

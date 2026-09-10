@@ -449,6 +449,32 @@ test_prless_absorbed_constituent_binding_refuses_a_merge_commit_absent_from_curr
   pass "fm-pr-check refuses a PR-less constituent whose combined merge commit is absent from current main"
 }
 
+test_absorbed_by_names_missing_original_pr_registration_when_no_pr_is_recorded() {
+  local dir rc
+  dir=$(make_case absorbed-no-pr-registered)
+  write_task_meta "$dir" task-a
+  # task-a has no pr= at all: a constituent whose real original PR was never
+  # registered with an ordinary `fm-pr-check.sh <task-id> <pr-url>` call first.
+  # --absorbed-by cannot tell that apart from a genuinely PR-less constituent,
+  # so it must name the ambiguity instead of silently taking the stricter
+  # PR-less path (the 2026-09-10 gap: Firstmate had to register the original
+  # PR on the constituent by hand before --absorbed-by would bind it).
+
+  set +e
+  run_pr_check "$dir" --absorbed-by task-a https://github.com/example/repo/pull/9 \
+    > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+
+  assert_grep 'note: task task-a has no recorded pr=, so --absorbed-by is taking the PR-less path' "$dir/stderr" \
+    "absorbed-no-pr-registered: --absorbed-by silently took the PR-less path without naming the missing pr= registration"
+  assert_grep 'fm-pr-check.sh task-a <original-pr-url>' "$dir/stderr" \
+    "absorbed-no-pr-registered: the note did not name the fix (register the original PR first)"
+  assert_no_grep '^batch_role=' "$dir/state/task-a.meta" \
+    "absorbed-no-pr-registered: an incomplete PR-less binding should not silently succeed and write partial state"
+  pass "fm-pr-check names the missing original-PR registration instead of silently taking the PR-less path when a constituent has no recorded pr="
+}
+
 test_mismatched_branch_refused
 test_retry_suffix_accepted
 test_prerequisite_recorded_separately
@@ -460,3 +486,4 @@ test_prless_absorbed_constituent_binding_accepts_only_the_exact_head_in_a_merged
 test_prless_absorbed_constituent_binding_refuses_when_combined_head_does_not_contain_task_head
 test_c6_broken_control_prless_binding_before_combined_merge_refuses
 test_prless_absorbed_constituent_binding_refuses_a_merge_commit_absent_from_current_main
+test_absorbed_by_names_missing_original_pr_registration_when_no_pr_is_recorded
