@@ -20,6 +20,9 @@ set -u
 # shellcheck source=tests/fixtures.sh
 . "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
+# Commit and commit-tree fixtures must not depend on the runner's global Git identity.
+fm_git_identity
+
 TMP_ROOT=$(fm_test_tmproot fm-brief)
 BRIEF_HOME="$TMP_ROOT/home"
 mkdir -p "$BRIEF_HOME/data"
@@ -1456,14 +1459,26 @@ test_task_briefs_carry_project_authority_reconciliation() {
     assert_present "$brief" "$id brief was not scaffolded"
     assert_grep "# Project authority" "$brief" \
       "$id brief lost the project-authority section"
-    assert_grep "reconcile this brief against that current project authority" "$brief" \
+    assert_grep "reconcile this brief against current project authority" "$brief" \
       "$id brief must require reconciling against current project authority before acting"
     assert_grep "from the project's own current registry of authority" "$brief" \
       "$id brief must resolve the governing set from the project's current registry at dispatch time"
     assert_grep "never work from a remembered, inherited, or legacy list of authority documents" "$brief" \
       "$id brief must forbid a hardcoded or legacy authority list"
+    assert_grep "Never let an older repository instruction silently override the current captain/task instruction" "$brief" \
+      "$id brief must preserve current task-specific captain authority over older operational prose"
+    assert_grep "never use the task instruction to weaken an actual product, security, safety or proof contract" "$brief" \
+      "$id brief must preserve project product and safety contracts"
+    assert_grep "Do not request new permission for scoped work the current captain/task instruction already authorizes" "$brief" \
+      "$id brief must not reopen already granted scoped authority"
+    assert_grep "stop unchanged retries, inspect the shared cause and complete the affected schema or consumer family" "$brief" \
+      "$id brief must continue an evidence-producing bounded repair after a repeated obstacle"
+    assert_no_grep "let the project's current authority win over any stale detail quoted here" "$brief" \
+      "$id brief must not let older project prose silently override current task authority"
     assert_grep "Name any project prose this brief intentionally supersedes" "$brief" \
       "$id brief must require naming intentionally superseded project prose"
+    assert_grep "Report a concrete conflict with both sources" "$brief" \
+      "$id brief must preserve both sources when a real conflict remains"
     assert_grep "never arbitrate a project-authority conflict silently" "$brief" \
       "$id brief must route an unreconciled conflict to firstmate instead of the worker"
   done
@@ -1515,6 +1530,10 @@ test_ship_briefs_batch_findings_before_resubmitting() {
   # The name-and-origin pointer must resolve to the generated brief's ask-user rule without depending on its number.
   assert_grep "If a decision belongs above the implementation worker (product choices, destructive actions)," "$brief" \
     "the generated Rules section must retain the ask-user escalation rule"
+  assert_grep "Do not request new permission for scoped work the current captain/task instruction already authorizes" "$brief" \
+    "the generated Rules section must not reopen already granted scoped authority"
+  assert_grep "stop unchanged retries, inspect the shared cause and complete the affected schema or consumer family" "$brief" \
+    "the generated Rules section must continue productive bounded repair after a repeated obstacle"
   assert_grep "For a no-mistakes ask-user gate specifically, escalate all ask-user findings as one event plus one snapshot file" "$brief" \
     "the ask-user escalation must render the structured one-event-plus-snapshot contract"
 

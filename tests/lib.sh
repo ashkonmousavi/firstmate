@@ -563,6 +563,32 @@ assert_present() {
   [ -e "$1" ] || fail "$2"
 }
 
+# fm_test_stop_remote_job_workers <fixture-root>: stop every detached Linux
+# worker process group whose exact executable belongs to this fixture root.
+# A suite can start more than one restart supervisor before one serving child
+# publishes worker.pid, so that single record is not a complete teardown list.
+# The shared production helper still owns the identity-safe group signal.
+fm_test_stop_remote_job_workers() {
+  local fixture_root=$1 worker pid command pass=0 found
+  worker="$fixture_root/bin/fm-remote-job-worker.sh"
+  [ -n "$fixture_root" ] && [ -f "$worker" ] || return 0
+  command -v fm_remote_job_stop_worker_tree >/dev/null 2>&1 || return 1
+  while [ "$pass" -lt 5 ]; do
+    pass=$((pass + 1))
+    found=0
+    while read -r pid command; do
+      case "$pid" in ''|*[!0-9]*) continue ;; esac
+      case "$command" in
+        "/bin/bash $worker"|"/bin/bash $worker "*)
+          found=1
+          fm_remote_job_stop_worker_tree "$pid" || true
+          ;;
+      esac
+    done < <(/bin/ps -eo pid=,command= 2>/dev/null)
+    [ "$found" -eq 1 ] || return 0
+  done
+}
+
 # fm_test_base_path_sans <base_path> <tool...>: returns the path to a single
 # curated directory that resolves every tool <base_path> would have resolved,
 # except the named ones. Some hosts have real system binaries (node, orca,

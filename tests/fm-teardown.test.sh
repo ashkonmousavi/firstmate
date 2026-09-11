@@ -699,10 +699,10 @@ make_path_without_lsof() {  # <case-dir>
 # Two task records name one worktree, and cleaning up the first must leave the
 # second completely untouched.
 #
-# This is the XAUUSD slot 6 case. A treehouse lease is bound to a process
-# (owner_pid plus owner_started_at), so the restart dropped it, the pool saw a
-# clean slot, and re-leased it to another lane - which then did real work there
-# while the first task's record still named the path. Closing the first record
+# This is the XAUUSD slot 6 case. Current Treehouse leases are durable, but a
+# legacy or corrupt pool/task-record mismatch can still leave two records naming
+# one path. The later lane then did real work there while the first task's stale
+# record still named the path. Closing the first record
 # must not return, reset, reap, conclude, or branch-delete anything in that
 # worktree, because none of it belongs to the task being closed. --force does
 # not lift that: force authorizes discarding THIS task's work, never another
@@ -4029,6 +4029,7 @@ EOF
     "parked-run-abort-unconfirmed: teardown returned the worktree after refusing"
   kill -0 "$pid" 2>/dev/null || fail "parked-run-abort-unconfirmed: process reap ran before refusal"
   kill -KILL "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
   pass "teardown refuses before reap or removal when a task-owned run remains parked"
 }
 
@@ -4096,8 +4097,10 @@ test_leaked_worktree_process_is_reaped() {
   expect_code 0 "$rc" "leaked-process-reap: teardown should still succeed"
   if kill -0 "$pid" 2>/dev/null; then
     kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
     fail "leaked-process-reap: leaked worktree process survived teardown"
   fi
+  wait "$pid" 2>/dev/null || true
   assert_grep "reaping leaked worktree process" "$case_dir/stderr" \
     "leaked-process-reap: teardown did not report reaping the leaked process"
   pass "a leaked descendant process rooted under the task's worktree is reaped by teardown, not left surviving"
@@ -4123,8 +4126,10 @@ test_leaked_tasktmp_process_is_reaped() {
   expect_code 0 "$rc" "leaked-tasktmp-reap: teardown should still succeed"
   if kill -0 "$pid" 2>/dev/null; then
     kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
     fail "leaked-tasktmp-reap: leaked tasktmp process survived teardown"
   fi
+  wait "$pid" 2>/dev/null || true
   assert_grep "reaping leaked worktree process" "$case_dir/stderr" \
     "leaked-tasktmp-reap: teardown did not report reaping the leaked tasktmp process"
   pass "a leaked descendant process rooted under the task's per-task tasktmp is reaped by teardown too"
@@ -4160,8 +4165,10 @@ EOF
   expect_code 0 "$rc" "lsof-absent-process-group-reap: teardown should succeed"
   if kill -0 "$pid" 2>/dev/null; then
     kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
     fail "lsof-absent-process-group-reap: tmux process group survived teardown"
   fi
+  wait "$pid" 2>/dev/null || true
   assert_grep "reaping leaked worktree process group" "$case_dir/stderr" \
     "lsof-absent-process-group-reap: teardown did not use the process-group fallback"
   pass "missing lsof falls back to reaping the tmux pane process group"
@@ -4238,6 +4245,7 @@ SH
     fail "reused-pid-identity: teardown force-killed a process whose start time changed"
   fi
   kill -KILL "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
   pass "a reused pid with a different start time is never force-killed"
 }
 
@@ -4298,6 +4306,7 @@ SH
     survived=1
     kill -KILL "$pid" 2>/dev/null || true
   fi
+  wait "$pid" 2>/dev/null || true
   expect_code 0 "$rc" "exec-changed-process: teardown should succeed"
   [ "$survived" -eq 0 ] || fail "exec-changed-process: exec-changed leaked process survived teardown"
   pass "an exec change preserves birth identity and the process is reaped"
@@ -4339,6 +4348,8 @@ test_process_spawned_during_grace_is_reaped_on_later_pass() {
     parent_survived=1
     kill -KILL "$pid" 2>/dev/null || true
   fi
+  [ -z "$child_pid" ] || wait "$child_pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
   expect_code 0 "$rc" "grace-spawn-convergence: teardown should converge"
   assert_present "$child_file" "grace-spawn-convergence: TERM handler did not spawn a child"
   [ "$child_survived" -eq 0 ] || fail "grace-spawn-convergence: spawned child survived"
@@ -4452,6 +4463,7 @@ EOF
     run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
   expect_code 0 "$rc" "abort-then-reap-then-remove-order: teardown should still succeed"
   kill -0 "$pid" 2>/dev/null && { kill -KILL "$pid" 2>/dev/null || true; }
+  wait "$pid" 2>/dev/null || true
 
   assert_present "$case_dir/order.log" \
     "abort-then-reap-then-remove-order: the destructive worktree return was never invoked"

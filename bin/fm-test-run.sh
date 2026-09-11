@@ -361,7 +361,7 @@ family_for_basename() {
 expected_gate_skip_for_family() {
   case "$1" in
     real-herdr-gated) printf '%s\n' herdr ;;
-    live-harness-optin) printf '%s\n' optin-env ;;
+    live-harness-optin) printf '%s\n' live-capability ;;
     cmux|zellij|orca) printf '%s\n' optional-binary ;;
     snapshot-bearings) printf '%s\n' optional-binary ;;
     *) printf '%s\n' none ;;

@@ -11,6 +11,9 @@ set -u
 # shellcheck source=tests/lib.sh disable=SC1091
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# commit-tree fixtures must be reproducible on fresh runners with no global identity.
+fm_git_identity
+
 PR_CHECK="$ROOT/bin/fm-pr-check.sh"
 TMP_ROOT=$(fm_test_tmproot fm-pr-check-tests)
 

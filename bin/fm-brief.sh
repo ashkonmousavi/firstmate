@@ -65,11 +65,13 @@
 # Every scaffold also carries the steering-inbox receive-and-ack section:
 # process state/<id>.inbox/*.msg in order and acknowledge each by moving it to
 # handled/ (record, doorbell, and ladder owned by bin/fm-task-inbox-lib.sh).
-# Every ship and scout scaffold carries a "Project authority" section: the worker
-# resolves the governing set at dispatch time from the project's own current
-# registry of authority rather than any remembered or legacy list, reconciles the
-# brief against it before acting, names project prose the brief intentionally
-# supersedes, and escalates a genuine conflict instead of arbitrating it.
+# Every ship and scout scaffold carries a "Project authority" section: current
+# task-specific captain scope and project product/security/safety/proof contracts
+# are both preserved. The worker resolves the governing set at dispatch time,
+# reports a concrete conflict with both sources, never lets older operational
+# repository prose silently override current captain/task authority, and never
+# uses task authority to widen reserved actions. Already-authorized scoped work
+# does not trigger a redundant permission request.
 # A secondmate charter is not a task brief and does not carry it.
 # Every ship path renders bin/fm-dod-lib.sh's batched-findings rule: enumerate the
 # complete finding set and check the surfaces sharing each defect's mechanism
@@ -397,10 +399,11 @@ fi
 
 IFS= read -r -d '' PROJECT_AUTHORITY_SECTION <<'EOF' || true
 # Project authority
-This brief carries firstmate's orchestration; the project's own instructions and governing requirements own its product, safety, and proof constraints.
+This brief carries the current task-specific captain scope and firstmate's orchestration; the project's own current requirements still own its product, security, safety and proof contracts except where this brief explicitly identifies obsolete operational prose that the current captain instruction supersedes.
 Resolve that governing set at dispatch time from the project's own current registry of authority - start at its `AGENTS.md` and follow what that file currently designates as governing - and never work from a remembered, inherited, or legacy list of authority documents.
-Before you act, reconcile this brief against that current project authority, and let the project's current authority win over any stale detail quoted here.
+Before you act, reconcile this brief against current project authority. Never let an older repository instruction silently override the current captain/task instruction, and never use the task instruction to weaken an actual product, security, safety or proof contract or to grant an unmentioned reserved action. Report a concrete conflict with both sources.
 Name any project prose this brief intentionally supersedes, and where you are authorized to change that project, include its correction or removal in the same change.
+Do not request new permission for scoped work the current captain/task instruction already authorizes; escalate only a concrete unresolved choice, a material scope expansion or a reserved action it does not cover.
 If a genuine conflict remains, append `needs-decision:` naming both readings and stop; never arbitrate a project-authority conflict silently.
 EOF
 PROJECT_AUTHORITY_SECTION=${PROJECT_AUTHORITY_SECTION%$'\n'}
@@ -465,9 +468,10 @@ The report is the only thing that survives, so anything worth keeping must be in
    known external wait you expect to clear on its own (an upstream release, a rate-limit reset):
    firstmate then leaves your idle pane alone and rechecks it on a long cadence instead of
    treating it as a possible wedge. Use \`blocked:\` when you are stuck and need help.
-5. If you hit the same obstacle twice, append \`blocked: {why}\` and stop; firstmate will help.
+5. If the same obstacle repeats, stop unchanged retries, inspect the shared cause and complete the affected schema or consumer family. Continue an already-authorized bounded repair when new evidence provides a productive path; append \`blocked: {why}\` only when there is no such progress, authority is unclear or unsafe, or the repair would materially expand scope.
 6. If a decision belongs to a human (product choices, destructive actions),
    append \`needs-decision: {summary of options}\` and stop. Firstmate will reply with the decision.
+   Do not request new permission for scoped work the current captain/task instruction already authorizes; escalate only a concrete unresolved choice, a material scope expansion or a reserved action it does not cover.
    A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
 7. Never stop, restart, or update the shared \`no-mistakes\` daemon - it is one instance serving
@@ -552,9 +556,10 @@ $RULE1
    known external wait you expect to clear on its own (an upstream release, a rate-limit reset,
    a scheduled window): firstmate then leaves your idle pane alone and rechecks it on a long
    cadence instead of treating it as a possible wedge. Use \`blocked:\` when you are stuck and need help.
-5. If you hit the same obstacle twice, append \`blocked: {why}\` and stop; firstmate will help.
+5. If the same obstacle repeats, stop unchanged retries, inspect the shared cause and complete the affected schema or consumer family. Continue an already-authorized bounded repair when new evidence provides a productive path; append \`blocked: {why}\` only when there is no such progress, authority is unclear or unsafe, or the repair would materially expand scope.
 6. If a decision belongs above the implementation worker (product choices, destructive actions),
    append \`needs-decision: {summary of options}\` and stop. Firstmate will reply with the decision.
+   Do not request new permission for scoped work the current captain/task instruction already authorizes; escalate only a concrete unresolved choice, a material scope expansion or a reserved action it does not cover.
 $ASK_USER_BLOCK
    A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.

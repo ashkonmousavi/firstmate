@@ -53,6 +53,10 @@ if [ "${1:-}" = status ] && [ "${2:-}" = --json ] && [ "${FM_HERDR_SCRIPT_STATUS
   printf '{"client":{"version":"0.7.1","protocol":14},"server":{"running":true}}\n'
   exit 0
 fi
+if [ "${1:-} ${2:-} ${3:-}" = "terminal title clear" ]; then
+  printf '{"result":{"reason":"%s"}}\n' "${FM_HERDR_FOREGROUND_REASON:-no_foreground_client}"
+  exit 0
+fi
 n=$next
 echo "$n" > "$COUNT_FILE"
 if [ -f "$RESP/$n.exit" ]; then
@@ -1407,7 +1411,7 @@ test_projection_close_restores_exact_prior_focus() {
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_close_pane_focus_preserving fmtest w9:p2' "$ROOT" 2>&1)
   status=$?
-  [ "$status" -eq 0 ] || fail "an exact non-active projection close should succeed after restoring focus: $out"
+  [ "$status" -eq 0 ] || fail "an exact non-active projection close should succeed after restoring focus: $out"$'\n'"$(cat "$log")"
   assert_contains "$(cat "$log")" $'pane\x1fclose\x1fw9:p2' \
     "focus-preserving cleanup did not close only the exact projection pane"
   assert_contains "$(cat "$log")" $'tab\x1ffocus\x1fw2:t2' \
@@ -1424,9 +1428,11 @@ test_projection_close_refuses_active_tab() {
   printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w9","active_tab_id":"w9:t2","focused":true}]}}' > "$resp/1.out"
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w9:t2","focused":true}]}}' > "$resp/2.out"
   printf '%s\n' '{"result":{"pane":{"pane_id":"w9:p2","tab_id":"w9:t2","workspace_id":"w9"}}}' > "$resp/3.out"
+  cp "$resp/1.out" "$resp/4.out"
+  cp "$resp/2.out" "$resp/5.out"
   fb=$(make_herdr_fakebin "$dir")
-  out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_close_pane_focus_preserving fmtest w9:p2' "$ROOT" 2>&1)
+  out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_HERDR_FOREGROUND_REASON=cleared \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_emptying_close_plan() { printf "plain\n"; }; fm_backend_herdr_projection_close_pane_focus_preserving fmtest w9:p2' "$ROOT" 2>&1)
   status=$?
   [ "$status" -ne 0 ] || fail "cleanup must refuse when exact active-tab preservation is impossible"
   assert_contains "$out" "target is the captain's active tab" \
@@ -2239,13 +2245,15 @@ test_projection_seeded_prune_refuses_active_tab() {
   printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w9","active_tab_id":"w9:t1","focused":true}]}}' > "$resp/4.out"
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w9:t1","focused":true},{"tab_id":"w9:t2","focused":false}]}}' > "$resp/5.out"
   printf '%s\n' '{"result":{"pane":{"pane_id":"w9:p1","tab_id":"w9:t1","workspace_id":"w9"}}}' > "$resp/6.out"
+  cp "$resp/4.out" "$resp/7.out"
+  cp "$resp/5.out" "$resp/8.out"
   fb=$(make_herdr_fakebin "$dir")
-  out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_workspace_prune_seeded_default_tab fmtest w9 w9:t1 focus-preserving' "$ROOT" 2>&1)
+  out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_HERDR_FOREGROUND_REASON=cleared \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_emptying_close_plan() { printf "plain\n"; }; fm_backend_herdr_workspace_prune_seeded_default_tab fmtest w9 w9:t1 focus-preserving' "$ROOT" 2>&1)
   status=$?
   [ "$status" -ne 0 ] || fail "projected seeded pruning must refuse the active tab"
   assert_contains "$out" "target is the captain's active tab" \
-    "projected seeded prune did not explain its active-tab refusal"
+    "projected seeded prune did not explain its active-tab refusal"$'\n'"$(cat "$log")"
   assert_not_contains "$(cat "$log")" $'pane\x1fclose' \
     "projected seeded prune closed the captain's active tab"
   pass "herdr presentation focus: projected seeded pruning refuses the active tab"
@@ -2859,7 +2867,7 @@ test_projection_reclaim_replaces_only_exact_husk_and_advances_binding() {
   [ -n "$agent_line" ] && [ "$agent_line" -lt "$close_line" ] \
     || fail "reclaim did not recheck the old pane agent state before the close"
   boundary_mutations=$(sed -n "$((agent_line + 1)),$((close_line - 1))p" "$log" \
-    | grep -Ev $'\x1f(tab\x1flist|pane\x1flist|workspace\x1flist)' || true)
+    | grep -Ev $'\x1f(tab\x1flist|pane\x1flist|workspace\x1flist|terminal\x1ftitle\x1fclear)' || true)
   [ -z "$boundary_mutations" ] \
     || fail "reclaim mutated between the old pane agent recheck and the close: $boundary_mutations"
   assert_not_contains "$calls" $'workspace\x1fclose' "reclaim introduced workspace-close authority"

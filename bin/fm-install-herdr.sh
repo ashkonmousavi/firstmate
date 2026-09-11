@@ -8,19 +8,19 @@
 # Usage:
 #   fm-install-herdr.sh <destination-directory>
 #
-# Pins Herdr v0.7.4 (protocol 16), the suite-verified protocol-16 release.
+# Pins Herdr v0.9.0 (protocol 20), the suite-verified current release.
 # Selects the official GitHub Releases asset for the host OS/arch, downloads
 # with a bounded max size, verifies SHA-256 before install, then refuses to
 # finish unless the binary reports the exact pin version and a client protocol
-# at or above the required floor (16 for the real-Herdr family).
+# at or above the required floor (20 for the real-Herdr family).
 set -eu
 
 # Exact pin - change only with a re-verified real-Herdr matrix.
-FM_HERDR_CI_VERSION=0.7.4
+FM_HERDR_CI_VERSION=0.9.0
 FM_HERDR_CI_TAG="v${FM_HERDR_CI_VERSION}"
-FM_HERDR_CI_MIN_PROTOCOL=16
-# Bounded download ceiling (bytes). The largest official 0.7.4 asset is under 20 MiB.
-FM_HERDR_CI_MAX_BYTES=25000000
+FM_HERDR_CI_MIN_PROTOCOL=20
+# Bounded download ceiling (bytes). The largest official 0.9.0 asset is under 25 MiB.
+FM_HERDR_CI_MAX_BYTES=30000000
 FM_HERDR_CI_REPO=ogulcancelik/herdr
 
 die() {
@@ -35,19 +35,19 @@ arch=$(uname -m)
 case "${os}-${arch}" in
   Linux-x86_64)
     ASSET=herdr-linux-x86_64
-    SHA256=bc0fc02d4ba500f9cac2353a43e67fe036785ecca6eb55378e050fac3c103059
+    SHA256=4fa1a01158dd8043da92d31b270780b0dcc10603038d9b61cac4d81ab63fb71f
     ;;
   Linux-aarch64|Linux-arm64)
     ASSET=herdr-linux-aarch64
-    SHA256=544e0002de42806d1ab64ccdef3a7e7414f24717b0b6b022bc9e57d2eefd26a2
+    SHA256=9c8db20fb7e7427b138d5367113f1621ffd319f2f65d6f009e2594029115f0d2
     ;;
   Darwin-arm64)
     ASSET=herdr-macos-aarch64
-    SHA256=24992e1625dbdcb18354a59e299e4b263c312400b31396cdc07cd46ed57f24a7
+    SHA256=32b53df09872628059c789a69f02a6b8e29e14ddf26711421f3463f70c1aef17
     ;;
   Darwin-x86_64)
     ASSET=herdr-macos-x86_64
-    SHA256=ddf430133352e1712413d5d865b34a485546f4658893fc89986257d65a7585a8
+    SHA256=d0c920b2a126a74809fa1491411c9a097a44786cac9c2ca51b818a995581cf16
     ;;
   *)
     die "unsupported platform ${os}-${arch}; official Herdr assets are linux/macos x86_64 and aarch64"

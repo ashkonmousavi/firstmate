@@ -136,12 +136,13 @@ test_firstmate_home_task_refreshes_idempotently() {
   expect_code 0 "$status" "the first firstmate-home spawn should succeed"
   current=$(git -C "$POOL_DIR" rev-parse HEAD)
   [ "$current" = "$LOCAL_SHA" ] || fail "the first spawn did not reach local main tip"
+  rm -f "$HOME_DIR/state/$id.meta"
 
   id='fmhome-local-main-repeat-r1b'
   fm_test_spawn_brief "$HOME_DIR" "$id"
   out=$(run_firstmate_home_spawn "$id" --mode no-mistakes --yolo off)
   status=$?
-  expect_code 0 "$status" "repeating the local-main refresh should be idempotent"
+  expect_code 0 "$status" "repeating the local-main refresh after the prior task releases its record should be idempotent"$'\n'"$out"
   [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$current" ] \
     || fail "an idempotent repeat moved the firstmate task worktree away from local main"
   pass "repeating a firstmate-home spawn against an already-current pool is idempotent"

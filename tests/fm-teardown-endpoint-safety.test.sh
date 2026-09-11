@@ -29,6 +29,10 @@ SH
 printf 'treehouse' >> "${FM_RUNTIME_LOG:?}"
 printf ' <%s>' "$@" >> "${FM_RUNTIME_LOG:?}"
 printf '\n' >> "${FM_RUNTIME_LOG:?}"
+if [ "${1:-} ${2:-}" = "status --json" ] && [ -n "${FM_FAKE_TREEHOUSE_STATUS_HOLDER:-}" ]; then
+  printf '[{"name":"1","path":"%s","status":"available","lease_id":"lease-fixture","lease_holder":"%s","processes":[]}]\n' \
+    "${FM_FAKE_TREEHOUSE_STATUS_PATH:-$PWD}" "$FM_FAKE_TREEHOUSE_STATUS_HOLDER"
+fi
 exit 0
 SH
   chmod +x "$TMP_ROOT/$dir/fakebin/tmux" "$TMP_ROOT/$dir/fakebin/treehouse"
@@ -178,7 +182,7 @@ test_non_pool_teardown_ignores_task_set_lock() {
     fail "could not stage an in-progress task publication"
   }
 
-  run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
+  FM_FAKE_TREEHOUSE_STATUS_HOLDER="$id" run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
     || fail "non-pool teardown was blocked by an unrelated task publication: $(cat "$dir/stderr")"
   assert_absent "$dir/home/state/$id.meta" "non-pool teardown left task metadata"
   assert_present "$lock" "non-pool teardown removed the publisher's lock"
@@ -551,7 +555,9 @@ test_sole_slot_record_still_tears_down() {
   ( cd "$dir/other-worktree" && exec sleep 30 ) &
   worker=$!
 
-  run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
+  FM_FAKE_TREEHOUSE_STATUS_HOLDER="$id" \
+  FM_FAKE_TREEHOUSE_STATUS_PATH="$dir/pool/1/project" \
+    run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
     || fail "teardown of a task that solely holds its slot failed: $(cat "$dir/stderr")"
   assert_absent "$dir/home/state/$id.meta" "uncontested teardown left the task record"
   assert_present "$dir/home/state/neighbour.meta" "uncontested teardown removed the neighbour's record"
@@ -587,7 +593,9 @@ SH
     "window=firstmate:fm-$id" "endpoint_task_id=$id" \
     "worktree=$dir/worktree" "project=$dir/project" "kind=scout"
 
-  run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
+  FM_FAKE_TREEHOUSE_STATUS_HOLDER="$id" \
+  FM_FAKE_TREEHOUSE_STATUS_PATH="$dir/pool/1/project" \
+    run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr" \
     || fail "teardown refused its recorded endpoint after it changed directory: $(cat "$dir/stderr")"
   assert_absent "$dir/home/state/$id.meta" "moved-endpoint teardown left the task record"
   grep -Fq "tmux <kill-window> <-t> <=firstmate:=fm-$id>" "$dir/runtime.log" \
@@ -704,7 +712,9 @@ test_remote_seeded_home_returns_its_uncontested_slot() {
     "worktree=$dir/worktree" "project=$dir/project" "kind=scout"
 
   set +e
-  run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr"
+  FM_FAKE_TREEHOUSE_STATUS_HOLDER="$id" \
+  FM_FAKE_TREEHOUSE_STATUS_PATH="$dir/pool/1/project" \
+    run_case "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr"
   rc=$?
   set -e
   [ "$rc" -eq 0 ] \

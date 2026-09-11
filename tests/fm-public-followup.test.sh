@@ -17,6 +17,8 @@ set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$ROOT/bin/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-remote-job-lib.sh
+. "$ROOT/bin/fm-remote-job-lib.sh"
 
 PF="$ROOT/bin/fm-public-followup.sh"
 EMIT="$ROOT/bin/fm-public-followup-emit.sh"
@@ -53,8 +55,14 @@ pf_test_cleanup() {
   fi
   if [ -f "$pid_file" ]; then
     pid=$(cat "$pid_file" 2>/dev/null) || pid=
-    [ -z "$pid" ] || kill "$pid" 2>/dev/null || true
+    if [ -n "$pid" ]; then
+      # worker.pid names the serving child beneath a restart supervisor.
+      # Stop the verified fixture-owned process group so that supervisor cannot
+      # recreate remote-jobs while the shared fixture cleanup removes TMP_ROOT.
+      fm_remote_job_stop_worker_tree "$pid" || true
+    fi
   fi
+  fm_test_stop_remote_job_workers "${REMOTE_FIXTURE_ROOT:-}" || true
   fm_test_cleanup
 }
 trap pf_test_cleanup EXIT
@@ -1199,7 +1207,7 @@ test_cleanup_refuses_while_a_public_reply_is_owed() {
     "project=$home/projects/sample" \
     "harness=codex" \
     "kind=ship" \
-    "mode=no-mistakes" \
+    "mode=local-only" \
     "spawn_gen=public-followup-guard"
 
   rc=0
@@ -1211,15 +1219,17 @@ test_cleanup_refuses_while_a_public_reply_is_owed() {
   assert_grep "still owes a public reply" "$home/teardown.err" "the refusal must be explicit"
   assert_present "$home/state/ship-task.meta" "a refused cleanup must preserve the task record"
 
-  # Once the reply has landed, the same cleanup is allowed to proceed.
+  # Once the reply has landed, the same local-only fixture cleanup is allowed to proceed.
   emit_terminal "$home" "$home" pf-guard main ship-task >/dev/null || fail "emit failed"
   run_pf "$home" consume >/dev/null || fail "consume failed"
   FAKE_CURL_LOG="$home/curl.log" run_pf "$home" deliver pf-guard >/dev/null || fail "delivery failed"
   rc=0
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
-    FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" ship-task >/dev/null 2>&1 || rc=$?
-  [ "$rc" -eq 0 ] || fail "cleanup must proceed once the public reply has landed (rc=$rc)"
+    FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" ship-task \
+    >"$home/teardown-after.out" 2>"$home/teardown-after.err" || rc=$?
+  [ "$rc" -eq 0 ] \
+    || fail "cleanup must proceed once the public reply has landed (rc=$rc): $(cat "$home/teardown-after.err")"
   pass "cleanup refuses while a public reply is owed and proceeds once it has landed"
 }
 
@@ -1374,6 +1384,9 @@ test_session_start_surfaces_only_when_owed() {
   out=$(PATH="$off/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$off" \
     FM_STATE_OVERRIDE="$off/state" FM_DATA_OVERRIDE="$off/data" \
     FM_CONFIG_OVERRIDE="$off/config" "$SESSION_START" 2>&1)
+  FM_HOME="$off" FM_ROOT_OVERRIDE="$ROOT" \
+    "$ROOT/bin/fm-startup-network.sh" wait 30 >/dev/null \
+    || fail "the relay-disabled home's fixture-owned startup worker did not settle"
   assert_not_contains "$out" "Public commitments" \
     "a relay-disabled home must not gain a public-commitments section at startup"
 
@@ -1382,6 +1395,9 @@ test_session_start_surfaces_only_when_owed() {
   out=$(PATH="$on/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$on" \
     FM_STATE_OVERRIDE="$on/state" FM_DATA_OVERRIDE="$on/data" \
     FM_CONFIG_OVERRIDE="$on/config" "$SESSION_START" 2>&1)
+  FM_HOME="$on" FM_ROOT_OVERRIDE="$ROOT" \
+    "$ROOT/bin/fm-startup-network.sh" wait 30 >/dev/null \
+    || fail "the relay-enabled home's fixture-owned startup worker did not settle"
   assert_contains "$out" "Public commitments" \
     "an unresolved commitment must be surfaced at startup"
   assert_contains "$out" "unresolved pf-start state=pending-work platform=discord" \
@@ -2071,7 +2087,7 @@ test_retention_creates_no_false_teardown_refusal() {
     "project=$home/projects/sample" \
     "harness=codex" \
     "kind=ship" \
-    "mode=no-mistakes" \
+    "mode=local-only" \
     "spawn_gen=public-followup-retain"
   emit_terminal "$home" "$home" pf-retain main ship-retain >/dev/null || fail "emit failed"
   run_pf "$home" consume >/dev/null || fail "consume failed"
@@ -2085,7 +2101,8 @@ test_retention_creates_no_false_teardown_refusal() {
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" ship-retain \
     > "$home/td.out" 2> "$home/td.err" || rc=$?
-  [ "$rc" -eq 0 ] || fail "teardown must proceed with a retained delivered registration (rc=$rc)"
+  [ "$rc" -eq 0 ] \
+    || fail "teardown must proceed with a retained delivered registration (rc=$rc)"$'\n'"$(cat "$home/td.err")"
   case "$(cat "$home/td.err")" in
     *"still owes a public reply"*) fail "retention must not create a false public-reply refusal" ;;
   esac

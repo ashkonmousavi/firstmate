@@ -33,6 +33,9 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# Fixture commits must be reproducible on fresh runners with no global identity.
+fm_git_identity
+
 command -v tasks-axi >/dev/null 2>&1 || fail "these tests need the real tasks-axi to seed a backlog"
 TMP_ROOT=$(fm_test_tmproot fm-merge-outcome-lib-tests)
 

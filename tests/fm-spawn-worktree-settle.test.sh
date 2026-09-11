@@ -14,8 +14,8 @@
 # the stale first read.
 set -u
 
-# shellcheck source=tests/lib.sh
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/fixtures.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
 SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-spawn-worktree-settle)
@@ -89,6 +89,7 @@ exit 0
 SH
   chmod +x "$fakebin/treehouse"
   fm_fake_exit0 "$fakebin" sleep
+  fm_test_fake_codex_empty_mcp "$fakebin"
   printf '%s\n' "$fakebin"
 }
 

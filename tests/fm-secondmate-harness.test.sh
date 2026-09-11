@@ -661,6 +661,22 @@ exit 0
 SH
   chmod +x "$fakebin/tmux"
   fm_fake_exit0 "$fakebin" pi
+  cat > "$fakebin/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-} ${2:-} ${3:-}" = "mcp list --json" ]; then
+  printf '%s\n' '[]'
+fi
+exit 0
+SH
+  cat > "$fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+case "${1:-} ${2:-}" in
+  "get --help") printf '%s\n' 'Usage: treehouse get [--lease] [--lease-holder <holder>]' ;;
+  "get --lease") printf '%s\n' "${FM_FAKE_PANE_PATH:-}" ;;
+esac
+exit 0
+SH
+  chmod +x "$fakebin/codex" "$fakebin/treehouse"
   printf '%s\n' "$fakebin"
 }
 
@@ -1418,7 +1434,9 @@ test_backend_inheritance_present_and_absent() {
   expect_code 0 "$status" "backend absence push should succeed"
   assert_contains "$out" "backend: pushed - mirrored primary absence" "backend should mirror primary absence"
   [ -e "$w/sm/config/backend" ] && fail "backend not removed on primary absence"
-  instruction=$(reread_instruction_path "$w/sm") || fail "backend absence reread instruction missing"
+  instruction=$(inbox_stream "$w/home/state" sm \
+    | sed -n 's/.*CONFIG_REREAD: //p' | tail -1)
+  [ -n "$instruction" ] || fail "backend absence reread instruction missing"
   assert_contains "$(cat "$instruction")" $'-----BEGIN config/backend-----\nABSENT\n-----END config/backend-----' \
     "backend absence reread must use ABSENT token"
   pass "B12b backend inheritance: present values and primary absence converge exactly"
@@ -2117,7 +2135,9 @@ SH
 }
 
 test_config_reread_serializes_concurrent_pushes() {
-  local w head fakebin marker entered log first_out second_out first_pid first_status second_status
+  local w head fakebin real_mv real_sleep marker entered release second_entered second_started second_waiting log
+  local first_out first_err first_status_file second_out second_err second_status_file
+  local first_pid second_pid first_status second_status child_state
   local first_instr second_instr first_line second_line
   w=$(new_world config-reread-serialized-pushes)
   head=$(git -C "$w/main" rev-parse HEAD)
@@ -2127,47 +2147,128 @@ test_config_reread_serializes_concurrent_pushes() {
   printf 'one\n' > "$w/home/config/crew-harness"
 
   fakebin=$(make_fake_toolchain "$w")
-  mv "$fakebin/tmux" "$fakebin/tmux.real"
-  marker="$w/first-send.marker"
-  entered="$w/first-send.entered"
+  real_mv=$(command -v mv)
+  real_sleep=$(command -v sleep)
+  marker="$w/first-inbox-publish.marker"
+  entered="$w/first-inbox-publish.entered"
+  release="$w/first-inbox-publish.release"
+  second_entered="$w/second-inbox-publish.entered"
+  second_started="$w/second-push.started"
+  second_waiting="$w/second-push.waiting-on-lock"
   log="$w/config-reread-serialized.tmux.log"
-  cat > "$fakebin/tmux" <<SH
+  cat > "$fakebin/mv" <<SH
 #!/usr/bin/env bash
-case "\$*" in
-  *send-keys*)
+destination=\${!#}
+"$real_mv" "\$@" || exit \$?
+case "\$destination" in
+  "$w/home/state/sm.inbox/"*.msg)
     if (set -o noclobber; : > "$marker") 2>/dev/null; then
       : > "$entered"
-      sleep 1
+      while [ ! -e "$release" ]; do sleep 0.01; done
+    else
+      : > "$second_entered"
     fi
     ;;
 esac
-exec "$fakebin/tmux.real" "\$@"
+exit 0
 SH
-  chmod +x "$fakebin/tmux"
+  chmod +x "$fakebin/mv"
+  cat > "$fakebin/sleep" <<SH
+#!/usr/bin/env bash
+if [ "\${FM_TEST_PUSH_INDEX:-}" = 2 ] && [ "\${1:-}" = 0.1 ]; then
+  : > "$second_waiting"
+fi
+exec "$real_sleep" "\$@"
+SH
+  chmod +x "$fakebin/sleep"
 
   first_out="$w/first-push.out"
+  first_err="$w/first-push.err"
+  first_status_file="$w/first-push.status"
   (
+    child_status=0
     PATH="$fakebin:$BASE_PATH" FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/main" \
+      FM_TEST_PUSH_INDEX=1 \
       FM_SEND_SETTLE=0 FM_FAKE_TMUX_LOG="$log" \
-      "$ROOT/bin/fm-config-push.sh" > "$first_out" 2>&1
+      "$ROOT/bin/fm-config-push.sh" > "$first_out" 2> "$first_err" || child_status=$?
+    printf '%s\n' "$child_status" > "$first_status_file"
+    exit "$child_status"
   ) &
   first_pid=$!
-  for _ in $(seq 1 100); do
+  # Block after the first pointer is durably published, not on its best-effort
+  # terminal doorbell. The latter may correctly be skipped and is not delivery.
+  for _ in $(seq 1 500); do
     [ -e "$entered" ] && break
     sleep 0.02
   done
-  [ -e "$entered" ] || fail "first config push did not reach pointer delivery"
+  if [ ! -e "$entered" ]; then
+    child_state=running
+    [ ! -f "$first_status_file" ] || child_state=$(cat "$first_status_file")
+    : > "$release"
+    wait "$first_pid" 2>/dev/null || true
+    fail "first config push did not reach pointer delivery (pid=$first_pid status=$child_state config=$(cat "$w/sm/config/crew-harness" 2>/dev/null || true) instructions=$(find "$w/sm/state" -maxdepth 1 -name '.fm-inherited-config-reread.*' -type f | wc -l | tr -d ' ') inbox=$(find "$w/home/state/sm.inbox" -maxdepth 1 -name '*.msg' -type f 2>/dev/null | wc -l | tr -d ' ') stdout=$(cat "$first_out" 2>/dev/null || true) stderr=$(cat "$first_err" 2>/dev/null || true))"
+  fi
   first_instr=$(reread_instruction_path "$w/sm") \
     || fail "first concurrent push did not publish its generation"
   printf 'two\n' > "$w/home/config/crew-harness"
   second_out="$w/second-push.out"
-  PATH="$fakebin:$BASE_PATH" FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/main" \
-    FM_SEND_SETTLE=0 FM_FAKE_TMUX_LOG="$log" \
-    "$ROOT/bin/fm-config-push.sh" > "$second_out" 2>&1
-  second_status=$?
+  second_err="$w/second-push.err"
+  second_status_file="$w/second-push.status"
+  (
+    : > "$second_started"
+    child_status=0
+    PATH="$fakebin:$BASE_PATH" FM_HOME="$w/home" FM_ROOT_OVERRIDE="$w/main" \
+      FM_TEST_PUSH_INDEX=2 \
+      FM_SEND_SETTLE=0 FM_FAKE_TMUX_LOG="$log" \
+      "$ROOT/bin/fm-config-push.sh" > "$second_out" 2> "$second_err" || child_status=$?
+    printf '%s\n' "$child_status" > "$second_status_file"
+    exit "$child_status"
+  ) &
+  second_pid=$!
+  for _ in $(seq 1 100); do
+    [ -e "$second_started" ] && break
+    sleep 0.02
+  done
+  if [ ! -e "$second_started" ]; then
+    : > "$release"
+    wait "$first_pid" 2>/dev/null || true
+    wait "$second_pid" 2>/dev/null || true
+    fail "second config push did not start (pid=$second_pid)"
+  fi
+  for _ in $(seq 1 500); do
+    [ -e "$second_waiting" ] && break
+    [ -e "$second_entered" ] && break
+    [ "$(cat "$w/sm/config/crew-harness")" != one ] && break
+    [ -e "$second_status_file" ] && break
+    sleep 0.02
+  done
+  if [ -e "$second_entered" ] || [ "$(cat "$w/sm/config/crew-harness")" != one ]; then
+    : > "$release"
+    wait "$first_pid" 2>/dev/null || true
+    wait "$second_pid" 2>/dev/null || true
+    fail "concurrent push crossed the durable publication boundary before serialized release"
+  fi
+  if [ ! -e "$second_waiting" ]; then
+    second_status=$(cat "$second_status_file" 2>/dev/null || printf running)
+    : > "$release"
+    wait "$first_pid" 2>/dev/null || true
+    wait "$second_pid" 2>/dev/null || true
+    fail "second config push did not reach the held serialization boundary (pid=$second_pid status=$second_status stdout=$(cat "$second_out" 2>/dev/null || true) stderr=$(cat "$second_err" 2>/dev/null || true))"
+  fi
+  if ! kill -0 "$second_pid" 2>/dev/null; then
+    second_status=$(cat "$second_status_file" 2>/dev/null || printf unknown)
+    : > "$release"
+    wait "$first_pid" 2>/dev/null || true
+    wait "$second_pid" 2>/dev/null || true
+    fail "second config push exited instead of waiting (pid=$second_pid status=$second_status stdout=$(cat "$second_out" 2>/dev/null || true) stderr=$(cat "$second_err" 2>/dev/null || true))"
+  fi
+  : > "$release"
   wait "$first_pid"; first_status=$?
+  wait "$second_pid"; second_status=$?
   expect_code 0 "$first_status" "first serialized config push failed"
   expect_code 0 "$second_status" "second serialized config push failed"
+  assert_present "$second_entered" \
+    "second config push did not publish its pointer after the first released"
   second_instr=$(reread_instruction_path "$w/sm") \
     || fail "second concurrent push did not publish its generation"
   [ "$first_instr" != "$second_instr" ] || fail "concurrent pushes reused a generation"

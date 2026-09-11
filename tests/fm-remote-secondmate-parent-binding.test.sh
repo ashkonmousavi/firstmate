@@ -29,6 +29,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-remote-job-lib.sh
+. "$ROOT/bin/fm-remote-job-lib.sh"
 # shellcheck source=tests/remote-herdr-fixture.sh
 . "$(dirname "${BASH_SOURCE[0]}")/remote-herdr-fixture.sh"
 
@@ -60,8 +62,9 @@ cleanup() {
     "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
   if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
     worker_pid=$(cat "$TMP_ROOT/remote-jobs/worker.pid")
-    kill "$worker_pid" 2>/dev/null || true
+    fm_remote_job_stop_worker_tree "$worker_pid" || true
   fi
+  fm_test_stop_remote_job_workers "$REMOTE_ROOT" || true
   rm -rf -- "$TMP_ROOT"
 }
 trap cleanup EXIT

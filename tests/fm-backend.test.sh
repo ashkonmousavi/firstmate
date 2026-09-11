@@ -805,11 +805,18 @@ case "\${1:-}" in
     for a in "\$@"; do case "\$a" in *pane_current_path*) printf '%s\\n' "$wt"; exit 0 ;; esac; done
     printf 'firstmate\\n'; exit 0 ;;
   list-windows) exit 0 ;;
+  esac
+  exit 0
+SH
+  chmod +x "$fb/tmux"
+  cat > "$fb/treehouse" <<SH
+#!/usr/bin/env bash
+case "\${1:-}" in
+  get) printf '%s\n' '$wt' ;;
 esac
 exit 0
 SH
-  chmod +x "$fb/tmux"
-  fm_fake_exit0 "$fb" treehouse
+  chmod +x "$fb/treehouse"
   printf '%s\n' "$fb"
 }
 
@@ -879,7 +886,14 @@ esac
 exit 0
 SH
   chmod +x "$fb/tmux"
-  fm_fake_exit0 "$fb" treehouse
+  cat > "$fb/treehouse" <<SH
+#!/usr/bin/env bash
+case "\${1:-}" in
+  get) printf '%s\n' '$wt' ;;
+esac
+exit 0
+SH
+  chmod +x "$fb/treehouse"
   printf '%s\n' "$fb"
 }
 

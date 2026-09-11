@@ -66,6 +66,21 @@ SH
   chmod +x "$fakebin/no-mistakes"
 }
 
+# fm_test_fake_codex_empty_mcp <fakebin>
+# Spawn fixtures that select Codex must answer the launcher's required MCP
+# inventory probe deterministically instead of inheriting the runner's tools.
+fm_test_fake_codex_empty_mcp() {
+  local fakebin=$1
+  cat > "$fakebin/codex" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-} ${2:-} ${3:-}" = "mcp list --json" ]; then
+  printf '%s\n' '[]'
+fi
+exit 0
+SH
+  chmod +x "$fakebin/codex"
+}
+
 # --- fake gh / gh-axi -------------------------------------------------------
 
 # fm_test_fake_gh <fakebin>
@@ -305,6 +320,7 @@ exit 0
 SH
   chmod +x "$fakebin/treehouse"
   fm_fake_exit0 "$fakebin" "$@"
+  fm_test_fake_codex_empty_mcp "$fakebin"
   printf '%s\n' "$fakebin"
 }
 

@@ -82,9 +82,23 @@ test_existing_singleton_watcher_is_not_success() {
 }
 
 test_codex_routes_to_checkpoint_supervision_and_fresh_handoff_is_healthy() {
-  local home model verdict
+  local home fakebin model verdict
   home=$(make_home codex-model)
-  model=$(FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_model' _ \
+  fakebin="$home/fakebin"
+  mkdir -p "$fakebin"
+  cat > "$fakebin/ps" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *' comm= '*) printf '%s\n' codex ;;
+  *' args= '*) printf '%s\n' codex ;;
+  *' ppid= '*) printf '%s\n' 1 ;;
+  *) exec /bin/ps "$@" ;;
+esac
+SH
+  chmod +x "$fakebin/ps"
+  model=$(env -u CLAUDECODE -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI \
+    -u PI_CODING_AGENT -u GROK_AGENT PATH="$fakebin:$PATH" \
+    FM_STATE_OVERRIDE="$home/state" bash -c '. "$1"; fm_supervision_model' _ \
     "$ROOT/bin/fm-wake-lib.sh")
   [ "$model" = checkpoint ] \
     || fail "Codex ancestry must select checkpoint supervision, got: $model"

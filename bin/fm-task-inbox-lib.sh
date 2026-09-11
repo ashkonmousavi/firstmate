@@ -248,22 +248,32 @@ fm_task_inbox_body() {  # <record-path>
 # Self-describing on purpose: a worker whose brief predates the inbox contract
 # still receives the complete instruction in the line itself.
 fm_task_inbox_doorbell_line() {  # <record-path>
-  local dir=${1%/*} abs
+  local dir=${1%/*} abs LC_ALL=C
   abs=$(cd "$dir" 2>/dev/null && pwd) || abs=$dir
+  case "$abs" in
+    *[![:print:]]*) return 1 ;;
+  esac
   printf 'Firstmate instruction waiting: list %s/*.msg and, in numeric order, read and act on each, then mv each handled file to %s/handled/.' \
     "$abs" "$abs"
 }
 
-# Ring the doorbell, best-effort: require an affirmatively empty live-agent
-# composer before the backend's submit machinery receives any keystrokes.
+# Ring the doorbell, best-effort: reject a positively dead or missing endpoint,
+# then require an affirmatively empty live-agent composer before the backend's
+# submit machinery receives any keystrokes.
 # Returns 0 rang, 1 skipped because the composer is not proven empty (the
-# watcher re-rings later), 2 the backend send failed. No return value is
-# delivery proof; the acknowledgement move is the only delivery signal.
+# watcher re-rings later), 2 the backend send failed, or 3 skipped because the
+# endpoint is positively dead or missing. No return value is delivery proof;
+# the acknowledgement move is the only delivery signal.
 # A pending, pending-unproven, unknown, or future verdict cannot safely receive
 # a doorbell: unknown includes a bare shell prompt after an agent exits.
 fm_task_inbox_ring() {  # <backend> <target> <record-path> [expected-label]
   local backend=$1 target=$2 rec=$3 label=${4:-} line cstate verdict
-  line=$(fm_task_inbox_doorbell_line "$rec")
+  if ! line=$(fm_task_inbox_doorbell_line "$rec"); then
+    return 2
+  fi
+  case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || true)" in
+    dead|missing) return 3 ;;
+  esac
   cstate=$(fm_backend_composer_state "$backend" "$target" "$label" 2>/dev/null) || cstate=unknown
   [ "$cstate" = empty ] || return 1
   if ! verdict=$(fm_backend_send_text_submit "$backend" "$target" "$line" 1 0.4 0.3 "$label" 2>/dev/null); then
@@ -332,8 +342,10 @@ fm_task_inbox_due_action() {  # <state-dir> <task-id>
   IFS=$(printf '\t') read -r rec_base count last <<EOF
 $ladder
 EOF
-  if [ "$rec_base" != "$base" ]; then
-    # A different (or first) oldest message: the previous ladder is stale.
+  if [ -n "$rec_base" ] && [ "$rec_base" != "$base" ]; then
+    # A different oldest message: the previous ladder is stale. An absent
+    # ladder is left alone so a dead-pane escalation, which never rings and so
+    # never writes one, keeps its marker.
     count=0
     last=0
     rm -f "$dir/.escalated" 2>/dev/null || true

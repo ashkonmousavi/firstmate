@@ -1147,7 +1147,7 @@ fm_remote_job_reload_launchagent() { # <account-home> <uid>
 }
 
 fm_remote_job_start_linux_worker() { # <remote-root> <account-home>
-  local root=$1 account_home=$2 worker pid
+  local root=$1 account_home=$2 worker pid lock
   worker="$root/bin/fm-remote-job-worker.sh"
   [ -f "$worker" ] && [ ! -L "$worker" ] && [ -x "$worker" ] || {
     FM_REMOTE_JOB_ERROR="remote job worker is not a genuine executable in the configured code root"
@@ -1166,6 +1166,15 @@ fm_remote_job_start_linux_worker() { # <remote-root> <account-home>
     }
     wait "$pid" 2>/dev/null || true
     FM_REMOTE_JOB_REPAIRED=1
+  fi
+  # The serving child publishes worker.lock before worker.pid and readiness.
+  # Concurrent SSH entrypoints that arrive in that startup window must wait
+  # for the same owner instead of each launching a restart supervisor that
+  # will spend its lock-acquisition window contending with the winner.
+  lock=$(fm_remote_job_worker_lock_path)
+  if [ -d "$lock" ] && [ ! -L "$lock" ] \
+    && fm_remote_job_wait_for_probe "$root" "$account_home"; then
+    return 0
   fi
   # Job control puts the worker tree in its own process group, so a later stop
   # can signal every descendant at once without ever reaching the caller's own

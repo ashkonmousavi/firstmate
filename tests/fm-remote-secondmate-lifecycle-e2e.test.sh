@@ -4,6 +4,8 @@ set -u
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-remote-job-lib.sh
+. "$ROOT/bin/fm-remote-job-lib.sh"
 # shellcheck source=tests/remote-herdr-fixture.sh
 . "$(dirname "${BASH_SOURCE[0]}")/remote-herdr-fixture.sh"
 # shellcheck source=tests/herdr-client-pair-fixture.sh
@@ -28,19 +30,16 @@ TMUX_STATE="$TMP_ROOT/remote-tmux.state"
 CLAIMS="$TMP_ROOT/claims"
 mkdir -p "$PARENT/data" "$PARENT/state" "$PARENT/config" "$PARENT/projects" "$REMOTE_ROOT" "$CLAIMS"
 cleanup() {
-  local worker_pid='' wait_attempt=0
+  local worker_pid=''
   touch "$TMP_ROOT/provision.release" "$TMP_ROOT/seed.release" "$TMP_ROOT/handoff.release" \
     "$TMP_ROOT/inherit.release" "$TMP_ROOT/launch.release" 2>/dev/null || true
   FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" \
     "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
   if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
     worker_pid=$(cat "$TMP_ROOT/remote-jobs/worker.pid")
-    kill "$worker_pid" 2>/dev/null || true
-    while kill -0 "$worker_pid" 2>/dev/null && [ "$wait_attempt" -lt 100 ]; do
-      wait_attempt=$((wait_attempt + 1))
-      sleep 0.05
-    done
+    fm_remote_job_stop_worker_tree "$worker_pid" || true
   fi
+  fm_test_stop_remote_job_workers "$REMOTE_ROOT" || true
   rm -rf -- "$TMP_ROOT"
 }
 trap cleanup EXIT
@@ -265,6 +264,7 @@ remote_env() {
   FM_FAKE_SSH_COUNT="$SSH_COUNT" \
   FM_FAKE_REMOTE_ENTRYPOINT="$REMOTE_ROOT/bin/fm-remote-entrypoint.sh" \
   FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
+  FM_REMOTE_JOB_SUPERVISOR_MAX_RESTARTS=1 \
   FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/remote-jobs" \
   FM_FAKE_SSH_MODE="${FM_FAKE_SSH_MODE:-normal}" \
   FM_FAKE_REMOTE_CWD="$TMP_ROOT" \
@@ -302,6 +302,7 @@ seed_env() {
   FM_FAKE_SSH_COUNT="$SSH_COUNT" \
   FM_FAKE_REMOTE_ENTRYPOINT="$REMOTE_ROOT/bin/fm-remote-entrypoint.sh" \
   FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
+  FM_REMOTE_JOB_SUPERVISOR_MAX_RESTARTS=1 \
   FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/remote-jobs" \
   FM_FAKE_SSH_MODE="${FM_FAKE_SSH_MODE:-normal}" \
   FM_FAKE_REMOTE_CWD="$TMP_ROOT" \
@@ -957,7 +958,8 @@ while [ ! -f "$TMP_ROOT/inherit.entered" ]; do
   inherit_wait=$((inherit_wait + 1))
   # Match the earlier spawn/inheritance wait: a loaded portable runner can
   # spend several seconds in the remote entrypoint before reaching this write.
-  [ "$inherit_wait" -le 1500 ] || fail "first inheritance transaction never reached its blocked write"
+  [ "$inherit_wait" -le 1500 ] \
+    || fail "first inheritance transaction never reached its blocked write"$'\n'"$(cat "$TMP_ROOT/config-concurrent-first.out")"
   sleep 0.02
 done
 cat > "$PARENT/data/captain-shared.md" <<'EOF'

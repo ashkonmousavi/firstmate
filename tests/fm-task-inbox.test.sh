@@ -162,9 +162,9 @@ test_write_is_durable_and_exact() {
   doorbell2=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec2")
   [ "$doorbell" = "$doorbell2" ] \
     || fail "every record in one inbox should ring the same drain-all doorbell"
-  assert_contains "$doorbell" "'$state/t1.inbox'/*.msg" "doorbell should quote and name all unhandled records"
+  assert_contains "$doorbell" "$state/t1.inbox/*.msg" "doorbell should name all unhandled records"
   assert_contains "$doorbell" "numeric order" "doorbell should require ordered processing"
-  assert_contains "$doorbell" "'$state/t1.inbox'/handled/" "doorbell should quote and name the handled dir"
+  assert_contains "$doorbell" "$state/t1.inbox/handled/" "doorbell should name the handled dir"
   assert_contains "$doorbell" "Firstmate instruction waiting" "doorbell should be self-describing"
   case "$doorbell" in
     *$'\n'*) fail "the doorbell must be a single line" ;;
@@ -172,42 +172,23 @@ test_write_is_durable_and_exact() {
   pass "inbox: a steer is written durably and round-trips byte-exact with a self-describing doorbell"
 }
 
-# The doorbell may land in a pane whose agent has exited, where it is a shell
-# command line. Execute the real line in real shells and assert it is inert:
-# exit 0, no output, and nothing in the inbox touched.
-test_doorbell_is_a_shell_noop() {
-  local state rec doorbell sh out before after marker
-  state="$TMP_ROOT/noop/x; touch marker; #'s space/state"
-  marker="$state/marker"
+# Contract change: fm_task_inbox_ring now requires an affirmatively empty live
+# agent composer, so a doorbell can no longer be typed into a dead shell.
+# The old shell no-op prefix is intentionally absent from the worker instruction.
+# The separate unproven-composer case proves the stronger no-keystrokes boundary.
+test_doorbell_is_plain_worker_instruction_without_shell_prefix() {
+  local state rec doorbell
+  state="$TMP_ROOT/plain-instruction/state"
   mkdir -p "$state"
   rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
   doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
   case "$doorbell" in
-    ': '*) ;;
-    *) fail "the doorbell must start with the shell no-op prefix, got: $doorbell" ;;
+    'Firstmate instruction waiting: '*) ;;
+    *) fail "the doorbell must start with the plain worker instruction, got: $doorbell" ;;
   esac
-  assert_contains "$doorbell" "'\\''s space/state/t1.inbox'" \
-    "the doorbell should escape an embedded single quote in its quoted path"
-  before=$(ls -R "$state/t1.inbox")
-  for sh in sh bash zsh; do
-    command -v "$sh" >/dev/null 2>&1 || continue
-    out=$(cd "$state" && "$sh" -c "$doorbell" 2>&1) \
-      || fail "$sh executed the hostile-path doorbell with a non-zero status: $out"
-    [ -z "$out" ] || fail "$sh produced output while executing the hostile-path doorbell: $out"
-    [ ! -e "$marker" ] || fail "$sh executed shell syntax embedded in the inbox path"
-  done
-  # An interactive-style zsh with the line fed on stdin, the closest portable
-  # stand-in for a dead pane's login shell reading typed keystrokes.
-  if command -v zsh >/dev/null 2>&1; then
-    out=$(cd "$state" && printf '%s\n' "$doorbell" | zsh -s 2>&1) \
-      || fail "zsh reading the hostile-path doorbell from stdin failed: $out"
-    [ -z "$out" ] || fail "zsh printed while reading the hostile-path doorbell: $out"
-    [ ! -e "$marker" ] || fail "zsh executed shell syntax from the stdin doorbell"
-  fi
-  after=$(ls -R "$state/t1.inbox")
-  [ "$before" = "$after" ] || fail "executing the doorbell changed the inbox:"$'\n'"$after"
-  [ -f "$rec" ] || fail "executing the doorbell removed the unhandled record"
-  pass "inbox: a hostile-path doorbell executes as a no-op in bare shells"
+  case "$doorbell" in ': '*) fail "the plain worker instruction retained the obsolete shell prefix" ;; esac
+  [ -f "$rec" ] || fail "rendering the doorbell removed the unhandled record"
+  pass "inbox: a proven-agent doorbell is a plain worker instruction without a shell prefix"
 }
 
 test_doorbell_rejects_terminal_controls() {
@@ -246,7 +227,7 @@ test_doorbell_rejects_terminal_controls() {
 # An unreadable endpoint still rings, so a blind classifier never starves a
 # live worker.
 test_ring_skips_dead_agent() {
-  local dir state rec log rc
+  local dir state rec log rc unproven
   dir="$TMP_ROOT/ring-dead"
   state="$dir/state"
   mkdir -p "$state"
@@ -271,12 +252,15 @@ test_ring_skips_dead_agent() {
   [ "$rc" = 0 ] || fail "a live agent should still be rung, got $rc"
   grep -qF 'Firstmate instruction waiting' "$log" || fail "a live agent did not receive the doorbell"
   : > "$log"
+  unproven="$dir/unproven.capture"
+  : > "$unproven"
   rc=0
-  PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" \
+  PATH="$dir/fakebin:$PATH" FM_SEND_LOG="$log" FM_FAKE_TMUX_CAPTURE="$unproven" \
     inbox_lib "$state" fm_task_inbox_ring tmux sess:fm-t1 "$rec" fm-t1 || rc=$?
-  [ "$rc" = 0 ] || fail "an endpoint the classifier cannot see should still be rung, got $rc"
-  grep -qF 'Firstmate instruction waiting' "$log" || fail "an unclassifiable endpoint did not receive the doorbell"
-  pass "inbox: the ring skips dead or missing endpoints and still rings live or unclassifiable endpoints"
+  [ "$rc" = 1 ] || fail "an endpoint with an unproven composer should defer the ring, got $rc"
+  [ ! -s "$log" ] || fail "an unclassifiable endpoint received unsafe keystrokes:"$'\n'"$(cat "$log")"
+  [ -f "$rec" ] || fail "deferring an unproven composer must leave the durable record in place"
+  pass "inbox: the ring skips dead, missing, or unproven composers and rings a proven-empty live agent"
 }
 
 test_idempotent_write_dedups_exact_body() {
@@ -510,7 +494,7 @@ test_watcher_rerings_idle_pane_quietly() {
     sleep 0.1
     i=$((i + 1))
   done
-  grep -qF "Firstmate instruction waiting: list '$state/t1.inbox'/*.msg" "$log" \
+  grep -qF "Firstmate instruction waiting: list $state/t1.inbox/*.msg" "$log" \
     || { kill "$pid" 2>/dev/null; fail "the watcher never re-rang the doorbell:"$'\n'"$(cat "$log")"; }
   kill -0 "$pid" 2>/dev/null \
     || fail "a healthy re-ring must not wake firstmate (watcher exited):"$'\n'"$(cat "$out")"
@@ -693,7 +677,7 @@ test_watcher_dead_pane_ignores_stale_busy_state() {
 }
 
 test_write_is_durable_and_exact
-test_doorbell_is_a_shell_noop
+test_doorbell_is_plain_worker_instruction_without_shell_prefix
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_idempotent_write_dedups_exact_body

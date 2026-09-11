@@ -97,13 +97,13 @@ case "${1:-}" in
   display-message)
     for a in "$@"; do
       case "$a" in
-        *cursor_y*) printf '1\n'; exit 0 ;;
+        *cursor_y*) printf '0\n'; exit 0 ;;
         *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*) cat "$D/cwd"; printf '\n'; exit 0 ;;
       esac
     done
     printf 'fakepane\n'; exit 0 ;;
-  capture-pane) printf '> \n'; exit 0 ;;
+  capture-pane) printf '❯\n'; exit 0 ;;
   list-windows) [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
 esac
 exit 0
@@ -543,7 +543,7 @@ SH
 
 # --- T10: one unanswered mate does not hold a confirmed mate behind it -------
 test_persist_waits_are_polled_together() {
-  local dir out rc exit_line nudge_line
+  local dir out rc restart_line nudge_line
   dir=$(new_case concurrent-waits)
   add_local_mate "$dir" sm1
   add_local_mate "$dir" sm2
@@ -552,9 +552,9 @@ test_persist_waits_are_polled_together() {
   out=$(FM_TEST_PERSIST_WAIT=3 run_restart "$dir" sm1 sm2); rc=$?
 
   expect_code 3 "$rc" "the unanswered mate should fall back after the confirmed mate restarts"$'\n'"$out"
-  exit_line=$(grep -n '^/exit$' "$dir/fake/literal" | head -1 | cut -d: -f1)
-  nudge_line=$(grep -n '^Firstmate instruction waiting: ' "$dir/fake/literal" | tail -1 | cut -d: -f1)
-  [ -n "$exit_line" ] && [ -n "$nudge_line" ] && [ "$exit_line" -lt "$nudge_line" ] \
+  restart_line=$(printf '%s\n' "$out" | grep -n '^restarted: sm2 ' | cut -d: -f1)
+  nudge_line=$(printf '%s\n' "$out" | grep -n '^nudged: sm1:' | cut -d: -f1)
+  [ -n "$restart_line" ] && [ -n "$nudge_line" ] && [ "$restart_line" -lt "$nudge_line" ] \
     || fail "the first mate's timeout held the confirmed second mate behind it: $out"
   pass "T10 pending persist answers are polled as one fleet"
 }

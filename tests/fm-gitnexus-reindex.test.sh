@@ -34,7 +34,7 @@ HOME_N=0
 new_home() {
   HOME_N=$((HOME_N + 1))
   local h="$TMP_ROOT/home-$HOME_N"
-  mkdir -p "$h/projects"
+  mkdir -p "$h/data" "$h/projects"
   printf '%s\n' "$h"
 }
 
@@ -245,10 +245,23 @@ fakebin=$(fm_fakebin "$home")
 log="$home/gitnexus.log"
 : > "$log"
 fake_gitnexus "$fakebin" "$log"
+cat > "$fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+case "${1:-} ${2:-}" in
+  "--version ") printf '%s\n' 'tasks-axi 0.2.5' ;;
+  "update --help") printf '%s\n' 'usage: tasks-axi update <id> --archive-body' ;;
+  "mv --help") printf '%s\n' 'usage: tasks-axi mv <id> [<id>...] --to <path-or-dir>' ;;
+esac
+exit 0
+SH
+chmod +x "$fakebin/tasks-axi"
 
 mkdir -p "$home/state"
 fm_write_meta "$home/state/wired-local.meta" worktree="$home/wt" project="$proj" mode=local-only kind=ship
-PATH="$fakebin:$PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" "$ROOT/bin/fm-merge-local.sh" wired-local >/dev/null 2>&1
+if ! out=$(PATH="$fakebin:$PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
+  "$ROOT/bin/fm-merge-local.sh" wired-local 2>&1); then
+  fail "merge-local did not complete the fixture landing"$'\n'"$out"
+fi
 assert_grep "$home/state/gitnexus-mirrors/local-only-proj" "$log" "merge-local reindexed the project after landing"
 pass "fm-merge-local.sh reindexes the project after a successful local-only landing"
 
