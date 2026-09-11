@@ -358,19 +358,21 @@ Supervise all live work under section 8.
 
 The selected delivery path owns its own rigor.
 Proportional validation is standing firstmate doctrine: firstmate selects the lightest correct delivery path for the change actually made, not the heaviest one available.
+Change impact determines required evidence; it does not automatically select a delivery tool or reviewer.
+Contract, durable-record, safety, merge-authority, stage-gate, mixed, or uncertain changes require proportionate source/consumer tracing, failure-capable tests, applicable real CI, and any informed review explicitly owned by the selected route.
+The project's registry posture and the current explicit captain instruction select the delivery route independently of that evidence bar.
 For this repository's shared tracked material, the selected route is direct-PR with informed independent review of the exact source and real CI.
 That repository-owned route does not run an automatic AI reviewer/fixer workflow and does not require a no-mistakes PR-body attestation; its informed review is a constituent of the selected route, not a stacked review.
-A surgical, well-understood change proven by targeted tests ships `local-only` or `direct-PR`; a change touching a product path, a stated contract, a durable record, safety or merge authority, or a stage gate ships full `no-mistakes`.
 A project's registry posture remains the default for substantive work, not a floor that forces ceremony on a change already proven proportionally; when a project's own rules or gates would force such a worthless review, firstmate files the correction in that project rather than obeying it.
-When no-mistakes is selected, no-mistakes alone owns review, fixes, tests, documentation, push, PR, and CI; otherwise follow the faster path without adding an independent reviewer.
-Never hold work outside no-mistakes for a manual clean verdict, stack serial manual reviews, or infer authority for one from security, architecture, or risk alone.
+Automatic AI reviewer/fixer routes may run only when the captain explicitly authorizes one for the current work; never infer that authority from impact, risk, file class, project posture, or the availability of a tool.
+When no-mistakes is explicitly selected, no-mistakes alone owns its review, fixes, tests, documentation, push, PR, and CI stages.
+Do not stack serial reviews or invent an additional reviewer beyond the selected route's stated review owner.
 A review a project's own current authority records as a constituent step of its selected route is part of that route rather than an added reviewer, so firstmate honours it and still adds no review of its own on top.
 A separate review or audit is allowed only when the captain explicitly requests that deliverable or the authorized task is a knowledge-only review; one named question remains scoped to that question.
-If fast-path risk needs more rigor, escalate whether to use no-mistakes instead of inventing a manual gate.
 The path's worker, automated gates, and captain approval remain authoritative:
 
-- **no-mistakes** runs the full pipeline through a PR, then waits for the configured merge authority.
-- **direct-PR** has the worker push and open a PR without the no-mistakes pipeline, then waits for the configured merge authority.
+- **no-mistakes**, when explicitly authorized, runs its full pipeline through a PR, then waits for the configured merge authority.
+- **direct-PR** has the worker push and open a PR without an automatic AI reviewer/fixer pipeline, completes any informed exact-source review and actual CI owned by that route, then waits for the configured merge authority.
 - **local-only** has the worker stop with a clean ready branch, then waits for the configured merge authority before firstmate uses the guarded fast-forward merge path.
 
 Delivery mode and `yolo` are orthogonal.
@@ -422,7 +424,8 @@ An excluded-not-cancelled capability needs an honest absence surface, never a pr
 
 ### PR ready, landing, and teardown
 
-For PR-based ship tasks, the ready signal depends on mode: `no-mistakes` reports `done: PR <url> checks green` after CI is green, while `direct-PR` reports `done: PR <url>` after opening the PR.
+For PR-based ship tasks, the ready signal depends on mode: an explicitly authorized `no-mistakes` task reports `done: PR <url> checks green` after CI is green, while `direct-PR` reports `done: PR <url>` after opening the PR.
+That direct-PR signal is a delivery handoff, not evidence that route-specific informed review or actual CI passed; for this repository, firstmate treats the pull request as merge-ready only after both pass at the exact head.
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable; that is a delivery report, and section 9 owns what a product-facing feature needs before it is offered for acceptance.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
