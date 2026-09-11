@@ -96,6 +96,10 @@
 #       refuses the merge, naming the job
 #   (bn) the complete legitimate XAUUSD rollup, carrying its one declared skip,
 #       merges
+#   (bo) an integration owner already bound as a PR-backed constituent refreshes
+#       that same combined-PR binding before the merge call
+#   (bp) an absorbed constituent recorded against a different PR retains the
+#       ordinary registration refusal and never reaches the merge call
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -197,6 +201,67 @@ esac
 exit 0
 SH
   chmod +x "$case_dir/fakebin/gh-axi" "$case_dir/fakebin/gh"
+}
+
+# Give an existing PR-backed constituent binding a real task branch and remote
+# pull-request refs, then make gh answer both the superseded original PR and the
+# combined PR that fm-pr-merge.sh is about to land.
+prepare_absorbed_owner_case() {
+  local case_dir=$1 original_head combined_head tree
+  mkdir -p "$case_dir/wt"
+  git -C "$case_dir/wt" init -q
+  git -C "$case_dir/wt" checkout -q -b fm/task-x1
+  git -C "$case_dir/wt" commit -q --allow-empty -m baseline
+  git init -q --bare "$case_dir/origin.git"
+  git -C "$case_dir/wt" remote add origin "$case_dir/origin.git"
+  original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  tree=$(git -C "$case_dir/wt" rev-parse 'HEAD^{tree}')
+  combined_head=$(printf '%s\n' combined | git -C "$case_dir/wt" commit-tree "$tree" -p "$original_head")
+  git -C "$case_dir/wt" push -q origin "$original_head:refs/pull/5/head"
+  git -C "$case_dir/wt" push -q origin "$combined_head:refs/pull/9/head"
+  fm_write_meta "$case_dir/state/task-x1.meta" \
+    "window=fm-task-x1" \
+    "worktree=$case_dir/wt" \
+    "project=$case_dir/project" \
+    "kind=ship" \
+    "mode=no-mistakes" \
+    "batch_role=constituent" \
+    "batch_constituent_branch=fm/task-x1" \
+    "batch_constituent_head=$original_head" \
+    "absorbed_head=$original_head" \
+    "batch_superseded_pr=https://github.com/example/repo/pull/5" \
+    "batch_superseded_disposition=closed-as-superseded-not-merged" \
+    "pr=https://github.com/example/repo/pull/9" \
+    "pr_head=$combined_head"
+  cat > "$case_dir/fakebin/gh" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "\$FM_TEST_GH_LOG"
+case "\${1:-} \${2:-}" in
+  "pr view")
+    case " \$* " in
+      *pull/5*' --json state '*) printf '%s\n' CLOSED ; exit 0 ;;
+      *pull/5*' --json headRefName '*) printf '%s\n' fm/task-x1 ; exit 0 ;;
+      *pull/5*' --json headRefOid '*) printf '%s\n' '$original_head' ; exit 0 ;;
+      *headRefName*) printf '%s\n' fm/integration-batch ; exit 0 ;;
+      *headRefOid*) printf '%s\n' '$combined_head' ; exit 0 ;;
+      *baseRefName*) printf '%s\n' main ; exit 0 ;;
+      *'--json title'*) printf '%s\n' 'Land combined records' ; exit 0 ;;
+      *'--json body'*) printf '%s\n' 'Combined records body.' ; exit 0 ;;
+    esac
+    ;;
+  "api graphql") cat "\$FM_TEST_GH_OUTCOME" ; exit 0 ;;
+  api\ *)
+    case " \$* " in
+      *check-runs*) cat "\$FM_TEST_GH_CHECKS" ; exit 0 ;;
+      */compare/*) cat "\$FM_TEST_GH_COMPARE" ; exit 0 ;;
+    esac
+    cat "\$FM_TEST_GH_RULES"
+    exit 0
+    ;;
+esac
+exit 1
+SH
+  chmod +x "$case_dir/fakebin/gh"
 }
 
 # Same as add_gh_mocks, plus answering --json title and --json body so a case
@@ -558,6 +623,71 @@ SH
   assert_grep 'pr=https://github.com/example/repo/pull/62' "$case_dir/meta-at-merge" \
     "records-ahead-of-forge-call: the merge ran before pr= was recorded"
   pass "fm-pr-merge records pr= before the forge call can land the merge"
+}
+
+test_absorbed_integration_owner_refreshes_the_same_combined_pr_binding_before_merging() {
+  local case_dir rc
+  case_dir=$(make_case absorbed-owner-same-combined-pr)
+  add_gh_mocks "$case_dir" 0000000000000000000000000000000000000000
+  prepare_absorbed_owner_case "$case_dir"
+  : > "$case_dir/gh-axi.log"
+  : > "$case_dir/gh.log"
+  grep -E '^(batch_role|batch_constituent_branch|batch_constituent_head|absorbed_head|batch_superseded_pr|batch_superseded_disposition)=' \
+    "$case_dir/state/task-x1.meta" > "$case_dir/binding-before"
+
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/9 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 0 "$rc" "absorbed-owner-same-combined-pr: the bound integration owner should reach the merge call"
+  assert_grep 'pr merge 9 --repo example/repo --squash' "$case_dir/gh-axi.log" \
+    "absorbed-owner-same-combined-pr: the merge abstraction was not invoked"
+  assert_grep 'batch_role=constituent' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the constituent role was lost"
+  assert_grep 'batch_constituent_branch=fm/task-x1' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the constituent branch was lost"
+  assert_grep 'batch_constituent_head=' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the constituent head was lost"
+  assert_grep 'absorbed_head=' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the absorbed head was lost"
+  assert_grep 'batch_superseded_pr=https://github.com/example/repo/pull/5' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the superseded PR identity was lost"
+  assert_grep 'batch_superseded_disposition=closed-as-superseded-not-merged' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the superseded disposition was lost"
+  assert_grep 'pr=https://github.com/example/repo/pull/9' "$case_dir/state/task-x1.meta" \
+    "absorbed-owner-same-combined-pr: the combined PR stopped being canonical"
+  grep -E '^(batch_role|batch_constituent_branch|batch_constituent_head|absorbed_head|batch_superseded_pr|batch_superseded_disposition)=' \
+    "$case_dir/state/task-x1.meta" > "$case_dir/binding-after"
+  cmp -s "$case_dir/binding-before" "$case_dir/binding-after" \
+    || fail "absorbed-owner-same-combined-pr: refreshing the combined PR changed binding lines"
+  pass "fm-pr-merge refreshes an absorbed integration owner's same combined-PR binding before merging"
+}
+
+test_absorbed_constituent_with_a_different_recorded_pr_keeps_the_existing_refusal() {
+  local case_dir rc
+  case_dir=$(make_case absorbed-owner-different-pr)
+  mkdir -p "$case_dir/wt"
+  add_gh_mocks "$case_dir" 1111111111111111111111111111111111111111
+  printf '%s\n' \
+    'batch_role=constituent' \
+    'pr=https://github.com/example/repo/pull/8' >> "$case_dir/state/task-x1.meta"
+  : > "$case_dir/gh-axi.log"
+
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/9 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+
+  expect_code 1 "$rc" "absorbed-owner-different-pr: a different recorded PR must retain the ordinary refusal"
+  assert_grep 'task task-x1 already carries an absorbed-constituent binding; use --absorbed-by to refresh the same combined PR' \
+    "$case_dir/stderr" \
+    "absorbed-owner-different-pr: the existing refusal changed"
+  assert_no_grep 'pr merge ' "$case_dir/gh-axi.log" \
+    "absorbed-owner-different-pr: the refusal still reached the merge abstraction"
+  pass "fm-pr-merge keeps the absorbed-constituent refusal for a different recorded PR"
 }
 
 test_merge_failure_propagates_after_recording() {
@@ -2970,6 +3100,8 @@ test_github_agreeing_queue_rules_keep_retry_guidance
 test_github_conflicting_queue_rules_report_ambiguity
 test_verified_merge_records_pr_and_head
 test_pr_metadata_is_recorded_before_the_forge_call
+test_absorbed_integration_owner_refreshes_the_same_combined_pr_binding_before_merging
+test_absorbed_constituent_with_a_different_recorded_pr_keeps_the_existing_refusal
 test_merge_failure_propagates_after_recording
 test_github_open_unqueued_outcome_refuses
 test_github_unreadable_outcome_keeps_pr_bookkeeping

@@ -80,6 +80,7 @@
 # squash default strands nothing. The integration-batch-delivery skill owns the
 # landing-shape choice; this script only refuses to pick a method on the
 # caller's behalf.
+# An integration owner that is itself a PR-backed constituent is bound with --absorbed-by like every constituent, and fm-pr-merge.sh refreshes that same binding when it lands the combined pull request.
 # The gh-axi merge abstraction always performs the merge; the outcome read that
 # follows it never becomes a prerequisite for reaching that abstraction. After
 # gh-axi returns success, GitHub's live state is read back and accepted only
@@ -825,7 +826,12 @@ METHODS
 }
 
 record_pr_metadata() {
-  if ! "$SCRIPT_DIR/fm-pr-check.sh" "$ID" "$URL"; then
+  local batch_role recorded_pr
+  batch_role=$(grep '^batch_role=' "$META" | tail -1 | cut -d= -f2- || true)
+  recorded_pr=$(grep '^pr=' "$META" | tail -1 | cut -d= -f2- || true)
+  if [ "$batch_role" = constituent ] && [ "$recorded_pr" = "$URL" ]; then
+    "$SCRIPT_DIR/fm-pr-check.sh" --absorbed-by "$ID" "$URL" || return 1
+  elif ! "$SCRIPT_DIR/fm-pr-check.sh" "$ID" "$URL"; then
     return 1
   fi
   grep -qxF "pr=$URL" "$META" || {
