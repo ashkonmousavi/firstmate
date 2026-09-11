@@ -412,13 +412,10 @@ test_no_mistakes_dod_wording() {
     "no-mistakes DOD must state run-validation's active-run refusal and its supported release sequence"
   assert_grep "A branch whose pushed PR head has diverged from local HEAD is reconciled by merge, never rebase, before a run, and run-validation refuses otherwise" "$brief" \
     "no-mistakes DOD must state the pushed PR-head merge-before-rebase rule"
-  # --intent carries two labeled parts (Codex advisor review 2026-09-04, finding
-  # A3): this base text is the one owner both fm-brief.sh and fm-promote.sh
-  # render, so it must never say the Captain intent part is the ONLY thing
-  # --intent carries - that word is exactly what contradicted the Proof bar
-  # section's own instruction to also carry an Agreed proof contract part.
-  assert_grep "pass \`--intent\` as two labeled parts in one string: \`Captain intent:\` and, when this brief carries a Proof bar section, \`Agreed proof contract:\`" "$brief" \
-    "no-mistakes DOD must define --intent as the two labeled parts, conditioned on a Proof bar section existing"
+  # --intent keeps all authoritative inputs under distinct labels. This base
+  # text is the one owner both fm-brief.sh and fm-promote.sh render.
+  assert_grep "pass \`--intent\` as separately attributed labeled parts in one string: \`Captain intent:\`, \`Firstmate implementation context:\`, and, when this brief carries a Proof bar section, \`Agreed proof contract:\`" "$brief" \
+    "no-mistakes DOD must define the separately attributed captain, implementation, and proof parts"
   assert_no_grep "pass \`--intent\` as only" "$brief" \
     "no-mistakes DOD must not claim --intent carries only the Captain intent part"
   assert_grep "Build the \`Captain intent:\` part from this brief's \`## Captain's intent\`" "$brief" \
@@ -426,7 +423,9 @@ test_no_mistakes_dod_wording() {
   assert_grep "plus any later words the captain actually said" "$brief" \
     "no-mistakes DOD must allow later captain words in --intent"
   assert_grep "Do not include \`## Firstmate spec\`" "$brief" \
-    "no-mistakes DOD must keep Firstmate spec out of --intent"
+    "no-mistakes DOD must keep Firstmate spec out of the Captain intent part"
+  assert_grep "builds the \`Firstmate implementation context:\` part from the complete \`## Firstmate spec\` subsection" "$brief" \
+    "no-mistakes DOD must carry the complete Firstmate spec under its own label"
   assert_grep "or your own decisions and tradeoffs in the \`Captain intent:\` part" "$brief" \
     "no-mistakes DOD must keep worker tradeoffs out of the Captain intent part"
   assert_grep "Build the \`Agreed proof contract:\` part per the Proof bar section's own instruction, when this brief carries one" "$brief" \
@@ -436,8 +435,8 @@ test_no_mistakes_dod_wording() {
   # A bare reference cannot preserve the captain's ask, so the rendered DOD states
   # the self-sufficiency rule and requires referenced material to be resolved into
   # its substance.
-  assert_grep "The \`Captain intent:\` part must be self-sufficient" "$brief" \
-    "no-mistakes DOD must require a self-sufficient Captain intent part"
+  assert_grep "The complete labeled input must be self-sufficient" "$brief" \
+    "no-mistakes DOD must require a self-sufficient complete attributed input"
   assert_grep "write the substance of the referenced items into the \`Captain intent:\` part" "$brief" \
     "no-mistakes DOD must tell the worker to resolve report, decision, and PR references into substance"
 
@@ -636,6 +635,41 @@ test_document_instruction_follows_trusted_project_config_and_installed_capabilit
   assert_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
     "the installed 65e capability was not recognized"
 
+  project="$home/projects/nested-document-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  unrelated:\n    document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-nested nested-document-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a nested unrelated document key should scaffold conservatively"
+  brief="$home/data/brief-document-nested/brief.md"
+  assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
+    "a nested unrelated document key was mistaken for the direct auto_fix.document capability selection"
+  assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "a nested unrelated document key enabled in-run correction"
+
+  project="$home/projects/duplicate-document-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-duplicate duplicate-document-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a duplicate document selection should scaffold conservatively"
+  brief="$home/data/brief-document-duplicate/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "duplicate direct auto_fix.document keys did not fail closed"
+
+  project="$home/projects/malformed-document-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: enabled\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-malformed-value malformed-document-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a malformed document selection should scaffold conservatively"
+  brief="$home/data/brief-document-malformed-value/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a malformed direct auto_fix.document value did not fail closed"
+
   project="$home/projects/future-candidate-project"
   mkdir -p "$project"
   printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
@@ -742,6 +776,60 @@ EOF
     '. "$1"; fm_brief_source_revision "$2" "supported:fixture-b"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief")
   [ "$before" != "$after" ] || fail "a capability/config receipt change did not invalidate the instruction receipt"
   pass "validation revision ignores progress history while binding instructions and capability configuration"
+}
+
+# The effective validation input must keep captain authority, Firstmate's
+# implementation specification, and the agreed proof contract distinct while
+# delivering all three to the actual consumer.
+test_validation_intent_separately_labels_captain_spec_and_proof() {
+  local dir brief intent captain_part implementation_part proof_part
+  dir="$TMP_ROOT/validation-intent-parts"
+  mkdir -p "$dir"
+  brief="$dir/brief.md"
+  cat > "$brief" <<'EOF'
+# Task
+## Captain's intent
+Preserve the captain-owned outcome.
+
+## Firstmate spec
+Implement the bounded consumer correction.
+
+# Proof bar
+Prep: Tier 2 - producer and consumers traced.
+Resource: one focused test.
+Surface: none: internal tooling.
+Journey: one real CLI consumer.
+EOF
+
+  intent=$(bash -c '. "$1"; fm_brief_validation_intent "$2"' _ \
+    "$ROOT/bin/fm-dod-lib.sh" "$brief") \
+    || fail "could not render the separately attributed validation input"
+  captain_part=$(printf '%s\n' "$intent" | awk '
+    /^Captain intent:$/ { emit=1; next }
+    /^Firstmate implementation context:$/ { exit }
+    emit { print }
+  ')
+  implementation_part=$(printf '%s\n' "$intent" | awk '
+    /^Firstmate implementation context:$/ { emit=1; next }
+    /^Agreed proof contract:$/ { exit }
+    emit { print }
+  ')
+  proof_part=$(printf '%s\n' "$intent" | awk '
+    /^Agreed proof contract:$/ { emit=1; next }
+    emit { print }
+  ')
+
+  assert_contains "$captain_part" "Preserve the captain-owned outcome." \
+    "validation input lost the captain-owned outcome"
+  assert_not_contains "$captain_part" "Implement the bounded consumer correction." \
+    "validation input attributed Firstmate's specification to the captain"
+  assert_contains "$implementation_part" "Implement the bounded consumer correction." \
+    "validation input omitted the separately labeled Firstmate implementation context"
+  assert_not_contains "$implementation_part" "Preserve the captain-owned outcome." \
+    "validation input duplicated captain authority into Firstmate implementation context"
+  assert_contains "$proof_part" "Prep: Tier 2 - producer and consumers traced." \
+    "validation input lost the agreed proof contract"
+  pass "validation input separately labels captain authority, Firstmate implementation context, and proof"
 }
 
 # The captain's 2026-09-07 ruling: a delivery signal reports delivery, never
@@ -1335,13 +1423,13 @@ test_ship_briefs_batch_findings_before_resubmitting() {
   assert_grep "the proof bar cannot exclude tests needed to keep already accepted behavior correct" "$brief" \
     "the Scope boundary must retain tests needed for already accepted behavior within the task"
 
-  # The Proof bar's own instruction must point at the two-part --intent
+  # The Proof bar's own instruction must point at the attributed --intent
   # contract's labeled `Agreed proof contract:` part, not a bare "alongside
   # the captain intent contract" reference that the overlay's rewritten
   # supersession sentence could be read to exclude it from (Codex advisor
   # review 2026-09-04, finding A3).
   assert_grep "copy this entire Proof bar section verbatim into \`--intent\`'s \`Agreed proof contract:\` part" "$brief" \
-    "the Proof bar section must point at the two-part --intent contract's Agreed proof contract part"
+    "the Proof bar section must point at the attributed --intent contract's Agreed proof contract part"
   pass "fm-brief.sh: ship briefs require batching findings before repair or resubmission"
 }
 
@@ -2184,6 +2272,10 @@ SH
   intent=$(awk 'f { print; next } /^axi run --intent / { f = 1; sub(/^axi run --intent /, ""); print }' "$home/no-mistakes.log")
   assert_contains "$intent" 'Captain intent:' \
     "C7: the actual rendered --intent lost the self-sufficient captain part"
+  assert_contains "$intent" 'Firstmate implementation context:' \
+    "C7: the actual rendered --intent lost the separately attributed implementation part"
+  assert_contains "$intent" 'Use the bounded in-run document correction route selected by project configuration.' \
+    "C7: the actual rendered --intent lost the effective Firstmate implementation contract"
   assert_contains "$intent" 'Agreed proof contract:' \
     "C7: the actual rendered --intent lost the agreed proof part"
   assert_grep '--launch-nonce firstmate-' "$home/no-mistakes.log" \
@@ -2381,6 +2473,7 @@ MD
     expect_code 4 "$RV_RC" "run-validation guard: a $state run at another head must be refused"
     assert_contains "$RV_OUT" '01RVGUARD' "run-validation guard: the refusal did not name the active run"
     assert_contains "$RV_OUT" 'no-mistakes axi abort' "run-validation guard: the refusal did not name the supported abort"
+    # shellcheck disable=SC2016  # Markdown backticks are intentionally literal.
     assert_contains "$RV_OUT" 'confirm through `no-mistakes axi status` that it has stopped' \
       "run-validation guard: the refusal did not name the confirmed stop"
     assert_contains "$RV_OUT" 'branch_sync.next_action' "run-validation guard: the refusal did not name branch_sync.next_action"
@@ -2533,6 +2626,7 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step
 test_no_binary_evidence_and_document_step_dod_rules
 test_document_instruction_follows_trusted_project_config_and_installed_capability_receipt
 test_validation_revision_ignores_progress_history_but_binds_instruction_contract
+test_validation_intent_separately_labels_captain_spec_and_proof
 test_every_mode_dod_separates_delivery_from_acceptance
 test_ask_user_escalation_format
 test_ship_project_memory_wording

@@ -901,7 +901,8 @@ EOF
 }
 
 # An unread second-mate pending-reply escalation keeps a later stale reminder
-# under the same task's window alias on main until the decision row is read.
+# under the same task's window alias on main even after the original signal row
+# was acknowledged and only the durable status transition remains.
 test_pi_unread_pending_reply_forces_later_stale_alias_to_main() {
   local repo home plugin log stop out status
   repo="$TMP_ROOT/pi-mixed-signal-root"
@@ -965,8 +966,7 @@ const pi = {
 writeFileSync(`${process.env.FM_HOME}/state/.lock`, `${process.pid}\n`);
 writeFileSync(
   `${process.env.FM_HOME}/state/.wake-queue`,
-  "1\t1\tsignal\ttask-a.status\tneeds-decision: task-a.status\n" +
-    "2\t2\tstale\tfm-a\tstale: fm-a (routine reminder)\n",
+  "2\t2\tstale\tfm-a\tstale: fm-a (routine reminder)\n",
 );
 const mod = await import(pathToFileURL(process.env.PLUGIN).href);
 mod.default(pi);
@@ -991,6 +991,59 @@ EOF
   expect_code 0 "$status" "an unread pending-reply escalation must keep a later stale alias on main: $out"
   [ -z "$out" ] || fail "Pi unread pending-reply alias test printed output: $out"
   pass "an unread pending-reply escalation keeps later stale aliases on main"
+}
+
+# A stale row can outlive the signal row that first surfaced its task's reserved
+# pending-reply blocker. The durable status fold remains authoritative in that
+# state: branch routing must still refuse the stale row until the owner closes
+# the reserved blocker.
+test_pi_stale_only_reserved_pending_reply_blocker_stays_on_main() {
+  local repo state dispatch out status
+  repo="$TMP_ROOT/pi-stale-only-reserved-root"
+  state="$TMP_ROOT/pi-stale-only-reserved-state"
+  mkdir -p "$repo/.pi/extensions/lib" "$state" "$TMP_ROOT/pi-stale-only-project"
+  cp "$ROOT/.pi/extensions/lib/fm-branch-dispatch.ts" "$repo/.pi/extensions/lib/fm-branch-dispatch.ts"
+  dispatch="$repo/.pi/extensions/lib/fm-branch-dispatch.ts"
+  printf 'project=%s\nwindow=fm-a\n' "$TMP_ROOT/pi-stale-only-project" > "$state/task-a.meta"
+  printf 'blocked [key=pending-reply-0123456789abcdef]: pending-reply-missed: task=task-a pending-reply-id=0123456789abcdef request=finish report\n' \
+    > "$state/task-a.status"
+  printf '1\t1\tstale\tfm-a\tstale: fm-a (routine reminder)\n' > "$state/.wake-queue"
+
+  out=$(DISPATCH="$dispatch" STATE="$state" node --input-type=module 2>&1 <<'EOF'
+import { writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const { scopeForUnreadWake } = await import(pathToFileURL(process.env.DISPATCH).href);
+let scope = scopeForUnreadWake(process.env.STATE, false);
+if (scope.eligible !== false) {
+  throw new Error(`stale-only reserved blocker was offered to branch: ${JSON.stringify(scope)}`);
+}
+if (!scope.needsDecisionKeys.includes("fm-a")) {
+  throw new Error(`stale-only reserved blocker lost its main-owned key: ${JSON.stringify(scope)}`);
+}
+writeFileSync(
+  `${process.env.STATE}/task-a.status`,
+  "blocked [key=pending-reply-0123456789abcdef]: pending-reply-missed: waiting\n" +
+    "resolved [key=pending-reply-0123456789abcdef]: pending-reply-missed: owner resolved\n",
+);
+scope = scopeForUnreadWake(process.env.STATE, false);
+if (scope.eligible !== true || scope.needsDecisionKeys.length !== 0) {
+  throw new Error(`owner-resolved reserved blocker still stayed on main: ${JSON.stringify(scope)}`);
+}
+writeFileSync(
+  `${process.env.STATE}/task-a.status`,
+  "blocked [key=engineering-build]: compiler failed and remains an engineering blocker\n",
+);
+scope = scopeForUnreadWake(process.env.STATE, false);
+if (scope.eligible !== true || scope.needsDecisionKeys.length !== 0) {
+  throw new Error(`ordinary engineering blocker was promoted into a captain decision: ${JSON.stringify(scope)}`);
+}
+EOF
+  )
+  status=$?
+  expect_code 0 "$status" "a stale-only reserved pending-reply blocker must remain on main: $out"
+  [ -z "$out" ] || fail "Pi stale-only reserved blocker test printed output: $out"
+  pass "a stale-only reserved blocker stays on main while resolved and ordinary blocked controls remain branch-eligible"
 }
 
 # The captain's accepted rule names ONE coalesced trigger batch, not only a
@@ -3985,6 +4038,7 @@ test_pi_heartbeat_is_not_ridden_into_main_by_a_co_present_check
 test_pi_main_only_check_classes_stay_on_main
 test_pi_captain_held_signal_stays_on_main
 test_pi_unread_pending_reply_forces_later_stale_alias_to_main
+test_pi_stale_only_reserved_pending_reply_blocker_stays_on_main
 test_pi_distinct_files_mixed_batch_routes_whole_batch_to_main
 test_pi_heartbeat_is_not_ridden_into_main_by_a_co_present_needs_decision
 test_pi_heartbeat_restoration_failure_stays_on_main

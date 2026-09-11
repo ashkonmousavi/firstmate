@@ -231,7 +231,7 @@ c3_run_captain_hold() {  # <home> <captain-hold args...>
 test_c3_superseded_brief_is_consumed_by_launch_and_validation() {
   local rec a_home a_proj a_wt a_fake a_launch a_brief a_cmd a_revision
   local b_home b_proj b_wt b_fake b_launch b_brief b_cmd b_revision before_revision after_revision
-  local c_home c_proj c_wt c_fake c_launch c_brief c_cmd intent calls out status head_before
+  local c_home c_proj c_wt c_fake c_launch c_brief c_cmd intent captain_part calls out status head_before
   local q_home q_proj q_wt q_fake q_launch q_brief q_cmd q_answer q_show
   local send_err follow_record
 
@@ -305,12 +305,20 @@ EOF
     || fail "package B validation command should invoke the fake validator"
   intent=$(cat "$b_home/validation-intent.log")
   assert_contains "$intent" 'Captain intent:' "actual --intent lost its self-sufficient captain part"
+  assert_contains "$intent" 'Firstmate implementation context:' "actual --intent lost its separately attributed implementation part"
   assert_contains "$intent" 'Agreed proof contract:' "actual --intent lost its agreed proof part"
   assert_contains "$intent" 'schema-v2' "actual --intent did not consume package B"
   assert_contains "$intent" 'proof P1 is invalidated' "actual --intent lost B's proof invalidation"
   assert_not_contains "$intent" 'schema-v1' "actual --intent retained superseded package A"
-  assert_not_contains "$intent" 'Consume controlled package B' \
-    "actual --intent incorrectly mixed Firstmate specification into captain intent"
+  assert_contains "$intent" 'Consume controlled package B' \
+    "actual --intent omitted the effective Firstmate specification"
+  captain_part=$(printf '%s\n' "$intent" | awk '
+    /^Captain intent:$/ { emit=1; next }
+    /^Firstmate implementation context:$/ { exit }
+    emit { print }
+  ')
+  assert_not_contains "$captain_part" 'Consume controlled package B' \
+    "actual --intent incorrectly attributed Firstmate specification to the captain"
 
   # One package-B revision is produced by a real answered captain call. W is
   # routed behind Q, then its effective brief replaces the open question with

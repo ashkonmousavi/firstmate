@@ -154,7 +154,7 @@ function statusFileVersion(path: string): string | null {
   }
 }
 
-function hasOpenNeedsDecision(
+function hasOpenMainOwnedDecision(
   lines: readonly string[],
   resolveVerb: string,
   heldVerb: string,
@@ -172,7 +172,14 @@ function hasOpenNeedsDecision(
     if (verb === "needs-decision" || verb === "blocked") open.set(key, verb);
     else open.delete(key);
   }
-  return [...open.values()].includes("needs-decision");
+  // Ordinary engineering blockers remain branch-reviewable. A blocked key in
+  // an owner-reserved namespace is different: the canonical shell fold keeps
+  // that owner transition open until its matching resolution, even after the
+  // wake that first surfaced it has been acknowledged.
+  return [...open.entries()].some(([key, verb]) =>
+    verb === "needs-decision" ||
+    (verb === "blocked" && reservedPrefixes.some((prefix) => key.startsWith(prefix)))
+  );
 }
 
 export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWakeScope {
@@ -274,7 +281,7 @@ export function scopeForUnreadWake(state: string, heartbeat: boolean): UnreadWak
               } catch {
                 return UNSAFE_SCOPE;
               }
-              decisionOwned = hasOpenNeedsDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
+              decisionOwned = hasOpenMainOwnedDecision(statusLines, resolveVerb, heldVerb, reservedPrefixes) ||
                 statusLineVerb(statusLines.at(-1) ?? "") === heldVerb;
               staleDecisionCache.set(statusPath, { version, config: decisionConfig, decisionOwned });
               if (staleDecisionCache.size > 512) staleDecisionCache.delete(staleDecisionCache.keys().next().value!);

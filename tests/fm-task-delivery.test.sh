@@ -39,8 +39,10 @@ normalize_generated_task_record_path() {  # <file> <emitted-path> <canonical-pat
   ' "$1"
 }
 
-# A home with one registered project, one project directory, and a fake tmux that
-# refuses, so a spawn that clears the delivery checks still creates nothing.
+# A home with one registered project, one minimal Git repository, and fake
+# Treehouse/tmux commands that refuse, so a spawn that clears the delivery
+# checks still creates nothing. The repository is required by the shared
+# Treehouse project-lock identity resolved before delivery validation.
 # Echoes "<home>|<project-dir>|<fakebin>".
 make_home() {  # <name> [<registry-line>...]
   local name=$1 home projects fakebin
@@ -49,8 +51,10 @@ make_home() {  # <name> [<registry-line>...]
   projects="$TMP_ROOT/$name/projects"
   fakebin="$TMP_ROOT/$name/bin"
   mkdir -p "$home/data" "$home/state" "$home/config" "$projects/proj" "$fakebin"
+  git -C "$projects/proj" init -q
+  printf '#!/bin/sh\nexit 1\n' > "$fakebin/treehouse"
   printf '#!/bin/sh\nexit 1\n' > "$fakebin/tmux"
-  chmod +x "$fakebin/tmux"
+  chmod +x "$fakebin/treehouse" "$fakebin/tmux"
   if [ "$#" -gt 0 ]; then
     printf '%s\n' "$@" > "$home/data/projects.md"
   fi
@@ -924,12 +928,12 @@ STUB
   # Proof bar section's "copy into the Agreed proof contract part" instruction
   # must already agree - the exact contradiction the overlay alone cannot fix
   # (Codex advisor review 2026-09-04, finding A3).
-  assert_grep "pass \`--intent\` as two labeled parts in one string: \`Captain intent:\` and, when this brief carries a Proof bar section, \`Agreed proof contract:\`" "$payload" \
-    "promoted no-mistakes worker did not receive the two-part --intent contract"
+  assert_grep "pass \`--intent\` as separately attributed labeled parts in one string: \`Captain intent:\`, \`Firstmate implementation context:\`, and, when this brief carries a Proof bar section, \`Agreed proof contract:\`" "$payload" \
+    "promoted no-mistakes worker did not receive the attributed captain, implementation, and proof contract"
   assert_no_grep "pass \`--intent\` as only" "$payload" \
     "promoted no-mistakes worker's DoD still claims --intent carries only the Captain intent part"
   assert_grep "copy this entire Proof bar section verbatim into \`--intent\`'s \`Agreed proof contract:\` part" "$payload" \
-    "promoted no-mistakes worker's Proof bar section no longer points at the two-part --intent contract"
+    "promoted no-mistakes worker's Proof bar section no longer points at the attributed --intent contract"
 
   payload="$TMP_ROOT/promote-dod/payload-promote-dod-direct-pr"
   assert_grep "supersede the scout delivery rules and report-based Definition of done" "$payload" \
@@ -1166,10 +1170,10 @@ EOF
     "legacy no-mistakes spawn rejected explicitly marked captain words"
   assert_present "$home/data/$id/launch-brief.md" \
     "marked legacy spawn did not render a current launch contract"
-  assert_grep "supersedes every earlier brief instruction about how to build the \`Captain intent:\` part" \
+  assert_grep "supersedes every earlier brief instruction about how to build the labeled parts of \`--intent\`" \
     "$home/data/$id/launch-brief.md" \
     "marked legacy spawn did not override its stale intent instruction"
-  assert_grep "not the Proof bar section's own instruction (elsewhere in this brief, when one exists) to also carry the \`Agreed proof contract:\` part" \
+  assert_grep "not the Proof bar section's own instruction when one exists" \
     "$home/data/$id/launch-brief.md" \
     "marked legacy launch contract's supersession dropped the Proof bar's proof-contract part"
   assert_grep "plus any later words the captain actually supplied" \
@@ -1205,16 +1209,16 @@ EOF
     "migrated launch contract omitted Captain's intent"
   assert_not_contains "$authorized" "Preserve the existing compatibility path." \
     "migrated launch contract included Firstmate spec in intent"
-  assert_grep "supersedes every earlier brief instruction about how to build the \`Captain intent:\` part" \
+  assert_grep "supersedes every earlier brief instruction about how to build the labeled parts of \`--intent\`" \
     "$home/data/$id/launch-brief.md" \
     "migrated launch contract did not supersede its stale mixed-Task DoD"
   assert_grep "plus any later words the captain actually supplied" \
     "$home/data/$id/launch-brief.md" \
     "migrated launch contract excluded later captain clarifications"
-  assert_grep "The Definition of done's rule that the \`Captain intent:\` part must be self-sufficient still governs" \
+  assert_grep "The complete labeled input must be self-sufficient with the codebase while retaining that attribution" \
     "$home/data/$id/launch-brief.md" \
     "migrated launch contract's overlay dropped the self-sufficiency pointer"
-  assert_grep "not the Proof bar section's own instruction (elsewhere in this brief, when one exists) to also carry the \`Agreed proof contract:\` part" \
+  assert_grep "not the Proof bar section's own instruction when one exists" \
     "$home/data/$id/launch-brief.md" \
     "migrated launch contract's overlay dropped the agreed-proof-contract cross-reference"
 

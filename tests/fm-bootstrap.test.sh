@@ -730,7 +730,7 @@ test_a_recorded_worktree_the_pool_calls_free_is_reported() {
   local case_dir home fakebin pool out
   case_dir="$TMP_ROOT/worktree-lease"
   home="$case_dir/home"
-  mkdir -p "$home/config" "$home/state" "$case_dir/pool/6" "$case_dir/pool/7" "$case_dir/pool/8"
+  mkdir -p "$home/config" "$home/state" "$case_dir/pool/6" "$case_dir/pool/7" "$case_dir/pool/8" "$case_dir/pool/9"
   printf '%s\n' manual > "$home/config/backlog-backend"
   fakebin=$(make_fake_toolchain "$case_dir")
   add_real_jq "$fakebin"
@@ -774,14 +774,18 @@ JSON
     "an unreadable pool must report nothing rather than guess a worktree is exposed"
 
   rm -f "$home/state/task-parked.meta" "$home/state/task-running.meta"
+  printf 'worktree=%s\n' "$case_dir/pool/9" > "$home/state/task-legacy-foreign.meta"
   cat > "$pool" <<JSON
-[{"name":"8","path":"$case_dir/pool/8","status":"available","lease_id":"lease-abc","lease_holder":"another-task","leased_at":"2026-09-09T00:00:00Z","processes":[]}]
+[{"name":"8","path":"$case_dir/pool/8","status":"available","lease_id":"lease-abc","lease_holder":"another-task","leased_at":"2026-09-09T00:00:00Z","processes":[]},
+ {"name":"9","path":"$case_dir/pool/9","status":"available","lease_id":"lease-def","lease_holder":"foreign-legacy-holder","leased_at":"2026-09-09T00:00:00Z","processes":[]}]
 JSON
   export FM_FAKE_TREEHOUSE_POOL="$pool"
   out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$home" \
     "$ROOT/bin/fm-bootstrap.sh")
   assert_contains "$out" "WORKTREE_LEASE: task task-leased records $case_dir/pool/8 for durable holder fm-secondmate, but the pool records holder another-task" \
     "a pool containing only current three-field records must report a durable holder mismatch"
+  assert_contains "$out" "WORKTREE_LEASE: task task-legacy-foreign records $case_dir/pool/9 for durable holder none, but the pool records holder foreign-legacy-holder" \
+    "a foreign durable holder must not disappear merely because the legacy record has no expected holder"
 
   unset FM_FAKE_TREEHOUSE_LEASE_HELP
   pass "bootstrap: a recorded worktree the pool would re-lease is reported, and only that one"

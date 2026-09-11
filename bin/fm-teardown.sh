@@ -29,13 +29,15 @@
 # lift the deferral (it authorizes discarding unlanded WORK, never the
 # captain's question), and bin/fm-captain-hold.sh answer stays the only act
 # that closes the call.
-# NEVER touches a worktree that another task record also names. A treehouse lease
-# is bound to a process, so a restart drops it and the pool can re-lease a clean
-# slot to a different task while this task's record still names the path. When
-# that has happened, teardown closes this task's record and does nothing at all in
-# that worktree - no safety read, run conclusion, process reap, hook removal,
-# return, reset, or branch delete - because none of what is there is this task's.
-# --force does not lift that. See worktree_claimed_by_another_task, and
+# NEVER touches a worktree that another task record also names. Current
+# Treehouse leases are durable across process exit and restart, and new task
+# records carry their exact holder. A legacy record without that identity, or a
+# record whose holder disagrees with the pool, is refused before any worktree or
+# endpoint side effect. When another task record names the path, teardown closes
+# only the stale task record and does nothing at all in that worktree - no safety
+# read, run conclusion, process reap, hook removal, return, reset, or branch
+# delete - because none of what is there is this task's. --force does not lift
+# either ownership guard. See worktree_claimed_by_another_task, and
 # docs/configuration.md "Worktree pool leases (treehouse)" for the allocation side
 # in bin/fm-spawn.sh.
 #
@@ -1776,6 +1778,78 @@ require_exclusive_task_worktree_slot() {
   require_exclusive_worktree_slot_record "$META" "$ID" "$STATE" "$slot"
 }
 
+# Resolve the exact durable Treehouse holder for an ordinary task pool slot
+# before any backlog marker, run abort, process reap, hook removal, endpoint
+# kill, reset, or return. The project-wide allocation/return lock is already
+# held when this function applies. A legacy record may use a live lease whose
+# holder is exactly its task id, but we never invent or write pool state; an
+# unknown, unleased, missing, or foreign slot is preserved for supported
+# relaunch/record reconciliation. The later return still carries
+# --if-lease-holder so Treehouse closes the read-to-mutation race.
+preflight_task_treehouse_lease() {
+  local recorded_holder status_json verdict actual_holder pool_status slot
+  TREEHOUSE_TASK_POOL_SLOT=0
+  TREEHOUSE_TASK_LEASE_HOLDER=
+  [ "$KIND" != secondmate ] || return 0
+  [ "$BACKEND" != orca ] || return 0
+  [ -z "$WT_REASSIGNED_TO" ] || return 0
+  is_treehouse_pool_slot "$PROJ" "$WT" || return 0
+  TREEHOUSE_TASK_POOL_SLOT=1
+  slot=$(canonical_existing_dir "$WT") || {
+    echo "REFUSED: task $ID's Treehouse pool slot $WT cannot be canonicalized; preserve the task record and worktree and reconcile the recorded path before cleanup" >&2
+    return 1
+  }
+
+  command -v treehouse >/dev/null 2>&1 || {
+    echo "REFUSED: task $ID records Treehouse pool slot $WT, but the Treehouse CLI is unavailable; preserve the task record and worktree, restore the CLI, and retry cleanup" >&2
+    return 1
+  }
+  command -v jq >/dev/null 2>&1 || {
+    echo "REFUSED: task $ID records Treehouse pool slot $WT, but jq is unavailable to verify its durable lease; preserve the task record and worktree, restore jq, and retry cleanup" >&2
+    return 1
+  }
+  if command -v timeout >/dev/null 2>&1; then
+    status_json=$(cd "$WT" 2>/dev/null \
+      && timeout "${FM_TEARDOWN_TREEHOUSE_STATUS_TIMEOUT:-10}" treehouse status --json 2>/dev/null) || status_json=
+  else
+    status_json=$(cd "$WT" 2>/dev/null && treehouse status --json 2>/dev/null) || status_json=
+  fi
+  [ -n "$status_json" ] || {
+    echo "REFUSED: task $ID records Treehouse pool slot $WT, but its current durable lease could not be read; preserve the task record and worktree, restore a readable pool status, and retry cleanup" >&2
+    return 1
+  }
+  verdict=$(printf '%s' "$status_json" | jq -r --arg wt "$slot" '
+    [.[]? | select(.path == $wt)] | .[0]
+    | if . == null then "missing"
+      elif (.lease_id // "") == "" then "unleased:" + (.status // "unknown")
+      else "leased:" + (.lease_holder // "") end
+  ' 2>/dev/null) || verdict=
+  recorded_holder=$(meta_value "$META" treehouse_lease_holder)
+  case "$verdict" in
+    leased:*)
+      actual_holder=${verdict#leased:}
+      if [ -n "$recorded_holder" ] && [ "$actual_holder" != "$recorded_holder" ]; then
+        echo "REFUSED: task $ID records Treehouse holder $recorded_holder for $WT, but the pool currently records holder ${actual_holder:-none}; preserve both records and reconcile ownership before cleanup" >&2
+        return 1
+      fi
+      if [ -z "$recorded_holder" ] && [ "$actual_holder" != "$ID" ]; then
+        echo "REFUSED: legacy task $ID records Treehouse pool slot $WT without a holder, but the pool currently records holder ${actual_holder:-none}; preserve the task record and worktree, then reconcile the stale record with that holder before cleanup" >&2
+        return 1
+      fi
+      TREEHOUSE_TASK_LEASE_HOLDER=${recorded_holder:-$actual_holder}
+      ;;
+    unleased:*)
+      pool_status=${verdict#unleased:}
+      echo "REFUSED: task $ID records Treehouse pool slot $WT, but the pool reports ${pool_status:-unknown} with no durable lease; preserve the task record and worktree, relaunch the task through the supported allocator to obtain holder $ID, then retry cleanup" >&2
+      return 1
+      ;;
+    *)
+      echo "REFUSED: task $ID records Treehouse pool slot $WT, but that exact path is absent or unreadable in current pool status; preserve the task record and worktree and reconcile the recorded path before cleanup" >&2
+      return 1
+      ;;
+  esac
+}
+
 retry_wait_secs_is_valid() {
   [[ "$1" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ ]]
 }
@@ -3313,6 +3387,8 @@ if [ -n "$WT_REASSIGNED_TO" ]; then
   echo "note: closing task $ID's record without touching that worktree - no work is read, concluded, reaped, returned, reset, or branch-deleted there, because none of it is task $ID's. Task $WT_REASSIGNED_TO keeps the slot." >&2
 fi
 
+preflight_task_treehouse_lease || exit 1
+
 if [ -z "$WT_REASSIGNED_TO" ] && [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
   if validate_worktree_teardown_safety; then
     :
@@ -3420,7 +3496,11 @@ elif [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
   [ -z "$T_ORCA" ] || fm_backend_kill "$BACKEND" "$T" "$(meta_value "$META" zellij_tab_id)" "fm-$ID" 2>/dev/null || true
   fm_backend_remove_worktree "$BACKEND" "$ORCA_WORKTREE_ID"
 elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
-  TREEHOUSE_LEASE_HOLDER=$(meta_value "$META" treehouse_lease_holder)
+  TREEHOUSE_LEASE_HOLDER=${TREEHOUSE_TASK_LEASE_HOLDER:-$(meta_value "$META" treehouse_lease_holder)}
+  if [ "${TREEHOUSE_TASK_POOL_SLOT:-0}" = 1 ] && [ -z "$TREEHOUSE_LEASE_HOLDER" ]; then
+    echo "error: Treehouse pool return for task $ID has no verified durable lease holder; teardown aborted before return" >&2
+    exit 1
+  fi
   branch=$(git -C "$WT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)
   # Remove our hook file so a reused pool worktree cannot fire signals for a dead task.
   rm -f "$WT/.claude/settings.local.json" "$WT/.opencode/plugins/fm-turn-end.js" \

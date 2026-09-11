@@ -1508,7 +1508,7 @@ report_unleased_task_worktrees() {
       verdict=$(printf '%s' "$status_json" | jq -r --arg wt "$wt" --arg holder "$expected_holder" '
         [.[]? | select(.path == $wt)] | .[0]
         | if . == null then empty
-          elif (.lease_id // "") != "" and ($holder == "" or (.lease_holder // "") == $holder) then "held"
+          elif (.lease_id // "") != "" and $holder != "" and (.lease_holder // "") == $holder then "held"
           elif (.lease_id // "") != "" then "mismatch:" + (.lease_holder // "")
           elif .status == "available" then "available"
           else "held" end

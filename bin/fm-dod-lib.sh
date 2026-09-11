@@ -20,16 +20,20 @@
 # The block opens with the fixed machine-readable "Delivery contract: mode=<mode>"
 # line that bin/fm-spawn.sh checks a ship brief against.
 # This file is the one owner of the no-mistakes `--intent` contract and its
-# source-revision-bound validation invocation: two labeled
-# parts in one string, `Captain intent:` (the brief's `## Captain's intent`
-# subsection plus later captain words, never `## Firstmate spec` and never the
-# worker's own tradeoffs) and, when the brief carries a Proof bar section,
-# `Agreed proof contract:` (that section, filled in, verbatim). Neither part
-# alone satisfies the contract when a Proof bar section exists; a brief with
-# none carries only the captain-intent part.
-# The captain-intent part must be self-sufficient - it plus the codebase
-# reconstructs roughly the same specification - so a report, decision, or PR
-# the intent refers to is written into it as substance, never left as a pointer.
+# source-revision-bound validation invocation: separately attributed labeled
+# parts in one string. `Captain intent:` carries the brief's
+# `## Captain's intent` subsection plus later captain words, never Firstmate's
+# specification or the worker's own tradeoffs. For a modern brief,
+# `Firstmate implementation context:` carries the complete `## Firstmate spec`.
+# When the brief carries a Proof bar section, `Agreed proof contract:` carries
+# that section, filled in, verbatim. A legacy mixed Task has no separately
+# attributable implementation section, so it remains captain-only plus any
+# Proof bar instead of reclassifying unmarked text as Firstmate authority.
+# The complete labeled input must be self-sufficient with the codebase while
+# preserving those authority boundaries. A report, decision, or PR the
+# captain's words invoke is written into the captain part as substance, never
+# left as a bare pointer; Firstmate implementation sources stay in their own
+# part.
 # bin/fm-brief.sh scaffolds those two `# Task` subsections; bin/fm-spawn.sh and
 # bin/fm-promote.sh refuse leftover `{TASK}` / `{FIRSTMATE_SPEC}` placeholders
 # through the helpers below. A spawned no-mistakes worker's launch overlay carries
@@ -122,7 +126,7 @@ A finding inside this task's stated bar is yours to fix in this run. A finding a
 ## Class-sweep rule (rule B)
 The first finding of a family means sweep the whole repo for the mechanism under the same cap as the tiers above, give every site found one of the evidence contract's three dispositions - fixed, confirmed unaffected, or out of scope with an owner - and answer every finding in that family in one round with one fix command. Rule 8 under `# Rules` below is this same rule, extended to also apply before your first run whenever you already know the family in advance.
 
-When you run /no-mistakes, copy this entire Proof bar section verbatim into `--intent`'s `Agreed proof contract:` part, alongside the `Captain intent:` part described in the current intent contract section below.
+When you run /no-mistakes, copy this entire Proof bar section verbatim into `--intent`'s `Agreed proof contract:` part, alongside the separately attributed `Captain intent:` and `Firstmate implementation context:` parts described in the current intent contract section below.
 EOF
 }
 
@@ -347,7 +351,7 @@ fm_brief_source_revision() {  # <effective-brief> [frozen-capability-receipt]
 }
 
 fm_brief_validation_intent() {  # <effective-brief>
-  local file=$1 captain proof legacy
+  local file=$1 captain spec proof legacy
   fm_brief_task_content_valid "$file" || {
     echo "error: effective brief has no valid Task content: $file" >&2
     return 1
@@ -363,6 +367,14 @@ fm_brief_validation_intent() {  # <effective-brief>
     return 1
   }
   printf 'Captain intent:\n%s' "$captain"
+  if fm_brief_task_heading_present "$file" "## Firstmate spec"; then
+    spec=$(fm_brief_task_heading_body "$file" "## Firstmate spec")
+    [ -n "$(printf '%s' "$spec" | tr -d '[:space:]')" ] || {
+      echo "error: effective brief has no Firstmate implementation context: $file" >&2
+      return 1
+    }
+    printf '\n\nFirstmate implementation context:\n%s' "$spec"
+  fi
   if fm_brief_heading_present "$file" "# Proof bar"; then
     if grep -Eq '^(Prep|Resource|Surface|Journey): \{[A-Z]+\}$' "$file"; then
       echo "error: effective brief contains an unfilled Proof bar input: $file" >&2
@@ -552,8 +564,8 @@ fm_brief_intent_overlay() {  # <captain-intent> <effective-brief> <source-revisi
   cat <<'EOF'
 
 # Current no-mistakes intent contract
-This section supersedes every earlier brief instruction about how to build the `Captain intent:` part of `--intent`, but not later clarifications actually supplied by the captain, and not the Proof bar section's own instruction (elsewhere in this brief, when one exists) to also carry the `Agreed proof contract:` part.
-Use the serialized captain intent below plus any later words the captain actually supplied as the `Captain intent:` part; never include Firstmate specification or other mixed Task content in it.
+This section supersedes every earlier brief instruction about how to build the labeled parts of `--intent`, but not later clarifications actually supplied by the captain and not the Proof bar section's own instruction when one exists.
+Use the serialized captain intent below plus any later words the captain actually supplied as the `Captain intent:` part; never include Firstmate specification or other mixed Task content in that part.
 
 ## Captain intent authorized for --intent
 EOF
@@ -561,7 +573,8 @@ EOF
   cat <<'EOF'
 
 Firstmate-authored constraints, acceptance criteria, implementation details, decisions, and tradeoffs are specification, not captain intent, and stay out of the `Captain intent:` part.
-The Definition of done's rule that the `Captain intent:` part must be self-sufficient still governs this part: resolve any report, decision, or PR the intent above refers to into its substance rather than passing the pointer.
+The source-revision-bound consumer carries the effective brief's complete `## Firstmate spec` under the separate `Firstmate implementation context:` label.
+The complete labeled input must be self-sufficient with the codebase while retaining that attribution: resolve any report, decision, or PR the captain intent above invokes into its substance rather than passing a bare pointer, and keep Firstmate implementation sources in their own part.
 EOF
   cat <<'EOF'
 
@@ -711,11 +724,17 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
     /^[[:space:]]*($|#)/ { next }
     /^[^[:space:]]/ {
       in_auto_fix = ($0 ~ /^auto_fix:[[:space:]]*(#.*)?$/)
+      child_indent = 0
       next
     }
-    in_auto_fix && /^[[:space:]]+document:[[:space:]]*/ {
+    in_auto_fix {
+      match($0, /^ +/)
+      indent = RLENGTH
+      if (child_indent == 0) child_indent = indent
+    }
+    in_auto_fix && indent == child_indent && substr($0, indent + 1) ~ /^document:[[:space:]]*/ {
       line = $0
-      sub(/^[[:space:]]+document:[[:space:]]*/, "", line)
+      sub(/^ +document:[[:space:]]*/, "", line)
       sub(/[[:space:]]*(#.*)?$/, "", line)
       print line
     }
@@ -890,12 +909,13 @@ Follow the guidance no-mistakes itself provides for the mechanics: it loads when
 When a spawned worker's launch overlay supplies a source-revision-bound \`run-validation\` command, start the run only through that exact command: it renders the real \`--intent\` from the effective brief and refuses a stale launch package before no-mistakes starts.
 That command also refuses and starts no run while an active no-mistakes run holds your branch at a head other than your current HEAD, or when \`no-mistakes axi status\` cannot be read: if replacing that run is authorized, abort it with the supported \`no-mistakes axi abort\`, confirm through \`no-mistakes axi status\` that it stopped, follow its \`branch_sync.next_action\`, then rerun the same command.
 A branch whose pushed PR head has diverged from local HEAD is reconciled by merge, never rebase, before a run, and run-validation refuses otherwise.
-When starting no-mistakes, pass \`--intent\` as two labeled parts in one string: \`Captain intent:\` and, when this brief carries a Proof bar section, \`Agreed proof contract:\`; neither part alone satisfies the contract then.
+When starting no-mistakes from a current subsection brief, pass \`--intent\` as separately attributed labeled parts in one string: \`Captain intent:\`, \`Firstmate implementation context:\`, and, when this brief carries a Proof bar section, \`Agreed proof contract:\`. The source-revision-bound consumer renders these parts from the effective brief; no one part substitutes for another.
 Build the \`Captain intent:\` part from this brief's \`## Captain's intent\` subsection plus any later words the captain actually said.
 For a legacy brief with no such subsection, include only words explicitly labeled \`Captain:\`, \`Captain's words:\`, \`Captain's ask:\`, or \`Captain's intent:\`; never copy its mixed \`# Task\` wholesale. If it has no provenance-marked captain words, stop and ask firstmate instead of starting no-mistakes.
 Do not include \`## Firstmate spec\`, later Firstmate build constraints, or your own decisions and tradeoffs in the \`Captain intent:\` part.
-Build the \`Agreed proof contract:\` part per the Proof bar section's own instruction, when this brief carries one: copy that entire Proof bar section, filled in as you completed it, verbatim. A brief with no Proof bar section carries only the \`Captain intent:\` part.
-The \`Captain intent:\` part must be self-sufficient: that part plus the codebase must let a reader reconstruct roughly the same specification, without depending on a separate report, a PR, or context that lives only in this conversation.
+For a current subsection brief, the source-revision-bound consumer builds the \`Firstmate implementation context:\` part from the complete \`## Firstmate spec\` subsection. A legacy brief without that subsection carries no separately invented implementation context.
+Build the \`Agreed proof contract:\` part per the Proof bar section's own instruction, when this brief carries one: copy that entire Proof bar section, filled in as you completed it, verbatim. A current subsection brief with no Proof bar section still carries its distinct Captain intent and Firstmate implementation context parts; a legacy brief carries only the labeled parts its authoritative source actually provides.
+The complete labeled input must be self-sufficient with the codebase while retaining those authority boundaries: it must let a reader reconstruct roughly the same specification without depending on a separate report, a PR, or context that lives only in this conversation.
 When the captain's intent refers to a report, decision, or PR ("do items 1, 2, 3, and 7 of the report"), write the substance of the referenced items into the \`Captain intent:\` part in the captain's terms, not only the pointer; that substance is the captain's ask by reference, while Firstmate's build instructions and your own decisions still stay out.
 This replaces the no-mistakes skill's advice to enrich \`--intent\` with decisions and tradeoffs; that advice does not apply to Firstmate-dispatched work.
 Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix.

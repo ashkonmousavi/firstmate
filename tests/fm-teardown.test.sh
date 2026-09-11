@@ -908,16 +908,148 @@ test_durable_treehouse_lease_cleanup_is_bound_to_the_recorded_holder() {
   printf 'treehouse_lease_holder=task-x1\n' >> "$case_dir/state/task-x1.meta"
   wt_commit "$case_dir" "durably leased work"
   add_fork_with_pushed_branch "$case_dir"
+  make_case_treehouse_pool_slot "$case_dir"
+  write_treehouse_pool_status "$case_dir" task-x1 lease-task-x1 available
   log="$case_dir/treehouse-holder.log"
 
   set +e
-  FM_FAKE_TREEHOUSE_LOG="$log" run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  FM_FAKE_TREEHOUSE_STATUS="$case_dir/treehouse-status.json" FM_FAKE_TREEHOUSE_LOG="$log" \
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
   rc=$?
   set -e
   expect_code 0 "$rc" "durable holder cleanup should succeed"
-  assert_grep "return --force --if-lease-holder task-x1 $case_dir/wt" "$log" \
+  assert_grep "return --force --if-lease-holder task-x1 $case_dir/pool/1/repo" "$log" \
     "teardown returned the lease without binding cleanup to its recorded holder"
   pass "durable Treehouse cleanup is conditional on the task's recorded lease holder"
+}
+
+# Convert make_case's ordinary linked worktree into the exact managed
+# <pool>/<slot>/<repo> shape fm-teardown recognizes as a Treehouse slot.
+make_case_treehouse_pool_slot() {  # <case-dir>
+  local case_dir=$1 slot="$1/pool/1/repo"
+  mkdir -p "$case_dir/pool/1"
+  git -C "$case_dir/project" worktree move "$case_dir/wt" "$slot" \
+    || fail "could not move the teardown fixture into a Treehouse pool slot"
+  sed -i "s|^worktree=.*|worktree=$slot|" "$case_dir/state/task-x1.meta"
+  printf '{}\n' > "$case_dir/pool/treehouse-state.json"
+}
+
+# Install a Treehouse fake whose status query describes the exact pool slot and
+# whose return log lets the tests prove whether cleanup remained conditional.
+write_treehouse_pool_status() {  # <case-dir> <holder> <lease-id> <status>
+  local case_dir=$1 holder=$2 lease_id=$3 pool_status=$4 slot="$1/pool/1/repo"
+  cat > "$case_dir/treehouse-status.json" <<EOF
+[{"name":"1","path":"$slot","status":"$pool_status","lease_id":"$lease_id","lease_holder":"$holder","leased_at":"2026-09-11T00:00:00Z","processes":[]}]
+EOF
+  cat > "$case_dir/fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-} ${2:-}" = "status --json" ]; then
+  cat "${FM_FAKE_TREEHOUSE_STATUS:?}"
+  exit 0
+fi
+[ -z "${FM_FAKE_TREEHOUSE_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_TREEHOUSE_LOG"
+exit 0
+SH
+  chmod +x "$case_dir/fakebin/treehouse"
+}
+
+# A legacy record with no recorded holder must never remove hooks, reap the
+# lane, or force-return a slot that Treehouse says belongs to another holder.
+test_legacy_treehouse_cleanup_refuses_a_foreign_durable_holder_before_side_effects() {
+  local case_dir rc log slot pid process_survived=0
+  case_dir=$(make_case legacy-foreign-holder)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "legacy foreign holder work"
+  add_fork_with_pushed_branch "$case_dir"
+  make_case_treehouse_pool_slot "$case_dir"
+  slot="$case_dir/pool/1/repo"
+  printf 'preserve me\n' > "$slot/.fm-grok-turnend"
+  write_treehouse_pool_status "$case_dir" another-task lease-another available
+  log="$case_dir/treehouse-holder.log"
+  : > "$log"
+  (cd "$slot" && exec sleep 300) &
+  pid=$!
+  disown
+  sleep 0.2
+  kill -0 "$pid" 2>/dev/null || fail "legacy foreign-holder setup process did not start"
+
+  set +e
+  FM_FAKE_TREEHOUSE_STATUS="$case_dir/treehouse-status.json" FM_FAKE_TREEHOUSE_LOG="$log" \
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  kill -0 "$pid" 2>/dev/null && process_survived=1
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  expect_code 1 "$rc" "legacy cleanup must refuse a foreign durable lease"
+  assert_grep "another-task" "$case_dir/stderr" \
+    "legacy foreign-holder refusal did not name the current durable holder"
+  assert_present "$case_dir/state/task-x1.meta" \
+    "legacy foreign-holder refusal removed the task metadata"
+  assert_present "$slot/.fm-grok-turnend" \
+    "legacy foreign-holder refusal removed a worker hook before ownership proof"
+  [ "$process_survived" = 1 ] \
+    || fail "legacy foreign-holder refusal reaped a worktree process before ownership proof"
+  assert_no_grep "return --force" "$log" \
+    "legacy foreign-holder refusal still force-returned the slot"
+  pass "legacy Treehouse cleanup refuses a foreign holder before destructive side effects"
+}
+
+# A legacy unleased/available slot has no ownership identity to bind at return
+# time. Preserve both the record and contents and report the supported relaunch
+# reconciliation instead of treating availability as permission.
+test_legacy_treehouse_cleanup_refuses_an_unleased_slot_and_preserves_it() {
+  local case_dir rc log slot
+  case_dir=$(make_case legacy-unleased-slot)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "legacy unleased work"
+  add_fork_with_pushed_branch "$case_dir"
+  make_case_treehouse_pool_slot "$case_dir"
+  slot="$case_dir/pool/1/repo"
+  printf 'preserve me\n' > "$slot/.fm-grok-turnend"
+  write_treehouse_pool_status "$case_dir" '' '' available
+  log="$case_dir/treehouse-holder.log"
+  : > "$log"
+
+  set +e
+  FM_FAKE_TREEHOUSE_STATUS="$case_dir/treehouse-status.json" FM_FAKE_TREEHOUSE_LOG="$log" \
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "legacy cleanup must refuse an unleased pool slot"
+  assert_grep "durable lease" "$case_dir/stderr" \
+    "legacy unleased refusal did not name the missing ownership proof"
+  assert_present "$case_dir/state/task-x1.meta" \
+    "legacy unleased refusal removed the task metadata"
+  assert_present "$slot/.fm-grok-turnend" \
+    "legacy unleased refusal removed a worker hook before ownership proof"
+  assert_no_grep "return --force" "$log" \
+    "legacy unleased refusal still force-returned the slot"
+  pass "legacy Treehouse cleanup preserves an unleased slot for supported reconciliation"
+}
+
+# A legacy record may safely consume a durable lease already bound to its exact
+# task id without rewriting Treehouse state; the mutation itself remains guarded
+# by --if-lease-holder to close the status-to-return race.
+test_legacy_treehouse_cleanup_uses_an_exact_current_holder_conditionally() {
+  local case_dir rc log
+  case_dir=$(make_case legacy-exact-holder)
+  write_meta "$case_dir" local-only ship
+  wt_commit "$case_dir" "legacy exact holder work"
+  add_fork_with_pushed_branch "$case_dir"
+  make_case_treehouse_pool_slot "$case_dir"
+  write_treehouse_pool_status "$case_dir" task-x1 lease-task-x1 available
+  log="$case_dir/treehouse-holder.log"
+
+  set +e
+  FM_FAKE_TREEHOUSE_STATUS="$case_dir/treehouse-status.json" FM_FAKE_TREEHOUSE_LOG="$log" \
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 0 "$rc" "legacy cleanup should accept a current lease bound to its exact task id"
+  assert_grep "return --force --if-lease-holder task-x1 $case_dir/pool/1/repo" "$log" \
+    "legacy exact-holder cleanup did not bind the destructive return to the proven holder"
+  pass "legacy Treehouse cleanup reuses an exact current holder only through conditional return"
 }
 
 FM_READY_FRONTIER_SENTENCE_FOR_TEST='Live tasks are bounded by the concurrency cap and by serial integration onto an unstable seam; preparation is never seam-bounded, and every undispatched ready item carries a recorded rule, owner, and recheck event.'
@@ -4332,6 +4464,9 @@ EOF
 
 test_local_only_fork_remote_allows
 test_durable_treehouse_lease_cleanup_is_bound_to_the_recorded_holder
+test_legacy_treehouse_cleanup_refuses_a_foreign_durable_holder_before_side_effects
+test_legacy_treehouse_cleanup_refuses_an_unleased_slot_and_preserves_it
+test_legacy_treehouse_cleanup_uses_an_exact_current_holder_conditionally
 test_cleanup_of_a_reassigned_worktree_leaves_the_occupying_task_untouched
 test_force_does_not_lift_the_reassigned_worktree_guard
 test_the_last_record_naming_a_shared_worktree_still_returns_it
