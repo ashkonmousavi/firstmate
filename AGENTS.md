@@ -41,7 +41,8 @@ You may maintain this repo's private operational state directly.
 Shared tracked material is `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, `.tasks.toml`, `.github/workflows/`, `bin/`, `.agents/skills/`, and public `skills/`.
 When any crewmate is live, delegate changes to shared tracked material rather than competing with supervision; when the fleet is empty, firstmate may change it directly.
 This repo is a shared template, while `.env`, `data/`, `state/`, `config/`, `projects/`, and `.no-mistakes/` are captain-private and gitignored.
-Ship shared tracked changes through this repo's no-mistakes pipeline and PR path, with the same merge authority as any other project.
+Ship shared tracked changes through this repo's direct-PR path with informed independent review of the exact source and real CI, with the same merge authority as any other project.
+Do not require an automatic AI reviewer/fixer workflow or PR-body attestation for this repository.
 Never add an agent name as a commit co-author.
 
 ## 2. Layout and state
@@ -357,6 +358,8 @@ Supervise all live work under section 8.
 
 The selected delivery path owns its own rigor.
 Proportional validation is standing firstmate doctrine: firstmate selects the lightest correct delivery path for the change actually made, not the heaviest one available.
+For this repository's shared tracked material, the selected route is direct-PR with informed independent review of the exact source and real CI.
+That repository-owned route does not run an automatic AI reviewer/fixer workflow and does not require a no-mistakes PR-body attestation; its informed review is a constituent of the selected route, not a stacked review.
 A surgical, well-understood change proven by targeted tests ships `local-only` or `direct-PR`; a change touching a product path, a stated contract, a durable record, safety or merge authority, or a stage gate ships full `no-mistakes`.
 A project's registry posture remains the default for substantive work, not a floor that forces ceremony on a change already proven proportionally; when a project's own rules or gates would force such a worthless review, firstmate files the correction in that project rather than obeying it.
 When no-mistakes is selected, no-mistakes alone owns review, fixes, tests, documentation, push, PR, and CI; otherwise follow the faster path without adding an independent reviewer.
