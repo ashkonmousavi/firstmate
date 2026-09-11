@@ -40,8 +40,10 @@
 # it reads the current branch's `no-mistakes axi status`: an active run holding
 # the branch at another head refuses with exit 4 (the installed tool would
 # otherwise let that push supersede it), an unreadable status refuses with exit
-# 5, and a same-head resubmission still reattaches. Other mentions of `--intent`
-# point here rather than restating the rule.
+# 5, and a same-head resubmission still reattaches. It also refuses with exit 6
+# when the local branch and its locally known pushed origin branch have diverged,
+# because rebasing then replays inherited main commits onto the stale PR head.
+# Other mentions of `--intent` point here rather than restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
 
@@ -369,6 +371,29 @@ EOF
   return 4
 }
 
+# fm_dod_remote_pr_head_guard refuses only incomparable local and locally known
+# origin branch heads. An absent remote-tracking ref and a detached HEAD proceed
+# unchanged. This deliberately makes no network call: the local origin ref is
+# the pushed-PR evidence available before no-mistakes starts.
+fm_dod_remote_pr_head_guard() {
+  local branch remote_ref remote_head head
+  if ! branch=$(git symbolic-ref --quiet --short HEAD); then
+    return 0
+  fi
+  remote_ref="refs/remotes/origin/$branch"
+  git rev-parse --verify --quiet "$remote_ref^{commit}" >/dev/null || return 0
+  remote_head=$(git rev-parse "$remote_ref^{commit}") || return 0
+  head=$(git rev-parse HEAD) || return 0
+  if git merge-base --is-ancestor "origin/$branch" HEAD \
+    || git merge-base --is-ancestor HEAD "origin/$branch"; then
+    return 0
+  fi
+  # shellcheck disable=SC2016 # Backticks are literal worker-facing Markdown.
+  printf 'error: run-validation refuses to start a run: local HEAD %s and pushed origin/%s %s have diverged.\nRemedy: merge origin/main in when HEAD lacks it; after `git range-diff` proves the stale PR head content is carried, run `git merge -s ours --no-ff origin/%s`; never rebase and never force-push.\n' \
+    "$head" "$branch" "$remote_head" "$branch" >&2
+  return 6
+}
+
 fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg...]
   local brief=$1 expected=$2 actual intent arg snapshot
   shift 2
@@ -428,6 +453,7 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
     return 3
   fi
   fm_dod_active_run_guard || return
+  fm_dod_remote_pr_head_guard || return
   no-mistakes axi run --intent "$intent" "$@"
 }
 
@@ -702,6 +728,7 @@ You drive no-mistakes by responding to its gates, not by implementing fixes.
 Follow the guidance no-mistakes itself provides for the mechanics: it loads when you invoke /no-mistakes, and \`no-mistakes axi run --help\` plus the \`help\` lines in each \`axi\` response are authoritative and version-matched to the installed binary.
 When a spawned worker's launch overlay supplies a source-revision-bound \`run-validation\` command, start the run only through that exact command: it renders the real \`--intent\` from the effective brief and refuses a stale launch package before no-mistakes starts.
 That command also refuses and starts no run while an active no-mistakes run holds your branch at a head other than your current HEAD, or when \`no-mistakes axi status\` cannot be read: if replacing that run is authorized, abort it with the supported \`no-mistakes axi abort\`, confirm through \`no-mistakes axi status\` that it stopped, follow its \`branch_sync.next_action\`, then rerun the same command.
+A branch whose pushed PR head has diverged from local HEAD is reconciled by merge, never rebase, before a run, and run-validation refuses otherwise.
 When starting no-mistakes, pass \`--intent\` as two labeled parts in one string: \`Captain intent:\` and, when this brief carries a Proof bar section, \`Agreed proof contract:\`; neither part alone satisfies the contract then.
 Build the \`Captain intent:\` part from this brief's \`## Captain's intent\` subsection plus any later words the captain actually said.
 For a legacy brief with no such subsection, include only words explicitly labeled \`Captain:\`, \`Captain's words:\`, \`Captain's ask:\`, or \`Captain's intent:\`; never copy its mixed \`# Task\` wholesale. If it has no provenance-marked captain words, stop and ask firstmate instead of starting no-mistakes.

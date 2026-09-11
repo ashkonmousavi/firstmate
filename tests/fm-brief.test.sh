@@ -407,6 +407,8 @@ test_no_mistakes_dod_wording() {
     "no-mistakes DOD must route a spawned worker through the source-revision-bound validation consumer"
   assert_grep "That command also refuses and starts no run while an active no-mistakes run holds your branch at a head other than your current HEAD" "$brief" \
     "no-mistakes DOD must state run-validation's active-run refusal and its supported release sequence"
+  assert_grep "A branch whose pushed PR head has diverged from local HEAD is reconciled by merge, never rebase, before a run, and run-validation refuses otherwise" "$brief" \
+    "no-mistakes DOD must state the pushed PR-head merge-before-rebase rule"
   # --intent carries two labeled parts (Codex advisor review 2026-09-04, finding
   # A3): this base text is the one owner both fm-brief.sh and fm-promote.sh
   # render, so it must never say the Captain intent part is the ONLY thing
@@ -2291,6 +2293,87 @@ MD
   pass "run-validation: an active run at another head is held with the supported sequence; same head, submitted head, terminal and no run proceed; unreadable status refuses"
 }
 
+# A locally rebased branch can contain origin/main while its pushed PR branch
+# still names an older head.  Rebase would replay main onto that stale head, so
+# run-validation must stop only the incomparable local and remote PR heads.
+test_run_validation_refuses_a_diverged_pushed_pr_head_and_allows_ordered_refs() {
+  local dir base local_head remote_head revision
+  dir="$TMP_ROOT/run-validation-remote-pr-head"
+  mkdir -p "$dir/bin"
+  fm_git_init_commit "$dir/repo"
+  git -C "$dir/repo" checkout -q -b fm/rv-remote
+  base=$(git -C "$dir/repo" rev-parse HEAD)
+  cat > "$dir/bin/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${1:-} ${2:-}" >> "$FM_TEST_RV_LOG"
+if [ "${1:-} ${2:-}" = 'axi status' ]; then
+  cat "$FM_TEST_RV_STATUS"
+  exit "${FM_TEST_RV_STATUS_RC:-0}"
+fi
+[ "${1:-} ${2:-}" = 'axi run' ] && exit 0
+exit 9
+SH
+  chmod +x "$dir/bin/no-mistakes"
+  cat > "$dir/brief.md" <<'MD'
+# Task
+
+## Captain's intent
+Refuse a diverged pushed pull-request head before a validation run starts.
+
+## Firstmate spec
+Fixture only.
+
+# Proof bar
+Prep: Tier 0 - fixture.
+MD
+  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$dir/brief.md") \
+    || fail "run-validation remote PR head: could not compute the fixture brief revision"
+  printf 'current_branch: fm/rv-remote\nruns_on_current_branch: 0\nhelp[1]: Start a run\n' > "$dir/status"
+
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 0 "$RV_RC" "run-validation remote PR head: an absent remote ref must proceed ($RV_OUT)"
+  assert_grep 'axi run' "$dir/calls.log" "run-validation remote PR head: an absent remote ref did not reach axi run"
+
+  git -C "$dir/repo" update-ref refs/remotes/origin/fm/rv-remote "$base"
+  printf 'contains remote\n' > "$dir/repo/contains-remote"
+  git -C "$dir/repo" add contains-remote
+  git -C "$dir/repo" commit -qm 'fixture local contains remote'
+  local_head=$(git -C "$dir/repo" rev-parse HEAD)
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 0 "$RV_RC" "run-validation remote PR head: HEAD containing the remote head must proceed ($RV_OUT)"
+  assert_grep 'axi run' "$dir/calls.log" "run-validation remote PR head: containing HEAD did not reach axi run"
+
+  remote_head=$(git -C "$dir/repo" commit-tree "$local_head^{tree}" -p "$local_head" <<'EOF'
+fixture remote is ahead
+EOF
+)
+  git -C "$dir/repo" update-ref refs/remotes/origin/fm/rv-remote "$remote_head"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 0 "$RV_RC" "run-validation remote PR head: HEAD behind the remote head must proceed ($RV_OUT)"
+  assert_grep 'axi run' "$dir/calls.log" "run-validation remote PR head: behind HEAD did not reach axi run"
+
+  git -C "$dir/repo" reset -q --hard "$base"
+  printf 'local divergence\n' > "$dir/repo/local-divergence"
+  git -C "$dir/repo" add local-divergence
+  git -C "$dir/repo" commit -qm 'fixture local divergence'
+  local_head=$(git -C "$dir/repo" rev-parse HEAD)
+  remote_head=$(git -C "$dir/repo" commit-tree "$base^{tree}" -p "$base" <<'EOF'
+fixture remote divergence
+EOF
+)
+  git -C "$dir/repo" update-ref refs/remotes/origin/fm/rv-remote "$remote_head"
+  rv_guard_run "$dir" "$revision" 0
+  expect_code 6 "$RV_RC" "run-validation remote PR head: diverged heads must be refused"
+  assert_contains "$RV_OUT" "$local_head" "run-validation remote PR head: refusal did not name local HEAD"
+  assert_contains "$RV_OUT" "$remote_head" "run-validation remote PR head: refusal did not name pushed PR head"
+  assert_contains "$RV_OUT" 'git merge -s ours --no-ff origin/fm/rv-remote' \
+    "run-validation remote PR head: refusal did not name the ours merge remedy"
+  assert_contains "$RV_OUT" 'never rebase and never force-push' \
+    "run-validation remote PR head: refusal did not prohibit rebase and force-push"
+  assert_no_grep 'axi run' "$dir/calls.log" "run-validation remote PR head: diverged heads still started axi run"
+  pass "run-validation: diverged pushed PR heads refuse; absent, contained, and ahead remote heads proceed"
+}
+
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
@@ -2328,3 +2411,4 @@ test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants
 test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal
 test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal
 test_run_validation_holds_a_different_head_while_a_run_is_active
+test_run_validation_refuses_a_diverged_pushed_pr_head_and_allows_ordered_refs
