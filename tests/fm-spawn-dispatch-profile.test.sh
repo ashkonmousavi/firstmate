@@ -601,7 +601,8 @@ EOF
 
   # A promoted relaunch composes the durable scout source with the current ship
   # delta. Use those real roles here rather than a copied full-brief fixture so
-  # the fake backend proves both customization sources survive the join.
+  # the fake backend proves top-level, rule-continuation, ship-spec, and Task
+  # subsection customizations all survive the join.
   cat > "$constituent_home/data/$id/brief.md" <<'EOF'
 You are a crewmate.
 
@@ -627,6 +628,7 @@ Never access the synthetic external custody record; this rule must survive a con
 # Rules
 1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; the only external writes are the report and status.
+   Preserve the synthetic dataset custody record across relaunch.
 3. Select tools only for a real task purpose.
 4. Report status by appending one line to the task status file.
 5. Repair repeated obstacles as a bounded family.
@@ -656,6 +658,9 @@ Deliver the promoted constituent repair.
 6. These ship instructions supersede the scout delivery contract.
 7. Treat the scout-time Firstmate spec and any unmarked legacy `# Task` text as investigation context, not captain intent or ship-time instructions.
 8. Preserve the complete affected mechanism family.
+
+## Task-specific constraint
+Never remove the archived operator evidence during this task.
 
 # Proof bar
 Prep: Tier 0 - test fixture, not a real change
@@ -703,6 +708,12 @@ EOF
     "promoted relaunch lost the current ship task constraint"
   assert_grep 'Continue from the exact preserved promoted head and retain both customization sources.' "$relaunch_source" \
     "promoted relaunch lost the current progress checkpoint"
+  assert_grep 'Preserve the synthetic dataset custody record across relaunch.' "$relaunch_source" \
+    "promoted relaunch lost the original Rules-2 continuation"
+  assert_grep '## Task-specific constraint' "$relaunch_source" \
+    "promoted relaunch lost the current Task subsection"
+  assert_grep 'Never remove the archived operator evidence during this task.' "$relaunch_source" \
+    "promoted relaunch lost the current Task subsection content"
   assert_no_grep '# Setup' "$relaunch_source" \
     "promoted relaunch retained the obsolete scout Setup"
   assert_no_grep 'Return to a clean default-branch base' "$relaunch_source" \

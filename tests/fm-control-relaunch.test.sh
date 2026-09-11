@@ -669,6 +669,7 @@ Never access the synthetic external custody record; this rule must survive a con
 # Rules
 1. Never push or merge.
 2. Stay in the worktree.
+   Preserve the synthetic dataset custody record across relaunch.
 3. Select tools only for a real task purpose.
 4. Report status by appending one line.
 5. Repair repeated obstacles as a bounded family.
@@ -692,6 +693,9 @@ Continue the promoted task.
 6. These ship instructions supersede the scout delivery contract.
 7. Treat the scout-time Firstmate spec and any unmarked legacy `# Task` text as investigation context, not captain intent or ship-time instructions.
 8. Preserve the complete affected mechanism family.
+
+## Task-specific constraint
+Never remove the archived operator evidence during this task.
 
 # Proof bar
 Prep: Tier 0 - test fixture, not a real change
@@ -717,6 +721,12 @@ EOF
     "promoted relaunch source lost the original custom safety rule"
   assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$relaunched" \
     "promoted relaunch source lost the current ship task constraint"
+  assert_grep "Preserve the synthetic dataset custody record across relaunch." "$relaunched" \
+    "promoted relaunch source lost the original Rules-2 continuation"
+  assert_grep "## Task-specific constraint" "$relaunched" \
+    "promoted relaunch source lost the current Task subsection"
+  assert_grep "Never remove the archived operator evidence during this task." "$relaunched" \
+    "promoted relaunch source lost the current Task subsection content"
   assert_no_grep 'git checkout -b' "$relaunched" \
     "promoted relaunch source retained promotion-time branch creation"
   assert_grep "relaunch-brief.md" "$dir/fake/literal" \

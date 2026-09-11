@@ -811,8 +811,9 @@ test_promote_refuses_a_symlinked_task_record() {
 # no-mistakes worker gets. This drives the real promotion path, then runs the delivery command it
 # prints against a capturing fm-send.sh, and asserts on the message the worker would
 # actually receive - for every supported mode.
-# Independently proves promoted delivery and context-free relaunch retain both
-# original custom safety and current ship requirements while dropping scout setup.
+# Independently proves promoted delivery and context-free relaunch retain
+# original custom safety, a Rules-2 continuation, current ship requirements,
+# and a current Task subsection while dropping only superseded scout setup.
 test_promotion_delivers_the_real_definition_of_done() {
   local home physical_home meta meta_canonical brief_meta out sendroot payload mode id
   local brief_dod delivered_dod brief_dod_canonical delivered_dod_canonical relaunch_payload
@@ -847,6 +848,11 @@ STUB
         print ""
         inserted=1
       }
+      /^2\. Stay inside this worktree;/ {
+        print
+        print "   Preserve the synthetic dataset custody record across relaunch."
+        next
+      }
       { print }
       END { if (!inserted) exit 2 }
     ' "$scout" > "$rewrite" || fail "$mode: could not add the original custom safety section"
@@ -860,6 +866,11 @@ STUB
         print "4. Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery."
         replaced++
         next
+      }
+      $0 == "# Proof bar" {
+        print "## Task-specific constraint"
+        print "Never remove the archived operator evidence during this task."
+        print ""
       }
       { print }
       END { if (replaced != 1) exit 2 }
@@ -940,6 +951,12 @@ STUB
       "$mode: promoted relaunch input lost the original custom safety rule"
     assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$relaunch_payload" \
       "$mode: promoted relaunch input lost a current task-specific ship requirement"
+    assert_grep "Preserve the synthetic dataset custody record across relaunch." "$relaunch_payload" \
+      "$mode: promoted relaunch input lost an original Rules-2 continuation"
+    assert_grep "## Task-specific constraint" "$relaunch_payload" \
+      "$mode: promoted relaunch input lost a current Task subsection"
+    assert_grep "Never remove the archived operator evidence during this task." "$relaunch_payload" \
+      "$mode: promoted relaunch input lost the current Task subsection content"
     assert_no_grep "# Setup" "$relaunch_payload" \
       "$mode: promoted relaunch input resurrected the obsolete scout Setup"
     assert_no_grep "Write your findings to" "$relaunch_payload" \

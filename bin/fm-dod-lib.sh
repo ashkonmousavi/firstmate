@@ -1189,7 +1189,6 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
         if (line == "# Rules") {
           rules_count++
           section = "rules"
-          skipping_old_route = 0
           print line
           print current_rule1
           print current_rule2
@@ -1210,21 +1209,18 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
       }
       if (!was_fenced && line ~ /^1\. /) {
         old_rule1_count++
-        skipping_old_route = 1
         next
       }
       if (!was_fenced && line ~ /^2\. /) {
         old_rule2_count++
-        skipping_old_route = 1
         next
       }
       if (!was_fenced && line ~ /^3\. /) {
         old_rule3_count++
-        skipping_old_route = 0
         print line
         next
       }
-      if (!skipping_old_route) print line
+      print line
     }
     END {
       if (task_count != 1 || setup_count > 1 || dod_count > 1 || proof_count != 0 ||
@@ -1280,10 +1276,76 @@ fm_brief_promoted_ship_spec() {  # <ship-spec-body>
   '
 }
 
+# Preserve every current Task subsection other than the two owners reconstructed
+# above. Text outside a subsection is unsupported rather than silently lost.
+fm_brief_promoted_ship_task_additions() {  # <ship-instructions>
+  awk '
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+      if (!was_fenced && line == "# Task") {
+        task_count++
+        in_task = 1
+        next
+      }
+      if (!was_fenced && in_task && line ~ /^# [^#]/) {
+        in_task = 0
+        exit
+      }
+      if (!in_task) next
+      if (!was_fenced && line == "## Captain\047s intent") {
+        captain_count++
+        keep = 0
+        seen_subsection = 1
+        next
+      }
+      if (!was_fenced && line == "## Firstmate spec") {
+        spec_count++
+        keep = 0
+        seen_subsection = 1
+        next
+      }
+      if (!was_fenced && line ~ /^## [^#]/) {
+        keep = 1
+        seen_subsection = 1
+        print line
+        next
+      }
+      if (keep) print line
+      else if (!seen_subsection && line !~ /^[[:space:]]*$/) unsupported++
+    }
+    END {
+      if (task_count != 1 || captain_count != 1 || spec_count != 1 || unsupported != 0) exit 2
+    }
+  ' "$1"
+}
+
 # Preserve current ship-only top-level additions between Task and Proof bar.
 # The generated delta normally has none, but a task-specific section remains
 # authoritative and cannot disappear merely because its heading is unknown.
-fm_brief_promoted_ship_additions() {  # <ship-instructions>
+fm_brief_promoted_ship_top_level_additions() {  # <ship-instructions>
   awk '
     {
       line = $0
@@ -1341,7 +1403,8 @@ fm_brief_promoted_ship_additions() {  # <ship-instructions>
 # fm-control can stop the current agent.
 fm_brief_promoted_relaunch_source() {  # <scout-brief> <ship-instructions>
   local scout=$1 ship=$2 mode captain ship_spec current_ship_spec
-  local scout_carryover ship_additions proof_tail rule1 scout_preamble ship_preamble
+  local scout_carryover ship_task_additions ship_top_level_additions proof_tail
+  local rule1 scout_preamble ship_preamble
   [ -f "$scout" ] && [ -r "$scout" ] || {
     echo "error: promoted relaunch source cannot read the original scout brief: $scout" >&2
     return 1
@@ -1394,7 +1457,11 @@ fm_brief_promoted_relaunch_source() {  # <scout-brief> <ship-instructions>
     echo "error: promoted relaunch source has ambiguous or incomplete original Task/Setup/Rules/safety structure in $scout" >&2
     return 1
   }
-  ship_additions=$(fm_brief_promoted_ship_additions "$ship") || {
+  ship_task_additions=$(fm_brief_promoted_ship_task_additions "$ship") || {
+    echo "error: promoted relaunch source has ambiguous current Task subsection structure in $ship" >&2
+    return 1
+  }
+  ship_top_level_additions=$(fm_brief_promoted_ship_top_level_additions "$ship") || {
     echo "error: promoted relaunch source has ambiguous current Task/Proof structure in $ship" >&2
     return 1
   }
@@ -1418,9 +1485,11 @@ The obsolete scout Task, Setup, and Definition of done and the exact promotion-t
 
 $current_ship_spec
 
+$ship_task_additions
+
 $scout_carryover
 
-$ship_additions
+$ship_top_level_additions
 
 $proof_tail
 EOF
