@@ -720,23 +720,47 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
   [ -n "$project_root" ] && [ -d "$project_root" ] || return 1
   config="$project_root/.no-mistakes.yaml"
   [ -f "$config" ] && [ ! -L "$config" ] && [ -r "$config" ] || return 1
+  # This is intentionally a conservative mapping reader, not a partial YAML
+  # implementation. Admit only one top-level auto_fix mapping whose non-comment
+  # children all use one direct-child indentation. Nested or inconsistent shapes
+  # are ambiguous to this reader and therefore preserve report-only behavior.
   value=$(LC_ALL=C awk '
+    BEGIN {
+      valid = 1
+      auto_fix_count = 0
+      document_count = 0
+    }
     /^[[:space:]]*($|#)/ { next }
-    /^[^[:space:]]/ {
+    index($0, "\t") { valid = 0; next }
+    /^[^ ]/ {
       in_auto_fix = ($0 ~ /^auto_fix:[[:space:]]*(#.*)?$/)
+      if (in_auto_fix) auto_fix_count++
       child_indent = 0
       next
     }
-    in_auto_fix {
+    !in_auto_fix { next }
+    {
       match($0, /^ +/)
       indent = RLENGTH
       if (child_indent == 0) child_indent = indent
+      if (indent != child_indent) {
+        valid = 0
+        next
+      }
+      line = substr($0, indent + 1)
+      if (line ~ /^document:([[:space:]]|$)/) {
+        document_count++
+        sub(/^document:[[:space:]]*/, "", line)
+        sub(/[[:space:]]*(#.*)?$/, "", line)
+        document_value = line
+      }
     }
-    in_auto_fix && indent == child_indent && substr($0, indent + 1) ~ /^document:[[:space:]]*/ {
-      line = $0
-      sub(/^ +document:[[:space:]]*/, "", line)
-      sub(/[[:space:]]*(#.*)?$/, "", line)
-      print line
+    END {
+      if (valid && auto_fix_count == 1 && document_count == 1) {
+        print document_value
+        exit 0
+      }
+      exit 1
     }
   ' "$config") || return 1
   case "$value" in

@@ -583,7 +583,7 @@ write_document_correction_receipt() {  # <home> <executable> <proof>
 # private install receipt binds the exact executable bytes to independently
 # accepted consuming proof. Missing/malformed/mismatched receipts and zero or
 # unreadable project configuration all fail closed to report-only.
-test_document_instruction_follows_trusted_project_config_and_installed_capability_receipt() {
+test_document_instruction_requires_unambiguous_trusted_project_config_and_installed_capability_receipt() {
   local home fakebin brief project proof
   home="$TMP_ROOT/document-instruction-home"
   fakebin=$(fm_fakebin "$home")
@@ -659,6 +659,37 @@ test_document_instruction_follows_trusted_project_config_and_installed_capabilit
   assert_grep "The document step is report-only" "$brief" \
     "duplicate direct auto_fix.document keys did not fail closed"
 
+  # A duplicate top-level auto_fix mapping is ambiguous even when only the
+  # first mapping contains document. The generated consumer must fail closed.
+  project="$home/projects/duplicate-auto-fix-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\nauto_fix:\n  ci: 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-duplicate-parent duplicate-auto-fix-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a duplicate auto_fix mapping should scaffold conservatively"
+  brief="$home/data/brief-document-duplicate-parent/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "duplicate top-level auto_fix mappings did not fail closed"
+  assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "a document value from one of multiple auto_fix mappings enabled in-run correction"
+
+  # Once the direct-child indentation is established, a shallower indented
+  # sibling is malformed for this bounded grammar and must not preserve a
+  # previously observed document value.
+  project="$home/projects/inconsistent-auto-fix-indentation-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n    document: 1\n  ci: 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-invalid-indentation inconsistent-auto-fix-indentation-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "an inconsistently indented auto_fix mapping should scaffold conservatively"
+  brief="$home/data/brief-document-invalid-indentation/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "inconsistent auto_fix child indentation did not fail closed"
+  assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "an inconsistently indented auto_fix mapping enabled in-run correction"
+
   project="$home/projects/malformed-document-project"
   mkdir -p "$project"
   printf 'auto_fix:\n  document: enabled\n' > "$project/.no-mistakes.yaml"
@@ -730,7 +761,7 @@ EOF
   brief="$home/data/brief-document-malformed/brief.md"
   assert_grep "The document step is report-only" "$brief" \
     "a malformed install receipt granted Document correction capability"
-  pass "fm-brief.sh: Document instructions require trusted configuration and an exact executable/proof capability receipt"
+  pass "fm-brief.sh: Document instructions require unambiguous trusted configuration and an exact executable/proof capability receipt"
 }
 
 test_validation_revision_ignores_progress_history_but_binds_instruction_contract() {
@@ -2624,7 +2655,7 @@ test_faster_paths_use_configured_authority_without_stacked_review
 test_no_mistakes_dod_wording
 test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step
 test_no_binary_evidence_and_document_step_dod_rules
-test_document_instruction_follows_trusted_project_config_and_installed_capability_receipt
+test_document_instruction_requires_unambiguous_trusted_project_config_and_installed_capability_receipt
 test_validation_revision_ignores_progress_history_but_binds_instruction_contract
 test_validation_intent_separately_labels_captain_spec_and_proof
 test_every_mode_dod_separates_delivery_from_acceptance
