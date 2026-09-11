@@ -722,9 +722,10 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
   [ -f "$config" ] && [ ! -L "$config" ] && [ -r "$config" ] || return 1
   # This is intentionally a conservative mapping reader, not a partial YAML
   # implementation. Admit only plain, unquoted top-level keys and exactly one
-  # block-form auto_fix mapping whose non-comment children all use one
-  # direct-child indentation. Inline, quoted, nested, or inconsistent shapes are
-  # ambiguous to this reader and therefore preserve report-only behavior.
+  # block-form auto_fix mapping whose unique, plain, unquoted children are
+  # integer scalars at one direct-child indentation. Inline, quoted, nested,
+  # non-integer, duplicate, or inconsistent shapes are ambiguous to this reader
+  # and therefore preserve report-only behavior.
   value=$(LC_ALL=C awk '
     BEGIN {
       valid = 1
@@ -756,11 +757,27 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
         next
       }
       line = substr($0, indent + 1)
-      if (line ~ /^document:([[:space:]]|$)/) {
+      if (line !~ /^[A-Za-z_][A-Za-z0-9_-]*:[[:space:]]*/) {
+        valid = 0
+        next
+      }
+      child_key = line
+      sub(/:.*/, "", child_key)
+      if (seen_child[child_key]++) {
+        valid = 0
+        next
+      }
+      child_value = line
+      sub(/^[^:]*:[[:space:]]*/, "", child_value)
+      if (child_value !~ /^[0-9]+([[:space:]]+#.*|[[:space:]]*)$/) {
+        valid = 0
+        next
+      }
+      sub(/[[:space:]]+#.*$/, "", child_value)
+      sub(/[[:space:]]*$/, "", child_value)
+      if (child_key == "document") {
         document_count++
-        sub(/^document:[[:space:]]*/, "", line)
-        sub(/[[:space:]]*(#.*)?$/, "", line)
-        document_value = line
+        document_value = child_value
       }
     }
     END {

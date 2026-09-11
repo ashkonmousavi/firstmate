@@ -659,6 +659,42 @@ test_document_instruction_requires_unambiguous_trusted_project_config_and_instal
   assert_grep "The document step is report-only" "$brief" \
     "duplicate direct auto_fix.document keys did not fail closed"
 
+  # Every child of the admitted auto_fix block belongs to one deliberately
+  # small grammar. Quoted/spaced aliases and non-integer siblings cannot be
+  # ignored after a positive document value has already been observed.
+  project="$home/projects/duplicate-quoted-document-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n  "document": 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-duplicate-quoted-child duplicate-quoted-document-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a quoted duplicate document child should scaffold conservatively"
+  brief="$home/data/brief-document-duplicate-quoted-child/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a quoted duplicate document child did not fail closed"
+
+  project="$home/projects/duplicate-spaced-document-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n  document : 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-duplicate-spaced-child duplicate-spaced-document-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a spaced duplicate document child should scaffold conservatively"
+  brief="$home/data/brief-document-duplicate-spaced-child/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a spaced duplicate document child did not fail closed"
+
+  project="$home/projects/malformed-auto-fix-sibling-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n  ci: nope\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-malformed-sibling malformed-auto-fix-sibling-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a non-integer auto_fix sibling should scaffold conservatively"
+  brief="$home/data/brief-document-malformed-sibling/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a non-integer auto_fix sibling did not fail closed"
+
   # A duplicate top-level auto_fix mapping is ambiguous even when only the
   # first mapping contains document. The generated consumer must fail closed.
   project="$home/projects/duplicate-auto-fix-project"
