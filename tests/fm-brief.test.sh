@@ -538,6 +538,37 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
   pass "fm-brief.sh: named no-mistakes and direct-PR constituents hand off exact reviewed heads under their selected routes"
 }
 
+# A named batch constituent is a deliberate exception to the generic direct-PR
+# publish-and-stop flow in project authority. The owning skill must carry the
+# same boundary so neither reader can reconstruct a mandatory constituent PR or
+# standalone full-CI run from the ordinary route prose.
+test_project_authority_and_batch_skill_exempt_named_constituents_from_standalone_direct_pr_delivery() {
+  local agents skill
+  agents="$ROOT/AGENTS.md"
+  skill="$ROOT/.agents/skills/integration-batch-delivery/SKILL.md"
+
+  assert_grep 'A task explicitly designated as an integration-batch constituent is the narrow exception to that ordinary direct-PR flow' "$agents" \
+    "AGENTS.md did not name the batch-constituent exception to ordinary direct-PR delivery"
+  assert_grep 'does not open a constituent pull request or run standalone full CI merely for membership' "$agents" \
+    "AGENTS.md reintroduced membership-only constituent publication or full CI"
+  assert_grep 'Firstmate verifies existing informed review or arranges its bounded review before integration' "$agents" \
+    "AGENTS.md did not assign bounded constituent-review reconciliation to Firstmate"
+  assert_grep 'the final combined candidate receives the route-required actual CI' "$agents" \
+    "AGENTS.md did not bind actual CI to the final combined candidate"
+  assert_grep 'Standalone and integration-owner direct-PR tasks still use the ordinary pull-request ready signal above' "$agents" \
+    "AGENTS.md did not preserve the ordinary direct-PR ready path"
+  assert_grep 'A named constituent reports its exact prepared head and focused evidence to Firstmate or the named integration owner instead' "$agents" \
+    "AGENTS.md did not replace the generic ready signal for a named constituent"
+
+  assert_grep 'A designated constituent reports its exact prepared head and focused evidence to Firstmate or the named integration owner' "$skill" \
+    "integration-batch-delivery did not carry the named-constituent handoff"
+  assert_grep 'Firstmate verifies an existing informed review or arranges a bounded review of that constituent before integration' "$skill" \
+    "integration-batch-delivery did not assign bounded constituent-review reconciliation"
+  assert_grep 'Do not open a constituent pull request or run standalone full CI merely for batch membership' "$skill" \
+    "integration-batch-delivery restored constituent delivery ceremony"
+  pass "project authority and integration-batch skill keep named constituents on a bounded handoff path"
+}
+
 # Pin the two evidence rules the captain's 2026-09-05 ruling added to the DOD:
 # no committed binary screenshots (prose cites them by filename, images go into
 # the PR body), and a documentation finding is fixed only by the worker's own
@@ -2910,6 +2941,7 @@ test_delivery_flags_are_refused_where_they_do_not_apply
 test_faster_paths_use_configured_authority_without_stacked_review
 test_no_mistakes_dod_wording
 test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step
+test_project_authority_and_batch_skill_exempt_named_constituents_from_standalone_direct_pr_delivery
 test_no_binary_evidence_and_document_step_dod_rules
 test_document_instruction_requires_unambiguous_trusted_project_config_and_installed_capability_receipt
 test_validation_revision_ignores_progress_history_but_binds_instruction_contract

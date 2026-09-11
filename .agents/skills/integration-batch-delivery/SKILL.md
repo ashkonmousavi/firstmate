@@ -30,7 +30,11 @@ That preserves the exact recorded heads every constituent binding and teardown p
 A rebase would rewrite those identities and break the ancestry proof.
 This source contract is stable; do not substitute claims about one installed validator build or another project's historical workflow for the current candidate's actual selected delivery route and checks.
 Never rebase a batch candidate to make main move under it, and never reach for a different-files or range-diff waiver to excuse the result.
-Select the combined task's existing delivery path so it satisfies every constituent's required review, attestation, checks, and affected user journeys.
+Select the combined task's existing delivery path so the final combined candidate satisfies every applicable review, attestation, check, and affected user journey.
+A designated constituent reports its exact prepared head and focused evidence to Firstmate or the named integration owner.
+Firstmate verifies an existing informed review or arranges a bounded review of that constituent before integration, while the final combined candidate receives the selected route's actual CI.
+Do not open a constituent pull request or run standalone full CI merely for batch membership.
+Preserve a constituent's independently applicable publication duty only when Firstmate separately identified it; the batch designation itself creates no such duty.
 Freeze the bounded membership when the combined validation run starts.
 Work that becomes ready after that point lands alone or enters a later batch.
 

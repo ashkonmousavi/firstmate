@@ -375,6 +375,11 @@ The path's worker, automated gates, and captain approval remain authoritative:
 - **direct-PR** has the worker push and open a PR without an automatic AI reviewer/fixer pipeline, completes any informed exact-source review and actual CI owned by that route, then waits for the configured merge authority.
 - **local-only** has the worker stop with a clean ready branch, then waits for the configured merge authority before firstmate uses the guarded fast-forward merge path.
 
+A task explicitly designated as an integration-batch constituent is the narrow exception to that ordinary direct-PR flow: it reports its exact prepared head and focused evidence to Firstmate or the named integration owner, and does not open a constituent pull request or run standalone full CI merely for membership.
+Firstmate verifies existing informed review or arranges its bounded review before integration, and the final combined candidate receives the route-required actual CI.
+An independently applicable publication duty survives only when Firstmate separately identified it; batch membership never creates one.
+Standalone and integration-owner direct-PR tasks still use the ordinary pull-request ready signal above.
+
 Delivery mode and `yolo` are orthogonal.
 `yolo` governs merge authority only: with it off, the captain approves every PR merge and every local-only landing; with it on, firstmate merges green, in-scope work itself.
 Never merge a red PR under either setting; destructive, irreversible, and security-sensitive merges still escalate.
@@ -424,8 +429,9 @@ An excluded-not-cancelled capability needs an honest absence surface, never a pr
 
 ### PR ready, landing, and teardown
 
-For PR-based ship tasks, the ready signal depends on mode: an explicitly authorized `no-mistakes` task reports `done: PR <url> checks green` after CI is green, while `direct-PR` reports `done: PR <url>` after opening the PR.
+For standalone and integration-owner PR-based ship tasks, the ready signal depends on mode: an explicitly authorized `no-mistakes` task reports `done: PR <url> checks green` after CI is green, while `direct-PR` reports `done: PR <url>` after opening the PR.
 That direct-PR signal is a delivery handoff, not evidence that route-specific informed review or actual CI passed; for this repository, firstmate treats the pull request as merge-ready only after both pass at the exact head.
+A named constituent reports its exact prepared head and focused evidence to Firstmate or the named integration owner instead; it does not emit a `done: PR` signal unless Firstmate separately identified an independent publication duty and that pull request actually exists.
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable; that is a delivery report, and section 9 owns what a product-facing feature needs before it is offered for acceptance.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
