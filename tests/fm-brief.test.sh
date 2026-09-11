@@ -509,10 +509,28 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
     --mode direct-PR --batch-constituent-of integration-owner >/dev/null 2>&1 \
     || fail "a direct-PR batch constituent brief should scaffold"
   brief="$home/data/brief-direct-batch-constituent/brief.md"
-  assert_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$brief" \
-    "a direct-PR constituent lost its selected review and exact-head CI duties"
-  assert_grep 'Use the supported normal pull-request commands for any independently required publication' "$brief" \
-    "a direct-PR constituent was not told how to preserve its publication obligation"
+  assert_grep 'deliver its exact reviewed commit and focused evidence to the named integration owner `integration-owner`' "$brief" \
+    "a direct-PR constituent lost its exact reviewed handoff"
+  assert_grep 'Do not open a constituent pull request or run standalone full CI merely to become a batch member' "$brief" \
+    "a direct-PR constituent was told to complete a separate whole-delivery route"
+  assert_grep 'Only when Firstmate has separately identified an independently applicable publication obligation' "$brief" \
+    "a direct-PR constituent did not preserve the bounded optional publication case"
+  assert_grep 'append `working: prepared - exact reviewed head and focused evidence handed to integration-owner`' "$brief" \
+    "a direct-PR constituent lost its prepared owner handoff status"
+  assert_no_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$brief" \
+    "a direct-PR constituent retained the invented whole-delivery prerequisite"
+  assert_no_grep 'push your branch and open a PR with `gh-axi`' "$brief" \
+    "a direct-PR constituent retained the standalone direct-PR tail"
+  assert_no_grep 'append `done: PR {url}`' "$brief" \
+    "a direct-PR constituent falsely reported a constituent PR handoff"
+  assert_grep 'It does not say a constituent pull request or standalone full-CI run completed.' "$brief" \
+    "a direct-PR constituent delivery signal overstated its handoff"
+  assert_grep 'the actual images stay outside the repository and the focused evidence handed to the integration owner names their path' "$brief" \
+    "a direct-PR constituent routed evidence into a nonexistent pull request"
+  assert_grep 'include the actual changes and exact final-head proof in the focused evidence handed to the integration owner' "$brief" \
+    "a direct-PR constituent Document correction targeted a nonexistent pull request"
+  assert_grep 'Before you hand the reviewed commit to the integration owner, pass this delivery preflight:' "$brief" \
+    "a direct-PR constituent preflight still assumed publication"
   assert_no_grep "combined pull request's body is pipeline output only" "$brief" \
     "a direct-PR constituent inherited no-mistakes body custody"
   assert_no_grep 'run-validation' "$brief" \
@@ -532,8 +550,9 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
 # of the source tree". Keeping evidence out of the tree was never a property of
 # opening a PR, so local-only now states it too - with its own destination,
 # because local-only has no PR body and its delivery preflight requires a
-# worktree clean of untracked files. Only the report-only DOCUMENT-step rule
-# stays PR-exclusive, and local-only is still asserted not to carry it.
+# worktree clean of untracked files. No-mistakes retains its capability-based
+# Document route, direct-PR owns manual correction and affected checks, and
+# local-only carries neither PR-specific instruction.
 test_no_binary_evidence_and_document_step_dod_rules() {
   local home id brief
   home="$TMP_ROOT/evidence-rules-home"
@@ -561,8 +580,14 @@ test_no_binary_evidence_and_document_step_dod_rules() {
   assert_present "$brief" "brief was not scaffolded"
   assert_grep "No binary screenshots or other media enter the repository tree" "$brief" \
     "direct-PR DOD must ban committed binary screenshots and media"
-  assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation" "$brief" \
-    "direct-PR DOD must state the document step is report-only and require a real commit plus re-validation"
+  assert_grep "Direct-PR mode has no pipeline Document step and does not depend on an installed no-mistakes capability" "$brief" \
+    "direct-PR DOD invented a pipeline Document step or installed capability prerequisite"
+  assert_grep "Apply an accepted documentation correction manually in the owning source" "$brief" \
+    "direct-PR DOD lost its manual source-correction path"
+  assert_grep "run the affected documentation audience review and checks" "$brief" \
+    "direct-PR DOD lost affected documentation review and checks"
+  assert_no_grep "The document step is report-only" "$brief" \
+    "direct-PR DOD still described a nonexistent pipeline Document step"
 
   id="brief-evidence-local-c1"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" local-proj --mode local-only >/dev/null 2>&1
@@ -577,7 +602,7 @@ test_no_binary_evidence_and_document_step_dod_rules() {
   assert_no_grep "The document step is report-only" "$brief" \
     "local-only DOD must not carry the PR-body document-step rule; local-only never opens a PR"
 
-  pass "fm-brief.sh: every mode's DOD keeps evidence out of the source tree, and only PR modes carry the document-step rule"
+  pass "fm-brief.sh: every mode keeps evidence out of source; no-mistakes and direct-PR retain their distinct Document routes"
 }
 
 # Write the private install-owned capability receipt used by the Document
@@ -1799,8 +1824,10 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
       assert_grep "combined pull request's body is pipeline output only" "$brief" \
         "$mode DOD lost pipeline-owned pull-request body custody"
     else
-      assert_grep '| Informed-review and CI-tested head | Landed squash commit |' "$brief" \
+      assert_grep '| Informed-review and CI-tested head | Landed commit |' "$brief" \
         "$mode DOD did not render the informed-review and CI-tested landing record"
+      assert_grep "Its squash or merge shape follows the project's current landing contract and merge authority; this generic record relaxes neither." "$brief" \
+        "$mode DOD did not preserve the project-selected landing shape"
       assert_grep 'supported normal `gh-axi pr create` and `gh-axi pr edit` commands' "$brief" \
         "$mode DOD did not authorize its normal pull-request body commands"
       assert_no_grep "combined pull request's body is pipeline output only" "$brief" \
@@ -1808,9 +1835,11 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
       assert_no_grep "through the run's intent" "$brief" \
         "$mode DOD forced its records through a no-mistakes run intent"
     fi
-    assert_grep 'These are two different commits' "$brief" \
-      "$mode DOD still claimed the tested head and the landed commit are one commit"
-    assert_grep 'a pull request head that exists is not evidence that it landed' "$brief" \
+    if [ "$mode" = no-mistakes ]; then
+      assert_grep 'These are two different commits' "$brief" \
+        "$mode DOD still claimed the pipeline-tested head and landed squash commit are one commit"
+    fi
+    assert_grep 'pull request head that exists is not evidence that it landed' "$brief" \
       "$mode DOD did not require the landed commit to be read from the forge"
     assert_no_grep 'bin/fm-pr-merge.sh --merge' "$brief" \
       "$mode DOD still prescribed the merge-commit landing a squash contract cannot use"
@@ -1949,8 +1978,10 @@ test_render_batch_owner_record_uses_direct_pr_commands_without_run_validation() 
     "direct-PR render-batch-owner-record printed a no-mistakes validation command"
   assert_grep 'Maintain its body and the tables below through supported normal `gh-axi pr create` and `gh-axi pr edit` commands' "$brief" \
     "direct-PR batch record did not authorize its supported normal body commands"
-  assert_grep '| Informed-review and CI-tested head | Landed squash commit |' "$brief" \
+  assert_grep '| Informed-review and CI-tested head | Landed commit |' "$brief" \
     "direct-PR batch record did not bind the exact informed-review and CI-tested head"
+  assert_grep "Its squash or merge shape follows the project's current landing contract and merge authority; this generic record relaxes neither." "$brief" \
+    "direct-PR batch record did not preserve project-selected landing shape"
   assert_no_grep "through this run's intent" "$brief" \
     "direct-PR batch record forced rows through a no-mistakes intent"
   assert_no_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \

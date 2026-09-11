@@ -610,7 +610,7 @@ fm_brief_task_content_valid() {  # <file>
   [ -n "$(printf '%s' "$task" | tr -d '[:space:]')" ]
 }
 
-# fm_dod_evidence_rules_block <opened-pr|validated-pr|local> prints the two rules every mode's
+# fm_dod_evidence_rules_block <opened-pr|validated-pr|batch-handoff|local> prints the two rules every mode's
 # Definition of done carries: a delivery signal is not product acceptance
 # (AGENTS.md section 9 owns what a product-facing feature needs before it is
 # offered for acceptance), and journey evidence never enters the source tree.
@@ -620,7 +620,7 @@ fm_brief_task_content_valid() {  # <file>
 # worker has no PR body to upload into, and its own delivery preflight requires
 # a worktree clean of untracked files, so its evidence must live outside the
 # repository entirely.
-fm_dod_evidence_rules_block() {  # <opened-pr|validated-pr|local>
+fm_dod_evidence_rules_block() {  # <opened-pr|validated-pr|batch-handoff|local>
   local dest signal qualification=''
   case "$1" in
     opened-pr)
@@ -630,6 +630,10 @@ fm_dod_evidence_rules_block() {  # <opened-pr|validated-pr|local>
     validated-pr)
       dest='the actual images go into the PR body, uploaded through GitHub'
       signal='it says this change is committed and its exact-head checks passed' ;;
+    batch-handoff)
+      dest='the actual images stay outside the repository and the focused evidence handed to the integration owner names their path'
+      signal='it says this exact reviewed commit and its focused evidence were handed to the integration owner'
+      qualification=' It does not say a constituent pull request or standalone full-CI run completed.' ;;
     local)
       dest='the actual images stay outside the repository and your ready report names their path'
       signal='it says this change is committed and its selected local checks passed' ;;
@@ -831,9 +835,9 @@ EOF
 # and the table shapes rendered in every ship mode: the route-specific membership
 # records that bind each constituent, the join review that states what the joins
 # actually did to each constituent's reviewed work, and the landing record
-# naming which commit the pipeline tested and which commit the merge produced.
-# The landing record's two commits differ under a squash-merge contract, so it
-# records both rather than asserting one. A local-only owner
+# naming which commit the selected route tested and which commit the merge produced.
+# The direct-PR record keeps the landed commit generic because the project owns
+# whether its guarded landing is squash or merge. A local-only owner
 # must be re-briefed onto a PR-based path because a batch lands through one
 # combined PR.
 fm_integration_batch_dod_block() {  # <mode> [batch-owner]
@@ -853,8 +857,9 @@ EOF
 ## Conditional integration-batch definition of done
 
 Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
-Complete the selected direct-PR route through informed review and actual CI at the exact published head, then deliver that exact reviewed head and focused evidence to the named integration owner \`$batch_owner\` and stop.
-Use the supported normal pull-request commands for any independently required publication; do not start a no-mistakes pipeline merely to become a batch member.
+When your branch is prepared, deliver its exact reviewed commit and focused evidence to the named integration owner \`$batch_owner\` and stop.
+Do not open a constituent pull request or run standalone full CI merely to become a batch member; the frozen combined candidate receives the required informed review and exact-head CI.
+Only when Firstmate has separately identified an independently applicable publication obligation for this constituent, satisfy that specific obligation through the supported normal pull-request commands before handoff; never infer one from batch membership.
 EOF
         ;;
       local-only)
@@ -938,11 +943,11 @@ EOF
   else
     cat <<'EOF'
 
-| Informed-review and CI-tested head | Landed squash commit |
+| Informed-review and CI-tested head | Landed commit |
 | --- | --- |
 | `<full-sha>` | `<full-sha>` |
 
-These are two different commits, and the record states both honestly. The informed-review and CI-tested head is the exact combined head whose review and required CI completed. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+The informed-review and CI-tested head is the exact combined head whose review and required CI completed. The landed commit is the commit the guarded merge actually produced on the default branch, read from the forge rather than inferred. Its squash or merge shape follows the project's current landing contract and merge authority; this generic record relaxes neither. A pull request head that exists is not evidence that it landed.
 EOF
   fi
   cat <<'EOF'
@@ -962,16 +967,31 @@ This task ships **direct-PR**: you raise the PR yourself, without the no-mistake
 The branch is ready for publication when committed on your branch; that is not evidence that review or CI passed.
 EOF
       fm_integration_batch_dod_block "$mode" "$batch_owner"
-      fm_dod_evidence_rules_block opened-pr
-      cat <<EOF
-Determine Document correction from the installed, supported implementation capability, never from a historical label. Direct-PR mode uses the supported custody-preserving manual repair path. The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed. That record names the changed source, regenerated derived documents, and final-head proof.
-Before you push, pass this delivery preflight:
+      if [ -n "$batch_owner" ]; then
+        fm_dod_evidence_rules_block batch-handoff
+        cat <<'EOF'
+Direct-PR mode has no pipeline Document step and does not depend on an installed no-mistakes capability. Apply an accepted documentation correction manually in the owning source, regenerate derived documents where applicable, run the affected documentation audience review and checks, and include the actual changes and exact final-head proof in the focused evidence handed to the integration owner.
 EOF
+        echo 'Before you hand the reviewed commit to the integration owner, pass this delivery preflight:'
+      else
+        fm_dod_evidence_rules_block opened-pr
+        cat <<'EOF'
+Direct-PR mode has no pipeline Document step and does not depend on an installed no-mistakes capability. Apply an accepted documentation correction manually in the owning source, regenerate derived documents where applicable, run the affected documentation audience review and checks, and record the actual changes and exact final-head proof in the pull request.
+EOF
+        echo 'Before you push, pass this delivery preflight:'
+      fi
       fm_dod_delivery_preflight_block "$id" "$task_record"
-      cat <<EOF
-When it is implemented and committed, push your branch and open a PR with \`gh-axi\`, then append \`done: PR {url}\` to the status file and stop.
+      if [ -n "$batch_owner" ]; then
+        cat <<EOF
+When it is implemented and committed, append \`working: prepared - exact reviewed head and focused evidence handed to $batch_owner\` to the status file and stop.
+Do not automatically push or open a constituent pull request, and do not run standalone full CI or /no-mistakes merely for batch membership. Firstmate must have separately identified any independently applicable publication obligation before you satisfy it.
+EOF
+      else
+        cat <<'EOF'
+When it is implemented and committed, push your branch and open a PR with `gh-axi`, then append `done: PR {url}` to the status file and stop.
 Do NOT run /no-mistakes. The configured merge authority decides whether to merge the PR; firstmate relays the outcome.
 EOF
+      fi
       ;;
     local-only)
       cat <<EOF
@@ -1134,7 +1154,7 @@ fm_batch_owner_record_subsection() {  # <mode> <combined-pr> <designated-date> <
   if [ "$mode" = no-mistakes ]; then
     echo '| Pipeline-tested head | Landed squash commit |'
   else
-    echo '| Informed-review and CI-tested head | Landed squash commit |'
+    echo '| Informed-review and CI-tested head | Landed commit |'
   fi
   echo '| --- | --- |'
   printf "| %s%s%s | %s%s%s |\\n" \

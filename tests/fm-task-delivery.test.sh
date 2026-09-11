@@ -986,10 +986,20 @@ STUB
     && FM_TEST_CAPTURE="$payload" \
        eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
     || fail "direct constituent: promotion's delivery command did not run"
-  assert_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$payload" \
-    "promoted direct-PR constituent lost its selected route proof"
-  assert_grep 'Use the supported normal pull-request commands for any independently required publication' "$payload" \
-    "promoted direct-PR constituent lost its normal publication route"
+  assert_grep 'deliver its exact reviewed commit and focused evidence to the named integration owner `integration-owner`' "$payload" \
+    "promoted direct-PR constituent lost its reviewed owner handoff"
+  assert_grep 'Do not open a constituent pull request or run standalone full CI merely to become a batch member' "$payload" \
+    "promoted direct-PR constituent retained a separate whole-delivery prerequisite"
+  assert_grep 'Only when Firstmate has separately identified an independently applicable publication obligation' "$payload" \
+    "promoted direct-PR constituent lost the bounded optional publication case"
+  assert_grep 'append `working: prepared - exact reviewed head and focused evidence handed to integration-owner`' "$payload" \
+    "promoted direct-PR constituent lost its prepared handoff status"
+  assert_no_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$payload" \
+    "promoted direct-PR constituent retained the invented whole-delivery requirement"
+  assert_no_grep 'push your branch and open a PR with `gh-axi`' "$payload" \
+    "promoted direct-PR constituent retained the standalone direct-PR tail"
+  assert_no_grep 'append `done: PR {url}`' "$payload" \
+    "promoted direct-PR constituent falsely reported a constituent PR"
   assert_no_grep "combined pull request's body is pipeline output only" "$payload" \
     "promoted direct-PR constituent inherited pipeline body custody"
   assert_no_grep 'run-validation' "$payload" \

@@ -26,7 +26,9 @@ Assign exactly one integration owner.
 The owner starts the combined branch from current main and integrates the exact reviewed constituent commits without squashing or rebasing them away.
 Use merge commits for conflict resolution so the constituent heads remain reachable and the join is explicit.
 Keep the candidate containing current main at all times, merging main into it rather than rebasing onto it.
-That preserves the exact recorded heads every constituent binding and teardown proof reads. A rebase would rewrite those identities and break the ancestry proof. This source contract is stable; do not substitute claims about one installed validator build or another project's historical workflow for the current candidate's actual selected delivery route and checks.
+That preserves the exact recorded heads every constituent binding and teardown proof reads.
+A rebase would rewrite those identities and break the ancestry proof.
+This source contract is stable; do not substitute claims about one installed validator build or another project's historical workflow for the current candidate's actual selected delivery route and checks.
 Never rebase a batch candidate to make main move under it, and never reach for a different-files or range-diff waiver to excuse the result.
 Select the combined task's existing delivery path so it satisfies every constituent's required review, attestation, checks, and affected user journeys.
 Freeze the bounded membership when the combined validation run starts.
@@ -63,7 +65,12 @@ When an earlier landing moves main out from under a candidate that already passe
 That is one combined run of the selected delivery process, never a restart of each constituent's own route, and it is the only supported answer: rebasing the candidate instead would rewrite the exact constituent heads every binding reads.
 The held landing window is what keeps this rare.
 Record in the combined pull request body which commit the selected delivery process actually proved and which commit the merge actually produced.
-Under a squash-merge landing those are two different commits. For no-mistakes, record the pipeline-tested head and let the pipeline own body generation through the bound intent. For direct-PR, record the informed-review and CI-tested head and maintain the body through supported normal `gh-axi pr create` and `gh-axi pr edit` commands. A local-only task cannot own a combined pull request. In either PR route, the tested head is the exact combined head that was proven, and the landed commit is the one the merge itself created on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+Under a squash-merge landing those are two different commits.
+For no-mistakes, record the pipeline-tested head and let the pipeline own body generation through the bound intent.
+For direct-PR, record the informed-review and CI-tested head beside a generic landed commit and maintain the body through supported normal `gh-axi pr create` and `gh-axi pr edit` commands.
+The generic label preserves the project's authority to require squash or explicitly authorize merge; it grants neither shape.
+A local-only task cannot own a combined pull request.
+In either PR route, the tested head is the exact combined head that was proven, and the landed commit is the one the merge itself created on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
 
 Land the combined pull request through `bin/fm-pr-merge.sh` under the project's own landing shape.
 The project authority chooses that shape: XAU landing is squash-only and records the landed squash identity, while a separately approved Firstmate operational-home integration may use a merge commit when preserving that home's ancestry requires it. Neither route grants force-push authority or generalizes a historical pull-request shape.
