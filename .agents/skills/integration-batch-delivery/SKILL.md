@@ -26,10 +26,7 @@ Assign exactly one integration owner.
 The owner starts the combined branch from current main and integrates the exact reviewed constituent commits without squashing or rebasing them away.
 Use merge commits for conflict resolution so the constituent heads remain reachable and the join is explicit.
 Keep the candidate containing current main at all times, merging main into it rather than rebasing onto it.
-That is what preserves the shape everything else depends on, for two independent reasons.
-A rebase rewrites the constituent commits themselves, so the exact recorded head each constituent's binding and teardown proof reads stops being an ancestor of the candidate and that constituent can no longer be proven landed; and the pipeline only rebases a candidate that does not already contain its target, so a candidate that contains main is left alone (`shouldSkipRebase` returns "already ahead of" at `internal/pipeline/steps/rebase.go:448` in the installed no-mistakes `bdfc272`, honoured by both `tryRebase` and `rebaseWithAgent`).
-A candidate proven this way is also attested on its own exact head, so a project whose attestation refuses merge commits refuses them only in its rebase-equivalence fallback and never sees this candidate: in `.github/workflows/xau-ci-attestation.yml` the rebase-equivalence step runs only when the exact-head recheck failed, and the merge-commit refusal lives in that fallback alone (`scripts/ci_check_rebase_attestation_equivalence.py:296-299` at XAUUSD main `c4b3eee19`).
-That fallback is not a safety net worth planning around either: its equivalence rule is stricter than a byte-identical diff, and it has been observed refusing a genuinely content-free rebase because the predicate follows one import hop beyond the paths the change touched (a moved module the changed test imported).
+That preserves the exact recorded heads every constituent binding and teardown proof reads. A rebase would rewrite those identities and break the ancestry proof. This source contract is stable; do not substitute claims about one installed validator build or another project's historical workflow for the current candidate's actual selected delivery route and checks.
 Never rebase a batch candidate to make main move under it, and never reach for a different-files or range-diff waiver to excuse the result.
 Select the combined task's existing delivery path so it satisfies every constituent's required review, attestation, checks, and affected user journeys.
 Freeze the bounded membership when the combined validation run starts.
@@ -46,27 +43,27 @@ An unchanged tree after a binding merge is not evidence that every constituent b
 
 While the current candidate is in its final verification - absorbing current main, its checks at that exact head, and the merge - unrelated merges into main hold.
 The hold covers merges only.
-Every other lane keeps building, reviewing, and running its own pipeline throughout; nothing waits for the window except the act of merging.
+Every other lane keeps building, reviewing, and following its selected delivery process throughout; nothing waits for the window except the act of merging.
 This is scheduling discipline, not another queue: it is opened for one candidate that is actually in final verification, never held open for work that has not started.
 
 Firstmate opens the window when the candidate enters that final verification and is the only actor who may release it.
 It releases when the candidate lands, or when firstmate judges the candidate needs substantial further work - a failed check that needs a real fix, or a changed assumption found in the join review.
-Substantial means it goes back through the pipeline rather than finishing this window.
+Substantial means it goes back through the selected delivery process rather than finishing this window.
 A released window frees main immediately; the released candidate re-enters the queue behind whatever lands next and is proven again from that new main.
 
 ## Prove and land the combined candidate
 
 Run the selected delivery process once on the frozen combined candidate, including its required review or attestation, checks, and affected user journeys.
-Do not additionally restart every constituent's separate pipeline merely because main advanced.
+Do not additionally restart every constituent's separate delivery process merely because main advanced.
 Rule F still requires conclusions at the combined pull request's exact current head.
 The `bin/fm-pr-merge.sh` current-main containment guard still applies to that combined head.
 If either condition fails, repair the combined candidate and re-prove the repaired combined head; never reuse evidence from its stale predecessor.
 
 When an earlier landing moves main out from under a candidate that already passed, merge the new main into that candidate and run the combined delivery process once more at that exact head.
-That is one combined run, never a restart of each constituent's own pipeline, and it is the only supported answer: rebasing the candidate instead would rewrite the exact constituent heads every binding reads and push the attestation onto a fallback that refuses merge commits.
+That is one combined run of the selected delivery process, never a restart of each constituent's own route, and it is the only supported answer: rebasing the candidate instead would rewrite the exact constituent heads every binding reads.
 The held landing window is what keeps this rare.
-Record in the combined pull request body which commit the pipeline actually tested and which commit the merge actually produced.
-Under a squash-merge landing those are two different commits, and the record states both: the pipeline-tested head is the exact combined head that was proven, and the landed commit is the one the merge itself created on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+Record in the combined pull request body which commit the selected delivery process actually proved and which commit the merge actually produced.
+Under a squash-merge landing those are two different commits. For no-mistakes, record the pipeline-tested head and let the pipeline own body generation through the bound intent. For direct-PR, record the informed-review and CI-tested head and maintain the body through supported normal `gh-axi pr create` and `gh-axi pr edit` commands. A local-only task cannot own a combined pull request. In either PR route, the tested head is the exact combined head that was proven, and the landed commit is the one the merge itself created on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
 
 Land the combined pull request through `bin/fm-pr-merge.sh` under the project's own landing shape.
 The project authority chooses that shape: XAU landing is squash-only and records the landed squash identity, while a separately approved Firstmate operational-home integration may use a merge commit when preserving that home's ancestry requires it. Neither route grants force-push authority or generalizes a historical pull-request shape.

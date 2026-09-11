@@ -355,8 +355,8 @@ yolo on a ship brief|brief-refused-b1 some-proj --mode direct-PR --yolo on|--yol
 yolo=value form on a ship brief|brief-refused-b2 some-proj --mode direct-PR --yolo=off|--yolo is not a brief input
 mode on a scout brief|brief-refused-b3 some-proj --scout --mode direct-PR|--mode applies only to ship briefs
 mode on a secondmate charter|brief-refused-b4 --secondmate --no-projects --mode no-mistakes|--mode applies only to ship briefs
-batch constituent on a direct brief|brief-refused-b5 some-proj --mode direct-PR --batch-constituent-of owner-task|--batch-constituent-of applies only to a no-mistakes ship brief
-batch constituent on a scout brief|brief-refused-b6 some-proj --scout --batch-constituent-of owner-task|--batch-constituent-of applies only to a no-mistakes ship brief
+batch constituent on a local brief|brief-refused-b5 some-proj --mode local-only --batch-constituent-of owner-task|--batch-constituent-of applies only to a PR-based ship brief
+batch constituent on a scout brief|brief-refused-b6 some-proj --scout --batch-constituent-of owner-task|--batch-constituent-of applies only to a PR-based ship brief
 invalid integration owner id|brief-refused-b7 some-proj --mode no-mistakes --batch-constituent-of ../owner|--batch-constituent-of requires a valid integration-owner task id
 ROWS
   pass "fm-brief.sh: --yolo and scout/secondmate --mode are refused, never silently dropped"
@@ -504,7 +504,20 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
     "an ordinary no-mistakes task lost its standalone pipeline next step"
   assert_no_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$brief" \
     "an ordinary no-mistakes task was misclassified as a batch constituent"
-  pass "fm-brief.sh: a named batch constituent hands off its reviewed head without starting a standalone membership pipeline"
+
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-direct-batch-constituent some-proj \
+    --mode direct-PR --batch-constituent-of integration-owner >/dev/null 2>&1 \
+    || fail "a direct-PR batch constituent brief should scaffold"
+  brief="$home/data/brief-direct-batch-constituent/brief.md"
+  assert_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$brief" \
+    "a direct-PR constituent lost its selected review and exact-head CI duties"
+  assert_grep 'Use the supported normal pull-request commands for any independently required publication' "$brief" \
+    "a direct-PR constituent was not told how to preserve its publication obligation"
+  assert_no_grep "combined pull request's body is pipeline output only" "$brief" \
+    "a direct-PR constituent inherited no-mistakes body custody"
+  assert_no_grep 'run-validation' "$brief" \
+    "a direct-PR constituent received a no-mistakes validation command"
+  pass "fm-brief.sh: named no-mistakes and direct-PR constituents hand off exact reviewed heads under their selected routes"
 }
 
 # Pin the two evidence rules the captain's 2026-09-05 ruling added to the DOD:
@@ -960,6 +973,16 @@ test_every_mode_dod_separates_delivery_from_acceptance() {
       "$mode DOD must state that the delivery signal is not product acceptance"
     assert_grep "Firstmate offers the work for acceptance separately, with the journey evidence" "$brief" \
       "$mode DOD must route acceptance through firstmate with the journey evidence"
+    if [ "$mode" = direct-PR ]; then
+      assert_grep 'its pull request was opened for informed review and exact-head CI, not that the user outcome is accepted. It does not say those checks passed.' "$brief" \
+        "direct-PR DOD falsely described an opened handoff as checks green"
+      assert_grep 'then append `done: PR {url}` to the status file and stop' "$brief" \
+        "direct-PR DOD lost its truthful opened-pull-request status signal"
+      assert_no_grep 'append `done: PR {url} checks green`' "$brief" \
+        "direct-PR DOD mislabeled its opened handoff as checks green"
+      assert_no_grep 'Your delivery signal reports delivery, never product acceptance: it says this change is committed and its exact-head checks passed' "$brief" \
+        "direct-PR DOD inherited the no-mistakes checked signal"
+    fi
   done
   pass "fm-brief.sh: every delivery mode's DOD separates the delivery signal from product acceptance"
 }
@@ -1732,12 +1755,12 @@ test_ship_brief_carries_the_journey_line() {
 # A batch owner can be briefed through either PR mode, while a local-only brief
 # must still render the mismatch refusal. The shared DoD output presents the
 # PR-backed and PR-less constituent routes separately, including their different
-# binding moments, without changing the join-review or landing tables.
+# binding moments, with route-specific landing evidence labels.
 test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
   local home id brief mode
   home="$TMP_ROOT/integration-batch-dod-home"
   mkdir -p "$home/data"
-  for mode in no-mistakes direct-PR local-only; do
+  for mode in no-mistakes direct-PR; do
     id="brief-integration-batch-$mode"
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode "$mode" >/dev/null 2>&1
     brief="$home/data/$id/brief.md"
@@ -1770,8 +1793,21 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
       "$mode DOD did not render the explicit join review that states what the joins did to each constituent"
     assert_grep 'is not evidence that every constituent behavior survived' "$brief" \
       "$mode DOD let an unchanged tree stand in for the join review"
-    assert_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
-      "$mode DOD did not render the landing record naming the tested head and the landed squash commit"
+    if [ "$mode" = no-mistakes ]; then
+      assert_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+        "$mode DOD did not render the pipeline-tested landing record"
+      assert_grep "combined pull request's body is pipeline output only" "$brief" \
+        "$mode DOD lost pipeline-owned pull-request body custody"
+    else
+      assert_grep '| Informed-review and CI-tested head | Landed squash commit |' "$brief" \
+        "$mode DOD did not render the informed-review and CI-tested landing record"
+      assert_grep 'supported normal `gh-axi pr create` and `gh-axi pr edit` commands' "$brief" \
+        "$mode DOD did not authorize its normal pull-request body commands"
+      assert_no_grep "combined pull request's body is pipeline output only" "$brief" \
+        "$mode DOD inherited no-mistakes pull-request body custody"
+      assert_no_grep "through the run's intent" "$brief" \
+        "$mode DOD forced its records through a no-mistakes run intent"
+    fi
     assert_grep 'These are two different commits' "$brief" \
       "$mode DOD still claimed the tested head and the landed commit are one commit"
     assert_grep 'a pull request head that exists is not evidence that it landed' "$brief" \
@@ -1781,10 +1817,13 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
     assert_grep 'bin/fm-pr-check.sh --absorbed-by <task-id> <combined-pr-url>' "$brief" \
       "$mode DOD did not render the supported constituent binding command"
   done
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-integration-batch-local-only some-proj --mode local-only >/dev/null 2>&1
   brief="$home/data/brief-integration-batch-local-only/brief.md"
   assert_grep 'A local-only task cannot own a combined pull request' "$brief" \
     "local-only DOD did not refuse an integration-owner role that requires a PR"
-  pass "fm-brief.sh: every ship DOD renders the batch-owner membership table, join review, squash-honest landing record, and record binding"
+  assert_no_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" \
+    "local-only DOD rendered unusable pull-request ownership records after refusing the role"
+  pass "fm-brief.sh: PR routes render route-aware batch records while local-only refuses batch ownership"
 }
 
 # A task designated as a batch owner AFTER dispatch has no way to get its real
@@ -1878,6 +1917,61 @@ test_render_batch_owner_record_carries_the_batch_tables_into_the_run_intent_only
     || fail "render-batch-owner-record: a refused re-run duplicated the subsection anyway"
 
   pass "fm-dod-lib.sh render-batch-owner-record: renders the post-dispatch batch owner's PR-backed, PR-less, join-review, and landing tables into the brief's Proof bar so they reach --intent, refuses to duplicate an existing subsection"
+}
+
+# A direct-PR owner uses the same record renderer, but its selected route has no
+# validator runner or pipeline-owned PR body. Exercise the real scaffold and
+# command so this test fails if either no-mistakes mechanism leaks back in.
+test_render_batch_owner_record_uses_direct_pr_commands_without_run_validation() {
+  local home brief out rc before
+  home="$TMP_ROOT/render-direct-pr-batch-owner"
+  mkdir -p "$home/data"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" direct-batch-owner some-proj --mode direct-PR >/dev/null 2>&1
+  brief="$home/data/direct-batch-owner/brief.md"
+  sed -i \
+    -e 's|^{TASK}$|Deliver one direct-PR combined candidate.|' \
+    -e 's|^{FIRSTMATE_SPEC}$|Preserve direct-PR review and CI ownership.|' \
+    -e 's|^Prep: {PREP}$|Prep: Tier 2 - generated route consumer.|' \
+    -e 's|^Resource: {RESOURCE}$|Resource: N/A|' \
+    -e 's|^Surface: {SURFACE}$|Surface: none: delivery tooling.|' \
+    -e 's|^Journey: {JOURNEY}$|Journey: none: no product-facing journey.|' \
+    "$brief"
+
+  out=$(bash "$ROOT/bin/fm-dod-lib.sh" render-batch-owner-record \
+    --brief "$brief" \
+    --combined-pr https://github.com/example/repo/pull/901 \
+    --designated 2026-09-11 \
+    --pr-less 'direct-child|fm/direct-child|3333333333333333333333333333333333333333' \
+    --join 'direct-child|None|None|None')
+  rc=$?
+  expect_code 0 "$rc" "direct-PR render-batch-owner-record refused a route with no runner: $out"
+  assert_not_contains "$out" 'run-validation' \
+    "direct-PR render-batch-owner-record printed a no-mistakes validation command"
+  assert_grep 'Maintain its body and the tables below through supported normal `gh-axi pr create` and `gh-axi pr edit` commands' "$brief" \
+    "direct-PR batch record did not authorize its supported normal body commands"
+  assert_grep '| Informed-review and CI-tested head | Landed squash commit |' "$brief" \
+    "direct-PR batch record did not bind the exact informed-review and CI-tested head"
+  assert_no_grep "through this run's intent" "$brief" \
+    "direct-PR batch record forced rows through a no-mistakes intent"
+  assert_no_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+    "direct-PR batch record mislabeled its exact-head evidence as pipeline-tested"
+
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" local-batch-owner some-proj --mode local-only >/dev/null 2>&1
+  brief="$home/data/local-batch-owner/brief.md"
+  before=$(sha256sum "$brief")
+  set +e
+  out=$(bash "$ROOT/bin/fm-dod-lib.sh" render-batch-owner-record \
+    --brief "$brief" --combined-pr https://github.com/example/repo/pull/902 \
+    --designated 2026-09-11 --pr-less 'x|fm/x|4444444444444444444444444444444444444444' \
+    --join 'x|None|None|None' 2>&1)
+  rc=$?
+  set -e
+  expect_code 1 "$rc" "local-only batch-owner render should refuse"
+  assert_contains "$out" 'local-only brief cannot own a combined pull request' \
+    "local-only batch-owner refusal did not name the route mismatch"
+  [ "$before" = "$(sha256sum "$brief")" ] \
+    || fail "local-only batch-owner refusal modified the brief"
+  pass "fm-dod-lib.sh render-batch-owner-record: direct-PR uses normal PR commands without a runner; local-only refuses without mutation"
 }
 
 # A batch owner once hand-edited a combined pull request body outside the
@@ -2811,6 +2905,7 @@ test_ship_brief_carries_the_surface_line
 test_ship_brief_carries_the_journey_line
 test_every_ship_dod_renders_the_conditional_integration_batch_binding
 test_render_batch_owner_record_carries_the_batch_tables_into_the_run_intent_only
+test_render_batch_owner_record_uses_direct_pr_commands_without_run_validation
 test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants
 test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal
 test_c7_proportionate_verification_and_bounded_routine_correction_rehearsal

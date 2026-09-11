@@ -23,7 +23,8 @@
 # captain's standing posture as context, and this script never looks it up.
 # no-mistakes-prod-only is a registry policy rather than a task mode and is refused.
 # --batch-constituent-of names the integration-owner task when this promoted
-# no-mistakes worker stops after handing over its reviewed head and focused evidence.
+# no-mistakes or direct-PR worker stops after handing over its exact reviewed
+# head and focused evidence under the selected route's own obligations.
 # Usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--batch-constituent-of <integration-owner-id>]
 set -eu
 
@@ -125,8 +126,8 @@ esac
 ID=${POS[0]}
 fm_task_id_creation_valid "$ID" || { echo "error: invalid task id" >&2; exit 2; }
 if [ "$BATCH_OWNER_SET" -eq 1 ]; then
-  [ "$MODE" = no-mistakes ] || {
-    echo "error: --batch-constituent-of applies only to a no-mistakes promotion" >&2
+  [ "$MODE" = no-mistakes ] || [ "$MODE" = direct-PR ] || {
+    echo "error: --batch-constituent-of applies only to a PR-based promotion" >&2
     exit 1
   }
   fm_task_id_creation_valid "$BATCH_OWNER" || {

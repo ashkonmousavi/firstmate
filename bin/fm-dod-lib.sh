@@ -610,7 +610,7 @@ fm_brief_task_content_valid() {  # <file>
   [ -n "$(printf '%s' "$task" | tr -d '[:space:]')" ]
 }
 
-# fm_dod_evidence_rules_block <pr|local> prints the two rules every mode's
+# fm_dod_evidence_rules_block <opened-pr|validated-pr|local> prints the two rules every mode's
 # Definition of done carries: a delivery signal is not product acceptance
 # (AGENTS.md section 9 owns what a product-facing feature needs before it is
 # offered for acceptance), and journey evidence never enters the source tree.
@@ -620,15 +620,23 @@ fm_brief_task_content_valid() {  # <file>
 # worker has no PR body to upload into, and its own delivery preflight requires
 # a worktree clean of untracked files, so its evidence must live outside the
 # repository entirely.
-fm_dod_evidence_rules_block() {  # <pr|local>
-  local dest
+fm_dod_evidence_rules_block() {  # <opened-pr|validated-pr|local>
+  local dest signal qualification=''
   case "$1" in
-    pr) dest='the actual images go into the PR body, uploaded through GitHub' ;;
-    local) dest='the actual images stay outside the repository and your ready report names their path' ;;
+    opened-pr)
+      dest='the actual images go into the PR body, uploaded through GitHub'
+      signal='it says this change is committed and its pull request was opened for informed review and exact-head CI'
+      qualification=' It does not say those checks passed.' ;;
+    validated-pr)
+      dest='the actual images go into the PR body, uploaded through GitHub'
+      signal='it says this change is committed and its exact-head checks passed' ;;
+    local)
+      dest='the actual images stay outside the repository and your ready report names their path'
+      signal='it says this change is committed and its selected local checks passed' ;;
     *) echo "error: fm_dod_evidence_rules_block: unknown destination '$1'" >&2; return 1 ;;
   esac
   cat <<EOF
-Your delivery signal reports delivery, never product acceptance: it says this change is committed and its checks passed, not that the user outcome is accepted. Firstmate offers the work for acceptance separately, with the journey evidence.
+Your delivery signal reports delivery, never product acceptance: $signal, not that the user outcome is accepted.$qualification Firstmate offers the work for acceptance separately, with the journey evidence.
 No binary screenshots or other media enter the repository tree: prose evidence (for example \`fidelity-check.md\`) cites each one by filename, and $dest.
 EOF
 }
@@ -831,7 +839,8 @@ EOF
 fm_integration_batch_dod_block() {  # <mode> [batch-owner]
   local mode=$1 batch_owner=${2:-}
   if [ -n "$batch_owner" ]; then
-    cat <<EOF
+    case "$mode" in
+      no-mistakes) cat <<EOF
 ## Conditional integration-batch definition of done
 
 Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
@@ -839,16 +848,55 @@ When your branch is prepared, deliver your exact reviewed head and focused evide
 Do not start a standalone no-mistakes pipeline merely to become a batch member.
 Still satisfy any independently required publication obligation imposed by the selected delivery route.
 EOF
+        ;;
+      direct-PR) cat <<EOF
+## Conditional integration-batch definition of done
+
+Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
+Complete the selected direct-PR route through informed review and actual CI at the exact published head, then deliver that exact reviewed head and focused evidence to the named integration owner \`$batch_owner\` and stop.
+Use the supported normal pull-request commands for any independently required publication; do not start a no-mistakes pipeline merely to become a batch member.
+EOF
+        ;;
+      local-only)
+        cat <<'EOF'
+## Conditional integration-batch definition of done
+
+A local-only task cannot be an integration-batch constituent; report the delivery-route mismatch and stop until firstmate supplies a PR-based mode.
+EOF
+        ;;
+      *) echo "error: fm_integration_batch_dod_block: unknown delivery mode '$mode'" >&2; return 1 ;;
+    esac
     return 0
   fi
   cat <<'EOF'
 ## Conditional integration-batch definition of done
+EOF
+  if [ "$mode" = local-only ]; then
+    cat <<'EOF'
+
+A local-only task cannot own a combined pull request; report the mismatch and stop until firstmate supplies a PR-based delivery mode.
+EOF
+    return 0
+  fi
+  cat <<'EOF'
 
 If firstmate designates this task as an integration owner, load `integration-batch-delivery` and satisfy that skill before using this task's normal delivery signal.
 Use exactly one of the following two record routes for each constituent.
 Never fabricate a constituent pull request or mark one merged merely to make it eligible for the batch.
 Preserve every independently required publication obligation imposed by the constituent's selected delivery route.
+EOF
+  case "$mode" in
+    no-mistakes) cat <<'EOF'
 The combined pull request's body is pipeline output only: never run `gh pr edit` or `gh-axi pr edit` on it, and get every required row and table below into the body through the run's intent, never a hand-edit.
+EOF
+      ;;
+    direct-PR) cat <<'EOF'
+Create and maintain the combined pull request and the records below through supported normal `gh-axi pr create` and `gh-axi pr edit` commands. This direct-PR route requires informed review and actual CI at the exact current head; do not invoke or claim no-mistakes pipeline custody.
+EOF
+      ;;
+    *) echo "error: fm_integration_batch_dod_block: unknown delivery mode '$mode'" >&2; return 1 ;;
+  esac
+  cat <<'EOF'
 
 For every PR-backed constituent, the combined pull request body must contain this row shape:
 
@@ -877,20 +925,30 @@ An unchanged tree after a binding merge is not evidence that every constituent b
 A row that cannot be filled from a real comparison is a candidate whose verification is not finished.
 
 The body must also contain this complete landing record, one row, completed after the merge:
+EOF
+  if [ "$mode" = no-mistakes ]; then
+    cat <<'EOF'
 
 | Pipeline-tested head | Landed squash commit |
 | --- | --- |
 | `<full-sha>` | `<full-sha>` |
 
-These are two different commits, and the record states both honestly. The pipeline-tested head is the exact combined head the delivery process proved. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+These are two different commits, and the record states both honestly. The pipeline-tested head is the exact combined head the selected pipeline proved. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+EOF
+  else
+    cat <<'EOF'
+
+| Informed-review and CI-tested head | Landed squash commit |
+| --- | --- |
+| `<full-sha>` | `<full-sha>` |
+
+These are two different commits, and the record states both honestly. The informed-review and CI-tested head is the exact combined head whose review and required CI completed. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+EOF
+  fi
+  cat <<'EOF'
 Land the combined pull request through `bin/fm-pr-merge.sh` under the project's own landing shape; its squash default is correct wherever the project's contract makes every commit on its default branch a squash merge. `--merge` remains available but is not prescribed here.
 Every applicable binding command must succeed, and the completed constituent records, join-review table, and landing table stay in the combined pull request body as the delivery record.
 EOF
-  if [ "$mode" = local-only ]; then
-    cat <<'EOF'
-A local-only task cannot own a combined pull request; report the mismatch and stop until firstmate supplies a PR-based delivery mode.
-EOF
-  fi
 }
 
 fm_dod_block() {  # <mode> <task-id> <task-record> [batch-owner] [trusted-project-root]
@@ -901,10 +959,10 @@ fm_dod_block() {  # <mode> <task-id> <task-record> [batch-owner] [trusted-projec
 # Definition of done
 Delivery contract: mode=direct-PR
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
-The task is complete only when committed on your branch.
+The branch is ready for publication when committed on your branch; that is not evidence that review or CI passed.
 EOF
       fm_integration_batch_dod_block "$mode" "$batch_owner"
-      fm_dod_evidence_rules_block pr
+      fm_dod_evidence_rules_block opened-pr
       cat <<EOF
 Determine Document correction from the installed, supported implementation capability, never from a historical label. Direct-PR mode uses the supported custody-preserving manual repair path. The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed. That record names the changed source, regenerated derived documents, and final-head proof.
 Before you push, pass this delivery preflight:
@@ -981,7 +1039,7 @@ Rule F: your \`done: PR {url} checks green\` report requires check conclusions v
 If the branch moved after checks last ran, confirm CI reran and passed at the new head before reporting done; per rule 9, a red result at a stale head is never re-run as a shortcut past that.
 
 EOF
-      fm_dod_evidence_rules_block pr
+      fm_dod_evidence_rules_block validated-pr
       fm_dod_document_instruction_block "$project_root"
       cat <<EOF
 After /no-mistakes reports CI green (the CI-ready return point - do not wait for it to keep monitoring in the background until merge), append \`done: PR {url} checks green\` and stop. You are finished.
@@ -994,23 +1052,53 @@ EOF
   esac
 }
 
-# fm_batch_owner_record_subsection <combined-pr-url> <designated-date>
+# fm_brief_delivery_mode <brief> prints the brief's one exact delivery mode.
+# Missing, duplicated, or unsupported delivery-contract lines are ambiguous and
+# fail closed so a post-dispatch record never guesses which route owns it.
+fm_brief_delivery_mode() {  # <brief>
+  local brief=$1 mode
+  mode=$(awk '
+    /^Delivery contract: mode=/ {
+      count++
+      value = substr($0, length("Delivery contract: mode=") + 1)
+    }
+    END {
+      if (count == 1 && (value == "no-mistakes" || value == "direct-PR" || value == "local-only")) {
+        print value
+        exit 0
+      }
+      exit 1
+    }
+  ' "$brief") || {
+    echo "error: brief must contain exactly one supported Delivery contract line: $brief" >&2
+    return 1
+  }
+  printf '%s\n' "$mode"
+}
+
+# fm_batch_owner_record_subsection <mode> <combined-pr-url> <designated-date>
 # <pr-backed-items> <pr-less-items> <join-items> [landing-tested] [landing-commit]
 # prints the "## Combined candidate record (integration batch)" subsection body
 # (no leading blank line; the caller inserts one). Each *-items argument is zero
 # or more newline-separated rows, each row's fields "|"-delimited in the same
 # order as that row's table below; an empty items argument omits that table.
-# The table shapes are byte-identical to the ones fm_integration_batch_dod_block
-# renders as an unfilled template, so a worker's later /no-mistakes intent
-# (fm_brief_validation_intent) carries the real values through the Proof bar
-# without a second, drifting copy of the same header row.
-fm_batch_owner_record_subsection() {  # <combined-pr> <designated-date> <pr-backed> <pr-less> <joins> [landing-tested] [landing-commit]
-  local combined_pr=$1 designated=$2 pr_backed=$3 pr_less=$4 joins=$5 landing_tested=${6:-} landing_commit=${7:-}
+# The table shapes match the route-specific templates rendered by
+# fm_integration_batch_dod_block. A no-mistakes brief carries the real values
+# through fm_brief_validation_intent; a direct-PR brief carries them through
+# its supported normal pull-request commands.
+fm_batch_owner_record_subsection() {  # <mode> <combined-pr> <designated-date> <pr-backed> <pr-less> <joins> [landing-tested] [landing-commit]
+  local mode=$1 combined_pr=$2 designated=$3 pr_backed=$4 pr_less=$5 joins=$6 landing_tested=${7:-} landing_commit=${8:-}
   local bt='`'
   echo '## Combined candidate record (integration batch)'
   printf 'Firstmate designated this task on %s as the integration owner of one combined candidate, under the captain'"'"'s recovery instruction to choose compatible batches before unnecessary constituent pipelines, review their joins, and verify the final combined candidate.\n' "$designated"
   printf 'The combined pull request is %s.\n' "$combined_pr"
-  echo 'Its body must carry the tables below verbatim, and they reach it only through this run'"'"'s intent, never through a pull-request edit.'
+  case "$mode" in
+    no-mistakes)
+      echo 'Its body must carry the tables below verbatim, and they reach it only through this run'"'"'s intent, never through a pull-request edit.' ;;
+    direct-PR)
+      echo 'Maintain its body and the tables below through supported normal `gh-axi pr create` and `gh-axi pr edit` commands; informed review and actual CI must complete at the exact recorded head.' ;;
+    *) echo "error: batch-owner records require a PR-based delivery mode (got '$mode')" >&2; return 1 ;;
+  esac
 
   if [ -n "$pr_backed" ]; then
     echo
@@ -1043,7 +1131,11 @@ fm_batch_owner_record_subsection() {  # <combined-pr> <designated-date> <pr-back
   done
 
   echo
-  echo '| Pipeline-tested head | Landed squash commit |'
+  if [ "$mode" = no-mistakes ]; then
+    echo '| Pipeline-tested head | Landed squash commit |'
+  else
+    echo '| Informed-review and CI-tested head | Landed squash commit |'
+  fi
   echo '| --- | --- |'
   printf "| %s%s%s | %s%s%s |\\n" \
     "$bt" "${landing_tested:-<full-sha>}" "$bt" "$bt" "${landing_commit:-<full-sha>}" "$bt"
@@ -1054,7 +1146,9 @@ fm_batch_owner_record_subsection() {  # <combined-pr> <designated-date> <pr-back
 # [landing-commit] inserts fm_batch_owner_record_subsection's output at the end
 # of the brief's "# Proof bar" section (immediately before the next top-level
 # heading, or at end of file when none follows) and prints the refreshed
-# revision-bound run-validation command for the rewritten brief. This is the
+# route-appropriate next step for the rewritten brief. No-mistakes receives a
+# revision-bound validation command; direct-PR receives an informed-review and
+# exact-head-CI handoff with no pipeline command. This is the
 # supported path for a task Firstmate designates as an integration batch owner
 # after that brief was already dispatched: fm_integration_batch_dod_block's own
 # owner-side "## Conditional integration-batch definition of done" template
@@ -1063,11 +1157,20 @@ fm_batch_owner_record_subsection() {  # <combined-pr> <designated-date> <pr-back
 fm_dod_append_batch_owner_record() {  # <brief> <combined-pr> <designated-date> <runner> <pr-backed> <pr-less> <joins> [landing-tested] [landing-commit]
   local brief=$1 combined_pr=$2 designated=$3 runner=$4 pr_backed=$5 pr_less=$6 joins=$7
   local landing_tested=${8:-} landing_commit=${9:-}
-  local subsection tmp revision
+  local subsection tmp revision mode
   [ -f "$brief" ] && [ ! -L "$brief" ] && [ -r "$brief" ] && [ -w "$brief" ] || {
     echo "error: brief is not a writable regular file: $brief" >&2
     return 1
   }
+  mode=$(fm_brief_delivery_mode "$brief") || return 1
+  [ "$mode" != local-only ] || {
+    echo "error: a local-only brief cannot own a combined pull request: $brief" >&2
+    return 1
+  }
+  if [ "$mode" = no-mistakes ] && [ -z "$runner" ]; then
+    echo "error: render-batch-owner-record requires --runner for a no-mistakes brief" >&2
+    return 1
+  fi
   fm_brief_heading_present "$brief" "# Proof bar" || {
     echo "error: brief has no # Proof bar section to carry the batch-owner record: $brief" >&2
     return 1
@@ -1085,7 +1188,7 @@ fm_dod_append_batch_owner_record() {  # <brief> <combined-pr> <designated-date> 
     return 1
   }
 
-  subsection=$(fm_batch_owner_record_subsection "$combined_pr" "$designated" "$pr_backed" "$pr_less" "$joins" "$landing_tested" "$landing_commit") || return 1
+  subsection=$(fm_batch_owner_record_subsection "$mode" "$combined_pr" "$designated" "$pr_backed" "$pr_less" "$joins" "$landing_tested" "$landing_commit") || return 1
 
   tmp=$(mktemp "${TMPDIR:-/tmp}/fm-brief-batch-record.XXXXXX") || {
     echo "error: cannot stage the updated brief" >&2
@@ -1127,20 +1230,24 @@ fm_dod_append_batch_owner_record() {  # <brief> <combined-pr> <designated-date> 
     return 1
   }
 
-  revision=$(fm_brief_source_revision "$brief") || {
-    echo "error: cannot compute the refreshed brief revision: $brief" >&2
-    return 1
-  }
-  printf 'Refreshed revision-bound run-validation command:\n'
-  printf '    %s run-validation --brief %s --expect-revision %s\n' \
-    "$(fm_dod_shell_quote "$runner")" "$(fm_dod_shell_quote "$brief")" "$(fm_dod_shell_quote "$revision")"
+  if [ "$mode" = no-mistakes ]; then
+    revision=$(fm_brief_source_revision "$brief") || {
+      echo "error: cannot compute the refreshed brief revision: $brief" >&2
+      return 1
+    }
+    printf 'Refreshed revision-bound run-validation command:\n'
+    printf '    %s run-validation --brief %s --expect-revision %s\n' \
+      "$(fm_dod_shell_quote "$runner")" "$(fm_dod_shell_quote "$brief")" "$(fm_dod_shell_quote "$revision")"
+  else
+    printf 'Updated direct-PR batch-owner record for informed review and actual CI at the exact current head.\n'
+  fi
 }
 
 fm_dod_cli() {
   local command=${1:-} brief='' expected='' proof=''
   [ -n "$command" ] || {
     echo "usage: fm-dod-lib.sh run-validation --brief FILE --expect-revision sha256:HEX [-- AXI-RUN-ARGS...]" >&2
-    echo "       fm-dod-lib.sh render-batch-owner-record --brief FILE --combined-pr URL --designated DATE --runner RUNNER [--pr-backed 'task|branch|head|pr-url']... [--pr-less 'task|branch|head']... --join 'task|missing|replacements|repairs' [...] [--landing-tested SHA] [--landing-commit SHA]" >&2
+    echo "       fm-dod-lib.sh render-batch-owner-record --brief FILE --combined-pr URL --designated DATE [--runner RUNNER] [--pr-backed 'task|branch|head|pr-url']... [--pr-less 'task|branch|head']... --join 'task|missing|replacements|repairs' [...] [--landing-tested SHA] [--landing-commit SHA]" >&2
     echo "       fm-dod-lib.sh record-document-correction-capability --proof ACCEPTED-PROOF-FILE" >&2
     return 2
   }
@@ -1231,7 +1338,6 @@ fm_dod_cli() {
       [ -n "$brief" ] || { echo "error: render-batch-owner-record requires --brief" >&2; return 2; }
       [ -n "$combined_pr" ] || { echo "error: render-batch-owner-record requires --combined-pr" >&2; return 2; }
       [ -n "$designated" ] || { echo "error: render-batch-owner-record requires --designated" >&2; return 2; }
-      [ -n "$runner" ] || { echo "error: render-batch-owner-record requires --runner" >&2; return 2; }
       fm_dod_append_batch_owner_record "$brief" "$combined_pr" "$designated" "$runner" \
         "$pr_backed" "$pr_less" "$joins" "$landing_tested" "$landing_commit"
       ;;

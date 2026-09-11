@@ -46,9 +46,9 @@
 #                the configured merge authority approves, firstmate merges to local main
 # no-mistakes-prod-only is a registry policy, not a task mode; resolve it to one of
 # the three concrete modes at intake before calling this script.
-# --batch-constituent-of names the integration-owner task for a no-mistakes ship
-# whose reviewed head and focused evidence stop at that owner instead of starting
-# a standalone pipeline merely for batch membership.
+# --batch-constituent-of names the integration-owner task for a no-mistakes or
+# direct-PR ship whose exact reviewed head and focused evidence stop at that
+# owner. Each route retains its own publication and review obligations.
 # The generated ship brief records the chosen mode as a fixed machine-readable
 # "Delivery contract: mode=<mode>" line. bin/fm-spawn.sh reads that line and refuses
 # to launch a ship task whose explicit --mode disagrees, so an adjusted brief and the
@@ -215,8 +215,8 @@ fi
 ID=${POS[0]}
 
 if [ "$BATCH_OWNER_SET" -eq 1 ]; then
-  [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ] || {
-    echo "error: --batch-constituent-of applies only to a no-mistakes ship brief" >&2
+  [ "$KIND" = ship ] && { [ "$MODE" = no-mistakes ] || [ "$MODE" = direct-PR ]; } || {
+    echo "error: --batch-constituent-of applies only to a PR-based ship brief" >&2
     exit 1
   }
   fm_task_id_creation_valid "$BATCH_OWNER" || {

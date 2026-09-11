@@ -970,6 +970,30 @@ STUB
     "promoted batch constituent was not forbidden from a membership-only pipeline"
   assert_no_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$payload" \
     "promoted batch constituent retained the standalone pipeline next step"
+
+  id=promote-dod-direct-constituent
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 \
+    || fail "direct constituent: scout brief generation should succeed"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Prepare one direct-PR batch constituent." "Preserve informed review and exact-head CI."
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" \
+    --mode direct-PR --yolo off --batch-constituent-of integration-owner 2>&1) \
+    || fail "direct constituent: promotion should succeed"
+  payload="$TMP_ROOT/promote-dod/payload-$id"
+  ( cd "$sendroot" \
+    && FM_TEST_CAPTURE="$payload" \
+       eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
+    || fail "direct constituent: promotion's delivery command did not run"
+  assert_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$payload" \
+    "promoted direct-PR constituent lost its selected route proof"
+  assert_grep 'Use the supported normal pull-request commands for any independently required publication' "$payload" \
+    "promoted direct-PR constituent lost its normal publication route"
+  assert_no_grep "combined pull request's body is pipeline output only" "$payload" \
+    "promoted direct-PR constituent inherited pipeline body custody"
+  assert_no_grep 'run-validation' "$payload" \
+    "promoted direct-PR constituent received a no-mistakes validation command"
   pass "fm-promote: a promoted worker receives the same mode-specific delivery contract a briefed one does"
 }
 
