@@ -812,8 +812,8 @@ test_promote_refuses_a_symlinked_task_record() {
 # prints against a capturing fm-send.sh, and asserts on the message the worker would
 # actually receive - for every supported mode.
 # Independently proves promoted delivery and context-free relaunch retain
-# original custom safety, a Rules-2 continuation, current ship requirements,
-# and a current Task subsection while dropping only superseded scout setup.
+# original custom safety, a reconciled standalone dataset boundary, current ship
+# requirements, and a current Task subsection while dropping superseded setup.
 test_promotion_delivers_the_real_definition_of_done() {
   local home physical_home meta meta_canonical brief_meta out sendroot payload mode id
   local brief_dod delivered_dod brief_dod_canonical delivered_dod_canonical relaunch_payload
@@ -846,12 +846,10 @@ STUB
         print "# Task-specific safety boundary"
         print "Never access the synthetic external custody record; this rule must survive a context-free relaunch."
         print ""
+        print "# Dataset preservation boundary"
+        print "Preserve the synthetic dataset custody record across relaunch."
+        print ""
         inserted=1
-      }
-      /^2\. Stay inside this worktree;/ {
-        print
-        print "   Preserve the synthetic dataset custody record across relaunch."
-        next
       }
       { print }
       END { if (!inserted) exit 2 }
@@ -951,8 +949,10 @@ STUB
       "$mode: promoted relaunch input lost the original custom safety rule"
     assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$relaunch_payload" \
       "$mode: promoted relaunch input lost a current task-specific ship requirement"
+    assert_grep "# Dataset preservation boundary" "$relaunch_payload" \
+      "$mode: promoted relaunch input lost a reconciled standalone custom section"
     assert_grep "Preserve the synthetic dataset custody record across relaunch." "$relaunch_payload" \
-      "$mode: promoted relaunch input lost an original Rules-2 continuation"
+      "$mode: promoted relaunch input lost the reconciled dataset boundary"
     assert_grep "## Task-specific constraint" "$relaunch_payload" \
       "$mode: promoted relaunch input lost a current Task subsection"
     assert_grep "Never remove the archived operator evidence during this task." "$relaunch_payload" \

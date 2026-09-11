@@ -1137,6 +1137,8 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
   awk -v current_rule1="$rule1" '
     BEGIN {
       current_rule2 = "2. Stay inside this worktree; modify nothing outside it."
+      scout_rule1 = "1. Never push to any remote and never open a PR."
+      scout_rule2 = "2. Stay inside this worktree; the only files you may write outside it are the report and the status file below."
       section = "preamble"
     }
     {
@@ -1165,28 +1167,28 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
         }
       }
 
-      if (!was_fenced && line ~ /^# [^#]/) {
-        if (line == "# Task") {
+      if (!was_fenced && scan ~ /^# [^#]/) {
+        if (scan == "# Task") {
           task_count++
           section = "drop"
           next
         }
-        if (line == "# Setup") {
+        if (scan == "# Setup") {
           setup_count++
           section = "drop"
           next
         }
-        if (line == "# Definition of done") {
+        if (scan == "# Definition of done") {
           dod_count++
           section = "drop"
           next
         }
-        if (line == "# Proof bar") {
+        if (scan == "# Proof bar") {
           proof_count++
           section = "drop"
           next
         }
-        if (line == "# Rules") {
+        if (scan == "# Rules") {
           rules_count++
           section = "rules"
           print line
@@ -1194,9 +1196,9 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
           print current_rule2
           next
         }
-        if (line ~ /^# Herdr /) herdr_count++
-        if (line == "# Project authority") authority_count++
-        if (line == "# Firstmate instruction inbox") inbox_count++
+        if (scan ~ /^# Herdr /) herdr_count++
+        if (scan == "# Project authority") authority_count++
+        if (scan == "# Firstmate instruction inbox") inbox_count++
         section = "keep"
         print line
         next
@@ -1207,12 +1209,36 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
         print line
         next
       }
-      if (!was_fenced && line ~ /^1\. /) {
+      if (!was_fenced && line == scout_rule1) {
         old_rule1_count++
+        route_phase = 1
+        next
+      }
+      if (!was_fenced && line ~ /^1\. /) {
+        printf "error: unsupported edited scout Rule 1 at line %d: %s\n", NR, line > "/dev/stderr"
+        edited_route++
+        next
+      }
+      if (route_phase == 1 && !was_fenced && line == scout_rule2) {
+        old_rule2_count++
+        route_phase = 2
         next
       }
       if (!was_fenced && line ~ /^2\. /) {
-        old_rule2_count++
+        printf "error: unsupported edited scout Rule 2 at line %d: %s\n", NR, line > "/dev/stderr"
+        edited_route++
+        next
+      }
+      if ((route_phase == 1 || route_phase == 2) && !was_fenced && line ~ /^[[:space:]]*$/) next
+      if (route_phase == 1 || route_phase == 2) {
+        if (!was_fenced && route_phase == 2 && line ~ /^3\. /) {
+          old_rule3_count++
+          route_phase = 3
+          print line
+          next
+        }
+        printf "error: unsupported continuation under replaced scout Rule %d at line %d: %s\n", route_phase, NR, line > "/dev/stderr"
+        edited_route++
         next
       }
       if (!was_fenced && line ~ /^3\. /) {
@@ -1225,7 +1251,7 @@ fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
     END {
       if (task_count != 1 || setup_count > 1 || dod_count > 1 || proof_count != 0 ||
           rules_count != 1 || old_rule1_count != 1 || old_rule2_count != 1 || old_rule3_count != 1 ||
-          herdr_count != 1 || authority_count != 1 || inbox_count != 1) exit 2
+          edited_route != 0 || herdr_count != 1 || authority_count != 1 || inbox_count != 1) exit 2
     }
   ' "$scout"
 }
@@ -1305,29 +1331,33 @@ fm_brief_promoted_ship_task_additions() {  # <ship-instructions>
           fenced = 0
         }
       }
-      if (!was_fenced && line == "# Task") {
+      if (!was_fenced && scan == "# Task") {
+        if (task_count > 0) {
+          printf "error: protected current heading \047%s\047 collides with generated relaunch authority at line %d\n", line, NR > "/dev/stderr"
+          collision++
+        }
         task_count++
         in_task = 1
         next
       }
-      if (!was_fenced && in_task && line ~ /^# [^#]/) {
+      if (!was_fenced && in_task && scan ~ /^# [^#]/) {
         in_task = 0
         exit
       }
       if (!in_task) next
-      if (!was_fenced && line == "## Captain\047s intent") {
+      if (!was_fenced && scan == "## Captain\047s intent") {
         captain_count++
         keep = 0
         seen_subsection = 1
         next
       }
-      if (!was_fenced && line == "## Firstmate spec") {
+      if (!was_fenced && scan == "## Firstmate spec") {
         spec_count++
         keep = 0
         seen_subsection = 1
         next
       }
-      if (!was_fenced && line ~ /^## [^#]/) {
+      if (!was_fenced && scan ~ /^## [^#]/) {
         keep = 1
         seen_subsection = 1
         print line
@@ -1337,7 +1367,7 @@ fm_brief_promoted_ship_task_additions() {  # <ship-instructions>
       else if (!seen_subsection && line !~ /^[[:space:]]*$/) unsupported++
     }
     END {
-      if (task_count != 1 || captain_count != 1 || spec_count != 1 || unsupported != 0) exit 2
+      if (task_count != 1 || captain_count != 1 || spec_count != 1 || unsupported != 0 || collision != 0) exit 2
     }
   ' "$1"
 }
@@ -1347,6 +1377,12 @@ fm_brief_promoted_ship_task_additions() {  # <ship-instructions>
 # authoritative and cannot disappear merely because its heading is unknown.
 fm_brief_promoted_ship_top_level_additions() {  # <ship-instructions>
   awk '
+    function protected_heading(value) {
+      return value == "# Task" || value == "# Rules" ||
+             value == "# Project authority" || value == "# Firstmate instruction inbox" ||
+             value == "# Proof bar" || value == "# Definition of done" ||
+             value ~ /^# Herdr([[:space:]]|$)/
+    }
     {
       line = $0
       scan = line
@@ -1372,23 +1408,55 @@ fm_brief_promoted_ship_top_level_additions() {  # <ship-instructions>
           fenced = 0
         }
       }
-      if (!was_fenced && line == "# Task") {
+      if (!was_fenced && scan == "# Task") {
+        if (task_count > 0) {
+          printf "error: protected current heading \047%s\047 collides with generated relaunch authority at line %d\n", scan, NR > "/dev/stderr"
+          collision++
+        }
         task_count++
         in_task = 1
         next
       }
-      if (!was_fenced && line == "# Proof bar") {
+      if (!was_fenced && scan == "# Proof bar") {
         proof_count++
-        exit
-      }
-      if (!was_fenced && in_task && line ~ /^# [^#]/) {
+        if (proof_count > 1) {
+          printf "error: protected current heading \047%s\047 collides with generated relaunch authority at line %d\n", scan, NR > "/dev/stderr"
+          collision++
+        }
         in_task = 0
+        after_proof = 1
+        keep = 0
+        next
+      }
+      if (!was_fenced && after_proof && scan == "# Definition of done") {
+        dod_count++
+        if (dod_count > 1) {
+          printf "error: protected current heading \047%s\047 collides with generated relaunch authority at line %d\n", scan, NR > "/dev/stderr"
+          collision++
+        }
+        next
+      }
+      if (!was_fenced && after_proof && scan ~ /^# [^#]/) {
+        if (protected_heading(scan)) {
+          printf "error: protected current heading \047%s\047 collides with carried or generated relaunch authority at line %d\n", scan, NR > "/dev/stderr"
+          collision++
+        }
+        next
+      }
+      if (!was_fenced && !after_proof && scan ~ /^# [^#]/) {
+        in_task = 0
+        if (protected_heading(scan)) {
+          printf "error: protected current heading \047%s\047 collides with carried or generated relaunch authority at line %d\n", scan, NR > "/dev/stderr"
+          collision++
+          keep = 0
+          next
+        }
         keep = 1
       }
       if (keep) print line
     }
     END {
-      if (task_count != 1 || proof_count != 1) exit 2
+      if (task_count != 1 || proof_count != 1 || dod_count != 1 || collision != 0) exit 2
     }
   ' "$1"
 }

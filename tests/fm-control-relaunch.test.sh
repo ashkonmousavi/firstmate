@@ -666,10 +666,12 @@ Preserve current project safety.
 # Task-specific safety boundary
 Never access the synthetic external custody record; this rule must survive a context-free relaunch.
 
+# Dataset preservation boundary
+Preserve the synthetic dataset custody record across relaunch.
+
 # Rules
-1. Never push or merge.
-2. Stay in the worktree.
-   Preserve the synthetic dataset custody record across relaunch.
+1. Never push to any remote and never open a PR.
+2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
 3. Select tools only for a real task purpose.
 4. Report status by appending one line.
 5. Repair repeated obstacles as a bounded family.
@@ -697,6 +699,12 @@ Continue the promoted task.
 ## Task-specific constraint
 Never remove the archived operator evidence during this task.
 
+ ## Indented task constraint
+Retain all original research evidence when relaunching from this subsection.
+
+ # Indented top-level constraint
+Retain all original research evidence when relaunching from this section.
+
 # Proof bar
 Prep: Tier 0 - test fixture, not a real change
 Surface: none: instruction delivery has no operator-visible application surface
@@ -721,12 +729,18 @@ EOF
     "promoted relaunch source lost the original custom safety rule"
   assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$relaunched" \
     "promoted relaunch source lost the current ship task constraint"
+  assert_grep "# Dataset preservation boundary" "$relaunched" \
+    "promoted relaunch source lost the reconciled standalone custom section"
   assert_grep "Preserve the synthetic dataset custody record across relaunch." "$relaunched" \
-    "promoted relaunch source lost the original Rules-2 continuation"
+    "promoted relaunch source lost the reconciled dataset boundary"
   assert_grep "## Task-specific constraint" "$relaunched" \
     "promoted relaunch source lost the current Task subsection"
   assert_grep "Never remove the archived operator evidence during this task." "$relaunched" \
     "promoted relaunch source lost the current Task subsection content"
+  assert_grep "Retain all original research evidence when relaunching from this subsection." "$relaunched" \
+    "promoted relaunch source lost the recognized indented Task subsection"
+  assert_grep "Retain all original research evidence when relaunching from this section." "$relaunched" \
+    "promoted relaunch source lost the recognized indented top-level section"
   assert_no_grep 'git checkout -b' "$relaunched" \
     "promoted relaunch source retained promotion-time branch creation"
   assert_grep "relaunch-brief.md" "$dir/fake/literal" \
@@ -752,8 +766,8 @@ Do not drive Herdr lifecycle behavior.
 Preserve current project safety.
 
 # Rules
-1. Never push or merge.
-2. Stay in the worktree.
+1. Never push to any remote and never open a PR.
+2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
 3. Select tools only for a real task purpose.
 4. Report status by appending one line.
 5. Repair repeated obstacles as a bounded family.
@@ -780,7 +794,7 @@ Surface: none: instruction delivery has no operator-visible application surface
 Journey: none: this is an instruction-consumer fixture
 
 # Definition of done
-Delivery contract: mode=direct-PR
+Delivery contract: mode=no-mistakes
 EOF
   before=$(cat "$promoted")
   out=$(run_control "$dir" rl-promoted-ambiguous relaunch --note "must not be recorded"); rc=$?
@@ -794,6 +808,115 @@ EOF
   [ ! -s "$dir/fake/literal" ] \
     || fail "refused promoted relaunch submitted replacement input"
   pass "fm-control relaunch: edited promotion-time branch setup refuses before stop or mutation"
+}
+
+# Replaced scout route rules and protected current headings are authority joins,
+# not prose to classify. Both ambiguous shapes must refuse before note mutation,
+# stop, or replacement input; a requirement reconciled into its own custom
+# section is covered by the successful relaunch case above.
+test_promoted_relaunch_refuses_edited_route_rules_and_protected_heading_collisions_before_stopping_agent() {
+  local shape dir out rc original promoted before expected heading source_path
+  local -a shapes=(
+    edited-rule protected-rules protected-authority protected-inbox
+    protected-herdr protected-task protected-proof protected-dod
+  )
+  for shape in "${shapes[@]}"; do
+    dir=$(new_case "promoted-$shape" "rl-promoted-$shape")
+    add_ship_task "$dir" "rl-promoted-$shape" claude
+    original="$dir/home/data/rl-promoted-$shape/brief.md"
+    promoted="$dir/home/data/rl-promoted-$shape/ship-instructions.md"
+    cat >> "$original" <<'EOF'
+
+# Herdr lifecycle declaration - NOT ENABLED
+Do not drive Herdr lifecycle behavior.
+
+# Project authority
+Preserve current project safety.
+
+# Rules
+1. Never push to any remote and never open a PR.
+2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
+3. Select tools only for a real task purpose.
+4. Report status by appending one line.
+5. Repair repeated obstacles as a bounded family.
+6. Escalate a genuine unresolved choice.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+Handle durable messages in order.
+EOF
+    cat > "$promoted" <<EOF
+# Task
+## Captain's intent
+Continue the promoted task.
+
+## Firstmate spec
+1. Verify isolation.
+2. Inventory scratch state.
+3. Return to a clean default-branch base, then create your branch: \`git checkout -b fm/rl-promoted-$shape\`.
+4. Preserve the task-specific repair.
+
+# Proof bar
+Prep: Tier 0 - test fixture, not a real change
+Surface: none: instruction delivery has no operator-visible application surface
+Journey: none: this is an instruction-consumer fixture
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+EOF
+    case "$shape" in
+      edited-rule)
+        awk '
+          /^2\. Stay inside this worktree;/ {
+            print $0 " Never alter production evidence in place."
+            next
+          }
+          { print }
+        ' "$original" > "$original.edited"
+        mv "$original.edited" "$original"
+        expected="unsupported edited scout Rule 2"
+        source_path=$original
+        ;;
+      protected-*)
+        case "$shape" in
+          protected-rules) heading='# Rules' ;;
+          protected-authority) heading='# Project authority' ;;
+          protected-inbox) heading='# Firstmate instruction inbox' ;;
+          protected-herdr) heading='# Herdr lifecycle declaration - NOT ENABLED' ;;
+          protected-task) heading='# Task' ;;
+          protected-proof) heading='# Proof bar' ;;
+          protected-dod) heading='# Definition of done' ;;
+        esac
+        awk -v heading="$heading" '
+          $0 == "# Proof bar" {
+            print "# Additional task safety"
+            print "Retain this legitimate current custom section before checking the next heading."
+            print ""
+            print heading
+            print "11. A conflicting current authority section must never be guessed into the relaunch source."
+            print ""
+          }
+          { print }
+        ' "$promoted" > "$promoted.edited"
+        mv "$promoted.edited" "$promoted"
+        expected="protected current heading '$heading'"
+        source_path=$promoted
+        ;;
+    esac
+    before=$(cat "$promoted")
+    out=$(run_control "$dir" "rl-promoted-$shape" relaunch --note "must not be recorded"); rc=$?
+    expect_code 1 "$rc" "$shape should refuse before stop"$'\n'"$out"
+    assert_contains "$out" "$expected" "$shape refusal did not name the exact ambiguous source boundary"
+    assert_contains "$out" "at line" "$shape refusal did not name the source line"
+    assert_contains "$out" "$source_path" "$shape refusal did not name the source file"
+    [ "$(cat "$promoted")" = "$before" ] \
+      || fail "$shape refusal changed the effective ship instructions"
+    [ "$(cat "$dir/fake/command")" = claude ] \
+      || fail "$shape refusal stopped or replaced the existing agent"
+    [ ! -s "$dir/fake/literal" ] \
+      || fail "$shape refusal submitted replacement input"
+  done
+  pass "fm-control relaunch: edited route rules and protected headings refuse before stop or mutation"
 }
 
 test_relaunch_requires_a_note_for_a_ship_task() {
@@ -2111,6 +2234,7 @@ test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_progress_note_and_current_bounded_ci_retry_contract
 test_promoted_relaunch_progress_note_targets_the_effective_ship_instructions
 test_promoted_relaunch_refuses_edited_branch_setup_before_stopping_agent
+test_promoted_relaunch_refuses_edited_route_rules_and_protected_heading_collisions_before_stopping_agent
 test_relaunch_requires_a_note_for_a_ship_task
 test_relaunch_warns_and_launches_a_legacy_brief_without_prep
 test_harness_switch_moves_the_record_and_clears_prior_wiring

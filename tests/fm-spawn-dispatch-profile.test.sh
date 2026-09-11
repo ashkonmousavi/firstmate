@@ -625,10 +625,12 @@ This is a SCOUT task: the deliverable is a report, not a ship branch.
 # Task-specific safety boundary
 Never access the synthetic external custody record; this rule must survive a context-free relaunch.
 
+# Dataset preservation boundary
+Preserve the synthetic dataset custody record across relaunch.
+
 # Rules
 1. Never push to any remote and never open a PR.
-2. Stay inside this worktree; the only external writes are the report and status.
-   Preserve the synthetic dataset custody record across relaunch.
+2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
 3. Select tools only for a real task purpose.
 4. Report status by appending one line to the task status file.
 5. Repair repeated obstacles as a bounded family.
@@ -661,6 +663,12 @@ Deliver the promoted constituent repair.
 
 ## Task-specific constraint
 Never remove the archived operator evidence during this task.
+
+ ## Indented task constraint
+Retain all original research evidence when relaunching from this subsection.
+
+ # Indented top-level constraint
+Retain all original research evidence when relaunching from this section.
 
 # Proof bar
 Prep: Tier 0 - test fixture, not a real change
@@ -708,12 +716,18 @@ EOF
     "promoted relaunch lost the current ship task constraint"
   assert_grep 'Continue from the exact preserved promoted head and retain both customization sources.' "$relaunch_source" \
     "promoted relaunch lost the current progress checkpoint"
+  assert_grep '# Dataset preservation boundary' "$relaunch_source" \
+    "promoted relaunch lost the reconciled standalone custom section"
   assert_grep 'Preserve the synthetic dataset custody record across relaunch.' "$relaunch_source" \
-    "promoted relaunch lost the original Rules-2 continuation"
+    "promoted relaunch lost the reconciled dataset boundary"
   assert_grep '## Task-specific constraint' "$relaunch_source" \
     "promoted relaunch lost the current Task subsection"
   assert_grep 'Never remove the archived operator evidence during this task.' "$relaunch_source" \
     "promoted relaunch lost the current Task subsection content"
+  assert_grep 'Retain all original research evidence when relaunching from this subsection.' "$relaunch_source" \
+    "promoted relaunch lost the recognized indented Task subsection"
+  assert_grep 'Retain all original research evidence when relaunching from this section.' "$relaunch_source" \
+    "promoted relaunch lost the recognized indented top-level section"
   assert_no_grep '# Setup' "$relaunch_source" \
     "promoted relaunch retained the obsolete scout Setup"
   assert_no_grep 'Return to a clean default-branch base' "$relaunch_source" \
