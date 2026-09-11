@@ -1494,7 +1494,36 @@ test_task_briefs_carry_project_authority_reconciliation() {
   pass "fm-brief.sh: ship and scout briefs carry the project-authority reconciliation contract"
 }
 
-test_ship_briefs_batch_findings_before_resubmitting() {
+test_all_scaffolds_carry_inbox_continuation_contract() {
+  local home id brief
+  home="$TMP_ROOT/inbox-continuation-home"
+  mkdir -p "$home/data"
+
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-inbox-ship some-proj --mode no-mistakes >/dev/null 2>&1 \
+    || fail "fm-brief.sh ship inbox scaffold exited non-zero"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-inbox-scout some-proj --scout >/dev/null 2>&1 \
+    || fail "fm-brief.sh scout inbox scaffold exited non-zero"
+  FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-inbox-sm --secondmate alpha >/dev/null 2>&1 \
+    || fail "fm-brief.sh secondmate inbox scaffold exited non-zero"
+
+  for id in brief-inbox-ship brief-inbox-scout brief-inbox-sm; do
+    brief="$home/data/$id/brief.md"
+    assert_present "$brief" "$id brief was not scaffolded"
+    assert_grep "Before deciding to wait, list the inbox again and read any newly arrived messages in numeric order" "$brief" \
+      "$id brief must require a fresh ordered inbox read before waiting"
+    assert_grep "including a later Firstmate correction while an earlier action is still pending" "$brief" \
+      "$id brief must require later corrections to be read during pending work"
+    assert_grep "preserve that action and its next step in durable task state before acknowledging the instruction" "$brief" \
+      "$id brief must preserve the unfinished continuation before acknowledgement"
+    assert_grep "does not claim task completion or resolve an open decision key" "$brief" \
+      "$id brief must distinguish acknowledgement from completion and decision resolution"
+  done
+
+  pass "fm-brief.sh: every scaffold carries the durable inbox continuation contract"
+}
+
+test_ship_briefs_batch_findings_and_bounded_ci_retry_contract() {
   local home id brief
   home="$TMP_ROOT/batched-findings-home"
   mkdir -p "$home/data"
@@ -1512,8 +1541,14 @@ test_ship_briefs_batch_findings_before_resubmitting() {
     "ship brief must require checking surfaces that share the defect mechanism"
   assert_grep "One-at-a-time stop-fix-rereview loops are forbidden." "$brief" \
     "ship brief must forbid one-at-a-time stop-fix-rereview loops"
-  assert_grep "9. Never re-run a failed CI job or workflow" "$brief" \
-    "ship brief must keep the CI-no-rerun standing rule as rule 9"
+  assert_grep "unless the project's current retry contract expressly authorizes the designated dispatcher" "$brief" \
+    "ship brief must limit CI retries to the project-owned authorized dispatcher"
+  assert_grep "exact unchanged candidate under its required evidence and attempt limits" "$brief" \
+    "ship brief must bind a permitted retry to exact candidate, evidence and attempt limits"
+  assert_grep "publish a genuine reviewed repair; never create a filler head" "$brief" \
+    "ship brief must require a real repair instead of a filler commit"
+  assert_grep "never create a filler head or retry a stale-head or code-failure result" "$brief" \
+    "ship brief must refuse stale-head and code-failure retries"
   # Test-quality clause (verification scout finding V08, firstmate half): a
   # new/changed test must name what it independently proves and be
   # failure-capable, and a test deletion/weakening needs a stated reason.
@@ -2769,7 +2804,8 @@ test_pause_verb_override_renders_all_brief_scaffolds
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_task_briefs_carry_project_authority_reconciliation
-test_ship_briefs_batch_findings_before_resubmitting
+test_all_scaffolds_carry_inbox_continuation_contract
+test_ship_briefs_batch_findings_and_bounded_ci_retry_contract
 test_ship_brief_carries_the_resource_line
 test_ship_brief_carries_the_surface_line
 test_ship_brief_carries_the_journey_line

@@ -624,7 +624,7 @@ test_disabled_relaunch_clears_prior_trace_context() {
   pass "fm-control relaunch: disabling tracing clears metadata and pane context"
 }
 
-test_relaunch_appends_the_progress_note_to_the_instructions() {
+test_relaunch_appends_progress_note_and_current_bounded_ci_retry_contract() {
   local dir out rc brief
   dir=$(new_case note rl2)
   add_ship_task "$dir" rl2 claude
@@ -634,9 +634,15 @@ test_relaunch_appends_the_progress_note_to_the_instructions() {
   assert_grep "Exercise relaunch behavior for rl2." "$brief" "the original instructions must survive"
   assert_grep "## Progress note" "$brief" "the note should be a dated section in the instructions"
   assert_grep "reproduced the crash in parser.go" "$brief" "the note text should reach the replacement"
+  assert_grep "unless the project's current retry contract expressly authorizes the designated dispatcher" "$brief" \
+    "the relaunch note must retain the project-owned authorized retry boundary"
+  assert_grep "exact unchanged candidate under its required evidence and attempt limits" "$brief" \
+    "the relaunch note must bind any permitted retry to exact candidate, evidence and attempt limits"
+  assert_grep "never create a filler head or retry a stale-head or code-failure result" "$brief" \
+    "the relaunch note must prohibit filler heads and stale or code-failure retries"
   assert_grep "reproduced the crash in parser.go" "$dir/home/state/rl2.control-relaunch.note" \
     "the note should also be preserved beside the transaction record"
-  pass "fm-control relaunch: the progress note lands in the instructions the replacement reads"
+  pass "fm-control relaunch: progress and the current bounded CI retry contract reach the replacement"
 }
 
 test_relaunch_requires_a_note_for_a_ship_task() {
@@ -1951,7 +1957,7 @@ test_relaunch_preserves_durable_task_metadata
 test_relaunch_keeps_the_recorded_merge_poll_armed
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
-test_relaunch_appends_the_progress_note_to_the_instructions
+test_relaunch_appends_progress_note_and_current_bounded_ci_retry_contract
 test_relaunch_requires_a_note_for_a_ship_task
 test_relaunch_warns_and_launches_a_legacy_brief_without_prep
 test_harness_switch_moves_the_record_and_clears_prior_wiring

@@ -131,7 +131,7 @@ age_path() {  # <path>  (set mtime well past any grace under test)
   touch -t 202001010000 "$1"
 }
 
-test_write_is_durable_and_exact() {
+test_write_is_durable_exact_and_doorbell_preserves_pending_work() {
   local state rec rec2 doorbell doorbell2 expected actual expected2 actual2 text
   state="$TMP_ROOT/write/state"; mkdir -p "$state"
   text=$'line one\nline two with  spaces\n/slash body\n\n'
@@ -164,6 +164,13 @@ test_write_is_durable_and_exact() {
     || fail "every record in one inbox should ring the same drain-all doorbell"
   assert_contains "$doorbell" "$state/t1.inbox/*.msg" "doorbell should name all unhandled records"
   assert_contains "$doorbell" "numeric order" "doorbell should require ordered processing"
+  assert_contains "$doorbell" "every newly arrived message" "doorbell should require a fresh inbox read before waiting"
+  assert_contains "$doorbell" "later Firstmate correction while an earlier action is still pending" \
+    "doorbell should require later corrections to be read during pending work"
+  assert_contains "$doorbell" "preserve unfinished action and its next step in durable task state" \
+    "doorbell should preserve the continuation before acknowledgement"
+  assert_contains "$doorbell" "acknowledges only that instruction, not task completion or resolution of an open decision key" \
+    "doorbell should distinguish acknowledgement from completion and decision resolution"
   assert_contains "$doorbell" "$state/t1.inbox/handled/" "doorbell should name the handled dir"
   assert_contains "$doorbell" "Firstmate instruction waiting" "doorbell should be self-describing"
   case "$doorbell" in
@@ -676,7 +683,7 @@ test_watcher_dead_pane_ignores_stale_busy_state() {
   pass "watcher: dead-pane recovery overrides stale busy state"
 }
 
-test_write_is_durable_and_exact
+test_write_is_durable_exact_and_doorbell_preserves_pending_work
 test_doorbell_is_plain_worker_instruction_without_shell_prefix
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent

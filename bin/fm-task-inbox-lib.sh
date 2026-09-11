@@ -253,7 +253,7 @@ fm_task_inbox_doorbell_line() {  # <record-path>
   case "$abs" in
     *[![:print:]]*) return 1 ;;
   esac
-  printf 'Firstmate instruction waiting: list %s/*.msg and, in numeric order, read and act on each, then mv each handled file to %s/handled/.' \
+  printf 'Firstmate instruction waiting: before deciding to wait, list %s/*.msg and read and act on every newly arrived message in numeric order, including a later Firstmate correction while an earlier action is still pending; preserve unfinished action and its next step in durable task state; then move each handled file to %s/handled/. Moving it acknowledges only that instruction, not task completion or resolution of an open decision key.' \
     "$abs" "$abs"
 }
 

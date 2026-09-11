@@ -73,7 +73,7 @@ EOF
 # progress note, so a replacement worker after a relaunch sees the identical
 # standing rule its predecessor's original brief carried. Single owner; do not
 # restate the sentence a second time anywhere else.
-FM_CI_NO_RERUN_LINE='Never re-run a failed CI job or workflow: a red result at a stale head is not evidence. Fix the determinism problem or push a new head, then let CI run fresh.'
+FM_CI_NO_RERUN_LINE="Never re-run a failed CI job or workflow unless the project's current retry contract expressly authorizes the designated dispatcher to retry the exact unchanged candidate under its required evidence and attempt limits. Otherwise fix the actual cause and publish a genuine reviewed repair; never create a filler head or retry a stale-head or code-failure result."
 
 # fm_proof_bar_section prints the "# Proof bar" section: prep-tier definitions,
 # the sibling "Resource:" RAM/disk envelope, the sibling "Surface:" dashboard-wiring
@@ -132,8 +132,8 @@ EOF
 
 # fm_ship_batch_rule_block <rule-8-number> <rule-9-number> <rule-10-number>
 # prints rule 8 (the pre-run mechanism sweep plus the post-review
-# batch-findings response), rule 9 (FM_CI_NO_RERUN_LINE), and rule 10 (test
-# quality: a new/changed test must name the behavior it independently proves
+# batch-findings response), rule 9 (FM_CI_NO_RERUN_LINE's bounded project-owned
+# retry contract), and rule 10 (test quality: a new/changed test must name the behavior it independently proves
 # and be shown failure-capable, and a test deletion/weakening in the same diff
 # must carry a stated approved-contract-change reason) for a ship brief's
 # # Rules list. The pre-run sweep is the Proof bar's Tier 1 prep

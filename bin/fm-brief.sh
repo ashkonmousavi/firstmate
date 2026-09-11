@@ -98,7 +98,7 @@
 # firstmate itself, since firstmate's own repo has no dashboard to wire into.
 # bin/fm-dod-lib.sh's fm_ship_batch_rule_block
 # renders the matching rule 8 (pre-run mechanism sweep, batch-findings
-# response), rule 9 (never re-run a failed CI job), and rule 10 (test quality:
+# response), rule 9 (project-owned bounded CI retry contract), and rule 10 (test quality:
 # name the behavior a new/changed test proves, justify any deletion or
 # weakening) into every ship brief's # Rules list; that same rule 9 sentence is
 # the single owner (FM_CI_NO_RERUN_LINE) also carried into bin/fm-control.sh's
@@ -262,7 +262,11 @@ IFS= read -r -d '' INBOX_SECTION <<EOF || true
 # Firstmate instruction inbox
 Firstmate steers you through durable message files in $INBOX_DIR.
 When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list $INBOX_DIR/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: \`mv $INBOX_DIR/NNN.msg $INBOX_DIR/handled/\`.
-The move IS the acknowledgement: without it firstmate rings again and eventually treats you as stuck. An empty or absent inbox needs no action.
+Before deciding to wait, list the inbox again and read any newly arrived messages in numeric order, including a later Firstmate correction while an earlier action is still pending.
+If handling an instruction leaves work unfinished, preserve that action and its next step in durable task state before acknowledging the instruction.
+The move acknowledges only that instruction: it does not claim task completion or resolve an open decision key.
+Without the move firstmate rings again and eventually treats you as stuck.
+An empty or absent inbox needs no action.
 EOF
 INBOX_SECTION=${INBOX_SECTION%$'\n'}
 
