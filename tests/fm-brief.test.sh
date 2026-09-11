@@ -674,6 +674,34 @@ test_document_instruction_requires_unambiguous_trusted_project_config_and_instal
   assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
     "a document value from one of multiple auto_fix mappings enabled in-run correction"
 
+  # Unsupported inline and quoted root-key forms can denote the same YAML key.
+  # Either shape beside the supported block is ambiguous to the bounded reader.
+  project="$home/projects/duplicate-inline-auto-fix-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\nauto_fix: {document: 0}\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-duplicate-inline-parent duplicate-inline-auto-fix-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "an inline duplicate auto_fix mapping should scaffold conservatively"
+  brief="$home/data/brief-document-duplicate-inline-parent/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "an inline duplicate auto_fix mapping did not fail closed"
+  assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "an inline duplicate auto_fix mapping enabled in-run correction"
+
+  project="$home/projects/duplicate-quoted-auto-fix-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n"auto_fix":\n  document: 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-duplicate-quoted-parent duplicate-quoted-auto-fix-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a quoted duplicate auto_fix mapping should scaffold conservatively"
+  brief="$home/data/brief-document-duplicate-quoted-parent/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a quoted duplicate auto_fix mapping did not fail closed"
+  assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "a quoted duplicate auto_fix mapping enabled in-run correction"
+
   # Once the direct-child indentation is established, a shallower indented
   # sibling is malformed for this bounded grammar and must not preserve a
   # previously observed document value.
@@ -689,6 +717,19 @@ test_document_instruction_requires_unambiguous_trusted_project_config_and_instal
     "inconsistent auto_fix child indentation did not fail closed"
   assert_no_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
     "an inconsistently indented auto_fix mapping enabled in-run correction"
+
+  # Preserve the accepted XAU auto_fix mapping shape as the positive control:
+  # one unquoted block with scalar siblings at one direct-child indentation.
+  project="$home/projects/xau-auto-fix-shape-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  rebase: 2\n  review: 1\n  test: 0\n  document: 1\n  lint: 2\n  ci: 0\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-xau-shape xau-auto-fix-shape-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "the accepted XAU auto_fix shape should scaffold"
+  brief="$home/data/brief-document-xau-shape/brief.md"
+  assert_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "the accepted XAU auto_fix mapping shape lost its positive capability selection"
 
   project="$home/projects/malformed-document-project"
   mkdir -p "$project"

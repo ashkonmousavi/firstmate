@@ -721,9 +721,10 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
   config="$project_root/.no-mistakes.yaml"
   [ -f "$config" ] && [ ! -L "$config" ] && [ -r "$config" ] || return 1
   # This is intentionally a conservative mapping reader, not a partial YAML
-  # implementation. Admit only one top-level auto_fix mapping whose non-comment
-  # children all use one direct-child indentation. Nested or inconsistent shapes
-  # are ambiguous to this reader and therefore preserve report-only behavior.
+  # implementation. Admit only plain, unquoted top-level keys and exactly one
+  # block-form auto_fix mapping whose non-comment children all use one
+  # direct-child indentation. Inline, quoted, nested, or inconsistent shapes are
+  # ambiguous to this reader and therefore preserve report-only behavior.
   value=$(LC_ALL=C awk '
     BEGIN {
       valid = 1
@@ -734,7 +735,14 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
     index($0, "\t") { valid = 0; next }
     /^[^ ]/ {
       in_auto_fix = ($0 ~ /^auto_fix:[[:space:]]*(#.*)?$/)
-      if (in_auto_fix) auto_fix_count++
+      if (in_auto_fix) {
+        auto_fix_count++
+      } else {
+        # Quoted or otherwise complex root keys can decode to auto_fix, and an
+        # inline auto_fix value is outside the one supported block grammar.
+        if ($0 !~ /^[A-Za-z_][A-Za-z0-9_-]*:[[:space:]]*/ ||
+            $0 ~ /^auto_fix:[[:space:]]*/) valid = 0
+      }
       child_indent = 0
       next
     }
