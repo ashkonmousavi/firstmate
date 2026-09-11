@@ -246,15 +246,25 @@ fm_task_inbox_body() {  # <record-path>
 
 # The constant self-describing doorbell line for the inbox containing a record.
 # Self-describing on purpose: a worker whose brief predates the inbox contract
-# still receives the complete instruction in the line itself.
+# still receives the complete instruction in the line itself. The whole line
+# is one safely quoted argument to the POSIX no-op command, so an agent exit
+# racing terminal submission cannot turn printable path bytes into shell code.
+_fm_task_inbox_shell_quote() {  # <text>
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
 fm_task_inbox_doorbell_line() {  # <record-path>
-  local dir=${1%/*} abs LC_ALL=C
+  local dir=${1%/*} abs message LC_ALL=C
   abs=$(cd "$dir" 2>/dev/null && pwd) || abs=$dir
   case "$abs" in
     *[![:print:]]*) return 1 ;;
   esac
-  printf 'Firstmate instruction waiting: before deciding to wait, list %s/*.msg and read and act on every newly arrived message in numeric order, including a later Firstmate correction while an earlier action is still pending; preserve unfinished action and its next step in durable task state; then move each handled file to %s/handled/. Moving it acknowledges only that instruction, not task completion or resolution of an open decision key.' \
+  printf -v message 'Firstmate instruction waiting: before deciding to wait, list %s/*.msg and read and act on every newly arrived message in numeric order, including a later Firstmate correction while an earlier action is still pending; preserve unfinished action and its next step in durable task state; then move each handled file to %s/handled/. Moving it acknowledges only that instruction, not task completion or resolution of an open decision key.' \
     "$abs" "$abs"
+  printf ': '
+  _fm_task_inbox_shell_quote "$message"
 }
 
 # Ring the doorbell, best-effort: reject a positively dead or missing endpoint,

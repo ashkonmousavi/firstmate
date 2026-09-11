@@ -179,23 +179,38 @@ test_write_is_durable_exact_and_doorbell_preserves_pending_work() {
   pass "inbox: a steer is written durably and round-trips byte-exact with a self-describing doorbell"
 }
 
-# Contract change: fm_task_inbox_ring now requires an affirmatively empty live
-# agent composer, so a doorbell can no longer be typed into a dead shell.
-# The old shell no-op prefix is intentionally absent from the worker instruction.
-# The separate unproven-composer case proves the stronger no-keystrokes boundary.
-test_doorbell_is_plain_worker_instruction_without_shell_prefix() {
+# The self-describing text remains readable after restoring the shell-inert
+# no-op boundary that protects a race where the agent exits before submission.
+test_doorbell_is_readable_and_shell_inert_after_agent_exit() {
   local state rec doorbell
   state="$TMP_ROOT/plain-instruction/state"
   mkdir -p "$state"
   rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
   doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
   case "$doorbell" in
-    'Firstmate instruction waiting: '*) ;;
-    *) fail "the doorbell must start with the plain worker instruction, got: $doorbell" ;;
+    ": 'Firstmate instruction waiting: "*) ;;
+    *) fail "the doorbell must present the readable instruction as one shell-inert no-op argument, got: $doorbell" ;;
   esac
-  case "$doorbell" in ': '*) fail "the plain worker instruction retained the obsolete shell prefix" ;; esac
+  bash --noprofile --norc -c "$doorbell" \
+    || fail "the shell-inert doorbell should execute as a successful no-op"
   [ -f "$rec" ] || fail "rendering the doorbell removed the unhandled record"
-  pass "inbox: a proven-agent doorbell is a plain worker instruction without a shell prefix"
+  pass "inbox: the readable doorbell is shell-inert if the agent exits before submission"
+}
+
+test_printable_hostile_path_doorbell_is_shell_inert_in_a_real_shell() {
+  local state rec doorbell marker
+  marker="$TMP_ROOT/printable-path-command-ran"
+  state="$TMP_ROOT/hostile; touch $marker; #/state"
+  mkdir -p "$state"
+  rec=$(inbox_lib "$state" fm_task_inbox_write "$state" t1 "please continue")
+  doorbell=$(inbox_lib "$state" fm_task_inbox_doorbell_line "$rec")
+  assert_contains "$doorbell" "hostile; touch $marker; #" \
+    "the regression must exercise the printable hostile path in the delivered text"
+  bash --noprofile --norc -c "$doorbell" \
+    || fail "the printable hostile-path doorbell should execute as a successful no-op"
+  [ ! -e "$marker" ] || fail "the printable hostile path executed its injected shell command"
+  [ -f "$rec" ] || fail "rendering the hostile-path doorbell removed the durable record"
+  pass "inbox: a real shell cannot execute printable path syntax from the doorbell"
 }
 
 test_doorbell_rejects_terminal_controls() {
@@ -684,7 +699,8 @@ test_watcher_dead_pane_ignores_stale_busy_state() {
 }
 
 test_write_is_durable_exact_and_doorbell_preserves_pending_work
-test_doorbell_is_plain_worker_instruction_without_shell_prefix
+test_doorbell_is_readable_and_shell_inert_after_agent_exit
+test_printable_hostile_path_doorbell_is_shell_inert_in_a_real_shell
 test_doorbell_rejects_terminal_controls
 test_ring_skips_dead_agent
 test_idempotent_write_dedups_exact_body

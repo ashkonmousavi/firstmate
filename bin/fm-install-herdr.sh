@@ -8,7 +8,7 @@
 # Usage:
 #   fm-install-herdr.sh <destination-directory>
 #
-# Pins Herdr v0.9.0 (protocol 20), the suite-verified current release.
+# Pins Herdr v0.9.0 (protocol floor 20), the suite-verified current release.
 # Selects the official GitHub Releases asset for the host OS/arch, downloads
 # with a bounded max size, verifies SHA-256 before install, then refuses to
 # finish unless the binary reports the exact pin version and a client protocol
