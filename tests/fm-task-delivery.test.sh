@@ -964,7 +964,7 @@ STUB
     && FM_TEST_CAPTURE="$payload" \
        eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
     || fail "constituent: promotion's delivery command did not run"
-  assert_grep "deliver your exact reviewed head and focused evidence to the named integration owner \`integration-owner\`" "$payload" \
+  assert_grep "deliver your exact prepared head, focused evidence, and any real existing review evidence to the named integration owner \`integration-owner\`" "$payload" \
     "promoted batch constituent did not receive the named-owner handoff"
   assert_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$payload" \
     "promoted batch constituent was not forbidden from a membership-only pipeline"
@@ -986,13 +986,19 @@ STUB
     && FM_TEST_CAPTURE="$payload" \
        eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
     || fail "direct constituent: promotion's delivery command did not run"
-  assert_grep 'deliver its exact reviewed commit and focused evidence to the named integration owner `integration-owner`' "$payload" \
-    "promoted direct-PR constituent lost its reviewed owner handoff"
+  assert_grep 'This task is a direct-PR batch constituent: prepare an exact commit and focused evidence for the named integration owner, without running the no-mistakes pipeline.' "$payload" \
+    "promoted direct-PR constituent retained the standalone publication introduction"
+  assert_no_grep 'This task ships \*\*direct-PR\*\*: you raise the PR yourself' "$payload" \
+    "promoted direct-PR constituent was still unconditionally told to raise a PR"
+  assert_grep 'deliver its exact prepared commit, focused evidence, and any real existing review evidence to the named integration owner `integration-owner`' "$payload" \
+    "promoted direct-PR constituent lost its prepared owner handoff"
+  assert_grep 'Firstmate verifies existing informed review or arranges a bounded informed review before integration.' "$payload" \
+    "promoted direct-PR constituent did not assign bounded review reconciliation to Firstmate"
   assert_grep 'Do not open a constituent pull request or run standalone full CI merely to become a batch member' "$payload" \
     "promoted direct-PR constituent retained a separate whole-delivery prerequisite"
   assert_grep 'Only when Firstmate has separately identified an independently applicable publication obligation' "$payload" \
     "promoted direct-PR constituent lost the bounded optional publication case"
-  assert_grep 'append `working: prepared - exact reviewed head and focused evidence handed to integration-owner`' "$payload" \
+  assert_grep 'append `working: prepared - exact prepared head and focused evidence handed to integration-owner; existing review evidence included if present`' "$payload" \
     "promoted direct-PR constituent lost its prepared handoff status"
   assert_no_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$payload" \
     "promoted direct-PR constituent retained the invented whole-delivery requirement"

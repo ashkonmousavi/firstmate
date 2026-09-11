@@ -632,8 +632,8 @@ fm_dod_evidence_rules_block() {  # <opened-pr|validated-pr|batch-handoff|local>
       signal='it says this change is committed and its exact-head checks passed' ;;
     batch-handoff)
       dest='the actual images stay outside the repository and the focused evidence handed to the integration owner names their path'
-      signal='it says this exact reviewed commit and its focused evidence were handed to the integration owner'
-      qualification=' It does not say a constituent pull request or standalone full-CI run completed.' ;;
+      signal='it says this exact prepared commit, its focused evidence, and any real existing review evidence were handed to the integration owner'
+      qualification=' It does not say informed review, a constituent pull request, or standalone full CI completed.' ;;
     local)
       dest='the actual images stay outside the repository and your ready report names their path'
       signal='it says this change is committed and its selected local checks passed' ;;
@@ -848,7 +848,7 @@ fm_integration_batch_dod_block() {  # <mode> [batch-owner]
 ## Conditional integration-batch definition of done
 
 Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
-When your branch is prepared, deliver your exact reviewed head and focused evidence to the named integration owner \`$batch_owner\` and stop.
+When your branch is prepared, deliver your exact prepared head, focused evidence, and any real existing review evidence to the named integration owner \`$batch_owner\` and stop.
 Do not start a standalone no-mistakes pipeline merely to become a batch member.
 Still satisfy any independently required publication obligation imposed by the selected delivery route.
 EOF
@@ -857,7 +857,8 @@ EOF
 ## Conditional integration-batch definition of done
 
 Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
-When your branch is prepared, deliver its exact reviewed commit and focused evidence to the named integration owner \`$batch_owner\` and stop.
+When your branch is prepared, deliver its exact prepared commit, focused evidence, and any real existing review evidence to the named integration owner \`$batch_owner\` and stop.
+Firstmate verifies existing informed review or arranges a bounded informed review before integration.
 Do not open a constituent pull request or run standalone full CI merely to become a batch member; the frozen combined candidate receives the required informed review and exact-head CI.
 Only when Firstmate has separately identified an independently applicable publication obligation for this constituent, satisfy that specific obligation through the supported normal pull-request commands before handoff; never infer one from batch membership.
 EOF
@@ -934,11 +935,11 @@ EOF
   if [ "$mode" = no-mistakes ]; then
     cat <<'EOF'
 
-| Pipeline-tested head | Landed squash commit |
+| Pipeline-tested head | Landed commit |
 | --- | --- |
 | `<full-sha>` | `<full-sha>` |
 
-These are two different commits, and the record states both honestly. The pipeline-tested head is the exact combined head the selected pipeline proved. The landed squash commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred, because a pull request head that exists is not evidence that it landed.
+These are two different commits, and the record states both honestly. The pipeline-tested head is the exact combined head the selected pipeline proved. The landed commit is the commit the merge itself produced on the default branch, read from the forge rather than inferred; its squash or merge shape follows the project's current landing contract and merge authority. A pull request head that exists is not evidence that it landed.
 EOF
   else
     cat <<'EOF'
@@ -960,19 +961,28 @@ fm_dod_block() {  # <mode> <task-id> <task-record> [batch-owner] [trusted-projec
   local mode=$1 id=$2 task_record=$3 batch_owner=${4:-} project_root=${5:-}
   case "$mode" in
     direct-PR)
-      cat <<EOF
+      if [ -n "$batch_owner" ]; then
+        cat <<EOF
+# Definition of done
+Delivery contract: mode=direct-PR
+This task is a direct-PR batch constituent: prepare an exact commit and focused evidence for the named integration owner, without running the no-mistakes pipeline.
+The branch is ready for handoff when committed on your branch; that alone is not evidence that informed review or CI passed.
+EOF
+      else
+        cat <<EOF
 # Definition of done
 Delivery contract: mode=direct-PR
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
 The branch is ready for publication when committed on your branch; that is not evidence that review or CI passed.
 EOF
+      fi
       fm_integration_batch_dod_block "$mode" "$batch_owner"
       if [ -n "$batch_owner" ]; then
         fm_dod_evidence_rules_block batch-handoff
         cat <<'EOF'
 Direct-PR mode has no pipeline Document step and does not depend on an installed no-mistakes capability. Apply an accepted documentation correction manually in the owning source, regenerate derived documents where applicable, run the affected documentation audience review and checks, and include the actual changes and exact final-head proof in the focused evidence handed to the integration owner.
 EOF
-        echo 'Before you hand the reviewed commit to the integration owner, pass this delivery preflight:'
+        echo 'Before you hand the prepared commit to the integration owner, pass this delivery preflight:'
       else
         fm_dod_evidence_rules_block opened-pr
         cat <<'EOF'
@@ -983,7 +993,7 @@ EOF
       fm_dod_delivery_preflight_block "$id" "$task_record"
       if [ -n "$batch_owner" ]; then
         cat <<EOF
-When it is implemented and committed, append \`working: prepared - exact reviewed head and focused evidence handed to $batch_owner\` to the status file and stop.
+When it is implemented and committed, append \`working: prepared - exact prepared head and focused evidence handed to $batch_owner; existing review evidence included if present\` to the status file and stop.
 Do not automatically push or open a constituent pull request, and do not run standalone full CI or /no-mistakes merely for batch membership. Firstmate must have separately identified any independently applicable publication obligation before you satisfy it.
 EOF
       else
@@ -1152,7 +1162,7 @@ fm_batch_owner_record_subsection() {  # <mode> <combined-pr> <designated-date> <
 
   echo
   if [ "$mode" = no-mistakes ]; then
-    echo '| Pipeline-tested head | Landed squash commit |'
+    echo '| Pipeline-tested head | Landed commit |'
   else
     echo '| Informed-review and CI-tested head | Landed commit |'
   fi

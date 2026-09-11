@@ -475,9 +475,10 @@ test_no_mistakes_dod_wording() {
 }
 
 # A task explicitly prepared for a named integration owner must hand off its
-# reviewed head and focused evidence instead of starting a standalone pipeline
-# merely to qualify for batch membership. An ordinary no-mistakes task keeps
-# the existing standalone next step.
+# prepared head, focused evidence, and any real existing review evidence
+# instead of starting a standalone pipeline merely to qualify for batch
+# membership. An ordinary no-mistakes task keeps the existing standalone next
+# step.
 test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
   local home brief
   home="$TMP_ROOT/batch-constituent-handoff-home"
@@ -487,8 +488,8 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
     --mode no-mistakes --batch-constituent-of integration-owner >/dev/null 2>&1 \
     || fail "a named batch constituent brief should scaffold"
   brief="$home/data/brief-batch-constituent/brief.md"
-  assert_grep "deliver your exact reviewed head and focused evidence to the named integration owner \`integration-owner\`" "$brief" \
-    "a batch constituent was not told to hand its reviewed result to the named integration owner"
+  assert_grep "deliver your exact prepared head, focused evidence, and any real existing review evidence to the named integration owner \`integration-owner\`" "$brief" \
+    "a batch constituent was not told to hand its prepared result to the named integration owner"
   assert_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$brief" \
     "a batch constituent was not forbidden from starting a membership-only pipeline"
   assert_no_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$brief" \
@@ -509,13 +510,21 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
     --mode direct-PR --batch-constituent-of integration-owner >/dev/null 2>&1 \
     || fail "a direct-PR batch constituent brief should scaffold"
   brief="$home/data/brief-direct-batch-constituent/brief.md"
-  assert_grep 'deliver its exact reviewed commit and focused evidence to the named integration owner `integration-owner`' "$brief" \
-    "a direct-PR constituent lost its exact reviewed handoff"
+  assert_grep 'This task is a direct-PR batch constituent: prepare an exact commit and focused evidence for the named integration owner, without running the no-mistakes pipeline.' "$brief" \
+    "a direct-PR constituent retained the standalone publication introduction"
+  assert_grep 'The branch is ready for handoff when committed on your branch; that alone is not evidence that informed review or CI passed.' "$brief" \
+    "a direct-PR constituent did not distinguish a prepared head from completed review"
+  assert_no_grep 'This task ships \*\*direct-PR\*\*: you raise the PR yourself' "$brief" \
+    "a direct-PR constituent was still unconditionally told to raise a PR"
+  assert_grep 'deliver its exact prepared commit, focused evidence, and any real existing review evidence to the named integration owner `integration-owner`' "$brief" \
+    "a direct-PR constituent lost its exact prepared handoff"
+  assert_grep 'Firstmate verifies existing informed review or arranges a bounded informed review before integration.' "$brief" \
+    "a direct-PR constituent did not assign bounded review reconciliation to Firstmate"
   assert_grep 'Do not open a constituent pull request or run standalone full CI merely to become a batch member' "$brief" \
     "a direct-PR constituent was told to complete a separate whole-delivery route"
   assert_grep 'Only when Firstmate has separately identified an independently applicable publication obligation' "$brief" \
     "a direct-PR constituent did not preserve the bounded optional publication case"
-  assert_grep 'append `working: prepared - exact reviewed head and focused evidence handed to integration-owner`' "$brief" \
+  assert_grep 'append `working: prepared - exact prepared head and focused evidence handed to integration-owner; existing review evidence included if present`' "$brief" \
     "a direct-PR constituent lost its prepared owner handoff status"
   assert_no_grep 'Complete the selected direct-PR route through informed review and actual CI at the exact published head' "$brief" \
     "a direct-PR constituent retained the invented whole-delivery prerequisite"
@@ -523,19 +532,21 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
     "a direct-PR constituent retained the standalone direct-PR tail"
   assert_no_grep 'append `done: PR {url}`' "$brief" \
     "a direct-PR constituent falsely reported a constituent PR handoff"
-  assert_grep 'It does not say a constituent pull request or standalone full-CI run completed.' "$brief" \
+  assert_grep 'it says this exact prepared commit, its focused evidence, and any real existing review evidence were handed to the integration owner' "$brief" \
+    "a direct-PR constituent delivery signal mislabeled a prepared head as reviewed"
+  assert_grep 'It does not say informed review, a constituent pull request, or standalone full CI completed.' "$brief" \
     "a direct-PR constituent delivery signal overstated its handoff"
   assert_grep 'the actual images stay outside the repository and the focused evidence handed to the integration owner names their path' "$brief" \
     "a direct-PR constituent routed evidence into a nonexistent pull request"
   assert_grep 'include the actual changes and exact final-head proof in the focused evidence handed to the integration owner' "$brief" \
     "a direct-PR constituent Document correction targeted a nonexistent pull request"
-  assert_grep 'Before you hand the reviewed commit to the integration owner, pass this delivery preflight:' "$brief" \
+  assert_grep 'Before you hand the prepared commit to the integration owner, pass this delivery preflight:' "$brief" \
     "a direct-PR constituent preflight still assumed publication"
   assert_no_grep "combined pull request's body is pipeline output only" "$brief" \
     "a direct-PR constituent inherited no-mistakes body custody"
   assert_no_grep 'run-validation' "$brief" \
     "a direct-PR constituent received a no-mistakes validation command"
-  pass "fm-brief.sh: named no-mistakes and direct-PR constituents hand off exact reviewed heads under their selected routes"
+  pass "fm-brief.sh: named no-mistakes and direct-PR constituents hand off exact prepared heads without overstating review"
 }
 
 # A named batch constituent is a deliberate exception to the generic direct-PR
@@ -1850,8 +1861,10 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
     assert_grep 'is not evidence that every constituent behavior survived' "$brief" \
       "$mode DOD let an unchanged tree stand in for the join review"
     if [ "$mode" = no-mistakes ]; then
-      assert_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+      assert_grep '| Pipeline-tested head | Landed commit |' "$brief" \
         "$mode DOD did not render the pipeline-tested landing record"
+      assert_no_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+        "$mode DOD hard-coded a landing shape that is orthogonal to the selected pipeline"
       assert_grep "combined pull request's body is pipeline output only" "$brief" \
         "$mode DOD lost pipeline-owned pull-request body custody"
     else
@@ -1868,7 +1881,7 @@ test_every_ship_dod_renders_the_conditional_integration_batch_binding() {
     fi
     if [ "$mode" = no-mistakes ]; then
       assert_grep 'These are two different commits' "$brief" \
-        "$mode DOD still claimed the pipeline-tested head and landed squash commit are one commit"
+        "$mode DOD still claimed the pipeline-tested head and landed commit are one commit"
     fi
     assert_grep 'pull request head that exists is not evidence that it landed' "$brief" \
       "$mode DOD did not require the landed commit to be read from the forge"
@@ -1946,8 +1959,10 @@ test_render_batch_owner_record_carries_the_batch_tables_into_the_run_intent_only
   # shellcheck disable=SC2016
   assert_grep '| `batch-record-b` | None | None | None |' "$brief" \
     "render-batch-owner-record: the join review row for the PR-less constituent was not rendered"
-  assert_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+  assert_grep '| Pipeline-tested head | Landed commit |' "$brief" \
     "render-batch-owner-record: the landing record table was not rendered"
+  assert_no_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+    "render-batch-owner-record: no-mistakes hard-coded squash in the generic landing record"
 
   revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief") \
     || fail "render-batch-owner-record: could not compute the rewritten brief's own revision"
@@ -2015,7 +2030,7 @@ test_render_batch_owner_record_uses_direct_pr_commands_without_run_validation() 
     "direct-PR batch record did not preserve project-selected landing shape"
   assert_no_grep "through this run's intent" "$brief" \
     "direct-PR batch record forced rows through a no-mistakes intent"
-  assert_no_grep '| Pipeline-tested head | Landed squash commit |' "$brief" \
+  assert_no_grep '| Pipeline-tested head | Landed commit |' "$brief" \
     "direct-PR batch record mislabeled its exact-head evidence as pipeline-tested"
 
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" local-batch-owner some-proj --mode local-only >/dev/null 2>&1
@@ -2069,7 +2084,7 @@ test_no_mistakes_dod_states_pr_body_is_pipeline_output_in_both_variants() {
 # tests or constituent handoffs occur - those clauses stay unverified by code.
 c6_consume_constituent_brief() {  # <brief> <route>
   local brief=$1 route=$2
-  grep -F "deliver your exact reviewed head and focused evidence to the named integration owner \`c6-owner\`" "$brief" >/dev/null \
+  grep -F "deliver your exact prepared head, focused evidence, and any real existing review evidence to the named integration owner \`c6-owner\`" "$brief" >/dev/null \
     || return 1
   grep -F 'Do not start a standalone no-mistakes pipeline merely to become a batch member.' "$brief" >/dev/null \
     || return 1
