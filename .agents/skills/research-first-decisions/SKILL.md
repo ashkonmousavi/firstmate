@@ -3,8 +3,8 @@ name: research-first-decisions
 description: >-
   Agent-only procedure for selecting a tool, library, framework, service, vendor, or approach from candidates.
   Use before commissioning or consuming research that will pick one option over others, and before recording such a selection as decided.
-  Also use before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage - Context7 verification is mandatory there regardless of whether a selection is under way.
-  Owns the predeclared frozen query plan, the search and challenge workflow, the primary-source hierarchy, the decision-packet form, the external-query privacy rule, the Context7 version-verification procedure, and the boundary between research that selects and local proof that only verifies.
+  Also use before resolving a genuinely open version-sensitive question while adopting, configuring, upgrading, integrating, or debugging a library, SDK, API, CLI, framework, or service.
+  Owns the predeclared frozen query plan, the search and challenge workflow, the primary-source hierarchy, the decision-packet form, the external-query privacy rule, the task-specific version-verification procedure, and the boundary between research that selects and local proof that only verifies.
 user-invocable: false
 metadata:
   internal: true
@@ -108,25 +108,23 @@ If that proof fails, record the failed integration claim and return the decision
 
 Open-source libraries, and the ways other good applications solve the same problem, are legitimate candidates and sources; referencing or copying their code is allowed when its licence permits and its origin is cited, and copied code is localized to the project's conventions, contracts, and tests rather than pasted.
 
-## 7. Context7 version-documentation verification
+## 7. Task-specific version verification
 
-This duty is mandatory (captain instruction 2026-09-08, advisor reconciliation section 13.2.2) and applies independently of the selection procedure above: it fires whenever an agent adopts, configures, upgrades, or integrates a library, SDK, API, CLI, framework, or service, or debugs version-sensitive usage, whether or not a candidate is being chosen.
-It is not required for unrelated business-logic edits or for every tool invocation.
+This duty applies independently of candidate selection when adoption, configuration, upgrade, integration, or debugging leaves a genuinely unresolved version-sensitive question. It does not require a service call for unrelated business logic, settled behavior already proved by an exact installed CLI, or every tool invocation.
 
-- **Resolve** - use Context7's `resolve-library-id` (or its CLI form where the MCP tool is absent) to find the library's Context7 ID from its name.
-- **Query** - use `query-docs` (or the CLI form) against that ID for the specific behavior or configuration in question, not a general skim.
-- **Version match** - match the returned documentation to the installed or proposed version; where Context7 lists several versions, pick the one that matches, and note the mismatch if none does.
-- **Verify** - confirm the critical behavior against that versioned documentation, falling back to the primary source (the project's own repository, release notes, or changelog) when Context7's answer is ambiguous.
-- **Receipt** - record, in the task's own preparation (a status line, prep note, or packet), the library ID, the version checked, the date, the sources consulted, and the resulting implementation decision.
-- **Reuse rule** - a fresh receipt covering the identical version and API surface may be reused; a new API question, a changed version, or conflicting output requires a new lookup.
-- **Fallback** - if Context7 errors, is unavailable, or does not carry the library or the exact pinned version, or its content is stale, record that limitation explicitly and verify against the primary source instead; when the primary source is not directly reachable, use Exa (`mcp exa web search` or fetch) or ordinary web search to reach the official versioned documentation for that exact version. Context7 stays the mandatory first stop, and a fallback never replaces checking the exact version. The receipt records the tool actually used, the URL, the version, and the date. Never substitute recalled API behavior or a fabricated tool-use claim.
+- **Question first** - state the exact behavior or configuration that remains unresolved and why its answer affects the implementation.
+- **Select the effective source** - prefer the installed CLI's help and the exact upstream source or release for executable behavior. Use Context7 when its versioned documentation is the effective source for the question. Use Exa or ordinary web search only as a bounded route to official primary material that is not directly available.
+- **Version match** - bind the evidence to the installed or proposed version and record any mismatch or missing version coverage.
+- **Receipt** - record the question, tool actually used, exact version, date, useful evidence, resulting implementation decision, and any bounded fallback in the task's preparation. For Context7, include the resolved library ID; for direct sources, include the source revision or command.
+- **Reuse rule** - a fresh receipt covering the identical version and API surface may be reused; a new API question, changed version, or conflicting output requires new evidence.
+- **Fallback** - if the selected service errors, is unavailable, lacks the exact version, or is stale, record that limitation and use the next applicable official primary source. Never substitute recalled API behavior or fabricate tool use.
 
-Reviewers check that the behavior actually used is supported by what was found, not merely that a Context7 call occurred.
-Keep private identifiers, code, and paths out of Context7 queries, under the same external-query privacy rule as section 5.
+Reviewers check that the selected evidence answers the real question and supports the behavior used, not that a preferred service was called.
+Keep private identifiers, code, and paths out of all external queries, under the same external-query privacy rule as section 5.
 
 ## Boundaries
 
-This skill owns the selection procedure and the Context7 version-verification duty only.
+This skill owns the selection procedure and the task-specific version-verification duty only.
 Whether to commission a scout at all, and the ship-versus-scout classification, stay with `AGENTS.md` section 7.
 Diagnosing a reported bug is `diagnostic-reasoning`, not a candidate selection.
 Choosing a harness, model, or dispatch profile for a task is owned by `AGENTS.md` section 4, `harness-adapters`, and `quota-array-dispatch`; runtime quota and catalog evidence decide that at intake, and this procedure does not overrule them.

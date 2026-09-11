@@ -37,11 +37,22 @@ case "$*" in
     [ -f "$countfile" ] && n=$(cat "$countfile")
     n=$((n + 1))
     printf '%s\n' "$n" > "$countfile"
-    if [ "$n" -le "${FM_FAKE_PANE_STALE_READS:-0}" ]; then
-      printf '%s\n' "${FM_FAKE_PANE_STALE:-}"
-    else
-      printf '%s\n' "${FM_FAKE_PANE_PATH:-}"
-    fi
+    case "${FM_FAKE_PANE_MODE:-}" in
+      late-first)
+        [ "$n" -eq 60 ] && printf '%s\n' "${FM_FAKE_PANE_PATH:-}" \
+          || printf '%s\n' "${FM_FAKE_PANE_STALE:-}"
+        ;;
+      disappear)
+        [ "$n" -eq 1 ] && printf '%s\n' "${FM_FAKE_PANE_PATH:-}" || printf '\n'
+        ;;
+      *)
+        if [ "$n" -le "${FM_FAKE_PANE_STALE_READS:-0}" ]; then
+          printf '%s\n' "${FM_FAKE_PANE_STALE:-}"
+        else
+          printf '%s\n' "${FM_FAKE_PANE_PATH:-}"
+        fi
+        ;;
+    esac
     exit 0
     ;;
 esac
@@ -58,7 +69,26 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/tmux"
-  fm_fake_exit0 "$fakebin" treehouse sleep
+  cat > "$fakebin/treehouse" <<'SH'
+#!/usr/bin/env bash
+set -u
+[ -z "${FM_FAKE_TREEHOUSE_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_TREEHOUSE_LOG"
+case "${1:-}" in
+  get)
+    if [ -n "${FM_FAKE_TREEHOUSE_REFUSAL_FILE:-}" ]; then
+      cat "$FM_FAKE_TREEHOUSE_REFUSAL_FILE" >&2
+      exit 1
+    fi
+    printf '%s\n' "${FM_FAKE_PANE_PATH:-}"
+    ;;
+  status)
+    printf '1     leased       %s holder=%s\n' "${FM_FAKE_PANE_PATH:-}" "${FM_FAKE_LEASE_HOLDER:-}"
+    ;;
+esac
+exit 0
+SH
+  chmod +x "$fakebin/treehouse"
+  fm_fake_exit0 "$fakebin" sleep
   printf '%s\n' "$fakebin"
 }
 
@@ -109,8 +139,44 @@ run_settle_spawn() {
     FM_SPAWN_NO_GUARD=1 TMUX="fake,1,0" \
     FM_FAKE_PANE_PATH="$WT_DIR" FM_FAKE_PANE_STALE="$STALE_DIR" \
     FM_FAKE_PANE_STALE_READS="$STALE_READS" FM_FAKE_PANE_COUNTFILE="$COUNTFILE" \
+    FM_FAKE_PANE_MODE="${PANE_MODE:-}" \
+    FM_FAKE_TREEHOUSE_LOG="$(dirname "$HOME_DIR")/treehouse.log" \
     PATH="$FAKEBIN_DIR:$PATH" \
     "$SPAWN" "$id" "$PROJ_DIR" --mode no-mistakes --yolo off 2>&1
+}
+
+# A matching read establishes only a candidate. If it arrives on the final
+# iteration, there is no second read to confirm it and spawn must refuse.
+test_final_iteration_first_match_is_not_settled() {
+  local rec id out status PANE_MODE=late-first
+  id=settle-late-first-z6
+  rec=$(make_settle_case settle-late-first "$id" 0)
+  read_settle_record "$rec"
+
+  out=$(run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" "one final-iteration match must not prove settling"
+  assert_contains "$out" "endpoint did not enter durable worktree" \
+    "the unconfirmed final match did not produce the settle refusal"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "an unconfirmed final match published task metadata"
+  pass "a first match on the final settle iteration remains unconfirmed and refuses"
+}
+
+# A match followed by unreadable/empty cwd samples must clear the candidate;
+# it cannot survive until the loop ends and masquerade as two matching reads.
+test_matching_read_that_disappears_is_not_settled() {
+  local rec id out status PANE_MODE=disappear
+  id=settle-disappears-z7
+  rec=$(make_settle_case settle-disappears "$id" 0)
+  read_settle_record "$rec"
+
+  out=$(run_settle_spawn "$id")
+  status=$?
+  expect_code 1 "$status" "a matching read followed by empty reads must not prove settling"
+  assert_contains "$out" "endpoint did not enter durable worktree" \
+    "the disappearing match did not produce the settle refusal"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "a disappearing match published task metadata"
+  pass "a matching cwd that disappears is cleared and never treated as settled"
 }
 
 run_refused_pool_spawn() {
@@ -122,6 +188,8 @@ run_refused_pool_spawn() {
     FM_FAKE_PANE_PATH="$PROJ_DIR" FM_FAKE_PANE_STALE="$PROJ_DIR" \
     FM_FAKE_PANE_STALE_READS=60 FM_FAKE_PANE_COUNTFILE="$COUNTFILE" \
     FM_FAKE_PANE_CAPTURE="$capture" \
+    FM_FAKE_TREEHOUSE_REFUSAL_FILE="$capture" \
+    FM_FAKE_TREEHOUSE_LOG="$(dirname "$HOME_DIR")/treehouse.log" \
     PATH="$FAKEBIN_DIR:$PATH" \
     "$SPAWN" "$id" "$PROJ_DIR" --mode no-mistakes --yolo off 2>&1
 }
@@ -144,6 +212,23 @@ test_single_stale_first_read_is_not_accepted() {
   assert_no_grep "worktree=$STALE_DIR" "$HOME_DIR/state/$id.meta" \
     "meta wrongly recorded the transient stale path as the worktree"
   pass "a single transient stale pane_current_path read is not accepted as the worktree"
+}
+
+test_fresh_spawn_uses_a_durable_task_lease_and_records_its_holder() {
+  local rec id out status log
+  id=settle-durable-lease-z5
+  rec=$(make_settle_case settle-durable-lease "$id" 0)
+  read_settle_record "$rec"
+
+  out=$(run_settle_spawn "$id")
+  status=$?
+  expect_code 0 "$status" "durable lease spawn should succeed: $out"
+  log="$(dirname "$HOME_DIR")/treehouse.log"
+  assert_grep "get --lease --lease-holder $id" "$log" \
+    "fresh spawn did not acquire a durable task-labelled Treehouse lease"
+  assert_grep "treehouse_lease_holder=$id" "$HOME_DIR/state/$id.meta" \
+    "task metadata did not preserve the durable lease holder"
+  pass "fresh spawn acquires a durable task lease and records its holder"
 }
 
 # A pane that reports the real worktree from the very first read still only
@@ -170,14 +255,10 @@ test_already_settled_pane_costs_one_confirm_sleep() {
 # The pool hands out a slot another task's record still names, and the spawn
 # refuses it.
 #
-# treehouse binds a lease to a process - owner_pid plus owner_started_at in
-# treehouse-state.json - so a restart drops every lease, and `treehouse status`
-# then reads each slot from the live processes it can see. A lane whose agent is
-# stopped is then indistinguishable from a free slot, and on this host at 00:44
-# on 2026-09-09 slot 6 - recorded to a parked scout - was handed to a new spawn
-# and reset to main. treehouse exposes no way to lease a path that already
-# exists, so this refusal, not a re-taken lease, is what keeps two tasks out of
-# one worktree.
+# Current treehouse durable leases survive the acquiring process and keep a
+# stopped lane's slot reserved. Firstmate still cross-checks task records so a
+# legacy or corrupt pool state cannot hand out a path another task owns; the
+# refusal remains the fail-closed defense for that mismatch.
 #
 # The second half matters as much as the first: the settle loop hands back a
 # path this task legitimately owns on almost every spawn, so a guard that
@@ -236,14 +317,17 @@ test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout() {
   expect_code 1 "$status" "spawn should fail when treehouse refuses the pool lease"
   assert_contains "$out" 'all 16 worktrees are in use or dirty (max_trees = 16)' \
     "spawn did not surface treehouse's pool refusal"
-  assert_not_contains "$out" 'treehouse get did not enter a worktree within 60s' \
-    "spawn kept the generic timeout after treehouse reported its pool refusal"
+  assert_not_contains "$out" 'endpoint did not enter durable worktree' \
+    "spawn waited for endpoint settling after Treehouse had already refused allocation"
   pass "treehouse pool refusal is reported instead of the generic worktree timeout"
 }
 
 test_single_stale_first_read_is_not_accepted
 test_already_settled_pane_costs_one_confirm_sleep
+test_fresh_spawn_uses_a_durable_task_lease_and_records_its_holder
 test_a_worktree_another_task_records_is_refused
+test_final_iteration_first_match_is_not_settled
+test_matching_read_that_disappears_is_not_settled
 
 test_treehouse_pool_refusal_replaces_the_generic_worktree_timeout
 

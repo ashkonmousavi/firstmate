@@ -5,16 +5,33 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SECONDS_ARG=${FM_CODEX_WATCH_CHECKPOINT:-180}
+COMMAND=run
+FM_HOME=${FM_HOME:-$(cd "$SCRIPT_DIR/.." && pwd)}
+STATE=${FM_STATE_OVERRIDE:-$FM_HOME/state}
+PAUSE_MARKER="$STATE/.watch-checkpoint-pause"
 
 usage() {
   cat <<'EOF'
-Usage: fm-watch-checkpoint.sh [--seconds <n>]
+Usage: fm-watch-checkpoint.sh [run|resume] [--seconds <n>]
+       fm-watch-checkpoint.sh pause --seconds <n>
+       fm-watch-checkpoint.sh status
 
 Run bin/fm-watch.sh in the foreground for a bounded checkpoint.
 On an actionable watcher wake, pass through the watcher output and exit 0.
 On a quiet checkpoint, print "checkpoint: no actionable wake within <n>s" and exit 124.
+`pause` records a bounded deliberate pause without consuming pending events.
+`resume` clears that marker and immediately runs one checkpoint.
+An unresumed pause exits 75; after its deadline the guard treats active work as
+genuinely unsupervised and alerts until `resume` is run.
 EOF
 }
+
+case "${1:-}" in
+  run|pause|resume|status)
+    COMMAND=$1
+    shift
+    ;;
+esac
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -43,6 +60,72 @@ case "$SECONDS_ARG" in
   ''|*[!0-9]*) echo "error: --seconds must be a positive integer" >&2; exit 2 ;;
   0) echo "error: --seconds must be greater than zero" >&2; exit 2 ;;
 esac
+
+pause_field() {  # <key>
+  sed -n "s/^$1=//p" "$PAUSE_MARKER" 2>/dev/null
+}
+
+pause_marker_valid() {
+  local schema due
+  [ -f "$PAUSE_MARKER" ] && [ ! -L "$PAUSE_MARKER" ] || return 1
+  schema=$(pause_field schema)
+  due=$(pause_field resume_due)
+  [ "$schema" = fm-watch-checkpoint-pause.v1 ] || return 1
+  case "$due" in ''|*[!0-9]*) return 1 ;; esac
+  return 0
+}
+
+if [ "$COMMAND" = status ]; then
+  if pause_marker_valid; then
+    printf 'checkpoint: paused until %s; resume with bin/fm-watch-checkpoint.sh resume\n' \
+      "$(pause_field resume_due)"
+    exit 0
+  fi
+  [ ! -e "$PAUSE_MARKER" ] || {
+    echo "error: malformed checkpoint pause marker: $PAUSE_MARKER" >&2
+    exit 1
+  }
+  printf 'checkpoint: running duty cycle\n'
+  exit 0
+fi
+
+if [ "$COMMAND" = pause ]; then
+  mkdir -p "$STATE" || exit 1
+  if [ -d "$STATE/.watch.lock" ]; then
+    echo "error: a watcher cycle is active; let the bounded checkpoint return before pausing" >&2
+    exit 1
+  fi
+  NOW=$(date +%s)
+  PAUSE_TMP=$(umask 077; mktemp "$STATE/.watch-checkpoint-pause.XXXXXX") || exit 1
+  trap 'rm -f "$PAUSE_TMP"' EXIT
+  {
+    printf 'schema=fm-watch-checkpoint-pause.v1\n'
+    printf 'paused_at=%s\n' "$NOW"
+    printf 'resume_due=%s\n' "$((NOW + SECONDS_ARG))"
+  } > "$PAUSE_TMP" || exit 1
+  mv -f -- "$PAUSE_TMP" "$PAUSE_MARKER" || exit 1
+  trap - EXIT
+  printf 'checkpoint: paused for %ss; pending events remain durable\n' "$SECONDS_ARG"
+  exit 0
+fi
+
+if [ "$COMMAND" = resume ]; then
+  if [ -e "$PAUSE_MARKER" ] || [ -L "$PAUSE_MARKER" ]; then
+    pause_marker_valid || {
+      echo "error: malformed checkpoint pause marker: $PAUSE_MARKER" >&2
+      exit 1
+    }
+    rm -f -- "$PAUSE_MARKER" || exit 1
+  fi
+elif [ -e "$PAUSE_MARKER" ] || [ -L "$PAUSE_MARKER" ]; then
+  pause_marker_valid || {
+    echo "error: malformed checkpoint pause marker: $PAUSE_MARKER" >&2
+    exit 1
+  }
+  printf 'checkpoint: paused until %s; resume with bin/fm-watch-checkpoint.sh resume\n' \
+    "$(pause_field resume_due)"
+  exit 75
+fi
 
 OUT=$(mktemp "${TMPDIR:-/tmp}/fm-watch-checkpoint.out.XXXXXX") || exit 1
 ERR=$(mktemp "${TMPDIR:-/tmp}/fm-watch-checkpoint.err.XXXXXX") || {

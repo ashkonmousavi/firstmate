@@ -105,8 +105,8 @@ Journey: {JOURNEY}
 
 ## Tier definitions and evidence contract
 Tier 0, none. The default: human-only prose, cosmetic changes, one-site fixes with no callers. State "Prep: Tier 0 - {one reason}". Honesty test: if you would need a search to state that reason, it is not Tier 0.
-Tier 1, mechanism sweep. The change fixes a pattern or mechanism at one site (a parser rule, a validation, a timestamp format, a malformed-input guard). Before your first run: search the whole repo for the same mechanism, not the same words (rg for the construct; Serena find_symbol for the function family), fix every site in one commit, list the sites.
-Tier 2, wiring trace. The change alters something other code depends on (a signature, a contract, a record shape, a return value, a route, a config key or value). Before your first run: Serena find_referencing_symbols on each changed symbol, PLUS rg for the literal names and values changed - tests and checkers that read source or config as text are invisible to symbol search. Confirm each site is handled, list them. If Serena is unavailable in your runtime, fall back to rg on the symbol name plus an import search, and name which tool produced the list.
+Tier 1, mechanism sweep. The change fixes a pattern or mechanism at one site (a parser rule, a validation, a timestamp format, a malformed-input guard). Before your first run: search the whole repo for the same mechanism, using rg plus a task-selected symbol-family tool where it is useful; fix every site in one commit, list the sites. If the selected symbol tool is unavailable or does not index the relevant language, use direct callers, tests, and config reads and name the precise limitation.
+Tier 2, wiring trace. The change alters something other code depends on (a signature, a contract, a record shape, a return value, a route, a config key or value). Before your first run: use the task-selected symbol/reference tool where it materially traces consumers, PLUS rg for the literal names and values changed - tests and checkers that read source or config as text can be invisible to symbol search. Confirm each site is handled, list them. If the selected tool is unavailable, stale, or inapplicable to the relevant language, fall back to rg on the symbol name plus direct caller, import, test, and config reads, and name the precise limitation.
 Resource, the RAM/disk envelope this task may use for tests and builds. Firstmate fills it at intake with a concrete bound (for example "one test process at a time, no whole-repo lint or battery locally, PYTHONPYCACHEPREFIX under /dev/shm, read the available column of free -g with `free -g | awk '/^Mem:/ { print $7 }'` before any browser suite") or "N/A" when the task executes no tests or builds.
 Surface, the page, component, or journey where the operator sees this change in the dashboard. Firstmate fills it at intake with the concrete surface (for example "the run-detail page's Evidence tab") or "none: {reason}" when the change has no operator-visible effect. When a real surface is named, the evidence contract requires real-browser proof at that surface, not just passing tests.
 Journey, the preparation this task carries into the build. Firstmate fills it at intake for substantial or uncertain product-facing work with: the original user outcome and the current gap; preconditions, roles, meaningful choices and supported modes; numbered browser actions with independently justified expected results; the screenshot required at each meaningful result step; the relevant empty, loading, failed, stale, refusal and success states, each marked expected or defect so a log that is supposed to carry entries is not read as a fault and an empty one is not read as proof; the real producers, consumers, stores, API/CLI/scheduler callers and dependencies; the existing components to reuse; the relevant tests and the limits of their fixtures and mocks; the implementation sequence, parallel boundaries and integration owner; and the evidence required before claiming readiness. It is "none: {reason}" when the work is neither substantial nor uncertain, or has no product-facing journey. A design decision that parks or defers part of the outcome is named here: a parked design never silently justifies a required interaction that is missing. Firstmate reviews this preparation against the user requirement, not against what the current implementation happens to support.
@@ -263,21 +263,86 @@ fm_dod_shell_quote() {  # <text>
   printf "'"
 }
 
-fm_brief_source_revision() {  # <effective-brief>
+fm_dod_sha256_file() {  # <file>
   local file=$1 digest
-  [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
   if command -v sha256sum >/dev/null 2>&1; then
     digest=$(sha256sum -- "$file") || return 1
-    digest=${digest%% *}
   elif command -v shasum >/dev/null 2>&1; then
     digest=$(shasum -a 256 -- "$file") || return 1
-    digest=${digest%% *}
   else
-    echo "error: no SHA-256 tool is available for the effective brief receipt" >&2
     return 1
   fi
+  digest=${digest%% *}
   case "$digest" in ''|*[!0-9A-Fa-f]*) return 1 ;; esac
   [ "${#digest}" -eq 64 ] || return 1
+  printf 'sha256:%s\n' "$digest"
+}
+
+# Bind revision admission to the capability decision the source owner actually
+# used. Spawn supplies the trusted project root before metadata exists; later
+# validation derives it from the task record. An unresolved project or config is
+# represented explicitly as unknown and therefore cannot impersonate a prior
+# supported receipt.
+fm_dod_capability_receipt() {  # <effective-brief>
+  local brief=$1 project=${FM_DOD_TRUSTED_PROJECT_ROOT:-} id meta config config_hash version build
+  local support binary_hash install_receipt install_receipt_hash
+  if [ -z "$project" ] && [ -n "${FM_HOME:-}" ]; then
+    id=$(basename -- "$(dirname -- "$brief")")
+    meta="$FM_HOME/state/$id.meta"
+    if [ -f "$meta" ] && [ ! -L "$meta" ]; then
+      project=$(sed -n 's/^project=//p' "$meta" | head -1)
+    fi
+  fi
+  config=${project:+$project/.no-mistakes.yaml}
+  if [ -n "$config" ] && [ -f "$config" ] && [ ! -L "$config" ] && [ -r "$config" ]; then
+    config_hash=$(fm_dod_sha256_file "$config") || config_hash=unreadable
+  else
+    config_hash=unknown
+  fi
+  version=$(no-mistakes --version 2>/dev/null || printf unknown)
+  build=$(fm_dod_document_correction_build "$version" 2>/dev/null || printf unknown)
+  binary_hash=$(fm_dod_no_mistakes_executable_sha256 2>/dev/null || printf unknown)
+  install_receipt=$(fm_dod_document_correction_receipt_path 2>/dev/null || printf unknown)
+  if [ "$install_receipt" != unknown ] && [ -f "$install_receipt" ] \
+    && [ ! -L "$install_receipt" ] && [ -r "$install_receipt" ]; then
+    install_receipt_hash=$(fm_dod_sha256_file "$install_receipt" 2>/dev/null || printf unreadable)
+  else
+    install_receipt_hash=unknown
+  fi
+  support=unsupported
+  fm_dod_document_correction_receipt_supported && support=supported
+  printf 'document=%s;build=%s;executable=%s;install_receipt=%s;project_config=%s\n' \
+    "$support" "$build" "$binary_hash" "$install_receipt_hash" "$config_hash"
+}
+
+fm_brief_source_revision() {  # <effective-brief> [frozen-capability-receipt]
+  local file=$1 capability=${2:-} digest canonical source_hash
+  [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] || return 1
+  canonical=$(mktemp "${TMPDIR:-/tmp}/fm-brief-contract.XXXXXX") || return 1
+  if ! awk '
+    /^# (Progress|Progress history|History)([[:space:]]|$)/ { skip = 1; next }
+    /^# / { skip = 0 }
+    !skip { print }
+  ' "$file" > "$canonical"; then
+    rm -f -- "$canonical"
+    return 1
+  fi
+  source_hash=$(fm_dod_sha256_file "${BASH_SOURCE[0]}") || {
+    rm -f -- "$canonical"
+    echo "error: no SHA-256 tool is available for the effective brief receipt" >&2
+    return 1
+  }
+  if [ -z "$capability" ]; then
+    capability=$(fm_dod_capability_receipt "$file") || {
+      rm -f -- "$canonical"
+      return 1
+    }
+  fi
+  printf '\nsource_contract=%s\ncapability=%s\n' "$source_hash" "$capability" >> "$canonical" \
+    || { rm -f -- "$canonical"; return 1; }
+  digest=$(fm_dod_sha256_file "$canonical") || { rm -f -- "$canonical"; return 1; }
+  rm -f -- "$canonical"
+  digest=${digest#sha256:}
   printf 'sha256:%s' "$digest"
 }
 
@@ -394,8 +459,20 @@ fm_dod_remote_pr_head_guard() {
   return 6
 }
 
+# Strict launch receipts are an executable capability, not a version-label
+# inference. Require both paired flags from the installed command and reject a
+# claimed per-run agent selector: Firstmate's agent/model route comes from the
+# trusted global configuration, not an unsupported run argument.
+fm_dod_strict_launch_supported() {
+  local help
+  help=$(NO_MISTAKES_NO_UPDATE_CHECK=1 no-mistakes axi run --help 2>/dev/null) || return 1
+  printf '%s\n' "$help" | grep -F -- '--launch-nonce' >/dev/null || return 1
+  printf '%s\n' "$help" | grep -F -- '--validation-generation' >/dev/null || return 1
+  ! printf '%s\n' "$help" | grep -Eq '^[[:space:]]+--agent([[:space:]=]|$)'
+}
+
 fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg...]
-  local brief=$1 expected=$2 actual intent arg snapshot
+  local brief=$1 expected=$2 actual intent arg snapshot capability receipt_digest launch_nonce validation_generation
   shift 2
   case "${expected#sha256:}" in
     ''|*[!0-9A-Fa-f]*) echo "error: --expect-revision must be a sha256 receipt" >&2; return 2 ;;
@@ -405,7 +482,11 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
     echo "error: --expect-revision must be a sha256 receipt" >&2
     return 2
   }
-  actual=$(fm_brief_source_revision "$brief") || {
+  capability=$(fm_dod_capability_receipt "$brief") || {
+    echo "error: cannot resolve the effective capability/config receipt: $brief" >&2
+    return 2
+  }
+  actual=$(fm_brief_source_revision "$brief" "$capability") || {
     echo "error: cannot read the effective brief revision: $brief" >&2
     return 2
   }
@@ -415,8 +496,8 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
   fi
   for arg in "$@"; do
     case "$arg" in
-      --intent|--intent=*|-y|--yes)
-        echo "error: run-validation owns --intent and refuses automatic gate approval" >&2
+      --intent|--intent=*|--launch-nonce|--launch-nonce=*|--validation-generation|--validation-generation=*|-y|--yes)
+        echo "error: run-validation owns --intent and strict launch receipts, and refuses automatic gate approval" >&2
         return 2
         ;;
     esac
@@ -430,7 +511,7 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
     echo "error: cannot stage the effective brief for validation" >&2
     return 2
   fi
-  actual=$(fm_brief_source_revision "$snapshot") || {
+  actual=$(fm_brief_source_revision "$snapshot" "$capability") || {
     rm -f -- "$snapshot"
     return 2
   }
@@ -444,7 +525,7 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
     return 2
   }
   rm -f -- "$snapshot"
-  actual=$(fm_brief_source_revision "$brief") || {
+  actual=$(fm_brief_source_revision "$brief" "$capability") || {
     echo "error: cannot recheck the effective brief revision: $brief" >&2
     return 2
   }
@@ -454,7 +535,16 @@ fm_dod_run_validation() {  # <effective-brief> <expected-revision> [axi-run-arg.
   fi
   fm_dod_active_run_guard || return
   fm_dod_remote_pr_head_guard || return
-  no-mistakes axi run --intent "$intent" "$@"
+  if ! fm_dod_strict_launch_supported; then
+    echo "error: run-validation requires installed no-mistakes support for paired --launch-nonce and --validation-generation receipts, with agent routing owned by trusted global configuration" >&2
+    return 7
+  fi
+  receipt_digest=${expected#sha256:}
+  launch_nonce="firstmate-$receipt_digest"
+  validation_generation="brief-$receipt_digest"
+  no-mistakes axi run --intent "$intent" \
+    --launch-nonce "$launch_nonce" \
+    --validation-generation "$validation_generation" "$@"
 }
 
 fm_brief_intent_overlay() {  # <captain-intent> <effective-brief> <source-revision> <runner>
@@ -479,6 +569,7 @@ EOF
 
 Start validation only through the exact revision-bound command below.
 It builds the actual `--intent` input from the effective brief and refuses before no-mistakes starts when that brief no longer matches this launch package.
+The source brief, generated launch, serialized intent, strict launch receipt, candidate head, and pipeline base form one binding. An ordinary progress/history edit does not invalidate an otherwise matching same-head launch; a changed instruction source, capability/config receipt, candidate head, base, or custody does. Regenerate derived output from its owner after a source replacement, and never call a parked prior run consumption of replacement instructions.
 EOF
   printf '%s%s%s\n' 'Effective brief: `' "$brief" '`'
   printf '%s%s%s\n' 'Source revision: `' "$revision" '`'
@@ -530,14 +621,89 @@ EOF
 }
 
 # Return 0 only when the consuming project's trusted config explicitly enables
-# bounded Document correction and the installed binary is the build that added
-# that capability. The project file is supplied from the firstmate-owned clone,
-# never from the candidate worktree. A missing, symlinked, malformed, duplicate,
-# or unreadable setting and an unrecognized binary all fail closed. Commit
-# 4fa1bb2 is the installed capability-bearing build; a future binary needs its
-# own recognized capability receipt before this generator may promise the path.
+# bounded Document correction and the install-owned private receipt binds the
+# exact executable bytes to independently accepted consuming proof. The project
+# file is supplied from the firstmate-owned clone, never from the candidate
+# worktree. A missing, symlinked, malformed, duplicate, or unreadable setting,
+# receipt, executable, or checksum mismatch all fail closed. The version banner
+# build remains diagnostic identity only; it never grants capability.
+fm_dod_document_correction_build() {  # <version-output>
+  printf '%s\n' "$1" | sed -n 's/^no-mistakes version [^ ]* (\([0-9A-Fa-f][0-9A-Fa-f]*\))\( .*$\|$\)/\1/p'
+}
+
+fm_dod_no_mistakes_executable_sha256() {
+  local executable
+  executable=$(command -v no-mistakes 2>/dev/null) || return 1
+  case "$executable" in /*) ;; *) return 1 ;; esac
+  [ -f "$executable" ] && [ -r "$executable" ] || return 1
+  fm_dod_sha256_file "$executable"
+}
+
+fm_dod_document_correction_receipt_path() {
+  case "${FM_HOME:-}" in /*) ;; *) return 1 ;; esac
+  printf '%s/config/no-mistakes-document-correction.receipt\n' "$FM_HOME"
+}
+
+fm_dod_document_correction_receipt_supported() {
+  local receipt schema executable_line proof_line extra expected actual
+  receipt=$(fm_dod_document_correction_receipt_path) || return 1
+  [ -f "$receipt" ] && [ ! -L "$receipt" ] && [ -r "$receipt" ] || return 1
+  IFS= read -r schema < "$receipt" || return 1
+  executable_line=$(sed -n '2p' "$receipt") || return 1
+  proof_line=$(sed -n '3p' "$receipt") || return 1
+  extra=$(sed -n '4,$p' "$receipt") || return 1
+  [ "$schema" = 'schema=fm-no-mistakes-document-correction.v1' ] || return 1
+  [ -z "$extra" ] || return 1
+  case "$executable_line" in executable_sha256=sha256:*) ;; *) return 1 ;; esac
+  case "$proof_line" in proof_sha256=sha256:*) ;; *) return 1 ;; esac
+  expected=${executable_line#executable_sha256=}
+  case "${expected#sha256:}" in ''|*[!0-9A-Fa-f]*) return 1 ;; esac
+  [ "${#expected}" -eq 71 ] || return 1
+  case "${proof_line#proof_sha256=sha256:}" in ''|*[!0-9A-Fa-f]*) return 1 ;; esac
+  [ "${#proof_line}" -eq 84 ] || return 1
+  actual=$(fm_dod_no_mistakes_executable_sha256) || return 1
+  [ "$actual" = "$expected" ]
+}
+
+# Installation owner only: after independent review accepts a real consuming
+# proof for the currently installed executable, publish the private receipt
+# atomically. Merely installing a new binary does not grant the capability.
+fm_dod_record_document_correction_capability() {  # <accepted-proof-file>
+  local proof=$1 receipt config_dir executable_hash proof_hash tmp
+  [ -f "$proof" ] && [ ! -L "$proof" ] && [ -r "$proof" ] || {
+    echo "error: accepted Document correction proof must be a readable regular non-symlink file: $proof" >&2
+    return 1
+  }
+  receipt=$(fm_dod_document_correction_receipt_path) || {
+    echo 'error: FM_HOME must be an absolute path for the private Document correction receipt' >&2
+    return 1
+  }
+  executable_hash=$(fm_dod_no_mistakes_executable_sha256) || {
+    echo 'error: cannot hash the installed no-mistakes executable' >&2
+    return 1
+  }
+  proof_hash=$(fm_dod_sha256_file "$proof") || {
+    echo "error: cannot hash accepted Document correction proof: $proof" >&2
+    return 1
+  }
+  config_dir=${receipt%/*}
+  mkdir -p -- "$config_dir" || return 1
+  tmp=$(umask 077; mktemp "$config_dir/.no-mistakes-document-correction.receipt.XXXXXX") || return 1
+  if ! {
+    printf '%s\n' 'schema=fm-no-mistakes-document-correction.v1'
+    printf 'executable_sha256=%s\n' "$executable_hash"
+    printf 'proof_sha256=%s\n' "$proof_hash"
+  } > "$tmp"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+  chmod 0600 "$tmp" || { rm -f -- "$tmp"; return 1; }
+  mv -f -- "$tmp" "$receipt" || { rm -f -- "$tmp"; return 1; }
+  printf '%s\n' "$receipt"
+}
+
 fm_dod_document_correction_enabled() {  # <trusted-project-root>
-  local project_root=$1 config value version
+  local project_root=$1 config value
   [ -n "$project_root" ] && [ -d "$project_root" ] || return 1
   config="$project_root/.no-mistakes.yaml"
   [ -f "$config" ] && [ ! -L "$config" ] && [ -r "$config" ] || return 1
@@ -558,22 +724,17 @@ fm_dod_document_correction_enabled() {  # <trusted-project-root>
     ''|*[!0-9]*) return 1 ;;
   esac
   [ "$value" -gt 0 ] 2>/dev/null || return 1
-  command -v no-mistakes >/dev/null 2>&1 || return 1
-  version=$(no-mistakes --version 2>/dev/null) || return 1
-  case "$version" in
-    *4fa1bb2*) return 0 ;;
-    *) return 1 ;;
-  esac
+  fm_dod_document_correction_receipt_supported
 }
 
 fm_dod_document_instruction_block() {  # <trusted-project-root>
   if fm_dod_document_correction_enabled "$1"; then
     cat <<'EOF'
-The consuming project's trusted configuration selects bounded in-run document correction and the installed no-mistakes build supports it: the pipeline's correction turn applies an accepted documentation fix in-run. You owe an honest completed Test recheck and a valid attestation, never a skipped Test step and never your own out-of-band commit plus a fresh run for that accepted finding.
+Determine Document correction from the installed, supported implementation capability, never from a historical label. The consuming project's trusted configuration selects bounded in-run document correction and the installed no-mistakes build supports it: the pipeline's correction turn applies an accepted documentation fix in-run. Record the actual changed source, regenerated derived documents, and final-head proof. You owe an honest completed Test recheck and a valid attestation, never a skipped Test step and never your own out-of-band commit plus a fresh run for that accepted finding. Independent review is still required at the resulting head; attestation alone is never reviewer approval.
 EOF
   else
     cat <<'EOF'
-The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
+Determine Document correction from the installed, supported implementation capability, never from a historical label. The current trusted capability/config receipt does not prove enabled in-run correction, so use the supported custody-preserving manual repair path. The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed. That record names the changed source, regenerated derived documents, and final-head proof.
 EOF
   fi
 }
@@ -677,7 +838,7 @@ EOF
       fm_integration_batch_dod_block "$mode" "$batch_owner"
       fm_dod_evidence_rules_block pr
       cat <<EOF
-The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed.
+Determine Document correction from the installed, supported implementation capability, never from a historical label. Direct-PR mode uses the supported custody-preserving manual repair path. The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed. That record names the changed source, regenerated derived documents, and final-head proof.
 Before you push, pass this delivery preflight:
 EOF
       fm_dod_delivery_preflight_block "$id" "$task_record"
@@ -907,14 +1068,32 @@ fm_dod_append_batch_owner_record() {  # <brief> <combined-pr> <designated-date> 
 }
 
 fm_dod_cli() {
-  local command=${1:-} brief='' expected=''
+  local command=${1:-} brief='' expected='' proof=''
   [ -n "$command" ] || {
     echo "usage: fm-dod-lib.sh run-validation --brief FILE --expect-revision sha256:HEX [-- AXI-RUN-ARGS...]" >&2
     echo "       fm-dod-lib.sh render-batch-owner-record --brief FILE --combined-pr URL --designated DATE --runner RUNNER [--pr-backed 'task|branch|head|pr-url']... [--pr-less 'task|branch|head']... --join 'task|missing|replacements|repairs' [...] [--landing-tested SHA] [--landing-commit SHA]" >&2
+    echo "       fm-dod-lib.sh record-document-correction-capability --proof ACCEPTED-PROOF-FILE" >&2
     return 2
   }
   shift
   case "$command" in
+    record-document-correction-capability)
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --proof)
+            [ "$#" -ge 2 ] || { echo "error: --proof requires a value" >&2; return 2; }
+            proof=$2
+            shift 2
+            ;;
+          *)
+            echo "error: unknown record-document-correction-capability argument: $1" >&2
+            return 2
+            ;;
+        esac
+      done
+      [ -n "$proof" ] || { echo "error: record-document-correction-capability requires --proof" >&2; return 2; }
+      fm_dod_record_document_correction_capability "$proof"
+      ;;
     run-validation)
       while [ "$#" -gt 0 ]; do
         case "$1" in

@@ -199,6 +199,16 @@
 #   and scout batches. The loop lives here, in bash, so callers never hand-write a
 #   multi-task shell loop (the tool shell is zsh, which does not word-split unquoted
 #   $vars and silently breaks ad-hoc `for ... in $pairs` loops).
+# Launch environment (config/launch-env-allowlist):
+#   Absent means unchanged ambient inheritance. A present readable regular file
+#   opts every launch into /usr/bin/env -i followed by /bin/sh -c of the existing
+#   launch command. Each non-comment line is one environment name, never a value
+#   or shell expression. Invalid or unreadable input refuses before launch.
+#   Values expand in the destination pane; they are not copied into launch text.
+#   The fixed operational floor retains home/search/terminal/locale/temp names,
+#   backend routing identity, explicit Firstmate assignments and enabled trace.
+#   This boundary is not a sandbox for the pane shell, same-user files/processes,
+#   or later shell initialization. docs/configuration.md owns setup and limits.
 #   Launch templates live in launch_template() below; placeholders replaced before launch:
 #     __BRIEF__    absolute path to data/<task-id>/brief.md
 #     __PIBIN__    quoted concrete Pi-family executable path resolved from PATH
@@ -322,6 +332,26 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 PROJECTS="${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+# shellcheck source=bin/fm-config-inherit-lib.sh
+. "$SCRIPT_DIR/fm-config-inherit-lib.sh"
+if ! LAUNCH_ENV_ENABLED=$(fm_config_source_present "$CONFIG/launch-env-allowlist"); then
+  exit 1
+fi
+LAUNCH_ENV_NAMES=
+if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
+  if [ ! -f "$CONFIG/launch-env-allowlist" ] || [ ! -r "$CONFIG/launch-env-allowlist" ]; then
+    echo "error: config/launch-env-allowlist must be a readable regular file" >&2
+    exit 1
+  fi
+  if ! LAUNCH_ENV_NAMES=$(jq -Rrs '
+    split("\n") | map(select(. != "" and (startswith("#") | not))) |
+    if all(.[]; test("^[A-Za-z_][A-Za-z0-9_]*$")) then .[]
+    else error("expected environment names only") end
+  ' "$CONFIG/launch-env-allowlist" 2>/dev/null); then
+    echo "error: config/launch-env-allowlist must contain one environment name per line, blank lines, or # comments" >&2
+    exit 1
+  fi
+fi
 SUB_HOME_MARKER=".fm-secondmate-home"
 if [ -e "$STATE" ] || [ -L "$STATE" ]; then
   fm_backlog_directory_present "$STATE" "state directory" || {
@@ -339,8 +369,6 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 }
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
-# shellcheck source=bin/fm-config-inherit-lib.sh
-. "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
 # shellcheck source=bin/fm-control-lib.sh
@@ -812,6 +840,8 @@ SPAWN_META_PUBLISH_STARTED=0
 SPAWN_FRESH_COMMIT_PENDING=0
 SPAWN_TASK_SET_LOCK=
 SPAWN_TASK_SET_LOCK_HELD=0
+SPAWN_TREEHOUSE_PROJECT_LOCK=
+SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
 RELAUNCH_REPLACEMENT_PENDING=0
 RELAUNCH_REPLACEMENT_BUSY_GEN=
 RELAUNCH_REPLACEMENT_HARNESS=
@@ -820,6 +850,9 @@ RELAUNCH_REPLACEMENT_WT=
 CONFIG_INHERIT_LOCK=
 CONFIG_INHERIT_LOCK_HELD=0
 SPAWN_KIMI_MCP_CONFIG=
+SPAWN_TREEHOUSE_LEASE_PENDING=0
+TREEHOUSE_LEASE_HOLDER=
+TREEHOUSE_LEASED_PATH=
 
 spawn_fresh_commit_rollback() {
   if fm_backlog_atomic_transition rollback "$STATE/$ID.meta" \
@@ -939,6 +972,12 @@ spawn_abort_cleanup() {
     SPAWN_TASK_LOCK_HELD=0
     fm_lock_release "$SPAWN_TASK_LOCK" || true
   fi
+  if [ "$status" -ne 0 ] && [ "$SPAWN_TREEHOUSE_LEASE_PENDING" = 1 ]; then
+    SPAWN_TREEHOUSE_LEASE_PENDING=0
+    if ! (cd -- "$PROJ_ABS" && treehouse return --force --if-lease-holder "$ID" "$WT") >/dev/null 2>&1; then
+      echo "warning: aborted spawn could not return durable Treehouse lease for $ID at $WT; the pool retained holder '$ID' and path '$WT' for explicit guarded cleanup with treehouse return --if-lease-holder '$ID' '$WT'" >&2
+    fi
+  fi
   if [ "$SPAWN_FRESH_COMMIT_PENDING" = 1 ]; then
     if ! spawn_fresh_commit_rollback; then
       status=1
@@ -947,6 +986,10 @@ spawn_abort_cleanup() {
   if [ "$SPAWN_META_LOCK_HELD" = 1 ]; then
     SPAWN_META_LOCK_HELD=0
     fm_lock_release "$SPAWN_META_LOCK" || true
+  fi
+  if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
+    SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
+    fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK" || true
   fi
   if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
     SPAWN_TASK_SET_LOCK_HELD=0
@@ -1740,6 +1783,12 @@ resolve_muse_binary() {
 # supervision like a wedged worker rather than a missing credential.
 muse_worker_meta_api_key_present() {
   local session worker_env
+  if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
+    case $'\n'"$LAUNCH_ENV_NAMES"$'\n' in
+      *$'\nMETA_API_KEY\n'*) ;;
+      *) return 1 ;;
+    esac
+  fi
   [ "$BACKEND" = tmux ] || return 1
   if [ -n "${TMUX:-}" ]; then
     session=$(tmux display-message -p '#S' 2>/dev/null) || return 1
@@ -2106,6 +2155,17 @@ else
   WT=""
   BRIEF="$DATA/$ID/brief.md"
 fi
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+  SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROJ_ABS") || {
+    echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
+    exit 1
+  }
+  if ! fm_lock_try_acquire "$SPAWN_TREEHOUSE_PROJECT_LOCK"; then
+    echo "error: another Treehouse slot allocation or return is in progress for $PROJ_ABS; refusing to race it" >&2
+    exit 1
+  fi
+  SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
+fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if fm_brief_task_placeholders_present "$BRIEF"; then
@@ -2204,7 +2264,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fi
     fi
     SOURCE_BRIEF=$BRIEF
-    SOURCE_REVISION=$(fm_brief_source_revision "$SOURCE_BRIEF") || {
+    SOURCE_REVISION=$(FM_DOD_TRUSTED_PROJECT_ROOT="$PROJ_ABS" fm_brief_source_revision "$SOURCE_BRIEF") || {
       echo "error: could not compute the effective brief revision for $SOURCE_BRIEF" >&2
       exit 1
     }
@@ -2289,39 +2349,69 @@ real_path_or_raw() {  # <path>
 # herdr-sm-spaces-k4). Both branches converge on the same $T ("target") string
 # that every downstream operation (send/capture/kill) already treats as opaque
 # per-backend routing (fm_backend_resolve_selector).
-validate_spawn_worktree() {  # <source> <inspect-target>
-  local source=$1 inspect_target=$2 wt_real proj_real wt_top wt_top_real
+# True when <path> is an isolated worktree of the spawning project: a real
+# directory that is its own worktree root, is not the spawning project itself,
+# and is not that repository's primary checkout. A linked spawning home has a
+# different top-level from the primary but shares its common git directory, so
+# path comparison alone is insufficient.
+SPAWN_WT_TOP=
+SPAWN_WT_REASON=
+spawn_worktree_isolated() {  # <path>
+  local path=$1 wt_real wt_top_real wt_git_dir proj_common
+  SPAWN_WT_TOP=
+  SPAWN_WT_REASON=
   wt_real=
-  if ! wt_real=$(cd "$WT" 2>/dev/null && pwd -P); then
+  if ! wt_real=$(cd "$path" 2>/dev/null && pwd -P); then
     wt_real=
   fi
-  proj_real=$PROJ_ABS_REAL
-  wt_top=$(git -C "$WT" rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -z "$wt_real" ]; then
+    SPAWN_WT_REASON="it is not a readable directory"
+    return 1
+  fi
+  SPAWN_WT_TOP=$(git -C "$path" rev-parse --show-toplevel 2>/dev/null || true)
   wt_top_real=
-  if ! wt_top_real=$(cd "$wt_top" 2>/dev/null && pwd -P); then
+  if [ -n "$SPAWN_WT_TOP" ] && ! wt_top_real=$(cd "$SPAWN_WT_TOP" 2>/dev/null && pwd -P); then
     wt_top_real=
   fi
-  if [ -z "$wt_real" ] || [ -z "$wt_top_real" ] || [ "$wt_real" != "$wt_top_real" ] || [ "$wt_real" = "$proj_real" ]; then
-    echo "error: $source did not yield an isolated worktree (resolved '$WT'; worktree root '${wt_top:-none}'; primary '$PROJ_ABS'); refusing to launch to avoid tangling the primary checkout. Inspect target $inspect_target" >&2
+  if [ -z "$wt_top_real" ]; then
+    SPAWN_WT_REASON="it is not inside a git worktree"
+    return 1
+  fi
+  if [ "$wt_real" != "$wt_top_real" ]; then
+    SPAWN_WT_REASON="it is a subdirectory of worktree root '$wt_top_real', not a worktree root"
+    return 1
+  fi
+  if [ "$wt_real" = "$PROJ_ABS_REAL" ]; then
+    SPAWN_WT_REASON="it is the spawning project itself"
+    return 1
+  fi
+  wt_git_dir=$(git -C "$path" rev-parse --absolute-git-dir 2>/dev/null) \
+    && wt_git_dir=$(cd "$wt_git_dir" 2>/dev/null && pwd -P) || wt_git_dir=
+  proj_common=$(git -C "$PROJ_ABS" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) \
+    && proj_common=$(cd "$proj_common" 2>/dev/null && pwd -P) || proj_common=
+  if [ -z "$wt_git_dir" ] || [ -z "$proj_common" ]; then
+    SPAWN_WT_REASON="its git directory could not be resolved"
+    return 1
+  fi
+  if [ "$wt_git_dir" = "$proj_common" ]; then
+    SPAWN_WT_REASON="it is the repository's primary checkout (its git dir is the spawning project's common git dir)"
+    return 1
+  fi
+  return 0
+}
+
+validate_spawn_worktree() {  # <source> <inspect-target>
+  local source=$1 inspect_target=$2
+  if ! spawn_worktree_isolated "$WT"; then
+    echo "error: $source did not yield an isolated worktree (resolved '$WT'; worktree root '${SPAWN_WT_TOP:-none}'; spawning project '$PROJ_ABS'; $SPAWN_WT_REASON); refusing to launch to avoid tangling the primary checkout. Inspect target $inspect_target" >&2
     exit 1
   fi
 }
 
-# treehouse leases a pool slot to a PROCESS, not to a task: treehouse-state.json
-# records the holder as owner_pid plus owner_started_at, so every lease in the
-# pool dies with the machine. After a restart `treehouse get` hands out any slot
-# that is clean and sitting at the default branch head, and a parked lane's slot
-# is exactly that: its agent is stopped, its work is committed, and nothing about
-# the slot itself says a task record still names it. It happened on this host at
-# 00:44 on 2026-09-09, when slot 6 - recorded to a parked scout - was re-leased to
-# a new spawn and reset to main.
-#
-# Firstmate cannot fix that inside treehouse: the tool exposes no way to take a
-# lease on a path that already exists (`treehouse get --lease` only acquires a new
-# slot), and hand-writing another tool's state file is not a thing this repo does.
-# So the enforceable half lives here, at the one point where a slot becomes this
-# task's worktree. Refusing costs a spawn; accepting costs the parked lane's
-# branch, which is unlanded work.
+# Treehouse 2.3.0's `get --lease` is a non-interactive durable acquire. The
+# task id is recorded as its holder and in Firstmate metadata; parking, process
+# exit, and restart do not release it. This collision guard remains a second
+# independent boundary for older records and externally drifted pool state.
 #
 # This runs while the spawn holds the per-home task-set lock, which is the lock
 # that decides which tasks exist, so two concurrent spawns cannot both read the
@@ -2382,6 +2472,23 @@ $status
 EOF
   [ -n "$lines" ] || return 1
   printf '%s' "$lines" >&2
+}
+
+spawn_worktree_has_origin_config() {  # <worktree>
+  # Read Git's effective include chain first, then recognize an explicitly
+  # configured but incomplete origin section conservatively. A genuinely
+  # origin-less local repository is allowed; a configured broken origin still
+  # reaches the fetch refusal below.
+  local worktree=$1 config origin key seen=$'\n'
+  git -C "$worktree" config --get-regexp '^remote\.origin\.' >/dev/null 2>&1 && return 0
+  while IFS=$'\t' read -r origin key; do
+    case $origin in file:*) config=${origin#file:} ;; *) continue ;; esac
+    [ -f "$config" ] || continue
+    case $seen in *$'\n'"$config"$'\n'*) continue ;; esac
+    seen+="$config"$'\n'
+    awk '/^[[:space:]]*\[[[:space:]]*[Rr][Ee][Mm][Oo][Tt][Ee][[:space:]]+"origin"[[:space:]]*\][[:space:]]*([#;].*)?$/ || /^[[:space:]]*\[[[:space:]]*[Rr][Ee][Mm][Oo][Tt][Ee]\.origin[[:space:]]*\][[:space:]]*([#;].*)?$/ { found=1 } END { exit !found }' "$config" && return 0
+  done < <(git -C "$worktree" config --list --show-origin 2>/dev/null || true)
+  return 1
 }
 
 # True when <worktree> is a worktree of firstmate's OWN repo (this task is a
@@ -2446,6 +2553,29 @@ freshen_spawn_worktree_base() {  # <worktree>
     return 0
   fi
 
+  status=$(git -C "$worktree" -c core.quotePath=false status --porcelain) || {
+    echo "error: could not inspect pooled worktree '$worktree' before refreshing its base" >&2
+    return 1
+  }
+  if [ -n "$status" ]; then
+    if describe_stale_submodule_pins "$worktree" "$status"; then
+      echo "error: pooled worktree '$worktree' has a stale submodule checkout, not uncommitted work; refusing to launch and leaving it untouched" >&2
+    else
+      echo "error: pooled worktree '$worktree' is not clean; refusing to discard uncommitted work while refreshing its base" >&2
+    fi
+    return 1
+  fi
+  if ! spawn_worktree_has_origin_config "$worktree"; then
+    actual=$(git -C "$worktree" rev-parse --verify --quiet HEAD 2>/dev/null || true)
+    [ -n "$actual" ] || {
+      echo "error: origin-less pooled worktree '$worktree' has no current commit; refusing to launch" >&2
+      return 1
+    }
+    FRESH_SPAWN_BASE_SHA=$actual
+    FRESH_SPAWN_BASE_LABEL="current local base (no origin)"
+    return 0
+  fi
+
   if ! git -C "$worktree" fetch --quiet origin; then
     echo "error: could not fetch origin for pooled worktree '$worktree'; refusing to launch from a potentially stale base" >&2
     return 1
@@ -2467,15 +2597,17 @@ freshen_spawn_worktree_base() {  # <worktree>
     echo "error: '$target' is not a commit for pooled worktree '$worktree'; refusing to launch from a potentially stale base" >&2
     return 1
   }
+  # Fetch is a network window. Recheck immediately before reset so work written
+  # after the initial cleanliness proof cannot be discarded by reset --hard.
   status=$(git -C "$worktree" -c core.quotePath=false status --porcelain) || {
-    echo "error: could not inspect pooled worktree '$worktree' before refreshing its base" >&2
+    echo "error: could not re-inspect pooled worktree '$worktree' immediately before resetting its base" >&2
     return 1
   }
   if [ -n "$status" ]; then
     if describe_stale_submodule_pins "$worktree" "$status"; then
-      echo "error: pooled worktree '$worktree' has a stale submodule checkout, not uncommitted work; refusing to launch and leaving it untouched" >&2
+      echo "error: pooled worktree '$worktree' acquired a stale submodule checkout while refreshing its base; refusing to reset it" >&2
     else
-      echo "error: pooled worktree '$worktree' is not clean; refusing to discard uncommitted work while refreshing its base" >&2
+      echo "error: pooled worktree '$worktree' became dirty while refreshing its base; refusing to discard that work" >&2
     fi
     return 1
   fi
@@ -3127,9 +3259,21 @@ if [ "$RELAUNCH" -eq 1 ]; then
     || echo "note: task $ID's endpoint had drifted to '$relaunch_drifted_from' and was reset to its recorded worktree $WT before relaunching" >&2
   [ "$KIND" = secondmate ] || validate_spawn_worktree "relaunch" "$T"
 elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
-  spawn_send_text_line "$WT_TARGET" 'treehouse get'
+  TREEHOUSE_LEASE_HOLDER=$ID
+  if ! WT=$(cd -- "$PROJ_ABS" && treehouse get --lease --lease-holder "$TREEHOUSE_LEASE_HOLDER"); then
+    echo "error: Treehouse could not acquire a durable lease for task $ID" >&2
+    exit 1
+  fi
+  SPAWN_TREEHOUSE_LEASE_PENDING=1
+  TREEHOUSE_LEASED_PATH=$(real_path_or_raw "$WT")
+  assert_worktree_unclaimed "$WT" || exit 1
+  validate_spawn_worktree "treehouse durable lease" "$T"
+  spawn_send_text_line "$WT_TARGET" "cd -- $(printf '%q' "$WT")" || {
+    echo "error: durable worktree $WT was leased for task $ID, but its endpoint could not be moved there" >&2
+    exit 1
+  }
 
-  # Wait for the treehouse subshell: the pane's cwd moves from the project to the worktree.
+  # Wait for the endpoint shell to settle in the already-leased worktree.
   # Target the stable window id, not the name: if the name is ever lost (e.g. an
   # automatic-rename slips through), display-message -t <bad-name> falls back to the
   # active client's window, which would misread firstmate's OWN pane path as the
@@ -3138,28 +3282,23 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   # prefix would otherwise make the pane's OS-level cwd read differ from
   # PROJ_ABS on the very first poll, before the pane has actually moved.
   #
-  # A single read that already differs from PROJ_ABS_REAL is not proof the pane
-  # settled there: on some tmux/WSL setups a brand-new window's pane_current_path
-  # transiently reports an unrelated stale path (seen live as another real git
-  # checkout entirely) before the shell catches up with treehouse get's cd. That
-  # stale path still passes the PROJ_ABS_REAL comparison and validate_spawn_worktree
-  # below (it resolves to a real, distinct worktree top-level too), so accepting it
-  # on one read alone silently records the wrong worktree= in state/<id>.meta. Require
-  # two consecutive reads to agree on the same non-project path before accepting it;
-  # a mismatch just becomes the new candidate rather than resetting the wait, so a
-  # pane that is already settled by the first real read only costs the one existing
-  # inter-poll sleep as confirmation, not a whole extra cycle on top.
+  # A single read is not proof the pane settled: a new tmux/WSL window can briefly
+  # report an unrelated stale checkout. `treehouse get --lease` already returned
+  # the authoritative allocation, so require two consecutive reads of that exact
+  # physical path. Repeated agreement on some other worktree must never replace the
+  # leased path in the task record.
   candidate=""
+  settled=0
   for _ in $(seq 1 60); do
     p=$(spawn_current_path "$WT_TARGET" || true)
     if [ -n "$p" ]; then
       p_real=$(real_path_or_raw "$p")
-      if [ "$p_real" != "$PROJ_ABS_REAL" ]; then
-        if [ -n "$candidate" ] && [ "$p_real" = "$candidate" ]; then
-          WT="$p"
+      if [ "$p_real" = "$TREEHOUSE_LEASED_PATH" ]; then
+        if [ "$candidate" = "$TREEHOUSE_LEASED_PATH" ]; then
+          settled=1
           break
         fi
-        candidate="$p_real"
+        candidate="$TREEHOUSE_LEASED_PATH"
       else
         candidate=""
       fi
@@ -3168,19 +3307,10 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
     fi
     sleep 1
   done
-  if [ -z "$WT" ]; then
-    pane=$(fm_backend_capture "$BACKEND" "$WT_TARGET" 120 "$W" 2>/dev/null || true)
-    refusal=$(printf '%s\n' "$pane" | grep -E 'all [0-9]+ worktrees are in use or dirty \(max_trees = [0-9]+\)' | tail -n 1)
-    if [ -n "$refusal" ]; then
-      echo "error: $refusal; inspect window $T" >&2
-      exit 1
-    fi
-    echo "error: treehouse get did not enter a worktree within 60s; inspect window $T" >&2
+  if [ "$settled" -ne 1 ]; then
+    echo "error: endpoint did not enter durable worktree $WT within 60s; inspect window $T" >&2
     exit 1
   fi
-
-  assert_worktree_unclaimed "$WT" || exit 1
-  validate_spawn_worktree "treehouse get" "$T"
 fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
   freshen_spawn_worktree_base "$WT" || exit 1
@@ -3673,6 +3803,7 @@ preserve_relaunch_meta() {
   echo "mcp=$MCP_MODE"
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
+  [ -z "$TREEHOUSE_LEASE_HOLDER" ] || echo "treehouse_lease_holder=$TREEHOUSE_LEASE_HOLDER"
   # Default-off writes no traceparent= line.
   # backend= is written only for a non-default (non-tmux) backend, so the
   # default path's meta stays byte-identical (absent backend= means tmux;
@@ -3758,6 +3889,10 @@ fi
 # still being delivered, cannot observe or complete a fresh provisional record
 # between its state check and `tasks-axi start`, and a delivery failure cannot
 # follow a committed In-flight transition.
+if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
+  SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
+  fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK"
+fi
 if [ "$SPAWN_TASK_SET_LOCK_HELD" = 1 ]; then
   # The record is published, so this task is now part of the set a teardown
   # enumerates and locks per task. The set lock is only needed across that
@@ -3878,6 +4013,25 @@ if [ -n "$SPAWN_TRACEPARENT" ]; then
     fi
     LAUNCH="unset TRACEPARENT; $LAUNCH"
   fi
+fi
+if [ "$LAUNCH_ENV_ENABLED" = 1 ]; then
+  LAUNCH_ENV_PREFIX='/usr/bin/env -i'
+  for env_name in HOME PATH USER LOGNAME SHELL TERM COLORTERM LANG LC_ALL LC_CTYPE \
+    TMPDIR TMP TEMP GOTMPDIR TMUX TMUX_PANE HERDR_ENV HERDR_SESSION HERDR_SOCKET_PATH \
+    HERDR_PANE_ID CMUX_WORKSPACE_ID CMUX_SURFACE_ID CMUX_TAB_ID CMUX_PANEL_ID \
+    CMUX_SOCKET_PATH ZELLIJ ZELLIJ_SESSION_NAME ZELLIJ_PANE_ID FM_ZELLIJ_SESSION \
+    $LAUNCH_ENV_NAMES; do
+    # Only validated names enter shell syntax. Values expand once, quoted, in
+    # the pane shell and never become source text or spawn-process snapshots.
+    # shellcheck disable=SC2016
+    printf -v env_arg '${%s+"%s=$%s"}' "$env_name" "$env_name" "$env_name"
+    LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX $env_arg"
+  done
+  if [ -n "$SPAWN_TRACEPARENT" ]; then
+    # shellcheck disable=SC2016
+    LAUNCH_ENV_PREFIX="$LAUNCH_ENV_PREFIX "'${TRACEPARENT+"TRACEPARENT=$TRACEPARENT"}'
+  fi
+  LAUNCH="$LAUNCH_ENV_PREFIX /bin/sh -c $(shell_quote "$LAUNCH")"
 fi
 sleep 0.3
 spawn_send_literal "$T" "$LAUNCH"

@@ -32,11 +32,13 @@ When any diagnostic needs captain attention, report the plain consequence and re
 - `TANGLE: <remediation>` - the primary checkout is stranded on a feature branch instead of its default branch; `AGENTS.md` section 8 explains why this guard exists and what it protects.
   The work is safe on that branch ref; restore the primary to its default branch with the printed `git -C <root> checkout <default>`, then re-validate that branch in a proper worktree.
   This is the only sanctioned firstmate-initiated git write to the primary, and it is a non-destructive branch switch that strands nothing.
-- `WORKTREE_LEASE: task <id> records <path>, but the pool reads that worktree as available and will hand it to the next spawn; relaunch ... or tear it down ...` - the named lane's local copy is one the worktree pool now considers free, because a pool lease is held by a running process and that lane's worker is stopped.
+- `WORKTREE_LEASE: task <id> records <path>, but the pool reads that worktree as available ...` - the named lane predates durable task leases or lost its lease evidence.
   Nothing is lost yet and nothing has been changed; committed work is safe on its branch either way, and what a reassignment would cost is that copy's uncommitted contents.
-  Act on the line before dispatching anything into that project: put a worker back in it with the printed `bin/fm-control.sh <id> relaunch`, or, when its work has already landed, release the slot with the printed `bin/fm-teardown.sh <id>`.
+  Preserve that path and do not allocate from its pool until its work is safely reconciled or landed cleanup returns it; relaunch alone does not attach a durable lease to an existing path.
   Never resolve it by resetting or reassigning the copy yourself.
   This home's own spawns already refuse a slot another task record names, so a line here means the exposure is to something this home does not control - another home sharing the pool, a hand-run `treehouse get`, a prune - which is why it is reported rather than repaired; [`docs/configuration.md`](../../../docs/configuration.md) "Worktree pool leases (treehouse)" owns the mechanics.
+- `WORKTREE_LEASE: task <id> records <path> for durable holder ... but the pool records holder ...` - Firstmate and Treehouse disagree about ownership.
+  Preserve both records and reconcile the holder before relaunch or cleanup; never edit Treehouse's state database or bypass the guarded return.
 - `STARTUP_MEMORY_BUDGET: invalid config/startup-memory-budget - <reason>` - the visible startup-memory budget is not a safe one-line positive decimal file; do not infer the default or propagate it.
   Correct the local primary file, then rerun session start so the normal convergence path can deliver the validated value to secondmate homes.
 - `CREW_DISPATCH: invalid config/crew-dispatch.json - <reason>` - the optional dispatch profile file exists but failed low-cost bootstrap validation; stop profile-based dispatch, report the actionable error, and require correction of the malformed schema, unverified harness name, or invalid harness/effort pair rather than falling back around it or selecting a bad profile.

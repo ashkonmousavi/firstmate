@@ -13,7 +13,7 @@ Do not infer this guard's scope, loop safety, or compatibility tradeoffs for tho
 
 `bin/fm-guard.sh` is a pull-based warning that runs only when another supervision command invokes it.
 The turn-end guard closes the remaining gap at the primary's own turn boundary.
-When work, a process-event source, or Relay polling needs supervision at that boundary and no identity-matched watcher has a fresh beacon, the harness integration must either block the turn end or force one bounded follow-up that uses the recovery instruction from the emitted session-start protocol.
+When work, a process-event source, a registered custom check, or Relay polling needs supervision at that boundary and no identity-matched watcher has a fresh beacon, the harness integration must either block the turn end or force one bounded follow-up that uses the recovery instruction from the emitted session-start protocol.
 The mid-turn pull warning uses the model-aware supervision verdict described below, while the turn-end guard keeps the PID-strict watcher predicate.
 Away mode is the one place the turn-end guard accepts a different supervisor: while `state/.afk` exists the away-mode daemon owns supervision, so a live identity-matched daemon with a fresh beacon satisfies that boundary in place of a watcher process holding the lock.
 The guard remains a backstop; [`watcher-continuity.md`](watcher-continuity.md) owns normal continuity.
@@ -31,7 +31,8 @@ For an in-scope primary, the guard counts in-flight work from `state/*.meta`.
 Registered `state/procevent/*.source` records also require supervision even though they have no task metadata.
 The default cross-harness mode exits silently with no supervision need.
 Every mode treats `state/x-watch.check.sh` as supervision need, so Relay polling remains guarded without an in-flight task.
-So does ready backlog work with a free worktree slot, which is what keeps an idle fleet supervised instead of silently unattended; `bin/fm-supervision-lib.sh` owns that read and its `state/.dispatch-freeze` silencing record, and a tool it cannot read leaves the branch false rather than blocking a turn.
+A custom check registered through `bin/fm-check-register.sh` also counts, so a home-level poll stays supervised after the last task is torn down; task PR polls and the Relay shim do not inflate that custom-check count.
+So does ready backlog work with a free worktree slot, which is what keeps an idle fleet supervised instead of silently unattended; `bin/fm-supervision-lib.sh` owns that read and its `state/.dispatch-freeze` silencing record. The freeze's date schedules a recheck but never releases the captain's pause; `bin/fm-dispatch-freeze.sh release` is the supported release. If hold/permission data cannot be read, dispatch enumeration fails closed while already-active work remains supervised.
 The blocked banner names that idle capacity and lists the ready ids through the same report.
 Otherwise it calls `fm_watcher_healthy <state-dir> <watch-path> [grace-seconds] [home]` from `bin/fm-wake-lib.sh`, the same PID-strict identity-matched lock and fresh-beacon check used by `bin/fm-watch-arm.sh`: a stale beacon blocks even when a watcher pid is live, and a fresh leftover beacon blocks when the lock is missing, dead, or identity-mismatched.
 The turn-end guard needs that strict check because it fires at the turn boundary, where the auto-arm is bringing a fresh watcher up for the upcoming idle period, and it cooperates with that arm rather than trusting a beacon left by the cycle that just ended.
@@ -50,7 +51,7 @@ While `state/.afk` exists the away-mode daemon (`bin/fm-supervise-daemon.sh`) ow
 The turn-end guard therefore accepts `fm_afk_daemon_owns_supervision` from `bin/fm-wake-lib.sh` as proof of supervision on that path: away mode must be active, and this home's `state/.supervise-daemon.lock` must name a live pid whose current process identity still matches the identity the daemon recorded for itself.
 That is the same identity discipline the watcher lock uses, so a recycled pid, a lock left behind by a killed daemon, and a daemon that never recorded its identity all fail it.
 A daemon that cannot record its own identity at startup logs a warning and keeps running, because a supervisor must not refuse to run over an unreadable `ps`; that warning is what names the cause when the guard then keeps blocking away-mode turn boundaries for the rest of that daemon's life.
-The proof covers ownership only, never freshness: the fresh-beacon half of the predicate is unchanged, so a daemon that stops restarting its watcher still blocks once the beacon passes grace, and a home with no daemon and no watcher blocks exactly as it did before.
+The proof covers ownership only, never freshness: the guard still requires a fresh beacon, so a daemon that stops restarting its watcher still blocks once the beacon passes grace, and a home with no daemon and no watcher blocks exactly as it did before. This away-owner branch uses the poll-derived grace below because handling a slow wake can legitimately outlast a flat 300-second window before the daemon starts its replacement watcher.
 With away mode off the daemon lock proves nothing and the strict watcher predicate is unchanged.
 
 ### Lane floor
@@ -83,6 +84,12 @@ This session's own repair authority - the Stop-owned auto-arm and watcher arming
 The guard prints one diagnostic to stderr and exits 0 instead of evaluating or blocking on supervision need, so a session in this position can never loop on a "TURN WOULD END BLIND" banner it has no authority to repair.
 A missing, malformed, or dead-owner lock is not this case and falls through to the ordinary predicate unchanged.
 This is what stops the loop from [`configuration.md`](configuration.md#advisor-session-role-fm_session_role)'s 2026-09-04 review finding G1 once a foreign session has already taken the lock, independent of and in addition to the `FM_SESSION_ROLE=advisor` marker that keeps a genuine advisor session from taking the lock in the first place; it subsumes the standalone backlog item `firstmate-turnend-guard-foreign-lock-loop`.
+
+### Guard grace and the poll cadence
+
+`bin/fm-watch.sh` touches `state/.last-watcher-beat` once per cycle, so a healthy beacon can age up to `FM_POLL` seconds. `fm_poll_derived_grace` in `bin/fm-wake-lib.sh` owns the default `max(300, FM_POLL + 60)` bound used by the Claude Stop auto-arm and the away-mode daemon hand-off. The historical 300-second floor remains for short polls, while a long configured poll cannot make a healthy cycle stale by definition.
+
+The away-mode branch of `bin/fm-turnend-guard.sh` uses that derived bound only when `FM_GUARD_GRACE` is not explicitly set. Every strict non-away watcher predicate keeps the flat 300-second default unless the operator supplies an explicit grace. A live daemon therefore does not become a fake heartbeat: dead or identity-mismatched ownership still refuses immediately, and a beacon older than the derived bound still blocks.
 
 ## Harness integrations
 

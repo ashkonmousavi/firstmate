@@ -76,6 +76,10 @@ case "${1:-}" in
     ;;
   runs)
     printf '%s\n' "${FM_FAKE_RUNS_LIST:-}" ;;
+  daemon)
+    [ "${FM_FAKE_DAEMON_DOWN:-0}" = 1 ] && exit 1
+    printf '%s\n' 'daemon running (pid 4242)'
+    exit 0 ;;
 esac
 exit 0
 SH
@@ -188,6 +192,7 @@ reset_fakes() {
   FM_FAKE_HERDR_MISSING=0
   FM_FAKE_HERDR_AGENT_STATUS=""
   FM_FAKE_CI_LOGS=""
+  FM_FAKE_DAEMON_DOWN=0
   FM_FAKE_GH_AXI_CALLS=""
   FM_FAKE_PR_STATE=""
   FM_FAKE_PR_HEAD=""
@@ -196,6 +201,7 @@ reset_fakes() {
   FM_FAKE_PR_CHECKS_BAD=0
   export FM_FAKE_AXI_STATUS FM_FAKE_AXI_STATUS_RUN FM_FAKE_RUNS_LIST FM_FAKE_BUSY FM_FAKE_BUSY_TEXT FM_FAKE_TMUX_MISSING
   export FM_FAKE_HERDR_BUSY FM_FAKE_HERDR_MISSING FM_FAKE_HERDR_AGENT_STATUS FM_FAKE_CI_LOGS
+  export FM_FAKE_DAEMON_DOWN
   export FM_FAKE_GH_AXI_CALLS FM_FAKE_PR_STATE FM_FAKE_PR_HEAD
   export FM_FAKE_PR_CHECKS_TOTAL FM_FAKE_PR_CHECKS_COMPLETED FM_FAKE_PR_CHECKS_BAD
 }
@@ -2444,6 +2450,148 @@ test_the_parked_record_wins_over_the_preserved_terminal() {
   assert_contains "$out" "state: parked-exit" "the durable record should win over the preserved terminal"
   pass "fm-crew-state: the parked record wins over a preserved terminal"
 }
+
+# Failure-capable merge regressions for the two no-mistakes reconciliation
+# rules restored from upstream: live runs beat terminal corpses, while a
+# failed run is reclassified only when CI is its sole failed step and the
+# latest CI marker is green.
+run_failed_ci_orphan() {  # <branch> [also-fail-lint]
+  local lint_status=completed
+  [ "${2:-}" = also-fail-lint ] && lint_status=failed
+  cat <<EOF
+run:
+  id: "01RUN"
+  branch: $1
+  status: failed
+  head: "${FM_FAKE_RUN_HEAD:-abc1234}"
+  pr: "https://github.com/o/r/pull/203"
+  findings: none
+outcome: failed
+steps[4]{step,status,findings,duration_ms}:
+  review,completed,0,0
+  test,completed,0,0
+  lint,$lint_status,0,0
+  ci,failed,0,76127890
+EOF
+}
+
+test_terminal_corpse_loses_to_live_run_on_same_branch() {
+  reset_fakes
+  local d base live short_base short_live out
+  d=$(new_case live-beats-corpse)
+  make_repo_on_branch "$d/wt" fm/feat-corpse
+  base=$(git -C "$d/wt" rev-parse HEAD)
+  git -C "$d/wt" commit -q --allow-empty -m 'live run advanced the tip'
+  live=$(git -C "$d/wt" rev-parse HEAD)
+  git -C "$d/wt" reset -q --hard "$base"
+  short_base=$(git -C "$d/wt" rev-parse --short=7 "$base")
+  short_live=$(git -C "$d/wt" rev-parse --short=7 "$live")
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/corpse.meta" "window=fm:fm-corpse" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_RUN_HEAD=$base
+  FM_FAKE_AXI_STATUS="$(run_failed fm/feat-corpse)"
+  FM_FAKE_RUNS_LIST="  failed fm/feat-corpse $short_base 2026-08-05 11:20
+  running fm/feat-corpse $short_live 2026-08-05 10:05"
+  out=$(run_crew_state "$d" corpse)
+  assert_contains "$out" 'state: working' 'live successor must outrank terminal corpse'
+  assert_not_contains "$out" 'state: failed' 'terminal corpse must not mask a live successor'
+  pass 'a live no-mistakes successor outranks a terminal corpse on the same branch'
+}
+
+test_unfetched_live_sibling_outranks_exact_terminal_anchor() {
+  reset_fakes
+  local d base short_base out
+  d=$(new_case unfetched-live-sibling)
+  make_repo_on_branch "$d/wt" fm/feat-unfetched
+  base=$(git -C "$d/wt" rev-parse HEAD)
+  short_base=$(git -C "$d/wt" rev-parse --short=7 "$base")
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/unfetched.meta" "window=fm:fm-unfetched" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_RUN_HEAD=$base
+  FM_FAKE_AXI_STATUS="$(run_failed fm/feat-unfetched)"
+  FM_FAKE_RUNS_LIST="  failed fm/feat-unfetched $short_base 2026-08-05 11:20
+  running fm/feat-unfetched 0123abc 2026-08-05 10:05"
+  out=$(run_crew_state "$d" unfetched)
+  assert_contains "$out" 'state: working' 'exact terminal anchor should bind its unfetched live sibling'
+  assert_not_contains "$out" 'state: failed' 'unfetched live sibling must outrank the anchor corpse'
+  pass 'an exact terminal anchor safely binds an unfetched live sibling'
+}
+
+test_terminal_only_rows_keep_newest_precedence() {
+  reset_fakes
+  local d base short_base out
+  d=$(new_case terminal-only-order)
+  make_repo_on_branch "$d/wt" fm/feat-terminal-order
+  base=$(git -C "$d/wt" rev-parse HEAD)
+  short_base=$(git -C "$d/wt" rev-parse --short=7 "$base")
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/terminal-order.meta" "window=fm:fm-terminal-order" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_running fm/other-crew)"
+  FM_FAKE_RUNS_LIST="  cancelled fm/feat-terminal-order $short_base 2026-08-05 11:20
+  completed fm/feat-terminal-order $short_base 2026-08-05 10:05"
+  out=$(run_crew_state "$d" terminal-order)
+  assert_contains "$out" 'state: failed' 'newest terminal row must retain precedence'
+  assert_contains "$out" 'run cancelled' 'newer cancellation must beat older completion'
+  pass 'terminal-only run rows retain newest-first precedence'
+}
+
+test_green_orphaned_ci_monitor_reads_held_done() {
+  reset_fakes
+  local d out
+  d=$(new_case green-orphaned-ci)
+  make_repo_on_branch "$d/wt" fm/feat-green-orphan
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/green-orphan.meta" "window=fm:fm-green-orphan" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_failed_ci_orphan fm/feat-green-orphan)"
+  FM_FAKE_CI_LOGS='all CI checks passed - still monitoring until merged or closed'
+  out=$(run_crew_state "$d" green-orphan)
+  assert_contains "$out" 'state: done' 'green orphaned CI monitor should read held for merge'
+  assert_contains "$out" 'PR held for merge' 'detail must distinguish held green from merged'
+  assert_not_contains "$out" 'state: failed' 'monitor death is not work failure'
+  pass 'a sole failed CI monitor after green reads done and held for merge'
+}
+
+test_second_failed_step_prevents_green_reclassification() {
+  reset_fakes
+  local d out
+  d=$(new_case green-ci-second-failure)
+  make_repo_on_branch "$d/wt" fm/feat-two-failures
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/two-failures.meta" "window=fm:fm-two-failures" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_failed_ci_orphan fm/feat-two-failures also-fail-lint)"
+  FM_FAKE_CI_LOGS='all CI checks passed - still monitoring until merged or closed'
+  out=$(run_crew_state "$d" two-failures)
+  assert_contains "$out" 'state: failed' 'a substantive failed step must keep failure'
+  assert_not_contains "$out" 'state: done' 'green CI cannot erase another failed step'
+  pass 'a second failed step prevents orphaned-CI reclassification'
+}
+
+test_coarse_failed_ledger_is_unknown_only_while_daemon_down() {
+  reset_fakes
+  local d short out
+  d=$(new_case coarse-daemon-down)
+  make_repo_on_branch "$d/wt" fm/feat-coarse-down
+  short=$(git -C "$d/wt" rev-parse --short=7 HEAD)
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/coarse-down.meta" "window=fm:fm-coarse-down" "worktree=$d/wt" "kind=ship"
+  FM_FAKE_AXI_STATUS="$(run_running fm/other-crew)"
+  FM_FAKE_RUNS_LIST="  failed fm/feat-coarse-down $short 2026-09-05 21:00"
+  FM_FAKE_DAEMON_DOWN=1
+  out=$(run_crew_state "$d" coarse-down)
+  assert_contains "$out" 'state: unknown' 'dead instrument makes coarse failure unverified'
+  assert_contains "$out" 'daemon unreachable' 'unknown detail must name the failed instrument'
+  FM_FAKE_DAEMON_DOWN=0
+  out=$(run_crew_state "$d" coarse-down)
+  assert_contains "$out" 'state: failed' 'same coarse failure remains failed while daemon is healthy'
+  pass 'coarse failed ledger is unknown only when the daemon is provably down'
+}
+
+test_terminal_corpse_loses_to_live_run_on_same_branch
+test_unfetched_live_sibling_outranks_exact_terminal_anchor
+test_terminal_only_rows_keep_newest_precedence
+test_green_orphaned_ci_monitor_reads_held_done
+test_second_failed_step_prevents_green_reclassification
+test_coarse_failed_ledger_is_unknown_only_while_daemon_down
 
 test_genuine_parked_not_superseded
 test_scalar_gate_parked_not_superseded

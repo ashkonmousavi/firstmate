@@ -98,9 +98,10 @@ make_case() {
 
   # Mocks for the post-check teardown steps. Refuse logic exits before these
   # run; the ALLOW cases need them so the script can complete cleanly.
-  cat > "$fakebin/treehouse" <<'SH'
+cat > "$fakebin/treehouse" <<'SH'
 #!/usr/bin/env bash
 # `treehouse return --force <wt>`: succeed silently.
+[ -z "${FM_FAKE_TREEHOUSE_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_TREEHOUSE_LOG"
 exit 0
 SH
   cat > "$fakebin/tmux" <<'SH'
@@ -898,6 +899,25 @@ test_local_only_fork_remote_allows() {
   ' "$case_dir/state/home-summary.json" >/dev/null \
     || fail "successful task teardown did not publish the task's removal from the home summary ledger"
   pass "local-only worktree with HEAD on a fork remote is torn down and the home summary is refreshed"
+}
+
+test_durable_treehouse_lease_cleanup_is_bound_to_the_recorded_holder() {
+  local case_dir rc log
+  case_dir=$(make_case durable-lease-holder)
+  write_meta "$case_dir" local-only ship
+  printf 'treehouse_lease_holder=task-x1\n' >> "$case_dir/state/task-x1.meta"
+  wt_commit "$case_dir" "durably leased work"
+  add_fork_with_pushed_branch "$case_dir"
+  log="$case_dir/treehouse-holder.log"
+
+  set +e
+  FM_FAKE_TREEHOUSE_LOG="$log" run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  rc=$?
+  set -e
+  expect_code 0 "$rc" "durable holder cleanup should succeed"
+  assert_grep "return --force --if-lease-holder task-x1 $case_dir/wt" "$log" \
+    "teardown returned the lease without binding cleanup to its recorded holder"
+  pass "durable Treehouse cleanup is conditional on the task's recorded lease holder"
 }
 
 FM_READY_FRONTIER_SENTENCE_FOR_TEST='Live tasks are bounded by the concurrency cap and by serial integration onto an unstable seam; preparation is never seam-bounded, and every undispatched ready item carries a recorded rule, owner, and recheck event.'
@@ -4311,6 +4331,7 @@ EOF
 }
 
 test_local_only_fork_remote_allows
+test_durable_treehouse_lease_cleanup_is_bound_to_the_recorded_holder
 test_cleanup_of_a_reassigned_worktree_leaves_the_occupying_task_untouched
 test_force_does_not_lift_the_reassigned_worktree_guard
 test_the_last_record_naming_a_shared_worktree_still_returns_it

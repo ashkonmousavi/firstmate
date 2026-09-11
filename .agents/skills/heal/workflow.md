@@ -19,16 +19,19 @@ Use settled merge and deployment authority without asking the captain to repeat 
 Reserved spending, trading, destructive actions, unlanded-work disposal, security-sensitive work, and disruptive production actions remain independently governed.
 Never alter existing supervisor notification, queue, presentation, or acknowledgement cursors.
 
-## Read-only advisor mode
+## Advisor mode
 
-Without verified lock ownership, inspect only evidence already readable under existing authority.
-Do not run any mutating `bin/fm-heal.sh` subcommand.
-Do not initialize, edit, archive, rebuild, or checkpoint the ledger.
-Do not acquire or recover the lock, start or steer workers, acknowledge queues, alter fleet state, or publish an advisory file unless a separate current instruction authorizes that exact output.
+Without verified lock ownership, keep the operational home and live fleet read-only.
+Apply the same completion and correctness review to evidence readable under existing authority, omitting every ledger or fleet mutation in the invocation flow below.
+Do not initialize, edit, archive, rebuild, or checkpoint the ledger, acquire or recover the lock, start or steer workers, acknowledge queues, or alter fleet state.
+A separate current instruction may authorize concrete repair preparation in a named isolated area.
+Within that exact scope, produce the correction, focused tests and reviewable patch or handoff; do not stop at recommendations when that work is already authorized.
+Such authorization does not permit live source activation, project or fleet operations, sending instructions, or claiming a verified-owner role.
+Without output or implementation authority, return findings and the precise proposed correction in chat.
 
-Return a prioritized chat recommendation with machine observation times and relevant project, task, run, commit, deployment, and runtime identities.
-Separate facts, hypotheses, uncertainty, containment suggestions, and proof still needed.
-State that the lock-owning Firstmate must refresh volatile evidence before acting because an advisory report is not authority.
+Identify the observed source revision, observation times, affected identities, prepared changes, checks actually run, uncertainty, and remaining activation or consuming proof.
+The lock-owning Firstmate must reconcile volatile state and deliver through the supported owner before a prepared repair can count as active.
+A patch or advisory report supplies evidence, not new operational authority.
 
 ## Private ledger
 
@@ -138,14 +141,24 @@ Derive permitted actions from current evidence and authority, never from a label
 
 ### 1. Direction first
 
-Before any failure inventory, name the next complete application outcome from the project's own authority: its roadmap, open Changes, and the captain's standing instructions in `data/captain.md`.
-Identify the current captain intent, applicable authority, active repair owners, protected landing candidate, and reserved operational windows.
+Before any failure inventory, identify the current captain intent and complete accepted destination from the owning goal or completion contract, plan, project authority and current decisions.
+Include retained future obligations and accepted scope whose original task is closed; a recent-event window never limits this obligation check.
+Reuse the existing authoritative obligation mapping or task body, linking each completion clause to its owner, actual evidence and remaining step rather than creating another checklist or completion database.
+Distinguish a finite recovery milestone, the next complete application outcome and the remaining application plan; completing one does not complete the others.
+A cleared or absent runtime goal, checked box, report path, green component test or exhausted allowance is not completion evidence.
+If the full accepted scope or a claimed proof cannot be read, name the coverage gap and keep the affected completion claim unverified.
+
+Classify unresolved direction through its existing project owner instead of treating every unknown as a captain decision or inventing a future contract.
+Apply the current assigned decision and design authority: material choices reserved to an advisor go there, captain choices stay with the captain, and routine implementation within accepted scope proceeds through its existing owner.
+Respect the current accepted design and any concrete captain update; identify behavioral facts and missing capability without assuming design authority or treating a reference artifact as an accepted handoff.
+Identify active repair owners, protected landing candidates and reserved operational windows.
 
 For every live assignment relevant to that outcome, compare its effective brief (`data/<id>/brief.md`) against the task body, the hold reason, and the owning specification, and record whether the brief actually delivers the outcome.
-A disagreement between them is a finding classified `neglected-obligation`; its repair is rewriting the instruction at its owning source, reclassifying the task, and verifying the worker consumed the correction, not merely filing the finding.
+An operative disagreement is a finding classified `neglected-obligation`; establish which current authority governs before preparing its correction.
+Repair the owning source and affected task state through their supported owners, then verify the effective worker or runtime consumed the correction; merely filing the finding is insufficient.
 
 Question stale holds and apparent completion rather than accepting either at face value.
-A hold is stale when its recorded blocking reason no longer matches current records; reopen or reclassify it.
+A hold is stale when its recorded blocking reason no longer matches current authoritative evidence; reconcile it through the supported transition without inventing an answer or bypassing its remaining gates.
 Distinguish the task's bounded deliverable from the complete application outcome it supports.
 Check the full chain of requirement, owning specification, effective brief, implementation and consumers, integration, deployment and user evidence before calling that application outcome complete.
 A constituent task may close under its existing delivery contract once its own required proof is complete and any remaining integration or journey obligation has a durable owner and release trigger.
@@ -155,7 +168,9 @@ Default to evidence since the previous completed pass plus every unresolved carr
 On the first pass, use a bounded recent window of roughly four hours unless `$ARGUMENTS` supplies another clear window.
 Treat pasted transcripts, old reports, remembered counts, and previous assurances as claims until refreshed.
 
-Bound the pass from here: prioritize promptly (step 5), normally deepen only the highest-impact one to three investigations (curation budgets below), advance repairs through normal supervision, and never freeze independent application progress.
+Bound the pass from here: cover the accepted completion clauses using existing records, then normally deepen only the highest-impact one to three concrete discrepancies.
+A coverage check is not a full implementation audit or a claim that every scenario was exercised.
+Record uncovered areas explicitly, advance eligible repairs through normal supervision, and never freeze independent application progress to repeat an already reviewed plan.
 
 Begin an incomplete scan with `checkpoint-begin` and a unique scan ID.
 Name each authoritative source by a stable source ID and immutable or rotation-aware identity.
@@ -172,12 +187,11 @@ Measure resource behavior because full swap alone does not prove current pressur
 
 ### 3. Check obligations and delivery links lightly
 
-Direction first already deepened the outcome-relevant assignments; broaden the same questioning lightly across the rest of current obligations.
-Use current controlling requirements, ownership records, application paths, and operational paths.
-Look for missing ownership, stale instructions, unsupported completion claims, actual gates, unreliable worker state, duplicate work, unjustified holds, over-broad dependencies, recurring resource or environment failures, repeated verification or landing friction, absorbed-work gaps, incomplete operator journeys, missing consumers, and inconsistent identities or timestamps.
-Account for unfinished accepted obligations whose original task closed.
-An adopted architecture, installed library, design record, test name, passing branch, or passing isolated test does not prove a working consumer or matching deployment.
-Deepen only on observed discrepancies rather than auditing every historical file.
+Check current assignments and recent claimed deliveries against their accepted requirements, not just recent failure messages.
+For each material completion claim, follow the selected input and settings through the real entrypoint, gates, implementation, durable result and downstream consumer, including restart or reopening when required.
+Distinguish supported and proven behavior, built but defective behavior, accepted but unimplemented work, and an unresolved specification; never downgrade a requirement to match an implementation defect.
+Deepen on observed discrepancies and unresolved proof relevant to the completion claim, not every historical file.
+A text scan or structural source identity does not establish semantic correctness; cite the proof class and the checks still missing.
 
 ### 4. Diagnose
 
@@ -203,12 +217,19 @@ Do not manufacture scores, findings, tasks, or wasted-time estimates.
 ### 6. Challenge friction and repair the source
 
 For a delaying rule, establish the failure it protects against, whether an existing check already provides that protection, the measured delay or rework, and the smallest supported simplification that preserves necessary safety.
-Correct obsolete Firstmate-written rules at their owning source within existing authority.
-Bring genuinely reserved changes to the captain as one concrete proposal.
+A repeated failure or measured delay is evidence for a change, not authorization to weaken a guard.
+Correct unambiguous deviations from accepted instructions at their owning source within existing authority.
+Return a substantive rule, contract, architecture, priority or proof-policy change to its assigned decision owner with a concrete amendment and evidence; use the captain only for a genuinely reserved captain decision.
 Do not weaken accepted behavior, discard work, bypass combined-code proof, or preserve redundant process merely because it is written down.
 
-Amend an existing owner's instructions before filing a new task.
-Parallelize independent repairs only within measured capacity.
+Once the correction is authorized and its cause bounded, advance it through the existing owner in this pass rather than returning another diagnosis-only plan.
+If only a particular action is blocked, record its exact obstacle and release trigger while other authorized steps continue.
+Refresh an existing owner's instructions before filing duplicate work, respecting active validation custody: workers do not edit a pipeline-owned branch or answer their own approval gate.
+Parallelize independent repairs within measured capacity and current dispatch authority, including across stages when the actual dependencies permit it.
+Use the existing integration-batch delivery owner when applicable to choose compatible membership before redundant constituent pipelines.
+Under the accepted project delivery policy, do not impose a full pipeline on each constituent merely for batch membership or restart each constituent solely because main advanced.
+Revalidate affected constituent authority or consumers when a material dependency changes; reuse remains bounded by that policy.
+This constituent reuse does not waive required checks for an ordinary PR or the final combined candidate; refresh required premerge proof when that candidate changes and retain its exact-head checks.
 A dependency blocks only the step that requires it.
 When a release trigger slips or a repair recurs, reassess the hold and its owner instead of repeating the same waiting instruction.
 Coordinate mutable joins and final landing windows through their existing owners.
@@ -218,7 +239,7 @@ Reporting alone is not execution.
 ### 7. Prove and close
 
 A repair is proven only by four recorded facts on the finding: the original failure detected, the correction made at its owning source, the correction consumed by the worker or runtime, and the intended application work resumed.
-A green isolated test, a filed task, or a notebook entry alone is not a repair; record all four facts in the finding's existing prose fields rather than treating any one of them as sufficient.
+A green isolated test, a filed task, or a notebook entry alone is not a repair; no field-presence check establishes that any of these four facts is true.
 Substantiate the original failure, show that the correction addresses it, prove normal authorized behavior, prove the actual consumer uses it, and show the blocked work or affected operator journey proceeds.
 A path or a structurally valid record supplied as consumer proof is not semantic proof, so before calling a repair effective, inspect the named consumer's actual result and confirm it shows the corrected behavior.
 For guards, prove both intended refusals and authorized operations.
@@ -238,7 +259,11 @@ Absence of another incident is not proof that a recurring cause was eliminated.
 Rewrite the promoted findings' current summaries from new evidence, reconcile owners and release triggers, rebuild the index, and archive eligible closures.
 Record scan completion only after every expected source identity exactly matches the sources safely preserved in the checkpoint.
 Missing, unreadable, rotated, or truncated input keeps the scan incomplete with the gap stated.
-A diagnostic pass may finish while repairs continue through normal supervision, but pending proof remains visible with an owner and observation trigger.
+A manual pass may finish after it advances the selected authorized repairs, with genuinely pending work continuing through normal supervision and its owner and observation trigger recorded.
+Distinguish that pass result from repair closure and from the accepted goal or plan's completion; none follows from a completed scan.
+Before claiming the goal complete, prove every applicable goal clause against actual evidence and its required review.
+Account for retained future obligations under their existing owners without requiring them to finish before a finite goal closes or claiming they are complete.
+Keep compact progress and exact next actions in the existing task or goal record so a cleared goal or compaction cannot silently drop work; use supported resume and supervision, never a new watcher, recursive goal or automatic heal loop.
 
 Lead the outcome with material change and what it unblocked.
 Suppress unchanged narration.
@@ -284,6 +309,8 @@ Rewrite current summaries instead of appending a pass diary.
 
 The healing ledger is excluded from automatic startup memory and the startup digest.
 Proven general lessons go to their existing owning source through normal write and review rules.
+Replace superseded operative prose there instead of appending a contradictory correction; verify its remaining safety and accepted future obligations before removing it.
+Keep necessary audit and work evidence in its existing task report or recoverable history outside default active context, with a surviving owner for every unfinished obligation.
 Do not copy `/stow` migration, decay-counter, cascade, or budget-escalation machinery.
 Housekeeping never interrupts important delivery.
 

@@ -46,14 +46,15 @@
 # below for why that enumeration is deliberately broader than the idle-capacity
 # read above, and for what "productive" is read from.
 # state/.dispatch-freeze is the captain's own silencing record. Line 1 is the
-# reason, line 2 a YYYY-MM-DD date it stops applying on. Only a captain
-# instruction creates it; no script writes it. While it applies, the block
+# reason, line 2 a YYYY-MM-DD recheck date. bin/fm-dispatch-freeze.sh is the
+# only supported writer/releaser. While it exists, the block
 # prints FREEZE instead and FM_IDLE_CAPACITY (the dispatch-now branch) stays
 # false, so a frozen home is not forced to dispatch work it was told to hold.
 # fm_supervision_status still treats a freeze with ready work as needing a
 # watcher (FM_SUP_NEEDED true, FM_SUP_IDLE_CAPACITY false): the freeze silences
-# the escalation, not the fleet's only chance to notice when it expires. On and
-# after the until date, the record is ignored entirely.
+# the escalation, not the fleet's only chance to notice when its recheck is
+# due. A date is a reminder, never permission: only an explicit release removes
+# the record and permits dispatch again.
 # HOLD_STALE and HOLD_DUE. A hold with no `--until` date and no recheck event
 # named in its reason is a decision nobody scheduled; tasks-axi records no hold
 # timestamp, so its age is measured from the item's own recorded start date -
@@ -130,19 +131,31 @@ fm_idle_days_since() {  # <yyyy-mm-dd>
   printf '%s\n' $((now - was))
 }
 
-# The captain's silencing record, if it currently applies. Prints the FREEZE
-# line and returns 0; returns 1 when absent, expired, or malformed, so an
-# unreadable record can never hide idle capacity.
+# The captain's silencing record, whenever it exists. Prints the FREEZE line
+# and returns 0. A malformed record fails closed with an explicit diagnostic:
+# unknown pause state must never become permission to dispatch.
 fm_idle_freeze_line() {  # <state-dir>
   local record="$1/.dispatch-freeze" reason until_date days
   [ -f "$record" ] || return 1
-  IFS= read -r reason < "$record" || return 1
+  if ! IFS= read -r reason < "$record"; then
+    printf 'FREEZE: dispatch pause record is unreadable; explicit release required\n'
+    return 0
+  fi
   until_date=$(sed -n '2p' "$record" 2>/dev/null)
   reason=${reason%$'\r'}; until_date=${until_date%$'\r'}
-  [ -n "$reason" ] || return 1
-  days=$(fm_idle_days_since "$until_date") || return 1
-  [ "$days" -lt 0 ] || return 1
-  printf 'FREEZE: %s until %s\n' "$reason" "$until_date"
+  if [ -z "$reason" ]; then
+    printf 'FREEZE: dispatch pause reason is unreadable; explicit release required\n'
+    return 0
+  fi
+  if ! days=$(fm_idle_days_since "$until_date"); then
+    printf 'FREEZE: %s; recheck date unreadable; explicit release required\n' "$reason"
+    return 0
+  fi
+  if [ "$days" -ge 0 ]; then
+    printf 'FREEZE: %s; recheck due %s; explicit release required\n' "$reason" "$until_date"
+  else
+    printf 'FREEZE: %s; recheck %s\n' "$reason" "$until_date"
+  fi
 }
 
 # Free worktree slots across one pool. Prints an integer, or nothing when
@@ -224,6 +237,44 @@ fm_concurrency_cap_value() {  # [config-dir]
   printf '%s\n' "$cap"
 }
 
+# Expired hold dates are reminders to re-evaluate a real condition, never a
+# backlog release. tasks-axi 0.2.5 dynamically presents such rows as queued and
+# ready while retaining their hold_until metadata, so consumers must exclude
+# them until the owning workflow explicitly releases the hold.
+fm_expired_hold_ids() {  # <backlog>
+  local backlog=$1 listed today
+  listed=$(tasks-axi list --file "$backlog" --state queued --fields hold_until 2>/dev/null) \
+    || return 1
+  today=$(date +%Y-%m-%d)
+  printf '%s\n' "$listed" | awk -F',' -v today="$today" '
+    /^tasks\[/ { rows = 1; next }
+    /^[^[:space:]]/ { rows = 0 }
+    rows && /^[[:space:]]/ {
+      sub(/^[[:space:]]+/, "")
+      due = $NF
+      gsub(/^"|"$/, "", due)
+      if (due ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/ && due <= today) print $1
+    }'
+}
+
+# Print only the ready rows not still carrying an expired hold reminder.
+fm_ready_rows_without_expired_holds() {  # <ready-output> <expired-ids>
+  local ready_out=$1 expired=${2:-}
+  printf '%s\n' "$ready_out" | awk -v excluded="$expired" '
+    BEGIN {
+      n = split(excluded, ids, "\n")
+      for (i = 1; i <= n; i++) if (ids[i] != "") skip[ids[i]] = 1
+    }
+    /^ready\[/ { rows = 1; next }
+    /^[^[:space:]]/ { rows = 0 }
+    rows && /^[[:space:]]/ {
+      sub(/^[[:space:]]+/, "")
+      id = $0
+      sub(/,.*/, "", id)
+      if (!skip[id]) print
+    }'
+}
+
 # Populate the idle-capacity fields for one home. Never prints, never writes.
 #   FM_IDLE_READY   ready (dispatchable now) item count, across every project
 #   FM_IDLE_HELD    held item count
@@ -238,6 +289,9 @@ fm_concurrency_cap_value() {  # [config-dir]
 #   FM_IDLE_STALE   "<id> <age>d" HOLD_STALE lines for holds with neither date
 #                   nor event, and "<id> <age>d overdue" HOLD_DUE lines for
 #                   holds whose --until date has already passed
+#   FM_IDLE_RECHECK_DUE  true when at least one expired hold reminder needs its
+#                   owning condition re-evaluated; this keeps supervision alive
+#                   without making the item dispatchable
 #   FM_IDLE_CAPACITY_HELD  one "<repo>\t<id>\t<free>" line per held item whose
 #                   hold is --kind load, or whose reason names a capacity/slot
 #                   phrase (fm_idle_reason_is_capacity_phrase), sitting in
@@ -266,13 +320,14 @@ fm_concurrency_cap_value() {  # [config-dir]
 #                     of the predicate
 fm_idle_capacity_compute() {  # <state-dir> [data-dir] [root] [config-dir]
   local state=$1 data=${2:-} root=${3:-$FM_IDLE_SELF_ROOT} config=${4:-}
-  local backlog ready_out held_out due_out meta row id until_date reason days due_days
+  local backlog ready_out ready_rows expired_ids held_out due_out meta row id until_date reason days due_days
   local cap project_ready_lines label ready_n project_root free
   local repo hold_kind is_capacity
   FM_IDLE_READY=0; FM_IDLE_HELD=0; FM_IDLE_LIVE=0
   FM_IDLE_IDS=''; FM_IDLE_STALE=''; FM_IDLE_FREEZE=''; FM_IDLE_WARN=''
   FM_IDLE_PROJECTS=''
   FM_IDLE_CAPACITY_HELD=''
+  FM_IDLE_RECHECK_DUE=false
   FM_IDLE_AT_CAP=false
   FM_IDLE_CAPACITY=false
   FM_IDLE_READY_READ=false
@@ -300,17 +355,19 @@ fm_idle_capacity_compute() {  # <state-dir> [data-dir] [root] [config-dir]
   # shellcheck disable=SC2034 # Read by callers (fm-teardown.sh) after sourcing.
   FM_IDLE_READY_READ=true
 
-  FM_IDLE_READY=$(printf '%s\n' "$ready_out" | sed -n 's/^ready\[\([0-9][0-9]*\)\].*/\1/p' | head -1)
   FM_IDLE_HELD=$(printf '%s\n' "$ready_out" | sed -n 's/^held\[\([0-9][0-9]*\)\].*/\1/p' | head -1)
-  [ -n "$FM_IDLE_READY" ] || FM_IDLE_READY=0
   [ -n "$FM_IDLE_HELD" ] || FM_IDLE_HELD=0
+  if ! expired_ids=$(fm_expired_hold_ids "$backlog"); then
+    ready_rows=''
+    FM_IDLE_WARN='IDLE CAPACITY WARN: queued rows could not be read, so due holds and dispatchability are unknown.'
+  else
+    ready_rows=$(fm_ready_rows_without_expired_holds "$ready_out" "$expired_ids")
+  fi
+  FM_IDLE_READY=$(printf '%s\n' "$ready_rows" | sed '/^$/d' | wc -l | tr -d '[:space:]')
   # Ready rows are "id,state,kind,repo,title" (tasks-axi ready's own header
   # declares the order); only title is free text, so id (leftmost) and repo
   # (fourth column) are both safe to read positionally regardless of it.
-  FM_IDLE_IDS=$(printf '%s\n' "$ready_out" | awk -F',' '
-    /^ready\[/ { rows = 1; next }
-    /^[^[:space:]]/ { rows = 0 }
-    rows && /^[[:space:]]/ { sub(/^[[:space:]]+/, ""); if ($1 != "") print $1 }')
+  FM_IDLE_IDS=$(printf '%s\n' "$ready_rows" | awk -F',' '$1 != "" { print $1 }')
 
   FM_IDLE_FREEZE=$(fm_idle_freeze_line "$state") || FM_IDLE_FREEZE=''
 
@@ -389,8 +446,6 @@ fm_idle_capacity_compute() {  # <state-dir> [data-dir] [root] [config-dir]
       rows && /^[[:space:]]/ { sub(/^[[:space:]]+/, ""); print }')
   fi
 
-  [ "$FM_IDLE_READY" -gt 0 ] || return 0
-
   # A hold whose --until date has arrived reads as resumed (queued, not held)
   # from that moment on - tasks-axi's own dynamic read, not this file's doing -
   # but the hold_reason/hold_kind/hold_until it carried are left on the row.
@@ -406,6 +461,7 @@ fm_idle_capacity_compute() {  # <state-dir> [data-dir] [root] [config-dir]
       due_days=$(fm_idle_days_since "$until_date") || continue
       [ "$due_days" -ge 0 ] || continue
       FM_IDLE_STALE="${FM_IDLE_STALE}HOLD_DUE: $id ${due_days}d overdue"$'\n'
+      FM_IDLE_RECHECK_DUE=true
     done < <(printf '%s\n' "$due_out" | awk '
       /^tasks\[/ { rows = 1; next }
       /^[^[:space:]]/ { rows = 0 }
@@ -414,15 +470,14 @@ fm_idle_capacity_compute() {  # <state-dir> [data-dir] [root] [config-dir]
     [ -n "$FM_IDLE_WARN" ] || FM_IDLE_WARN='IDLE CAPACITY WARN: queued rows could not be read, so due holds are unknown.'
   fi
 
+  [ "$FM_IDLE_READY" -gt 0 ] || return 0
+
   # One "<label>\tready=<n>" per distinct project referenced by a ready item,
   # first-seen order, from a single awk pass over the same rows FM_IDLE_IDS
   # read. repo ("-" for a firstmate item) arrives quoted only when it is the
   # bare literal "-"; gsub strips that so "-" compares equal either way.
-  project_ready_lines=$(printf '%s\n' "$ready_out" | awk -F',' '
-    /^ready\[/ { rows = 1; next }
-    /^[^[:space:]]/ { rows = 0 }
-    rows && /^[[:space:]]/ {
-      sub(/^[[:space:]]+/, "")
+  project_ready_lines=$(printf '%s\n' "$ready_rows" | awk -F',' '
+    /^[^[:space:]]/ {
       repo = $4
       gsub(/^"|"$/, "", repo)
       if (!(repo in seen)) { order[++n] = repo; seen[repo] = 1 }
@@ -654,11 +709,13 @@ fm_lane_floor_value() {  # [config-dir]
 }
 
 # --- productive lanes -------------------------------------------------------
-# What the floor counts. A lane is PRODUCTIVE when it is working, when a
-# pipeline run is driving it, or when it is holding an actionable gate for its
-# own task - and that verdict comes from bin/fm-crew-state.sh, the one owner of
-# a task's CURRENT state. The newest state/<id>.status line is a wake EVENT, not
-# a state (that file's header owns why), so counting its verb read a fleet of
+# What the floor counts. A lane is PRODUCTIVE only when a current execution
+# source says it is working: an attributed pipeline run, a verified busy pane,
+# or a live remote endpoint. `working` reconstructed from the append-only status
+# log is still only an event and is reported as unknown (or prepared when the
+# event says so), never promoted to active work. An actionable gate is visible
+# but not productive. bin/fm-crew-state.sh remains the one owner of the
+# reconciled state and source. Counting status verbs or gates read a fleet of
 # waiting holders as a fleet of live lanes: 21 task records, one to three lanes
 # actually computing, and no breach ever reported (captain 2026-09-08).
 # Every other lane is reported in its own bucket rather than folded into the
@@ -681,11 +738,11 @@ fm_lane_floor_value() {  # [config-dir]
 # instantly, and there is no correct way to shorten it - counting an unread lane
 # as productive would hide the very breach this exists to find, and counting it
 # as idle would assert one from work never read.
-# FAIL SOFT, PRECISELY. A read that could not be COMPLETED falls back to the
-# pre-reconciliation rule (every lane counts except one whose newest event
-# declares a bounded external wait), so a missing or unrunnable reconciler never
-# manufactures a breach. A read that COMPLETED and reported a dead or
-# indeterminate lane is positive evidence and is counted as such.
+# FAIL SOFT, PRECISELY. A read that could not be completed is reported as
+# unreconciled/unknown. It cannot truthfully count as active merely to suppress a
+# breach; the rendered bucket exposes the uncertainty instead. A read that
+# completed and reported a dead or indeterminate lane is classified from that
+# positive evidence.
 # FM_LANE_FLOOR_CREW_STATE overrides the reconciler command. Tests set it
 # because a real pane, endpoint, and pipeline run cannot be built in a temp dir
 # - the same reason `treehouse` is a PATH shim there.
@@ -742,9 +799,9 @@ fm_lane_floor_status_verb() {  # <status-line>
 # Classify every lane this home is running. Never prints, never writes.
 #   FM_LANE_FLOOR_TOTAL       every state/<id>.meta - the number the cap bounds
 #   FM_LANE_FLOOR_PRODUCTIVE  lanes the floor counts (see above)
-#   FM_LANE_FLOOR_GATED       the subset of those holding an actionable gate,
-#                             reported separately so a fleet of gates can never
-#                             read as a fleet of computing lanes
+#   FM_LANE_FLOOR_PREPARED    delivery-ready lanes awaiting validation/handling
+#   FM_LANE_FLOOR_GATED       lanes holding an actionable gate
+#   FM_LANE_FLOOR_PARKED      deliberately stopped lanes whose custody remains
 #   FM_LANE_FLOOR_WAITING     lanes declaring a bounded external wait
 #   FM_LANE_FLOOR_EXITED      agent gone or endpoint dead, worktree kept
 #   FM_LANE_FLOOR_UNKNOWN     state read, but not determinable
@@ -764,7 +821,9 @@ fm_lane_floor_classify() {  # <state-dir> <floor>
   local state=$1 floor=$2 meta id last verb reconciled st src project
   FM_LANE_FLOOR_TOTAL=0
   FM_LANE_FLOOR_PRODUCTIVE=0
+  FM_LANE_FLOOR_PREPARED=0
   FM_LANE_FLOOR_GATED=0
+  FM_LANE_FLOOR_PARKED=0
   FM_LANE_FLOOR_WAITING=0
   FM_LANE_FLOOR_EXITED=0
   FM_LANE_FLOOR_UNKNOWN=0
@@ -807,12 +866,25 @@ fm_lane_floor_classify() {  # <state-dir> <floor>
       src=${reconciled##* }
       case "$st" in
         working)
-          FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1)) ;;
-        parked|blocked|needs-inspection)
-          FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1))
+          case "$src:$last" in
+            status-log:*prepared*)
+              FM_LANE_FLOOR_PREPARED=$((FM_LANE_FLOOR_PREPARED + 1)) ;;
+            run-step:*|pane:*|remote-endpoint:*)
+              FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1)) ;;
+            *)
+              FM_LANE_FLOOR_UNKNOWN=$((FM_LANE_FLOOR_UNKNOWN + 1)) ;;
+          esac ;;
+        parked)
+          FM_LANE_FLOOR_GATED=$((FM_LANE_FLOOR_GATED + 1)) ;;
+        parked-exit)
+          FM_LANE_FLOOR_PARKED=$((FM_LANE_FLOOR_PARKED + 1)) ;;
+        blocked|needs-inspection)
           FM_LANE_FLOOR_GATED=$((FM_LANE_FLOOR_GATED + 1)) ;;
         paused)
-          FM_LANE_FLOOR_WAITING=$((FM_LANE_FLOOR_WAITING + 1)) ;;
+          case "$last" in
+            *prepared*) FM_LANE_FLOOR_PREPARED=$((FM_LANE_FLOOR_PREPARED + 1)) ;;
+            *) FM_LANE_FLOOR_WAITING=$((FM_LANE_FLOOR_WAITING + 1)) ;;
+          esac ;;
         done|failed)
           FM_LANE_FLOOR_FINISHED=$((FM_LANE_FLOOR_FINISHED + 1))
           FM_LANE_FLOOR_IDLE="${FM_LANE_FLOOR_IDLE}${id}"$'\t'"finished, nothing uncommitted"$'\n' ;;
@@ -827,16 +899,13 @@ fm_lane_floor_classify() {  # <state-dir> <floor>
             FM_LANE_FLOOR_UNKNOWN=$((FM_LANE_FLOOR_UNKNOWN + 1))
           fi ;;
         *)
-          # A state this classification does not recognize is not evidence that
-          # the lane is idle, so it is soft exactly like a failed read.
-          FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1))
+          # A state this classification does not recognize is not evidence of
+          # activity. Preserve it as explicit uncertainty.
+          FM_LANE_FLOOR_UNKNOWN=$((FM_LANE_FLOOR_UNKNOWN + 1))
           FM_LANE_FLOOR_SOFT=$((FM_LANE_FLOOR_SOFT + 1)) ;;
       esac
-    elif [ "$verb" = paused ]; then
-      FM_LANE_FLOOR_WAITING=$((FM_LANE_FLOOR_WAITING + 1))
-      FM_LANE_FLOOR_SOFT=$((FM_LANE_FLOOR_SOFT + 1))
     else
-      FM_LANE_FLOOR_PRODUCTIVE=$((FM_LANE_FLOOR_PRODUCTIVE + 1))
+      FM_LANE_FLOOR_UNKNOWN=$((FM_LANE_FLOOR_UNKNOWN + 1))
       FM_LANE_FLOOR_SOFT=$((FM_LANE_FLOOR_SOFT + 1))
     fi
   done
@@ -888,15 +957,9 @@ fm_lane_floor_releasable() {  # <state-dir>
 }
 
 # Title+body+hold_reason text for backlog items that name a Change but are not
-# actually dispatchable right now: held --kind captain, or held --kind
-# external/parked/future whose named event has not fired, or blocked by a
-# still-open item. tasks-axi's own `held` field already reads a hold whose
-# --until has passed as queued rather than held, and its own `blocked` field
-# already reads a blocker that is done as not blocking, so a plain held=yes /
-# blocked=yes check here is exactly the still-actionable-by-firstmate-only
-# test fm_dispatchable_work's backlog half already applies - filing and
-# holding a decision for the captain is itself what removes the Change from
-# enumeration, and this reads that same record rather than re-deciding it.
+# actually dispatchable right now: held --kind captain, an external/parked/future
+# hold whose event has not fired, any queued row retaining an expired hold
+# reminder until its owner explicitly unholds it, or a still-open blocker.
 # blocked_by is deliberately not requested: it can hold a quoted
 # comma-separated id list, which would break the right-anchored trailing-field
 # strip below, and the boolean `blocked` field is all this needs.
@@ -909,15 +972,20 @@ fm_lane_floor_releasable() {  # <state-dir>
 # truncation marker pays for one `tasks-axi show --full` call to recover the
 # complete text; every other row costs nothing beyond the single listing read.
 fm_lane_floor_held_text() {  # <data-dir>
-  local data=$1 backlog="$1/backlog.md" list_out row rest hold_kind blocked held
-  local id qualifies full
-  [ -f "$backlog" ] && command -v tasks-axi >/dev/null 2>&1 || return 0
-  list_out=$(tasks-axi list --fields body,hold_reason,hold_kind,blocked,held --file "$backlog" 2>/dev/null) || return 0
+  local data=$1 backlog="$1/backlog.md" list_out row rest hold_kind hold_until blocked held
+  local id state_value today qualifies full
+  [ -f "$backlog" ] || return 0
+  command -v tasks-axi >/dev/null 2>&1 || return 1
+  list_out=$(tasks-axi list --fields body,hold_reason,hold_kind,hold_until,blocked,held --file "$backlog" 2>/dev/null) || return 1
+  today=$(date +%Y-%m-%d)
   while IFS= read -r row; do
     [ -n "$row" ] || continue
+    state_value=${row#*,}; state_value=${state_value%%,*}
     held=${row##*,}
     rest=${row%,*}
     blocked=${rest##*,}
+    rest=${rest%,*}
+    hold_until=${rest##*,}
     rest=${rest%,*}
     hold_kind=${rest##*,}
     rest=${rest%,*}
@@ -927,6 +995,11 @@ fm_lane_floor_held_text() {  # <data-dir>
     else
       case "$held:$hold_kind" in
         yes:captain | yes:external | yes:parked | yes:future) qualifies=yes ;;
+      esac
+      case "$state_value:$hold_until" in
+        queued:[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9])
+          [ "$hold_until" ">" "$today" ] || qualifies=yes
+          ;;
       esac
     fi
     [ "$qualifies" = yes ] || continue
@@ -985,10 +1058,9 @@ fm_lane_floor_project_changes() {  # <project-root> <live-brief-text> [held-text
 # fm_dispatchable_work <state-dir> [data-dir] [root]
 # Every item firstmate could dispatch RIGHT NOW without a captain decision, one
 # per line, or nothing at all. Never prints a diagnostic and never writes.
-#   backlog <id>                     a ready backlog item (tasks-axi's own ready
-#                                    listing already reads a hold whose --until
-#                                    has passed as queued rather than held, so an
-#                                    expired hold of any kind arrives here), or a
+#   backlog <id>                     a ready backlog item after rows retaining an
+#                                    expired hold reminder are excluded until an
+#                                    owning workflow explicitly unholds them, or a
 #                                    held item whose hold kind is anything but
 #                                    captain, external, parked, or future - a
 #                                    load, blocked, or unkinded hold is
@@ -1001,28 +1073,26 @@ fm_lane_floor_project_changes() {  # <project-root> <live-brief-text> [held-text
 #                                    still-open item, names in its title or
 #                                    body (fm_lane_floor_held_text)
 # A captain-kind hold is excluded because it is a question the captain owns.
-# An external, parked, or future hold is excluded too, but only while still
-# actually held: tasks-axi's own ready listing already reads a hold whose
-# --until has passed as queued rather than held (see backlog above), so a row
-# that still reaches the held[ scan below is, by construction, one whose named
-# event has not yet fired - there is nothing here for firstmate to act on.
+# External, parked, and future holds are excluded while held. Every expired
+# reminder is also excluded from the ready listing until explicit `unhold`;
+# reaching a date triggers re-evaluation, not permission.
 fm_dispatchable_work() {  # <state-dir> [data-dir] [root]
   local state=$1 data=${2:-} root=${3:-$FM_IDLE_SELF_ROOT}
-  local backlog ready_out row id hold_kind held_text
+  local backlog ready_out ready_rows expired_ids row id hold_kind held_text
   local meta brief brief_text='' name project_root change open_boxes
 
   [ -n "$data" ] || data=$(dirname -- "$state")/data
   backlog="$data/backlog.md"
-  if [ -f "$backlog" ] && command -v tasks-axi >/dev/null 2>&1 \
-    && ready_out=$(tasks-axi ready --file "$backlog" --include-held 2>/dev/null); then
+  if [ -f "$backlog" ]; then
+    command -v tasks-axi >/dev/null 2>&1 || return 0
+    ready_out=$(tasks-axi ready --file "$backlog" --include-held 2>/dev/null) || return 0
+    expired_ids=$(fm_expired_hold_ids "$backlog" 2>/dev/null) || return 0
+    ready_rows=$(fm_ready_rows_without_expired_holds "$ready_out" "$expired_ids")
     while IFS= read -r row; do
       [ -n "$row" ] || continue
       id=${row%%,*}
       [ -n "$id" ] && printf 'backlog %s\n' "$id"
-    done < <(printf '%s\n' "$ready_out" | awk '
-      /^ready\[/ { rows = 1; next }
-      /^[^[:space:]]/ { rows = 0 }
-      rows && /^[[:space:]]/ { sub(/^[[:space:]]+/, ""); print }')
+    done <<< "$ready_rows"
     # hold_kind is read by stripping hold_until (the true last field) off the
     # END of the row, the same right-anchored idiom the capacity-held block
     # above uses and for the same reason: title and hold_reason are free text
@@ -1050,7 +1120,7 @@ fm_dispatchable_work() {  # <state-dir> [data-dir] [root]
     brief_text="$brief_text"$'\n'"$(cat "$brief" 2>/dev/null)"
   done
 
-  held_text=$(fm_lane_floor_held_text "$data")
+  held_text=$(fm_lane_floor_held_text "$data") || return 0
 
   # Registered project clones only: data/projects.md is the one registry, and
   # fm_idle_project_root above is the one resolver from a project name to its
@@ -1135,8 +1205,9 @@ fm_lane_floor_render() {
   else
     return 0
   fi
-  printf 'LANES: total=%s gated=%s waiting=%s exited=%s unknown=%s finished=%s unreconciled=%s\n' \
-    "$FM_LANE_FLOOR_TOTAL" "$FM_LANE_FLOOR_GATED" "$FM_LANE_FLOOR_WAITING" \
+  printf 'LANES: total=%s active=%s prepared=%s gated=%s parked=%s waiting=%s exited=%s unknown=%s finished=%s unreconciled=%s\n' \
+    "$FM_LANE_FLOOR_TOTAL" "$FM_LANE_FLOOR_PRODUCTIVE" "$FM_LANE_FLOOR_PREPARED" \
+    "$FM_LANE_FLOOR_GATED" "$FM_LANE_FLOOR_PARKED" "$FM_LANE_FLOOR_WAITING" \
     "$FM_LANE_FLOOR_EXITED" "$FM_LANE_FLOOR_UNKNOWN" "$FM_LANE_FLOOR_FINISHED" \
     "$FM_LANE_FLOOR_SOFT"
   [ -z "$FM_LANE_FLOOR_SLOTS" ] || printf '%s\n' "$FM_LANE_FLOOR_SLOTS"
@@ -1176,6 +1247,10 @@ fm_lane_floor_report() {  # <state-dir> [data-dir] [root] [config-dir]
 # Populates, for the state dir at $1:
 #   FM_SUP_IN_FLIGHT      count of state/*.meta (in-flight tasks)
 #   FM_SUP_SOURCES        count of registered process-to-event sources
+#   FM_SUP_CHECKS         count of registered custom checks: a state/<id>.check.sh
+#                         with the state/<id>.check-trust binding written by
+#                         bin/fm-check-register.sh; task PR polls and x-watch
+#                         are not custom checks
 #   FM_SUP_NEEDED         true/false - in-flight work, an X-mode relay poll, a
 #                         registered event source (a source is a wait on an
 #                         external process, not a task, so it has no metadata),
@@ -1184,7 +1259,8 @@ fm_lane_floor_report() {  # <state-dir> [data-dir] [root] [config-dir]
 #                         with a free slot in its own project's pool
 #                         (FM_IDLE_CAPACITY_HELD), or ready work sitting behind
 #                         a freeze that still needs a watcher alive for the
-#                         recheck once the freeze's own until date passes
+#                         recheck once the freeze's own until date passes, or an
+#                         expired hold reminder whose condition must be checked
 #   FM_SUP_IDLE_CAPACITY  true/false - the dispatch-now or held-on-capacity
 #                         branch alone carried FM_SUP_NEEDED; false while
 #                         frozen even when FM_SUP_NEEDED is true for the
@@ -1198,7 +1274,7 @@ fm_lane_floor_report() {  # <state-dir> [data-dir] [root] [config-dir]
 # Always returns 0; callers read the vars, or use fm_supervision_unhealthy below.
 fm_supervision_status() {
   local state=$1 grace=${2:-${FM_GUARD_GRACE:-300}} data=${3:-} root=${4:-} config=${5:-}
-  local meta source beat m age
+  local meta source check id beat m age
   FM_SUP_IN_FLIGHT=0
   FM_SUP_NEEDED=false
   FM_SUP_IDLE_CAPACITY=false
@@ -1215,9 +1291,19 @@ fm_supervision_status() {
     [ -e "$source" ] || continue
     FM_SUP_SOURCES=$((FM_SUP_SOURCES + 1))
   done
+  FM_SUP_CHECKS=0
+  for check in "$state"/*.check.sh; do
+    [ -e "$check" ] || continue
+    id=${check##*/}
+    id=${id%.check.sh}
+    [ "$id" != x-watch ] || continue
+    [ -e "$state/$id.check-trust" ] || continue
+    FM_SUP_CHECKS=$((FM_SUP_CHECKS + 1))
+  done
   if [ "$FM_SUP_IN_FLIGHT" -gt 0 ] \
     || [ -f "$state/x-watch.check.sh" ] \
-    || [ "$FM_SUP_SOURCES" -gt 0 ]; then
+    || [ "$FM_SUP_SOURCES" -gt 0 ] \
+    || [ "$FM_SUP_CHECKS" -gt 0 ]; then
     FM_SUP_NEEDED=true
   else
     # Only reached when the cheap records say this home is idle, so the two
@@ -1231,6 +1317,10 @@ fm_supervision_status() {
       # A freeze silences the dispatch-now escalation, never the fleet's only
       # chance to notice the freeze has expired - keep a watcher armed for
       # that recheck without re-opening the idle-capacity nag while it holds.
+      FM_SUP_NEEDED=true
+    elif [ "$FM_IDLE_RECHECK_DUE" = true ]; then
+      # The reminder stays non-dispatchable, but must not disappear into an
+      # unsupervised idle home before its owning condition is re-evaluated.
       FM_SUP_NEEDED=true
     fi
   fi

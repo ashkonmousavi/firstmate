@@ -132,6 +132,27 @@ predicate_needed() {  # <home>
     _ "$ROOT" "$1" "$1"
 }
 
+dispatchable() {  # <home>
+  PATH="$1/fakebin:$PATH" bash -c '
+    . "$2/bin/fm-supervision-lib.sh"
+    fm_dispatchable_work "$1/state" "$1/data" "$1"' _ "$1" "$ROOT"
+}
+
+# Replace tasks-axi only inside one fixture with a forwarding wrapper that
+# makes the hold-metadata listing unreadable while leaving `ready` healthy.
+break_hold_metadata_read() {  # <home>
+  local home=$1 real_tasks
+  real_tasks=$(command -v tasks-axi)
+  cat > "$home/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+case "\${1:-}:\${2:-}:\${3:-}" in
+  list:--file:*|list:--state:*|list:--fields:*) exit 65 ;;
+esac
+exec "$real_tasks" "\$@"
+SH
+  chmod +x "$home/fakebin/tasks-axi"
+}
+
 # --- report shape -----------------------------------------------------------
 
 test_report_counts_and_disposition() {
@@ -235,24 +256,38 @@ test_freeze_silences_line() {
   printf '%s\n' 'captain paused dispatch for the release' '2099-01-01' \
     > "$home/state/.dispatch-freeze"
   out=$(report "$home")
-  [ "$out" = "FREEZE: captain paused dispatch for the release until 2099-01-01" ] \
+  [ "$out" = "FREEZE: captain paused dispatch for the release; recheck 2099-01-01" ] \
     || fail "an applying freeze must replace the line, got: $out"
   pass "freeze: the record silences IDLE CAPACITY and prints FREEZE instead"
 }
 
-test_freeze_expired_unsilences() {
+test_freeze_recheck_date_never_auto_releases_captain_pause() {
   local home out
   home=$(make_home freeze-expired 3)
   add_ready "$home" idle-a
   printf '%s\n' 'captain paused dispatch for the release' '2000-01-01' \
     > "$home/state/.dispatch-freeze"
   out=$(report "$home")
+  [ "$out" = "FREEZE: captain paused dispatch for the release; recheck due 2000-01-01; explicit release required" ] \
+    || fail "a due reminder must preserve the captain pause until explicit release, got: $out"
+  pass "freeze: a due recheck survives time and context loss without granting dispatch"
+}
+
+test_freeze_supported_release_is_the_only_permission_transition() {
+  local home out
+  home=$(make_home freeze-release 3)
+  add_ready "$home" idle-a
+  FM_HOME="$home" "$ROOT/bin/fm-dispatch-freeze.sh" set \
+    --reason 'captain paused dispatch' --recheck 2000-01-01 >/dev/null
+  out=$(report "$home")
+  case "$out" in *FREEZE*) ;; *) fail "the supported set must freeze dispatch, got: $out" ;; esac
+  FM_HOME="$home" "$ROOT/bin/fm-dispatch-freeze.sh" release >/dev/null
+  out=$(report "$home")
   case "$out" in
-    *FREEZE*) fail "an expired freeze must not silence the line, got: $out" ;;
     *"IDLE CAPACITY: ready=1"*) ;;
-    *) fail "an expired freeze must un-silence the line, got: $out" ;;
+    *) fail "only the supported explicit release must restore dispatchability, got: $out" ;;
   esac
-  pass "freeze: an expired until date un-silences the line"
+  pass "freeze: supported explicit release is the permission transition"
 }
 
 test_freeze_keeps_idle_capacity_false_but_arms_the_recheck() {
@@ -321,7 +356,7 @@ test_hold_with_until_is_not_stale() {
 }
 
 test_hold_past_due_reported() {
-  local home out
+  local home out predicate
   home=$(make_home hold-due 3)
   add_hold "$home" overdue-hold "captain has not ruled" --until 2000-01-01
   out=$(report "$home")
@@ -332,7 +367,50 @@ test_hold_past_due_reported() {
   case "$out" in
     *HOLD_STALE*) fail "a due hold must be reported as due, not also as stale, got: $out" ;;
   esac
-  pass "hold hygiene: HOLD_DUE names a dated hold whose own due date has passed"
+  case "$out" in
+    *"IDLE CAPACITY: ready=0"*|*"  overdue-hold"*) \
+      fail "an expired reminder must not become dispatchable until its owner releases it, got: $out" ;;
+  esac
+  predicate=$(predicate_needed "$home")
+  [ "$predicate" = "true false" ] \
+    || fail "a due reminder must keep supervision alive without claiming dispatch capacity, got: $predicate"
+  pass "hold hygiene: HOLD_DUE keeps supervision alive without granting dispatch permission"
+}
+
+# The due date only schedules a recheck. The owning workflow's explicit unhold
+# is the operation that releases a satisfied engineering dependency.
+test_expired_hold_becomes_dispatchable_only_after_explicit_unhold() {
+  local home out
+  home=$(make_home hold-explicit-release 3)
+  add_hold "$home" released-hold "engineering dependency must be rechecked" --until 2000-01-01
+  tasks-axi unhold released-hold --file "$home/data/backlog.md" >/dev/null \
+    || fail "the owning workflow could not explicitly release a satisfied hold"
+  out=$(report "$home")
+  case "$out" in
+    *"IDLE CAPACITY: ready=1"*"released-hold"*) ;;
+    *) fail "an explicitly released dependency must become dispatchable, got: $out" ;;
+  esac
+  pass "hold hygiene: explicit unhold releases a satisfied engineering dependency"
+}
+
+test_unreadable_hold_metadata_fails_closed_for_capacity_and_dispatch_enumeration() {
+  local home out work
+  home=$(make_home hold-metadata-unknown 3)
+  add_ready "$home" ready-but-unknown
+  break_hold_metadata_read "$home"
+  out=$(report "$home")
+  case "$out" in
+    *"queued rows could not be read"*) ;;
+    *) fail "an unreadable hold listing must disclose unknown dispatchability, got: $out" ;;
+  esac
+  case "$out" in
+    *"IDLE CAPACITY: ready="*|*"ready-but-unknown"*)
+      fail "unknown hold metadata must not become idle dispatch capacity, got: $out" ;;
+  esac
+  work=$(dispatchable "$home")
+  [ -z "$work" ] \
+    || fail "unknown hold metadata must produce no forced-dispatch candidate, got: $work"
+  pass "hold hygiene: unreadable permission metadata fails closed without inventing dispatch work"
 }
 
 test_hold_due_today_reported() {
@@ -918,7 +996,7 @@ test_lane_floor_counts_non_captain_work_only() {
   make_change "$home" proj alpha 2
   add_hold "$home" captain-call "waiting on the captain to choose a vendor"
   add_load_hold "$home" cap-held
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   out=$(lane_floor_report "$home")
   case "$out" in
     *"LANE FLOOR: productive=1 floor=10 dispatchable=2"*) ;;
@@ -938,22 +1016,23 @@ test_lane_floor_counts_non_captain_work_only() {
   pass "lane floor: the breach counts openspec Changes and non-captain holds, never a captain hold"
 }
 
-# A prepared branch waiting for the validation queue is productive, while a
-# no-mistakes run is the validation work currently using a slot.
+# A prepared branch waiting for the validation queue is ready but not active,
+# while a no-mistakes run is the validation work currently using a slot.
 test_lane_floor_reports_prepared_waiters_and_live_validation_separately() {
   local home out
   home=$(make_home lane-floor-validation-counts 5)
   make_change "$home" proj alpha 1
-  : > "$home/state/waiter-1.meta"
-  : > "$home/state/waiter-2.meta"
-  : > "$home/state/validator.meta"
-  printf '%s\n' 'paused: prepared, validation slots full' > "$home/state/waiter-1.status"
-  printf '%s\n' 'paused: prepared, validation slots full' > "$home/state/waiter-2.status"
-  printf '%s\n' 'working: no-mistakes run is running' > "$home/state/validator.status"
+  add_lane "$home" waiter-1 paused status-log 'paused: prepared, validation slots full'
+  add_lane "$home" waiter-2 paused status-log 'paused: prepared, validation slots full'
+  add_lane "$home" validator working run-step 'working: no-mistakes run is running'
   out=$(lane_floor_report "$home")
   case "$out" in
     *"VALIDATION: waiting-for-slot=2 live-validation=1"*) ;;
     *) fail "the lane-floor report must distinguish prepared validation waiters from live validation, got: $out" ;;
+  esac
+  case "$out" in
+    *"active=1 prepared=2"*) ;;
+    *) fail "prepared validation waiters must not inflate the active count: $out" ;;
   esac
   pass "lane floor: prepared validation waiters and live validation are reported separately"
 }
@@ -972,8 +1051,9 @@ test_research_first_allows_a_bounded_fair_comparison_for_an_unresolved_material_
 
 # An external, parked, or future hold whose named event has not fired yet is
 # not dispatchable and would breach the floor forever if counted; a load hold
-# still counts, and once the named event's own date has passed tasks-axi's
-# ready listing itself moves the row to queued (never held), so it counts too.
+# still counts. Under the captain-approved reminder contract, an expired date
+# triggers re-evaluation but does not prove the named event occurred, so the
+# external hold remains excluded until its owner explicitly releases it.
 test_lane_floor_excludes_unmet_event_holds() {
   local home out
   home=$(make_home lane-floor-event-holds 3)
@@ -982,11 +1062,10 @@ test_lane_floor_excludes_unmet_event_holds() {
   add_kind_hold "$home" future-future future --until 2099-01-01
   add_kind_hold "$home" past-ext external --until 2000-01-01
   add_load_hold "$home" cap-held
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   out=$(lane_floor_report "$home")
   case "$out" in
-    *"backlog past-ext"*) ;;
-    *) fail "an external hold whose --until has passed must count as dispatchable, got: $out" ;;
+    *"backlog past-ext"*) fail "an expired external reminder must not grant dispatch permission: $out" ;;
   esac
   case "$out" in
     *"backlog cap-held"*) ;;
@@ -996,7 +1075,7 @@ test_lane_floor_excludes_unmet_event_holds() {
     *future-ext*|*future-parked*|*future-future*) \
       fail "an external, parked, or future hold whose named event has not fired must never be counted as dispatchable: $out" ;;
   esac
-  pass "lane floor: an unmet external/parked/future hold is excluded, a past-due one counts like any other non-captain hold"
+  pass "lane floor: unmet external, parked, future, and expired-reminder holds stay excluded until release"
 }
 
 # The floor is the whole condition: identical work, enough lanes, no line.
@@ -1004,7 +1083,7 @@ test_lane_floor_silent_at_the_floor() {
   local home out
   home=$(make_home lane-floor-met 3)
   make_change "$home" proj alpha 2
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   printf '1\n' > "$home/config/lane-floor"
   out=$(lane_floor_report "$home")
   [ -z "$out" ] \
@@ -1031,7 +1110,7 @@ test_lane_floor_excludes_a_change_a_live_brief_names() {
   home=$(make_home lane-floor-brief 3)
   make_change "$home" proj alpha 2
   make_change "$home" proj beta 1
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   mkdir -p "$home/data/live-1"
   printf 'Complete the alpha Change under projects/proj.\n' > "$home/data/live-1/brief.md"
   out=$(lane_floor_report "$home")
@@ -1054,7 +1133,7 @@ test_lane_floor_excludes_a_change_a_captain_held_item_names() {
   make_change "$home" proj alpha 2
   make_change "$home" proj beta 1
   add_change_hold "$home" alpha-held alpha captain
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   out=$(lane_floor_report "$home")
   case "$out" in
     *"openspec proj:beta:1"*) ;;
@@ -1066,21 +1145,27 @@ test_lane_floor_excludes_a_change_a_captain_held_item_names() {
   pass "lane floor: a Change named by a captain-held item is excluded, an unclaimed sibling is not"
 }
 
-# An external hold whose named event has already fired reads as queued, not
-# held (fm_lane_floor_held_text relies on tasks-axi's own `held` field for
-# this), so the Change it names is dispatchable again like any other.
-test_lane_floor_counts_a_change_a_past_dated_hold_names() {
+# Contract change: an expired date is a recheck reminder, not proof its named
+# dependency fired. The Change stays excluded until the owner explicitly
+# clears the hold, then returns to dispatchable capacity.
+test_lane_floor_releases_a_past_dated_change_only_after_explicit_unhold() {
   local home out
   home=$(make_home lane-floor-past-hold 3)
   make_change "$home" proj alpha 1
   add_change_hold "$home" alpha-past alpha external --until 2000-01-01
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"proj:alpha"*) fail "a past-dated hold must not release its named Change by itself: $out" ;;
+  esac
+  tasks-axi unhold alpha-past --file "$home/data/backlog.md" >/dev/null \
+    || fail "the owning workflow could not explicitly release the Change hold"
   out=$(lane_floor_report "$home")
   case "$out" in
     *"openspec proj:alpha:1"*) ;;
-    *) fail "a Change named only by a past-dated hold must still be counted, got: $out" ;;
+    *) fail "an explicitly released Change must return to dispatchable capacity, got: $out" ;;
   esac
-  pass "lane floor: a Change named only by a past-dated external hold is still counted"
+  pass "lane floor: a past-dated Change remains held until explicit release"
 }
 
 # A Change named by an item blocked on a still-open dependency is exactly as
@@ -1091,7 +1176,7 @@ test_lane_floor_excludes_a_change_a_blocked_item_names() {
   make_change "$home" proj alpha 2
   make_change "$home" proj beta 1
   add_change_blocked "$home" alpha-blocked alpha alpha-blocker
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   out=$(lane_floor_report "$home")
   case "$out" in
     *"openspec proj:beta:1"*) ;;
@@ -1118,7 +1203,7 @@ test_lane_floor_excludes_a_change_named_past_the_truncation_point() {
     --file "$home/data/backlog.md" >/dev/null
   tasks-axi hold alpha-long-body --reason "waiting on a named event" --kind captain \
     --file "$home/data/backlog.md" >/dev/null
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   out=$(lane_floor_report "$home")
   case "$out" in
     *"openspec proj:beta:1"*) ;;
@@ -1140,7 +1225,7 @@ test_lane_floor_does_not_mismatch_a_change_name_prefix() {
   make_change "$home" proj carry-assistant-runtime 1
   make_change "$home" proj carry-assistant-runtime-deferrals 1
   add_change_hold "$home" deferrals-held carry-assistant-runtime-deferrals captain
-  : > "$home/state/live-1.meta"
+  add_lane "$home" live-1 working pane
   out=$(lane_floor_report "$home")
   case "$out" in
     *"openspec proj:carry-assistant-runtime:1"*) ;;
@@ -1176,11 +1261,8 @@ test_lane_floor_does_not_count_a_paused_lane() {
   local home out
   home=$(make_home lane-floor-paused 3)
   make_change "$home" proj alpha 1
-  : > "$home/state/live-1.meta"
-  : > "$home/state/live-2.meta"
-  printf 'working: started\npaused: waiting on an upstream release\n' \
-    > "$home/state/live-2.status"
-  printf 'working: still going\n' > "$home/state/live-1.status"
+  add_lane "$home" live-1 working pane 'working: still going'
+  add_lane "$home" live-2 paused status-log 'paused: waiting on an upstream release'
   out=$(lane_floor_report "$home")
   case "$out" in
     *"productive=1 "*) ;;
@@ -1192,7 +1274,10 @@ test_lane_floor_does_not_count_a_paused_lane() {
 # An unreadable backlog contributes no work rather than manufacturing a breach,
 # and does not take the rest of the read down with it. Both halves are asserted
 # against the same home: with the tool gone the ready item it holds vanishes
-# from the count, while the openspec Change beside it is still reported.
+# from the count. The captain's step-5 hold contract intentionally changes the
+# old expectation that an OpenSpec sibling remains dispatchable: when the same
+# backlog's permission/hold data is unreadable, that sibling may itself be held
+# by an unreadable row, so the whole forced-dispatch enumeration fails closed.
 test_lane_floor_fails_soft_without_tasks_axi() {
   local home out
   home=$(make_home lane-floor-no-tool 3)
@@ -1202,18 +1287,12 @@ test_lane_floor_fails_soft_without_tasks_axi() {
     || fail "a backlog that could not be read must never assert a breach, got: $out"
   make_change "$home" proj alpha 2
   out=$(lane_floor_report_without_tasks_axi "$home")
-  case "$out" in
-    *"LANE FLOOR: productive=0 floor=10 dispatchable=1"*) ;;
-    *) fail "a failed backlog read must not suppress the work that WAS read, got: $out" ;;
-  esac
-  case "$out" in
-    *"openspec proj:alpha:2"*) ;;
-    *) fail "the openspec Change must still be listed, got: $out" ;;
-  esac
+  [ -z "$out" ] \
+    || fail "unknown backlog permission data must suppress forced dispatch, got: $out"
   case "$out" in
     *would-be-dispatchable*) fail "an unread backlog item must never be counted: $out" ;;
   esac
-  pass "lane floor: an unreadable backlog contributes nothing and suppresses nothing"
+  pass "lane floor: unreadable hold permissions fail closed for backlog and OpenSpec dispatch"
 }
 
 # The cap is still the reason a dispatch cannot happen, but silence was the
@@ -1225,8 +1304,8 @@ test_lane_floor_at_the_concurrency_cap_reports_a_shortfall() {
   local home out
   home=$(make_home lane-floor-at-cap 3)
   make_change "$home" proj alpha 2
-  : > "$home/state/live-1.meta"
-  : > "$home/state/live-2.meta"
+  add_lane "$home" live-1 working pane
+  add_lane "$home" live-2 working pane
   printf '5\n' > "$home/config/lane-floor"
   out=$(lane_floor_report "$home")
   case "$out" in
@@ -1256,9 +1335,8 @@ test_lane_floor_cap_counts_a_paused_lane() {
   local home out
   home=$(make_home lane-floor-cap-paused 3)
   make_change "$home" proj alpha 2
-  : > "$home/state/live-1.meta"
-  : > "$home/state/live-2.meta"
-  printf 'paused: waiting on an upstream release\n' > "$home/state/live-2.status"
+  add_lane "$home" live-1 working pane
+  add_lane "$home" live-2 paused status-log 'paused: waiting on an upstream release'
   printf '2\n' > "$home/config/concurrency-cap"
   out=$(lane_floor_report "$home")
   case "$out" in
@@ -1346,25 +1424,24 @@ test_lane_floor_dead_and_unknown_endpoints_are_not_productive() {
   pass "lane floor: dead and unknown endpoints are neither productive nor silently live"
 }
 
-# A lane parked on a gate is doing something the floor cannot replace by
-# spawning: answering the gate is what moves it. It counts as productive, and it
-# is counted again in `gated` so a fleet that is entirely gates can never read as
-# a fleet of computing lanes.
-test_lane_floor_counts_a_gated_lane_as_productive_and_names_it() {
+# Contract correction: a parked pane still occupies capacity and its gate stays
+# visible, but it is not productive work. The old expectation counted parked
+# records as productive and could hide an entirely idle fleet.
+test_lane_floor_reports_a_gated_parked_lane_without_counting_it_productive() {
   local home out
   home=$(make_home lane-floor-gated 3)
   make_change "$home" proj alpha 2
   add_lane "$home" gate-lane parked run-step
   out=$(lane_floor_report "$home")
   case "$out" in
-    *"LANE FLOOR: productive=1 "*) ;;
-    *) fail "a lane holding an actionable gate is productive, got: $out" ;;
+    *"LANE FLOOR: productive=0 "*) ;;
+    *) fail "a parked lane must not count as productive, got: $out" ;;
   esac
   case "$out" in
     *"gated=1"*) ;;
     *) fail "a gated lane must be visible as a gate, not hidden inside the count, got: $out" ;;
   esac
-  pass "lane floor: a gated lane counts as productive and is reported as a gate"
+  pass "lane floor: a parked gated lane is visible without counting as productive"
 }
 
 # The other side of the same rule: a fleet whose every lane really is working is
@@ -1415,10 +1492,10 @@ test_lane_floor_capacity_blocked_names_a_releasable_lane() {
   pass "lane floor: a capacity-blocked shortfall names the lanes that can be released"
 }
 
-# The fail-soft floor under all of it: with no reconciler to run at all, the
-# report falls back to the pre-reconciliation rule rather than reading every
-# lane as dead and manufacturing a breach out of a failed read.
-test_lane_floor_unreadable_reconciler_manufactures_no_breach() {
+# An unreadable reconciler is uncertainty, not evidence of work. The report
+# must expose that uncertainty rather than silently promoting a status event to
+# an active lane.
+test_lane_floor_unreadable_reconciler_is_unknown_not_productive() {
   local home out
   home=$(make_home lane-floor-no-reconciler 3)
   make_change "$home" proj alpha 2
@@ -1426,9 +1503,38 @@ test_lane_floor_unreadable_reconciler_manufactures_no_breach() {
   printf 'working: still going\n' > "$home/state/live-1.status"
   printf '1\n' > "$home/config/lane-floor"
   out=$(lane_floor_report "$home")
-  [ -z "$out" ] \
-    || fail "an unreadable reconciler must never turn a live lane into a breach, got: $out"
-  pass "lane floor: a reconciler that cannot be run fails soft to the status verb"
+  case "$out" in
+    *"LANE FLOOR: productive=0 "*"unknown=1"*"unreconciled=1"*) ;;
+    *) fail "an unreadable reconciler must report unknown rather than fabricate activity: $out" ;;
+  esac
+  pass "lane floor: an unreadable reconciler is explicit unknown, never fabricated activity"
+}
+
+# Actual fm-crew-state output shapes remain disjoint: only verified current
+# execution sources are active; a ready event, a gate, a deliberately parked
+# lane, and an unreadable Codex pane are each visible in their own bucket.
+test_lane_floor_actual_shaped_census_separates_active_prepared_gated_parked_and_unknown() {
+  local home out
+  home=$(make_home lane-floor-actual-shaped-census 3)
+  make_change "$home" proj alpha 2
+  add_lane "$home" active-run working run-step 'working: no-mistakes run is running'
+  add_lane "$home" active-pane working pane 'working: implementation underway'
+  add_lane "$home" prepared-lane working status-log 'working: prepared - candidate ready'
+  add_lane "$home" gate-lane parked run-step 'needs-decision: review gate'
+  add_lane "$home" inspection-lane needs-inspection run-step 'blocked: CI result needs inspection'
+  add_lane "$home" parked-lane parked-exit task-record 'paused: agent deliberately stopped'
+  add_lane "$home" codex-unknown unknown pane 'working: old status event only'
+  add_lane "$home" status-only working status-log 'working: old status event only'
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"LANE FLOOR: productive=2 "*) ;;
+    *) fail "only the run-step and pane lanes may count as active: $out" ;;
+  esac
+  case "$out" in
+    *"LANES: total=8 active=2 prepared=1 gated=2 parked=1 waiting=0 exited=0 unknown=2"*) ;;
+    *) fail "the actual-shaped census must keep each non-active condition distinct: $out" ;;
+  esac
+  pass "lane floor: actual-shaped census separates active, prepared, gated, parked, and unknown"
 }
 
 # The floor governs the fleet, not one home: a secondmate that inherits nothing
@@ -1652,13 +1758,16 @@ test_report_fails_soft_on_unreadable_pool
 test_report_resolves_named_project_pool
 test_report_one_unreadable_project_never_hides_a_readable_sibling
 test_freeze_silences_line
-test_freeze_expired_unsilences
+test_freeze_recheck_date_never_auto_releases_captain_pause
+test_freeze_supported_release_is_the_only_permission_transition
 test_freeze_keeps_idle_capacity_false_but_arms_the_recheck
 test_freeze_with_no_ready_work_needs_no_watcher
 test_hold_stale_reported
 test_hold_with_event_is_not_stale
 test_hold_with_until_is_not_stale
 test_hold_past_due_reported
+test_expired_hold_becomes_dispatchable_only_after_explicit_unhold
+test_unreadable_hold_metadata_fails_closed_for_capacity_and_dispatch_enumeration
 test_hold_due_today_reported
 test_fresh_hold_is_not_stale
 test_capacity_held_load_kind_listed
@@ -1693,7 +1802,7 @@ test_lane_floor_silent_at_the_floor
 test_lane_floor_malformed_value_falls_back_to_default
 test_lane_floor_excludes_a_change_a_live_brief_names
 test_lane_floor_excludes_a_change_a_captain_held_item_names
-test_lane_floor_counts_a_change_a_past_dated_hold_names
+test_lane_floor_releases_a_past_dated_change_only_after_explicit_unhold
 test_lane_floor_excludes_a_change_a_blocked_item_names
 test_lane_floor_excludes_a_change_named_past_the_truncation_point
 test_lane_floor_does_not_mismatch_a_change_name_prefix
@@ -1705,10 +1814,11 @@ test_lane_floor_cap_counts_a_paused_lane
 test_lane_floor_counts_productive_ci_behind_a_quiet_worker
 test_lane_floor_all_paused_at_cap_reports_capacity_blocked
 test_lane_floor_dead_and_unknown_endpoints_are_not_productive
-test_lane_floor_counts_a_gated_lane_as_productive_and_names_it
+test_lane_floor_reports_a_gated_parked_lane_without_counting_it_productive
 test_lane_floor_silent_when_every_lane_is_productive
 test_lane_floor_capacity_blocked_names_a_releasable_lane
-test_lane_floor_unreadable_reconciler_manufactures_no_breach
+test_lane_floor_unreadable_reconciler_is_unknown_not_productive
+test_lane_floor_actual_shaped_census_separates_active_prepared_gated_parked_and_unknown
 test_lane_floor_is_inherited_by_secondmate_homes
 test_drain_prints_lane_floor_with_an_empty_queue
 test_drain_repeats_the_lane_floor_while_it_holds

@@ -26,6 +26,15 @@
 #   fm-heal.sh checkpoint-status
 #   fm-heal.sh lookup QUERY
 #
+# Routing from any working directory, with both bindings supplied explicitly:
+#   env -u FM_ROOT_OVERRIDE -u FM_STATE_OVERRIDE FM_HOME=/absolute/operational/home \
+#     /absolute/tracked/firstmate/bin/fm-heal.sh owner-status
+# Use that same routing for subsequent commands. Code and templates resolve from
+# this script's location; ledger data resolves from FM_HOME. Never infer either
+# binding from an unrelated cwd. Existing default-root and override behavior is
+# retained for established callers and isolated tests; overrides are not authority
+# to operate another home. owner-status is read-only and grants no new permission.
+#
 # The Markdown finding format is fm-heal-finding.v1: a JSON object between the
 # first two `---` lines followed by human-maintained Markdown sections.
 # checkpoint.json is fm-heal-checkpoint.v1 and is incomplete until one exact

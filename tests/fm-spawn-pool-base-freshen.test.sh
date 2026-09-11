@@ -144,14 +144,13 @@ test_linked_spawning_home_rejects_primary_before_refresh() {
         || fail "spawn did not refresh the genuine scout copy"
     else
       [ "$status" -ne 0 ] || fail "linked spawning home accepted $returned as a disposable copy"
-      # None of these is an isolated copy, so the worktree poll never adopts one
-      # and the wait runs out instead: the spawning directory fails the poll's
-      # own project comparison, and the repository primary (named directly or
-      # through a symlink) fails the isolation screen the poll shares with the
-      # guard. The refusal names the last path the pane reported.
-      assert_contains "$out" "did not enter an isolated worktree" \
+      # None of these is an isolated copy. The current Treehouse CLI returns the
+      # leased path directly, so spawn validates that authoritative result
+      # before moving the endpoint or fetching from it.
+      assert_contains "$out" "did not yield an isolated worktree" \
         "spawn did not explain its isolation refusal"
-      assert_contains "$out" "last seen" "refusal did not name the path the pane reported"
+      assert_contains "$out" "resolved '$POOL_DIR'" \
+        "refusal did not name the path Treehouse returned"
       [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "refused spawn published task metadata"
       [ ! -e "$primary/.git/FETCH_HEAD" ] || fail "refused spawn fetched before proving isolation"
     fi
@@ -164,7 +163,7 @@ test_linked_spawning_home_rejects_primary_before_refresh() {
 }
 
 test_stale_pool_base_refreshes_before_branching() {
-  local rec id out status current branch_head
+  local rec id repeat_id out status current branch_head
   id='pool-current-base-r1'
   rec=$(make_case current-base "$id")
   read_case_record "$rec"
@@ -183,13 +182,16 @@ test_stale_pool_base_refreshes_before_branching() {
       "$branch_head" "$current" "$(cat "$POOL_DIR/advanced-main.txt")"
   fi
 
-  id='pool-current-base-repeat-r1'
-  fm_test_spawn_brief "$HOME_DIR" "$id"
-  out=$(run_spawn "$id" --mode no-mistakes --yolo off)
+  repeat_id='pool-current-base-repeat-r1'
+  fm_test_spawn_brief "$HOME_DIR" "$repeat_id"
+  out=$(run_spawn "$repeat_id" --mode no-mistakes --yolo off)
   status=$?
-  expect_code 0 "$status" "repeating the base refresh should be idempotent"
+  expect_code 1 "$status" \
+    "a second task must not reuse the first task's durable worktree lease"
+  assert_contains "$out" "task $id's record already names that worktree" \
+    "the second spawn did not explain the durable ownership collision"
   [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$current" ] \
-    || fail "an idempotent repeat moved the pool away from current origin/main"
+    || fail "the refused second spawn moved the first task's pool slot"
 
   git -C "$POOL_DIR" checkout --quiet -b "fm/$id"
   git -C "$POOL_DIR" diff --exit-code origin/main...HEAD >/dev/null \
@@ -432,6 +434,47 @@ test_dirty_pool_refuses_without_discarding_work() {
   pass "a dirty pooled worktree is refused without discarding its local work"
 }
 
+# Cleanliness is checked once before network work and again immediately before
+# reset --hard. This wrapper injects a real untracked write only after the first
+# successful fetch, proving a write in that window survives the refusal.
+test_work_written_during_fetch_is_refused_before_reset() {
+  local rec id out status before real_git
+  id='pool-dirty-during-fetch-r14'
+  rec=$(make_case dirty-during-fetch "$id")
+  read_case_record "$rec"
+  before=$(git -C "$POOL_DIR" rev-parse HEAD)
+  real_git=$(command -v git)
+  cat > "$FAKEBIN_DIR/git" <<'SH'
+#!/usr/bin/env bash
+set -u
+if [ "${1:-}" = -C ] && [ "${3:-}" = fetch ]; then
+  "$FM_REAL_GIT" "$@"
+  rc=$?
+  if [ "$rc" -eq 0 ] && [ ! -e "$2/.fm-fetch-write-injected" ]; then
+    printf 'write during fetch window\n' > "$2/late-write.txt"
+    : > "$2/.fm-fetch-write-injected"
+  fi
+  exit "$rc"
+fi
+exec "$FM_REAL_GIT" "$@"
+SH
+  chmod +x "$FAKEBIN_DIR/git"
+
+  export FM_REAL_GIT="$real_git"
+  out=$(run_spawn "$id" --mode no-mistakes --yolo off)
+  status=$?
+  unset FM_REAL_GIT
+  expect_code 1 "$status" "work written during fetch must refuse before reset"
+  assert_contains "$out" "became dirty while refreshing its base" \
+    "the pre-reset recheck did not name the fetch-window write"
+  assert_grep 'write during fetch window' "$POOL_DIR/late-write.txt" \
+    "reset discarded work injected during the fetch window"
+  [ "$(git -C "$POOL_DIR" rev-parse HEAD)" = "$before" ] \
+    || fail "spawn reset the pooled worktree after it became dirty during fetch"
+  [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "fetch-window refusal published task metadata"
+  pass "work written during fetch is detected immediately before reset and preserved"
+}
+
 test_unresolved_remote_default_refuses_pool() {
   local rec id out status before
   id='pool-unresolved-default-r5'
@@ -528,6 +571,10 @@ strand_submodule_pin_via_spawn() {  # <seed-id>
     || fail "the first spawn did not move the pooled base across the moved submodule pin"
   [ "$(git -C "$POOL_DIR/ui" rev-parse HEAD)" = "$SUBPIN1" ] \
     || fail "the first spawn did not strand the submodule on the pin the old base recorded"
+  # These cases test stale-slot diagnosis, not task-ownership collision. Model
+  # a slot whose prior Firstmate record was already retired; otherwise the
+  # durable ownership guard correctly refuses before inspecting the residue.
+  rm -f "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.status"
 }
 
 test_stale_submodule_pin_explains_itself() {
@@ -682,6 +729,7 @@ test_stale_pool_base_refreshes_before_branching
 test_non_main_default_branch_refreshes_before_branching
 test_direct_pr_and_scout_refresh_before_launch
 test_dirty_pool_refuses_without_discarding_work
+test_work_written_during_fetch_is_refused_before_reset
 test_unresolved_remote_default_refuses_pool
 test_unreachable_origin_refuses_stale_pool_base
 test_originless_pool_launches_without_a_freshness_fetch

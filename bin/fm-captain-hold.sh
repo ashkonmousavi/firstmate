@@ -29,7 +29,7 @@
 #   fm-captain-hold.sh binding <source-id>
 #   fm-captain-hold.sh complete <origin-id> (--none | <task-id>...)
 #   fm-captain-hold.sh verify <origin-id>
-#   fm-captain-hold.sh open <task-id>
+#   fm-captain-hold.sh open <task-id> [--distinguish-absent]
 #   fm-captain-hold.sh diverged
 #
 # `hold` places an existing task under an active captain hold, or creates the
@@ -545,10 +545,37 @@ write_resolution_record() {  # <task-id> <mode> <shown-body>
   rm -f -- "$tmp"
 }
 
+report_retained_artifact_failure() {  # <task-id> <marker-path>
+  printf 'fm-captain-hold: cannot apply the artifact recorded for %s in %s: %s\n' \
+    "$1" "$2" "${FM_BACKLOG_TRANSITION_ERROR:-no reason reported}" >&2
+}
+
+# Cleanup may have recorded a completed work artifact before the captain's
+# answer arrived. Apply that validated artifact before a non-release answer
+# closes the row, so replay can retire the marker without losing delivery.
+apply_pending_retained_artifact() {  # <task-id>
+  local id=$1 marker
+  local -a args=()
+  marker=$(fm_backlog_close_marker_path "$STATE" "$id") || return 1
+  [ -e "$marker" ] || [ -L "$marker" ] || return 0
+  fm_backlog_close_marker_validate "$marker" "$DATA" "$id" "$STATE" \
+    || { report_retained_artifact_failure "$id" "$marker"; return 1; }
+  [ "$FM_BACKLOG_CLOSE_VALIDATED_MODE" = retain ] || return 0
+  args=("${FM_BACKLOG_CLOSE_VALIDATED_ARGS[@]+"${FM_BACKLOG_CLOSE_VALIDATED_ARGS[@]}"}")
+  case "${args[0]-}" in
+    --pr|--report)
+      fm_backlog_row_artifact_supported "$id" "${args[@]}" || return 0
+      fm_backlog_mutate "$DATA" update "$id" "${args[@]}" \
+        || { report_retained_artifact_failure "$id" "$marker"; return 1; }
+      ;;
+  esac
+}
+
 close_answered() {  # <task-id> <release-0-or-1>
   if [ "$2" = 1 ]; then
     tasks_axi unhold "$1" >/dev/null || fail "could not release captain-held task $1"
   else
+    apply_pending_retained_artifact "$1" || fail "could not preserve the completed artifact for captain-held task $1"
     tasks_axi "done" "$1" >/dev/null || fail "could not close answered captain-held task $1"
   fi
 }
@@ -1092,9 +1119,14 @@ EOF
 # A row this home does not carry holds no captain call, so an absent task is a
 # plain no; every other read failure is a 2, printed to stderr, because a
 # mechanical closer must never read "cannot tell" as permission to close.
-command_open() {  # <task-id>
-  local id=${1:-} data state
-  [ "$#" -eq 1 ] || { usage >&2; exit 2; }
+command_open() {  # <task-id> [--distinguish-absent]
+  local id=${1:-} data state distinguish_absent=0 backlog
+  [ "$#" -ge 1 ] && [ "$#" -le 2 ] || { usage >&2; exit 2; }
+  if [ "${2:-}" = --distinguish-absent ]; then
+    distinguish_absent=1
+  elif [ "$#" -eq 2 ]; then
+    usage >&2; exit 2
+  fi
   case "$id" in
     ''|*[!A-Za-z0-9._-]*)
       printf 'fm-captain-hold: task id must be a non-empty privacy-safe slug: %s\n' "$id" >&2
@@ -1104,6 +1136,11 @@ command_open() {  # <task-id>
   fm_tasks_axi_compatible || { printf 'fm-captain-hold: compatible tasks-axi is required\n' >&2; exit 2; }
   data=$(fm_backlog_data_absolute "$DATA") \
     || { printf 'fm-captain-hold: data directory cannot be resolved: %s\n' "$DATA" >&2; exit 2; }
+  backlog=$(fm_backlog_file "$data") || { printf 'fm-captain-hold: %s\n' "$FM_BACKLOG_TRANSITION_ERROR" >&2; exit 2; }
+  if [ ! -e "$backlog" ] && [ ! -L "$backlog" ]; then
+    [ "$distinguish_absent" = 0 ] || return 3
+    return 1
+  fi
   if fm_backlog_row_probe "$data" "$id"; then
     state=${FM_BACKLOG_ROW_STATE%% *}
     if [ "$state" != "done" ] && [ "$FM_BACKLOG_ROW_HOLD_KIND" = captain ]; then
@@ -1111,7 +1148,10 @@ command_open() {  # <task-id>
     fi
     return 1
   fi
-  [ "$FM_BACKLOG_ROW_RESULT" != not_found ] || return 1
+  if [ "$FM_BACKLOG_ROW_RESULT" = not_found ]; then
+    [ "$distinguish_absent" = 0 ] || return 3
+    return 1
+  fi
   printf 'fm-captain-hold: %s\n' "$FM_BACKLOG_ROW_ERROR" >&2
   exit 2
 }

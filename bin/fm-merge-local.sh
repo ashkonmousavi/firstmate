@@ -23,6 +23,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+# shellcheck source=bin/fm-pr-lib.sh
+. "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-backlog-transition-lib.sh
+. "$SCRIPT_DIR/fm-backlog-transition-lib.sh"
+if [ "$#" -ne 1 ] || ! fm_pr_task_id_valid "$1"; then
+  echo "error: invalid local merge request" >&2
+  exit 2
+fi
+ID=$1
+META="$STATE/$ID.meta"
+# shellcheck source=bin/fm-wake-lib.sh
+. "$SCRIPT_DIR/fm-wake-lib.sh"
 "$FM_ROOT/bin/fm-guard.sh" || true
 # Role partition: landing local-only work is MAIN-owned; the Pi supervision
 # branch reports readiness and never lands (contract: bin/fm-lease-lib.sh;
@@ -30,9 +42,24 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 # shellcheck source=bin/fm-lease-lib.sh
 . "$SCRIPT_DIR/fm-lease-lib.sh"
 fm_lease_forbid_branch "local-only landing (fm-merge-local)"
-ID=${1:?usage: fm-merge-local.sh <task-id>}
-META="$STATE/$ID.meta"
 [ -f "$META" ] || { echo "error: no meta for task $ID at $META" >&2; exit 1; }
+fm_backlog_meta_spawn_gen_optional "$META" "$STATE" || {
+  echo "error: local merge refused: $FM_BACKLOG_TRANSITION_ERROR" >&2
+  exit 1
+}
+MERGE_EXPECTED_SPAWN_GEN=$FM_BACKLOG_META_SPAWN_GEN
+MERGE_CONTROL_LOCK="$STATE/.control-$ID.lock"
+merge_control_cleanup() { [ -z "${MERGE_CONTROL_LOCK:-}" ] || fm_lock_release "$MERGE_CONTROL_LOCK" || true; }
+trap merge_control_cleanup EXIT
+fm_lock_acquire_wait "$MERGE_CONTROL_LOCK"
+fm_backlog_meta_spawn_gen_optional "$META" "$STATE" || {
+  echo "error: task $ID changed while waiting to merge; refusing: $FM_BACKLOG_TRANSITION_ERROR" >&2
+  exit 1
+}
+[ "$FM_BACKLOG_META_SPAWN_GEN" = "$MERGE_EXPECTED_SPAWN_GEN" ] || {
+  echo "error: task $ID changed incarnation while waiting to merge; refusing" >&2
+  exit 1
+}
 
 PROJ=$(grep '^project=' "$META" | cut -d= -f2-)
 MODE=$(grep '^mode=' "$META" | cut -d= -f2- || true)
@@ -76,7 +103,19 @@ if ! git -C "$PROJ" merge-base --is-ancestor "$DEFAULT" "$BRANCH"; then
 fi
 
 before=$(git -C "$PROJ" rev-parse --short "$DEFAULT")
-git -C "$PROJ" merge --ff-only "$BRANCH" >/dev/null
+hold_status=0
+FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+  "$SCRIPT_DIR/fm-captain-hold.sh" open "$ID" --distinguish-absent || hold_status=$?
+case "$hold_status" in
+  0) echo "error: task $ID is still held for the captain; release it before merging" >&2; exit 1 ;;
+  1|3) ;;
+  *) echo "error: could not determine whether task $ID is still held for the captain; refusing to merge" >&2; exit 1 ;;
+esac
+merge_status=0
+git -C "$PROJ" merge --ff-only "$BRANCH" >/dev/null || merge_status=$?
+fm_lock_release "$MERGE_CONTROL_LOCK" || true
+MERGE_CONTROL_LOCK=
+[ "$merge_status" -eq 0 ] || exit "$merge_status"
 after=$(git -C "$PROJ" rev-parse --short "$DEFAULT")
 echo "merged $BRANCH into local $DEFAULT ($before -> $after) in $PROJ"
 # Fail-soft: bin/fm-gitnexus-reindex.sh owns its own WARN-and-continue

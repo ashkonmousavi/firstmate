@@ -1837,8 +1837,8 @@ test_spawn_relaunch_still_refuses_a_live_agent() {
 #
 # A restart is the case where all three of this change's parts meet. It empties
 # the window inventory, so every recorded endpoint reads `missing` rather than
-# `dead`; it drops the process-bound worktree leases, so a stopped lane's slot
-# looks free; and it leaves the durable records as the only truth about what
+# `dead`; durable task leases keep stopped lane slots reserved; and it leaves
+# task records plus pool holder identity as the combined ownership truth
 # each lane was. Asserting the axes individually elsewhere does not prove they
 # survive together, and "exactly once" is not a property any single relaunch can
 # show.

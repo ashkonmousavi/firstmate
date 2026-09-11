@@ -26,6 +26,9 @@
 #     prints a "no changed lint targets" note, then still validates workflows.
 # Explicit paths always bypass this file-set selection and lint exactly the
 # given paths, matching the same config, without the workflow YAML check.
+# Explicit core bin/ and bin/backends/ scripts still receive the
+# backend-purity check. It rejects direct Beads CLI invocations so every
+# configured backlog backend follows the same tasks-axi lifecycle path.
 #
 # Execution is memory-bounded, not throughput-bounded: exactly one ShellCheck
 # process at a time, and exactly one root file per invocation (FM_LINT_BATCH_SIZE).
@@ -98,13 +101,25 @@ set -u
 # happens to share with other processes, so that caller's own unrelated
 # cleanup (a process-group-wide signal to reap stray background jobs after
 # its own command finishes) can kill this script outright before it ever
-# prints its real verdict. Re-exec once through perl's setpgrp so this script
-# always owns its process group, the same isolation already given to each
-# ShellCheck worker below. FM_LINT_ISOLATED is also set by fm_lint_run_worker
-# for the private --internal-worker recursion, which is isolated by its
-# caller before it ever reaches this script.
+# prints its real verdict. Re-exec once through Perl so this script always owns
+# its process group, the same isolation already given to each ShellCheck worker
+# below. A launcher may already have made this process its group leader; that is
+# the requested end state, whereas trying setpgrp again fails with EPERM on
+# Linux. Every other entry must successfully create and verify its own group.
+# FM_LINT_ISOLATED is also set by fm_lint_run_worker for the private
+# --internal-worker recursion, which is isolated by its caller before it ever
+# reaches this script.
+# shellcheck disable=SC2016 # Perl, not the shell, owns these dollar expressions.
+FM_LINT_PROCESS_GROUP_PERL='my $pid = $$;
+my $pgid = getpgrp();
+if ($pgid != $pid) {
+  setpgrp(0, 0) or die "setpgrp: $!";
+  $pgid = getpgrp();
+}
+$pgid == $pid or die "process-group isolation failed: pid=$pid pgid=$pgid\n";
+exec @ARGV or die "exec: $!";'
 if [ "${FM_LINT_ISOLATED:-0}" != 1 ] && command -v perl >/dev/null 2>&1; then
-  FM_LINT_ISOLATED=1 exec perl -e 'setpgrp(0, 0) or die "setpgrp: $!"; exec @ARGV or die "exec: $!"' \
+  FM_LINT_ISOLATED=1 exec perl -e "$FM_LINT_PROCESS_GROUP_PERL" \
     -- "${BASH:-bash}" "$0" "$@"
 fi
 
@@ -271,6 +286,239 @@ fm_lint_run_workflows() {
   "$SELF_DIR/fm-lint-workflows.sh"
 }
 
+# Backend adapters belong behind tasks-axi. Keep direct Beads CLI invocations
+# out of firstmate's core scripts so every configured backend follows the same
+# lifecycle path.
+fm_lint_run_backend_purity() {
+  local findings path canonical
+  local -a purity_roots
+  purity_roots=()
+  if [ "$EXPLICIT_PATHS" -eq 0 ]; then
+    purity_roots=(bin/*.sh bin/backends/*.sh)
+  else
+    for path in "${ROOTS[@]}"; do
+      [ -f "$path" ] || continue
+      # shellcheck disable=SC2016 # Perl, not the shell, expands $ARGV.
+      canonical=$("$PERL_BIN" -MCwd=realpath -e '
+        my $resolved = realpath($ARGV[0]);
+        exit 1 unless defined $resolved;
+        print $resolved;
+      ' "$path" 2>/dev/null) || continue
+      case "$canonical" in
+        "$ROOT"/bin/*.sh|"$ROOT"/bin/backends/*.sh)
+          purity_roots+=("$canonical")
+          ;;
+      esac
+    done
+  fi
+  [ "${#purity_roots[@]}" -gt 0 ] || return 0
+  findings=$(LC_ALL=C awk '
+    function hex_value(character) {
+      return index("0123456789abcdef", tolower(character)) - 1
+    }
+    function ansi_number(digits, base,    i, value) {
+      value=0
+      for (i=1; i <= length(digits); i++) value=value * base + hex_value(substr(digits, i, 1))
+      return value
+    }
+    # Non-printable and non-ASCII bytes can never spell the bd command, so a
+    # placeholder keeps them from colliding into it.
+    function ansi_character(value) {
+      if (value < 32 || value > 126) return "?"
+      return sprintf("%c", value)
+    }
+    function invokes_bd(segment) {
+      sub(/^[[:space:]]+/, "", segment)
+      while (1) {
+        previous=segment
+        sub(/^(if|then|elif|else|while|until|do)[[:space:]]+/, "", segment)
+        sub(/^![[:space:]]+/, "", segment)
+        sub(/^(command|exec)[[:space:]]+/, "", segment)
+        sub(/^[[:alpha:]_][[:alnum:]_]*=[^[:space:]]+[[:space:]]+/, "", segment)
+        if (segment ~ /^env[[:space:]]+/) {
+          sub(/^env[[:space:]]+/, "", segment)
+          while (1) {
+            if (segment ~ /^--[[:space:]]+/) {
+              sub(/^--[[:space:]]+/, "", segment)
+              break
+            }
+            if (segment ~ /^(-u|--unset|-C|--chdir|-S|--split-string|--argv0)[[:space:]]+[^[:space:]]+[[:space:]]+/) {
+              sub(/^(-u|--unset|-C|--chdir|-S|--split-string|--argv0)[[:space:]]+[^[:space:]]+[[:space:]]+/, "", segment)
+              continue
+            }
+            if (segment ~ /^--(unset|chdir|split-string|argv0)=[^[:space:]]+[[:space:]]+/) {
+              sub(/^--(unset|chdir|split-string|argv0)=[^[:space:]]+[[:space:]]+/, "", segment)
+              continue
+            }
+            if (segment ~ /^(-i|--ignore-environment|-0|--null|-v|--debug)[[:space:]]+/) {
+              sub(/^(-i|--ignore-environment|-0|--null|-v|--debug)[[:space:]]+/, "", segment)
+              continue
+            }
+            if (segment ~ /^[[:alpha:]_][[:alnum:]_]*=[^[:space:]]+[[:space:]]+/) {
+              sub(/^[[:alpha:]_][[:alnum:]_]*=[^[:space:]]+[[:space:]]+/, "", segment)
+              continue
+            }
+            break
+          }
+        }
+        if (segment == previous) break
+      }
+      command_word=""
+      quote=""
+      ansi=0
+      for (position=1; position <= length(segment); position++) {
+        character=substr(segment, position, 1)
+        if (quote == "") {
+          if (character ~ /[[:space:]]/) break
+          if (character == "$" && position < length(segment)) {
+            next_character=substr(segment, position + 1, 1)
+            if (next_character == "\"" || next_character == sprintf("%c", 39)) {
+              position++
+              quote=next_character
+              ansi=(next_character == sprintf("%c", 39)) ? 1 : 0
+              continue
+            }
+          }
+          if (character == "\"" || character == sprintf("%c", 39)) {
+            quote=character
+            ansi=0
+            continue
+          }
+          if (character == "\\") {
+            position++
+            if (position > length(segment)) return 0
+            character=substr(segment, position, 1)
+          }
+          command_word=command_word character
+          continue
+        }
+        if (character == quote) {
+          quote=""
+          ansi=0
+          continue
+        }
+        if (character == "\\" && (quote == "\"" || ansi)) {
+          position++
+          if (position > length(segment)) return 0
+          escape=substr(segment, position, 1)
+          if (ansi) {
+            # ANSI-C quoting decodes escapes, so an encoded spelling of the
+            # command still runs bd and must be decoded here to be caught.
+            value=-1
+            if (escape == "x" || escape == "u" || escape == "U") {
+              max_digits=2
+              if (escape == "u") max_digits=4
+              if (escape == "U") max_digits=8
+              digits=""
+              while (length(digits) < max_digits && position < length(segment)) {
+                digit=substr(segment, position + 1, 1)
+                if (digit !~ /[0-9A-Fa-f]/) break
+                digits=digits digit
+                position++
+              }
+              if (digits == "") {
+                # An escape prefix with no digits yields the prefix character.
+                command_word=command_word escape
+                continue
+              }
+              value=ansi_number(digits, 16)
+            } else if (escape ~ /[0-7]/) {
+              digits=escape
+              while (length(digits) < 3 && position < length(segment)) {
+                digit=substr(segment, position + 1, 1)
+                if (digit !~ /[0-7]/) break
+                digits=digits digit
+                position++
+              }
+              value=ansi_number(digits, 8)
+            }
+            if (value >= 0) {
+              if (value == 0) {
+                # NUL truncates the bash word.
+                quote=""
+                break
+              }
+              command_word=command_word ansi_character(value)
+              continue
+            }
+            if (escape == "c") {
+              # Control characters can never spell the bd command.
+              if (position < length(segment)) position++
+              command_word=command_word "?"
+              continue
+            }
+            if (escape ~ /^[abeEfnrtv]$/) {
+              command_word=command_word "?"
+              continue
+            }
+            # Remaining ANSI-C escapes keep their character, and bash drops
+            # the backslash before any other character.
+            command_word=command_word escape
+            continue
+          }
+          character=escape
+        }
+        command_word=command_word character
+      }
+      if (quote != "") return 0
+      return command_word ~ /(^|\/)bd$/
+    }
+    function split_commands(line, segments,   position, character, quote, current, count) {
+      delete segments
+      count=0
+      current=""
+      quote=""
+      for (position=1; position <= length(line); position++) {
+        character=substr(line, position, 1)
+        if (quote != "") {
+          current=current character
+          if (character == quote) {
+            quote=""
+          } else if (quote == "\"" && character == "\\") {
+            position++
+            if (position <= length(line)) current=current substr(line, position, 1)
+          }
+          continue
+        }
+        if (character == "\\") {
+          current=current character
+          position++
+          if (position <= length(line)) current=current substr(line, position, 1)
+          continue
+        }
+        if (character == "\"" || character == sprintf("%c", 39)) {
+          quote=character
+          current=current character
+          continue
+        }
+        if (character ~ /[();|&{}]/) {
+          segments[++count]=current
+          current=""
+          continue
+        }
+        current=current character
+      }
+      if (quote != "") return split(line, segments, /[();|&{}]+/)
+      segments[++count]=current
+      return count
+    }
+    /^[[:space:]]*#/ { next }
+    {
+      count=split_commands($0, segments)
+      for (i=1; i<=count; i++) {
+        if (invokes_bd(segments[i])) {
+          print FILENAME ":" FNR ": direct Beads CLI invocation bypasses tasks-axi"
+          break
+        }
+      }
+    }
+  ' "${purity_roots[@]}")
+  [ -z "$findings" ] || {
+    printf '%s\n' "$findings" >&2
+    return 1
+  }
+}
+
 JOBS=${FM_LINT_JOBS:-2}
 TELEMETRY=${FM_LINT_TELEMETRY:-}
 FAST=0
@@ -429,6 +677,7 @@ fi
 if [ "$CHANGED_MODE" -eq 1 ] && [ "$ROOT_COUNT" -eq 0 ]; then
   printf 'fm-lint.sh: no changed lint targets\n'
   overall_rc=0
+  fm_lint_run_backend_purity || overall_rc=$?
   fm_lint_run_workflows || overall_rc=$?
   exit "$overall_rc"
 fi
@@ -527,19 +776,19 @@ fm_lint_run_worker() {  # <worker-index>
   timing="$TMP_ROOT/timing.$worker_index"
   if [ -n "$TELEMETRY" ] && [ -x /usr/bin/time ]; then
     if [ "$(uname)" = Darwin ]; then
-      exec "$PERL_BIN" -e 'setpgrp(0, 0) or die "setpgrp: $!"; exec @ARGV or die "exec: $!"' \
+      exec "$PERL_BIN" -e "$FM_LINT_PROCESS_GROUP_PERL" \
         /usr/bin/time -lp -o "$timing" \
         env FM_LINT_INTERNAL=1 FM_LINT_INTERNAL_FAST="$FAST" FM_LINT_SHELLCHECK="$SHELLCHECK_BIN" FM_LINT_ISOLATED=1 \
         "${BASH:-bash}" "$SELF" --internal-worker "$manifest" "$OUTPUT_DIR" "$worker_index"
     else
-      exec "$PERL_BIN" -e 'setpgrp(0, 0) or die "setpgrp: $!"; exec @ARGV or die "exec: $!"' \
+      exec "$PERL_BIN" -e "$FM_LINT_PROCESS_GROUP_PERL" \
         /usr/bin/time -f 'wall_seconds=%e\nuser_seconds=%U\nsystem_seconds=%S\nmax_rss_kib=%M' -o "$timing" \
         env FM_LINT_INTERNAL=1 FM_LINT_INTERNAL_FAST="$FAST" FM_LINT_SHELLCHECK="$SHELLCHECK_BIN" FM_LINT_ISOLATED=1 \
         "${BASH:-bash}" "$SELF" --internal-worker "$manifest" "$OUTPUT_DIR" "$worker_index"
     fi
   else
     [ -z "$TELEMETRY" ] || printf 'timing_unavailable=1\n' > "$timing"
-    exec "$PERL_BIN" -e 'setpgrp(0, 0) or die "setpgrp: $!"; exec @ARGV or die "exec: $!"' \
+    exec "$PERL_BIN" -e "$FM_LINT_PROCESS_GROUP_PERL" \
       env FM_LINT_INTERNAL=1 FM_LINT_INTERNAL_FAST="$FAST" FM_LINT_SHELLCHECK="$SHELLCHECK_BIN" FM_LINT_ISOLATED=1 \
       "${BASH:-bash}" "$SELF" --internal-worker "$manifest" "$OUTPUT_DIR" "$worker_index"
   fi
@@ -695,6 +944,12 @@ EOF
     printf 'fm-lint.sh: could not write telemetry to %s.\n' "$TELEMETRY" >&2
     [ "$overall_rc" -ne 0 ] || overall_rc=2
   fi
+fi
+
+purity_rc=0
+fm_lint_run_backend_purity || purity_rc=$?
+if [ "$overall_rc" -eq 0 ] && [ "$purity_rc" -ne 0 ]; then
+  overall_rc=$purity_rc
 fi
 
 if [ "$overall_rc" -eq 0 ]; then

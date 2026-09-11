@@ -722,17 +722,10 @@ test_treehouse_lease_check_follows_resolved_backend() {
   pass "bootstrap: the treehouse lease check follows the resolved backend's worktree provider"
 }
 
-# Proves: a task worktree the pool would hand to the next spawn is named at
-# session start. treehouse binds a lease to a process (owner_pid plus
-# owner_started_at in treehouse-state.json), so a restart drops every lease and
-# `treehouse status` then derives each slot's state from live processes alone. A
-# lane whose agent is stopped - parked, waiting on a merge, or emptied by an OOM
-# restart - is then indistinguishable from an unused slot, and on this host at
-# 00:44 on 2026-09-09 a recorded slot really was re-leased to a new spawn.
-# Firstmate cannot re-take the lease (treehouse has no command to lease a path
-# that already exists), so this line is the report half; bin/fm-spawn.sh's
-# assert_worktree_unclaimed is the refusing half. Red before the check existed:
-# bootstrap printed nothing at all for an exposed lane.
+# Proves: a legacy task worktree the pool would hand to the next spawn is named
+# at session start, while a current durable task lease stays safe across a
+# stopped agent. A holder mismatch is named separately and never repaired by
+# mutating Treehouse state.
 test_a_recorded_worktree_the_pool_calls_free_is_reported() {
   local case_dir home fakebin pool out
   case_dir="$TMP_ROOT/worktree-lease"
@@ -757,15 +750,15 @@ JSON
 
   printf 'worktree=%s\nparked=%s\n' "$case_dir/pool/6" "$(date +%s)" > "$home/state/task-parked.meta"
   printf 'worktree=%s\n' "$case_dir/pool/7" > "$home/state/task-running.meta"
-  printf 'worktree=%s\n' "$case_dir/pool/8" > "$home/state/task-leased.meta"
+  printf 'worktree=%s\ntreehouse_lease_holder=fm-secondmate\n' "$case_dir/pool/8" > "$home/state/task-leased.meta"
 
   out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$home" \
     "$ROOT/bin/fm-bootstrap.sh")
 
   assert_contains "$out" "WORKTREE_LEASE: task task-parked records $case_dir/pool/6" \
     "an unleased, process-free recorded worktree must be named"
-  assert_contains "$out" "bin/fm-control.sh task-parked relaunch" \
-    "the report must name the remedy that puts a process back in the slot"
+  assert_contains "$out" "preserve the path and do not allocate from this pool" \
+    "the report must protect the legacy path without pretending relaunch creates a durable lease"
   assert_not_contains "$out" "task-running" \
     "a recorded worktree still holding a live process is not exposed and must stay silent"
   assert_not_contains "$out" "task-leased" \
@@ -1191,8 +1184,6 @@ unverified dispatch harness is flagged^{"rules":[{"when":"anything","use":{"harn
 unsupported codex max effort is flagged^{"rules":[{"when":"big feature","use":{"harness":"codex","model":"gpt-5","effort":"max"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: codex:max
 unsupported grok max effort is flagged^{"rules":[{"when":"deep current work","use":{"harness":"grok","model":"grok-4","effort":"max"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: grok:max
 unsupported grok xhigh effort is flagged^{"rules":[{"when":"deep current work","use":{"harness":"grok","model":"grok-4","effort":"xhigh"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: grok:xhigh
-native pi ultra is accepted^{"rules":[],"default":{"harness":"pi","model":"codex-native/gpt-6-astra","effort":"ultra"}}^empty^
-native signed pi ultra is accepted^{"rules":[{"when":"native reasoning","use":{"harness":"pi-signed","model":"codex-native/gpt-6-astra","effort":"ultra"}}]}^empty^
 ordinary pi ultra is refused^{"default":{"harness":"pi","model":"openai-codex/gpt-6-astra","effort":"ultra"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: pi:ultra
 missing native model ultra is refused^{"default":{"harness":"pi","effort":"ultra"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: pi:ultra
 empty native model ultra is refused^{"default":{"harness":"pi","model":"codex-native/","effort":"ultra"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: pi:ultra

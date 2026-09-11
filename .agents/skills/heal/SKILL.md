@@ -1,7 +1,7 @@
 ---
 name: heal
 description: >-
-  Manually inspect and repair recurring failures, neglected obligations, and unnecessary delivery friction when the captain invokes /heal, optionally with a recent-event window such as /heal 4h.
+  Manually verify accepted goal and plan completion, current-work correctness, and delivery progress, then advance bounded authorized repairs when the captain invokes /heal, optionally with a recent-event window such as /heal 4h.
 user-invocable: true
 disable-model-invocation: true
 metadata:
@@ -10,8 +10,9 @@ metadata:
 
 # heal
 
-Run a bounded evidence-led recovery pass while keeping the next complete application outcome progressing.
-Every invocation opens with [workflow.md](workflow.md#1-direction-first)'s Direction first step, before any failure inventory: name that outcome and check whether current assignments actually serve it, questioning stale holds and apparent completion rather than accepting ownership or a done label at face value.
+Run a bounded evidence-led recovery pass against the complete accepted goal and plan while keeping the next application outcome progressing.
+Read [workflow.md](workflow.md) completely, then open with its Direction first step: account for retained obligations and completion evidence, and check whether current assignments and recent deliveries actually serve that destination.
+A cleared goal, checkbox, artifact path, or completed scan does not establish correct or complete delivery.
 Use the current session and its completed startup digest; do not run session start again merely because this skill was invoked.
 Treat `$ARGUMENTS` as the optional recent-event window, with a bounded four-hour default on the first pass.
 Older unresolved findings always carry forward regardless of that window.
@@ -19,13 +20,12 @@ Older unresolved findings always carry forward regardless of that window.
 No automated task/status consumer invokes `bin/fm-heal.sh`; a human or agent runs `/heal`, or exercises the CLI directly the way `tests/fm-heal.test.sh`'s C4 case does.
 Whether a recurring failure actually reaches this workflow through Firstmate's ordinary bounded consuming cycle, without someone explicitly invoking `/heal`, is unverified until observed in production; do not build or assume a second, automatic heal-triggering consumer.
 
-First run `bin/fm-heal.sh owner-status` from the tracked Firstmate code root.
-If it prints `advisor`, remain wholly read-only and follow [workflow.md](workflow.md#read-only-advisor-mode).
-Do not initialize or update the ledger, acquire or recover the fleet lock, start or steer workers, acknowledge queues, or change fleet state.
-Return recommendations with observation times, identities, uncertainty, and the warning that the lock-owning Firstmate must refresh them before acting.
-
-If it prints `owner`, read [workflow.md](workflow.md) completely and follow its invocation flow.
-Initialize the private ledger lazily with `bin/fm-heal.sh init`.
+Resolve the intended tracked Firstmate code root and operational home from explicit invocation or established session context, never from an unrelated current directory or a guessed project parent.
+If either binding is missing or ambiguous, report it and remain advisory without running fleet helpers.
+Read the resolved helper's header for the absolute-path invocation and explicit-home routing, then run its `owner-status` check.
+If it prints `advisor`, follow [workflow.md](workflow.md#advisor-mode): fleet state stays read-only, while separately authorized isolated preparation may produce reviewable repairs.
+If it prints `owner`, follow the workflow through existing fleet owners and supported delivery procedures.
+Only in verified-owner mode, initialize the private ledger lazily with `bin/fm-heal.sh init`.
 Use the helper for lifecycle transitions, occurrence accounting, source-bound checkpoints, archive moves, index rebuilds, and safe finding publication.
 Never write scan progress before the corresponding finding evidence is safely preserved.
 

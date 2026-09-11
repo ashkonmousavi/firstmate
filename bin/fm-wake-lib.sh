@@ -205,14 +205,32 @@ fm_watcher_healthy() {
 fm_supervision_model() {
   local harness
   case "${FM_SUPERVISION_MODEL:-}" in
-    autoarm|extension|persistent) printf '%s\n' "$FM_SUPERVISION_MODEL"; return 0 ;;
+    autoarm|checkpoint|extension|persistent) printf '%s\n' "$FM_SUPERVISION_MODEL"; return 0 ;;
   esac
   harness=$("$FM_WAKE_LIB_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
   case "$harness" in
     claude|cursor) printf 'autoarm\n' ;;
-    pi|pi-signed|omp) printf 'extension\n' ;;
+    codex) printf 'checkpoint\n' ;;
+    pi|pi-signed) printf 'extension\n' ;;
     *) printf 'persistent\n' ;;
   esac
+}
+
+# A deliberate Codex checkpoint pause is bounded and explicit. The marker keeps
+# the reason separate from watcher liveness: while its deadline is still ahead,
+# no foreground checkpoint is expected; after the deadline, or for any malformed
+# marker, the ordinary stale-beacon warning resumes. The marker never consumes a
+# wake and never refreshes the beacon.
+fm_checkpoint_pause_active() {  # <state>
+  local state=$1 marker schema due now
+  marker="$state/.watch-checkpoint-pause"
+  [ -f "$marker" ] && [ ! -L "$marker" ] || return 1
+  schema=$(sed -n 's/^schema=//p' "$marker" 2>/dev/null)
+  due=$(sed -n 's/^resume_due=//p' "$marker" 2>/dev/null)
+  [ "$schema" = fm-watch-checkpoint-pause.v1 ] || return 1
+  case "$due" in ''|*[!0-9]*) return 1 ;; esac
+  now=$(date +%s)
+  [ "$now" -lt "$due" ]
 }
 
 # Pi primary supervision evidence. The Pi extensions record, in their state
@@ -264,24 +282,10 @@ fm_pi_extension_owns_supervision() {
     "fm-primary-turnend-guard.ts:.pi-turnend-extension-loaded"
 }
 
-# fm_omp_extension_owns_supervision <state> <root>
-# The omp (Oh My Pi) primary's proof, keyed on its own two tracked extensions
-# under .omp/extensions/ and their own state markers. It is a separate proof on
-# purpose: omp must never inherit the Pi tolerance by accident, and a Pi home
-# never satisfies the omp markers. Both proofs bind to the pid in state/.lock,
-# so a session on one harness cannot vouch for a home held by the other.
-fm_omp_extension_owns_supervision() {
-  fm_extension_pair_owns_supervision "$1" "$2/.omp/extensions" \
-    "fm-primary-omp-watch.ts:.omp-watch-extension-loaded" \
-    "fm-primary-turnend-guard.ts:.omp-turnend-extension-loaded"
-}
-
 # fm_extension_owns_supervision <state> <root>
-# The extension-model proof the verdict below consults: whichever extension
-# family's markers the lock-owning session recorded. Exactly one family can
-# match because both bind to the same lock pid.
+# The Pi extension-model proof the verdict below consults.
 fm_extension_owns_supervision() {
-  fm_pi_extension_owns_supervision "$1" "$2" || fm_omp_extension_owns_supervision "$1" "$2"
+  fm_pi_extension_owns_supervision "$1" "$2"
 }
 
 fm_extension_pair_owns_supervision() {  # <state> <extension-dir> <source:marker>...
@@ -345,13 +349,16 @@ fm_afk_daemon_owns_supervision() {
 # Without that proof a stale or absent beacon is a genuine lapse.
 # extension: a live identity-matched watcher is the ordinary healthy state, but a
 # genuinely unheld lock is also healthy while the beacon is fresh AND a live Pi
-# session provably owns continuity (fm_extension_owns_supervision: the Pi or the
-# omp extension pair, whichever the lock-owning session recorded) - that is the
+# session provably owns continuity (fm_extension_owns_supervision) - that is the
 # extension's own tear-down-and-respawn hand-off, which it retries and escalates
 # itself. A lock with any recorded pid remains down if the strict health check fails.
 # Without ownership proof an unheld lock is down exactly as before, so an unloaded,
 # version-drifted, or exited Pi session still alarms immediately, and a cycle the
 # extension never restores still alarms once the beacon passes grace.
+# checkpoint: a live watcher is healthy while the foreground call owns it; a
+# fresh beacon is also healthy after a bounded checkpoint returns. A deliberate
+# bounded pause is healthy until its recorded deadline. Once both the beacon and
+# pause are stale, active work alarms normally.
 # persistent: require a live identity-matched watcher with a fresh beacon
 # (fm_watcher_healthy); a fresh leftover beacon with no live watcher is still down.
 # shellcheck disable=SC2034 # Read by callers after the function returns.
@@ -376,6 +383,12 @@ fm_watcher_supervision_verdict() {
       FM_WATCHER_VERDICT_OK=true
     fi
     return 0
+  fi
+  if [ "$model" = checkpoint ]; then
+    if [ "$fresh" = true ] || fm_checkpoint_pause_active "$state"; then
+      FM_WATCHER_VERDICT_OK=true
+      return 0
+    fi
   fi
   if fm_watcher_healthy "$state" "$watch" "$grace" "$home"; then
     # shellcheck disable=SC2034 # Read by callers after the function returns.

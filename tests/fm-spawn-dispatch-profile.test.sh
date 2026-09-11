@@ -151,7 +151,15 @@ make_c3_no_mistakes_capture() {  # <fakebin>
   cat > "$1/no-mistakes" <<'SH'
 #!/usr/bin/env bash
 set -u
+if [ "${1:-}" = --version ]; then
+  printf '%s\n' 'no-mistakes version 1.65.0 (65e2262)'
+  exit 0
+fi
 if [ "${1:-}" = axi ] && [ "${2:-}" = run ]; then
+  if [ "${3:-}" = --help ]; then
+    printf '%s\n' '      --launch-nonce string' '      --validation-generation string'
+    exit 0
+  fi
   if [ "${FM_FAKE_VALIDATION_CUSTODY:-released}" = pipeline-owned ]; then
     printf '%s\n' 'pipeline already owns this branch; abort and confirm custody release before another run' >&2
     exit 7
@@ -196,8 +204,9 @@ c3_validation_command() {  # <launch-brief>
   sed -n '/^    .* run-validation --brief /{s/^    //;p;}' "$1" | tail -1
 }
 
-c3_brief_revision() {  # <effective-brief>
-  bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$1"
+c3_brief_revision() {  # <effective-brief> <trusted-project-root> <fakebin>
+  FM_DOD_TRUSTED_PROJECT_ROOT=$2 PATH="$3:$PATH" \
+    bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$1"
 }
 
 c3_tasks_in() {  # <home> <tasks-axi args...>
@@ -239,7 +248,7 @@ EOF
   a_brief="$a_home/data/c3-worker-a/launch-brief.md"
   a_cmd=$(c3_validation_command "$a_brief")
   [ -n "$a_cmd" ] || fail "package A launch did not carry the revision-bound validation command"
-  a_revision=$(c3_brief_revision "$a_home/data/c3-worker-a/brief.md")
+  a_revision=$(c3_brief_revision "$a_home/data/c3-worker-a/brief.md" "$a_proj" "$a_fake")
   assert_grep "Source revision: \`$a_revision\`" "$a_brief" \
     "package A launch did not bind its effective brief revision"
   : > "$a_home/validation-calls.log"
@@ -285,7 +294,7 @@ EOF
   expect_code 0 "$status" "fresh package B worker should launch"$'\n'"$out"
   b_brief="$b_home/data/c3-worker-b/launch-brief.md"
   b_cmd=$(c3_validation_command "$b_brief")
-  b_revision=$(c3_brief_revision "$b_home/data/c3-worker-b/brief.md")
+  b_revision=$(c3_brief_revision "$b_home/data/c3-worker-b/brief.md" "$b_proj" "$b_fake")
   assert_grep 'schema-v2' "$b_brief" "fresh worker launch did not consume package B"
   assert_grep 'proof P1 is invalidated' "$b_brief" "fresh worker launch lost B's proof disposition"
   assert_grep "Source revision: \`$b_revision\`" "$b_brief" \
@@ -451,12 +460,12 @@ EOF
   [ "$(grep -c '^run$' "$b_home/validation-calls.log" || true)" = "$calls" ] \
     || fail "abort/status/custody handling started another run under old custody"
 
-  before_revision=$(c3_brief_revision "$b_home/data/c3-worker-b/brief.md")
+  before_revision=$(c3_brief_revision "$b_home/data/c3-worker-b/brief.md" "$b_proj" "$b_fake")
   printf '%s\n' unrelated > "$b_wt/unrelated-main-change.txt"
   git -C "$b_wt" add unrelated-main-change.txt
   git -C "$b_wt" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' \
     commit -qm 'test: unrelated main movement'
-  after_revision=$(c3_brief_revision "$b_home/data/c3-worker-b/brief.md")
+  after_revision=$(c3_brief_revision "$b_home/data/c3-worker-b/brief.md" "$b_proj" "$b_fake")
   [ "$before_revision" = "$after_revision" ] \
     || fail "an unrelated repository commit invalidated package B"
   [ "$(grep -c '^run$' "$b_home/validation-calls.log" || true)" = "$calls" ] \
@@ -1460,6 +1469,113 @@ test_active_dispatch_profile_does_not_block_secondmate_launch() {
   pass "active crew-dispatch profile does not block secondmate launches"
 }
 
+# Execute the emitted command in a synthetic pane environment. The fake
+# backend records delivery while real shells exercise the filtering boundary;
+# no developer credential value is inspected by this regression.
+test_launch_environment_allowlist_filters_only_when_enabled() {
+  local setting rec id out status probe result expected launch value pane_shell
+  # shellcheck disable=SC2016
+  value='synthetic value; $(touch SHOULD_NOT_EXIST) `false` "quoted"'
+  for setting in absent missing-config enabled empty; do
+    id="env-$setting"
+    rec=$(make_spawn_case "$id" codex "$id")
+    read_case_record "$rec"
+    case "$setting" in
+      missing-config) rm "$HOME_DIR/config/crew-harness"; rmdir "$HOME_DIR/config" ;;
+      enabled) printf '# Synthetic name\nFM_TEST_ALLOWED\nFM_TEST_EMPTY\nFM_TEST_UNSET\n' > "$HOME_DIR/config/launch-env-allowlist" ;;
+      empty) : > "$HOME_DIR/config/launch-env-allowlist" ;;
+    esac
+    probe="$CASE_DIR/probe.sh"
+    cat > "$probe" <<'SH'
+#!/bin/sh
+printf '%s\n' "${FM_TEST_AMBIENT_SENTINEL-unset}" "${FM_TEST_ALLOWED-unset}" \
+  "${FM_TEST_EMPTY-unset}" "${FM_TEST_UNSET-unset}" "$HOME" "$PATH" "$TERM" "$TMUX" "$GOTMPDIR"
+SH
+    out=$(FM_TEST_AMBIENT_SENTINEL=synthetic-unrelated \
+      run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+      "$id" "$PROJ_DIR" --harness "/bin/sh '$probe'")
+    status=$?
+    expect_code 0 "$status" "allowlist=$setting spawn should succeed: $out"
+    launch=$(cat "$LAUNCH_LOG")
+    for pane_shell in /bin/sh /bin/bash /bin/zsh; do
+      [ -x "$pane_shell" ] || continue
+      result=$(env -i HOME="$HOME_DIR/user-home" PATH=/usr/bin:/bin TERM=xterm \
+        TMUX=synthetic-pane GOTMPDIR=/synthetic/gotmp \
+        FM_TEST_AMBIENT_SENTINEL=synthetic-unrelated FM_TEST_ALLOWED="$value" FM_TEST_EMPTY='' \
+        "$pane_shell" -c "$launch") || fail "allowlist=$setting emitted launch failed in $pane_shell"
+      case "$setting" in
+        absent|missing-config) expected=$(printf '%s\n' synthetic-unrelated "$value" '' unset) ;;
+        enabled) expected=$(printf '%s\n' unset "$value" '' unset) ;;
+        empty) expected=$(printf '%s\n' unset unset unset unset) ;;
+      esac
+      expected="$expected"$'\n'"$HOME_DIR/user-home"$'\n/usr/bin:/bin\nxterm\nsynthetic-pane\n/synthetic/gotmp'
+      [ "$result" = "$expected" ] || fail "allowlist=$setting worker environment mismatch: $result"
+    done
+    pass "allowlist=$setting preserves the operational floor and filters only when opted in"
+  done
+}
+
+test_launch_environment_invalid_config_refuses_before_publication() {
+  local rec id bad out status
+  id=env-invalid
+  rec=$(make_spawn_case "$id" codex "$id")
+  read_case_record "$rec"
+  for bad in 'FM_TEST_ALLOWED=value' 'NAME;false' '1INVALID' '*'; do
+    printf '%s\n' "$bad" > "$HOME_DIR/config/launch-env-allowlist"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    expect_code 1 "$status" "invalid allowlist must refuse spawn"
+    assert_contains "$out" 'launch-env-allowlist' "refusal must identify the config file"
+    [ ! -s "$LAUNCH_LOG" ] || fail "invalid allowlist delivered a launch command"
+    [ ! -f "$HOME_DIR/state/$id.meta" ] || fail "invalid allowlist published a task"
+  done
+  pass "invalid allowlist names refuse before launch or task publication"
+}
+
+test_launch_environment_inherited_by_secondmate() {
+  local rec id sm out status result
+  id=env-secondmate
+  rec=$(make_spawn_case "$id" codex "$id")
+  read_case_record "$rec"
+  printf 'FM_TEST_ALLOWED\n' > "$HOME_DIR/config/launch-env-allowlist"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
+  status=$?
+  expect_code 0 "$status" "secondmate with an allowlist should spawn: $out"
+  cmp -s "$HOME_DIR/config/launch-env-allowlist" "$sm/config/launch-env-allowlist" \
+    || fail "secondmate did not inherit the launch environment contract"
+  cat > "$FAKEBIN_DIR/codex" <<'SH'
+#!/bin/sh
+printf '%s\n' "${FM_TEST_AMBIENT_SENTINEL-unset}" "$FM_TEST_ALLOWED" "$FM_HOME" "${FM_STATE_OVERRIDE-unset}"
+SH
+  chmod +x "$FAKEBIN_DIR/codex"
+  result=$(env -i HOME="$HOME_DIR/user-home" PATH="$FAKEBIN_DIR:$PATH" \
+    FM_TEST_AMBIENT_SENTINEL=synthetic-unrelated FM_TEST_ALLOWED=synthetic-provider \
+    /bin/sh -c "$(cat "$LAUNCH_LOG")") || fail "secondmate's emitted command failed"
+  [ "$result" = "unset"$'\nsynthetic-provider\n'"$sm" ] \
+    || fail "secondmate's environment lost filtering or explicit home assignments: $result"
+  if (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-config-inherit-lib.sh"
+    rm "$HOME_DIR/config/launch-env-allowlist"
+    ln -s missing-allowlist "$HOME_DIR/config/launch-env-allowlist"
+    propagate_secondmate_inheritance "$HOME_DIR" "$sm" >/dev/null 2>&1
+  ); then
+    fail "a dangling primary allowlist was accepted as proven absence"
+  fi
+  [ "$(cat "$sm/config/launch-env-allowlist")" = FM_TEST_ALLOWED ] \
+    || fail "source inspection failure removed or changed the inherited allowlist"
+  rm "$HOME_DIR/config/launch-env-allowlist"
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-config-inherit-lib.sh"
+    propagate_secondmate_inheritance "$HOME_DIR" "$sm" >/dev/null
+  ) || fail "proven allowlist removal failed to converge"
+  [ ! -e "$sm/config/launch-env-allowlist" ] || fail "secondmate retained a removed allowlist"
+  pass "secondmate launch inherits the allowlist, preserves it on source errors, and mirrors proven release"
+}
+
 test_no_profile_keeps_claude_profile_defaults
 test_c3_superseded_brief_is_consumed_by_launch_and_validation
 test_mcp_mode_resolves_from_kind_and_explicit_flag
@@ -1501,5 +1617,8 @@ test_claude_forwards_firstmate_config_dir_when_set
 test_claude_omits_config_dir_prefix_when_unset
 test_non_claude_harness_ignores_config_dir
 test_active_dispatch_profile_does_not_block_secondmate_launch
+test_launch_environment_allowlist_filters_only_when_enabled
+test_launch_environment_invalid_config_refuses_before_publication
+test_launch_environment_inherited_by_secondmate
 
 echo "# all fm-spawn-dispatch-profile tests passed"

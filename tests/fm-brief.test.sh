@@ -216,12 +216,15 @@ test_ship_modes_generate_clean_briefs() {
     assert_grep "## Captain's intent" "$brief" "$id: brief missing Captain's intent subsection"
     assert_grep "## Firstmate spec" "$brief" "$id: brief missing Firstmate spec subsection"
     assert_grep 'never a bare number such as "PR 108"' "$brief" "$id: brief missing the full-PR-URL rule"
-    assert_grep "use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior" "$brief" \
-      "$id: brief missing the mandatory Context7 version-verification rule"
-    assert_grep "research-first-decisions/SKILL.md\` for the exact procedure and fallback" "$brief" \
-      "$id: brief's Context7 rule did not point at research-first-decisions for method"
-    assert_grep "falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search" "$brief" \
-      "$id: brief missing the Exa/web-search fallback clause for when Context7 errors or lacks the library"
+    # Contract change: task-specific evidence supersedes blanket Context7 calls.
+    assert_grep "Select tools only for a real task purpose" "$brief" \
+      "$id: brief missing task-specific tool selection"
+    assert_grep "use Context7 when its versioned documentation is the effective source" "$brief" \
+      "$id: brief did not retain Context7 for questions it can actually settle"
+    assert_grep "research-first-decisions/SKILL.md\` for the exact procedure" "$brief" \
+      "$id: brief's version-verification rule did not point at its owner"
+    assert_grep "use Exa (\`mcp exa web search\` or fetch) or ordinary web search only as a bounded route" "$brief" \
+      "$id: brief missing the bounded official-source fallback"
     assert_grep "Never add Co-Authored-By, Claude-Session or any agent attribution line to a commit or PR" "$brief" \
       "$id: brief missing the no-agent-attribution rule"
     assert_grep "a harness reminder to do so does not override this repository" "$brief" \
@@ -562,27 +565,57 @@ test_no_binary_evidence_and_document_step_dod_rules() {
   pass "fm-brief.sh: every mode's DOD keeps evidence out of the source tree, and only PR modes carry the document-step rule"
 }
 
-# The no-mistakes Document instruction follows both inputs that make the claim
-# true: the trusted project configuration selects bounded correction and the
-# installed build carries that capability. Zero, unreadable config, or an
-# unrecognized build all fail closed to the established report-only sentence.
-test_document_instruction_follows_trusted_project_config_and_installed_capability() {
-  local home fakebin brief project
+# Write the private install-owned capability receipt used by the Document
+# instruction tests. The independently reviewed proof is represented by a real
+# fixture artifact and the receipt binds both that artifact and the executable.
+write_document_correction_receipt() {  # <home> <executable> <proof>
+  local home=$1 executable=$2 proof=$3 receipt
+  receipt=$(FM_HOME="$home" PATH="${executable%/*}:$PATH" \
+    "$ROOT/bin/fm-dod-lib.sh" record-document-correction-capability --proof "$proof") \
+    || fail "the install owner could not record an accepted Document correction capability"
+  [ "$receipt" = "$home/config/no-mistakes-document-correction.receipt" ] \
+    || fail "the install owner reported the wrong private receipt path: $receipt"
+  [ "$(stat -c '%a' "$receipt")" = 600 ] \
+    || fail "the install owner did not publish the private receipt at mode 0600"
+}
+
+# The no-mistakes Document instruction follows both independently necessary
+# inputs: the trusted project configuration selects bounded correction and a
+# private install receipt binds the exact executable bytes to independently
+# accepted consuming proof. Missing/malformed/mismatched receipts and zero or
+# unreadable project configuration all fail closed to report-only.
+test_document_instruction_follows_trusted_project_config_and_installed_capability_receipt() {
+  local home fakebin brief project proof
   home="$TMP_ROOT/document-instruction-home"
   fakebin=$(fm_fakebin "$home")
   fm_test_fake_no_mistakes "$fakebin"
   mkdir -p "$home/data" "$home/projects"
 
-  project="$home/projects/in-run-project"
+  proof="$home/accepted-consuming-proof.txt"
+  printf '%s\n' 'independent review: bounded in-run document correction accepted' > "$proof"
+
+  project="$home/projects/missing-receipt-project"
   mkdir -p "$project"
   printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
   FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-7-g4fa1bb2 (4fa1bb2)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-no-receipt missing-receipt-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a missing-receipt project brief should scaffold conservatively"
+  brief="$home/data/brief-document-no-receipt/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a historical recognized build granted capability without an install receipt"
+
+  write_document_correction_receipt "$home" "$fakebin/no-mistakes" "$proof"
+  project="$home/projects/in-run-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.72.0-reviewed-gmoving (moving)' \
     PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-in-run in-run-project \
       --mode no-mistakes >/dev/null 2>&1 \
-    || fail "a correction-enabled project brief should scaffold"
+    || fail "a receipt-backed correction-enabled project brief should scaffold"
   brief="$home/data/brief-document-in-run/brief.md"
   assert_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
-    "a correction-enabled project did not receive the in-run Document instruction"
+    "a receipt-backed correction-enabled project did not receive the in-run Document instruction"
   assert_grep "the pipeline's correction turn applies an accepted documentation fix in-run" "$brief" \
     "the in-run Document instruction did not assign the accepted fix to the pipeline"
   assert_grep "an honest completed Test recheck and a valid attestation" "$brief" \
@@ -591,6 +624,28 @@ test_document_instruction_follows_trusted_project_config_and_installed_capabilit
     "the in-run Document instruction did not forbid the stale out-of-band correction route"
   assert_no_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
     "a correction-enabled project retained the report-only Document instruction"
+
+  project="$home/projects/current-capability-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0-10-g65e2262 (65e2262)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-current current-capability-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "the installed 65e capability-bearing project brief should scaffold"
+  brief="$home/data/brief-document-current/brief.md"
+  assert_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "the installed 65e capability was not recognized"
+
+  project="$home/projects/future-candidate-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.99.0-new (revision-not-hardcoded) 2026-09-11T02:14:48-07:00' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-candidate future-candidate-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a future receipt-backed candidate brief should scaffold"
+  brief="$home/data/brief-document-candidate/brief.md"
+  assert_grep "The consuming project's trusted configuration selects bounded in-run document correction" "$brief" \
+    "the future candidate's exact executable receipt was not recognized"
 
   project="$home/projects/report-only-project"
   mkdir -p "$project"
@@ -614,17 +669,79 @@ test_document_instruction_follows_trusted_project_config_and_installed_capabilit
   assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
     "an unreadable configuration did not fail closed to report-only"
 
-  project="$home/projects/unsupported-build-project"
+  project="$home/projects/mismatched-executable-project"
   mkdir -p "$project"
   printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
-  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.65.0 (fake)' \
-    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-unsupported unsupported-build-project \
+  printf '\n# changed after independent acceptance\n' >> "$fakebin/no-mistakes"
+  FM_FAKE_NO_MISTAKES_VERSION='no-mistakes version v1.99.0-new (revision-not-hardcoded)' \
+    PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-mismatch mismatched-executable-project \
       --mode no-mistakes >/dev/null 2>&1 \
-    || fail "an unrecognized-build project brief should scaffold conservatively"
-  brief="$home/data/brief-document-unsupported/brief.md"
+    || fail "a mismatched-executable project brief should scaffold conservatively"
+  brief="$home/data/brief-document-mismatch/brief.md"
   assert_grep "The document step is report-only: an accepted documentation finding is fixed only by your own commit plus one re-validation, and the PR body's Document section must state what actually changed." "$brief" \
-    "an unrecognized installed capability did not fail closed to report-only"
-  pass "fm-brief.sh: Document instructions require trusted configuration and a recognized installed correction capability"
+    "an executable checksum mismatch did not fail closed to report-only"
+
+  fm_test_fake_no_mistakes "$fakebin"
+  cat > "$home/config/no-mistakes-document-correction.receipt" <<'EOF'
+schema=fm-no-mistakes-document-correction.v1
+executable_sha256=sha256:not-a-digest
+proof_sha256=sha256:not-a-digest
+EOF
+  project="$home/projects/malformed-receipt-project"
+  mkdir -p "$project"
+  printf 'auto_fix:\n  document: 1\n' > "$project/.no-mistakes.yaml"
+  PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-document-malformed malformed-receipt-project \
+      --mode no-mistakes >/dev/null 2>&1 \
+    || fail "a malformed-receipt project brief should scaffold conservatively"
+  brief="$home/data/brief-document-malformed/brief.md"
+  assert_grep "The document step is report-only" "$brief" \
+    "a malformed install receipt granted Document correction capability"
+  pass "fm-brief.sh: Document instructions require trusted configuration and an exact executable/proof capability receipt"
+}
+
+test_validation_revision_ignores_progress_history_but_binds_instruction_contract() {
+  local dir brief before after
+  dir="$TMP_ROOT/stable-validation-revision"
+  mkdir -p "$dir"
+  brief="$dir/brief.md"
+  cat > "$brief" <<'EOF'
+# Task
+## Captain's intent
+Preserve the accepted behavior.
+
+## Firstmate spec
+Implement and verify the correction.
+
+# Proof bar
+Prep: Tier 2 - producer and consumers traced.
+Resource: one focused test.
+Surface: none: internal tooling.
+Journey: one real CLI consumer.
+
+# Progress history
+working: first observation
+
+# Definition of done
+Run the required validation at the exact candidate head.
+EOF
+  before=$(bash -c \
+    '. "$1"; fm_brief_source_revision "$2" "supported:fixture-a"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief") \
+    || fail "could not compute the initial stable instruction revision"
+  sed -i 's/working: first observation/working: later observation/' "$brief"
+  after=$(bash -c \
+    '. "$1"; fm_brief_source_revision "$2" "supported:fixture-a"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief") \
+    || fail "could not compute the progress-edited stable instruction revision"
+  [ "$before" = "$after" ] \
+    || fail "a progress-history-only edit invalidated the instruction receipt"
+  sed -i 's/Implement and verify/Implement, install, and verify/' "$brief"
+  after=$(bash -c \
+    '. "$1"; fm_brief_source_revision "$2" "supported:fixture-a"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief")
+  [ "$before" != "$after" ] || fail "a Firstmate implementation-spec edit did not invalidate the receipt"
+  sed -i 's/Implement, install, and verify/Implement and verify/' "$brief"
+  after=$(bash -c \
+    '. "$1"; fm_brief_source_revision "$2" "supported:fixture-b"' _ "$ROOT/bin/fm-dod-lib.sh" "$brief")
+  [ "$before" != "$after" ] || fail "a capability/config receipt change did not invalidate the instruction receipt"
+  pass "validation revision ignores progress history while binding instructions and capability configuration"
 }
 
 # The captain's 2026-09-07 ruling: a delivery signal reports delivery, never
@@ -1104,10 +1221,13 @@ test_scout_and_secondmate_scaffold() {
   assert_grep "report.md" "$brief" "scout brief must point at the report deliverable"
   assert_grep "you may host the Lavish review loop yourself" "$brief" \
     "scout brief must mention the option to host a Lavish review loop"
-  assert_grep "use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior" "$brief" \
-    "scout brief missing the mandatory Context7 version-verification rule"
-  assert_grep "falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search" "$brief" \
-    "scout brief missing the Exa/web-search fallback clause for when Context7 errors or lacks the library"
+  # Contract change: scouts select the evidence tool for the actual question.
+  assert_grep "Select tools only for a real task purpose" "$brief" \
+    "scout brief missing task-specific tool selection"
+  assert_grep "use Context7 when its versioned documentation is the effective source" "$brief" \
+    "scout brief did not retain Context7 for an applicable versioned-doc question"
+  assert_grep "use Exa (\`mcp exa web search\` or fetch) or ordinary web search only as a bounded route" "$brief" \
+    "scout brief missing the bounded official-source fallback"
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"
@@ -1770,7 +1890,7 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
   : > "$ghstate/pr9-rules"
   : > "$home/gh-axi.log"
   set +e
-  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
+  FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$data" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
     PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-merge.sh" c6-owner \
     https://github.com/example/repo/pull/9 >"$home/pr-merge-1.out" 2>"$home/pr-merge-1.err"
   rc=$?
@@ -1795,7 +1915,7 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
   printf 'status=behind\nbehind=1\nbase_sha=%s\n' "$main_moved" > "$ghstate/pr9-compare"
   : > "$home/gh-axi.log"
   set +e
-  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
+  FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$data" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
     PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-merge.sh" c6-owner \
     https://github.com/example/repo/pull/9 >"$home/pr-merge-2.out" 2>"$home/pr-merge-2.err"
   rc=$?
@@ -1824,7 +1944,7 @@ test_c6_parallel_preparation_bounded_batch_and_safe_landing_rehearsal() {
   printf '1\tci\tcompleted\tsuccess\n' > "$ghstate/pr9-checks"
   : > "$home/gh-axi.log"
   set +e
-  FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
+  FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$data" FM_C6_GHAXI_LOG="$home/gh-axi.log" \
     PATH="$fakebin:$PATH" "$ROOT/bin/fm-pr-merge.sh" c6-owner \
     https://github.com/example/repo/pull/9 >"$home/pr-merge-3.out" 2>"$home/pr-merge-3.err"
   rc=$?
@@ -1969,6 +2089,10 @@ if [ "${1:-}" = --version ]; then
   exit 0
 fi
 printf '%s\n' "$*" >> "$FM_TEST_NM_LOG"
+if [ "${1:-} ${2:-} ${3:-}" = 'axi run --help' ]; then
+  printf '%s\n' '      --launch-nonce string' '      --validation-generation string'
+  exit 0
+fi
 if [ "${FM_FAKE_C7_CUSTODY:-}" = pipeline-owned ] && [ "${1:-}" = axi ] && [ "${2:-}" = run ]; then
   echo "pipeline already owns this branch; abort and confirm custody release before another run" >&2
   exit 7
@@ -1980,6 +2104,8 @@ esac
 exit 0
 SH
   chmod +x "$fakebin/no-mistakes"
+  printf '%s\n' 'independent fixture review accepted bounded correction' > "$home/c7-accepted-proof.txt"
+  write_document_correction_receipt "$home" "$fakebin/no-mistakes" "$home/c7-accepted-proof.txt"
 
   PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c7-xau XAUUSD --mode no-mistakes >/dev/null 2>&1
   PATH="$fakebin:$PATH" FM_HOME="$home" "$ROOT/bin/fm-brief.sh" c7-report report-only --mode no-mistakes >/dev/null 2>&1
@@ -2037,7 +2163,8 @@ SH
   # $home/axi-status-bare below. The actual Captain intent: text comes from
   # the generated brief's own "## Captain's intent" section, not a hardcoded
   # string here.
-  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$xau_brief") \
+  revision=$(FM_HOME="$home" PATH="$fakebin:$PATH" \
+    bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$xau_brief") \
     || fail "C7: could not compute the effective XAU brief's source revision"
   # Fixture-authored label: it records this fixture's own custody variable,
   # not a decision by any owner.
@@ -2050,7 +2177,7 @@ SH
   # run-validation reads this branch's axi status before axi run, so it runs from
   # the task worktree, whose HEAD the listed active run holds: a same-head
   # resubmission that reattaches. The fake logs that status call first.
-  (cd "$repo" && FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
+  (cd "$repo" && FM_HOME="$home" FM_TEST_NM_LOG="$home/no-mistakes.log" FM_TEST_NM_STATUS="$home/no-mistakes.status" \
     FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" PATH="$fakebin:$PATH" \
     "$ROOT/bin/fm-dod-lib.sh" run-validation --brief "$xau_brief" --expect-revision "$revision") \
     || fail "C7: bin/fm-dod-lib.sh run-validation refused to start the real run"
@@ -2059,6 +2186,10 @@ SH
     "C7: the actual rendered --intent lost the self-sufficient captain part"
   assert_contains "$intent" 'Agreed proof contract:' \
     "C7: the actual rendered --intent lost the agreed proof part"
+  assert_grep '--launch-nonce firstmate-' "$home/no-mistakes.log" \
+    "C7: run-validation did not request a strict launch receipt"
+  assert_grep '--validation-generation brief-' "$home/no-mistakes.log" \
+    "C7: run-validation did not bind the validation generation"
   printf 'validation-input source=generated-xau-brief intent-bytes=%s\n' "${#intent}" >> "$events"
   out=$(FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
     FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
@@ -2098,7 +2229,7 @@ SH
   # call in this fixture and is not narrated.
   [ "$custody" != worker ] || fail "C7: fixture did not transfer active-run custody"
   set +e
-  out=$(FM_FAKE_C7_CUSTODY=pipeline-owned FM_TEST_NM_LOG="$home/no-mistakes.log" \
+  out=$(FM_HOME="$home" FM_FAKE_C7_CUSTODY=pipeline-owned FM_TEST_NM_LOG="$home/no-mistakes.log" \
     FM_TEST_NM_STATUS="$home/no-mistakes.status" FM_TEST_NM_STATUS_BARE="$home/axi-status-bare" \
     PATH="$fakebin:$PATH" "$ROOT/bin/fm-dod-lib.sh" run-validation \
     --brief "$xau_brief" --expect-revision "$revision" 2>&1)
@@ -2219,6 +2350,12 @@ if [ "${1:-} ${2:-}" = 'axi status' ]; then
   cat "$FM_TEST_RV_STATUS"
   exit "${FM_TEST_RV_STATUS_RC:-0}"
 fi
+[ "${1:-} ${2:-} ${3:-}" = 'axi run --help' ] && {
+  if [ "${FM_TEST_RV_NO_STRICT:-0}" != 1 ]; then
+    printf '%s\n' '      --launch-nonce string' '      --validation-generation string'
+  fi
+  exit 0
+}
 [ "${1:-} ${2:-}" = 'axi run' ] && exit 0
 exit 9
 SH
@@ -2235,7 +2372,7 @@ Fixture only.
 # Proof bar
 Prep: Tier 0 - fixture.
 MD
-  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$dir/brief.md") \
+  revision=$(PATH="$dir/bin:$PATH" bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$dir/brief.md") \
     || fail "run-validation guard: could not compute the fixture brief revision"
 
   for state in running pending; do
@@ -2274,6 +2411,11 @@ MD
   expect_code 0 "$RV_RC" "run-validation guard: no run on the branch must start one ($RV_OUT)"
   assert_grep 'axi run' "$dir/calls.log" "run-validation guard: no run on the branch did not reach axi run"
 
+  FM_TEST_RV_NO_STRICT=1 rv_guard_run "$dir" "$revision" 0
+  expect_code 7 "$RV_RC" "run-validation guard: missing strict receipt flags must fail closed"
+  assert_contains "$RV_OUT" 'requires installed no-mistakes support for paired --launch-nonce and --validation-generation receipts' \
+    "run-validation guard: strict capability refusal did not name the missing contract"
+
   printf 'error: daemon socket unreachable\n' > "$dir/status"
   rv_guard_run "$dir" "$revision" 1
   expect_code 5 "$RV_RC" "run-validation guard: a failing status call must be refused"
@@ -2310,6 +2452,10 @@ if [ "${1:-} ${2:-}" = 'axi status' ]; then
   cat "$FM_TEST_RV_STATUS"
   exit "${FM_TEST_RV_STATUS_RC:-0}"
 fi
+[ "${1:-} ${2:-} ${3:-}" = 'axi run --help' ] && {
+  printf '%s\n' '      --launch-nonce string' '      --validation-generation string'
+  exit 0
+}
 [ "${1:-} ${2:-}" = 'axi run' ] && exit 0
 exit 9
 SH
@@ -2326,7 +2472,7 @@ Fixture only.
 # Proof bar
 Prep: Tier 0 - fixture.
 MD
-  revision=$(bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$dir/brief.md") \
+  revision=$(PATH="$dir/bin:$PATH" bash -c '. "$1"; fm_brief_source_revision "$2"' _ "$ROOT/bin/fm-dod-lib.sh" "$dir/brief.md") \
     || fail "run-validation remote PR head: could not compute the fixture brief revision"
   printf 'current_branch: fm/rv-remote\nruns_on_current_branch: 0\nhelp[1]: Start a run\n' > "$dir/status"
 
@@ -2385,7 +2531,8 @@ test_faster_paths_use_configured_authority_without_stacked_review
 test_no_mistakes_dod_wording
 test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step
 test_no_binary_evidence_and_document_step_dod_rules
-test_document_instruction_follows_trusted_project_config_and_installed_capability
+test_document_instruction_follows_trusted_project_config_and_installed_capability_receipt
+test_validation_revision_ignores_progress_history_but_binds_instruction_contract
 test_every_mode_dod_separates_delivery_from_acceptance
 test_ask_user_escalation_format
 test_ship_project_memory_wording

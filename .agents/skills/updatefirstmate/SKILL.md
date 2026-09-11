@@ -3,7 +3,7 @@ name: updatefirstmate
 description: >-
   Self-update a running firstmate and its secondmates to the latest from origin.
   Use when the captain invokes /updatefirstmate (e.g. "/updatefirstmate", "update firstmate", "pull the latest firstmate").
-  Fast-forwards this firstmate repo's default branch and every local or remote secondmate through its guarded update path (never forced, never disruptive), then re-reads AGENTS.md and restarts every live second mate through the persist-gated restart, with a fallback re-read nudge only where a restart cannot be proven.
+  Fast-forwards this firstmate repo's default branch and every local or remote secondmate through its guarded update path (never forced, never disruptive), then reads changed primary instructions for safe handoff awareness and restarts every live second mate through the persist-gated restart, with a fallback re-read nudge only where a restart cannot be proven.
 user-invocable: true
 metadata:
   internal: true
@@ -24,8 +24,6 @@ Replacing the agent is also the only thing that re-resolves the launch-time wiri
 That is why **every live second mate is restarted after a successful update, including one that was already on the target commit.**
 Launch-time wiring is not derivable from a file diff, so an unchanged tracked surface is not evidence the running agent is already on the current behavior.
 The only live mates that do not restart are the ones whose home the update pass had to skip, and the ones whose runtime cannot prove a restart; the updater keeps both cases honest and neither is reported as a reload.
-
-**One-time rollout note:** the update that carries this change is still executed by the previous release, which restarts only the mates whose `AGENTS.md` or `.agents/skills/` moved on that pass. After it completes, run `bin/fm-secondmate-restart.sh <fm-id>...` once with every live second mate ID, not only the ones that release named; later updates follow the normal flow below.
 
 The update is **fast-forward only** - the same sanctioned self-write as the fleet sync firstmate already runs.
 For a remote route, it updates the configured Firstmate code root on that host from its own origin, then guardedly fast-forwards the persistent home to that code-root commit.
@@ -49,10 +47,12 @@ This touches only the firstmate repo and its own worktrees, never anything under
    `restart-secondmates:` carries every live mate the pass left on the latest commit, whether it advanced or was already there.
    A mate reaches neither set only because its home was skipped, because it has no live endpoint recorded here, or because its endpoint was positively classified as dead or missing - none of those need any action from you.
 
-2. **Re-read AGENTS.md if your own instructions changed.**
+2. **Read changed primary instructions for a safe handoff.**
    When the updater printed `reread-firstmate: yes`, the tracked instruction surface (`AGENTS.md`, `bin/`, or `.agents/skills/`) just advanced under you.
-   **Read `AGENTS.md` now** (CLAUDE.md is a real `@AGENTS.md` pointer to it) to refresh your operating instructions before doing anything else, so you are acting on the new instructions rather than the stale ones you were started with.
-   When it printed `reread-firstmate: no`, nothing changed for you - skip the re-read.
+   **Read `AGENTS.md` now** (CLAUDE.md is a real `@AGENTS.md` pointer to it), but use that read only to identify changed safety or handoff requirements before this conversation ends.
+   It does not reload the running primary's frozen instructions, already-loaded skills, hooks, or launch-time wiring, and it does not make this conversation current.
+   The installed bytes become the primary's effective behavior only when the captain starts a fresh firstmate session; there is no supported self-restart or session-lock handoff here, so never kill or replace the running primary to manufacture that result.
+   When it printed `reread-firstmate: no`, the primary's tracked instruction surface did not advance in this pass, so skip this handoff read; that output still makes no claim about which release the already-running conversation loaded.
 
 3. **Restart every second mate the updater named.**
    Pass the whole `restart-secondmates:` list to one command (skip this step entirely when it says `none`):
@@ -85,7 +85,7 @@ This touches only the firstmate repo and its own worktrees, never anything under
 
 5. **Report to the captain in plain outcomes, in one line where you can.**
    Summarize what landed under `AGENTS.md` section 9 without firstmate's internal vocabulary: which parts of the fleet are now on the latest, and which were left as-is and why.
-   For example: "Captain, firstmate and both second mates are now on the latest."
+   For example: "Captain, the latest Firstmate bytes are installed; both second mates restarted on them, and the primary will load them in a fresh session."
    Say plainly when a mate got the message rather than a clean reload, and why - never let a partial reload read as a full one.
    Surface any skipped target whose reason needs the captain's attention - for instance a home with its own un-landed changes (diverged) or local edits (dirty), which were left untouched on purpose.
 

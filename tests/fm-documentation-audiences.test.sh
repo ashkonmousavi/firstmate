@@ -85,6 +85,18 @@ test_required_pointer_fails() {
   pass "required documentation owner pointers cannot silently disappear"
 }
 
+# The address rule is a chat-channel contract, not content to stamp into tools'
+# inputs or repository artifacts. Pin both sides so later persona edits cannot
+# silently revive the parent-channel failure this boundary corrected.
+test_captain_address_rule_is_chat_only() {
+  local agents="$ROOT/AGENTS.md"
+  grep -F 'at least once in every chat message you send them' "$agents" >/dev/null \
+    || fail "AGENTS.md no longer binds the captain address rule to chat messages"
+  grep -F 'never put "captain" or any other direct address into a non-chat artifact' "$agents" >/dev/null \
+    || fail "AGENTS.md no longer excludes direct address from non-chat artifacts"
+  pass "captain address is required in chat and excluded from non-chat artifacts"
+}
+
 write_fixture_inventory() {
   local repo=$1
   cat > "$repo/docs/documentation-audiences.json" <<'JSON'
@@ -135,7 +147,36 @@ MD
   pass "local links resolve while dates, versions, commands, and incident prose remain semantically reviewed"
 }
 
+test_deliberately_deleted_surface_does_not_require_stale_classification() {
+  local repo="$TMP_ROOT/deleted-surface"
+  mkdir -p "$repo/docs"
+  git -C "$repo" init -q
+  printf '%s\n' '[Setup](docs/setup.md) [Policy](docs/policy.md)' > "$repo/README.md"
+  printf '%s\n' '# Setup' > "$repo/docs/setup.md"
+  printf '%s\n' '# Policy' > "$repo/docs/policy.md"
+  printf '%s\n' '# Retired evidence' > "$repo/docs/evidence.md"
+  write_fixture_inventory "$repo"
+  git -C "$repo" add README.md docs
+  git -C "$repo" -c user.name=fmtest -c user.email=fmtest@example.com commit -qm seed
+  rm "$repo/docs/evidence.md"
+  python3 - "$repo/docs/documentation-audiences.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text(encoding="utf-8"))
+data["surfaces"] = [entry for entry in data["surfaces"] if entry["path"] != "docs/evidence.md"]
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+  "$CHECK" --root "$repo" >/dev/null \
+    || fail "a deliberately deleted tracked prose surface still required a stale audience row"
+  pass "working-tree deletions leave no stale documentation audience obligation"
+}
+
 test_repository_inventory_passes
 test_duplicate_and_setup_classification_fail
 test_required_pointer_fails
+test_captain_address_rule_is_chat_only
 test_local_links_and_no_keyword_heuristic
+test_deliberately_deleted_surface_does_not_require_stale_classification

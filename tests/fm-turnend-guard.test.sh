@@ -101,6 +101,36 @@ test_predicate_source_needs_supervision() {
   pass "fm_supervision_unhealthy: source-only home needs supervision"
 }
 
+register_custom_check() {  # <state> <id>
+  local state=$1 id=$2
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$state/$id.check.sh"
+  chmod 700 "$state/$id.check.sh"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" "$id" >/dev/null \
+    || fail "fm-check-register.sh could not register $id"
+}
+
+test_predicate_registered_check_needs_supervision_without_counting_a_task() {
+  local state="$TMP_ROOT/pred-check/state"
+  mkdir -p "$state"
+  register_custom_check "$state" issue-comments
+  fm_supervision_needed "$state" 300 || fail "a registered custom check did not register as supervision need"
+  [ "$FM_SUP_IN_FLIGHT" -eq 0 ] || fail "a registered custom check must not count as an in-flight task"
+  [ "$FM_SUP_CHECKS" -eq 1 ] || fail "expected one registered custom check, got $FM_SUP_CHECKS"
+  fm_supervision_unhealthy "$state" 300 || fail "a registered custom check with no beacon must be unhealthy"
+  pass "fm_supervision_needed: a registered custom check needs supervision without inflating task count"
+}
+
+test_predicate_pr_poll_and_relay_shim_are_not_custom_checks() {
+  local state="$TMP_ROOT/pred-not-custom/state"
+  mkdir -p "$state"
+  : > "$state/task1.meta"
+  : > "$state/task1.check.sh"
+  : > "$state/x-watch.check.sh"
+  fm_supervision_needed "$state" 300 || fail "the task and relay poll must still need supervision"
+  [ "$FM_SUP_CHECKS" -eq 0 ] || fail "task PR polls and the relay shim must not count as registered custom checks"
+  pass "fm_supervision_status: PR polls and the relay shim stay outside the custom-check count"
+}
+
 # --- HOOK: bin/fm-turnend-guard.sh ------------------------------------------
 #
 # Each scenario gets its own directory carrying a copy of the two guard scripts
@@ -627,6 +657,19 @@ test_hook_silent_without_stdin() {
   expect_code 0 "$status" "hook must exit 0 on empty/absent stdin"
   [ -z "$out" ] || fail "hook produced output on empty stdin: $out"
   pass "fm-turnend-guard: silent no-op on empty stdin"
+}
+
+test_hook_registered_check_only_blocks_with_check_banner() {
+  local dir out status
+  dir=$(make_primary_dir "$TMP_ROOT/hook-check-only")
+  register_custom_check "$dir/state" issue-comments
+  out=$(run_hook "$dir" false); status=$?
+  expect_code 2 "$status" "default hook mode must block a registered-check-only blind turn"
+  assert_contains "$out" "1 registered custom check(s), but no live watcher" \
+    "check-only blind stop must identify its actual supervision need"
+  assert_not_contains "$out" "X-mode relay polling needs supervision" \
+    "check-only blind stop must not be misreported as relay polling"
+  pass "fm-turnend-guard: registered-check-only supervision is named in the block banner"
 }
 
 test_hook_runs_fast() {
@@ -1902,6 +1945,46 @@ test_hook_away_mode_blocks_on_stale_beacon() {
   pass "fm-turnend-guard: away-mode daemon ownership never substitutes for a fresh beacon"
 }
 
+test_hook_away_daemon_allows_beacon_within_poll_derived_grace() {
+  local dir pid out status beat
+  dir=$(make_away_home_between_cycles "$TMP_ROOT/hook-afk-poll-grace-healthy")
+  sleep 60 &
+  pid=$!
+  record_daemon_lock "$dir" "$pid" || {
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    fail "could not identify live away-mode daemon holder"
+  }
+  beat=$(( $(date +%s) - 400 ))
+  fm_touch_epoch "$beat" "$dir/state/.last-watcher-beat"
+  out=$(FM_GUARD_GRACE='' FM_POLL=600 run_hook "$dir" false); status=$?
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  expect_code 0 "$status" "a live daemon with a beacon within poll-derived grace must not block"
+  [ -z "$out" ] || fail "away-mode daemon within poll-derived grace produced a block banner: $out"
+  pass "fm-turnend-guard: away-mode freshness uses poll-derived grace instead of the flat default"
+}
+
+test_hook_away_daemon_blocks_beacon_older_than_poll_derived_grace() {
+  local dir pid out status beat
+  dir=$(make_away_home_between_cycles "$TMP_ROOT/hook-afk-poll-grace-stale")
+  sleep 60 &
+  pid=$!
+  record_daemon_lock "$dir" "$pid" || {
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    fail "could not identify live away-mode daemon holder"
+  }
+  beat=$(( $(date +%s) - 700 ))
+  fm_touch_epoch "$beat" "$dir/state/.last-watcher-beat"
+  out=$(FM_GUARD_GRACE='' FM_POLL=600 run_hook "$dir" false); status=$?
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  expect_code 2 "$status" "a beacon older than poll-derived grace must still block"
+  assert_contains "$out" "$AWAY_REQUIRED_REASON" "stale away-mode block must name daemon ownership"
+  pass "fm-turnend-guard: poll-derived away grace stays bounded"
+}
+
 test_hook_daemon_lock_is_ignored_without_away_mode() {
   local dir pid out status
   dir=$(make_away_home_between_cycles "$TMP_ROOT/hook-no-afk-daemon-lock")
@@ -2020,6 +2103,8 @@ test_predicate_healthy_fresh_beacon
 test_predicate_queue_pending_flag
 test_predicate_x_mode_needs_supervision
 test_predicate_source_needs_supervision
+test_predicate_registered_check_needs_supervision_without_counting_a_task
+test_predicate_pr_poll_and_relay_shim_are_not_custom_checks
 test_hook_silent_when_no_work_in_flight
 test_hook_blocks_when_fresh_beacon_has_no_live_lock
 test_hook_blocks_source_only_home
@@ -2045,6 +2130,7 @@ test_hook_exempts_linked_worktree_with_non_ascii_marker
 test_hook_silent_in_crewmate_worktree
 test_hook_silent_without_jq
 test_hook_silent_without_stdin
+test_hook_registered_check_only_blocks_with_check_banner
 test_hook_runs_fast
 test_grok_adapter_forces_one_resume_when_unhealthy
 test_grok_adapter_loop_guard_skips_resume
@@ -2089,6 +2175,8 @@ test_hook_away_mode_blocks_without_any_supervisor
 test_hook_away_mode_blocks_on_dead_daemon
 test_hook_away_mode_blocks_on_pid_reused_daemon
 test_hook_away_mode_blocks_on_stale_beacon
+test_hook_away_daemon_allows_beacon_within_poll_derived_grace
+test_hook_away_daemon_blocks_beacon_older_than_poll_derived_grace
 test_hook_daemon_lock_is_ignored_without_away_mode
 test_hook_defers_to_live_foreign_lock_owner_default_mode
 test_hook_defers_to_live_foreign_lock_owner_claude_mode

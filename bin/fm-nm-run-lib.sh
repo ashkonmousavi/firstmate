@@ -89,6 +89,16 @@ fm_nm_head_matches_worktree() {  # <worktree> <run_head>
   git -C "$wt" merge-base --is-ancestor "$local_full" "$run_full" 2>/dev/null
 }
 
+# Liveness class used when several recorded runs bind to one worktree. A live
+# successor outranks a terminal corpse; an unknown word keeps ledger order.
+fm_nm_run_status_class() {  # <status-word>
+  case "${1:-}" in
+    completed|failed|cancelled) printf 'terminal' ;;
+    running)                    printf 'live' ;;
+    *)                          printf 'unknown' ;;
+  esac
+}
+
 # branch_sync.state from captured `axi status` TOON $1: the scalar directly
 # under the top-level `branch_sync:` block. The first `state:` inside the
 # block is the direct child (the nested local/pipeline/target/remote
@@ -153,26 +163,27 @@ fm_nm_run_is_pipeline_owned_active() {  # <toon-output>
 # Read-only: git reads resolve objects in place; custody never changes.
 fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [expected-head]
   local wt=$1 branch=$2 list=$3 expected_head=${4:-}
-  local local_full row st br sha day clock pr extra year_num month_num day_num max_day pending_st=''
+  local local_full row_full row st br sha day clock pr extra year_num month_num day_num max_day pending_st=''
+  local decided='' decided_exact=''
   local_full=$(git -C "$wt" rev-parse HEAD 2>/dev/null) || return 0
   [ -n "$list" ] || return 0
   while IFS= read -r row; do
     row=$(fm_nm_trim "$row")
     [ -n "$row" ] || continue
     IFS=$' \t' read -r st br sha day clock pr extra <<< "$row"
-    [ -n "$st" ] && [ -n "$br" ] && [ -n "$sha" ] && [ -n "$day" ] && [ -n "$clock" ] || return 0
-    [ -z "$extra" ] || return 0
-    case "$st" in *[!a-z_-]*|'') return 0 ;; esac
-    case "$br" in *[!A-Za-z0-9._/-]*|'') return 0 ;; esac
-    case "$sha" in *[!A-Fa-f0-9]*|'') return 0 ;; esac
-    case "$day" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) return 0 ;; esac
-    case "$clock" in [01][0-9]:[0-5][0-9]|2[0-3]:[0-5][0-9]) ;; *) return 0 ;; esac
-    case "$pr" in ''|https://*) ;; *) return 0 ;; esac
-    [ "${#sha}" -ge 7 ] && [ "${#sha}" -le 40 ] || return 0
+    [ -n "$st" ] && [ -n "$br" ] && [ -n "$sha" ] && [ -n "$day" ] && [ -n "$clock" ] || break
+    [ -z "$extra" ] || break
+    case "$st" in *[!a-z_-]*|'') break ;; esac
+    case "$br" in *[!A-Za-z0-9._/-]*|'') break ;; esac
+    case "$sha" in *[!A-Fa-f0-9]*|'') break ;; esac
+    case "$day" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) break ;; esac
+    case "$clock" in [01][0-9]:[0-5][0-9]|2[0-3]:[0-5][0-9]) ;; *) break ;; esac
+    case "$pr" in ''|https://*) ;; *) break ;; esac
+    [ "${#sha}" -ge 7 ] && [ "${#sha}" -le 40 ] || break
     year_num=$((10#${day%%-*}))
     month_num=${day#*-}; month_num=${month_num%%-*}; month_num=$((10#$month_num))
     day_num=$((10#${day##*-}))
-    [ "$year_num" -gt 0 ] && [ "$month_num" -ge 1 ] && [ "$month_num" -le 12 ] || return 0
+    [ "$year_num" -gt 0 ] && [ "$month_num" -ge 1 ] && [ "$month_num" -le 12 ] || break
     case "$month_num" in
       1|3|5|7|8|10|12) max_day=31 ;;
       4|6|9|11) max_day=30 ;;
@@ -184,33 +195,46 @@ fm_nm_runs_status_for_worktree() {  # <worktree> <branch> <runs-list-output> [ex
         fi
         ;;
     esac
-    [ "$day_num" -ge 1 ] && [ "$day_num" -le "$max_day" ] || return 0
+    [ "$day_num" -ge 1 ] && [ "$day_num" -le "$max_day" ] || break
     [ "$br" = "$branch" ] || continue
-    if [ -n "$pending_st" ]; then
-      # This is the row immediately older than the active unresolvable row:
-      # the only admissible anchor, and only exact head equality proves the
-      # worktree still sits at the submitted head.
-      if [ "$(fm_nm_resolve_commit "$wt" "$sha")" = "$local_full" ]; then
-        printf '%s' "$pending_st"
+    if [ -n "$decided" ]; then
+      [ "$(fm_nm_run_status_class "$st")" = live ] || continue
+      if [ -n "$(fm_nm_resolve_commit "$wt" "$sha")" ]; then
+        fm_nm_head_matches_worktree "$wt" "$sha" || continue
+      else
+        [ -n "$decided_exact" ] || continue
       fi
-      return 0
+      decided=$st
+      break
+    fi
+    if [ -n "$pending_st" ]; then
+      if [ "$(fm_nm_resolve_commit "$wt" "$sha")" = "$local_full" ]; then
+        decided=$pending_st
+      fi
+      break
     fi
     if [ -n "$expected_head" ]; then
-      case "$expected_head" in *[!A-Fa-f0-9]*|'') return 0 ;; esac
-      [ "${#expected_head}" -ge 7 ] && [ "${#expected_head}" -le 40 ] || return 0
+      case "$expected_head" in *[!A-Fa-f0-9]*|'') break ;; esac
+      [ "${#expected_head}" -ge 7 ] && [ "${#expected_head}" -le 40 ] || break
       case "$expected_head" in
         "$sha"*) ;;
-        *) case "$sha" in "$expected_head"*) ;; *) return 0 ;; esac ;;
+        *) case "$sha" in "$expected_head"*) ;; *) break ;; esac ;;
       esac
     fi
-    if [ -n "$(fm_nm_resolve_commit "$wt" "$sha")" ]; then
+    row_full=$(fm_nm_resolve_commit "$wt" "$sha")
+    if [ -n "$row_full" ]; then
       if fm_nm_head_matches_worktree "$wt" "$sha"; then
-        printf '%s' "$st"
+        decided=$st
+        if [ "$(fm_nm_run_status_class "$st")" = terminal ]; then
+          [ "$row_full" != "$local_full" ] || decided_exact=1
+          continue
+        fi
       fi
-      return 0
+      break
     fi
-    [ "$st" = running ] || return 0
+    [ "$st" = running ] || break
     pending_st=$st
   done <<< "$list"
+  printf '%s' "$decided"
   return 0
 }

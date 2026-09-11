@@ -385,6 +385,20 @@ nm_gate_findings_count() {
   case "$rest" in ''|*[!0-9]*) return 0 ;; esac
   printf '%s' "$rest"
 }
+
+# Full terminal step ledger. Unlike active_steps[], steps[] remains present on
+# a terminal run and lets us distinguish a dead CI monitor from failed work.
+nm_steps_rows() {
+  printf '%s\n' "$RUN_OUT" | awk '
+    /^[[:space:]]*steps\[[0-9]+\]\{/ { hdr = index($0, "steps"); inblock = 1; next }
+    inblock {
+      if ($0 ~ /^[[:space:]]*$/) { inblock = 0; next }
+      match($0, /[^ \t]/)
+      if (RSTART <= hdr) { inblock = 0; next }
+      print
+    }
+  '
+}
 log_reports_ci_ready() {
   [ "$LOG_VERB" = "done" ] || return 1
   case "$(status_line_note "$LOG_LINE")" in
@@ -500,6 +514,49 @@ nm_ci_checks_state() {
     *) printf 'unknown' ;;
   esac
 }
+
+# Positive evidence for the one qualified terminal exception: every
+# substantive step completed, exactly ci failed, and the CI log's last marker
+# says checks are green. Any missing or conflicting evidence keeps `failed`.
+nm_failed_run_is_green_held_ci() {
+  local rows row rest step status saw_ci_failed
+  rows=$(nm_steps_rows)
+  [ -n "$rows" ] || return 1
+  saw_ci_failed=0
+  while IFS= read -r row; do
+    row=$(trim "$row")
+    step=$(trim "${row%%,*}")
+    rest=${row#*,}
+    status=$(strip_quotes "$(trim "${rest%%,*}")")
+    case "$status" in
+      completed) continue ;;
+      failed)
+        [ "$step" = ci ] || return 1
+        saw_ci_failed=1
+        ;;
+      *) return 1 ;;
+    esac
+  done <<< "$rows"
+  [ "$saw_ci_failed" = 1 ] || return 1
+  [ "$(nm_ci_checks_state)" = green ]
+}
+
+nm_reclassify_failed_run_as_held_green() {
+  local pr_url
+  nm_failed_run_is_green_held_ci || return 1
+  RUN_STATE="done"
+  RUN_DETAIL="checks green: PR held for merge (ci monitor ended)"
+  pr_url=$(strip_quotes "$(nm_field pr)")
+  [ -z "$pr_url" ] || RUN_DETAIL="$RUN_DETAIL: $pr_url"
+}
+
+# A coarse failed row has no step evidence. When an explicit bounded daemon
+# probe cannot prove the instrument alive, report unknown rather than turning
+# instrument failure into a work-failure claim.
+nm_daemon_probe_down() {
+  fm_nm_run_checked "$WT" "$NM_TIMEOUT" daemon status >/dev/null || return 0
+  return 1
+}
 # Coarse fallback when the bare `axi status` answer is not this branch's own
 # matching run: either it names another branch (routine once several crews
 # validate the same underlying repo concurrently - a worktree with its own
@@ -509,7 +566,7 @@ nm_ci_checks_state() {
 # has no runs-listing subcommand; tests/fm-crew-state.test.sh owns the
 # 2026-07-02 dead-code incident history this fallback replaced).
 # fm_nm_runs_status_for_worktree in bin/fm-nm-run-lib.sh is the ONE owner of
-# the ledger format, the newest-row-decides rule, and the anchored
+# the ledger format, the live-over-terminal rule, and the anchored
 # pipeline-continuation recognition (model-routing-benchmark-hardening: an
 # active fix round whose head object the task copy never fetched used to be
 # rejected here, letting the older failed row answer as current), so both
@@ -583,6 +640,16 @@ if [ "$KIND" = ship ] && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/n
     if run_branch_is_this_task "$run_branch" \
       && { nm_run_head_matches_worktree || fm_nm_run_is_pipeline_owned_active "$RUN_OUT"; }; then
       HAVE_RUN=1
+      # A terminal `axi status` answer is provisional. The ledger may prove a
+      # live successor on this same worktree; only that live class displaces
+      # the terminal run's otherwise-authoritative step detail.
+      if ! fm_nm_run_is_active "$RUN_OUT"; then
+        live_status=$(fm_nm_runs_status_for_worktree "$WT" "$CREW_BRANCH" "$(nm_runs_list)")
+        if [ "$(fm_nm_run_status_class "$live_status")" = live ]; then
+          COARSE_STATUS=$live_status
+          RUN_SOURCE=coarse
+        fi
+      fi
     else
       # The active-or-most-recent run is for another branch, or it names this
       # branch with a head this copy cannot verify (a pipeline-advanced fix
@@ -629,7 +696,13 @@ if [ "$HAVE_RUN" = 1 ]; then
         RUN_STATE=needs-inspection
         RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
         ;;
-      failed)    RUN_STATE=failed;  RUN_DETAIL="run failed" ;;
+      failed)
+        if nm_daemon_probe_down; then
+          RUN_STATE=unknown
+          RUN_DETAIL="no-mistakes daemon unreachable; last ledger record failed - unverified"
+        else
+          RUN_STATE=failed; RUN_DETAIL="run failed"
+        fi ;;
       cancelled) RUN_STATE=failed;  RUN_DETAIL="run cancelled"; RUN_CANCELLED=1 ;;
       *)         RUN_STATE=unknown; RUN_DETAIL="runs list status: $COARSE_STATUS" ;;
     esac
@@ -658,7 +731,10 @@ if [ "$HAVE_RUN" = 1 ]; then
           RUN_STATE=needs-inspection
           RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
           ;;
-        failed)        RUN_STATE=failed; RUN_DETAIL="run failed" ;;
+        failed)
+          if nm_reclassify_failed_run_as_held_green; then :; else
+            RUN_STATE=failed; RUN_DETAIL="run failed"
+          fi ;;
         cancelled)     RUN_STATE=failed; RUN_DETAIL="run cancelled"; RUN_CANCELLED=1 ;;
         *)             RUN_STATE=unknown; RUN_DETAIL="outcome: $outcome" ;;
       esac
@@ -686,7 +762,10 @@ if [ "$HAVE_RUN" = 1 ]; then
           RUN_STATE=needs-inspection
           RUN_DETAIL="PR open, CI monitoring stopped before a verdict: needs inspection before merge, never autonomous"
           ;;
-        failed)         RUN_STATE=failed;  RUN_DETAIL="run failed" ;;
+        failed)
+          if nm_reclassify_failed_run_as_held_green; then :; else
+            RUN_STATE=failed; RUN_DETAIL="run failed"
+          fi ;;
         cancelled)      RUN_STATE=failed;  RUN_DETAIL="run cancelled"; RUN_CANCELLED=1 ;;
         "")             RUN_STATE=working; RUN_DETAIL="run active" ;;
         *)              RUN_STATE=working; RUN_DETAIL="run active ($status)" ;;

@@ -326,6 +326,15 @@ fm_backlog_done() {  # <data-dir> <id> [flag...]
   fm_backlog_mutate "$data" "done" "$id" "$@"
 }
 
+fm_backlog_row_artifact_supported() {  # <task-id> <flag> <value>
+  local id=$1 flag=${2:-} value=${3:-}
+  case "$flag" in
+    --pr) return 0 ;;
+    --report) [ "$value" = "data/$id/report.md" ] ;;
+    *) return 1 ;;
+  esac
+}
+
 # Keep a captain-held row open across the removal of the work record that
 # discovered it: record the finished work's deliverable as one line at the end
 # of the task body (a line already present is left alone) and return the row to
@@ -337,6 +346,7 @@ fm_backlog_done() {  # <data-dir> <id> [flag...]
 fm_backlog_retain() {  # <data-dir> <id> [flag...]
   local data authorized_data=$1 id=$2 out command_status previous_arg=''
   local arg deliverable='' line body new_body tmp
+  local -a row_args=()
   if ! data=$(fm_backlog_data_absolute "$1"); then
     FM_BACKLOG_TRANSITION_ERROR="data directory cannot be resolved: $1"
     return 1
@@ -345,8 +355,14 @@ fm_backlog_retain() {  # <data-dir> <id> [flag...]
   FM_BACKLOG_TRANSITION_ERROR=
   for arg in "$@"; do
     case "$previous_arg" in
-      --report) deliverable="${deliverable:+$deliverable; }report $arg" ;;
-      --pr) deliverable="${deliverable:+$deliverable; }PR $arg" ;;
+      --report)
+        deliverable="${deliverable:+$deliverable; }report $arg"
+        fm_backlog_row_artifact_supported "$id" --report "$arg" && row_args=(--report "$arg")
+        ;;
+      --pr)
+        deliverable="${deliverable:+$deliverable; }PR $arg"
+        row_args=(--pr "$arg")
+        ;;
       --note) deliverable="${deliverable:+$deliverable; }$arg" ;;
     esac
     previous_arg=$arg
@@ -394,6 +410,9 @@ fm_backlog_retain() {  # <data-dir> <id> [flag...]
         rm -f -- "$tmp"
         ;;
     esac
+  fi
+  if [ "${#row_args[@]}" -gt 0 ]; then
+    fm_backlog_mutate "$authorized_data" update "$id" "${row_args[@]}" || return 1
   fi
   fm_backlog_mutate "$authorized_data" reopen "$id"
 }
@@ -536,6 +555,21 @@ fm_backlog_meta_spawn_gen() {
       ;;
   esac
   FM_BACKLOG_META_SPAWN_GEN=$value
+}
+
+# Incarnation reader for merge entrypoints. Legacy records may omit the field;
+# ambiguity or unreadability is still a refusal, and a change across the lock
+# wait is detected by comparing the optional value twice.
+fm_backlog_meta_spawn_gen_optional() {  # <meta> <state>
+  local meta=$1 state=$2 count
+  FM_BACKLOG_META_SPAWN_GEN=
+  fm_backlog_record_present "$meta" "task record" "$state" || return 1
+  count=$(LC_ALL=C awk -F= '$1 == "spawn_gen" { count++ } END { print count + 0 }' "$meta" 2>/dev/null) || {
+    FM_BACKLOG_TRANSITION_ERROR="unreadable spawn generation in task record $meta"
+    return 1
+  }
+  [ "$count" -ne 0 ] || return 0
+  fm_backlog_meta_spawn_gen "$meta" "$state"
 }
 
 fm_backlog_row_dispatchable() {

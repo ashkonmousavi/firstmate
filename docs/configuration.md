@@ -159,20 +159,19 @@ Test cleanup must use the guarded path in [`docs/cmux-backend.md`](cmux-backend.
 
 ## Worktree pool leases (treehouse)
 
-A treehouse lease belongs to a process, not to a task.
-`treehouse-state.json` records the holder as `owner_pid` plus `owner_started_at`, so every lease the pool holds dies with the machine, and `treehouse status` then derives each slot's state from the live processes it can see rather than from any durable record.
+Treehouse 2.3.0 provides a durable non-interactive lease with `treehouse get --lease --lease-holder <task-id>`.
+A leased worktree is never handed out by a later `get` and never removed by `prune`, even when no process remains, until `treehouse return <path>` releases it.
+Firstmate uses that contract for new ordinary task worktrees and for secondmate homes.
 
-That is the whole hazard, and it is not restricted to restarts.
-A task whose agent is stopped leaves a slot that is clean, checked out at the default branch head, and running nothing, which is indistinguishable from a slot that was never used.
-A parked lane, a lane waiting on a merge, and a lane an out-of-memory restart emptied all present that way, and the next `treehouse get` may hand one of them out.
-It did on this host at 00:44 on 2026-09-09: slot 6, recorded to a parked scout, was re-leased to a new spawn and reset to the default branch.
+An ordinary fresh spawn records the same task id in Treehouse and as `treehouse_lease_holder=` in `state/<id>.meta`, then moves the already-created endpoint into that leased path before launching the agent.
+Parking and relaunch reuse the recorded path and retain the lease.
+Teardown passes `--if-lease-holder` with the recorded holder, so a drifted or reassigned lease refuses instead of resetting another owner's work.
+No Firstmate path writes Treehouse's state database directly.
 
-Committed work is not what is at risk.
-A branch ref lives in the shared git directory and survives the slot being reset, so what is lost is the slot's own contents - anything uncommitted - and the lane's identity, which is why the remedies below relaunch the lane or return the slot and never reset either.
-
-`treehouse get --lease` acquires a *new* slot durably, and a slot leased that way is never handed out by a later `get` and never removed by `prune` until `treehouse return <path>` releases it.
-[`bin/fm-home-seed.sh`](../bin/fm-home-seed.sh) uses it for secondmate homes for exactly that reason ([`docs/architecture.md`](architecture.md)).
-There is no command that takes a lease on a path that already exists, so Firstmate cannot re-mark the lease of a worktree a task record already names; it refuses and reports instead.
+Legacy task records created through the old interactive, process-bound `treehouse get` path may still name an unleased worktree.
+Those records remain exposed if the process exits because the installed CLI has no command that attaches a new durable lease to a specified existing path.
+Preserve such a path and do not allocate another worktree from its pool until the task is safely reconciled or its landed cleanup returns the slot.
+Do not relaunch merely to manufacture lease evidence: relaunch preserves the recorded path but cannot convert that existing path into a durable lease.
 
 Two checks own that, and each owns its own half:
 
@@ -181,16 +180,12 @@ Two checks own that, and each owns its own half:
 - [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s `worktree_claimed_by_another_task` is the cleanup side of the same rule.
   A dead process and a clean tree never make a path disposable while another task record names it, so when the path a task records is also recorded by another task, teardown closes that task's record and touches the worktree in no way at all: it reads no work there, concludes no run, reaps no process, removes no hook, returns nothing, resets nothing, and deletes no branch.
   `--force` does not lift it, because force is authority to discard the closing task's own work and has never been authority to destroy another task's.
-- [`bin/fm-bootstrap.sh`](../bin/fm-bootstrap.sh)'s `report_unleased_task_worktrees` prints one `WORKTREE_LEASE:` line per recorded worktree the pool reads as available with no durable lease.
-  This is the reporting half, and it is what covers the cases the refusal cannot see: another home sharing the same pool, a bare `treehouse get` at a prompt, a `prune`.
-  It reads locally, never over the network, and stays silent when the pool cannot be read at all, because an unreadable pool is not evidence that a lane is exposed.
+- [`bin/fm-bootstrap.sh`](../bin/fm-bootstrap.sh)'s `report_unleased_task_worktrees` prints one `WORKTREE_LEASE:` line per legacy recorded worktree the pool reads as available, and a distinct line when a recorded durable holder disagrees with Treehouse.
+  It reads locally with a bounded status query, never over the network, and stays silent when the pool cannot be read because an unreadable pool is not evidence that a lane is exposed.
 
-The two sides answer the case together.
-When a restart drops the lease on a slot recorded to task A and the pool re-leases it to task B, which then does real work there, A's record stays closable and B keeps the slot: the spawn side would have refused to hand it to B had B been launched from the same home, and the cleanup side refuses to take it back from B when A is closed.
-What Firstmate cannot do is re-mark the lease itself, so after such a reassignment the slot is held only by B's running process, exactly as it was before.
-
-Switching task spawns themselves to `treehouse get --lease` would remove the hazard at its root rather than guarding it, and would make teardown responsible for `treehouse return`.
-That is a separate change to the spawn's launch and teardown contracts, not part of these checks.
+These boundaries preserve old exposed work without weakening new durable ownership.
+If another task already records the same path, spawn refuses it and teardown of the stale claimant leaves the occupying task untouched.
+If Treehouse reports a different durable holder, guarded return refuses and both records remain available for reconciliation.
 
 ## Away-mode supervisor backend (FM_SUPERVISOR_BACKEND / FM_SUPERVISOR_TARGET)
 
@@ -268,6 +263,28 @@ Because firstmate always supplies `--intent`, that command is a baseline and the
 `commands.test` executes code, so no-mistakes honors it only from the default-branch copy of `.no-mistakes.yaml`; a pushed branch cannot change what the gate runs.
 See [CONTRIBUTING.md](../CONTRIBUTING.md) for the firstmate-specific local test policy and entry points.
 Portable shard evidence and coverage rules are in [fm-test-portable-shards.md](fm-test-portable-shards.md); [herdr-backend.md](herdr-backend.md#destructive-lab-safety) owns the real-Herdr lane's isolation boundary, and [runtime-backends.md](verification/runtime-backends.md#herdr) owns active evidence.
+
+### Document correction capability receipt (config/no-mistakes-document-correction.receipt)
+
+Bounded in-run Document correction requires two independent inputs: the consuming project's trusted `.no-mistakes.yaml` must set a positive `auto_fix.document`, and this home must hold an install-owned private capability receipt for the exact installed executable. A version label or familiar revision never grants the capability.
+
+After an independent review accepts a real consuming proof for the final installed binary, the installation owner records it with:
+
+```sh
+FM_HOME=/absolute/firstmate/home \
+  bin/fm-dod-lib.sh record-document-correction-capability \
+  --proof /absolute/path/to/accepted-consuming-proof
+```
+
+That command is the only producer. It hashes the `no-mistakes` executable selected by `PATH` and the regular non-symlink proof file, then atomically publishes mode-`0600` `config/no-mistakes-document-correction.receipt` with this closed schema:
+
+```text
+schema=fm-no-mistakes-document-correction.v1
+executable_sha256=sha256:<64 hexadecimal characters>
+proof_sha256=sha256:<64 hexadecimal characters>
+```
+
+Missing, unreadable, symlinked, malformed or extra receipt content, a changed executable checksum, and absent or untrusted project enablement all select the custody-preserving report-only path. Installing another executable therefore disables in-run correction until that exact binary has its own independently accepted consuming proof and the installation owner replaces the receipt. The receipt is home-local and is not inherited into secondmate homes.
 
 ## Captain Preferences (data/captain.md / data/captain-shared.md)
 
@@ -482,6 +499,52 @@ The Kimi installer requires an existing regular non-symlink `~/.kimi-code/config
 Its `remove` action excises only the marker-delimited Firstmate region and removes Firstmate's hook files.
 For Pi and pi-signed secondmate launches, `fm-spawn.sh` starts the selected executable with `-e` pointed at the secondmate home's own tracked `.pi/extensions/fm-primary-pi-watch.ts` and `.pi/extensions/fm-primary-turnend-guard.ts`, both already present from the secondmate home's git worktree.
 
+## Worker launch environment (config/launch-env-allowlist)
+
+The optional local, gitignored `config/launch-env-allowlist` limits the ambient environment passed to newly launched workers, scouts, and secondmates, including relaunches.
+With no file, launch behavior is unchanged: selected harness markers are cleared, while the provider, long-lived terminal daemon, and shell initialization determine which other variables reach the worker.
+Do not assume every worker inherits the invoking Firstmate process's current environment.
+The file is inherited into secondmate homes through the [primary-authoritative configuration contract](../.agents/skills/secondmate-provisioning/SKILL.md).
+Changes apply to subsequent launches; existing processes keep their environment.
+
+Create the file with one environment variable **name** per line, never credential values, assignments, wildcards, or shell commands.
+Blank lines and lines beginning with `#` are allowed.
+Invalid names, an unreadable or nonregular file, or a path inspection error (including an inaccessible configuration directory) stop the launch.
+An empty file enables filtering with only Firstmate's operational floor.
+For example, a provider using `OPENAI_API_KEY` and Git using an SSH agent could use:
+
+```text
+# Provider credential already available in the destination pane
+OPENAI_API_KEY
+# Git over SSH using an existing agent
+SSH_AUTH_SOCK
+```
+
+Firstmate retains basic home, executable search, terminal, locale, temporary-directory, and backend routing variables, plus its explicit launch assignments, its ship and scout task marker, and enabled task trace.
+[`fm-spawn.sh --help`](../bin/fm-spawn.sh) owns the exact retained names and parsing mechanics.
+Other ambient names must be listed explicitly, including custom credential-store locations, proxy settings, and certificate overrides when required by the selected tools.
+The command shell and worker may still create their own variables.
+Allowed values come from the destination pane at execution time; they are neither copied from the invoking Firstmate process nor written into the launch command.
+Listing a name does not provision it in a daemon's environment or transfer credentials to another machine.
+
+Choose the minimum additions for the authentication method actually in use:
+
+| Provider or Git transport | Additional names needed |
+| --- | --- |
+| Provider login stored under the normal home directory | None for the environment contract; the same user still has access to that provider's stored login. |
+| Provider configured through environment variables | The exact credential and endpoint names required by that provider, for example `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`; a multi-provider tool needs each provider it will actually use. |
+| Custom provider store | Its configured location variables, such as `CODEX_HOME`, `GROK_HOME`, or `XDG_CONFIG_HOME`; Firstmate's existing explicit Claude and Muse store assignments still apply. |
+| Muse environment authentication | `META_API_KEY`, already present in the target tmux session environment; Firstmate's preflight requires the stored-login path on other backends. |
+| Git over SSH with an agent | `SSH_AUTH_SOCK`; add `GIT_SSH_COMMAND` only if the chosen transport requires that override. |
+| Git over SSH with a key file | No credential variable when normal SSH configuration selects the key; file permissions and any passphrase handling still apply. |
+| Git over HTTPS with a credential helper | Whatever the configured helper requires; a GitHub CLI helper using an environment token needs its selected `GH_TOKEN` or `GITHUB_TOKEN`. |
+
+Verify the selected provider login and Git transport after opting in; Firstmate does not infer credentials from model names or install a secret manager.
+Raw launch commands run under noninteractive POSIX `sh` with this option and must use compatible syntax.
+The filter runs at the worker command boundary, after the terminal daemon and pane shell have started; it does not scrub either of those processes.
+This is not a sandbox: it cannot revoke same-user access to credential files, prevent tools or later shells from loading credentials again, or isolate processes from the same user's other processes.
+Regression coverage executes emitted launch commands with synthetic nonsecret values in [`tests/fm-spawn-dispatch-profile.test.sh`](../tests/fm-spawn-dispatch-profile.test.sh).
+
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
@@ -563,7 +626,7 @@ When a running home advances and its loaded instruction surface (`AGENTS.md`, `b
 If that send fails, bootstrap keeps an idempotent retry marker and emits `NUDGE_SECONDMATES:` with the failure reason.
 The same bootstrap run emits `SECONDMATE_LIVENESS:` only when a registered secondmate is skipped or its relaunch fails; already-live and successfully relaunched secondmates are handled silently.
 For a mid-session inherited local-material edit where tracked-file sync is not needed, run `bin/fm-config-push.sh`.
-It uses the same live secondmate discovery and propagation helper as bootstrap, prints each live home's `crew-dispatch.json`, `crew-harness`, `backlog-backend`, `backend`, `herdr-presentation-spaces`, `startup-memory-budget`, `trace-context`, and `data/captain-shared.md` result as `pushed`, `unchanged`, `skipped`, or `error`, and exits non-zero for real propagation errors or config-reread send failures.
+It uses the same live secondmate discovery and propagation helper as bootstrap; its [help](../bin/fm-config-push.sh) owns reporting and exit semantics, and [`fm_config_inherit_items`](../bin/fm-config-inherit-lib.sh) declares the inherited items.
 When an allowlisted config item changes for an already-running local home, it sends the literal-content reread pointer described in [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md); unchanged allowlisted config sends no pointer unless a previous delivery is pending.
 A changed remote home instead receives one durably recorded marked re-read instruction after the allowlisted bytes have transferred because primary-local generation paths are not meaningful on another host.
 The locked bootstrap inheritance pass uses the same placement-specific behavior; see `secondmate-provisioning` for the single contract owner.

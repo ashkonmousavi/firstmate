@@ -471,6 +471,22 @@ test_unsafe_secondmate_home_skipped_before_git_update() {
   pass "T11 unsafe secondmate home is not fast-forwarded"
 }
 
+# This audience check is deliberately independent of the updater mechanics: it
+# proves the operator-facing contract cannot claim that rereading files reloads
+# a running primary or quietly prescribe an unsupported self-restart.
+test_primary_update_instructions_bind_installed_bytes_to_fresh_session() {
+  local skill="$ROOT/.agents/skills/updatefirstmate/SKILL.md"
+  grep -F 'It does not reload the running primary' "$skill" >/dev/null \
+    || fail "updatefirstmate must deny that a handoff read reloads the running primary"
+  grep -F 'only when the captain starts a fresh firstmate session' "$skill" >/dev/null \
+    || fail "updatefirstmate must bind effective primary behavior to a fresh session"
+  grep -F 'there is no supported self-restart or session-lock handoff here' "$skill" >/dev/null \
+    || fail "updatefirstmate must refuse an invented primary self-restart"
+  ! grep -F '**One-time rollout note:**' "$skill" >/dev/null \
+    || fail "obsolete one-time secondmate restart rollout prose remains"
+  pass "T12 update instructions distinguish installed bytes, safe handoff reading, and fresh-session primary behavior"
+}
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts
@@ -485,5 +501,6 @@ test_registry_backstop_dedup_and_self_exclusion
 test_firstmate_wrong_branch_skipped
 test_firstmate_detached_head_skipped
 test_unsafe_secondmate_home_skipped_before_git_update
+test_primary_update_instructions_bind_installed_bytes_to_fresh_session
 
 echo "# all fm-update tests passed"

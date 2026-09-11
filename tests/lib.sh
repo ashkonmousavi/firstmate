@@ -337,10 +337,20 @@ fm_fake_exit0() {
   local fakebin=$1 tool
   shift
   for tool in "$@"; do
-    cat > "$fakebin/$tool" <<'SH'
+    if [ "$tool" = treehouse ]; then
+      cat > "$fakebin/$tool" <<'SH'
+#!/usr/bin/env bash
+case "${1:-}" in
+  get) printf '%s\n' "${FM_FAKE_TREEHOUSE_PATH:-${FM_FAKE_PANE_PATH:-}}" ;;
+esac
+exit 0
+SH
+    else
+      cat > "$fakebin/$tool" <<'SH'
 #!/usr/bin/env bash
 exit 0
 SH
+    fi
     chmod +x "$fakebin/$tool"
   done
 }

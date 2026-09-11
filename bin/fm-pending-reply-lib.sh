@@ -220,7 +220,9 @@ fm_pending_reply_corr_reusable() {  # <state-dir> <corr_id> <task_id>
   phase=$(fm_pending_reply_get "$rec" phase)
   case "$phase" in
     awaiting_report|recovery_sending|recovery_sent) return 0 ;;
-    delivery_unknown)
+    delivery_unknown|escalated)
+      # An escalated unknown delivery remains reusable only while no delivery
+      # epoch exists; delivered requests never reuse their correlation.
       delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
       [ -z "$delivered" ]
       return $?
@@ -489,10 +491,9 @@ fm_pending_reply_delivery_attempt_unresolved() {  # <state-dir> <corr_id>
   return 1
 }
 
-# A definitive backend rejection makes the existing correlation retryable again.
-# Reconciliation may have aged the same attempted sidecar to delivery_unknown
-# while the backend call was in flight, so both undelivered phases converge here
-# under the per-correlation lock; a confirmed delivery can never be reset.
+# A definitive backend rejection or the owner's idempotent resend makes the
+# same undelivered correlation retryable. Reconciliation may have aged and
+# escalated it meanwhile; a confirmed delivery can never be reset.
 fm_pending_reply_reset_known_undelivered() {  # <state-dir> <corr_id>
   local state=$1 corr=$2 lock rc=0
   local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
@@ -512,7 +513,7 @@ _fm_pending_reply_reset_known_undelivered_locked() {  # <state-dir> <corr_id>
   delivered=$(fm_pending_reply_get "$rec" delivered_epoch)
   [ -z "$delivered" ] || return 1
   phase=$(fm_pending_reply_get "$rec" phase)
-  case "$phase" in awaiting_report|delivery_unknown) ;; *) return 1 ;; esac
+  case "$phase" in awaiting_report|delivery_unknown|escalated) ;; *) return 1 ;; esac
   marker=$(fm_pending_reply_delivery_confirmation_path "$state" "$corr")
   [ -e "$marker" ] || [ -L "$marker" ] || {
     [ "$phase" = awaiting_report ]

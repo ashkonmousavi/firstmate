@@ -47,7 +47,14 @@ def git_tracked(root: Path, patterns: list[str]) -> list[str]:
     if proc.returncode != 0:
         detail = proc.stderr.decode("utf-8", "replace").strip()
         fail(f"git ls-files failed: {detail or 'unknown error'}")
-    return sorted(p for p in proc.stdout.decode("utf-8").split("\0") if p)
+    # `git ls-files` includes tracked paths deleted in the current candidate.
+    # Audience coverage follows the files the candidate will actually ship, so
+    # a deliberate working-tree deletion must not require a stale inventory row.
+    return sorted(
+        p
+        for p in proc.stdout.decode("utf-8").split("\0")
+        if p and os.path.lexists(root / p)
+    )
 
 
 def load_inventory(path: Path) -> dict:
