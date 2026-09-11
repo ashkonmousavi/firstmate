@@ -1486,7 +1486,7 @@ report_unleased_task_worktrees() {
   # every slot - so read each pool once and settle every worktree it contains in
   # that pass. A worktree the pool does not list is left uncovered so a later
   # entry from its own pool can still answer for it.
-  while IFS='	' read -r _ probe_wt; do
+  while IFS='	' read -r id probe_wt holder; do
     [ -n "$probe_wt" ] || continue
     case " $covered " in *" $probe_wt "*) continue ;; esac
     if command -v timeout >/dev/null 2>&1; then

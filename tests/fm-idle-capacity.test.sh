@@ -290,6 +290,27 @@ test_freeze_supported_release_is_the_only_permission_transition() {
   pass "freeze: supported explicit release is the permission transition"
 }
 
+test_freeze_set_rejects_invalid_calendar_date() {
+  local home out rc
+  home=$(make_home freeze-invalid-date 3)
+  if out=$(FM_HOME="$home" "$ROOT/bin/fm-dispatch-freeze.sh" set \
+    --reason 'captain paused dispatch' --recheck 2026-02-31 2>&1); then
+    fail "an impossible civil date was accepted: $out"
+  else
+    rc=$?
+  fi
+  [ "$rc" -eq 2 ] || fail "an impossible civil date must exit 2, got $rc: $out"
+  assert_contains "$out" "refused: recheck must be a valid calendar date" \
+    "an impossible civil date must be refused explicitly"
+  [ ! -e "$home/state/.dispatch-freeze" ] \
+    || fail "an impossible civil date must not create a dispatch-freeze record"
+
+  FM_HOME="$home" "$ROOT/bin/fm-dispatch-freeze.sh" set \
+    --reason 'captain paused dispatch' --recheck 2028-02-29 >/dev/null \
+    || fail "a valid leap-day recheck was refused"
+  pass "freeze: set accepts real civil dates and refuses impossible ones"
+}
+
 test_freeze_keeps_idle_capacity_false_but_arms_the_recheck() {
   local home verdict
   home=$(make_home freeze-predicate 3)
@@ -1760,6 +1781,7 @@ test_report_one_unreadable_project_never_hides_a_readable_sibling
 test_freeze_silences_line
 test_freeze_recheck_date_never_auto_releases_captain_pause
 test_freeze_supported_release_is_the_only_permission_transition
+test_freeze_set_rejects_invalid_calendar_date
 test_freeze_keeps_idle_capacity_false_but_arms_the_recheck
 test_freeze_with_no_ready_work_needs_no_watcher
 test_hold_stale_reported

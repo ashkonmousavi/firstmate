@@ -36,6 +36,12 @@ case "$cmd" in
     [ -n "$reason" ] || usage
     case "$reason" in *$'\n'*|*$'\r'*) echo "refused: reason must be one line" >&2; exit 2 ;; esac
     case "$recheck" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;; *) usage ;; esac
+    # shellcheck source=bin/fm-supervision-lib.sh
+    . "$ROOT/bin/fm-supervision-lib.sh"
+    if ! fm_idle_days_from_civil "$recheck" >/dev/null; then
+      echo "refused: recheck must be a valid calendar date" >&2
+      exit 2
+    fi
     mkdir -p "$STATE"
     tmp=$(mktemp "$STATE/.dispatch-freeze.tmp.XXXXXX")
     trap 'rm -f -- "$tmp"' EXIT HUP INT TERM

@@ -105,13 +105,24 @@ FM_IDLE_ID_LIMIT=${FM_IDLE_ID_LIMIT:-10}
 # Days since the civil epoch for a YYYY-MM-DD date, so two dates can be
 # subtracted without GNU-only `date -d`. Howard Hinnant's days_from_civil.
 fm_idle_days_from_civil() {  # <yyyy-mm-dd>
-  local y m d era yoe doy doe
+  local y m d max_day era yoe doy doe
   case "$1" in
     [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]) ;;
     *) return 1 ;;
   esac
   y=$((10#${1:0:4})); m=$((10#${1:5:2})); d=$((10#${1:8:2}))
-  { [ "$m" -ge 1 ] && [ "$m" -le 12 ] && [ "$d" -ge 1 ] && [ "$d" -le 31 ]; } || return 1
+  [ "$y" -ge 1 ] && [ "$m" -ge 1 ] && [ "$m" -le 12 ] && [ "$d" -ge 1 ] || return 1
+  case "$m" in
+    2)
+      max_day=28
+      if [ $((y % 400)) -eq 0 ] || { [ $((y % 4)) -eq 0 ] && [ $((y % 100)) -ne 0 ]; }; then
+        max_day=29
+      fi
+      ;;
+    4|6|9|11) max_day=30 ;;
+    *) max_day=31 ;;
+  esac
+  [ "$d" -le "$max_day" ] || return 1
   [ "$m" -le 2 ] && y=$((y - 1))
   era=$((y / 400))
   yoe=$((y - era * 400))

@@ -773,6 +773,16 @@ JSON
   assert_not_contains "$out" "WORKTREE_LEASE" \
     "an unreadable pool must report nothing rather than guess a worktree is exposed"
 
+  rm -f "$home/state/task-parked.meta" "$home/state/task-running.meta"
+  cat > "$pool" <<JSON
+[{"name":"8","path":"$case_dir/pool/8","status":"available","lease_id":"lease-abc","lease_holder":"another-task","leased_at":"2026-09-09T00:00:00Z","processes":[]}]
+JSON
+  export FM_FAKE_TREEHOUSE_POOL="$pool"
+  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$home" \
+    "$ROOT/bin/fm-bootstrap.sh")
+  assert_contains "$out" "WORKTREE_LEASE: task task-leased records $case_dir/pool/8 for durable holder fm-secondmate, but the pool records holder another-task" \
+    "a pool containing only current three-field records must report a durable holder mismatch"
+
   unset FM_FAKE_TREEHOUSE_LEASE_HELP
   pass "bootstrap: a recorded worktree the pool would re-lease is reported, and only that one"
 }

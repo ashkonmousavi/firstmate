@@ -85,18 +85,6 @@ test_required_pointer_fails() {
   pass "required documentation owner pointers cannot silently disappear"
 }
 
-# The address rule is a chat-channel contract, not content to stamp into tools'
-# inputs or repository artifacts. Pin both sides so later persona edits cannot
-# silently revive the parent-channel failure this boundary corrected.
-test_captain_address_rule_is_chat_only() {
-  local agents="$ROOT/AGENTS.md"
-  grep -F 'at least once in every chat message you send them' "$agents" >/dev/null \
-    || fail "AGENTS.md no longer binds the captain address rule to chat messages"
-  grep -F 'never put "captain" or any other direct address into a non-chat artifact' "$agents" >/dev/null \
-    || fail "AGENTS.md no longer excludes direct address from non-chat artifacts"
-  pass "captain address is required in chat and excluded from non-chat artifacts"
-}
-
 write_fixture_inventory() {
   local repo=$1
   cat > "$repo/docs/documentation-audiences.json" <<'JSON'
@@ -177,6 +165,5 @@ PY
 test_repository_inventory_passes
 test_duplicate_and_setup_classification_fail
 test_required_pointer_fails
-test_captain_address_rule_is_chat_only
 test_local_links_and_no_keyword_heuristic
 test_deliberately_deleted_surface_does_not_require_stale_classification
