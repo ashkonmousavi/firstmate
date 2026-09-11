@@ -51,7 +51,10 @@
 #              --note is required for a ship or scout, whose replacement
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
-#              standing charter is never rewritten. The rendered progress note
+#              standing charter is never rewritten. A promoted ship records
+#              the note in ship-instructions.md and proves its context-free
+#              relaunch composition before the old agent is stopped. The
+#              rendered progress note
 #              also restates FM_CI_NO_RERUN_LINE (bin/fm-dod-lib.sh, the single
 #              owner shared with every ship brief's # Rules list), so a
 #              replacement worker never treats a relaunch as license to re-run
@@ -862,6 +865,12 @@ do_relaunch() {
   case "$KIND" in
     ship|scout)
       RELAUNCH_BRIEF="$DATA/$ID/brief.md"
+      if [ "$KIND" = ship ] \
+        && { [ -e "$DATA/$ID/ship-instructions.md" ] || [ -L "$DATA/$ID/ship-instructions.md" ]; }; then
+        RELAUNCH_BRIEF="$DATA/$ID/ship-instructions.md"
+        fm_brief_promoted_relaunch_source "$DATA/$ID/brief.md" "$RELAUNCH_BRIEF" >/dev/null \
+          || die "task $ID's promoted instructions cannot produce a complete context-free relaunch source; refusing before stopping its current agent"
+      fi
       [ -f "$RELAUNCH_BRIEF" ] \
         || die "task $ID has no instructions at $RELAUNCH_BRIEF; refusing to relaunch a worker with nothing to work from"
       [ "$NOTE_SET" = 1 ] && [ -n "$NOTE" ] \

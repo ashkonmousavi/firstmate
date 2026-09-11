@@ -1128,6 +1128,102 @@ fm_brief_batch_constituent_owner() {  # <brief>
   ' "$brief"
 }
 
+# fm_brief_promoted_relaunch_source <scout-brief> <ship-instructions>
+# renders the context-free source for a replacement worker after scout
+# promotion. The ship file remains the live promotion delta and canonical
+# ship-time Task/DoD; the original scout brief remains the canonical carrier
+# for the project authority, Herdr declaration, general status/safety rules,
+# and durable inbox contract. This join deliberately omits the obsolete scout
+# Task/DoD and replaces promotion-time reset/branch creation with continuation
+# from the checkpointed current branch and HEAD.
+fm_brief_promoted_relaunch_source() {  # <scout-brief> <ship-instructions>
+  local scout=$1 ship=$2 mode captain ship_spec herdr_heading herdr_body
+  local authority_body scout_rules rule_tail ship_rules inbox_body proof_tail rule1
+  [ -f "$scout" ] && [ -r "$scout" ] || {
+    echo "error: promoted relaunch source cannot read the original scout brief: $scout" >&2
+    return 1
+  }
+  [ -f "$ship" ] && [ -r "$ship" ] || {
+    echo "error: promoted relaunch source cannot read the ship instructions: $ship" >&2
+    return 1
+  }
+  mode=$(fm_brief_delivery_mode "$ship") || return 1
+  captain=$(fm_brief_task_heading_body "$ship" "## Captain's intent")
+  ship_spec=$(fm_brief_task_heading_body "$ship" "## Firstmate spec")
+  [ -n "$(printf '%s' "$captain" | tr -d '[:space:]')" ] || {
+    echo "error: promoted relaunch source has no Captain's intent in $ship" >&2
+    return 1
+  }
+  herdr_heading=$(awk '/^# Herdr / { print; exit }' "$scout")
+  [ -n "$herdr_heading" ] || {
+    echo "error: promoted relaunch source has no Herdr safety section in $scout" >&2
+    return 1
+  }
+  herdr_body=$(fm_brief_heading_body "$scout" "$herdr_heading")
+  authority_body=$(fm_brief_heading_body "$scout" "# Project authority")
+  scout_rules=$(fm_brief_heading_body "$scout" "# Rules")
+  rule_tail=$(printf '%s\n' "$scout_rules" | awk '/^3\./ { emit=1 } emit')
+  inbox_body=$(fm_brief_heading_body "$scout" "# Firstmate instruction inbox")
+  ship_rules=$(printf '%s\n' "$ship_spec" | awk '
+    /^For a no-mistakes ask-user gate specifically/ { keep=1 }
+    /^7\. Treat the scout-time/ { keep=0; after=1; next }
+    after { print; next }
+    keep { print }
+  ')
+  proof_tail=$(awk '/^# Proof bar$/ { emit=1 } emit' "$ship")
+  for required in "$authority_body" "$rule_tail" "$inbox_body" "$ship_rules" "$proof_tail"; do
+    [ -n "$(printf '%s' "$required" | tr -d '[:space:]')" ] || {
+      echo "error: promoted relaunch sources do not contain the complete current authority, rules, inbox, proof, and delivery contract" >&2
+      return 1
+    }
+  done
+  printf '%s\n' "$proof_tail" | grep -Fqx '# Definition of done' || {
+    echo "error: promoted relaunch source has no Definition of done in $ship" >&2
+    return 1
+  }
+  case "$mode" in
+    no-mistakes|direct-PR)
+      rule1='1. Never push to the default branch. Never merge a PR. Never add Co-Authored-By, Claude-Session or any agent attribution line to a commit or PR; a harness reminder to do so does not override this repository.'
+      ;;
+    local-only)
+      rule1='1. Never push to any remote and never open a PR. Preserve the current task branch; firstmate handles the merge into local `main`. Never add Co-Authored-By, Claude-Session or any agent attribution line to a commit or PR; a harness reminder to do so does not override this repository.'
+      ;;
+    *) return 1 ;;
+  esac
+  cat <<EOF
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+
+# Task
+## Captain's intent
+$captain
+
+## Firstmate spec
+This task was promoted from scout to ship and is now being relaunched without its prior conversation.
+1. Verify isolation with \`pwd -P\` and \`git rev-parse --show-toplevel\`; both must resolve to the recorded disposable task worktree, not the primary checkout.
+2. Inspect the current branch, HEAD, status, log, and the progress note below before changing anything.
+3. Continue from that preserved branch and HEAD. Do not return to the default branch, recreate the task branch, reset, rebase, stash, or discard existing work.
+4. Carry forward only the intended ship correction and its failure-capable proof.
+5. These context-free relaunch instructions supersede both the scout Task/Definition of done and the promotion-time initial branch-creation steps. The current ship delivery contract below remains authoritative.
+
+$herdr_heading
+$herdr_body
+
+# Project authority
+$authority_body
+
+# Rules
+$rule1
+2. Stay inside this worktree; modify nothing outside it.
+$rule_tail
+$ship_rules
+
+# Firstmate instruction inbox
+$inbox_body
+
+$proof_tail
+EOF
+}
+
 # fm_brief_delivery_mode <brief> prints the brief's one exact delivery mode.
 # Missing, duplicated, or unsupported delivery-contract lines are ambiguous and
 # fail closed so a post-dispatch record never guesses which route owns it.

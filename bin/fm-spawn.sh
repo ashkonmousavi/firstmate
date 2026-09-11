@@ -33,7 +33,8 @@
 #   captain intent, and a validation command bound to the effective brief's
 #   SHA-256 source revision. A named integration-batch constituent instead
 #   launches its exact effective source without a standalone validation
-#   overlay: brief.md for a fresh task, or ship-instructions.md after scout
+#   overlay: brief.md for a fresh task, or the context-free relaunch-brief.md
+#   derived from the original brief plus ship-instructions.md after scout
 #   promotion. The command renders the real `--intent` input from that brief and
 #   refuses a stale receipt before no-mistakes starts. A legacy mixed Task is
 #   accepted there only under bin/fm-dod-lib.sh's provenance-marking rules;
@@ -2159,11 +2160,23 @@ else
   BRIEF="$DATA/$ID/brief.md"
   if [ "$RELAUNCH" -eq 1 ] && [ "$KIND" = ship ] \
     && { [ -e "$DATA/$ID/ship-instructions.md" ] || [ -L "$DATA/$ID/ship-instructions.md" ]; }; then
-    BRIEF="$DATA/$ID/ship-instructions.md"
-    [ -f "$BRIEF" ] && [ -r "$BRIEF" ] || {
-      echo "error: promoted task $ID has inaccessible effective ship instructions at $BRIEF" >&2
+    SOURCE_BRIEF="$DATA/$ID/ship-instructions.md"
+    [ -f "$SOURCE_BRIEF" ] && [ -r "$SOURCE_BRIEF" ] || {
+      echo "error: promoted task $ID has inaccessible effective ship instructions at $SOURCE_BRIEF" >&2
       exit 1
     }
+    BRIEF="$DATA/$ID/relaunch-brief.md"
+    BRIEF_TMP="$DATA/$ID/.relaunch-brief.md.${BASHPID:-$$}"
+    fm_brief_promoted_relaunch_source "$DATA/$ID/brief.md" "$SOURCE_BRIEF" > "$BRIEF_TMP" || {
+      rm -f -- "$BRIEF_TMP"
+      echo "error: could not render context-free relaunch instructions for promoted task $ID" >&2
+      exit 1
+    }
+    if ! mv "$BRIEF_TMP" "$BRIEF"; then
+      rm -f -- "$BRIEF_TMP"
+      echo "error: could not publish context-free relaunch instructions for promoted task $ID" >&2
+      exit 1
+    fi
   fi
 fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }

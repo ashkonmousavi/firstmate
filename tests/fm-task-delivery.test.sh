@@ -813,7 +813,7 @@ test_promote_refuses_a_symlinked_task_record() {
 # actually receive - for every supported mode.
 test_promotion_delivers_the_real_definition_of_done() {
   local home physical_home meta meta_canonical brief_meta out sendroot payload mode id
-  local brief_dod delivered_dod brief_dod_canonical delivered_dod_canonical
+  local brief_dod delivered_dod brief_dod_canonical delivered_dod_canonical relaunch_payload
   physical_home="$TMP_ROOT/promote-dod/physical-home"
   home="$TMP_ROOT/promote-dod/home"
   sendroot="$TMP_ROOT/promote-dod/sendroot"
@@ -890,6 +890,28 @@ STUB
       "$mode: promoted worker did not receive the Captain's intent subsection"
     assert_grep "## Firstmate spec" "$payload" \
       "$mode: promoted worker did not receive the Firstmate spec subsection"
+    relaunch_payload="$TMP_ROOT/promote-dod/relaunch-$id"
+    ( . "$ROOT/bin/fm-dod-lib.sh"
+      fm_brief_promoted_relaunch_source "$home/data/$id/brief.md" "$payload"
+    ) > "$relaunch_payload" || fail "$mode: promoted sources did not compose a context-free relaunch input"
+    assert_grep "# Project authority" "$relaunch_payload" \
+      "$mode: promoted relaunch input was not self-contained with project authority"
+    assert_grep "# Rules" "$relaunch_payload" \
+      "$mode: promoted relaunch input was not self-contained with current rules"
+    assert_grep "Report status by appending one line" "$relaunch_payload" \
+      "$mode: promoted relaunch input lost the current status contract"
+    assert_grep "# Firstmate instruction inbox" "$relaunch_payload" \
+      "$mode: promoted relaunch input lost the durable inbox contract"
+    assert_grep "Never stop, restart, or update the shared \`no-mistakes\` daemon" "$relaunch_payload" \
+      "$mode: promoted relaunch input lost the shared-daemon safety contract"
+    assert_no_grep "Write your findings to" "$relaunch_payload" \
+      "$mode: promoted relaunch input resurrected the scout report Definition of done"
+    assert_no_grep "Preserve the selected delivery mode." "$relaunch_payload" \
+      "$mode: promoted relaunch input resurrected the scout-time Firstmate specification"
+    assert_no_grep "Return to a clean default-branch base" "$relaunch_payload" \
+      "$mode: promoted relaunch input retained the promotion-time reset instruction"
+    assert_no_grep "git checkout -b" "$relaunch_payload" \
+      "$mode: promoted relaunch input retained promotion-time branch creation"
 
     # Compare the public outputs of both real generation paths. The promoted
     # payload ends at its Definition of done, as does an ordinary generated
@@ -922,12 +944,10 @@ STUB
   assert_grep "It is banned fleet-wide" "$payload" \
     "promoted no-mistakes worker did not receive the fleet-wide ban wording"
 
-  # A promoted worker never receives fm-spawn.sh's launch-time overlay (there is
-  # no re-spawn: the window and worktree already exist), so fm_dod_block's own
-  # base --intent text is the only guidance it gets. That base text and the
-  # Proof bar section's "copy into the Agreed proof contract part" instruction
-  # must already agree - the exact contradiction the overlay alone cannot fix
-  # (Codex advisor review 2026-09-04, finding A3).
+  # The live promoted worker receives this complete source directly. A later
+  # context-free relaunch derives its current source from the same file before
+  # the ordinary route adds any launch overlay, so fm_dod_block's base intent
+  # text must already agree with the Proof bar contract.
   assert_grep "pass \`--intent\` as separately attributed labeled parts in one string: \`Captain intent:\`, \`Firstmate implementation context:\`, and, when this brief carries a Proof bar section, \`Agreed proof contract:\`" "$payload" \
     "promoted no-mistakes worker did not receive the attributed captain, implementation, and proof contract"
   assert_no_grep "pass \`--intent\` as only" "$payload" \

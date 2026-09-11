@@ -645,6 +645,81 @@ test_relaunch_appends_progress_note_and_current_bounded_ci_retry_contract() {
   pass "fm-control relaunch: progress and the current bounded CI retry contract reach the replacement"
 }
 
+# Promotion instructions are the effective task source after a scout becomes a
+# ship. A context-free relaunch must append its durable progress note there,
+# then launch the self-contained derived source; mutating the obsolete scout
+# brief would make the replacement miss the checkpoint.
+test_promoted_relaunch_progress_note_targets_the_effective_ship_instructions() {
+  local dir out rc promoted relaunched original
+  dir=$(new_case promoted-note rl-promoted-note)
+  add_ship_task "$dir" rl-promoted-note claude
+  original="$dir/home/data/rl-promoted-note/brief.md"
+  promoted="$dir/home/data/rl-promoted-note/ship-instructions.md"
+  cat >> "$original" <<'EOF'
+
+# Herdr lifecycle declaration - NOT ENABLED
+Do not drive Herdr lifecycle behavior.
+
+# Project authority
+Preserve current project safety.
+
+# Rules
+1. Never push or merge.
+2. Stay in the worktree.
+3. Select tools only for a real task purpose.
+4. Report status by appending one line.
+5. Repair repeated obstacles as a bounded family.
+6. Escalate a genuine unresolved choice.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+Handle durable messages in order.
+EOF
+  cat > "$promoted" <<'EOF'
+# Task
+## Captain's intent
+Continue the promoted task.
+
+## Firstmate spec
+3. Return to a clean default-branch base, then create your branch: `git checkout -b fm/rl-promoted-note`.
+7. Treat the scout-time Firstmate spec and any unmarked legacy `# Task` text as investigation context, not captain intent or ship-time instructions.
+8. Preserve the complete affected mechanism family.
+
+# Project authority
+Preserve current project safety.
+
+# Rules
+4. Report status by appending one line.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+Handle durable messages in order.
+
+# Proof bar
+Prep: Tier 0 - test fixture, not a real change
+Surface: none: instruction delivery has no operator-visible application surface
+Journey: none: this is an instruction-consumer fixture
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+Firstmate designated this task as a batch constituent for integration owner `integration-owner`.
+EOF
+  out=$(run_control "$dir" rl-promoted-note relaunch --note "continue from the preserved promoted head"); rc=$?
+  expect_code 0 "$rc" "promoted relaunch should succeed"$'\n'"$out"
+  assert_no_grep "continue from the preserved promoted head" "$original" \
+    "promoted relaunch appended its checkpoint to the obsolete scout brief"
+  assert_grep "continue from the preserved promoted head" "$promoted" \
+    "promoted relaunch did not preserve its checkpoint in the effective promotion source"
+  relaunched="$dir/home/data/rl-promoted-note/relaunch-brief.md"
+  assert_grep "continue from the preserved promoted head" "$relaunched" \
+    "promoted relaunch source did not carry the durable progress checkpoint"
+  assert_no_grep 'git checkout -b' "$relaunched" \
+    "promoted relaunch source retained promotion-time branch creation"
+  assert_grep "relaunch-brief.md" "$dir/fake/literal" \
+    "promoted replacement did not launch the derived context-free instructions"
+  pass "fm-control relaunch: promoted progress targets effective instructions and reaches the context-free source"
+}
+
 test_relaunch_requires_a_note_for_a_ship_task() {
   local dir out rc before
   dir=$(new_case nonote rl3)
@@ -1958,6 +2033,7 @@ test_relaunch_keeps_the_recorded_merge_poll_armed
 test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_progress_note_and_current_bounded_ci_retry_contract
+test_promoted_relaunch_progress_note_targets_the_effective_ship_instructions
 test_relaunch_requires_a_note_for_a_ship_task
 test_relaunch_warns_and_launches_a_legacy_brief_without_prep
 test_harness_switch_moves_the_record_and_clears_prior_wiring

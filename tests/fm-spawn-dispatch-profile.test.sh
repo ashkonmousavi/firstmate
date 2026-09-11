@@ -516,13 +516,15 @@ EOF
 # The named constituent role changes which complete instruction source reaches
 # the worker, without changing the ordinary no-mistakes route. A fresh
 # constituent consumes brief.md as rendered; after scout promotion, relaunch
-# consumes ship-instructions.md as the effective source. Neither constituent
-# may receive the standalone launch overlay, while ambiguous role markers must
-# refuse before an endpoint command or task record is published.
+# consumes a context-free source derived from the original operating contract
+# and current ship instructions. Neither constituent may receive the standalone
+# launch overlay, while ambiguous role markers must refuse before an endpoint
+# command or task record is published.
 test_named_no_mistakes_constituent_launches_its_effective_source_without_standalone_overlay() {
   local rec ordinary_home ordinary_proj ordinary_wt ordinary_fake ordinary_launch
   local constituent_home constituent_proj constituent_wt constituent_fake constituent_launch
   local bad_home bad_proj bad_wt bad_fake bad_launch source launch out status id expected input_log
+  local head_before branch_before relaunch_source
 
   id=nm-ordinary-route
   rec=$(make_spawn_case nm-ordinary-route claude "$id")
@@ -558,7 +560,27 @@ EOF
   write_c3_effective_brief "$constituent_home" "$id" fresh \
     'Fresh constituent source must reach the worker without a standalone overlay.'
   source="$constituent_home/data/$id/brief.md"
-  printf '%s\n' 'Firstmate designated this task as a batch constituent for integration owner `integration-owner`.' >> "$source"
+  cat >> "$source" <<'EOF'
+Firstmate designated this task as a batch constituent for integration owner `integration-owner`.
+
+# Herdr lifecycle declaration - NOT ENABLED
+Do not drive Herdr lifecycle behavior.
+
+# Project authority
+Read the current project authority before acting.
+
+# Rules
+1. Never push or merge.
+2. Stay in the worktree.
+3. Select tools only for a real task purpose.
+4. Report status by appending one line to the task status file.
+5. Repair repeated obstacles as a bounded family.
+6. Escalate a genuine unresolved choice.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+List the task inbox, act on messages in numeric order, and move handled messages into `handled/`.
+EOF
   out=$(run_spawn "$constituent_home" "$constituent_wt" "$constituent_fake" "$constituent_launch" \
     "$id" "$constituent_proj" claude --mode no-mistakes --yolo off)
   status=$?
@@ -579,35 +601,86 @@ EOF
 
   source="$constituent_home/data/$id/ship-instructions.md"
   cat > "$source" <<'EOF'
+You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+
 # Task
 ## Captain's intent
 Deliver the promoted constituent repair.
 
 ## Firstmate spec
-The promoted effective source is authoritative for this relaunch.
+1. Verify isolation.
+2. Inventory scratch state.
+3. Return to a clean default-branch base, then create your branch: `git checkout -b fm/nm-batch-constituent`.
+4. Carry over only the intended fix.
+5. Preserve the regression.
+6. These ship instructions supersede the scout delivery contract.
+7. Treat the scout-time Firstmate spec and any unmarked legacy `# Task` text as investigation context, not captain intent or ship-time instructions.
+8. Preserve the complete affected mechanism family.
 
+# Herdr lifecycle declaration - NOT ENABLED
+Do not drive Herdr lifecycle behavior.
+
+# Project authority
+Read the current project authority before acting.
+
+# Rules
+1. Never push to the default branch and never merge a PR.
+2. Stay inside this worktree; modify nothing outside it.
+3. Select tools only for a real task purpose.
+4. Report status by appending one line to the task status file.
+5. Repair repeated obstacles as a bounded family.
+6. Escalate a genuine unresolved choice.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+List the task inbox, act on messages in numeric order, and move handled messages into `handled/`.
+
+# Proof bar
 Prep: Tier 0 - test fixture, not a real change
+Surface: none: instruction delivery has no operator-visible application surface
+Journey: none: this is an instruction-consumer fixture
 
 # Definition of done
 Delivery contract: mode=no-mistakes
 Firstmate designated this task as a batch constituent for integration owner `integration-owner`.
 Promoted-source sentinel: use ship instructions.
 EOF
+  head_before=$(git -C "$constituent_wt" rev-parse HEAD)
+  branch_before=$(git -C "$constituent_wt" symbolic-ref --short HEAD)
   out=$(run_spawn "$constituent_home" "$constituent_wt" "$constituent_fake" "$constituent_launch" \
     "$id" --relaunch)
   status=$?
   expect_code 0 "$status" "promoted named no-mistakes constituent should relaunch"
+  relaunch_source="$constituent_home/data/$id/relaunch-brief.md"
+  assert_present "$relaunch_source" \
+    "promoted relaunch did not render a self-contained context-free source"
   launch=$(cat "$constituent_launch")
-  assert_contains "$launch" "< '$source'" \
-    "promoted named constituent did not launch ship-instructions.md"
-  assert_not_contains "$launch" 'launch-brief.md' \
+  assert_contains "$launch" "< '$relaunch_source'" \
+    "promoted named constituent did not launch the derived context-free source"
+  assert_not_contains "$launch" "$constituent_home/data/$id/launch-brief.md" \
     "promoted named constituent relaunch still referenced a standalone overlay"
-  assert_grep 'Promoted-source sentinel: use ship instructions.' "$source" \
+  assert_grep 'Promoted-source sentinel: use ship instructions.' "$relaunch_source" \
     "promoted effective-source fixture lost its identifying content"
-  expected=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief < "$source")
+  assert_grep '# Project authority' "$relaunch_source" \
+    "promoted relaunch lost project authority"
+  assert_grep 'Report status by appending one line' "$relaunch_source" \
+    "promoted relaunch lost the status contract"
+  assert_grep '# Firstmate instruction inbox' "$relaunch_source" \
+    "promoted relaunch lost the inbox contract"
+  assert_grep 'Never stop, restart, or update the shared `no-mistakes` daemon' "$relaunch_source" \
+    "promoted relaunch lost the daemon safety contract"
+  assert_no_grep 'Return to a clean default-branch base' "$relaunch_source" \
+    "promoted relaunch retained the promotion-time reset instruction"
+  assert_no_grep 'git checkout -b' "$relaunch_source" \
+    "promoted relaunch retained the promotion-time branch creation"
+  [ "$(git -C "$constituent_wt" rev-parse HEAD)" = "$head_before" ] \
+    || fail "promoted relaunch changed the preserved worktree head"
+  [ "$(git -C "$constituent_wt" symbolic-ref --short HEAD)" = "$branch_before" ] \
+    || fail "promoted relaunch changed the preserved worktree branch"
+  expected=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief < "$relaunch_source")
   input_log="$constituent_home/promoted-actual-launch-input.log"
   claude_rendered_command_keeps_brief_positional "$constituent_fake" "$launch" "$expected" "$input_log" \
-    || fail "promoted named constituent backend command did not consume the complete ship instructions"
+    || fail "promoted named constituent backend command did not consume the complete relaunch source"
   assert_grep 'prompt_seen=1' "$input_log" \
     "promoted named constituent backend did not receive the exact encoded launch input"
 
