@@ -599,9 +599,49 @@ EOF
   assert_grep 'prompt_seen=1' "$input_log" \
     "fresh named constituent backend did not receive the exact encoded launch input"
 
+  # A promoted relaunch composes the durable scout source with the current ship
+  # delta. Use those real roles here rather than a copied full-brief fixture so
+  # the fake backend proves both customization sources survive the join.
+  cat > "$constituent_home/data/$id/brief.md" <<'EOF'
+You are a crewmate.
+
+# Task
+## Captain's intent
+Investigate the original scout issue.
+
+## Firstmate spec
+This scout-time implementation instruction is obsolete after promotion.
+
+# Herdr lifecycle declaration - NOT ENABLED
+Do not drive Herdr lifecycle behavior.
+
+# Project authority
+Read the current project authority before acting.
+
+# Setup
+This is a SCOUT task: the deliverable is a report, not a ship branch.
+
+# Task-specific safety boundary
+Never access the synthetic external custody record; this rule must survive a context-free relaunch.
+
+# Rules
+1. Never push to any remote and never open a PR.
+2. Stay inside this worktree; the only external writes are the report and status.
+3. Select tools only for a real task purpose.
+4. Report status by appending one line to the task status file.
+5. Repair repeated obstacles as a bounded family.
+6. Escalate a genuine unresolved choice.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+List the task inbox, act on messages in numeric order, and move handled messages into `handled/`.
+
+# Definition of done
+Write the scout report and stop.
+EOF
   source="$constituent_home/data/$id/ship-instructions.md"
   cat > "$source" <<'EOF'
-You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+Your scout task has been promoted to a ship task, mode=no-mistakes. Your window, worktree, and context stay as they are; only the contract below changes.
 
 # Task
 ## Captain's intent
@@ -611,29 +651,11 @@ Deliver the promoted constituent repair.
 1. Verify isolation.
 2. Inventory scratch state.
 3. Return to a clean default-branch base, then create your branch: `git checkout -b fm/nm-batch-constituent`.
-4. Carry over only the intended fix.
+4. Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery.
 5. Preserve the regression.
 6. These ship instructions supersede the scout delivery contract.
 7. Treat the scout-time Firstmate spec and any unmarked legacy `# Task` text as investigation context, not captain intent or ship-time instructions.
 8. Preserve the complete affected mechanism family.
-
-# Herdr lifecycle declaration - NOT ENABLED
-Do not drive Herdr lifecycle behavior.
-
-# Project authority
-Read the current project authority before acting.
-
-# Rules
-1. Never push to the default branch and never merge a PR.
-2. Stay inside this worktree; modify nothing outside it.
-3. Select tools only for a real task purpose.
-4. Report status by appending one line to the task status file.
-5. Repair repeated obstacles as a bounded family.
-6. Escalate a genuine unresolved choice.
-7. Never stop, restart, or update the shared `no-mistakes` daemon.
-
-# Firstmate instruction inbox
-List the task inbox, act on messages in numeric order, and move handled messages into `handled/`.
 
 # Proof bar
 Prep: Tier 0 - test fixture, not a real change
@@ -644,6 +666,10 @@ Journey: none: this is an instruction-consumer fixture
 Delivery contract: mode=no-mistakes
 Firstmate designated this task as a batch constituent for integration owner `integration-owner`.
 Promoted-source sentinel: use ship instructions.
+
+## Progress note (2026-09-11T00:00:00Z)
+
+Continue from the exact preserved promoted head and retain both customization sources.
 EOF
   head_before=$(git -C "$constituent_wt" rev-parse HEAD)
   branch_before=$(git -C "$constituent_wt" symbolic-ref --short HEAD)
@@ -669,6 +695,16 @@ EOF
     "promoted relaunch lost the inbox contract"
   assert_grep 'Never stop, restart, or update the shared `no-mistakes` daemon' "$relaunch_source" \
     "promoted relaunch lost the daemon safety contract"
+  assert_grep '# Task-specific safety boundary' "$relaunch_source" \
+    "promoted relaunch lost the original custom safety section"
+  assert_grep 'Never access the synthetic external custody record; this rule must survive a context-free relaunch.' "$relaunch_source" \
+    "promoted relaunch lost the original custom safety rule"
+  assert_grep 'Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery.' "$relaunch_source" \
+    "promoted relaunch lost the current ship task constraint"
+  assert_grep 'Continue from the exact preserved promoted head and retain both customization sources.' "$relaunch_source" \
+    "promoted relaunch lost the current progress checkpoint"
+  assert_no_grep '# Setup' "$relaunch_source" \
+    "promoted relaunch retained the obsolete scout Setup"
   assert_no_grep 'Return to a clean default-branch base' "$relaunch_source" \
     "promoted relaunch retained the promotion-time reset instruction"
   assert_no_grep 'git checkout -b' "$relaunch_source" \

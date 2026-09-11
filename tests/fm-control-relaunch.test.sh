@@ -663,6 +663,9 @@ Do not drive Herdr lifecycle behavior.
 # Project authority
 Preserve current project safety.
 
+# Task-specific safety boundary
+Never access the synthetic external custody record; this rule must survive a context-free relaunch.
+
 # Rules
 1. Never push or merge.
 2. Stay in the worktree.
@@ -681,19 +684,14 @@ EOF
 Continue the promoted task.
 
 ## Firstmate spec
+1. Verify isolation.
+2. Inventory scratch state.
 3. Return to a clean default-branch base, then create your branch: `git checkout -b fm/rl-promoted-note`.
+4. Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery.
+5. Preserve the regression.
+6. These ship instructions supersede the scout delivery contract.
 7. Treat the scout-time Firstmate spec and any unmarked legacy `# Task` text as investigation context, not captain intent or ship-time instructions.
 8. Preserve the complete affected mechanism family.
-
-# Project authority
-Preserve current project safety.
-
-# Rules
-4. Report status by appending one line.
-7. Never stop, restart, or update the shared `no-mistakes` daemon.
-
-# Firstmate instruction inbox
-Handle durable messages in order.
 
 # Proof bar
 Prep: Tier 0 - test fixture, not a real change
@@ -713,11 +711,79 @@ EOF
   relaunched="$dir/home/data/rl-promoted-note/relaunch-brief.md"
   assert_grep "continue from the preserved promoted head" "$relaunched" \
     "promoted relaunch source did not carry the durable progress checkpoint"
+  assert_grep "# Task-specific safety boundary" "$relaunched" \
+    "promoted relaunch source lost the original custom safety section"
+  assert_grep "Never access the synthetic external custody record; this rule must survive a context-free relaunch." "$relaunched" \
+    "promoted relaunch source lost the original custom safety rule"
+  assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$relaunched" \
+    "promoted relaunch source lost the current ship task constraint"
   assert_no_grep 'git checkout -b' "$relaunched" \
     "promoted relaunch source retained promotion-time branch creation"
   assert_grep "relaunch-brief.md" "$dir/fake/literal" \
     "promoted replacement did not launch the derived context-free instructions"
   pass "fm-control relaunch: promoted progress targets effective instructions and reaches the context-free source"
+}
+
+# The composer can remove only the exact generated promotion-time branch step.
+# An edited setup command is ambiguous and must refuse before the control path
+# appends a note, stops the old agent, or submits replacement input.
+test_promoted_relaunch_refuses_edited_branch_setup_before_stopping_agent() {
+  local dir out rc original promoted before
+  dir=$(new_case promoted-ambiguous rl-promoted-ambiguous)
+  add_ship_task "$dir" rl-promoted-ambiguous claude
+  original="$dir/home/data/rl-promoted-ambiguous/brief.md"
+  promoted="$dir/home/data/rl-promoted-ambiguous/ship-instructions.md"
+  cat >> "$original" <<'EOF'
+
+# Herdr lifecycle declaration - NOT ENABLED
+Do not drive Herdr lifecycle behavior.
+
+# Project authority
+Preserve current project safety.
+
+# Rules
+1. Never push or merge.
+2. Stay in the worktree.
+3. Select tools only for a real task purpose.
+4. Report status by appending one line.
+5. Repair repeated obstacles as a bounded family.
+6. Escalate a genuine unresolved choice.
+7. Never stop, restart, or update the shared `no-mistakes` daemon.
+
+# Firstmate instruction inbox
+Handle durable messages in order.
+EOF
+  cat > "$promoted" <<'EOF'
+# Task
+## Captain's intent
+Continue the promoted task.
+
+## Firstmate spec
+1. Verify isolation.
+2. Inventory scratch state.
+3. Create the replacement branch with `git switch -c fm/rl-promoted-ambiguous` after returning to main.
+4. Preserve the task-specific repair.
+
+# Proof bar
+Prep: Tier 0 - test fixture, not a real change
+Surface: none: instruction delivery has no operator-visible application surface
+Journey: none: this is an instruction-consumer fixture
+
+# Definition of done
+Delivery contract: mode=direct-PR
+EOF
+  before=$(cat "$promoted")
+  out=$(run_control "$dir" rl-promoted-ambiguous relaunch --note "must not be recorded"); rc=$?
+  expect_code 1 "$rc" "edited promoted branch setup should refuse before stop"$'\n'"$out"
+  assert_contains "$out" "cannot produce a complete context-free relaunch source" \
+    "edited branch setup refusal did not name the composition boundary"
+  [ "$(cat "$promoted")" = "$before" ] \
+    || fail "refused promoted relaunch changed the effective ship instructions"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "refused promoted relaunch stopped or replaced the existing agent"
+  [ ! -s "$dir/fake/literal" ] \
+    || fail "refused promoted relaunch submitted replacement input"
+  pass "fm-control relaunch: edited promotion-time branch setup refuses before stop or mutation"
 }
 
 test_relaunch_requires_a_note_for_a_ship_task() {
@@ -2034,6 +2100,7 @@ test_relaunch_serializes_concurrent_durable_metadata_publication
 test_disabled_relaunch_clears_prior_trace_context
 test_relaunch_appends_progress_note_and_current_bounded_ci_retry_contract
 test_promoted_relaunch_progress_note_targets_the_effective_ship_instructions
+test_promoted_relaunch_refuses_edited_branch_setup_before_stopping_agent
 test_relaunch_requires_a_note_for_a_ship_task
 test_relaunch_warns_and_launches_a_legacy_brief_without_prep
 test_harness_switch_moves_the_record_and_clears_prior_wiring

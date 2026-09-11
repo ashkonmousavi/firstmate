@@ -811,9 +811,12 @@ test_promote_refuses_a_symlinked_task_record() {
 # no-mistakes worker gets. This drives the real promotion path, then runs the delivery command it
 # prints against a capturing fm-send.sh, and asserts on the message the worker would
 # actually receive - for every supported mode.
+# Independently proves promoted delivery and context-free relaunch retain both
+# original custom safety and current ship requirements while dropping scout setup.
 test_promotion_delivers_the_real_definition_of_done() {
   local home physical_home meta meta_canonical brief_meta out sendroot payload mode id
   local brief_dod delivered_dod brief_dod_canonical delivered_dod_canonical relaunch_payload
+  local scout ship rewrite
   physical_home="$TMP_ROOT/promote-dod/physical-home"
   home="$TMP_ROOT/promote-dod/home"
   sendroot="$TMP_ROOT/promote-dod/sendroot"
@@ -833,10 +836,35 @@ STUB
     meta_canonical="$(CDPATH='' cd -- "$(dirname "$meta")" && pwd -P)/$(basename "$meta")"
     FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 \
       || fail "$mode: scout brief generation should succeed"
-    fill_brief_subsections "$home/data/$id/brief.md" \
+    scout="$home/data/$id/brief.md"
+    fill_brief_subsections "$scout" \
       "Ship the delivery-contract change." "Preserve the selected delivery mode."
+    rewrite="$home/data/$id/.brief.custom"
+    awk '
+      $0 == "# Rules" && !inserted {
+        print "# Task-specific safety boundary"
+        print "Never access the synthetic external custody record; this rule must survive a context-free relaunch."
+        print ""
+        inserted=1
+      }
+      { print }
+      END { if (!inserted) exit 2 }
+    ' "$scout" > "$rewrite" || fail "$mode: could not add the original custom safety section"
+    mv "$rewrite" "$scout"
     out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1) \
       || fail "$mode: promotion should succeed"
+    ship="$home/data/$id/ship-instructions.md"
+    rewrite="$home/data/$id/.ship.custom"
+    awk '
+      $0 == "4. Carry over only the intended fix changes. Leave scratch commits, debug edits, and experiment files behind." {
+        print "4. Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery."
+        replaced++
+        next
+      }
+      { print }
+      END { if (replaced != 1) exit 2 }
+    ' "$ship" > "$rewrite" || fail "$mode: could not add the current ship task constraint"
+    mv "$rewrite" "$ship"
 
     payload="$TMP_ROOT/promote-dod/payload-$id"
     # Run the delivery command promotion printed, so the assertions below are made
@@ -890,6 +918,8 @@ STUB
       "$mode: promoted worker did not receive the Captain's intent subsection"
     assert_grep "## Firstmate spec" "$payload" \
       "$mode: promoted worker did not receive the Firstmate spec subsection"
+    assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$payload" \
+      "$mode: current task-specific ship requirement did not reach the promoted worker"
     relaunch_payload="$TMP_ROOT/promote-dod/relaunch-$id"
     ( . "$ROOT/bin/fm-dod-lib.sh"
       fm_brief_promoted_relaunch_source "$home/data/$id/brief.md" "$payload"
@@ -904,6 +934,14 @@ STUB
       "$mode: promoted relaunch input lost the durable inbox contract"
     assert_grep "Never stop, restart, or update the shared \`no-mistakes\` daemon" "$relaunch_payload" \
       "$mode: promoted relaunch input lost the shared-daemon safety contract"
+    assert_grep "# Task-specific safety boundary" "$relaunch_payload" \
+      "$mode: promoted relaunch input lost an original custom safety section"
+    assert_grep "Never access the synthetic external custody record; this rule must survive a context-free relaunch." "$relaunch_payload" \
+      "$mode: promoted relaunch input lost the original custom safety rule"
+    assert_grep "Preserve the task-specific schema-v9 compatibility constraint and prove its legacy reader before delivery." "$relaunch_payload" \
+      "$mode: promoted relaunch input lost a current task-specific ship requirement"
+    assert_no_grep "# Setup" "$relaunch_payload" \
+      "$mode: promoted relaunch input resurrected the obsolete scout Setup"
     assert_no_grep "Write your findings to" "$relaunch_payload" \
       "$mode: promoted relaunch input resurrected the scout report Definition of done"
     assert_no_grep "Preserve the selected delivery mode." "$relaunch_payload" \

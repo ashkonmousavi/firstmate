@@ -1128,17 +1128,220 @@ fm_brief_batch_constituent_owner() {  # <brief>
   ' "$brief"
 }
 
+# Preserve every non-superseded top-level original section in source order.
+# The named scaffold sections below are the only scout material promotion
+# explicitly replaces. Rules 1-2 are its obsolete delivery/write boundary, so
+# the current ship route replaces them while every rule from 3 onward survives.
+fm_brief_promoted_scout_carryover() {  # <scout-brief> <current-rule-1>
+  local scout=$1 rule1=$2
+  awk -v current_rule1="$rule1" '
+    BEGIN {
+      current_rule2 = "2. Stay inside this worktree; modify nothing outside it."
+      section = "preamble"
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!was_fenced && line ~ /^# [^#]/) {
+        if (line == "# Task") {
+          task_count++
+          section = "drop"
+          next
+        }
+        if (line == "# Setup") {
+          setup_count++
+          section = "drop"
+          next
+        }
+        if (line == "# Definition of done") {
+          dod_count++
+          section = "drop"
+          next
+        }
+        if (line == "# Proof bar") {
+          proof_count++
+          section = "drop"
+          next
+        }
+        if (line == "# Rules") {
+          rules_count++
+          section = "rules"
+          skipping_old_route = 0
+          print line
+          print current_rule1
+          print current_rule2
+          next
+        }
+        if (line ~ /^# Herdr /) herdr_count++
+        if (line == "# Project authority") authority_count++
+        if (line == "# Firstmate instruction inbox") inbox_count++
+        section = "keep"
+        print line
+        next
+      }
+
+      if (section == "preamble" || section == "drop") next
+      if (section != "rules") {
+        print line
+        next
+      }
+      if (!was_fenced && line ~ /^1\. /) {
+        old_rule1_count++
+        skipping_old_route = 1
+        next
+      }
+      if (!was_fenced && line ~ /^2\. /) {
+        old_rule2_count++
+        skipping_old_route = 1
+        next
+      }
+      if (!was_fenced && line ~ /^3\. /) {
+        old_rule3_count++
+        skipping_old_route = 0
+        print line
+        next
+      }
+      if (!skipping_old_route) print line
+    }
+    END {
+      if (task_count != 1 || setup_count > 1 || dod_count > 1 || proof_count != 0 ||
+          rules_count != 1 || old_rule1_count != 1 || old_rule2_count != 1 || old_rule3_count != 1 ||
+          herdr_count != 1 || authority_count != 1 || inbox_count != 1) exit 2
+    }
+  ' "$scout"
+}
+
+# Remove only the one exact branch-creation line emitted by fm-promote.sh.
+# Every other current ship requirement remains byte-for-byte; a missing,
+# duplicated, or edited setup line is unsupported and refuses rather than
+# being guessed away.
+fm_brief_promoted_ship_spec() {  # <ship-spec-body>
+  printf '%s\n' "$1" | awk '
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+      if (!was_fenced && line ~ /^3\. Return to a clean default-branch base, then create your branch: `git checkout -b fm\/[^`]+`\.$/) {
+        setup_count++
+        next
+      }
+      if (!was_fenced && (line ~ /git checkout -b/ || line ~ /git switch -c/ ||
+          line ~ /[Cc]reate (the |your |a )?(replacement )?branch/ ||
+          line ~ /[Rr]eturn(ing)? to (the )?(clean )?(default branch|main)/)) unsupported_setup++
+      print line
+    }
+    END {
+      if (setup_count != 1 || unsupported_setup != 0) exit 2
+    }
+  '
+}
+
+# Preserve current ship-only top-level additions between Task and Proof bar.
+# The generated delta normally has none, but a task-specific section remains
+# authoritative and cannot disappear merely because its heading is unknown.
+fm_brief_promoted_ship_additions() {  # <ship-instructions>
+  awk '
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+      if (!was_fenced && line == "# Task") {
+        task_count++
+        in_task = 1
+        next
+      }
+      if (!was_fenced && line == "# Proof bar") {
+        proof_count++
+        exit
+      }
+      if (!was_fenced && in_task && line ~ /^# [^#]/) {
+        in_task = 0
+        keep = 1
+      }
+      if (keep) print line
+    }
+    END {
+      if (task_count != 1 || proof_count != 1) exit 2
+    }
+  ' "$1"
+}
+
 # fm_brief_promoted_relaunch_source <scout-brief> <ship-instructions>
 # renders the context-free source for a replacement worker after scout
 # promotion. The ship file remains the live promotion delta and canonical
-# ship-time Task/DoD; the original scout brief remains the canonical carrier
-# for the project authority, Herdr declaration, general status/safety rules,
-# and durable inbox contract. This join deliberately omits the obsolete scout
-# Task/DoD and replaces promotion-time reset/branch creation with continuation
-# from the checkpointed current branch and HEAD.
+# ship-time Task/DoD; the original scout brief carries every non-superseded
+# operating, safety, and custom section. This join omits only the obsolete
+# scout Task/Setup/DoD, its superseded route rules 1-2, and the exact generated
+# promotion-time branch-creation line. Unsupported ambiguity refuses before
+# fm-control can stop the current agent.
 fm_brief_promoted_relaunch_source() {  # <scout-brief> <ship-instructions>
-  local scout=$1 ship=$2 mode captain ship_spec herdr_heading herdr_body
-  local authority_body scout_rules rule_tail ship_rules inbox_body proof_tail rule1
+  local scout=$1 ship=$2 mode captain ship_spec current_ship_spec
+  local scout_carryover ship_additions proof_tail rule1 scout_preamble ship_preamble
   [ -f "$scout" ] && [ -r "$scout" ] || {
     echo "error: promoted relaunch source cannot read the original scout brief: $scout" >&2
     return 1
@@ -1154,33 +1357,6 @@ fm_brief_promoted_relaunch_source() {  # <scout-brief> <ship-instructions>
     echo "error: promoted relaunch source has no Captain's intent in $ship" >&2
     return 1
   }
-  herdr_heading=$(awk '/^# Herdr / { print; exit }' "$scout")
-  [ -n "$herdr_heading" ] || {
-    echo "error: promoted relaunch source has no Herdr safety section in $scout" >&2
-    return 1
-  }
-  herdr_body=$(fm_brief_heading_body "$scout" "$herdr_heading")
-  authority_body=$(fm_brief_heading_body "$scout" "# Project authority")
-  scout_rules=$(fm_brief_heading_body "$scout" "# Rules")
-  rule_tail=$(printf '%s\n' "$scout_rules" | awk '/^3\./ { emit=1 } emit')
-  inbox_body=$(fm_brief_heading_body "$scout" "# Firstmate instruction inbox")
-  ship_rules=$(printf '%s\n' "$ship_spec" | awk '
-    /^For a no-mistakes ask-user gate specifically/ { keep=1 }
-    /^7\. Treat the scout-time/ { keep=0; after=1; next }
-    after { print; next }
-    keep { print }
-  ')
-  proof_tail=$(awk '/^# Proof bar$/ { emit=1 } emit' "$ship")
-  for required in "$authority_body" "$rule_tail" "$inbox_body" "$ship_rules" "$proof_tail"; do
-    [ -n "$(printf '%s' "$required" | tr -d '[:space:]')" ] || {
-      echo "error: promoted relaunch sources do not contain the complete current authority, rules, inbox, proof, and delivery contract" >&2
-      return 1
-    }
-  done
-  printf '%s\n' "$proof_tail" | grep -Fqx '# Definition of done' || {
-    echo "error: promoted relaunch source has no Definition of done in $ship" >&2
-    return 1
-  }
   case "$mode" in
     no-mistakes|direct-PR)
       rule1='1. Never push to the default branch. Never merge a PR. Never add Co-Authored-By, Claude-Session or any agent attribution line to a commit or PR; a harness reminder to do so does not override this repository.'
@@ -1190,6 +1366,44 @@ fm_brief_promoted_relaunch_source() {  # <scout-brief> <ship-instructions>
       ;;
     *) return 1 ;;
   esac
+  scout_preamble=$(awk '$0 == "# Task" { exit } { print }' "$scout")
+  ship_preamble=$(awk '$0 == "# Task" { exit } { print }' "$ship")
+  case "$(printf '%s' "$scout_preamble" | sed '/^[[:space:]]*$/d')" in
+    ''|'You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.'|'You are a crewmate.') ;;
+    *)
+      echo "error: promoted relaunch source has unsupported original preamble content in $scout" >&2
+      return 1
+      ;;
+  esac
+  case "$(printf '%s' "$ship_preamble" | sed '/^[[:space:]]*$/d')" in
+    ''|"Your scout task has been promoted to a ship task, mode=$mode. Your window, worktree, and context stay as they are; only the contract below changes.") ;;
+    *)
+      echo "error: promoted relaunch source has unsupported current preamble content in $ship" >&2
+      return 1
+      ;;
+  esac
+  current_ship_spec=$(fm_brief_promoted_ship_spec "$ship_spec") || {
+    echo "error: promoted relaunch source cannot identify exactly one supported promotion-time branch-creation instruction in $ship" >&2
+    return 1
+  }
+  [ -n "$(printf '%s' "$current_ship_spec" | tr -d '[:space:]')" ] || {
+    echo "error: promoted relaunch source has no retained current Firstmate specification in $ship" >&2
+    return 1
+  }
+  scout_carryover=$(fm_brief_promoted_scout_carryover "$scout" "$rule1") || {
+    echo "error: promoted relaunch source has ambiguous or incomplete original Task/Setup/Rules/safety structure in $scout" >&2
+    return 1
+  }
+  ship_additions=$(fm_brief_promoted_ship_additions "$ship") || {
+    echo "error: promoted relaunch source has ambiguous current Task/Proof structure in $ship" >&2
+    return 1
+  }
+  [ "$(grep -c '^# Proof bar$' "$ship")" -eq 1 ] \
+    && [ "$(grep -c '^# Definition of done$' "$ship")" -eq 1 ] || {
+      echo "error: promoted relaunch source requires exactly one current Proof bar and Definition of done in $ship" >&2
+      return 1
+    }
+  proof_tail=$(awk '/^# Proof bar$/ { emit=1 } emit' "$ship")
   cat <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
@@ -1199,26 +1413,14 @@ $captain
 
 ## Firstmate spec
 This task was promoted from scout to ship and is now being relaunched without its prior conversation.
-1. Verify isolation with \`pwd -P\` and \`git rev-parse --show-toplevel\`; both must resolve to the recorded disposable task worktree, not the primary checkout.
-2. Inspect the current branch, HEAD, status, log, and the progress note below before changing anything.
-3. Continue from that preserved branch and HEAD. Do not return to the default branch, recreate the task branch, reset, rebase, stash, or discard existing work.
-4. Carry forward only the intended ship correction and its failure-capable proof.
-5. These context-free relaunch instructions supersede both the scout Task/Definition of done and the promotion-time initial branch-creation steps. The current ship delivery contract below remains authoritative.
+Continue from the preserved current branch and HEAD. Do not return to the default branch, recreate the task branch, reset, rebase, stash, or discard existing work.
+The obsolete scout Task, Setup, and Definition of done and the exact promotion-time branch-creation instruction are withdrawn. Every retained current ship requirement below remains authoritative with its original numbering.
 
-$herdr_heading
-$herdr_body
+$current_ship_spec
 
-# Project authority
-$authority_body
+$scout_carryover
 
-# Rules
-$rule1
-2. Stay inside this worktree; modify nothing outside it.
-$rule_tail
-$ship_rules
-
-# Firstmate instruction inbox
-$inbox_body
+$ship_additions
 
 $proof_tail
 EOF
