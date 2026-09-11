@@ -513,6 +513,135 @@ EOF
   pass "C3: superseded instructions bind both the fresh worker launch and actual validation intent"
 }
 
+# The named constituent role changes which complete instruction source reaches
+# the worker, without changing the ordinary no-mistakes route. A fresh
+# constituent consumes brief.md as rendered; after scout promotion, relaunch
+# consumes ship-instructions.md as the effective source. Neither constituent
+# may receive the standalone launch overlay, while ambiguous role markers must
+# refuse before an endpoint command or task record is published.
+test_named_no_mistakes_constituent_launches_its_effective_source_without_standalone_overlay() {
+  local rec ordinary_home ordinary_proj ordinary_wt ordinary_fake ordinary_launch
+  local constituent_home constituent_proj constituent_wt constituent_fake constituent_launch
+  local bad_home bad_proj bad_wt bad_fake bad_launch source launch out status id expected input_log
+
+  id=nm-ordinary-route
+  rec=$(make_spawn_case nm-ordinary-route claude "$id")
+  IFS='|' read -r _ ordinary_home ordinary_proj ordinary_wt ordinary_fake ordinary_launch <<EOF
+$rec
+EOF
+  write_c3_effective_brief "$ordinary_home" "$id" ordinary \
+    'Ordinary no-mistakes work receives its standalone validation overlay.'
+  out=$(run_spawn "$ordinary_home" "$ordinary_wt" "$ordinary_fake" "$ordinary_launch" \
+    "$id" "$ordinary_proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  expect_code 0 "$status" "ordinary no-mistakes route should launch"
+  assert_present "$ordinary_home/data/$id/launch-brief.md" \
+    "ordinary no-mistakes route did not render its launch overlay"
+  launch=$(cat "$ordinary_launch")
+  assert_contains "$launch" "< '$ordinary_home/data/$id/launch-brief.md'" \
+    "ordinary no-mistakes route did not launch the overlaid source"
+  assert_grep 'run-validation' "$ordinary_home/data/$id/launch-brief.md" \
+    "ordinary no-mistakes route lost the revision-bound validation command"
+  expected=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief \
+    < "$ordinary_home/data/$id/launch-brief.md")
+  input_log="$ordinary_home/actual-launch-input.log"
+  claude_rendered_command_keeps_brief_positional "$ordinary_fake" "$launch" "$expected" "$input_log" \
+    || fail "ordinary no-mistakes backend command did not consume the complete overlaid source"
+  assert_grep 'prompt_seen=1' "$input_log" \
+    "ordinary no-mistakes backend did not receive the exact encoded launch input"
+
+  id=nm-batch-constituent
+  rec=$(make_spawn_case nm-batch-constituent claude "$id")
+  IFS='|' read -r _ constituent_home constituent_proj constituent_wt constituent_fake constituent_launch <<EOF
+$rec
+EOF
+  write_c3_effective_brief "$constituent_home" "$id" fresh \
+    'Fresh constituent source must reach the worker without a standalone overlay.'
+  source="$constituent_home/data/$id/brief.md"
+  printf '%s\n' 'Firstmate designated this task as a batch constituent for integration owner `integration-owner`.' >> "$source"
+  out=$(run_spawn "$constituent_home" "$constituent_wt" "$constituent_fake" "$constituent_launch" \
+    "$id" "$constituent_proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  expect_code 0 "$status" "fresh named no-mistakes constituent should launch"
+  assert_absent "$constituent_home/data/$id/launch-brief.md" \
+    "fresh named constituent unexpectedly received a standalone launch overlay"
+  launch=$(cat "$constituent_launch")
+  assert_contains "$launch" "< '$source'" \
+    "fresh named constituent did not launch its exact brief source"
+  assert_not_contains "$launch" 'launch-brief.md' \
+    "fresh named constituent launch still referenced a standalone overlay"
+  expected=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief < "$source")
+  input_log="$constituent_home/fresh-actual-launch-input.log"
+  claude_rendered_command_keeps_brief_positional "$constituent_fake" "$launch" "$expected" "$input_log" \
+    || fail "fresh named constituent backend command did not consume the complete brief source"
+  assert_grep 'prompt_seen=1' "$input_log" \
+    "fresh named constituent backend did not receive the exact encoded launch input"
+
+  source="$constituent_home/data/$id/ship-instructions.md"
+  cat > "$source" <<'EOF'
+# Task
+## Captain's intent
+Deliver the promoted constituent repair.
+
+## Firstmate spec
+The promoted effective source is authoritative for this relaunch.
+
+Prep: Tier 0 - test fixture, not a real change
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+Firstmate designated this task as a batch constituent for integration owner `integration-owner`.
+Promoted-source sentinel: use ship instructions.
+EOF
+  out=$(run_spawn "$constituent_home" "$constituent_wt" "$constituent_fake" "$constituent_launch" \
+    "$id" --relaunch)
+  status=$?
+  expect_code 0 "$status" "promoted named no-mistakes constituent should relaunch"
+  launch=$(cat "$constituent_launch")
+  assert_contains "$launch" "< '$source'" \
+    "promoted named constituent did not launch ship-instructions.md"
+  assert_not_contains "$launch" 'launch-brief.md' \
+    "promoted named constituent relaunch still referenced a standalone overlay"
+  assert_grep 'Promoted-source sentinel: use ship instructions.' "$source" \
+    "promoted effective-source fixture lost its identifying content"
+  expected=$("$ROOT/bin/fm-operational-input.sh" encode launch-brief < "$source")
+  input_log="$constituent_home/promoted-actual-launch-input.log"
+  claude_rendered_command_keeps_brief_positional "$constituent_fake" "$launch" "$expected" "$input_log" \
+    || fail "promoted named constituent backend command did not consume the complete ship instructions"
+  assert_grep 'prompt_seen=1' "$input_log" \
+    "promoted named constituent backend did not receive the exact encoded launch input"
+
+  for id in nm-duplicate-role nm-malformed-role; do
+    rec=$(make_spawn_case "$id" claude "$id")
+    IFS='|' read -r _ bad_home bad_proj bad_wt bad_fake bad_launch <<EOF
+$rec
+EOF
+    write_c3_effective_brief "$bad_home" "$id" bad \
+      'Ambiguous constituent ownership must refuse before launch.'
+    source="$bad_home/data/$id/brief.md"
+    if [ "$id" = nm-duplicate-role ]; then
+      printf '%s\n%s\n' \
+        'Firstmate designated this task as a batch constituent for integration owner `owner-one`.' \
+        'Firstmate designated this task as a batch constituent for integration owner `owner-two`.' >> "$source"
+    else
+      printf '%s\n' 'Firstmate designated this task as a batch constituent for integration owner owner-without-exact-delimiters.' >> "$source"
+    fi
+    if out=$(run_spawn "$bad_home" "$bad_wt" "$bad_fake" "$bad_launch" \
+      "$id" "$bad_proj" claude --mode no-mistakes --yolo off); then
+      status=0
+    else
+      status=$?
+    fi
+    [ "$status" -ne 0 ] || fail "$id: ambiguous constituent role unexpectedly launched"
+    assert_contains "$out" 'ambiguous or malformed integration-batch constituent role' \
+      "$id: refusal did not name the invalid role contract"
+    [ ! -s "$bad_launch" ] || fail "$id: ambiguous role reached the backend launch"
+    assert_absent "$bad_home/state/$id.meta" \
+      "$id: ambiguous role published task metadata"
+  done
+  pass "fm-spawn: ordinary no-mistakes retains its overlay; fresh and promoted constituents launch exact effective sources; ambiguous roles refuse"
+}
+
 assert_meta_profile() {
   local meta=$1 harness=$2 model=$3 effort=$4
   assert_grep "harness=$harness" "$meta" "meta missing harness=$harness"
@@ -1586,6 +1715,7 @@ SH
 
 test_no_profile_keeps_claude_profile_defaults
 test_c3_superseded_brief_is_consumed_by_launch_and_validation
+test_named_no_mistakes_constituent_launches_its_effective_source_without_standalone_overlay
 test_mcp_mode_resolves_from_kind_and_explicit_flag
 test_mcp_mode_rejects_unknown_value_before_spawn
 test_lean_mcp_renders_each_firstmate_controlled_harness

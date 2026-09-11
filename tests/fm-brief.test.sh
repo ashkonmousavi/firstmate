@@ -492,8 +492,34 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
     "a batch constituent was not told to hand its prepared result to the named integration owner"
   assert_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$brief" \
     "a batch constituent was not forbidden from starting a membership-only pipeline"
+  assert_grep "Firstmate verifies existing informed review or arranges a bounded informed review before integration." "$brief" \
+    "a no-mistakes batch constituent did not assign review reconciliation to Firstmate"
+  assert_grep "Only when Firstmate has separately identified an independently applicable publication obligation" "$brief" \
+    "a no-mistakes batch constituent lost its bounded optional publication duty"
+  assert_grep "Before you hand the prepared branch to the integration owner, pass this delivery preflight:" "$brief" \
+    "a no-mistakes batch constituent retained a validation-targeted preflight"
+  assert_no_grep "Before you hand the branch to validation" "$brief" \
+    "a no-mistakes batch constituent still targeted a standalone validator"
   assert_no_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$brief" \
     "a batch constituent retained the standalone pipeline next step"
+  assert_no_grep "You drive no-mistakes by responding to its gates" "$brief" \
+    "a batch constituent retained the standalone pipeline runner"
+  assert_no_grep "run-validation" "$brief" \
+    "a batch constituent retained the standalone validation receipt"
+  assert_no_grep "The PR body is pipeline output only" "$brief" \
+    "a batch constituent retained standalone PR-body custody"
+  assert_no_grep "ask-user findings are never yours to answer" "$brief" \
+    "a batch constituent retained standalone pipeline gate handling"
+  assert_no_grep "For a no-mistakes ask-user gate specifically" "$brief" \
+    "a batch constituent retained the standalone ask-user gate snapshot contract"
+  assert_no_grep "Rule F: your \`done: PR {url} checks green\`" "$brief" \
+    "a batch constituent retained standalone exact-PR-head completion"
+  assert_no_grep "installed no-mistakes capability" "$brief" \
+    "a batch constituent retained the standalone Document capability prerequisite"
+  assert_no_grep "After /no-mistakes reports CI green" "$brief" \
+    "a batch constituent retained standalone full-CI completion"
+  assert_no_grep "append \`done: PR {url} checks green\`" "$brief" \
+    "a batch constituent retained the standalone done signal"
   assert_no_grep '| Constituent task | Branch | Exact constituent head | Original pull request URL | Disposition |' "$brief" \
     "a PR-less batch constituent was still told to supply the old mandatory original-PR row"
 
@@ -503,6 +529,12 @@ test_batch_constituent_handoff_replaces_the_standalone_pipeline_next_step() {
   brief="$home/data/brief-standalone-next-step/brief.md"
   assert_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$brief" \
     "an ordinary no-mistakes task lost its standalone pipeline next step"
+  assert_grep "You drive no-mistakes by responding to its gates" "$brief" \
+    "an ordinary no-mistakes task lost its standalone pipeline runner"
+  assert_grep "run-validation" "$brief" \
+    "an ordinary no-mistakes task lost its standalone validation contract"
+  assert_grep "For a no-mistakes ask-user gate specifically" "$brief" \
+    "an ordinary no-mistakes task lost its ask-user gate snapshot contract"
   assert_no_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$brief" \
     "an ordinary no-mistakes task was misclassified as a batch constituent"
 

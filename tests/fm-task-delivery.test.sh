@@ -968,8 +968,34 @@ STUB
     "promoted batch constituent did not receive the named-owner handoff"
   assert_grep "Do not start a standalone no-mistakes pipeline merely to become a batch member." "$payload" \
     "promoted batch constituent was not forbidden from a membership-only pipeline"
+  assert_grep "Firstmate verifies existing informed review or arranges a bounded informed review before integration." "$payload" \
+    "promoted no-mistakes constituent did not assign review reconciliation to Firstmate"
+  assert_grep "Only when Firstmate has separately identified an independently applicable publication obligation" "$payload" \
+    "promoted no-mistakes constituent lost its bounded optional publication duty"
+  assert_grep "Before you hand the prepared branch to the integration owner, pass this delivery preflight:" "$payload" \
+    "promoted no-mistakes constituent retained a validation-targeted preflight"
+  assert_no_grep "Before you hand the branch to validation" "$payload" \
+    "promoted no-mistakes constituent still targeted a standalone validator"
   assert_no_grep "Firstmate will then instruct you to run /no-mistakes to validate and ship a PR." "$payload" \
     "promoted batch constituent retained the standalone pipeline next step"
+  assert_no_grep "You drive no-mistakes by responding to its gates" "$payload" \
+    "promoted batch constituent retained the standalone pipeline runner"
+  assert_no_grep "run-validation" "$payload" \
+    "promoted batch constituent retained the standalone validation receipt"
+  assert_no_grep "The PR body is pipeline output only" "$payload" \
+    "promoted batch constituent retained standalone PR-body custody"
+  assert_no_grep "ask-user findings are never yours to answer" "$payload" \
+    "promoted batch constituent retained standalone pipeline gate handling"
+  assert_no_grep "For a no-mistakes ask-user gate specifically" "$payload" \
+    "promoted batch constituent retained the standalone ask-user gate snapshot contract"
+  assert_no_grep "Rule F: your \`done: PR {url} checks green\`" "$payload" \
+    "promoted batch constituent retained standalone exact-PR-head completion"
+  assert_no_grep "installed no-mistakes capability" "$payload" \
+    "promoted batch constituent retained the standalone Document capability prerequisite"
+  assert_no_grep "After /no-mistakes reports CI green" "$payload" \
+    "promoted batch constituent retained standalone full-CI completion"
+  assert_no_grep "append \`done: PR {url} checks green\`" "$payload" \
+    "promoted batch constituent retained the standalone done signal"
 
   id=promote-dod-direct-constituent
   meta="$home/state/$id.meta"

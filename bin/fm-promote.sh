@@ -23,8 +23,9 @@
 # captain's standing posture as context, and this script never looks it up.
 # no-mistakes-prod-only is a registry policy rather than a task mode and is refused.
 # --batch-constituent-of names the integration-owner task when this promoted
-# no-mistakes or direct-PR worker stops after handing over its exact reviewed
-# head and focused evidence under the selected route's own obligations.
+# no-mistakes or direct-PR worker stops after handing over its exact prepared
+# head, focused evidence, and any real existing review evidence. Firstmate
+# reconciles review; only separately identified publication duties survive.
 # Usage: fm-promote.sh <task-id> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--batch-constituent-of <integration-owner-id>]
 set -eu
 
@@ -200,7 +201,7 @@ fi
 # this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
 PROMOTION_ASK_USER_BLOCK=
-if [ "$MODE" = no-mistakes ]; then
+if [ "$MODE" = no-mistakes ] && [ -z "$BATCH_OWNER" ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
 fi
 mkdir -p "$DATA/$ID"

@@ -849,8 +849,10 @@ fm_integration_batch_dod_block() {  # <mode> [batch-owner]
 
 Firstmate designated this task as a batch constituent for integration owner \`$batch_owner\`.
 When your branch is prepared, deliver your exact prepared head, focused evidence, and any real existing review evidence to the named integration owner \`$batch_owner\` and stop.
+Firstmate verifies existing informed review or arranges a bounded informed review before integration.
 Do not start a standalone no-mistakes pipeline merely to become a batch member.
-Still satisfy any independently required publication obligation imposed by the selected delivery route.
+Do not open a constituent pull request or run standalone full CI merely to become a batch member; the frozen combined candidate receives the required pipeline and exact-head CI.
+Only when Firstmate has separately identified an independently applicable publication obligation for this constituent, satisfy that specific obligation through the supported normal pull-request commands before handoff; never infer one from batch membership.
 EOF
         ;;
       direct-PR) cat <<EOF
@@ -1027,18 +1029,28 @@ EOF
 # Definition of done
 Delivery contract: mode=no-mistakes
 The branch is prepared when committed on your branch; being prepared is not the same as the task being done.
-Before you hand the branch to validation, pass this delivery preflight:
 EOF
+      if [ -n "$batch_owner" ]; then
+        echo 'Before you hand the prepared branch to the integration owner, pass this delivery preflight:'
+      else
+        echo 'Before you hand the branch to validation, pass this delivery preflight:'
+      fi
       fm_dod_delivery_preflight_block "$id" "$task_record"
       fm_integration_batch_dod_block "$mode" "$batch_owner"
+      if [ -n "$batch_owner" ]; then
+        fm_dod_evidence_rules_block batch-handoff
+        cat <<EOF
+When it is implemented and committed, append \`working: prepared - exact prepared head and focused evidence handed to $batch_owner; existing review evidence included if present\` to the status file and stop.
+Do not automatically push or open a constituent pull request, and do not run standalone full CI or /no-mistakes merely for batch membership. Firstmate must have separately identified any independently applicable publication obligation before you satisfy it.
+EOF
+        return 0
+      fi
       cat <<EOF
 When you believe it is prepared, append \`working: prepared - {summary}\` to the status file and stop (\`prepared:\` is not a recognized status verb in bin/fm-classify-lib.sh, so \`working:\` carries it here).
 EOF
-      if [ -z "$batch_owner" ]; then
-        cat <<'EOF'
+      cat <<'EOF'
 Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.
 EOF
-      fi
       cat <<EOF
 
 You drive no-mistakes by responding to its gates, not by implementing fixes.
@@ -1080,6 +1092,40 @@ EOF
       echo "error: fm_dod_block: unknown delivery mode '$mode'" >&2
       return 1 ;;
   esac
+}
+
+# fm_brief_batch_constituent_owner <brief> prints the one exact named
+# integration owner recorded by fm_integration_batch_dod_block. Absence is a
+# normal ordinary/owner route (exit 1); any duplicate, malformed, or empty
+# marker is ambiguous (exit 2) so launch callers can fail closed instead of
+# guessing whether the standalone pipeline applies.
+fm_brief_batch_constituent_owner() {  # <brief>
+  local brief=$1
+  awk '
+    BEGIN {
+      stem = "Firstmate designated this task as a batch constituent for integration owner"
+      prefix = stem " `"
+      suffix = "`."
+    }
+    index($0, stem) > 0 {
+      total++
+      if (index($0, prefix) == 1 && substr($0, length($0) - length(suffix) + 1) == suffix) {
+        value = substr($0, length(prefix) + 1, length($0) - length(prefix) - length(suffix))
+        if (value != "") {
+          exact++
+          owner = value
+        }
+      }
+    }
+    END {
+      if (total == 0) exit 1
+      if (total == 1 && exact == 1) {
+        print owner
+        exit 0
+      }
+      exit 2
+    }
+  ' "$brief"
 }
 
 # fm_brief_delivery_mode <brief> prints the brief's one exact delivery mode.

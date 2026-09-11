@@ -28,11 +28,14 @@
 #   unfilled "Journey:" line (the preparation the Proof bar defines, or
 #   "none: <reason>"). The Journey line is checked for the unfilled placeholder
 #   only, never for absence, so a brief predating the line keeps spawning.
-#   For a no-mistakes ship, spawn renders `launch-brief.md` with the current
-#   `--intent` contract, the extracted captain intent, and a validation command
-#   bound to the effective brief's SHA-256 source revision. The command renders
-#   the real `--intent` input from that brief and refuses a stale receipt before
-#   no-mistakes starts. A legacy mixed Task is
+#   For an ordinary or integration-owner no-mistakes ship, spawn renders
+#   `launch-brief.md` with the current `--intent` contract, the extracted
+#   captain intent, and a validation command bound to the effective brief's
+#   SHA-256 source revision. A named integration-batch constituent instead
+#   launches its exact effective source without a standalone validation
+#   overlay: brief.md for a fresh task, or ship-instructions.md after scout
+#   promotion. The command renders the real `--intent` input from that brief and
+#   refuses a stale receipt before no-mistakes starts. A legacy mixed Task is
 #   accepted there only under bin/fm-dod-lib.sh's provenance-marking rules;
 #   unmarked legacy Tasks stop for migration rather than becoming intent. That
 #   library owns the parsing and intent rules. When the explicit mode carries
@@ -2154,6 +2157,14 @@ else
   PROJ_ABS="$(cd "$(resolve_project_dir_arg "$PROJ")" && pwd)"
   WT=""
   BRIEF="$DATA/$ID/brief.md"
+  if [ "$RELAUNCH" -eq 1 ] && [ "$KIND" = ship ] \
+    && { [ -e "$DATA/$ID/ship-instructions.md" ] || [ -L "$DATA/$ID/ship-instructions.md" ]; }; then
+    BRIEF="$DATA/$ID/ship-instructions.md"
+    [ -f "$BRIEF" ] && [ -r "$BRIEF" ] || {
+      echo "error: promoted task $ID has inaccessible effective ship instructions at $BRIEF" >&2
+      exit 1
+    }
+  fi
 fi
 [ -f "$BRIEF" ] || { echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2; exit 1; }
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
@@ -2252,7 +2263,23 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fi
     fi
   fi
-  if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
+  BATCH_CONSTITUENT_OWNER=
+  if [ "$KIND" = ship ]; then
+    if BATCH_CONSTITUENT_OWNER=$(fm_brief_batch_constituent_owner "$BRIEF"); then
+      fm_task_id_creation_valid "$BATCH_CONSTITUENT_OWNER" || {
+        echo "error: $BRIEF has an invalid integration-batch constituent owner: $BATCH_CONSTITUENT_OWNER" >&2
+        exit 1
+      }
+    else
+      BATCH_ROLE_STATUS=$?
+      if [ "$BATCH_ROLE_STATUS" -ne 1 ]; then
+        echo "error: $BRIEF has an ambiguous or malformed integration-batch constituent role" >&2
+        exit 1
+      fi
+      BATCH_CONSTITUENT_OWNER=
+    fi
+  fi
+  if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ] && [ -z "$BATCH_CONSTITUENT_OWNER" ]; then
     if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
       CAPTAIN_INTENT=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
     else

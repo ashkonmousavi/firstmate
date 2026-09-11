@@ -47,8 +47,9 @@
 # no-mistakes-prod-only is a registry policy, not a task mode; resolve it to one of
 # the three concrete modes at intake before calling this script.
 # --batch-constituent-of names the integration-owner task for a no-mistakes or
-# direct-PR ship whose exact reviewed head and focused evidence stop at that
-# owner. Each route retains its own publication and review obligations.
+# direct-PR ship whose exact prepared head, focused evidence, and any real
+# existing review evidence stop at that owner. Firstmate reconciles review;
+# only separately identified publication obligations survive membership.
 # The generated ship brief records the chosen mode as a fixed machine-readable
 # "Delivery contract: mode=<mode>" line. bin/fm-spawn.sh reads that line and refuses
 # to launch a ship task whose explicit --mode disagrees, so an adjusted brief and the
@@ -240,7 +241,7 @@ BRIEF="$DATA/$ID/brief.md"
 mkdir -p "$DATA/$ID"
 
 ASK_USER_BLOCK=
-if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
+if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ] && [ -z "$BATCH_OWNER" ]; then
   ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
 fi
 
