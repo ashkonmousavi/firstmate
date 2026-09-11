@@ -887,8 +887,8 @@ fm_lane_floor_releasable() {  # <state-dir>
   return 0
 }
 
-# Title+body text for backlog items that name a Change but are not actually
-# dispatchable right now: held --kind captain, or held --kind
+# Title+body+hold_reason text for backlog items that name a Change but are not
+# actually dispatchable right now: held --kind captain, or held --kind
 # external/parked/future whose named event has not fired, or blocked by a
 # still-open item. tasks-axi's own `held` field already reads a hold whose
 # --until has passed as queued rather than held, and its own `blocked` field
@@ -900,10 +900,19 @@ fm_lane_floor_releasable() {  # <state-dir>
 # blocked_by is deliberately not requested: it can hold a quoted
 # comma-separated id list, which would break the right-anchored trailing-field
 # strip below, and the boolean `blocked` field is all this needs.
+#
+# `tasks-axi list` truncates title past 80 chars and body past 500 chars (its
+# own house style for a cheap listing, tasks-axi dist/src/view.js); a Change
+# named past that cut would never match. hold_reason is never truncated by
+# `list`, so no repair is needed for it. Only a qualifying row (blocked=yes,
+# or held with a matching kind) whose title or body actually carries the
+# truncation marker pays for one `tasks-axi show --full` call to recover the
+# complete text; every other row costs nothing beyond the single listing read.
 fm_lane_floor_held_text() {  # <data-dir>
   local data=$1 backlog="$1/backlog.md" list_out row rest hold_kind blocked held
+  local id qualifies full
   [ -f "$backlog" ] && command -v tasks-axi >/dev/null 2>&1 || return 0
-  list_out=$(tasks-axi list --fields body,hold_kind,blocked,held --file "$backlog" 2>/dev/null) || return 0
+  list_out=$(tasks-axi list --fields body,hold_reason,hold_kind,blocked,held --file "$backlog" 2>/dev/null) || return 0
   while IFS= read -r row; do
     [ -n "$row" ] || continue
     held=${row##*,}
@@ -912,13 +921,22 @@ fm_lane_floor_held_text() {  # <data-dir>
     rest=${rest%,*}
     hold_kind=${rest##*,}
     rest=${rest%,*}
+    qualifies=no
     if [ "$blocked" = yes ]; then
-      printf '%s\n' "$rest"
-      continue
+      qualifies=yes
+    else
+      case "$held:$hold_kind" in
+        yes:captain | yes:external | yes:parked | yes:future) qualifies=yes ;;
+      esac
     fi
-    case "$held:$hold_kind" in
-      yes:captain | yes:external | yes:parked | yes:future) printf '%s\n' "$rest" ;;
+    [ "$qualifies" = yes ] || continue
+    case "$rest" in
+      *' chars total - use show '*' --full to see complete text)'*)
+        id=${rest%%,*}
+        full=$(tasks-axi show "$id" --file "$backlog" --full 2>/dev/null) && [ -n "$full" ] && rest=$full
+        ;;
     esac
+    printf '%s\n' "$rest"
   done < <(printf '%s\n' "$list_out" | awk '
     /^tasks\[/ { rows = 1; next }
     /^[^[:space:]]/ { rows = 0 }

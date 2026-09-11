@@ -1103,6 +1103,34 @@ test_lane_floor_excludes_a_change_a_blocked_item_names() {
   pass "lane floor: a Change named by a blocked item is excluded, an unclaimed sibling is not"
 }
 
+# A Change named only past `tasks-axi list`'s own 500-char body-truncation cut
+# must still be excluded: fm_lane_floor_held_text used to read the truncated
+# listing text alone, so a Change named beyond the cut was silently reported
+# as dispatchable capacity even though a captain-kind hold names it.
+test_lane_floor_excludes_a_change_named_past_the_truncation_point() {
+  local home out filler
+  home=$(make_home lane-floor-truncated-body 3)
+  make_change "$home" proj alpha 2
+  make_change "$home" proj beta 1
+  filler=$(printf 'x%.0s' $(seq 1 520))
+  tasks-axi add alpha-long-body "long body, name held past the cut" --kind ship \
+    --body "$filler the alpha Change is named only here, well past the 500-char body cut" \
+    --file "$home/data/backlog.md" >/dev/null
+  tasks-axi hold alpha-long-body --reason "waiting on a named event" --kind captain \
+    --file "$home/data/backlog.md" >/dev/null
+  : > "$home/state/live-1.meta"
+  out=$(lane_floor_report "$home")
+  case "$out" in
+    *"openspec proj:beta:1"*) ;;
+    *) fail "an unclaimed sibling Change must still be listed, got: $out" ;;
+  esac
+  case "$out" in
+    *"proj:alpha"*) \
+      fail "a Change named only past tasks-axi list's own truncation cut must never be counted as idle capacity: $out" ;;
+  esac
+  pass "lane floor: a Change named only past the body-truncation cut is still excluded"
+}
+
 # A Change name that is a strict prefix of a sibling Change's name must never
 # be mismatched by the held-record match: the match is a whole slug token,
 # never a substring.
@@ -1667,6 +1695,7 @@ test_lane_floor_excludes_a_change_a_live_brief_names
 test_lane_floor_excludes_a_change_a_captain_held_item_names
 test_lane_floor_counts_a_change_a_past_dated_hold_names
 test_lane_floor_excludes_a_change_a_blocked_item_names
+test_lane_floor_excludes_a_change_named_past_the_truncation_point
 test_lane_floor_does_not_mismatch_a_change_name_prefix
 test_lane_floor_excludes_archived_changes
 test_lane_floor_does_not_count_a_paused_lane
