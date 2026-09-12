@@ -377,7 +377,7 @@ The report is the only thing that survives, so anything worth keeping must be in
 # Rules
 1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
-3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations. Before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage, use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior against the installed or proposed version, falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search to reach the official versioned documentation for the exact pinned version when Context7 errors, is unavailable, or lacks the library or version, and record the library ID, version, date, sources, and decision, including which tool actually supplied them, in your prep; see \`$FM_ROOT/.agents/skills/research-first-decisions/SKILL.md\` for the exact procedure and fallback.
 4. Report status by appending one line:
    \`echo "{state}: {one short line}" >> $STATUS_FILE\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
@@ -468,7 +468,7 @@ Before touching anything, query this project's GitNexus main index for blast rad
 # Rules
 $RULE1
 2. Stay inside this worktree; modify nothing outside it.
-3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations. Before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage, use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior against the installed or proposed version, falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search to reach the official versioned documentation for the exact pinned version when Context7 errors, is unavailable, or lacks the library or version, and record the library ID, version, date, sources, and decision, including which tool actually supplied them, in your prep; see \`$FM_ROOT/.agents/skills/research-first-decisions/SKILL.md\` for the exact procedure and fallback.
 4. Report status by appending one line:
    \`echo "{state}: {one short line}" >> $STATUS_FILE\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
