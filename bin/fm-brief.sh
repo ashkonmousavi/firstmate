@@ -377,7 +377,7 @@ The report is the only thing that survives, so anything worth keeping must be in
 # Rules
 1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
-3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations. Before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage, use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior against the installed or proposed version, falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search to reach the official versioned documentation for the exact pinned version when Context7 errors, is unavailable, or lacks the library or version, and record the library ID, version, date, sources, and decision, including which tool actually supplied them, in your prep; see \`$FM_ROOT/.agents/skills/research-first-decisions/SKILL.md\` for the exact procedure and fallback.
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
    \`echo "{state}: {one short line}" >> $STATUS_FILE\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
@@ -461,14 +461,12 @@ You are in a disposable git worktree of $REPO, at a detached HEAD on a clean def
 The path check is authoritative: \`git rev-parse --git-dir\` and \`git rev-parse --git-common-dir\` can help inspect the repo, but they do not prove you are outside the primary checkout.
 If the top-level path is the primary checkout or not the worktree you were launched in, STOP - do not branch or commit here - append \`blocked: launched in primary checkout, not an isolated worktree\` to the status file and stop.
 
-Before touching anything, query this project's GitNexus main index for blast radius and consumers. Always pass the repository name explicitly as \`fm-<project-name>\` (never a bare project name, never omitted: your worktree is not a registered path, so an omitted name errors on this machine). Never run \`gitnexus analyze\` inside your worktree; the index lives in a firstmate-owned mirror and is refreshed by bin/fm-gitnexus-reindex.sh. If the MCP server errors, the CLI works the same: \`gitnexus context <symbol> --repo fm-<project-name>\`, \`gitnexus impact\`, \`gitnexus query\`, \`gitnexus cypher\`. Diff your branch against the index and name the index's commit sha in your prep list.
-
 1. First action: create your branch: \`git checkout -b fm/$ID\`$SETUP2
 
 # Rules
 $RULE1
 2. Stay inside this worktree; modify nothing outside it.
-3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations. Before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage, use Context7 (\`resolve-library-id\` and \`query-docs\`, or their CLI form) to verify the behavior against the installed or proposed version, falling back to Exa (\`mcp exa web search\` or fetch) or ordinary web search to reach the official versioned documentation for the exact pinned version when Context7 errors, is unavailable, or lacks the library or version, and record the library ID, version, date, sources, and decision, including which tool actually supplied them, in your prep; see \`$FM_ROOT/.agents/skills/research-first-decisions/SKILL.md\` for the exact procedure and fallback.
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
    \`echo "{state}: {one short line}" >> $STATUS_FILE\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.

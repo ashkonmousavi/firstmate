@@ -10,7 +10,7 @@ The shared orchestrator behavior lives in [`AGENTS.md`](../AGENTS.md) - edit it 
 
 This section is the single owner of the top-level operational-home layout; producer script headers and their help own exact child-file fields and mutation contracts.
 The tracked code root contains the shared instruction, skill, documentation, workflow, and `bin/` surfaces, while each effective `FM_HOME` contains private operational directories.
-`data/` holds durable private fleet records such as the project and secondmate registries, captain preferences, optional shared captain preferences, learnings, per-project operational facts in `data/ops-facts.md`, backlog, briefs, scout reports, and explicitly installed content-addressed extension packages under `data/extensions/packages/`.
+`data/` holds durable private fleet records such as the project and secondmate registries, captain preferences, optional shared captain preferences, learnings, backlog, briefs, scout reports, and explicitly installed content-addressed extension packages under `data/extensions/packages/`.
 `state/` holds runtime records such as task metadata, append-only status events, endpoint signals, watcher and wake-queue coordination, inactive terminal-outcome receipts under `state/terminal-outcomes/`, enabled extension working namespaces under `state/extensions/`, away-mode state, generated Relay artifacts, parent-side remote ledger copies under `state/secondmate-summary-cache/`, one-shot Bearings reconcile requests under `state/reconcile-notify/`, private secondmate config-reread generations with their retry and quarantine state, per-task steering-inbox records under `state/<id>.inbox/` (`bin/fm-task-inbox-lib.sh`), and parent-owned secondmate pending-reply records under `state/pending-replies/` (`bin/fm-pending-reply-lib.sh`).
 `config/` holds local gitignored operating choices, including explicit extension bindings under `config/extensions.d/`, and `projects/` holds the local project clones that Firstmate reads but changes only through the narrow guarded and concrete captain-approved exceptions in `AGENTS.md`.
 Untracked files and directories whose names begin with `scratchpad` are also gitignored, so temporary scratch does not make porcelain-based secondmate sync guards treat a home as dirty.
@@ -170,25 +170,6 @@ The caller-facing label remains `fm-<id>`, but the actual cmux workspace title i
 Test cleanup must use the guarded path in [`docs/cmux-backend.md`](cmux-backend.md#current-operation-and-safety), never enumerate-and-close every workspace.
 `config/backend` is inherited into secondmate homes under the primary-authoritative contract owned by [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md).
 
-## Worktree pool leases (treehouse)
-
-A treehouse lease belongs to a process, not to a task.
-`treehouse-state.json` records the holder as `owner_pid` plus `owner_started_at`, so every lease the pool holds dies with the machine, and `treehouse status` then derives each slot's state from the live processes it can see rather than from any durable record.
-
-That is the whole hazard, and it is not restricted to restarts.
-A task whose agent is stopped leaves a slot that is clean, checked out at the default branch head, and running nothing, which is indistinguishable from a slot that was never used.
-A parked lane, a lane waiting on a merge, and a lane an out-of-memory restart emptied all present that way, and the next `treehouse get` may hand one of them out.
-It did on this host at 00:44 on 2026-09-09: slot 6, recorded to a parked scout, was re-leased to a new spawn and reset to the default branch.
-
-Committed work is not what is at risk.
-A branch ref lives in the shared git directory and survives the slot being reset, so what is lost is the slot's own contents - anything uncommitted - and the lane's identity.
-
-[`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s `worktree_claimed_by_another_task` keeps cleanup from destroying the other task's work in that case.
-A dead process and a clean tree never make a path disposable while another task record names it, so when the path a task records is also recorded by another task, teardown closes that task's record and touches the worktree in no way at all: it reads no work there, concludes no run, reaps no process, removes no hook, returns nothing, resets nothing, and deletes no branch.
-`--force` does not lift it, because force is authority to discard the closing task's own work and has never been authority to destroy another task's.
-
-Switching task spawns to `treehouse get --lease` would remove the hazard at its root, and would make teardown responsible for `treehouse return`.
-
 ## Away-mode supervisor backend (FM_SUPERVISOR_BACKEND / FM_SUPERVISOR_TARGET)
 
 The `/afk` sub-supervisor injects escalation digests into firstmate's own pane independently of where new task endpoints are spawned.
@@ -277,56 +258,6 @@ Opt in for a home that stows often enough that entries never sit unreinforced fo
 The flag is per home and is not inherited by secondmate homes, because stow cadence is a property of the home doing the stowing.
 Only the file's presence is read, so its contents are ignored; remove it to return to the default contract on the next pass.
 The skill text owns the marker spelling, the tick order, and the reinforcement rule.
-
-## Deploy policy, freeze and target (config/deploy-policy, config/deploy-freeze, config/deploy-target, state/deploy-ledger)
-
-These three paths decide, for one project, what may go live without asking the captain and where it goes live.
-Both `config/` files are local, gitignored, and per home; a project with neither is simply not deploy-managed from this home, and every deploy entry point stays inert for it.
-Absence is the off switch, and it is never read as permission.
-
-`config/deploy-policy/<project>` lists the path patterns reserved for the captain's own approval, one per line, with `#` comments and blank lines ignored.
-A pattern is a bash pattern in which `*` matches any characters including `/`, so `dashboard/v2/src/**` covers that whole subtree and `openspec/changes/dashboard-v21-*` covers every file under every directory whose name starts that way.
-The classifier applies these patterns to the whole range's changed-path set, never to one commit at a time, because a merge commit's own diff is empty and a per-commit walk would report a merged design change as free to ship.
-Everything the policy does not name deploys automatically once it merges.
-
-`config/deploy-freeze/<project>` pauses the automatic deploy for that project while leaving the policy in place.
-Any regular file at that path is the pause; its contents are never read, so a one-line note about who paused it and why costs nothing.
-It stops only what the merge trigger does on its own: a deploy the captain runs by hand still goes through, because the captain asking for it is the decision the pause exists to reserve.
-Pausing by moving the policy aside instead loses the reserved-surface list with it, which is why this file exists.
-While the pause is on, each merged change still produces one line saying how much is waiting, so a pause nobody lifts does not become a pause nobody remembers.
-
-`config/deploy-target/<project>` is a `key=value` file naming the machine that serves the project.
-It lives here rather than in a project repository because the host address, ssh user, and host paths belong in the operator's private record.
-Every value is data: a value carrying shell metacharacters, an unknown key, or a missing required key is refused rather than partly used, so this file can never become a way to run a command as the deploy user.
-Required keys are `host`, `user`, `checkout`, `unit`, `rollback_root`, `health_url`, `public_url`, and `public_expect`.
-Optional keys are `python` (default `<checkout>/.venv/bin/python`), `ssh_options`, `run_lock`, and the sealed-front-end set `bundle_path`, `bundle_artifact`, `bundle_workflow`, and `bundle_verify`.
-`bundle_path` requires `bundle_artifact` and `bundle_workflow` together, because a half-described bundle would deploy a version whose front end nobody obtained.
-`run_lock` names the file the application itself locks while a run is under way; deploys refuse while it is held, and the check reads `/proc/locks` rather than taking a lock of its own, so asking the question can never be what makes a starting run fail.
-
-`data/ops-facts.md` stays the narrative operational record a deploy or operations brief carries; `config/deploy-target/<project>` is the machine-read form the deploy path actually acts on, so a host that moves must be corrected in both.
-
-`state/deploy-ledger/<project>.jsonl` is the durable append-only record of every attempt, refusals included, with the commit it came from, the commit it went to, and the authority it acted under.
-`bin/fm-deploy.sh --rollback` reads it to find the version to put back: the one the newest attempt that actually reached the machine came from, a deploy that FAILED included, because a failed deploy is when a rollback is wanted and it set that version aside before it stopped anything.
-A rollback restores that version's front end from the copy set aside under `rollback_root` before the attempt, not from a build artifact, because artifact retention is short and a rollback is usually wanted long after it lapses.
-A completed rollback, and a version someone restored by hand, are each recorded distinctly from a deploy, so neither becomes the target of the next rollback.
-`bin/fm-deploy.sh --help` owns the exact results, flags, and the order the procedure runs in.
-A deploy that cannot obtain the sealed bundle says which of four reasons it is - no build has appeared for that commit yet, the build is still running, the build finished without succeeding, or the artifact expired - because the first two are a deploy that outran the commit's own build and the last two are not.
-
-The first two are also the only refusals that clear with nobody doing anything, so they are the only ones that wait.
-Either of them writes `state/deploy-pending/<project>`, and the watcher re-runs the whole decision for that record on its ordinary cycle until the build lands and the deploy goes through, until a reason that does not clear on its own reports instead, or until the record passes its give-up horizon and says the merge never built.
-A newer merge rewrites that record with its own commit rather than queueing behind the older one.
-[`bin/fm-deploy-trigger.sh`](../bin/fm-deploy-trigger.sh) owns the record format, the horizon, and `FM_DEPLOY_PENDING_MAX_SECS`.
-
-[`bin/fm-deploy-status.sh`](../bin/fm-deploy-status.sh), [`bin/fm-deploy.sh`](../bin/fm-deploy.sh), and [`bin/fm-deploy-trigger.sh`](../bin/fm-deploy-trigger.sh) own their exact commands, flags, and refusals in their own headers and `--help`.
-
-## Required checks for GitHub PR merges (config/required-checks/PROJECT)
-
-`config/required-checks/<project>` is an optional local, gitignored, per-project file read by `bin/fm-pr-merge.sh` before a GitHub merge.
-It is keyed by the basename of the project directory recorded in the task's own `project=` metadata, so a project cloned as `projects/XAUUSD` is keyed `XAUUSD`.
-It lists one check name per line, exactly as GitHub reports the check run; blank lines and lines starting with `#` are ignored.
-Each named check must be present at the pull request's live head, and its current run must have concluded success.
-A named check that is missing, still running, neutral, skipped, or failed refuses the merge by name, and `--allow-red` never waives it.
-Without the file the default judgment is unchanged: every check found at the head must be green, so a pull request with no checks at all can merge.
 
 ## Secondmate routes (data/secondmates.md)
 
@@ -1045,6 +976,7 @@ FM_ZELLIJ_SESSION=firstmate  # zellij-only: named session for normal backend ops
 CMUX_SOCKET_PASSWORD=   # cmux-only: socket password fallback when config/cmux-socket-password is absent (docs/cmux-backend.md)
 FM_SESSION_START_STATUS_TAIL=5   # state/*.status lines printed per task in the session-start digest; each line is capped by bin/fm-line-cap-lib.sh
 FM_SESSION_START_QUEUED_LIMIT=20   # plain queued backlog rows in the session-start digest; in-flight, held, and blocked rows are never bounded and done rows are never listed
+FM_BACKLOG_ROW_TIMEOUT_SECS=10   # seconds bounding each backlog row read (bin/fm-backlog-transition-lib.sh); nonpositive or invalid values fall back to 10; the first bound hit latches the sweep so later reads return immediately, each still naming its own item
 FM_BOOTSTRAP_DETECT_ONLY=0   # internal/read-only session-start mode: skip bootstrap's mutating sweeps and print advisory TANGLE wording
 FM_BOOTSTRAP_NETWORK=all   # internal session-start phase split: all, skip (local steps only), or only (network steps only); see bin/fm-bootstrap.sh
 FM_STARTUP_NETWORK_TIMEOUT=120   # seconds bounding the deferred inactive-outcome scan plus network checks; hitting it prints an actionable NETWORK_CHECKS line

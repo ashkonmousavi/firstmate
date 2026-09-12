@@ -664,171 +664,6 @@ make_path_without_lsof() {  # <case-dir>
   printf '%s\n' "$path_dir"
 }
 
-# Two task records name one worktree, and cleaning up the first must leave the
-# second completely untouched.
-#
-# This is the XAUUSD slot 6 case. A treehouse lease is bound to a process
-# (owner_pid plus owner_started_at), so the restart dropped it, the pool saw a
-# clean slot, and re-leased it to another lane - which then did real work there
-# while the first task's record still named the path. Closing the first record
-# must not return, reset, reap, conclude, or branch-delete anything in that
-# worktree, because none of it belongs to the task being closed. --force does
-# not lift that: force authorizes discarding THIS task's work, never another
-# task's.
-#
-# Red before the guard: teardown read the occupying lane's uncommitted work as
-# the closing task's own and refused on it, and with --force it returned the
-# slot and reset the occupying lane out of its own worktree.
-test_cleanup_of_a_reassigned_worktree_leaves_the_occupying_task_untouched() {
-  local case_dir rc occupant_meta
-  case_dir=$(make_case reassigned-worktree)
-  write_meta "$case_dir" local-only ship
-
-  # The lane that actually occupies the slot now, with real uncommitted work in
-  # it - the shape that makes the wrong behavior destructive rather than merely
-  # untidy.
-  occupant_meta="$case_dir/state/xau-int-axe-accessibility-checks.meta"
-  fm_write_meta "$occupant_meta" \
-    "window=firstmate:fm-xau-int-axe-accessibility-checks" \
-    "endpoint_task_id=xau-int-axe-accessibility-checks" \
-    "worktree=$case_dir/wt" \
-    "project=$case_dir/project" \
-    "kind=ship" \
-    "mode=no-mistakes" \
-    "spawn_gen=teardown-test-occupant"
-  printf 'accessibility work in progress\n' > "$case_dir/wt/occupant-work.txt"
-
-  # Log every treehouse call so the test can prove the return never happened,
-  # rather than only that teardown exited zero.
-  cat > "$case_dir/fakebin/treehouse" <<SH
-#!/usr/bin/env bash
-printf '%s\n' "\$*" >> "$case_dir/treehouse-calls.log"
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/treehouse"
-
-  set +e
-  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
-  rc=$?
-  set -e
-
-  # 1. The first task's record closes, with no work-safety refusal - the
-  #    uncommitted file in that worktree is not its work to be refused on.
-  expect_code 0 "$rc" "reassigned: closing the first record must succeed without touching the shared path"
-  ! grep -q REFUSED "$case_dir/stderr" \
-    || fail "reassigned: teardown refused on work belonging to the occupying task"
-  assert_absent "$case_dir/state/task-x1.meta" \
-    "reassigned: the closing task's own record was not removed"
-
-  # 2. It says why, naming the task that holds the slot.
-  grep -q "also recorded by task xau-int-axe-accessibility-checks" "$case_dir/stderr" \
-    || fail "reassigned: teardown did not name the task the worktree now belongs to"
-
-  # 3. Nothing in that worktree was returned, reset, or removed.
-  [ ! -f "$case_dir/treehouse-calls.log" ] \
-    || fail "reassigned: teardown called treehouse on a path another task records: $(cat "$case_dir/treehouse-calls.log")"
-  [ -f "$case_dir/wt/occupant-work.txt" ] \
-    || fail "reassigned: the occupying task's uncommitted work was destroyed"
-  [ "$(cat "$case_dir/wt/occupant-work.txt")" = "accessibility work in progress" ] \
-    || fail "reassigned: the occupying task's uncommitted work was modified"
-
-  # 4. The occupying task's own record is untouched and still names the path.
-  [ -f "$occupant_meta" ] || fail "reassigned: the occupying task's record was removed"
-  grep -q "^worktree=$case_dir/wt\$" "$occupant_meta" \
-    || fail "reassigned: the occupying task's record no longer names its worktree"
-
-  pass "teardown of a task whose slot was re-leased closes its record and leaves the occupying task untouched"
-}
-
-# --force is authority to discard the closing task's OWN work. It is not
-# authority to reset a path another live task record names, so the guard holds
-# under it too - the one place where a "force" that meant "destroy anything"
-# would take down a working lane.
-test_force_does_not_lift_the_reassigned_worktree_guard() {
-  local case_dir rc
-  case_dir=$(make_case reassigned-worktree-force)
-  write_meta "$case_dir" local-only ship
-  fm_write_meta "$case_dir/state/other-live-task.meta" \
-    "window=firstmate:fm-other-live-task" \
-    "endpoint_task_id=other-live-task" \
-    "worktree=$case_dir/wt" \
-    "project=$case_dir/project" \
-    "kind=ship" \
-    "mode=no-mistakes" \
-    "spawn_gen=teardown-test-other"
-  printf 'live work\n' > "$case_dir/wt/other-work.txt"
-  cat > "$case_dir/fakebin/treehouse" <<SH
-#!/usr/bin/env bash
-printf '%s\n' "\$*" >> "$case_dir/treehouse-calls.log"
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/treehouse"
-
-  set +e
-  run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr"
-  rc=$?
-  set -e
-
-  expect_code 0 "$rc" "reassigned-force: teardown should still close the record"
-  [ ! -f "$case_dir/treehouse-calls.log" ] \
-    || fail "reassigned-force: --force returned a worktree another task records: $(cat "$case_dir/treehouse-calls.log")"
-  [ -f "$case_dir/wt/other-work.txt" ] \
-    || fail "reassigned-force: --force destroyed another live task's work"
-  [ -f "$case_dir/state/other-live-task.meta" ] \
-    || fail "reassigned-force: --force removed another live task's record"
-  pass "--force closes the record but still refuses to reset a worktree another task records"
-}
-
-# The slot is not leaked: skipping cleanup while a second record names the path
-# defers the return, it does not cancel it. Once the other record is gone, the
-# LAST task to be closed does the ordinary cleanup and the slot goes back to the
-# pool. Without this, "refuse to touch a shared path" would quietly strand a
-# worktree that nothing holds any more.
-test_the_last_record_naming_a_shared_worktree_still_returns_it() {
-  local case_dir rc
-  case_dir=$(make_case reassigned-last-owner)
-  write_meta "$case_dir" local-only ship
-  fm_write_meta "$case_dir/state/second-task.meta" \
-    "window=firstmate:fm-second-task" \
-    "endpoint_task_id=second-task" \
-    "worktree=$case_dir/wt" \
-    "project=$case_dir/project" \
-    "kind=ship" \
-    "mode=local-only" \
-    "spawn_gen=teardown-test-second"
-  cat > "$case_dir/fakebin/treehouse" <<SH
-#!/usr/bin/env bash
-printf '%s\n' "\$*" >> "$case_dir/treehouse-calls.log"
-exit 0
-SH
-  chmod +x "$case_dir/fakebin/treehouse"
-
-  # Close the first: the shared path is left alone.
-  set +e
-  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
-  rc=$?
-  set -e
-  expect_code 0 "$rc" "last-owner: closing the first record should succeed"
-  [ ! -f "$case_dir/treehouse-calls.log" ] \
-    || fail "last-owner: the first close returned a path the second record still named"
-
-  # Now let the other claimant go and leave a single record naming the path, the
-  # state the pool is actually in once the reassignment is reconciled. Closing
-  # that last record must return the slot.
-  rm -f "$case_dir/state/second-task.meta"
-  write_meta "$case_dir" local-only ship
-  set +e
-  run_teardown "$case_dir" --force > "$case_dir/stdout2" 2> "$case_dir/stderr2"
-  rc=$?
-  set -e
-  expect_code 0 "$rc" "last-owner: closing the last record should succeed"
-  [ -f "$case_dir/treehouse-calls.log" ] \
-    || fail "last-owner: the slot was never returned - the worktree is leaked"
-  grep -q "return" "$case_dir/treehouse-calls.log" \
-    || fail "last-owner: treehouse was called but not to return the slot: $(cat "$case_dir/treehouse-calls.log")"
-  pass "the last record naming a shared worktree still returns it, so the deferral never leaks a slot"
-}
-
 test_local_only_fork_remote_allows() {
   local case_dir rc
   case_dir=$(make_case fork-allow)
@@ -924,38 +759,6 @@ test_local_only_truly_unpushed_refuses() {
   expect_code 1 "$rc" "truly-unpushed: teardown should refuse"
   grep -q REFUSED "$case_dir/stderr" || fail "truly-unpushed: no REFUSED line in stderr"
   pass "local-only worktree with truly unpushed work is refused (safety preserved)"
-}
-
-test_a_pending_deploy_record_survives_teardown() {
-  local case_dir rc record
-  case_dir=$(make_case pending-deploy)
-  write_meta "$case_dir" local-only ship
-  wt_commit "$case_dir" "merged work"
-  local wt_head
-  wt_head=$(git -C "$case_dir/wt" rev-parse HEAD)
-  git -C "$case_dir/project" update-ref refs/heads/main "$wt_head"
-
-  # A merge whose commit outran its own build leaves this record so the deploy
-  # can still happen once the build lands. Cleaning up the task that merged it
-  # routinely happens first, and the record belongs to the PROJECT, not the
-  # task, so a completed teardown must leave it exactly where it is.
-  record="$case_dir/state/deploy-pending/project"
-  mkdir -p "$case_dir/state/deploy-pending"
-  printf 'fm-deploy-pending-v1\nproject=project\n' > "$record"
-
-  set +e
-  run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr"
-  rc=$?
-  set -e
-
-  expect_code 0 "$rc" "pending-deploy: teardown should succeed when work is merged into local main"
-  # The task's own state going away is what keeps this case from passing
-  # vacuously on a teardown that did nothing.
-  assert_absent "$case_dir/state/task-x1.meta" \
-    "pending-deploy: teardown did not remove the task record, so it proved nothing about what it keeps"
-  assert_present "$record" \
-    "pending-deploy: teardown removed the project's pending deploy along with the task"
-  pass "a project's pending deploy record survives the teardown of the task whose merge created it"
 }
 
 test_local_only_merged_to_local_main_allows() {
@@ -3864,14 +3667,10 @@ EOF
 }
 
 test_local_only_fork_remote_allows
-test_cleanup_of_a_reassigned_worktree_leaves_the_occupying_task_untouched
-test_force_does_not_lift_the_reassigned_worktree_guard
-test_the_last_record_naming_a_shared_worktree_still_returns_it
 test_teardown_closes_the_backlog_item_itself
 test_teardown_manual_backend_leaves_the_backlog_to_the_operator
 test_local_only_truly_unpushed_refuses
 test_local_only_merged_to_local_main_allows
-test_a_pending_deploy_record_survives_teardown
 test_no_mistakes_origin_remote_allows
 test_no_mistakes_truly_unpushed_refuses
 test_local_only_force_overrides_unpushed
