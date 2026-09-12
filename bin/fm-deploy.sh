@@ -428,17 +428,29 @@ if [ -n "$FM_DEPLOY_TGT_bundle_path" ]; then
     # A workflow may rename the bundle artifact per run attempt (so a rerun does
     # not collide with the first attempt's upload), so the exact name to ask for
     # depends on the run's own attempt number, not a name fixed at intake time.
+    # A rerun of only the failed jobs does not rebuild the bundle, so when this
+    # attempt uploaded none, the newest earlier attempt's upload is the bundle
+    # this run's success rests on.
     # The artifact list's own `expired` flag is what tells a genuinely retired
     # build apart from a name this run never produced at all: only the former is
     # the "kept only briefly" cause, and reporting it for the latter sends the
     # captain looking for a build that is merely named differently than expected.
     run_attempt=$(gh api "repos/$GH_REPO/actions/runs/$run_id" --jq '.run_attempt' 2>/dev/null) || run_attempt=''
+    case "$run_attempt" in ''|*[!0-9]*) run_attempt='' ;; esac
     suffixed_artifact=''
-    [ -z "$run_attempt" ] || suffixed_artifact="${FM_DEPLOY_TGT_bundle_artifact}-${run_attempt}"
+    suffixed_artifacts=''
+    if [ -n "$run_attempt" ]; then
+      suffixed_artifact="${FM_DEPLOY_TGT_bundle_artifact}-${run_attempt}"
+      attempt=$run_attempt
+      while [ "$attempt" -ge 1 ]; do
+        suffixed_artifacts="$suffixed_artifacts ${FM_DEPLOY_TGT_bundle_artifact}-$attempt"
+        attempt=$((attempt - 1))
+      done
+    fi
     artifacts_list=$(gh api "repos/$GH_REPO/actions/runs/$run_id/artifacts" \
       --jq '.artifacts[] | "\(.name)\t\(.expired)"' 2>/dev/null) || artifacts_list=''
     bundle_artifact_name=''
-    for candidate in $suffixed_artifact "$FM_DEPLOY_TGT_bundle_artifact"; do
+    for candidate in $suffixed_artifacts "$FM_DEPLOY_TGT_bundle_artifact"; do
       [ -n "$candidate" ] || continue
       expired=$(printf '%s\n' "$artifacts_list" | awk -F'\t' -v n="$candidate" '$1 == n { print $2; exit }')
       case "$expired" in

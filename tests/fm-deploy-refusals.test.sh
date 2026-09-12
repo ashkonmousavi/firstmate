@@ -617,6 +617,20 @@ test_a_bare_bundle_artifact_is_downloaded_when_only_it_is_present() {
   pass "a bundle artifact under the bare name is downloaded when the suffixed name is absent"
 }
 
+test_an_earlier_attempts_bundle_is_downloaded_after_a_failed_jobs_rerun() {
+  local out rc=0
+  make_case bundle-earlier-attempt
+  # Re-running only the failed jobs does not rerun the bundle job, so the run's
+  # one bundle is the name its first attempt uploaded. Attempt 2 is green and
+  # uploaded nothing, and the download must fall back to that earlier name.
+  out=$(FMTEST_GH_RC=0 FMTEST_BUILD_STATE='completed success' FMTEST_RUN_ATTEMPT=2 \
+    FMTEST_ARTIFACT_LIST=$'demo-dist-1\tfalse' \
+    run_deploy demo "$PLAIN") || rc=$?
+  [ "$rc" -eq 0 ] || fail "bundle-earlier-attempt: a green rerun whose bundle came from attempt 1 was refused: $out"
+  assert_contains "$out" "is live at $PLAIN" bundle-earlier-attempt
+  pass "a bundle an earlier attempt uploaded is downloaded after a rerun of only the failed jobs"
+}
+
 test_neither_bundle_artifact_name_refuses_naming_both_and_the_run() {
   local out rc=0
   make_case bundle-neither-present
@@ -826,6 +840,7 @@ test_a_build_that_failed_is_named_as_a_failed_build
 test_an_expired_artifact_is_still_reported_as_expired
 test_a_suffixed_bundle_artifact_is_downloaded_when_present
 test_a_bare_bundle_artifact_is_downloaded_when_only_it_is_present
+test_an_earlier_attempts_bundle_is_downloaded_after_a_failed_jobs_rerun
 test_neither_bundle_artifact_name_refuses_naming_both_and_the_run
 test_a_deploy_freeze_pauses_the_trigger_but_not_the_captain
 test_the_permission_flag_alone_is_not_permission
