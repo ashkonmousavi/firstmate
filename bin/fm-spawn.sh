@@ -2462,17 +2462,17 @@ validate_spawn_worktree() {  # <source> <inspect-target>
 # that decides which tasks exist, so two concurrent spawns cannot both read the
 # pool as free and both accept the same slot.
 assert_worktree_unclaimed() {  # <worktree>
-  local wt=$1 wt_real meta other other_wt
+  local wt=$1 wt_real meta holder holder_wt
   wt_real=$(real_path_or_raw "$wt")
   for meta in "$STATE"/*.meta; do
     [ -f "$meta" ] || continue
-    other=${meta##*/}
-    other=${other%.meta}
-    [ "$other" != "$ID" ] || continue
-    other_wt=$(fm_meta_get "$meta" worktree)
-    [ -n "$other_wt" ] || continue
-    [ "$(real_path_or_raw "$other_wt")" = "$wt_real" ] || continue
-    echo "error: the worktree pool handed out $wt, but task $other's record already names that worktree; refusing to launch task $ID into it because a second task in one worktree loses the first task's branch. Relaunch $other with bin/fm-control.sh $other relaunch to put it back in its own slot, or tear it down with bin/fm-teardown.sh $other once its work has landed" >&2
+    holder=${meta##*/}
+    holder=${holder%.meta}
+    [ "$holder" != "$ID" ] || continue
+    holder_wt=$(fm_meta_get "$meta" worktree)
+    [ -n "$holder_wt" ] || continue
+    [ "$(real_path_or_raw "$holder_wt")" = "$wt_real" ] || continue
+    echo "error: the worktree pool handed out $wt, but task $holder's record already names that worktree; refusing to launch task $ID into it because a second task in one worktree loses the first task's branch. Relaunch $holder with bin/fm-control.sh $holder relaunch to put it back in its own slot, or tear it down with bin/fm-teardown.sh $holder once its work has landed" >&2
     return 1
   done
   return 0

@@ -121,6 +121,11 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-deploy-lib.sh"
 # shellcheck source=bin/fm-deploy-target-lib.sh
 . "$SCRIPT_DIR/fm-deploy-target-lib.sh"
+# The target library assigns these. Declaring them lets a lint that does not
+# follow sourced files see them, and leaves them unset until the target loads.
+declare FM_DEPLOY_TGT_checkout FM_DEPLOY_TGT_unit FM_DEPLOY_TGT_rollback_root \
+  FM_DEPLOY_TGT_python FM_DEPLOY_TGT_health_url FM_DEPLOY_TGT_public_url \
+  FM_DEPLOY_TGT_public_expect FM_DEPLOY_TGT_bundle_artifact FM_DEPLOY_TGT_bundle_workflow
 
 PROJECT=''
 TARGET_SHA=''
