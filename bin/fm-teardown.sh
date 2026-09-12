@@ -40,9 +40,8 @@
 # that has happened, teardown closes this task's record and does nothing at all in
 # that worktree - no safety read, run conclusion, process reap, hook removal,
 # return, reset, or branch delete - because none of what is there is this task's.
-# --force does not lift that. See worktree_claimed_by_another_task, and
-# docs/configuration.md "Worktree pool leases (treehouse)" for the allocation side
-# in bin/fm-spawn.sh.
+# --force does not lift that. See worktree_claimed_by_another_task and
+# docs/configuration.md "Worktree pool leases (treehouse)".
 #
 # REFUSES if the worktree holds work that has not LANDED, because cleanup
 # hard-resets/removes the worktree and kills its processes. Work has landed when it is
@@ -1672,9 +1671,7 @@ teardown_treehouse_return() {
 # leased to a scout, the restart dropped the lease, and the pool re-leased the
 # clean slot to xau-int-axe-accessibility-checks, which then did real work in it.
 #
-# Ownership has to hold on both sides. bin/fm-spawn.sh's assert_worktree_unclaimed
-# is the allocation side and refuses to take a recorded slot; this is the cleanup
-# side. A dead process and a clean tree never make a path disposable while another
+# A dead process and a clean tree never make a path disposable while another
 # task record names it, so teardown closes this task's record and leaves that path
 # completely alone - no safety read of work that is not this task's, no run
 # conclusion, no process reaping, no hook removal, no return, no reset, no branch

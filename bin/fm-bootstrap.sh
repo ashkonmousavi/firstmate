@@ -17,8 +17,6 @@
 #                 "BACKLOG_RECONCILE: <id>: <what this home could not reconcile>",
 #                 "BACKLOG_RECONCILE: code-root <file> is not this home's <file>; ...",
 #                 "TANGLE: <remediation>",
-#                 "WORKTREE_LEASE: task <id> records <path>, but the pool reads
-#                 that worktree as available ...; relaunch ... or tear it down ...",
 #                 "SECONDMATE_SYNC: secondmate <id>: skipped: <reason>",
 #                 "NUDGE_SECONDMATES: secondmate <id>: send failed: <reason>",
 #                 "BOOTSTRAP_INFO: nudged fm-<id> with '<message>'",
@@ -57,16 +55,6 @@
 #          landed in the primary instead of its own worktree; restore it per the line.
 #          treehouse is also MISSING when its installed version lacks
 #          "treehouse get --lease" support.
-#          A WORKTREE_LEASE line means a worktree one of this home's task
-#          records names is one the pool would hand to the next spawn: a
-#          treehouse lease is bound to a process (owner_pid plus
-#          owner_started_at), so a lane whose agent is stopped reads as a free
-#          slot. treehouse offers no way to lease a path that already exists,
-#          so this reports rather than repairs; fm-spawn.sh's
-#          assert_worktree_unclaimed is the half that refuses. Local reads
-#          only, and silent when the pool cannot be read at all.
-#          docs/configuration.md "Worktree pool leases (treehouse)" owns the
-#          semantics.
 #          no-mistakes is also MISSING when its installed version is older than
 #          1.46.0 (structured pipeline attestation floor; see CONTRIBUTING.md).
 #          The AXI-family floor policy is owned beside GH_AXI_MIN and
@@ -1463,91 +1451,6 @@ detect_local_tools() {
   fi
 }
 
-# WORKTREE_LEASE: name every task worktree the pool would hand to someone else.
-#
-# treehouse leases a pool slot to a PROCESS - treehouse-state.json records the
-# holder as owner_pid plus owner_started_at - so a machine or server restart drops
-# every lease the pool held, and `treehouse status` then derives each slot's state
-# from the live processes it can see rather than from any durable record. A task
-# whose agent is stopped therefore reads exactly like a free slot: parked lanes,
-# lanes waiting on a merge, and lanes an OOM restart emptied are all indis-
-# tinguishable from an unused worktree, and the next `treehouse get` may hand one
-# out. It did on this host at 00:44 on 2026-09-09.
-#
-# Firstmate cannot repair that inside treehouse. `treehouse get --lease` acquires
-# a NEW slot and takes no path, there is no command that leases a path that
-# already exists, and hand-writing another tool's state file is not something this
-# repo does. So this is a report, not a repair, and it is deliberately named that
-# way: bin/fm-spawn.sh's own assert_worktree_unclaimed is what actually refuses to
-# take a recorded slot, and it can only see the records of the home it runs in.
-# This line is what covers the rest - another home sharing the pool, a bare
-# `treehouse get` at a prompt, a prune.
-#
-# Committed work is not what is at risk: a branch ref lives in the shared git
-# directory and survives a slot being reset. What is lost is the slot's own
-# contents (anything uncommitted) and the lane's identity, which is why the
-# remedy below is to relaunch the lane or return the slot, never to reset either.
-#
-# Local reads only, no network, and skipped entirely when jq is unavailable or
-# no recorded worktree exists - this is a diagnostic and must never be the reason
-# a session start is slow or fails.
-report_unleased_task_worktrees() {
-  local meta id wt recorded='' probe_wt status_json covered='' verdict
-  command -v treehouse >/dev/null 2>&1 || return 0
-  command -v jq >/dev/null 2>&1 || return 0
-
-  # Collect the recorded worktrees first so one pool read can answer for all of
-  # them. Reading the key directly rather than through fm_meta_get is deliberate:
-  # that helper arrives with bin/fm-wake-lib.sh, which only the locked sweeps
-  # source, and this diagnostic must also run in a read-only session.
-  for meta in "$STATE"/*.meta; do
-    [ -f "$meta" ] || continue
-    id=${meta##*/}
-    id=${id%.meta}
-    wt=$(grep -m1 '^worktree=' "$meta" 2>/dev/null | cut -d= -f2-) || wt=
-    [ -n "$wt" ] && [ -d "$wt" ] || continue
-    recorded="$recorded$id	$wt
-"
-  done
-  [ -n "$recorded" ] || return 0
-
-  # A pool read is the expensive part - treehouse walks the process table for
-  # every slot - so read each pool once and settle every worktree it contains in
-  # that pass. A worktree the pool does not list is left uncovered so a later
-  # entry from its own pool can still answer for it.
-  while IFS='	' read -r _ probe_wt; do
-    [ -n "$probe_wt" ] || continue
-    case " $covered " in *" $probe_wt "*) continue ;; esac
-    if ! status_json=$(cd "$probe_wt" 2>/dev/null && treehouse status --json 2>/dev/null) \
-      || [ -z "$status_json" ]; then
-      # No readable pool here. Mark only this worktree settled: an unreadable pool
-      # is not evidence about anything, and a diagnostic must never turn one
-      # treehouse problem into a line that reads as lost work.
-      covered="$covered $probe_wt"
-      continue
-    fi
-    while IFS='	' read -r id wt; do
-      [ -n "$wt" ] || continue
-      case " $covered " in *" $wt "*) continue ;; esac
-      verdict=$(printf '%s' "$status_json" | jq -r --arg wt "$wt" '
-        [.[]? | select(.path == $wt)] | .[0]
-        | if . == null then empty
-          elif (.lease_id // "") != "" then "held"
-          elif .status == "available" then "available"
-          else "held" end
-      ' 2>/dev/null) || verdict=
-      [ -n "$verdict" ] || continue
-      covered="$covered $wt"
-      [ "$verdict" = available ] || continue
-      echo "WORKTREE_LEASE: task $id records $wt, but the pool reads that worktree as available and will hand it to the next spawn; relaunch $id with bin/fm-control.sh $id relaunch to put a process back in it, or tear it down with bin/fm-teardown.sh $id once its work has landed"
-    done <<EOF
-$recorded
-EOF
-  done <<EOF
-$recorded
-EOF
-}
-
 detect_local_config() {
   # Worktree-tangle check: the firstmate primary checkout (FM_ROOT) must sit on its
   # default branch, not a feature branch (see fm-tangle-lib.sh). Scoped to the
@@ -1561,7 +1464,6 @@ detect_local_config() {
       echo "TANGLE: primary checkout on feature branch '$tangle_branch' (expected '$tangle_default'); the work is safe on that ref - restore the primary with: git -C $FM_ROOT checkout $tangle_default, then re-validate the branch in a proper worktree"
     fi
   fi
-  report_unleased_task_worktrees
   crew=
   [ -f "$CONFIG/crew-harness" ] && crew=$(tr -d '[:space:]' < "$CONFIG/crew-harness" || true)
   if [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" = 1 ] && [ -n "$crew" ] && [ "$crew" != "default" ]; then

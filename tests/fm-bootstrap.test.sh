@@ -73,14 +73,6 @@ if [ "${1:-}" = get ] && [ "${2:-}" = --help ]; then
   fi
   exit 0
 fi
-# `status --json` answers from the pool file the case wrote, so a case can pin
-# exactly what the pool reports about a recorded worktree. Absent file = no pool
-# here, which is also the shape a home with no treehouse pool must survive.
-if [ "${1:-}" = status ] && [ "${2:-}" = --json ]; then
-  [ -n "${FM_FAKE_TREEHOUSE_POOL:-}" ] && [ -f "$FM_FAKE_TREEHOUSE_POOL" ] || exit 1
-  cat "$FM_FAKE_TREEHOUSE_POOL"
-  exit 0
-fi
 exit 0
 SH
   chmod +x "$fakebin/treehouse"
@@ -726,68 +718,6 @@ test_treehouse_lease_check_follows_resolved_backend() {
   pass "bootstrap: the treehouse lease check follows the resolved backend's worktree provider"
 }
 
-# Proves: a task worktree the pool would hand to the next spawn is named at
-# session start. treehouse binds a lease to a process (owner_pid plus
-# owner_started_at in treehouse-state.json), so a restart drops every lease and
-# `treehouse status` then derives each slot's state from live processes alone. A
-# lane whose agent is stopped - parked, waiting on a merge, or emptied by an OOM
-# restart - is then indistinguishable from an unused slot, and on this host at
-# 00:44 on 2026-09-09 a recorded slot really was re-leased to a new spawn.
-# Firstmate cannot re-take the lease (treehouse has no command to lease a path
-# that already exists), so this line is the report half; bin/fm-spawn.sh's
-# assert_worktree_unclaimed is the refusing half. Red before the check existed:
-# bootstrap printed nothing at all for an exposed lane.
-test_a_recorded_worktree_the_pool_calls_free_is_reported() {
-  local case_dir home fakebin pool out
-  case_dir="$TMP_ROOT/worktree-lease"
-  home="$case_dir/home"
-  mkdir -p "$home/config" "$home/state" "$case_dir/pool/6" "$case_dir/pool/7" "$case_dir/pool/8"
-  printf '%s\n' manual > "$home/config/backlog-backend"
-  fakebin=$(make_fake_toolchain "$case_dir")
-  add_real_jq "$fakebin"
-  export FM_FAKE_TREEHOUSE_LEASE_HELP=1
-
-  # Slot 6 is the exposed one: a parked lane's record names it and the pool calls
-  # it available with no lease. Slot 7 is the same shape but still holds a live
-  # process, and slot 8 is available but durably leased - neither may be named,
-  # or the line becomes noise on every start and stops being read.
-  pool="$case_dir/pool.json"
-  cat > "$pool" <<JSON
-[{"name":"6","path":"$case_dir/pool/6","status":"available","lease_id":"","lease_holder":"","leased_at":null,"processes":[]},
- {"name":"7","path":"$case_dir/pool/7","status":"in-use","lease_id":"","lease_holder":"","leased_at":null,"processes":[{"pid":1,"name":"claude"}]},
- {"name":"8","path":"$case_dir/pool/8","status":"available","lease_id":"lease-abc","lease_holder":"fm-secondmate","leased_at":"2026-09-09T00:00:00Z","processes":[]}]
-JSON
-  export FM_FAKE_TREEHOUSE_POOL="$pool"
-
-  printf 'worktree=%s\nparked=%s\n' "$case_dir/pool/6" "$(date +%s)" > "$home/state/task-parked.meta"
-  printf 'worktree=%s\n' "$case_dir/pool/7" > "$home/state/task-running.meta"
-  printf 'worktree=%s\n' "$case_dir/pool/8" > "$home/state/task-leased.meta"
-
-  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$home" \
-    "$ROOT/bin/fm-bootstrap.sh")
-
-  assert_contains "$out" "WORKTREE_LEASE: task task-parked records $case_dir/pool/6" \
-    "an unleased, process-free recorded worktree must be named"
-  assert_contains "$out" "bin/fm-control.sh task-parked relaunch" \
-    "the report must name the remedy that puts a process back in the slot"
-  assert_not_contains "$out" "task-running" \
-    "a recorded worktree still holding a live process is not exposed and must stay silent"
-  assert_not_contains "$out" "task-leased" \
-    "a durably leased worktree is safe from the next get and must stay silent"
-
-  # A home whose pool cannot be read at all is not a finding: the check is a
-  # diagnostic and must never turn an unrelated treehouse problem into a line
-  # that reads as lost work.
-  unset FM_FAKE_TREEHOUSE_POOL
-  out=$(PATH="$fakebin:$BASE_PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$home" \
-    "$ROOT/bin/fm-bootstrap.sh")
-  assert_not_contains "$out" "WORKTREE_LEASE" \
-    "an unreadable pool must report nothing rather than guess a worktree is exposed"
-
-  unset FM_FAKE_TREEHOUSE_LEASE_HELP
-  pass "bootstrap: a recorded worktree the pool would re-lease is reported, and only that one"
-}
-
 test_fleet_sync_timeout_scales_with_origin_backed_project_count() {
   local case_dir home fakebin fake_root out
   case_dir="$TMP_ROOT/fleet-timeout-scaled"
@@ -1243,7 +1173,6 @@ test_cmux_bundled_cli_satisfies_dependency
 test_unknown_backend_reports_invalid_configuration
 test_json_backends_require_jq_not_tmux
 test_treehouse_lease_check_follows_resolved_backend
-test_a_recorded_worktree_the_pool_calls_free_is_reported
 test_fleet_sync_timeout_scales_with_origin_backed_project_count
 test_fleet_sync_timeout_floor_preserves_small_fleets
 test_fleet_sync_timeout_explicit_override_wins

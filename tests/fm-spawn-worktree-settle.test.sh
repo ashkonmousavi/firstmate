@@ -221,46 +221,9 @@ test_primary_checkout_that_never_settles_fails_at_the_deadline() {
   pass "a pane stuck on the primary checkout fails loudly at the deadline"
 }
 
-test_a_worktree_another_task_records_is_refused() {
-  local rec id other out status
-  id=settle-collision-z4
-  other=settle-collision-incumbent
-  rec=$(make_settle_case settle-collision "$id" 0)
-  read_settle_record "$rec"
-
-  # The incumbent is parked: its agent is stopped, which is exactly the state
-  # that makes its slot look free to the pool.
-  printf 'worktree=%s\nwindow=fm-sess:incumbent\nparked=%s\n' \
-    "$WT_DIR" "$(( $(date +%s) - 900 ))" > "$HOME_DIR/state/$other.meta"
-
-  out=$(run_settle_spawn "$id")
-  status=$?
-  expect_code 1 "$status" "spawn must refuse a worktree another task's record names"
-  assert_contains "$out" "task $other's record already names that worktree" \
-    "the refusal did not name the colliding task id"
-  [ ! -f "$HOME_DIR/state/$id.meta" ] \
-    || fail "spawn published a second record naming $WT_DIR after refusing it"
-
-  # The incumbent's own record is untouched - the refusal costs a spawn, never
-  # the lane that already owned the slot.
-  assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$other.meta" \
-    "the refusal disturbed the incumbent task's record"
-
-  # Same pool slot, no other claim: the spawn proceeds. A task's own record is
-  # not a collision either, or every relaunch would refuse.
-  rm -f "$HOME_DIR/state/$other.meta"
-  out=$(run_settle_spawn "$id")
-  status=$?
-  expect_code 0 "$status" "spawn must accept a worktree no other task records"
-  assert_grep "worktree=$WT_DIR" "$HOME_DIR/state/$id.meta" \
-    "spawn did not record the worktree once the collision was gone"
-  pass "a pool slot another task's record names is refused by colliding id, and an unclaimed one is not"
-}
-
 test_single_stale_first_read_is_not_accepted
 test_already_settled_pane_costs_one_confirm_read
 test_transient_primary_checkout_is_not_accepted
 test_primary_checkout_that_never_settles_fails_at_the_deadline
-test_a_worktree_another_task_records_is_refused
 
 echo "# all fm-spawn-worktree-settle tests passed"
