@@ -21,6 +21,9 @@ set -u
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-composer-lib.sh"
 
+# shellcheck source=tests/composer-claude-titled-rule-fixture.sh
+. "$(dirname "${BASH_SOURCE[0]}")/composer-claude-titled-rule-fixture.sh"
+
 # classify <bordered> <content> [idle_re] -> echoes the verdict.
 classify() { fm_composer_classify_content "$@"; }
 
@@ -271,21 +274,84 @@ test_matrix_herdr_halfblock_rule_bounds_bare_wrap() {
   # footer, whose real content turns an idle pane into a false `pending`.
   # Captured live from a herdr cursor pane.
   local screen plain out
-  plain=$'transcript\n \u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\n  \u2192 Add a follow-up\n \u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\n  Cursor Grok 4.5 High \u00b7 6.7%   Run Everything\n  ~/wt \u00b7 64cdd3a'
+  plain=$'transcript\n ▄▄▄▄▄▄▄▄\n  → Add a follow-up\n ▀▀▀▀▀▀▀▀\n  Cursor Grok 4.5 High · 6.7%   Run Everything\n  ~/wt · 64cdd3a'
   # The closing rule must bound the region, so the footer below is not input.
-  fm_composer_row_has_edge " $(printf '\u2580\u2580\u2580')" \
+  fm_composer_row_has_edge ' ▀▀▀' \
     || fail "a half-block rule row must count as a structural edge"
-  fm_composer_row_has_edge " $(printf '\u2584\u2584\u2584')" \
+  fm_composer_row_has_edge ' ▄▄▄' \
     || fail "the upper half-block rule must count as a structural edge"
   # Non-vacuousness: the footer rows really are non-blank content that would be
   # swallowed if the rule did not bound the region.
   case "$plain" in *"Run Everything"*) : ;; *) fail "fixture lost its footer content" ;; esac
   ESC_LOCAL=$(printf '\033')
-  screen=$'transcript\n \u2584\u2584\u2584\u2584\u2584\u2584\u2584\u2584\n'"  ${ESC_LOCAL}[2m\u2192 ${ESC_LOCAL}[0;7mA${ESC_LOCAL}[0;2mdd a follow-up${ESC_LOCAL}[0m"$'\n \u2580\u2580\u2580\u2580\u2580\u2580\u2580\u2580\n  Cursor Grok 4.5 High \u00b7 6.7%   Run Everything\n  ~/wt \u00b7 64cdd3a'
-  out=$(fm_composer_classify_screen "$CAPS_STYLED" "$(printf '%b' "$screen")")
+  screen=$'transcript\n ▄▄▄▄▄▄▄▄\n'"  ${ESC_LOCAL}[2m→ ${ESC_LOCAL}[0;7mA${ESC_LOCAL}[0;2mdd a follow-up${ESC_LOCAL}[0m"$'\n ▀▀▀▀▀▀▀▀\n  Cursor Grok 4.5 High · 6.7%   Run Everything\n  ~/wt · 64cdd3a'
+  out=$(fm_composer_classify_screen "$CAPS_STYLED" "$screen")
   [ "$out" = empty ] \
     || fail "an idle cursor composer inside herdr half-block rules must read empty, got '$out'"
   pass "matrix: herdr half-block rules bound a bare composer's wrap region"
+}
+
+test_matrix_omp_status_row_bounds_bare_composer() {
+  # omp (Oh My Pi) draws its status line directly BELOW the borderless `❯`
+  # composer. Captured live through Herdr on omp 18.1.11 under the captain's
+  # unicode preset (idle), plus the nerd-preset idle row and the busy spinner
+  # row from the 18.1.2 investigation. Without the status-row rule the bare
+  # wrap region swallows that row and an idle omp pane reads `pending`, which
+  # skipped the doorbell on the first live omp worker.
+  local idle_unicode idle_nerd busy typed wrapped
+  idle_unicode=$'transcript line
+
+❯
+ π  · ◔ GPT-6-Astra · 🌳 …-workspace · ⑂ detached · ◫ 15.4%/272K ⟲ · (sub)'
+  idle_nerd=$'transcript line
+
+❯
+ 󰵗  ·  qwen3:8b ·  kun-agent-workspace/… ·  detached ?1 ·  36.7%/41K'
+  busy=$'transcript line
+
+  ⎋ Working…
+
+❯
+ ⠧ 11s  · ◔ GPT-6-Astra · ◫ 15.4%/272K'
+  typed=$'transcript line
+
+❯ fix the flaky test
+ π  · ◔ GPT-6-Astra · 🌳 …-workspace · ⑂ detached · ◫ 15.4%/272K ⟲ · (sub)'
+  # Non-vacuousness: each status row is real non-blank content that the wrap
+  # region would otherwise take as typed input.
+  _fm_composer_row_is_omp_status ' π  · ◔ GPT-6-Astra · 🌳 …-workspace' \
+    || fail "the unicode-preset omp status row must be recognized as furniture"
+  _fm_composer_row_is_omp_status ' 󰵗  ·  qwen3:8b ·  kun-agent-workspace/… ·  detached ?1 ·  36.7%/41K' \
+    || fail "the nerd-preset omp status row must be recognized as furniture"
+  _fm_composer_row_is_omp_status ' ⠧ 11s  · ◔ GPT-6-Astra' \
+    || fail "the busy omp spinner row must be recognized as furniture"
+  _fm_composer_row_is_omp_status 'fix the flaky test' \
+    && fail "ordinary typed text must not be mistaken for omp status furniture"
+  _fm_composer_row_is_omp_status 'please rerun the suite and report' \
+    && fail "ordinary prose must not be mistaken for omp status furniture"
+  # Only omp's identity cell opens the row: a wrapped typed row that happens
+  # to begin with a short word and a spaced middle dot is composer input.
+  _fm_composer_row_is_omp_status 'fix · tests before pushing' \
+    && fail "wrapped typed text with a middle dot must not be mistaken for omp status furniture"
+  # The ascii preset's identity cell is `pi`, but that preset separates its
+  # cells with ` - `, so a row opening `pi ·` is never omp furniture.
+  _fm_composer_row_is_omp_status 'pi · e · phi as the three constants' \
+    && fail "typed text opening 'pi ·' must not be mistaken for omp status furniture"
+  _fm_composer_row_is_omp_status ' ⣾ 3s  · ◔ GPT-6-Astra' \
+    || fail "the status-set omp spinner row must be recognized as furniture"
+  assert_screen "idle omp (unicode preset)" empty "$CAPS_STYLED" "$idle_unicode"
+  assert_screen "idle omp (nerd preset)" empty "$CAPS_STYLED" "$idle_nerd"
+  assert_screen "busy omp keeps an empty composer" empty "$CAPS_STYLED" "$busy"
+  assert_screen "typed omp text is pending" pending "$CAPS_STYLED" "$typed"
+  assert_screen "idle omp on a plain capture" empty "$CAPS_PLAIN" "$idle_unicode"
+  # The boundary must not cut a bare composer's own wrapped input: with the
+  # cursor on a continuation row that opens `fix · tests`, the composer is a
+  # proven wrap region and reads pending, exactly as it did before the rule.
+  wrapped=$'transcript line\n\n❯ please run the suite and then\nfix · tests before pushing'
+  assert_screen "wrapped typed text with a middle dot stays pending" pending "$CAPS_TMUX" "$wrapped" 3
+  wrapped=$'transcript line\n\n❯ document the constants in the order\npi · e · phi with one example each'
+  assert_screen "wrapped typed text opening 'pi ·' stays pending" pending "$CAPS_TMUX" "$wrapped" 3
+  pass "matrix: omp's status row bounds the bare composer's wrap region"
 }
 
 test_matrix_pi_separated_needs_identity() {
@@ -325,6 +391,41 @@ test_matrix_pi_separated_needs_identity() {
   assert_screen "lone glyph on plain backend" empty "$CAPS_PLAIN" "$typed"
   assert_screen "lone glyph with non-pi identity" empty "$CAPS_STYLED" "$typed" '' "$none"
   pass "matrix: pi's separated composer needs identity + structure; the blank row alone never proves it"
+}
+
+test_matrix_claude_titled_separated_rule() {
+  # Incident 2026-09-05 07:02-07:07 PDT (task afk-composer-read-claude-herdr):
+  # current claude draws its OWN idle composer the same way pi's separated
+  # shape is drawn - a bare `❯` between two `─` rules - but embeds the
+  # session/task title IN the top rule ("──...── First ─", verified live).
+  # The old `_fm_composer_pi_separator_row` only recognized a rule of PURE
+  # dashes, so the titled top rule went unrecognized while its still-plain
+  # partner did not, and the plain bottom rule then read as an ORPHANED
+  # trailing separator that invalidated the bare-row candidate below every
+  # other shape - the away daemon's supervisor composer read "unknown" against
+  # a genuinely idle pane, injection deferred, and the 301s wedge alarm fired.
+  # Unlike pi, a bare AGENT glyph is positive proof on its own (THE SAFETY RULE,
+  # header above), so this needs only the lazy identity round-trip that proves
+  # the live agent is claude, not pi - never a pi idle/done state.
+  local screen claude_done claude_working
+  screen=$(fm_test_fixture_claude_titled_rule_screen)
+  claude_done=$(printf 'claude\tdone'); claude_working=$(printf 'claude\tworking')
+  [ "$(fm_composer_classify_screen "$CAPS_STYLED" "$screen")" = need-identity ] \
+    || fail "a titled separated rule pair with an identity-capable profile should request the lazy identity probe"
+  assert_screen "claude titled-rule idle on herdr, done" empty "$CAPS_STYLED" "$screen" '' "$claude_done"
+  # A working claude is still a genuine empty composer here (unlike pi): the
+  # bare glyph itself is the proof, not the agent's turn state.
+  assert_screen "claude titled-rule idle on herdr, working" empty "$CAPS_STYLED" "$screen" '' "$claude_working"
+  assert_screen "claude titled-rule idle without identity capability" empty "$CAPS_STYLED_NOID" "$screen"
+  assert_screen "claude titled-rule idle on cmux/orca" empty "$CAPS_PLAIN" "$screen"
+  # The live incident capture also carried a highlighted "N new messages"
+  # notification bar above the composer and a shell-count footer below it;
+  # neither is composer content and both must not change the verdict.
+  local with_footer
+  with_footer=$(fm_test_fixture_claude_titled_rule_screen_with_footer)
+  assert_screen "claude titled-rule idle with notification bar and footer" empty \
+    "$CAPS_STYLED" "$with_footer" '' "$claude_done"
+  pass "matrix: claude's titled separated composer reads empty; a titled rule pairs with its partner instead of stranding the bare glyph"
 }
 
 test_matrix_opencode_leftbar_signals() {
@@ -617,7 +718,9 @@ test_matrix_codex_dim_hint_row
 test_matrix_muse_truecolor_glyph_survives_signal_loss
 test_matrix_cursor_reverse_video_placeholder_remnant
 test_matrix_herdr_halfblock_rule_bounds_bare_wrap
+test_matrix_omp_status_row_bounds_bare_composer
 test_matrix_pi_separated_needs_identity
+test_matrix_claude_titled_separated_rule
 test_matrix_opencode_leftbar_signals
 test_matrix_grok_titled_bottom_border
 test_matrix_kimi_bordered_shell_glyph_box

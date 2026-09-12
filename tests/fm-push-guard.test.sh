@@ -1,0 +1,557 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC1091,SC2016
+# Behavior tests for the push-guard PreToolUse seatbelt (docs/push-guard.md).
+#
+# bin/fm-push-guard-command-policy.mjs is the single owner of the block/allow
+# decision for everything text alone can settle; it reuses the shell classifier
+# owned by bin/fm-arm-command-policy.mjs. bin/fm-push-guard-pretool-check.sh is
+# the stable transport: it drives the Claude and Codex entry forms and is the
+# only place that queries real repository state (for the one case text cannot
+# settle - a bare push). This suite proves the full refspec decision matrix
+# from docs/push-guard.md, the force-push and remote-branch-delete denials on
+# their precedence against a protected target, the
+# owner-marker exemption (including over those two), the bare-push branch
+# check (both outcomes and the fail-open cases), recursion into subshells,
+# substitutions, eval, and sh -c payloads, the fail-open transport behavior,
+# the prefilter fast path, the policy CLI output contract, and shellcheck
+# cleanliness. No harness is spawned.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+fm_git_identity fmtest fmtest@example.invalid
+TMP_ROOT=$(fm_test_tmproot fm-push-guard)
+
+install_push_guard_scripts() {
+  local dir=$1
+  mkdir -p "$dir/bin"
+  cp "$ROOT/bin/fm-push-guard-pretool-check.sh" "$dir/bin/fm-push-guard-pretool-check.sh"
+  cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
+  cp "$ROOT/bin/fm-push-guard-command-policy.mjs" "$dir/bin/fm-push-guard-command-policy.mjs"
+  cp "$ROOT/bin/fm-arm-command-policy.mjs" "$dir/bin/fm-arm-command-policy.mjs"
+  chmod +x "$dir/bin/fm-push-guard-pretool-check.sh" "$dir/bin/fm-push-guard-command-policy.mjs"
+}
+
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/fm-push-guard-work.XXXXXX")
+FM_TEST_CLEANUP_DIRS+=("$WORK")
+install_push_guard_scripts "$WORK"
+CHECK="$WORK/bin/fm-push-guard-pretool-check.sh"
+
+# --- full cross-harness acceptance matrix (textual, no repository needed) --
+
+MATRIX_IDS=()
+MATRIX_EXPECTED=()
+MATRIX_COMMANDS=()
+
+matrix_case() {
+  MATRIX_IDS+=("$1")
+  MATRIX_EXPECTED+=("$2")
+  MATRIX_COMMANDS+=("$3")
+}
+
+# BLOCK: an explicit git push whose refspec targets main or master.
+matrix_case B01 deny 'git push origin main'
+matrix_case B02 deny 'git push origin HEAD:main'
+matrix_case B03 deny 'git push -u origin main'
+matrix_case B04 deny 'git push origin +main'
+matrix_case B05 deny 'git push origin refs/heads/main'
+matrix_case B06 deny 'git push origin HEAD:refs/heads/main'
+matrix_case B07 deny 'git push origin master'
+matrix_case B08 deny 'git push --all origin'
+matrix_case B09 deny 'git push --mirror origin'
+matrix_case B10 deny 'git -C projects/xau push origin main'
+matrix_case B11 deny 'git --no-pager push origin main'
+matrix_case B12 deny 'echo setup && git push origin main'
+matrix_case B13 deny 'git push origin main; echo done'
+matrix_case B14 deny 'git push origin main | cat'
+matrix_case B15 deny 'git push origin main &'
+matrix_case B16 deny '(cd projects/xau && git push origin main)'
+matrix_case B17 deny '{ git push origin main; }'
+matrix_case B18 deny 'x=$(git push origin main)'
+matrix_case B19 deny 'sh -c "git push origin main"'
+matrix_case B20 deny 'eval "git push origin main"'
+matrix_case B21 deny 'git push origin feature:main'
+
+# BLOCK: bare or inexact force pushes still rewrite published history.
+# wherever it lands, so the target branch is irrelevant.
+matrix_case F01 deny 'git push --force origin feature-x'
+matrix_case F02 deny 'git push -f origin feature-x'
+matrix_case F03 deny 'git push --force-with-lease origin feature-x'
+matrix_case F04 deny 'git push --force-with-lease=refs/heads/feature-x:abc123 origin feature-x'
+matrix_case F05 deny 'git push origin +feature-x'
+matrix_case F06 deny 'git push origin +refs/heads/feature-x'
+matrix_case F07 deny 'git push -fu origin feature-x'
+matrix_case F08 deny '(cd projects/xau && git push --force origin feature-x)'
+matrix_case F09 deny 'sh -c "git push --force origin feature-x"'
+# git requires the lease ref to be ATTACHED, so an unattached one is an
+# ordinary positional. It must not shift the repository/refspec positions in a
+# way that hides a protected target: F11 denies as force, F12 still resolves
+# main and reports protected-branch-push.
+matrix_case F11 deny 'git push --force-with-lease refs/heads/x origin feature-x'
+matrix_case F12 deny 'git push --force-with-lease refs/heads/x origin main'
+
+# BLOCK: an unlanded or unregistered remote branch deletion, in both spellings.
+matrix_case D01 deny 'git push --delete origin feature-x'
+matrix_case D02 deny 'git push -d origin feature-x'
+matrix_case D03 deny 'git push origin :feature-x'
+matrix_case D04 deny 'git push origin :refs/heads/feature-x'
+# Contract change (2026-09-09): this was matrix_case A05 allow. The guard's
+# earlier "accepted non-goal" that left a delete refspec unguarded is
+# withdrawn - unlanded deletion is denied, including main - so the
+# old allow expectation is wrong rather than merely weakened.
+matrix_case D05 deny 'git push origin :main'
+matrix_case D06 deny 'eval "git push --delete origin feature-x"'
+# A cluster carrying `d` really is a delete: git's parse-options accepts
+# `-qd`/`-du`/`-nd` and parses them as --quiet/--set-upstream/--dry-run plus
+# --delete, so branch-delete-push is the accurate code for them, not an
+# over-broad fail-closed guess.
+matrix_case D07 deny 'git push -qd origin feature-x'
+matrix_case D08 deny 'git push -du origin feature-x'
+
+# ALLOW: ordinary non-protected pushes.
+matrix_case A01 allow 'git status'
+matrix_case A02 allow 'git checkout main'
+matrix_case A03 allow 'git push origin feature-x'
+matrix_case A04 allow 'git push origin dev'
+matrix_case A06 allow 'echo "git push origin main"'
+matrix_case A07 deny 'FM_PUSH_GUARD_OWNER=fm-pr-merge git push origin main'
+matrix_case A08 deny 'FM_PUSH_GUARD_OWNER=fm-merge-local git push origin main'
+matrix_case A12 deny 'FM_PUSH_GUARD_OWNER=fm-pr-merge git push --force origin feature-x'
+matrix_case A13 deny 'FM_PUSH_GUARD_OWNER=fm-merge-local git push --delete origin feature-x'
+# Neither of these requests a force: --force-if-includes only qualifies an
+# accompanying --force-with-lease, and --no-force-with-lease cancels one.
+matrix_case A14 allow 'git push --force-if-includes origin feature-x'
+matrix_case A15 allow 'git push --no-force-with-lease origin feature-x'
+matrix_case A16 allow 'git push --dry-run origin feature-x'
+matrix_case A17 allow 'git push -u origin feature-x'
+matrix_case A09 allow 'git push origin main2'
+matrix_case A10 allow 'git push origin mainline'
+matrix_case A11 allow 'git log --grep push'
+
+MATRIX_TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-push-guard-matrix.XXXXXX")
+FM_TEST_CLEANUP_DIRS+=("$MATRIX_TMP")
+
+run_matrix_entry() {
+  local id=$1 expected=$2 entry=$3 cmd=$4 payload out_file err_file rc
+  out_file="$MATRIX_TMP/$id-$entry.out"
+  err_file="$MATRIX_TMP/$id-$entry.err"
+
+  case "$entry" in
+    codex)
+      payload=$(jq -cn --arg command "$cmd" '{tool_name:"Bash",tool_input:{command:$command}}')
+      printf '%s' "$payload" | "$CHECK" >"$out_file" 2>"$err_file"
+      rc=$?
+      ;;
+    claude)
+      payload=$(jq -cn --arg command "$cmd" '{tool_name:"Bash",tool_input:{command:$command}}')
+      printf '%s' "$payload" | "$CHECK" --claude >"$out_file" 2>"$err_file"
+      rc=$?
+      ;;
+    *)
+      fail "unknown matrix entry form: $entry"
+      ;;
+  esac
+
+  if [ "$expected" = allow ]; then
+    [ "$rc" -eq 0 ] || fail "$id via $entry must allow, got exit $rc: $(cat "$err_file")"
+    [ ! -s "$out_file" ] || fail "$id via $entry allow must leave stdout empty: $(cat "$out_file")"
+    [ ! -s "$err_file" ] || fail "$id via $entry allow must leave stderr empty: $(cat "$err_file")"
+    return
+  fi
+
+  [ "$rc" -eq 2 ] || fail "$id via $entry must deny, got exit $rc"
+  jq -e '.hookSpecificOutput.permissionDecision == "deny" and (.systemMessage | test("\\["))' "$err_file" >/dev/null 2>&1 \
+    || fail "$id via $entry deny must carry a reason code on stderr: $(cat "$err_file")"
+  if [ "$entry" = claude ]; then
+    [ ! -s "$out_file" ] || fail "$id via claude deny must leave stdout empty: $(cat "$out_file")"
+  else
+    jq -e '.decision == "deny"' "$out_file" >/dev/null 2>&1 \
+      || fail "$id via $entry deny must carry decision=deny on stdout: $(cat "$out_file")"
+  fi
+}
+
+test_full_acceptance_matrix() {
+  local i entry
+  for ((i = 0; i < ${#MATRIX_IDS[@]}; i++)); do
+    for entry in codex claude; do
+      run_matrix_entry "${MATRIX_IDS[$i]}" "${MATRIX_EXPECTED[$i]}" "$entry" "${MATRIX_COMMANDS[$i]}"
+    done
+  done
+  pass "push-guard acceptance matrix: ${#MATRIX_IDS[@]} cases x 2 harness entry forms, block/allow all correct"
+}
+
+test_unclassifiable_push_fails_closed() {
+  local out rc
+  out=$("$CHECK" --command 'git push "unterminated' 2>&1); rc=$?
+  expect_code 2 "$rc" "unparseable syntax mentioning git and push must deny"
+  assert_contains "$out" '[unclassifiable-push]' "unclassifiable deny must carry the reason code"
+  pass "push-guard: fails closed on unparseable syntax that mentions git and push"
+}
+
+test_unrelated_malformed_syntax_allows() {
+  local out rc
+  out=$("$CHECK" --command 'echo unterminated push "quote' 2>&1); rc=$?
+  expect_code 0 "$rc" "unparseable syntax with no git mention must allow"
+  [ -z "$out" ] || fail "unrelated malformed syntax produced output: $out"
+  pass "push-guard: allows unparseable syntax that never mentions git"
+}
+
+test_commit_message_heredoc_mentioning_git_and_push_allows() {
+  local cmd out rc
+  # Regression: a `git commit -m "$(cat <<'EOF' ... EOF)"` heredoc whose message
+  # body mentions "git" and "push" far apart (as any commit about this guard's
+  # own commits will) breaks this classifier's paren-balance tracking inside
+  # the $(...) substitution - a stray ")" in ordinary prose reads as closing
+  # the substitution early. The fail-closed unclassifiable-push path must not
+  # fire on that distant, unrelated mention; only proximate git-push text
+  # (tested elsewhere) should ever trigger it.
+  cmd=$(cat <<'OUTER'
+git commit -m "$(cat <<'EOF'
+fix(bin): document the push-guard (fm-push-guard-pretool-check.sh)
+
+This closes a gap in git history left after an earlier change (see #1234).
+EOF
+)"
+OUTER
+)
+  out=$("$CHECK" --command "$cmd" 2>&1); rc=$?
+  expect_code 0 "$rc" "a commit message mentioning git and push far apart must allow"
+  [ -z "$out" ] || fail "commit-message heredoc produced output: $out"
+  pass "push-guard: allows a git commit whose heredoc message mentions git and push far apart"
+}
+
+test_heredoc_fed_shell_running_a_real_push_denies() {
+  local cmd out rc
+  # A heredoc whose body is fed through cat into sh -c is genuinely executable
+  # (unlike a heredoc used only as a commit-message argument), so this must
+  # still deny even though the heredoc-body content is a real git push.
+  cmd=$(cat <<'OUTER'
+sh -c "$(cat <<'EOF'
+git push origin main
+EOF
+)"
+OUTER
+)
+  out=$("$CHECK" --command "$cmd" 2>&1); rc=$?
+  expect_code 2 "$rc" "a heredoc-fed shell running a real git push must deny"
+  assert_contains "$out" '[unclassifiable-push]' "the heredoc-fed push deny must carry a reason code"
+  pass "push-guard: denies a heredoc-fed sh -c that actually runs git push"
+}
+
+test_command_flag_direct() {
+  local out rc
+  out=$("$CHECK" --command 'git push origin main' 2>&1); rc=$?
+  expect_code 2 "$rc" "--command must deny an explicit main push"
+  assert_contains "$out" '[protected-branch-push]' "deny must carry the protected-branch-push reason code"
+  pass "push-guard: --command direct entry denies an explicit main push"
+}
+
+# --- the one case text cannot settle: a bare push --------------------------
+
+make_repo_on_branch() {
+  local dir=$1 branch=$2
+  git init -q "$dir"
+  git -C "$dir" commit -q --allow-empty -m init
+  git -C "$dir" branch -q -m "$branch" 2>/dev/null || git -C "$dir" checkout -q -b "$branch"
+  printf '%s\n' "$dir"
+}
+
+test_bare_push_denied_on_main() {
+  local dir out rc
+  dir=$(make_repo_on_branch "$TMP_ROOT/bare-main" main)
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push' 2>&1); rc=$?
+  expect_code 2 "$rc" "bare git push while on main must deny"
+  assert_contains "$out" '[protected-branch-push]' "bare-push-on-main deny must carry the reason code"
+  pass "push-guard: bare git push denies when the current branch is main"
+}
+
+test_bare_push_denied_on_master() {
+  local dir out rc
+  dir=$(make_repo_on_branch "$TMP_ROOT/bare-master" master)
+  # Plain `git push`, not `git push --force-with-lease`: since 2026-09-09 a
+  # force flag denies as force-push before the transport ever runs the branch
+  # check, so only an unforced bare push still exercises the master branch of
+  # that check. test_force_push_denied_on_a_feature_branch covers the force
+  # spelling this case used to carry.
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push' 2>&1); rc=$?
+  expect_code 2 "$rc" "bare git push while on master must deny"
+  assert_contains "$out" '[protected-branch-push]' "bare-push-on-master deny must carry the reason code"
+  pass "push-guard: bare git push denies when the current branch is master"
+}
+
+# --- bare force and unlanded delete are denied ------------------------------
+
+# Proves a force push is refused by the flag alone, with no reference to the
+# branch it targets: the repository below sits on a feature branch, which the
+# guard allows for an ordinary push (test_bare_push_allowed_on_feature_branch).
+test_force_push_denied_on_a_feature_branch() {
+  local dir out rc
+  dir=$(make_repo_on_branch "$TMP_ROOT/force-feature" feature-x)
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push --force-with-lease' 2>&1); rc=$?
+  expect_code 2 "$rc" "a bare force push on a feature branch must deny"
+  assert_contains "$out" '[force-push]' "a force push deny must carry the force-push reason code"
+  pass "push-guard: a force push denies on a feature branch, by the flag alone"
+}
+
+# Pins the force-push code itself, which the acceptance matrix only proves is
+# present rather than which code it is.
+test_force_push_reason_code() {
+  local out rc
+  out=$("$CHECK" --command 'git push --force origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "an explicit force push must deny"
+  assert_contains "$out" '[force-push]' "the deny must name the force-push code"
+  assert_contains "$out" 'replacement branch' "the force-push reason must name the sanctioned alternative"
+  pass "push-guard: a force push denies with the force-push reason code"
+}
+
+# Pins the branch-delete-push code, for both the flag and the refspec spelling.
+test_branch_delete_reason_code() {
+  local out rc
+  out=$("$CHECK" --command 'git push --delete origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "a remote branch deletion must deny"
+  assert_contains "$out" '[branch-delete-push]' "the deny must name the branch-delete-push code"
+  assert_contains "$out" 'superseded PR' "the delete reason must name the sanctioned alternative"
+  out=$("$CHECK" --command 'git push origin :feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "a colon delete refspec must deny"
+  assert_contains "$out" '[branch-delete-push]' "the refspec delete must carry the same code"
+  pass "push-guard: a remote branch deletion denies with the branch-delete-push code, both spellings"
+}
+
+# Pins the documented precedence: a protected target keeps reporting
+# protected-branch-push whatever else the command asks for, so every code this
+# guard emitted before force and delete joined it stays stable.
+test_protected_branch_outranks_force_and_delete() {
+  local out rc
+  out=$("$CHECK" --command 'git push --force origin main' 2>&1); rc=$?
+  expect_code 2 "$rc" "a force push to main must deny"
+  assert_contains "$out" '[protected-branch-push]' "a force push to main must still report protected-branch-push"
+  out=$("$CHECK" --command 'git push --delete origin master' 2>&1); rc=$?
+  expect_code 2 "$rc" "deleting master must deny"
+  assert_contains "$out" '[protected-branch-push]' "deleting master must still report protected-branch-push"
+  pass "push-guard: a protected target outranks the force and delete codes"
+}
+
+# Owner assignments are never authority for destructive publication.
+test_owner_marker_never_exempts_force_or_delete() {
+  local out rc
+  out=$("$CHECK" --command 'FM_PUSH_GUARD_OWNER=fm-pr-merge git push --force origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "the owner marker must not exempt a force push"
+  assert_contains "$out" '[force-push]' "the owner marker must not bypass a force refusal"
+  out=$("$CHECK" --command 'FM_PUSH_GUARD_OWNER=fm-other git push --force origin feature-x' 2>&1); rc=$?
+  expect_code 2 "$rc" "an unrecognized owner marker must not exempt a force push"
+  assert_contains "$out" '[force-push]' "the unrecognized marker must still deny as force-push"
+  pass "push-guard: owner markers never exempt a force push or a branch deletion"
+}
+
+test_bare_push_allowed_on_feature_branch() {
+  local dir out rc
+  dir=$(make_repo_on_branch "$TMP_ROOT/bare-feature" feature-x)
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push' 2>&1); rc=$?
+  expect_code 0 "$rc" "bare git push on a feature branch must allow"
+  [ -z "$out" ] || fail "bare push on a feature branch produced output: $out"
+  pass "push-guard: bare git push allows when the current branch is not main/master"
+}
+
+test_bare_push_dash_c_uses_named_directory() {
+  local dir out rc
+  dir=$(make_repo_on_branch "$TMP_ROOT/bare-dashc" main)
+  out=$(cd "$TMP_ROOT" && "$CHECK" --claude --command "git -C $dir push origin" 2>&1); rc=$?
+  expect_code 2 "$rc" "a repository-only push naming main via -C must deny"
+  assert_contains "$out" '[protected-branch-push]' "the -C-resolved deny must carry the reason code"
+  pass "push-guard: git -C <dir> push origin resolves the branch check to that directory"
+}
+
+test_bare_push_allows_when_not_a_git_repo() {
+  local dir out rc
+  dir="$TMP_ROOT/not-a-repo"
+  mkdir -p "$dir"
+  out=$(cd "$dir" && "$CHECK" --claude --command 'git push' 2>&1); rc=$?
+  expect_code 0 "$rc" "a bare push outside any git repository must fail open"
+  [ -z "$out" ] || fail "bare push outside a repo produced output: $out"
+  pass "push-guard: fails open on a bare push when the current branch cannot be determined"
+}
+
+# --- fail-open transport behavior ------------------------------------------
+
+test_fail_open_empty_stdin() {
+  local out rc
+  out=$("$CHECK" < /dev/null 2>&1); rc=$?
+  expect_code 0 "$rc" "transport must exit 0 on empty stdin"
+  [ -z "$out" ] || fail "transport produced output on empty stdin: $out"
+  pass "push-guard: fails open on empty stdin"
+}
+
+test_fail_open_unparseable_json() {
+  local out rc
+  out=$(printf 'not json at all' | "$CHECK" 2>&1); rc=$?
+  expect_code 0 "$rc" "transport must exit 0 on unparseable stdin JSON"
+  [ -z "$out" ] || fail "transport produced output on unparseable JSON: $out"
+  pass "push-guard: fails open on unparseable stdin JSON"
+}
+
+test_fail_open_missing_node() {
+  local fakebin tool tool_path out rc
+  fakebin=$(fm_fakebin "$TMP_ROOT/nonode")
+  for tool in bash sh git dirname cat printf sed tr jq; do
+    tool_path=$(command -v "$tool") || continue
+    ln -s "$tool_path" "$fakebin/$tool"
+  done
+  # node deliberately absent from this PATH.
+  out=$(PATH="$fakebin" "$CHECK" --command 'git push origin main' 2>&1); rc=$?
+  expect_code 0 "$rc" "transport must fail open when node is unavailable"
+  [ -z "$out" ] || fail "transport produced output without node: $out"
+  pass "push-guard: fails open (never blocks) when node is missing"
+}
+
+test_fail_open_missing_jq_on_stdin() {
+  local fakebin tool tool_path out rc
+  fakebin=$(fm_fakebin "$TMP_ROOT/nojq")
+  for tool in bash sh git dirname cat printf sed tr node; do
+    tool_path=$(command -v "$tool") || continue
+    ln -s "$tool_path" "$fakebin/$tool"
+  done
+  # jq deliberately absent: the stdin transport cannot extract the command.
+  out=$(printf '{"tool_input":{"command":"git push origin main"}}' | PATH="$fakebin" "$CHECK" 2>&1); rc=$?
+  expect_code 0 "$rc" "stdin transport must fail open when jq is unavailable"
+  [ -z "$out" ] || fail "stdin transport produced output without jq: $out"
+  pass "push-guard: fails open on the stdin path when jq is missing"
+}
+
+# --- prefilter fast path ----------------------------------------------------
+
+test_prefilter_skips_node_without_push_substring() {
+  local fakebin marker tool tool_path out rc
+  fakebin=$(fm_fakebin "$TMP_ROOT/prefilter-fake")
+  marker="$TMP_ROOT/prefilter-node-called"
+  for tool in bash sh git dirname cat printf sed tr jq; do
+    tool_path=$(command -v "$tool") || continue
+    ln -s "$tool_path" "$fakebin/$tool"
+  done
+  cat > "$fakebin/node" <<EOF
+#!/usr/bin/env bash
+: > "$marker"
+exit 0
+EOF
+  chmod +x "$fakebin/node"
+  out=$(PATH="$fakebin" "$CHECK" --command 'git status' 2>&1); rc=$?
+  expect_code 0 "$rc" "prefilter must fast-allow a command with no push substring"
+  [ -z "$out" ] || fail "prefilter fast-allow produced output: $out"
+  [ ! -e "$marker" ] || fail "prefilter fast-allow still invoked the node policy owner"
+  pass "push-guard: prefilter fast-allows (skips node) when no push substring is present"
+}
+
+# --- policy CLI contract ----------------------------------------------------
+
+test_policy_cli_direct() {
+  local policy
+  policy="$ROOT/bin/fm-push-guard-command-policy.mjs"
+  [ "$(node "$policy" --command 'git push origin main' | cut -f1)" = deny ] \
+    || fail "policy CLI must deny an explicit main push"
+  [ "$(node "$policy" --command 'git push origin feature-x')" = allow ] \
+    || fail "policy CLI must allow a non-protected target"
+  [ "$(node "$policy" --command 'git push' | cut -f1)" = check-branch ] \
+    || fail "policy CLI must return check-branch for a bare push"
+  [ "$(node "$policy")" = allow ] \
+    || fail "policy CLI must allow when no command is supplied"
+  pass "push-guard: fm-push-guard-command-policy.mjs CLI honors the deny/allow/check-branch output contract"
+}
+
+# --- registered destructive delivery paths ----------------------------------
+
+make_registered_push_repo() {
+  local name=$1 root remote client branch=$2
+  root="$TMP_ROOT/$name"
+  remote="$root/remote.git"
+  client="$root/client"
+  git init -q --bare "$remote"
+  git init -q "$client"
+  git -C "$client" checkout -q -b "$branch"
+  git -C "$client" commit -q --allow-empty -m initial
+  git -C "$client" remote add origin "$remote"
+  git -C "$client" push -q origin "$branch"
+  mkdir -p "$root/state"
+  printf 'worktree=%s\nkind=ship\n' "$client" > "$root/state/task.meta"
+  printf '%s\t%s\t%s\n' "$root" "$remote" "$client"
+}
+
+test_registered_lease_update_passes_the_real_guard_and_remote() {
+  local fixture root remote client expected out rc
+  fixture=$(make_registered_push_repo lease-live fm/guard-lease)
+  IFS=$'\t' read -r root remote client <<EOF
+$fixture
+EOF
+  expected=$(git -C "$client" rev-parse HEAD)
+  git -C "$client" commit -q --allow-empty -m rebased-result
+  out=$(FM_STATE_OVERRIDE="$root/state" "$ROOT/bin/fm-push-guard-pretool-check.sh" --command "git -C $client push --force-with-lease=fm/guard-lease:$expected origin fm/guard-lease" 2>&1); rc=$?
+  expect_code 0 "$rc" "a registered exact lease must pass the real guard: $out"
+  [ -z "$out" ] || fail "registered exact lease produced output: $out"
+  git -C "$client" push -q --force-with-lease="fm/guard-lease:$expected" origin fm/guard-lease \
+    || fail "the scratch remote rejected the guard-authorized lease update"
+  pass "push-guard: a registered exact lease update passes the real guard and scratch remote"
+}
+
+test_registered_landed_delete_passes_and_unlanded_delete_refuses() {
+  local fixture root remote client out rc
+  fixture=$(make_registered_push_repo delete-live fm/guard-delete)
+  IFS=$'\t' read -r root remote client <<EOF
+$fixture
+EOF
+  out=$(FM_STATE_OVERRIDE="$root/state" "$ROOT/bin/fm-push-guard-pretool-check.sh" --command "git -C $client push --delete origin fm/guard-delete" 2>&1); rc=$?
+  expect_code 2 "$rc" "an unlanded registered task branch delete must deny"
+  assert_contains "$out" '[branch-delete-push] deleting a remote branch is blocked until bin/fm-pr-merge.sh records that task' "unlanded delete must carry the exact refusal"
+  printf 'landed_pr=https://example.invalid/pull/1\n' >> "$root/state/task.meta"
+  out=$(FM_STATE_OVERRIDE="$root/state" "$ROOT/bin/fm-push-guard-pretool-check.sh" --command "git -C $client push --delete origin fm/guard-delete" 2>&1); rc=$?
+  expect_code 0 "$rc" "a landed registered task branch delete must pass the real guard"
+  [ -z "$out" ] || fail "landed delete produced output: $out"
+  git -C "$client" push -q --delete origin fm/guard-delete \
+    || fail "the scratch remote rejected the guard-authorized delete"
+  pass "push-guard: only a landed registered task branch delete passes the real guard and scratch remote"
+}
+
+# --- per-harness wiring -----------------------------------------------------
+
+test_scripts_are_shellcheck_clean() {
+  local out
+  command -v shellcheck >/dev/null 2>&1 || { pass "shellcheck not installed, skipping"; return; }
+  out=$("$ROOT/bin/fm-lint.sh" "$ROOT/bin/fm-push-guard-pretool-check.sh" 2>&1) \
+    || fail "bin/fm-push-guard-pretool-check.sh is not lint-clean under the pinned definition: $out"
+  pass "bin/fm-push-guard-pretool-check.sh is clean under bin/fm-lint.sh"
+}
+
+test_registrations_present() {
+  jq -e '[.hooks.PreToolUse[]?.hooks[]?.command // empty] | any(contains("fm-push-guard-pretool-check.sh"))' \
+    "$ROOT/.claude/settings.json" >/dev/null 2>&1 \
+    || fail ".claude/settings.json does not register fm-push-guard-pretool-check.sh"
+  jq -e '[.hooks.PreToolUse[]?.hooks[]?.command // empty] | any(contains("fm-push-guard-pretool-check.sh"))' \
+    "$ROOT/.codex/hooks.json" >/dev/null 2>&1 \
+    || fail ".codex/hooks.json does not register fm-push-guard-pretool-check.sh"
+  pass "push-guard: registered in .claude/settings.json and .codex/hooks.json"
+}
+
+test_full_acceptance_matrix
+test_unclassifiable_push_fails_closed
+test_unrelated_malformed_syntax_allows
+test_commit_message_heredoc_mentioning_git_and_push_allows
+test_heredoc_fed_shell_running_a_real_push_denies
+test_command_flag_direct
+test_bare_push_denied_on_main
+test_bare_push_denied_on_master
+test_bare_push_allowed_on_feature_branch
+test_force_push_denied_on_a_feature_branch
+test_force_push_reason_code
+test_branch_delete_reason_code
+test_protected_branch_outranks_force_and_delete
+test_owner_marker_never_exempts_force_or_delete
+test_bare_push_dash_c_uses_named_directory
+test_bare_push_allows_when_not_a_git_repo
+test_fail_open_empty_stdin
+test_fail_open_unparseable_json
+test_fail_open_missing_node
+test_fail_open_missing_jq_on_stdin
+test_prefilter_skips_node_without_push_substring
+test_policy_cli_direct
+test_registered_lease_update_passes_the_real_guard_and_remote
+test_registered_landed_delete_passes_and_unlanded_delete_refuses
+test_scripts_are_shellcheck_clean
+test_registrations_present
