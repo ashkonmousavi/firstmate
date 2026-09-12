@@ -137,15 +137,7 @@
       "audience": "agent-runtime"
     },
     {
-      "path": ".agents/skills/deploy/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
       "path": ".agents/skills/diagnostic-reasoning/SKILL.md",
-      "audience": "agent-runtime"
-    },
-    {
-      "path": ".agents/skills/research-first-decisions/SKILL.md",
       "audience": "agent-runtime"
     },
     {
@@ -377,10 +369,6 @@
       "audience": "maintainer-architecture"
     },
     {
-      "path": "docs/push-guard.md",
-      "audience": "maintainer-architecture"
-    },
-    {
       "path": "docs/remote-secondmates.md",
       "audience": "operator-current"
     },
@@ -474,10 +462,6 @@
     },
     {
       "path": "docs/verification/secondmate-parent-channel.md",
-      "audience": "maintainer-verification"
-    },
-    {
-      "path": "docs/verification/push-guard.md",
       "audience": "maintainer-verification"
     },
     {

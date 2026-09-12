@@ -14,13 +14,6 @@
 # merge, so a captain approval must be recorded as an `answer --release` before
 # this entrypoint is invoked. The lock ends when the fast-forward returns;
 # docs/captain-hold-lifecycle.md owns the accepted merge-to-cleanup residual.
-# After landing, fail-softly refreshes that project's GitNexus main-index
-# (bin/fm-gitnexus-reindex.sh owns the mirror, flag, and never-mutate-the-clone
-# contract); an index failure never fails the landing.
-# This script does not itself run `git push`, and no owner marker grants a
-# bypass. A future direct push to main/master is refused by the guard and must
-# land through a PR or this script's guarded local merge instead
-# (docs/push-guard.md).
 # Usage: fm-merge-local.sh <task-id>
 set -eu
 
@@ -140,6 +133,3 @@ MERGE_CONTROL_LOCK=
 [ "$merge_status" -eq 0 ] || exit "$merge_status"
 after=$(git -C "$PROJ" rev-parse --short "$DEFAULT")
 echo "merged $BRANCH into local $DEFAULT ($before -> $after) in $PROJ"
-# Fail-soft: bin/fm-gitnexus-reindex.sh owns its own WARN-and-continue
-# contract and never touches this clone, only a mirror it owns.
-"$FM_ROOT/bin/fm-gitnexus-reindex.sh" "$PROJ" || true

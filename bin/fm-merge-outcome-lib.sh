@@ -23,14 +23,6 @@
 # is committed, so a failed commit stays eligible for at-least-once retry and
 # may rarely duplicate rather than leave a merge silent.
 #
-# A confirmed merge is also the moment a deploy-managed project can go live, so
-# this operation hands off to bin/fm-deploy-trigger.sh once the outcome is
-# recorded. That handoff runs after the lock is released, only on a first
-# observation, and never changes what this function returns: a caller that has
-# already merged reads a non-zero return as "the merge landed and the record did
-# not", which a failed deploy is not. A project with no deploy policy makes the
-# handoff a no-op, so this changes nothing for a home that deploys nothing.
-#
 # Sourced by bin/fm-pr-merge.sh, bin/fm-watch.sh, and tests. No side effects on
 # source beyond its sourced libraries.
 
@@ -50,10 +42,11 @@ FM_MERGE_OUTCOME_ALREADY_RECORDED=false
 #   self - this home performed the merge.
 #   poll - this home's merge poll detected the merge, so the canonical outcome
 #          also wakes this home after any upward hop needed by a secondmate.
-# Optional <authority> is yolo or away-grant when the merge ran while the
-# away-posture record existed; it is appended to the ledger line. Known audit
-# gap: queued merges and a poll that wins direct-merge deduplication publish an
-# untagged row because the poll path does not persist merge authority.
+# Optional <authority> is yolo, away-grant, attended, or external. Yolo,
+# away-grant, and external are appended to the ledger line; attended remains
+# untagged. The merge entrypoint supplies its authority after forge acceptance,
+# while the poll supplies the persisted identity-bound value or external when
+# no matching record proves that this home authorized the merge.
 #
 # Returns 0 when the outcome is recorded (or already was), 2 on an invalid
 # request, 3 when this home's own role or parent binding cannot be read well
@@ -70,8 +63,8 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
   FM_MERGE_OUTCOME_ALREADY_RECORDED=false
   case "$origin" in self|poll) ;; *) return 2 ;; esac
   case "$authority" in
-    yolo|away-grant) suffix=" $authority" ;;
-    '') ;;
+    yolo|away-grant|external) suffix=" $authority" ;;
+    attended|'') ;;
     *) return 2 ;;
   esac
   fm_pr_task_id_valid "$id" || return 2
@@ -115,8 +108,5 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
       "$provider" "$host" "$path" "$number" || status=1
   fi
   fm_lock_release "$lock"
-  if [ "$status" -eq 0 ] && [ -x "$_FM_MERGE_OUTCOME_LIB_DIR/fm-deploy-trigger.sh" ]; then
-    "$_FM_MERGE_OUTCOME_LIB_DIR/fm-deploy-trigger.sh" "$home" "$state" "$id" || true
-  fi
   return "$status"
 }
