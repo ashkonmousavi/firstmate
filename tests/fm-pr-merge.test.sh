@@ -2789,3 +2789,76 @@ test_away_grant_and_yolo_and_hold_for_return
 test_away_grant_does_not_bypass_red_or_identity
 test_unreadable_away_record_refuses_merge
 test_allow_red_refused_on_gitlab
+
+# config/required-checks/<project> names checks that must succeed at the head.
+# make_case records project=$case_dir/project, so the file is keyed "project".
+write_required_checks() {  # <case_dir> <check-name>...
+  local case_dir=$1
+  shift
+  mkdir -p "$case_dir/home/config/required-checks"
+  printf '%s\n' "$@" > "$case_dir/home/config/required-checks/project"
+}
+
+run_required_check_case() {  # <case_dir> <rollup-entry-json>...
+  local case_dir=$1 head=deadbeefcafefeed0000000000000000deadbeef
+  shift
+  mkdir -p "$case_dir/wt"
+  add_gh_mocks "$case_dir" "$head"
+  write_github_rollup_json "$case_dir" "$head" "$@"
+  : > "$case_dir/gh-axi.log"
+  write_required_checks "$case_dir" repository
+  set +e
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/9 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr"
+  REQUIRED_CASE_RC=$?
+  set -e
+}
+
+test_named_required_check_missing_refuses() {
+  local case_dir
+  case_dir=$(make_case required-check-missing)
+  run_required_check_case "$case_dir" "$(check_run ci COMPLETED SUCCESS)"
+  [ "$REQUIRED_CASE_RC" -ne 0 ] || fail "required-check-missing: a missing named check merged"
+  assert_grep "required check 'repository' has not succeeded" "$case_dir/stderr" \
+    "required-check-missing: the refusal must name the missing check"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" "required-check-missing: a merge was attempted"
+  pass "fm-pr-merge refuses when a named required check is absent at the head"
+}
+
+test_named_required_check_skipped_refuses() {
+  local case_dir
+  case_dir=$(make_case required-check-skipped)
+  run_required_check_case "$case_dir" "$(check_run repository COMPLETED SKIPPED)"
+  [ "$REQUIRED_CASE_RC" -ne 0 ] || fail "required-check-skipped: a skipped named check merged"
+  assert_grep "required check 'repository' has not succeeded" "$case_dir/stderr" \
+    "required-check-skipped: the refusal must name the skipped check"
+  assert_no_grep 'pr merge' "$case_dir/gh.log" "required-check-skipped: a merge was attempted"
+  pass "fm-pr-merge refuses when a named required check only skipped"
+}
+
+test_named_required_check_success_merges() {
+  local case_dir
+  case_dir=$(make_case required-check-success)
+  run_required_check_case "$case_dir" \
+    "$(check_run repository COMPLETED SUCCESS)" \
+    "$(check_run 'full-lane battery passed' COMPLETED SKIPPED)"
+  expect_code 0 "$REQUIRED_CASE_RC" "required-check-success: a succeeded named check must merge"
+  assert_logged_gh_merge "$case_dir" 9 example/repo --squash
+  pass "fm-pr-merge merges when every named required check succeeded, beside an unnamed skip"
+}
+
+test_superseded_named_required_check_failure_merges() {
+  local case_dir
+  case_dir=$(make_case required-check-superseded)
+  run_required_check_case "$case_dir" \
+    "$(check_run repository COMPLETED FAILURE 2026-09-12T10:00:00Z)" \
+    "$(check_run repository COMPLETED SUCCESS 2026-09-12T10:05:00Z)"
+  expect_code 0 "$REQUIRED_CASE_RC" "required-check-superseded: a failure superseded by a later success must merge"
+  assert_logged_gh_merge "$case_dir" 9 example/repo --squash
+  pass "fm-pr-merge merges when a named check's earlier failure was superseded by a later success"
+}
+
+test_named_required_check_missing_refuses
+test_named_required_check_skipped_refuses
+test_named_required_check_success_merges
+test_superseded_named_required_check_failure_merges

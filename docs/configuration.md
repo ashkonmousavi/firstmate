@@ -300,6 +300,15 @@ A newer merge rewrites that record with its own commit rather than queueing behi
 
 [`bin/fm-deploy-status.sh`](../bin/fm-deploy-status.sh), [`bin/fm-deploy.sh`](../bin/fm-deploy.sh), and [`bin/fm-deploy-trigger.sh`](../bin/fm-deploy-trigger.sh) own their exact commands, flags, and refusals in their own headers and `--help`.
 
+## Required checks for GitHub PR merges (config/required-checks/PROJECT)
+
+`config/required-checks/<project>` is an optional local, gitignored, per-project file read by `bin/fm-pr-merge.sh` before a GitHub merge.
+It is keyed by the basename of the project directory recorded in the task's own `project=` metadata, so a project cloned as `projects/XAUUSD` is keyed `XAUUSD`.
+It lists one check name per line, exactly as GitHub reports the check run; blank lines and lines starting with `#` are ignored.
+Each named check must be present at the pull request's live head, and its current run must have concluded success.
+A named check that is missing, still running, neutral, skipped, or failed refuses the merge by name, and `--allow-red` never waives it.
+Without the file the default judgment is unchanged: every check found at the head must be green, so a pull request with no checks at all can merge.
+
 ## Secondmate routes (data/secondmates.md)
 
 Persistent secondmate routes live locally in `data/secondmates.md`.

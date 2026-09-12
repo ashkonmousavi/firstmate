@@ -13,6 +13,10 @@
 # is open, not a draft, mergeable, free of conflicts, and every unwaived check
 # is green at the exact current head commit, where github_checks_not_green below
 # owns what makes a check green and judges each one by its current run.
+# A project may also name checks that must succeed: config/required-checks/<project>
+# lists one check name per line, and each named check must be present at that
+# head with its current run concluded success, so neutral, skipped, or absent
+# refuses and --allow-red never waives it (github_required_checks_not_green).
 # Every failing condition is reported, not
 # just the first. The verified head is then passed to gh as
 # --match-head-commit, so a push that lands between that read and the merge
@@ -106,6 +110,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
@@ -526,10 +531,56 @@ github_checks_not_green() {
   ' 2>/dev/null || return 1
 }
 
+# This task's optional config/required-checks/<project> file, keyed by the
+# basename of the project= directory in its own metadata. Prints nothing when
+# either is absent, which leaves the default check judgment unchanged.
+github_required_checks_file() {
+  local project_path project_name candidate
+  project_path=$(grep '^project=' "$META" | tail -1 | cut -d= -f2- || true)
+  [ -n "$project_path" ] || return 0
+  project_name=$(basename "$project_path")
+  candidate="$CONFIG/required-checks/$project_name"
+  [ -f "$candidate" ] || return 0
+  printf '%s\n' "$candidate"
+}
+
+# The named required checks that have not succeeded at this head, one per
+# line. Each check named in the file must be present in the rollup with its
+# current run concluded SUCCESS; neutral or skipped does not count, so a gate
+# job skipped by a cancelled run never merges. An earlier non-success run of
+# the same name is superseded only when it started strictly before a
+# successful one, the rule github_checks_not_green applies. Blank lines and
+# lines starting with # are ignored. Fails when the rollup cannot be read.
+github_required_checks_not_green() {
+  local json=$1 file=$2
+  printf '%s' "$json" | jq -r --rawfile names "$file" '
+    def settled_at:
+      if type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+      then . else null end;
+    if (.statusCheckRollup | type) != "array" then error("no check rollup") else . end
+    | [ .statusCheckRollup[]
+        | if .__typename == "CheckRun" then
+            {name: (.name // ""), ok: (.status == "COMPLETED" and .conclusion == "SUCCESS"), at: (.startedAt | settled_at)}
+          else
+            {name: (.context // ""), ok: (.state == "SUCCESS"), at: null}
+          end
+      ] as $runs
+    | $names | split("\n") | map(sub("\\s+$"; "")) | map(select(length > 0 and (startswith("#") | not))) | unique[]
+    | . as $name
+    | [$runs[] | select(.name == $name)] as $mine
+    | ([$mine[] | select(.ok) | .at | select(. != null)] | max) as $newest_ok
+    | select(
+        ([$mine[] | select(.ok)] | length) == 0
+        or any($mine[] | select(.ok | not); .at == null or $newest_ok == null or .at >= $newest_ok)
+      )
+    | $name
+  ' 2>/dev/null || return 1
+}
+
 # Pre-merge conditions for a GitHub pull request, read from one live view.
 # Sets FM_PR_MERGE_HEAD to the verified head on success.
 github_verify_mergeable() {
-  local json fields line red name covered
+  local json fields line red name covered required_file missing
   local total=0 named=0 refusals=''
   local state='' draft='' mergeable='' merge_state='' live_head=''
 
@@ -613,6 +664,21 @@ FIELDS
   done <<EOF
 $red
 EOF
+
+  required_file=$(github_required_checks_file)
+  if [ -n "$required_file" ]; then
+    if ! missing=$(github_required_checks_not_green "$json" "$required_file"); then
+      echo "error: could not read the GitHub pull request state before merging" >&2
+      return 1
+    fi
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      refusals="$refusals  - required check '$name' has not succeeded at this head
+"
+    done <<EOF
+$missing
+EOF
+  fi
 
   if [ -n "$refusals" ]; then
     printf 'error: refusing to merge %s\n' "$URL" >&2
