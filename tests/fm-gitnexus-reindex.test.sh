@@ -246,7 +246,8 @@ log="$home/gitnexus.log"
 : > "$log"
 fake_gitnexus "$fakebin" "$log"
 
-mkdir -p "$home/state"
+# fm-merge-local.sh checks the captain hold before landing, which reads data/.
+mkdir -p "$home/state" "$home/data"
 fm_write_meta "$home/state/wired-local.meta" worktree="$home/wt" project="$proj" mode=local-only kind=ship
 PATH="$fakebin:$PATH" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" "$ROOT/bin/fm-merge-local.sh" wired-local >/dev/null 2>&1
 assert_grep "$home/state/gitnexus-mirrors/local-only-proj" "$log" "merge-local reindexed the project after landing"
