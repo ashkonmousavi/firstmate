@@ -13,10 +13,11 @@
 # into state/.afk-contract and prints the entry announcement (hold-for-return
 # only: no phone channel exists). The record is the posture in every harness.
 # On Pi, pi-signed, and Codex the entry ENDS there: the away daemon is no longer
-# launched, the ordinary supervision session keeps running in both postures,
-# and `start` refuses on those harnesses. Every other harness still runs the
-# daemon for now, so `start` and `start-native` require the confirmed record
-# before they launch the daemon.
+# launched, and the ordinary supervision session keeps running in both postures.
+# `start` refuses on Pi and pi-signed; on Codex it refuses unless a live legacy
+# daemon with a valid exact record needs guarded handoff to the foreground checkpoint.
+# Every other harness still runs the daemon for now, so `start` and `start-native`
+# require the confirmed record before they launch the daemon.
 # `stop` (the return, driven by bin/fm-afk-return.sh) shuts the daemon down,
 # clears state/.afk last, and archives the record under state/afk-contracts/.
 #
@@ -50,15 +51,18 @@
 #                              ids that may merge-when-green while away.
 #   fm-afk-launch.sh confirm   Promote the required proposal and print the entry
 #                              announcement. On Pi and Codex this is the whole entry.
-#   fm-afk-launch.sh start     Capture the captain pane, then (unless the daemon
-#                              is already running) launch the daemon in a fresh
-#                              non-visible terminal for the detected backend and
-#                              record it. Idempotent: an already-running daemon
-#                              just refreshes state/.afk; a recorded-but-dead
-#                              terminal is reconciled (closed by id) first.
+#   fm-afk-launch.sh start     On daemon-backed harnesses, capture the captain
+#                              pane, then (unless the daemon is already running)
+#                              launch it in a fresh non-visible terminal for the
+#                              detected backend and record it. On Codex, refuse
+#                              unless a live legacy daemon needs guarded handoff
+#                              to the foreground checkpoint. Idempotent:
+#                              an already-running daemon just refreshes state/.afk;
+#                              a recorded-but-dead terminal is reconciled first.
 #   fm-afk-launch.sh start-native
 #                              Prepare lifecycle state for a harness-native
 #                              background job and record that no terminal exists.
+#                              Codex follows the same guarded legacy handoff.
 #   fm-afk-launch.sh stop      Correct-ordered exit: SIGTERM the daemon so its
 #                              cleanup flushes WHILE state/.afk is still present,
 #                              wait for it, close the recorded terminal by exact
