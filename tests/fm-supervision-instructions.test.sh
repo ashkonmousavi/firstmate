@@ -85,6 +85,7 @@ test_codex_legacy_daemon_repair_routes_to_handoff() {
   sleep 60 &
   daemon_pid=$!
   printf '%s\n' "$daemon_pid" > "$home/state/.supervise-daemon.lock/pid"
+  # shellcheck source=/dev/null
   ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$home/state/.supervise-daemon.lock/pid-identity" ) || true
 
   out=$(FM_HOME="$home" "$RENDER" --harness codex --afk 1 --repair-line)

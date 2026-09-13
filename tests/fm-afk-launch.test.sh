@@ -136,6 +136,7 @@ EOF
     _ "$lock" "$st/state/.afk" "$st/daemon-flushed" &
   daemon_pid=$!
   printf '%s' "$daemon_pid" > "$lock/pid"
+  # shellcheck source=/dev/null
   ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$lock/pid-identity" ) || true
   printf 'tmux\tlegacy-terminal\towned\n' > "$st/state/.afk-daemon-terminal"
   out=$(FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" FM_ROOT_OVERRIDE="$fake_root" FM_TEST_HARNESS=codex \
