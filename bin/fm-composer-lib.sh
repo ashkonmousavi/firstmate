@@ -998,6 +998,8 @@ _fm_composer_wrap_region_ok() {  # <plain-screen> <glyph-row> <cursor-row>
 # suggestion happened to wrap; any surviving text is pending when styling can
 # prove it real and unknown otherwise (the same styled=0 degradation as the
 # glyph row itself).
+# This verdict is shared by fm_task_inbox_ring and fm-send durable doorbells;
+# it controls safe composer delivery independently of daemon supervision.
 _fm_composer_codex_decorated_idle() {  # <screen> <styled> <glyph-row> <last-row>
   local screen=$1 styled=$2 first=$3 last=$4 row raw plain content glyph dot decoration_row=0
   [ "$styled" = 1 ] || return 1

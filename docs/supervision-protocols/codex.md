@@ -13,7 +13,7 @@ Whenever this session owns supervision, including while the away-posture record 
 8. Failure or missing cycle only: drain queued wakes, inspect the failure, then start a fresh foreground checkpoint.
 
 Away mode changes notification and decision handling, not this ownership loop.
-Do not launch `bin/fm-afk-launch.sh start` or finalize to an idle prompt while supervision is needed.
+Do not launch `bin/fm-afk-launch.sh start` except when the repair line identifies a live legacy away daemon for its guarded handoff, and do not finalize to an idle prompt while supervision is needed.
 The foreground checkpoint returns durable watcher output directly to Codex without typing into or submitting the composer, so pending user text remains untouched.
 
 Codex cannot reason while a foreground tool call is running.
