@@ -1,0 +1,5 @@
+1. Captain, consult Navigator for ROADMAP/OpenSpec sequencing before preparing the new work wave. Navigator advises and prepares; the primary Firstmate remains accountable for the plan.
+
+2. Dispatch the independently authorized task without waiting for Navigator. Navigator’s unavailability does not create an approval queue.
+
+3. The primary Firstmate makes the final sequencing decision. Navigator’s advice gates preparation quality and dependency-aware sequencing, not authorization or dispatch.
