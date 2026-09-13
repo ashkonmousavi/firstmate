@@ -2424,6 +2424,29 @@ EOF
   pass "next step delegates watcher ownership to the AFK daemon"
 }
 
+test_codex_record_only_away_posture_is_reported_active() {
+  local rec root home fakebin out
+  rec=$(new_world codex-record-only-away)
+  IFS='|' read -r root home fakebin <<EOF
+$rec
+EOF
+  make_fake_toolchain "$fakebin"
+  make_fake_ps_harness "$fakebin" codex
+  : > "$home/state/.afk-contract"
+
+  out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
+
+  assert_contains "$out" "- Away mode: active; Codex foreground checkpoint continues to own the watcher" \
+    "record-only Codex away posture was reported inactive or daemon-owned"
+  assert_not_contains "$out" "- Away mode: inactive." \
+    "record-only Codex away posture was reported inactive"
+  assert_contains "$out" "the ordinary harness supervision session continues under the posture record" \
+    "record-only Codex away next step selected the daemon"
+  assert_not_contains "$out" "ensure the daemon is running" \
+    "record-only Codex away next step selected the daemon"
+  pass "session start reports record-only Codex away posture and foreground ownership"
+}
+
 test_supervision_block_exactly_one_and_pi_diagnostic() {
   local rec root home fakebin out block_count wake_line sup_line context_line
   rec=$(new_world pi-supervision-block)
@@ -2657,6 +2680,7 @@ test_backlog_compact_tasks_axi_unavailable_uses_manual_fallback
 test_fleet_digest_empty_fleet
 test_next_step_sources_x_mode_cadence
 test_next_step_afk_delegates_to_daemon
+test_codex_record_only_away_posture_is_reported_active
 test_supervision_block_exactly_one_and_pi_diagnostic
 test_pi_signed_primary_uses_pi_extensions_without_identity_normalization
 test_pi_diagnostic_rejects_stale_loaded_marker

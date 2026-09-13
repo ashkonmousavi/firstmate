@@ -42,6 +42,65 @@ test_conditional_stanzas() {
   pass "renderer includes read-only, afk, and effective x-mode current-state stanzas"
 }
 
+test_codex_away_keeps_foreground_checkpoint_ownership() {
+  local home out
+  home="$TMP_ROOT/codex-away"
+  mkdir -p "$home/state" "$home/config"
+
+  out=$(FM_HOME="$home" FM_CODEX_WATCH_CHECKPOINT=7 \
+    "$RENDER" --harness codex --afk 1)
+  assert_contains "$out" "Codex foreground checkpoint continues to own the watcher" \
+    "codex away instructions transferred ownership to the daemon"
+  assert_contains "$out" "bin/fm-watch-checkpoint.sh --seconds" \
+    "codex away instructions lost the bounded checkpoint"
+  assert_not_contains "$out" "daemon owns the watcher" \
+    "codex away instructions still advertise the broken daemon route"
+
+  out=$(FM_HOME="$home" FM_CODEX_WATCH_CHECKPOINT=7 \
+    "$RENDER" --harness codex --afk 1 --repair-line)
+  assert_contains "$out" "foreground checkpoint" \
+    "codex away repair line did not preserve foreground ownership"
+  assert_not_contains "$out" "ensure the daemon is running" \
+    "codex away repair line still selects the daemon"
+
+  out=$(FM_HOME="$home" "$RENDER" --harness claude --afk 1 --repair-line)
+  assert_contains "$out" "ensure the daemon is running" \
+    "non-codex away repair unexpectedly lost daemon ownership"
+  for harness in pi pi-signed; do
+    out=$(FM_HOME="$home" "$RENDER" --harness "$harness" --afk 1)
+    assert_contains "$out" "Pi supervision session continues to own the watcher" \
+      "$harness away instructions incorrectly selected the daemon"
+    out=$(FM_HOME="$home" "$RENDER" --harness "$harness" --afk 1 --repair-line)
+    assert_not_contains "$out" "ensure the daemon is running" \
+      "$harness away repair incorrectly selected the daemon"
+  done
+  pass "renderer keeps Codex foreground checkpoint ownership active while away"
+}
+
+test_codex_legacy_daemon_repair_routes_to_handoff() {
+  local home daemon_pid out
+  home="$TMP_ROOT/codex-legacy-daemon"
+  mkdir -p "$home/state/.supervise-daemon.lock" "$home/config"
+  : > "$home/state/.afk"
+  sleep 60 &
+  daemon_pid=$!
+  printf '%s\n' "$daemon_pid" > "$home/state/.supervise-daemon.lock/pid"
+  # shellcheck source=/dev/null
+  ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$home/state/.supervise-daemon.lock/pid-identity" ) || true
+
+  out=$(FM_HOME="$home" "$RENDER" --harness codex --afk 1 --repair-line)
+  kill "$daemon_pid" 2>/dev/null || true
+  wait "$daemon_pid" 2>/dev/null || true
+
+  assert_contains "$out" 'bin/fm-afk-launch.sh start' \
+    "a live legacy Codex daemon was sent to the blocked checkpoint"
+  assert_contains "$out" 'guarded handoff' \
+    "legacy Codex recovery did not identify the handoff"
+  assert_not_contains "$out" 'bin/fm-watch-checkpoint.sh --seconds' \
+    "legacy Codex recovery directed a checkpoint before retiring the daemon"
+  pass "renderer routes a live legacy Codex daemon through its guarded handoff"
+}
+
 test_repair_lines() {
   local home out
   home="$TMP_ROOT/repair-home"
@@ -196,6 +255,8 @@ test_pi_snippet_uses_effective_extension_path() {
 test_selected_harness_block_only
 test_unknown_fallback
 test_conditional_stanzas
+test_codex_away_keeps_foreground_checkpoint_ownership
+test_codex_legacy_daemon_repair_routes_to_handoff
 test_repair_lines
 test_cross_harness_ordinary_continuation_and_repair_matrix
 test_pi_signed_preserves_identity_with_pi_supervision_protocol

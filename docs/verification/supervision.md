@@ -66,13 +66,14 @@ The third is recorded below.
 | --- | --- | --- | --- | --- |
 | Claude | 2.1.222 (Claude Code) | `source=startup`, token quoted back in both `-p` and the TUI | `/clear` reports `source=clear` and `/compact` reports `source=compact`; both re-injected a fresh token that the model quoted back | `claude --continue` reports `source=resume` |
 | Codex | codex-cli 0.146.0 | `source=startup` under `codex exec`, token quoted back | Not reachable from a tracked project registration; see the limit below | `codex exec resume --last` reports `source=resume` |
+| Codex interactive TUI | codex-cli 0.154.0 | Trusted tracked project hook injected the full `SESSION START -` digest before the first model turn | Not tested | Restarted TUI again received a startup digest; compaction and re-emit not tested |
 | Pi | 0.82.0 | `source=startup`, token quoted back in both `-p` and the TUI | `/new` raises `session_start` reason `new`, which the extension maps to `clear`; `/compact` raises `session_compact`, and both freshly injected source-stamped tokens were quoted back | `pi -c` reports reason `startup`, not `resume` |
 
 Two harness-specific consequences are load-bearing rather than incidental.
 
-Codex's interactive TUI fired no project `SessionStart` hook at all in the same lab where `codex exec` fired it reliably, which matches the earlier 2026-07-28 finding for 0.145.0.
-Codex's run tier is therefore verified only for `codex exec` startup and context-preserving resume.
-The interactive TUI is a known uncovered gap: Firstmate has no tracked session-open, compaction, or re-emit channel there, ships no global hook, and does not claim instruction-refresh delivery for that surface.
+Codex's interactive TUI fired no project `SessionStart` hook in the 0.146.0 lab, matching the earlier 0.145.0 result.
+The 0.154.0 trusted-project lab supersedes that negative startup observation: the tracked hook injected the digest into model context and recorded the real TUI pid as the session-lock holder.
+No interactive compaction or re-emit claim follows from that startup result.
 
 Pi compaction was verified on 2026-08-05 with Pi 0.82.0 in the same throwaway lab after setting `.pi/settings.json` `compaction.keepRecentTokens` to 200 and completing one substantial assistant-prose turn before issuing `/compact`.
 Pi reported `Compacted from 7,697 tokens`, the recorder observed `session_compact`, and the model quoted the freshly injected `source=compact` token back.
@@ -251,6 +252,27 @@ The blocking and bounded-follow-up mechanisms were validated across seven harnes
 | omp | 18.1.11 | Blocking `session_stop` hook returning `{ continue: true, additionalContext }` | In the isolated rpc lab (2026-09-05), the successor watcher was frozen with `SIGSTOP` until its beacon passed the lab `FM_GUARD_GRACE` of 20s while its arm child stayed attached (a killed watcher closes its arm child and the extension re-arms before the guard can fire); the next turn end raised the guard, the guard spy recorded `rc=2` followed by a stop carrying `stop_hook_active: true`, omp compelled a continuation carrying the `turn-end-guard` operational text, the `fm_watch_arm_omp` invocation count then rose to at least two, and a live watcher held the home lock after the thaw; the flagged stop was allowed, so exactly one continuation ran. `session_stop` never fired for an interrupted turn. |
 | Grok | 0.2.112 native and 0.2.73 pre-native | Running-payload adaptive `Stop` | Native false-to-true continuation stayed in one process with two model turns and zero resume launches; the field-absent pre-native process launched exactly one guarded resume. |
 | Cursor | 2026.08.11-e8db854 | Awaited `stop` hook park returning one `followup_message` | Exit 2 ended the turn normally, proving it cannot block; a returned follow-up ran a genuine second turn; a sleeping hook held the boundary open and the wake landed after it; `loop_limit` stopped the hook being invoked at its ceiling. |
+
+### Codex away foreground delivery, 2026-09-13
+
+Codex 0.154.0 ran in a trusted plain Firstmate clone under an isolated non-default Herdr 0.7.3 session with `FM_HOME` and `FM_STATE_OVERRIDE` bound to that clone.
+The startup hook injected `SESSION START -` into the real TUI model context and recorded the TUI pid in `state/.lock`.
+With a confirmed away-posture record and one in-flight lab worker, the tracked Stop hook blocked a final reply when no foreground watcher existed and directed a checkpoint.
+A separate real Codex worker appended a unique `done:` status.
+The checkpoint returned `signal: .../lab-worker.status`, the supervisor's drain printed `WAKE_ACK_REQUIRED: ... --ack-through 2`, and the supervisor wrote the exact status token to an acknowledgement file plus the assigned `DONE` action before running that acknowledgement.
+With a literal unsubmitted draft visible in the supervisor composer, a second worker completion was handled through the checkpoint and the draft remained visible and unsubmitted.
+No text-injection path or wrong-pane submission was used.
+With no live legacy daemon, `bin/fm-afk-launch.sh start` refused on Codex, and `stop` archived the record without launching a daemon.
+After the supervisor exited, a third completion was appended; a new real Codex TUI received the startup status backstop, wrote the assigned `RESTARTED` action, acknowledged the presented generation, and reached idle after the lab worker marker was retired.
+The restart exposed the status through both the backstop and a later watcher signal, so that path requires idempotent handling rather than a claim of exactly-once presentation.
+
+A later read-only capture of a real idle Codex navigator showed its dim `Ask Codex to do anything` placeholder surrounded by animated single-dot Braille cells and a model footer.
+On the identical 20-row raw ANSI capture, the pre-repair composer classifier returned `pending` and the repaired classifier returned `empty`.
+The text-only capture still returns `pending` because it lacks styling proof, while isolated real Codex drafts containing the exact placeholder words or Braille cells return `pending` and remain unsubmitted.
+This source replay proves the classifier divergence; the live navigator's outstanding instruction still needs a wake-to-action check after supported installation.
+
+The portable regression entry points are `bin/fm-test-run.sh tests/fm-afk-launch.test.sh tests/fm-composer-lib.test.sh tests/fm-session-start.test.sh tests/fm-supervision-instructions.test.sh tests/fm-turnend-guard.test.sh`.
+`FM_CODEX_LIVE_E2E=1 tests/fm-codex-continuity-live-e2e.test.sh` remains the credentialed one-checkpoint guard; the full interactive worker-to-action proof above is a dated manual lab result and must be refreshed after a Codex or Herdr change before trusting it as current behavior.
 
 ### Cursor primary park, 2026-08-13
 

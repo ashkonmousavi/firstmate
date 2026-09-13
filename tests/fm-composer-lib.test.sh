@@ -202,6 +202,25 @@ test_matrix_codex_dim_hint_row() {
   pass "matrix: codex's dim hint is empty when styling proves it, unknown (never pending) when it cannot"
 }
 
+test_matrix_codex_decorated_idle_and_drafts() {
+  # The real 2026-09-13 navigator capture has single-dot braille decoration
+  # around Codex's idle placeholder and across its continuation rows. Rebuild
+  # that frame with the styling observed on the real Codex idle/draft controls:
+  # dim placeholder, bright user text. A text-only capture cannot prove this.
+  local decorated plain draft mixed single_row
+  decorated=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁'"${ESC}[2mAsk Codex to do anything${ESC}[0m"$'   ⠂    ⡀\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
+  assert_screen "codex decorated idle on herdr" empty "$CAPS_STYLED" "$decorated"
+  plain=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁Ask Codex to do anything   ⠂    ⡀\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
+  assert_screen "codex decorated text-only frame defers" pending "$CAPS_STYLED" "$plain"
+  draft=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁'"${ESC}[1mAsk Codex to do anything${ESC}[0m"$'   ⠂    ⡀\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
+  assert_screen "codex bright placeholder-like draft stays pending" pending "$CAPS_STYLED" "$draft"
+  mixed=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁'"${ESC}[2mAsk Codex to do anything${ESC}[0m"$' real draft\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
+  assert_screen "codex bright text beside dim placeholder stays pending" pending "$CAPS_STYLED" "$mixed"
+  single_row=$'reply\n›⠁'"${ESC}[2mAsk Codex to do anything${ESC}[0m"$'\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
+  assert_screen "codex isolated dot without decoration row stays pending" pending "$CAPS_STYLED" "$single_row"
+  pass "matrix: Codex decoration is empty only with styled placeholder proof and no surviving draft"
+}
+
 test_matrix_muse_truecolor_glyph_survives_signal_loss() {
   # Real idle muse: truecolor `⟩` (38;2;90;160;255, luminance ~149.9) under a
   # TITLED rule. Two independent signals prove emptiness: the glyph surviving
@@ -677,6 +696,7 @@ test_idle_placeholder_case_mode_is_explicit
 test_real_text_is_pending
 test_matrix_claude_bare_nbsp_row
 test_matrix_codex_dim_hint_row
+test_matrix_codex_decorated_idle_and_drafts
 test_matrix_muse_truecolor_glyph_survives_signal_loss
 test_matrix_cursor_reverse_video_placeholder_remnant
 test_matrix_herdr_halfblock_rule_bounds_bare_wrap

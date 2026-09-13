@@ -9,6 +9,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+CODEX_HOOK=0
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --codex-hook) CODEX_HOOK=1; shift ;;
+    --harness|--harness=*)
+      printf 'fm-sessionstart-nudge: --harness is unsupported; only --codex-hook is accepted\n' >&2
+      exit 2
+      ;;
+    *)
+      printf 'fm-sessionstart-nudge: unknown argument: %s\n' "$1" >&2
+      exit 2
+      ;;
+  esac
+done
 
 # shellcheck source=bin/fm-gate-refuse-lib.sh
 . "$SCRIPT_DIR/fm-gate-refuse-lib.sh"
@@ -38,8 +53,10 @@ lock_is_in_ancestry() {
 
 lock_is_in_ancestry && exit 0
 nudge=
+session_start_cmd='bin/fm-session-start.sh'
+[ "$CODEX_HOOK" -eq 0 ] || session_start_cmd="$session_start_cmd --codex-hook"
 fm_operational_input_encode session-start \
-  "Run \`bin/fm-session-start.sh\` now, exactly once, before executing any other instructions." \
+  "Run \`$session_start_cmd\` now, exactly once, before executing any other instructions." \
   nudge || exit 0
 printf '%s\n' "$nudge"
 exit 0

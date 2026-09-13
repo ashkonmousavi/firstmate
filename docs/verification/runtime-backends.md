@@ -1238,6 +1238,7 @@ A stale-registration pane is never a husk: create, reclaim, presentation recover
 ### Away-mode transport
 
 The away daemon is no longer launched on Pi; the away posture there is the record `bin/fm-afk-contract.sh` owns.
+Codex likewise keeps its foreground checkpoint under the record; [`supervision.md`](supervision.md#codex-away-foreground-delivery-2026-09-13) owns its delivery evidence.
 The Pi/Herdr away posture and return transport was verified on 2026-09-08 against a real Pi primary in an isolated Herdr lab session, Herdr 0.9.0 and Pi 0.82.0:
 
 ```sh

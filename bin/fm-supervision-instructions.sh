@@ -8,7 +8,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$REPO_ROOT}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DOC_DIR="$REPO_ROOT/docs/supervision-protocols"
+
+# shellcheck source=bin/fm-wake-lib.sh
+. "$SCRIPT_DIR/fm-wake-lib.sh"
 
 HARNESS=
 READ_ONLY=0
@@ -119,12 +123,17 @@ render_snippet() {
   done < "$SNIPPET"
 }
 
+codex_legacy_daemon_owns_supervision() {
+  [ "$HARNESS" = codex ] && [ "$AFK" -eq 1 ] \
+    && fm_afk_daemon_owns_supervision "$STATE"
+}
+
 repair_line() {
   if [ "$READ_ONLY" -eq 1 ]; then
     printf '%s\n' 'Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.'
     return 0
   fi
-  if [ "$AFK" -eq 1 ]; then
+  if [ "$AFK" -eq 1 ] && [ "$HARNESS" != codex ] && [ "$HARNESS" != pi ] && [ "$HARNESS" != pi-signed ]; then
     printf '%s\n' 'Away mode owns watcher supervision; load /afk and ensure the daemon is running instead of starting normal supervision directly.'
     return 0
   fi
@@ -142,7 +151,11 @@ repair_line() {
       printf '%s%s\n' "$prefix" 'watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.'
       ;;
     codex)
-      printf '%s%s%s%s\n' "$prefix" 'repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds ' "$checkpoint_seconds" '.'
+      if codex_legacy_daemon_owns_supervision; then
+        printf '%s%s\n' "$prefix" 'retire the live legacy away daemon through the guarded handoff: bin/fm-afk-launch.sh start. The handoff preserves the away posture and begins the foreground checkpoint.'
+      else
+        printf '%s%s%s%s\n' "$prefix" 'repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds ' "$checkpoint_seconds" '.'
+      fi
       ;;
     pi|pi-signed)
       printf '%s%s%s%s%s%s\n' "$prefix" 'repair a missing or failed watcher cycle with the Pi tool fm_watch_arm_pi, or restart Pi with -e ' "$pi_turnend_ext" ' -e ' "$pi_ext" ' if the extensions are not loaded.'
@@ -210,7 +223,13 @@ else
   printf '%s\n' '- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.'
 fi
 if [ "$AFK" -eq 1 ]; then
-  printf '%s\n' '- Away mode: active; load /afk and keep normal harness supervision paused while the daemon owns the watcher.'
+  if [ "$HARNESS" = codex ]; then
+    printf '%s\n' '- Away mode: active; Codex foreground checkpoint continues to own the watcher. Do not finalize to idle or launch the away daemon while supervision is needed.'
+  elif [ "$HARNESS" = pi ] || [ "$HARNESS" = pi-signed ]; then
+    printf '%s\n' '- Away mode: active; the Pi supervision session continues to own the watcher.'
+  else
+    printf '%s\n' '- Away mode: active; load /afk and keep normal harness supervision paused while the daemon owns the watcher.'
+  fi
 else
   printf '%s\n' '- Away mode: inactive.'
 fi
