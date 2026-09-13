@@ -262,7 +262,7 @@ A separate real Codex worker appended a unique `done:` status.
 The checkpoint returned `signal: .../lab-worker.status`, the supervisor's drain printed `WAKE_ACK_REQUIRED: ... --ack-through 2`, and the supervisor wrote the exact status token to an acknowledgement file plus the assigned `DONE` action before running that acknowledgement.
 With a literal unsubmitted draft visible in the supervisor composer, a second worker completion was handled through the checkpoint and the draft remained visible and unsubmitted.
 No text-injection path or wrong-pane submission was used.
-`bin/fm-afk-launch.sh start` refused on Codex, and `stop` archived the record without launching a daemon.
+With no live legacy daemon, `bin/fm-afk-launch.sh start` refused on Codex, and `stop` archived the record without launching a daemon.
 After the supervisor exited, a third completion was appended; a new real Codex TUI received the startup status backstop, wrote the assigned `RESTARTED` action, acknowledged the presented generation, and reached idle after the lab worker marker was retired.
 The restart exposed the status through both the backstop and a later watcher signal, so that path requires idempotent handling rather than a claim of exactly-once presentation.
 

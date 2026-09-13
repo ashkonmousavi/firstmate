@@ -42,7 +42,7 @@ Hold-for-return is the default and the only reach profile this release records: 
    - **Pi and pi-signed**: stop here.
      The away daemon is no longer launched on Pi; the ordinary supervision session (`docs/pi-supervision-branch.md`) keeps running with the record present, and `bin/fm-afk-launch.sh start` refuses on these harnesses.
    - **Codex**: keep the ordinary foreground checkpoint loop running.
-     Do not run `bin/fm-afk-launch.sh start`, and do not finalize to an idle prompt while supervision is needed.
+     Do not run `bin/fm-afk-launch.sh start` unless the emitted repair line identifies a live legacy away daemon for its guarded handoff, and do not finalize to an idle prompt while supervision is needed.
      Run `bin/fm-watch-checkpoint.sh --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"`; after every actionable result, drain and handle the durable wake, perform the next authorized orchestration action, acknowledge the presented generation only after handling, then enter the next checkpoint.
      On a quiet bounded return, drain anyway, process any newly visible captain message, and enter the next checkpoint while the posture remains active.
      This route never types into the composer, so a pending captain draft remains untouched.
