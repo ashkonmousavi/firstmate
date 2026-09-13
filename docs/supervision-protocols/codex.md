@@ -1,6 +1,6 @@
 Mode: Codex foreground checkpoint.
 
-When this session owns supervision and away mode is not active:
+Whenever this session owns supervision, including while the away-posture record exists:
 1. Drain first with `bin/fm-wake-drain.sh`.
    After handling all emitted wakes and reconciling open decisions and unread status lines, run the exact `--ack-through` command printed as `WAKE_ACK_REQUIRED`; until then the work remains durable for idempotent re-handling after interruption.
 2. Source `__FM_X_MODE_ENV__` first when Relay is active.
@@ -11,6 +11,10 @@ When this session owns supervision and away mode is not active:
 7. Do not run `bin/fm-watch-arm.sh` as Codex's normal supervision command.
    If it is ever shelled anyway, a backgrounded, piped, or bundled anti-pattern is denied automatically by the PreToolUse seatbelt (`bin/fm-arm-pretool-check.sh`) registered in `.codex/hooks.json`.
 8. Failure or missing cycle only: drain queued wakes, inspect the failure, then start a fresh foreground checkpoint.
+
+Away mode changes notification and decision handling, not this ownership loop.
+Do not launch `bin/fm-afk-launch.sh start` or finalize to an idle prompt while supervision is needed.
+The foreground checkpoint returns durable watcher output directly to Codex without typing into or submitting the composer, so pending user text remains untouched.
 
 Codex cannot reason while a foreground tool call is running.
 The bounded checkpoint returns control regularly so user messages and queued wakes can be handled without relying on background-task wake semantics.

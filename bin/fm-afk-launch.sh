@@ -12,11 +12,11 @@
 # clause fields, the never-set, the refusal wording, and the record schema); `confirm` promotes it
 # into state/.afk-contract and prints the entry announcement (hold-for-return
 # only: no phone channel exists). The record is the posture in every harness.
-# On Pi and pi-signed the entry ENDS there: the away daemon is no longer launched
-# on Pi, the ordinary supervision session keeps running in both postures, and
-# `start` refuses on those harnesses. Every other harness still runs the daemon
-# for now, so `start` and `start-native` require the confirmed record before they
-# launch the daemon.
+# On Pi, pi-signed, and Codex the entry ENDS there: the away daemon is no longer
+# launched, the ordinary supervision session keeps running in both postures,
+# and `start` refuses on those harnesses. Every other harness still runs the
+# daemon for now, so `start` and `start-native` require the confirmed record
+# before they launch the daemon.
 # `stop` (the return, driven by bin/fm-afk-return.sh) shuts the daemon down,
 # clears state/.afk last, and archives the record under state/afk-contracts/.
 #
@@ -49,7 +49,7 @@
 #                              Repeatable --grant records captain-named task
 #                              ids that may merge-when-green while away.
 #   fm-afk-launch.sh confirm   Promote the required proposal and print the entry
-#                              announcement. On Pi this is the whole entry.
+#                              announcement. On Pi and Codex this is the whole entry.
 #   fm-afk-launch.sh start     Capture the captain pane, then (unless the daemon
 #                              is already running) launch the daemon in a fresh
 #                              non-visible terminal for the detected backend and
@@ -188,13 +188,14 @@ fm_afk_launch_primary_harness() {
   "$FM_AFK_LAUNCH_DIR/fm-harness.sh" 2>/dev/null || printf unknown
 }
 
-# The away daemon is no longer launched on Pi: the posture record is the whole
-# entry there and the ordinary supervision session runs in both postures.
+# The away daemon is no longer launched on Pi or Codex: the posture record is
+# the whole entry there and the ordinary supervision session runs in both
+# postures.
 fm_afk_launch_daemon_allowed() {
   local harness
   harness=$(fm_afk_launch_primary_harness)
   case "$harness" in
-    pi|pi-signed)
+    pi|pi-signed|codex)
       fm_afk_launch_log "the away daemon is no longer launched on $harness; the away-posture record is the posture there (run bin/fm-afk-launch.sh confirm and stop)"
       return 1 ;;
   esac

@@ -89,9 +89,9 @@ unit_propose_confirm_records_the_posture_without_a_daemon() {
   rm -rf "$st"
 }
 
-unit_pi_never_launches_the_daemon() {
+unit_foreground_harnesses_never_launch_the_daemon() {
   local st harness out rc
-  for harness in pi pi-signed; do
+  for harness in pi pi-signed codex; do
     st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-pi.XXXXXX")
     mkdir -p "$st/state"
     out=$(FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" FM_TEST_HARNESS="$harness" \
@@ -1081,7 +1081,7 @@ e2e_tmux() {
 
 unit_clear_stale
 unit_propose_confirm_records_the_posture_without_a_daemon
-unit_pi_never_launches_the_daemon
+unit_foreground_harnesses_never_launch_the_daemon
 unit_daemon_entry_requires_confirmation
 unit_failed_daemon_launch_preserves_confirmed_record
 unit_stop_archives_the_record_last

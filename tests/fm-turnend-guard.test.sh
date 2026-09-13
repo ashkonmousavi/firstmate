@@ -263,6 +263,13 @@ run_hook() {
   printf '{"stop_hook_active":%s}' "$stop_active" | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1
 }
 
+run_hook_codex() {
+  local dir=$1 stop_active=$2 home
+  home=$(cd "$dir" && pwd)
+  printf '{"stop_hook_active":%s}' "$stop_active" | \
+    FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" --codex 2>&1
+}
+
 nonexistent_pid() {
   local pid=999999
   while kill -0 "$pid" 2>/dev/null; do
@@ -949,6 +956,17 @@ EOF
   assert_contains "$out" "guard=$expected_root/bin/fm-turnend-guard.sh" "codex hook must use the hook process root"
   assert_contains "$out" "$payload" "codex hook must pass the original payload to the guard"
   pass ".codex/hooks.json: Stop hook uses hook process root when payload cwd is outside"
+}
+
+test_codex_hooks_pin_their_verified_harness_identity() {
+  local session_start stop
+  session_start=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$ROOT/.codex/hooks.json")
+  stop=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$ROOT/.codex/hooks.json")
+  assert_contains "$session_start" 'fm-sessionstart-run.sh" --harness codex' \
+    "Codex SessionStart still depends on fallible ancestry classification"
+  assert_contains "$stop" 'fm-turnend-guard.sh" --codex' \
+    "Codex Stop still depends on fallible ancestry classification"
+  pass ".codex/hooks.json: native hooks pin Codex protocol selection"
 }
 
 test_codex_hook_ignores_nested_git_root_guard() {
@@ -2008,6 +2026,27 @@ test_hook_away_daemon_allows_between_watcher_cycles() {
   pass "fm-turnend-guard: a live away-mode daemon satisfies supervision with no watcher holding the lock"
 }
 
+test_hook_codex_away_daemon_never_proves_delivery() {
+  local dir pid out status
+  dir=$(make_away_home_between_cycles "$TMP_ROOT/hook-afk-codex-daemon-live")
+  sleep 60 &
+  pid=$!
+  record_daemon_lock "$dir" "$pid" || {
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    fail "could not identify live away-mode daemon holder"
+  }
+  out=$(run_hook_codex "$dir" false); status=$?
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  expect_code 2 "$status" "Codex must not treat a live daemon as proof that notifications can reach the supervisor"
+  assert_contains "$out" "foreground checkpoint" \
+    "Codex away block did not direct the supported checkpoint route"
+  assert_not_contains "$out" "ensure the daemon is running" \
+    "Codex away block selected the failed daemon route"
+  pass "fm-turnend-guard --codex: process existence is not accepted as away notification delivery"
+}
+
 test_hook_away_daemon_allows_over_dead_watcher_lock() {
   local dir pid dead out status
   dir=$(make_away_home_between_cycles "$TMP_ROOT/hook-afk-daemon-dead-watcher")
@@ -2239,6 +2278,7 @@ test_grok_adapter_invalid_inputs_start_neither_path
 test_grok_adapter_missing_jq_and_no_supervision_allow
 test_tracked_claude_entries_inert_under_grok
 test_codex_hook_uses_process_pwd_when_payload_cwd_is_outside_root
+test_codex_hooks_pin_their_verified_harness_identity
 test_codex_hook_ignores_nested_git_root_guard
 test_opencode_plugin_anchors_guard_to_worktree
 test_pi_extension_injects_once_per_logical_agent_run
@@ -2270,6 +2310,7 @@ test_hook_claude_mode_allow_resets_budget
 test_hook_claude_mode_waits_for_late_claim
 test_hook_claude_mode_secondmate_reblocks_like_primary
 test_hook_away_daemon_allows_between_watcher_cycles
+test_hook_codex_away_daemon_never_proves_delivery
 test_hook_away_daemon_allows_over_dead_watcher_lock
 test_hook_away_mode_blocks_without_any_supervisor
 test_hook_away_mode_blocks_on_dead_daemon

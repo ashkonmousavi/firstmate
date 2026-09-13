@@ -10,7 +10,7 @@
 # fleet-touching command itself, can sit blind for hours.
 # This script is push-based: verified harness turn-end hooks invoke it every time
 # the primary is about to end a turn.
-# Claude and codex can block directly by preserving exit status 2 and stderr.
+# Claude and Codex can block directly by preserving exit status 2 and stderr.
 # OpenCode and pi adapters use the same predicate and force one bounded
 # follow-up because their turn-end events are passive. Grok delegates native
 # blocking when its running Stop payload advertises that capability, with one
@@ -32,9 +32,9 @@
 # primary checkout - the main home or a genuinely marked secondmate home - and
 # stay a silent, fast no-op inside child task worktrees.
 #
-# Away mode (state/.afk): the away-mode daemon owns supervision and runs the
-# watcher one-shot, restarting it after every wake, so the watch lock is
-# regularly unheld at a turn boundary with nothing wrong. A live
+# Away mode (state/.afk): on daemon-backed harnesses the away-mode daemon owns
+# supervision and runs the watcher one-shot, restarting it after every wake, so
+# the watch lock is regularly unheld at a turn boundary with nothing wrong. A live
 # identity-matched daemon holding this home, plus a fresh beacon, is what
 # proves supervision there - see fm_afk_daemon_owns_supervision in
 # bin/fm-wake-lib.sh. The beacon freshness test there uses AFK_GRACE
@@ -45,7 +45,10 @@
 # window under load (a slow registered check, a busy supervisor pane) with the
 # daemon perfectly healthy throughout. The strict watcher predicate and $GRACE
 # are unchanged everywhere else, including for a dead daemon pid or a beacon
-# older than AFK_GRACE, which still block.
+# older than AFK_GRACE, which still block. Codex never accepts this daemon
+# predicate: its tracked Stop hook passes --codex and its foreground checkpoint
+# remains the away-mode owner, because daemon liveness cannot prove that an
+# injected notification can safely cross a pending composer.
 #
 # Loop-guard, codex/Grok (default) mode: never block twice in the same turn.
 # Codex uses stop_hook_active and Grok uses stopHookActive; typed camel-case
@@ -96,6 +99,7 @@ GRACE=${FM_GUARD_GRACE:-300}
 WATCH="$SCRIPT_DIR/fm-watch.sh"
 CLAUDE_MODE=0
 CURSOR_MODE=0
+CODEX_MODE=0
 SYNC_WAIT_MS=${FM_CLAUDE_AUTOARM_SYNC_WAIT_MS:-800}
 EPOCH_FRESH=${FM_CLAUDE_AUTOARM_EPOCH_FRESH:-15}
 BLOCK_BUDGET=${FM_CLAUDE_TURNEND_BLOCK_BUDGET:-3}
@@ -107,7 +111,8 @@ for arg in "$@"; do
   case "$arg" in
     --claude) CLAUDE_MODE=1 ;;
     --cursor) CURSOR_MODE=1 ;;
-    *) echo "usage: $(basename "$0") [--claude|--cursor]" >&2; exit 2 ;;
+    --codex) CODEX_MODE=1 ;;
+    *) echo "usage: $(basename "$0") [--claude|--cursor|--codex]" >&2; exit 2 ;;
   esac
 done
 
@@ -212,17 +217,22 @@ fi
 # cycling - just slower than a fixed 300s window - is not misread as down.
 AFK_GRACE=${FM_GUARD_GRACE:-$(fm_poll_derived_grace)}
 if [ "$(fm_path_age "$STATE/.last-watcher-beat")" -lt "$AFK_GRACE" ] \
+  && [ "$CODEX_MODE" -eq 0 ] \
   && fm_afk_daemon_owns_supervision "$STATE"; then
   allow_supervised_stop
 fi
 
 block_stop() {
   local afk x_mode reason rule
+  local -a harness_args=()
   afk=0
-  [ -e "$STATE/.afk" ] && afk=1
+  if [ -f "$STATE/.afk-contract" ] || [ -e "$STATE/.afk" ]; then
+    afk=1
+  fi
   x_mode=0
   [ -f "$CONFIG/x-mode.env" ] && x_mode=1
-  reason=$("$SCRIPT_DIR/fm-supervision-instructions.sh" --afk "$afk" --x-mode "$x_mode" --repair-line 2>/dev/null \
+  [ "$CODEX_MODE" -eq 0 ] || harness_args=(--harness codex)
+  reason=$("$SCRIPT_DIR/fm-supervision-instructions.sh" "${harness_args[@]}" --afk "$afk" --x-mode "$x_mode" --repair-line 2>/dev/null \
     || printf '%s\n' 'tasks in flight, no live watcher - repair missing watcher supervision according to the session-start operating block before ending the turn')
   rule='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
   {

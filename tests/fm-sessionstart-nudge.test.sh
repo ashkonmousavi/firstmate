@@ -71,6 +71,17 @@ test_genuine_primary_nudges() {
   pass "fm-sessionstart-nudge: a genuine primary gets one explicitly marked instruction line"
 }
 
+test_nudge_carries_verified_harness_identity() {
+  local root="$TMP_ROOT/nudge-harness" out
+  make_primary "$root"
+  out=$(FM_SESSIONSTART_HARNESS=codex run_nudge "$root")
+  assert_contains "$out" 'bin/fm-session-start.sh --harness codex' \
+    "tracked Codex hook identity was lost from the nudge"
+  out=$(FM_SESSIONSTART_HARNESS='codex; untrusted' run_nudge "$root")
+  [ "$out" = "$NUDGE_LINE" ] || fail "untrusted harness text changed the operational nudge"
+  pass "fm-sessionstart-nudge: carries only a known tracked harness identity"
+}
+
 test_gate_env_is_silent() {
   local root="$TMP_ROOT/gate-env"
   make_primary "$root"
@@ -219,6 +230,18 @@ test_run_startup_runs_the_full_digest() {
   assert_not_contains "$out" "FIRSTMATE_OP" "a run-tier open also emitted the nudge instruction"
   assert_contains "$out" "NEXT STEP" "the run wrapper did not deliver a complete digest"
   pass "run wrapper: startup runs the full digest and never also nudges"
+}
+
+test_run_harness_identity_overrides_ancestry_fallback() {
+  local root="$TMP_ROOT/run-explicit-harness" out status=0
+  make_run_primary "$root"
+  out=$(run_hook "$root" --source startup --harness claude </dev/null) || status=$?
+  expect_code 0 "$status" "run wrapper explicit harness"
+  assert_contains "$out" "primary harness: claude" \
+    "run wrapper ignored the hook's verified harness identity"
+  assert_not_contains "$out" "primary harness: codex" \
+    "ancestry overrode the hook's verified harness identity"
+  pass "run wrapper: tracked hooks can pin protocol selection independently of ancestry depth"
 }
 
 test_run_clear_and_compact_reemit() {
@@ -1015,6 +1038,7 @@ test_run_reports_a_failed_session_start_as_digest_text() {
 }
 
 test_genuine_primary_nudges
+test_nudge_carries_verified_harness_identity
 test_gate_env_is_silent
 test_gate_common_dir_is_silent
 test_unmarked_linked_worktree_is_silent
@@ -1023,6 +1047,7 @@ test_missing_state_is_silent
 test_owned_lock_is_silent
 test_opencode_plugin_delivers_exact_nudge_once
 test_run_startup_runs_the_full_digest
+test_run_harness_identity_overrides_ancestry_fallback
 test_run_clear_and_compact_reemit
 test_run_rebuild_forwards_source_to_drifted_instruction_refresh
 test_run_compact_without_completion_refreshes_before_finishing_startup

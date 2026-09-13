@@ -42,6 +42,41 @@ test_conditional_stanzas() {
   pass "renderer includes read-only, afk, and effective x-mode current-state stanzas"
 }
 
+test_codex_away_keeps_foreground_checkpoint_ownership() {
+  local home out
+  home="$TMP_ROOT/codex-away"
+  mkdir -p "$home/state" "$home/config"
+
+  out=$(FM_HOME="$home" FM_CODEX_WATCH_CHECKPOINT=7 \
+    "$RENDER" --harness codex --afk 1)
+  assert_contains "$out" "Codex foreground checkpoint continues to own the watcher" \
+    "codex away instructions transferred ownership to the daemon"
+  assert_contains "$out" "bin/fm-watch-checkpoint.sh --seconds" \
+    "codex away instructions lost the bounded checkpoint"
+  assert_not_contains "$out" "daemon owns the watcher" \
+    "codex away instructions still advertise the broken daemon route"
+
+  out=$(FM_HOME="$home" FM_CODEX_WATCH_CHECKPOINT=7 \
+    "$RENDER" --harness codex --afk 1 --repair-line)
+  assert_contains "$out" "foreground checkpoint" \
+    "codex away repair line did not preserve foreground ownership"
+  assert_not_contains "$out" "ensure the daemon is running" \
+    "codex away repair line still selects the daemon"
+
+  out=$(FM_HOME="$home" "$RENDER" --harness claude --afk 1 --repair-line)
+  assert_contains "$out" "ensure the daemon is running" \
+    "non-codex away repair unexpectedly lost daemon ownership"
+  for harness in pi pi-signed; do
+    out=$(FM_HOME="$home" "$RENDER" --harness "$harness" --afk 1)
+    assert_contains "$out" "Pi supervision session continues to own the watcher" \
+      "$harness away instructions incorrectly selected the daemon"
+    out=$(FM_HOME="$home" "$RENDER" --harness "$harness" --afk 1 --repair-line)
+    assert_not_contains "$out" "ensure the daemon is running" \
+      "$harness away repair incorrectly selected the daemon"
+  done
+  pass "renderer keeps Codex foreground checkpoint ownership active while away"
+}
+
 test_repair_lines() {
   local home out
   home="$TMP_ROOT/repair-home"
@@ -196,6 +231,7 @@ test_pi_snippet_uses_effective_extension_path() {
 test_selected_harness_block_only
 test_unknown_fallback
 test_conditional_stanzas
+test_codex_away_keeps_foreground_checkpoint_ownership
 test_repair_lines
 test_cross_harness_ordinary_continuation_and_repair_matrix
 test_pi_signed_preserves_identity_with_pi_supervision_protocol

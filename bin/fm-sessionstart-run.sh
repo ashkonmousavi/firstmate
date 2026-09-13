@@ -11,12 +11,14 @@
 # discretion - the helm is taken before the model's first turn, whatever the
 # first turn is.
 #
-# Usage: fm-sessionstart-run.sh [--source <source>] [--pi-prerequisite]
+# Usage: fm-sessionstart-run.sh [--source <source>] [--harness <name>] [--pi-prerequisite]
 #   --source  The harness's own session-open source. When omitted, the source is
 #             read from a Claude/Codex-shaped JSON hook payload on stdin
 #             (the `source` field). An unreadable or unrecognized source is
 #             treated as `startup`, because taking the helm redundantly is
 #             cheap and idempotent while not taking it is the whole bug.
+#   --harness  Verified identity supplied by a harness-owned tracked hook.
+#             This avoids making session-start routing depend on ancestry depth.
 #   --pi-prerequisite
 #             Internal Pi extension mode. An intentional gate/scope stand-down
 #             exits 3 so provider preflight can distinguish it from an eligible
@@ -60,6 +62,7 @@ COMPLETION_FILE="$STATE/.session-start-complete"
 . "$SCRIPT_DIR/fm-hook-host-lib.sh"
 
 SOURCE=
+HARNESS=
 PI_PREREQUISITE=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -70,10 +73,21 @@ while [ $# -gt 0 ]; do
       if [ $# -ge 2 ]; then shift 2; else shift; fi
       ;;
     --source=*) SOURCE=${1#--source=}; shift ;;
+    --harness)
+      HARNESS=${2:-}
+      if [ $# -ge 2 ]; then shift 2; else shift; fi
+      ;;
+    --harness=*) HARNESS=${1#--harness=}; shift ;;
     --pi-prerequisite) PI_PREREQUISITE=1; shift ;;
     *) shift ;;
   esac
 done
+
+case "$HARNESS" in
+  ''|claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|unknown) ;;
+  *) HARNESS=unknown ;;
+esac
+[ -z "$HARNESS" ] || export FM_SESSIONSTART_HARNESS="$HARNESS"
 
 stand_down() {
   if [ "$PI_PREREQUISITE" = 1 ]; then

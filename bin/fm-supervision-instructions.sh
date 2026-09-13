@@ -124,7 +124,7 @@ repair_line() {
     printf '%s\n' 'Watcher repair belongs to the session holding the fleet lock; do not drain, arm, or repair from this read-only session.'
     return 0
   fi
-  if [ "$AFK" -eq 1 ]; then
+  if [ "$AFK" -eq 1 ] && [ "$HARNESS" != codex ] && [ "$HARNESS" != pi ] && [ "$HARNESS" != pi-signed ]; then
     printf '%s\n' 'Away mode owns watcher supervision; load /afk and ensure the daemon is running instead of starting normal supervision directly.'
     return 0
   fi
@@ -210,7 +210,13 @@ else
   printf '%s\n' '- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.'
 fi
 if [ "$AFK" -eq 1 ]; then
-  printf '%s\n' '- Away mode: active; load /afk and keep normal harness supervision paused while the daemon owns the watcher.'
+  if [ "$HARNESS" = codex ]; then
+    printf '%s\n' '- Away mode: active; Codex foreground checkpoint continues to own the watcher. Do not finalize to idle or launch the away daemon while supervision is needed.'
+  elif [ "$HARNESS" = pi ] || [ "$HARNESS" = pi-signed ]; then
+    printf '%s\n' '- Away mode: active; the Pi supervision session continues to own the watcher.'
+  else
+    printf '%s\n' '- Away mode: active; load /afk and keep normal harness supervision paused while the daemon owns the watcher.'
+  fi
 else
   printf '%s\n' '- Away mode: inactive.'
 fi

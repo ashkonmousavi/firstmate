@@ -998,8 +998,54 @@ _fm_composer_wrap_region_ok() {  # <plain-screen> <glyph-row> <cursor-row>
 # suggestion happened to wrap; any surviving text is pending when styling can
 # prove it real and unknown otherwise (the same styled=0 degradation as the
 # glyph row itself).
+_fm_composer_codex_decorated_idle() {  # <screen> <styled> <glyph-row> <last-row>
+  local screen=$1 styled=$2 first=$3 last=$4 row raw plain content glyph dot decoration_row=0
+  [ "$styled" = 1 ] || return 1
+  raw=$(_fm_composer_screen_row "$first" "$screen")
+  plain=$(_fm_composer_row_content "$raw" 0)
+  fm_composer_leading_agent_glyph_var glyph "$plain" || return 1
+  [ "$glyph" = '›' ] || return 1
+  case "$plain" in *'Ask Codex to do anything'*) ;; *) return 1 ;; esac
+  row=$first
+  while [ "$row" -le "$last" ]; do
+    raw=$(_fm_composer_screen_row "$row" "$screen")
+    plain=$(_fm_composer_row_content "$raw" 0)
+    content=$(_fm_composer_row_content "$raw" 1)
+    if [ "$row" -eq "$first" ]; then
+      plain=${plain#*'›'}
+      content=${content#*'›'}
+      plain=${plain/'Ask Codex to do anything'/}
+    elif [ "$row" -eq "$last" ] \
+         && [[ "$plain" =~ ^gpt-[[:alnum:]._-]+[[:space:]]+(default|low|medium|high|xhigh|max|ultra)[[:space:]]+·[[:space:]]+ ]]; then
+      row=$((row + 1))
+      continue
+    fi
+    # Codex's observed animation uses these eight single-dot Braille cells.
+    # Remove them byte-exactly; an unknown glyph or any bright draft remains
+    # visible and retains the ordinary pending verdict. In particular, the
+    # placeholder must disappear under ANSI ghost stripping, whereas a user
+    # typing the same words stays bright and fails this check.
+    for dot in '⠁' '⠂' '⠄' '⠈' '⠐' '⠠' '⢀' '⡀'; do
+      if [ "$row" -gt "$first" ]; then
+        case "$plain" in *"$dot"*) decoration_row=1 ;; esac
+      fi
+      plain=${plain//"$dot"/}
+      content=${content//"$dot"/}
+    done
+    fm_composer_normalize_trim_var plain
+    fm_composer_normalize_trim_var content
+    [ -z "$plain" ] && [ -z "$content" ] || return 1
+    row=$((row + 1))
+  done
+  [ "$decoration_row" = 1 ]
+}
+
 _fm_composer_classify_bare_wrap() {  # <screen> <styled> <glyph-row> <cursor-row>
   local screen=$1 styled=$2 g=$3 cy=$4 row raw content glyph='' text_seen=0
+  if _fm_composer_codex_decorated_idle "$screen" "$styled" "$g" "$cy"; then
+    printf 'empty'
+    return 0
+  fi
   row=$g
   while [ "$row" -le "$cy" ]; do
     raw=$(_fm_composer_screen_row "$row" "$screen")

@@ -38,8 +38,13 @@ lock_is_in_ancestry() {
 
 lock_is_in_ancestry && exit 0
 nudge=
+session_start_cmd='bin/fm-session-start.sh'
+case "${FM_SESSIONSTART_HARNESS:-}" in
+  claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|unknown)
+    session_start_cmd="$session_start_cmd --harness $FM_SESSIONSTART_HARNESS" ;;
+esac
 fm_operational_input_encode session-start \
-  "Run \`bin/fm-session-start.sh\` now, exactly once, before executing any other instructions." \
+  "Run \`$session_start_cmd\` now, exactly once, before executing any other instructions." \
   nudge || exit 0
 printf '%s\n' "$nudge"
 exit 0
