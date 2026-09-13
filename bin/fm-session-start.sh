@@ -185,7 +185,7 @@
 # Hosts without timeout, gtimeout, or perl use the shared pure-Bash watchdog, so
 # the digest never runs without the same hard bound and process-group cleanup.
 #
-# Usage: fm-session-start.sh [--reemit] [--source <source>]
+# Usage: fm-session-start.sh [--reemit] [--source <source>] [--codex-hook]
 #   Prints the full ordered digest to stdout and always exits 0: this is a
 #   reporting command, not a gate. A lock refusal is reported as a loud
 #   banner inline, never a silent failure or a non-zero exit that would make
@@ -218,6 +218,9 @@
 #             current AGENTS.md to print before the bulky digest. The baseline
 #             remains immutable so every later drifted compaction refreshes
 #             again, while an equal baseline emits no instruction refresh.
+#
+#   --codex-hook
+#             The verified identity supplied only by the tracked Codex hook.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -231,6 +234,7 @@ AGENTS_BASELINE_FILE="$STATE/.session-start-agents-baseline"
 
 REEMIT=0
 SESSION_SOURCE=
+CODEX_HOOK=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --reemit)
@@ -245,13 +249,21 @@ while [ "$#" -gt 0 ]; do
       SESSION_SOURCE=${1#--source=}
       shift
       ;;
+    --codex-hook)
+      CODEX_HOOK=1
+      shift
+      ;;
+    --harness|--harness=*)
+      printf 'fm-session-start: --harness is unsupported; only --codex-hook is accepted\n' >&2
+      exit 2
+      ;;
     -h|--help)
       sed -n '2,/^set -u$/p' "$SCRIPT_DIR/fm-session-start.sh" | sed 's/^# \{0,1\}//; $d'
       exit 0
       ;;
     *)
       printf 'fm-session-start: unknown argument: %s\n' "$1" >&2
-      printf 'usage: fm-session-start.sh [--reemit] [--source <source>]\n' >&2
+      printf 'usage: fm-session-start.sh [--reemit] [--source <source>] [--codex-hook]\n' >&2
       exit 2
       ;;
   esac
@@ -274,6 +286,8 @@ stage() {  # <stage-name>: breadcrumb for the parent's truncation banner
 . "$SCRIPT_DIR/fm-session-lock-lib.sh"
 
 if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
+  SESSION_START_HOOK_ARGS=()
+  [ "$CODEX_HOOK" -eq 0 ] || SESSION_START_HOOK_ARGS=(--codex-hook)
   SESSION_START_BUDGET=${FM_SESSION_START_TIMEOUT:-120}
   # A non-positive or non-numeric budget is not a budget (`timeout 0` disables
   # the deadline outright), so an unusable value falls back to the default
@@ -289,20 +303,20 @@ if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
     if [ -n "$SESSION_SOURCE" ]; then
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit --source "$SESSION_SOURCE"
+        "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}" --reemit --source "$SESSION_SOURCE"
     else
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit
+        "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}" --reemit
     fi
   elif [ -n "$SESSION_SOURCE" ]; then
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh" --source "$SESSION_SOURCE"
+      "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}" --source "$SESSION_SOURCE"
   else
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh"
+      "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}"
   fi
   SESSION_START_RC=$?
   if [ "$SESSION_START_RC" -eq 124 ]; then
@@ -329,7 +343,11 @@ if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
   exit 0
 fi
 
-PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
+if [ "$CODEX_HOOK" -eq 1 ]; then
+  PRIMARY_HARNESS=codex
+else
+  PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
+fi
 
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
@@ -748,7 +766,9 @@ fi
 # --- 4. supervision operating instructions ----------------------------------
 stage supervision-instructions
 AFK_PRESENT=0
-[ -e "$STATE/.afk" ] && AFK_PRESENT=1
+if [ -f "$STATE/.afk-contract" ] || [ -e "$STATE/.afk" ]; then
+  AFK_PRESENT=1
+fi
 X_MODE_PRESENT=0
 [ -f "$CONFIG/x-mode.env" ] && X_MODE_PRESENT=1
 
@@ -950,12 +970,22 @@ with verified fleet-lock ownership may perform mutable follow-up.
 
 EOF
 elif [ "$AFK_PRESENT" -eq 1 ]; then
-  cat <<'EOF'
+  case "$PRIMARY_HARNESS" in
+    codex|pi|pi-signed)
+      cat <<'EOF'
+Away mode is active. Follow the supervision operating instructions block above:
+the ordinary harness supervision session continues under the posture record.
+
+EOF
+      ;;
+    *) cat <<'EOF'
 Away mode is active. Follow the supervision operating instructions block above:
 load /afk and ensure the daemon is running, because the daemon owns watcher
 supervision.
 
 EOF
+      ;;
+  esac
 elif [ -f "$CONFIG/x-mode.env" ]; then
   cat <<EOF
 Follow the supervision operating instructions block above for harness '$PRIMARY_HARNESS'.

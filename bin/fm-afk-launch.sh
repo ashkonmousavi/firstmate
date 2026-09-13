@@ -12,11 +12,12 @@
 # clause fields, the never-set, the refusal wording, and the record schema); `confirm` promotes it
 # into state/.afk-contract and prints the entry announcement (hold-for-return
 # only: no phone channel exists). The record is the posture in every harness.
-# On Pi and pi-signed the entry ENDS there: the away daemon is no longer launched
-# on Pi, the ordinary supervision session keeps running in both postures, and
-# `start` refuses on those harnesses. Every other harness still runs the daemon
-# for now, so `start` and `start-native` require the confirmed record before they
-# launch the daemon.
+# On Pi, pi-signed, and Codex the entry ENDS there: the away daemon is no longer
+# launched, and the ordinary supervision session keeps running in both postures.
+# `start` refuses on Pi and pi-signed; on Codex it refuses unless a live legacy
+# daemon with a valid exact record needs guarded handoff to the foreground checkpoint.
+# Every other harness still runs the daemon for now, so `start` and `start-native`
+# require the confirmed record before they launch the daemon.
 # `stop` (the return, driven by bin/fm-afk-return.sh) shuts the daemon down,
 # clears state/.afk last, and archives the record under state/afk-contracts/.
 #
@@ -49,16 +50,19 @@
 #                              Repeatable --grant records captain-named task
 #                              ids that may merge-when-green while away.
 #   fm-afk-launch.sh confirm   Promote the required proposal and print the entry
-#                              announcement. On Pi this is the whole entry.
-#   fm-afk-launch.sh start     Capture the captain pane, then (unless the daemon
-#                              is already running) launch the daemon in a fresh
-#                              non-visible terminal for the detected backend and
-#                              record it. Idempotent: an already-running daemon
-#                              just refreshes state/.afk; a recorded-but-dead
-#                              terminal is reconciled (closed by id) first.
+#                              announcement. On Pi and Codex this is the whole entry.
+#   fm-afk-launch.sh start     On daemon-backed harnesses, capture the captain
+#                              pane, then (unless the daemon is already running)
+#                              launch it in a fresh non-visible terminal for the
+#                              detected backend and record it. On Codex, refuse
+#                              unless a live legacy daemon needs guarded handoff
+#                              to the foreground checkpoint. Idempotent:
+#                              an already-running daemon just refreshes state/.afk;
+#                              a recorded-but-dead terminal is reconciled first.
 #   fm-afk-launch.sh start-native
 #                              Prepare lifecycle state for a harness-native
 #                              background job and record that no terminal exists.
+#                              Codex follows the same guarded legacy handoff.
 #   fm-afk-launch.sh stop      Correct-ordered exit: SIGTERM the daemon so its
 #                              cleanup flushes WHILE state/.afk is still present,
 #                              wait for it, close the recorded terminal by exact
@@ -188,13 +192,14 @@ fm_afk_launch_primary_harness() {
   "$FM_AFK_LAUNCH_DIR/fm-harness.sh" 2>/dev/null || printf unknown
 }
 
-# The away daemon is no longer launched on Pi: the posture record is the whole
-# entry there and the ordinary supervision session runs in both postures.
+# The away daemon is no longer launched on Pi or Codex: the posture record is
+# the whole entry there and the ordinary supervision session runs in both
+# postures.
 fm_afk_launch_daemon_allowed() {
   local harness
   harness=$(fm_afk_launch_primary_harness)
   case "$harness" in
-    pi|pi-signed)
+    pi|pi-signed|codex)
       fm_afk_launch_log "the away daemon is no longer launched on $harness; the away-posture record is the posture there (run bin/fm-afk-launch.sh confirm and stop)"
       return 1 ;;
   esac
@@ -541,9 +546,81 @@ fm_afk_launch_create_tmux() {  # <captain-target> <captain-backend>
   fm_afk_launch_log "daemon launched in detached tmux session '$session', supervising $captain_target"
 }
 
+fm_afk_launch_begin_codex_checkpoint() {
+  "$FM_ROOT/bin/fm-watch-checkpoint.sh" --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"
+}
+
+fm_afk_launch_requeue_codex_escalations() {
+  local buffer message
+  buffer="$FM_AFK_LAUNCH_STATE/.subsuper-escalations"
+  [ -s "$buffer" ] || return 0
+  message=$(awk 'NR > 1 { printf " | " } { printf "%s", $0 }' "$buffer") || return 1
+  [ -n "$message" ] || return 1
+  fm_wake_append signal codex-legacy-handoff "$message" || return 1
+  rm -f "$buffer" \
+    "$FM_AFK_LAUNCH_STATE/.subsuper-escalations.since" \
+    "$FM_AFK_LAUNCH_STATE/.subsuper-inject-wedged"
+}
+
+fm_afk_launch_handoff_codex_legacy_daemon() {
+  local pid pid_identity current_identity read_result
+  fm_afk_launch_record_require || return 1
+  daemon_lock_held_by_live_daemon || return 1
+  fm_afk_launch_record_read
+  read_result=$?
+  if [ "$read_result" -ne 0 ]; then
+    fm_afk_launch_log "a live legacy Codex daemon has no valid exact terminal record; refusing handoff"
+    return 1
+  fi
+  pid=$(daemon_lock_pid 2>/dev/null) || return 1
+  pid_identity=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
+  rm -f "$FM_AFK_LAUNCH_STATE/.afk" || return 1
+  if ! kill -TERM "$pid" 2>/dev/null; then
+    fm_afk_launch_flag_write || true
+    fm_afk_launch_log "failed to signal legacy Codex away daemon pid=$pid"
+    return 1
+  fi
+  for _ in $(seq 1 40); do
+    fm_pid_alive "$pid" || break
+    sleep 0.25
+  done
+  if fm_pid_alive "$pid"; then
+    current_identity=$(fm_pid_identity "$pid" 2>/dev/null) || {
+      fm_afk_launch_log "could not confirm legacy Codex away daemon exit; preserving lifecycle state"
+      return 1
+    }
+    if [ "$current_identity" = "$pid_identity" ]; then
+      fm_afk_launch_flag_write || true
+      fm_afk_launch_log "legacy Codex away daemon did not exit after SIGTERM; preserving lifecycle state"
+      return 1
+    fi
+  fi
+  if ! fm_afk_launch_requeue_codex_escalations; then
+    fm_afk_launch_log "failed to requeue legacy Codex daemon escalations; checkpoint not started"
+    return 1
+  fi
+  if [ -e "$FM_AFK_LOCK" ] || [ -L "$FM_AFK_LOCK" ]; then
+    fm_lock_remove_path "$FM_AFK_LOCK" || return 1
+  fi
+  fm_afk_launch_close_recorded || return 1
+  fm_afk_launch_begin_codex_checkpoint
+}
+
+fm_afk_launch_handle_codex_start() {
+  if daemon_lock_held_by_live_daemon; then
+    fm_afk_launch_handoff_codex_legacy_daemon
+    return
+  fi
+  fm_afk_launch_daemon_allowed
+}
+
 fm_afk_launch_start() {
   local captain_target captain_backend backup artifact had_afk=0 result
   fm_afk_launch_catchup_pending && return 1
+  if [ "$(fm_afk_launch_primary_harness)" = codex ]; then
+    fm_afk_launch_handle_codex_start
+    return
+  fi
   fm_afk_launch_daemon_allowed || return 1
   fm_afk_launch_record_require || return 1
   # Capture the captain pane FIRST, before creating anything.
@@ -615,6 +692,10 @@ fm_afk_launch_start_native() {
   local backup artifact had_afk=0 result=0
   mkdir -p "$FM_AFK_LAUNCH_STATE" || return 1
   fm_afk_launch_catchup_pending && return 1
+  if [ "$(fm_afk_launch_primary_harness)" = codex ]; then
+    fm_afk_launch_handle_codex_start
+    return
+  fi
   fm_afk_launch_daemon_allowed || return 1
   fm_afk_launch_record_require || return 1
   if daemon_lock_held_by_live_daemon; then
