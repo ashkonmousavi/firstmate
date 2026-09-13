@@ -78,8 +78,8 @@ It carries the frozen plan and its amendments, the evidence per candidate with p
   Without these the packet silently expires into a false claim.
 - **Consumption records** - which task consumed this packet, named explicitly.
   A selection nobody records consuming gets re-researched or, worse, quietly re-decided.
-  Where the project keeps a durable record of findings, the research that produced one files it there as part of the packet, never as a later task, dated and with the version it was read at.
-  Where the project keeps no such record, the packet is the record; do not create a research log to hold it.
+  The research that produced a finding files it in the project's own findings record as part of the packet, never as a later task, in whatever form that record's owner prescribes: in XAUUSD that is `docs/ssot/research/README.md`, which routes the finding by provenance and owns the dated section, lookup heading, and last-reviewed line.
+  Where a project keeps no such record, the packet is the record; do not create a research log to hold it.
 
 Keep the packet's reasoning summary concise and material.
 Record what decided it, not a transcript of the search.
