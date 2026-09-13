@@ -185,7 +185,7 @@
 # Hosts without timeout, gtimeout, or perl use the shared pure-Bash watchdog, so
 # the digest never runs without the same hard bound and process-group cleanup.
 #
-# Usage: fm-session-start.sh [--reemit] [--source <source>] [--harness <name>]
+# Usage: fm-session-start.sh [--reemit] [--source <source>] [--codex-hook]
 #   Prints the full ordered digest to stdout and always exits 0: this is a
 #   reporting command, not a gate. A lock refusal is reported as a loud
 #   banner inline, never a silent failure or a non-zero exit that would make
@@ -219,9 +219,8 @@
 #             remains immutable so every later drifted compaction refreshes
 #             again, while an equal baseline emits no instruction refresh.
 #
-#   --harness The verified identity supplied by a harness-owned tracked hook.
-#             It is carried through the bounded child so protocol selection
-#             never depends on how many wrapper processes the host inserted.
+#   --codex-hook
+#             The verified identity supplied only by the tracked Codex hook.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -235,7 +234,7 @@ AGENTS_BASELINE_FILE="$STATE/.session-start-agents-baseline"
 
 REEMIT=0
 SESSION_SOURCE=
-PRIMARY_HARNESS=${FM_SESSIONSTART_HARNESS:-}
+CODEX_HOOK=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --reemit)
@@ -250,13 +249,13 @@ while [ "$#" -gt 0 ]; do
       SESSION_SOURCE=${1#--source=}
       shift
       ;;
-    --harness)
-      PRIMARY_HARNESS=${2:-}
-      if [ "$#" -ge 2 ]; then shift 2; else shift; fi
-      ;;
-    --harness=*)
-      PRIMARY_HARNESS=${1#--harness=}
+    --codex-hook)
+      CODEX_HOOK=1
       shift
+      ;;
+    --harness|--harness=*)
+      printf 'fm-session-start: --harness is unsupported; only --codex-hook is accepted\n' >&2
+      exit 2
       ;;
     -h|--help)
       sed -n '2,/^set -u$/p' "$SCRIPT_DIR/fm-session-start.sh" | sed 's/^# \{0,1\}//; $d'
@@ -264,17 +263,11 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       printf 'fm-session-start: unknown argument: %s\n' "$1" >&2
-      printf 'usage: fm-session-start.sh [--reemit] [--source <source>] [--harness <name>]\n' >&2
+      printf 'usage: fm-session-start.sh [--reemit] [--source <source>] [--codex-hook]\n' >&2
       exit 2
       ;;
   esac
 done
-
-case "$PRIMARY_HARNESS" in
-  ''|claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|unknown) ;;
-  *) PRIMARY_HARNESS=unknown ;;
-esac
-[ -z "$PRIMARY_HARNESS" ] || export FM_SESSIONSTART_HARNESS="$PRIMARY_HARNESS"
 
 # --- 0. runtime bound ---------------------------------------------------------
 # The ordered stage list is the contract behind the truncation banner: the child
@@ -293,6 +286,8 @@ stage() {  # <stage-name>: breadcrumb for the parent's truncation banner
 . "$SCRIPT_DIR/fm-session-lock-lib.sh"
 
 if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
+  SESSION_START_HOOK_ARGS=()
+  [ "$CODEX_HOOK" -eq 0 ] || SESSION_START_HOOK_ARGS=(--codex-hook)
   SESSION_START_BUDGET=${FM_SESSION_START_TIMEOUT:-120}
   # A non-positive or non-numeric budget is not a budget (`timeout 0` disables
   # the deadline outright), so an unusable value falls back to the default
@@ -308,20 +303,20 @@ if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
     if [ -n "$SESSION_SOURCE" ]; then
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit --source "$SESSION_SOURCE"
+        "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}" --reemit --source "$SESSION_SOURCE"
     else
       fm_run_timed "$SESSION_START_BUDGET" \
         env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-        "$SCRIPT_DIR/fm-session-start.sh" --reemit
+        "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}" --reemit
     fi
   elif [ -n "$SESSION_SOURCE" ]; then
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh" --source "$SESSION_SOURCE"
+      "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}" --source "$SESSION_SOURCE"
   else
     fm_run_timed "$SESSION_START_BUDGET" \
       env FM_SESSION_START_STAGE_FILE="$SESSION_START_STAGE_FILE" \
-      "$SCRIPT_DIR/fm-session-start.sh"
+      "$SCRIPT_DIR/fm-session-start.sh" "${SESSION_START_HOOK_ARGS[@]}"
   fi
   SESSION_START_RC=$?
   if [ "$SESSION_START_RC" -eq 124 ]; then
@@ -348,7 +343,9 @@ if [ -z "${FM_SESSION_START_STAGE_FILE:-}" ]; then
   exit 0
 fi
 
-if [ -z "$PRIMARY_HARNESS" ]; then
+if [ "$CODEX_HOOK" -eq 1 ]; then
+  PRIMARY_HARNESS=codex
+else
   PRIMARY_HARNESS=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
 fi
 

@@ -546,6 +546,18 @@ fm_afk_launch_begin_codex_checkpoint() {
   "$FM_ROOT/bin/fm-watch-checkpoint.sh" --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"
 }
 
+fm_afk_launch_requeue_codex_escalations() {
+  local buffer message
+  buffer="$FM_AFK_LAUNCH_STATE/.subsuper-escalations"
+  [ -s "$buffer" ] || return 0
+  message=$(awk 'NR > 1 { printf " | " } { printf "%s", $0 }' "$buffer") || return 1
+  [ -n "$message" ] || return 1
+  fm_wake_append signal codex-legacy-handoff "$message" || return 1
+  rm -f "$buffer" \
+    "$FM_AFK_LAUNCH_STATE/.subsuper-escalations.since" \
+    "$FM_AFK_LAUNCH_STATE/.subsuper-inject-wedged"
+}
+
 fm_afk_launch_handoff_codex_legacy_daemon() {
   local pid pid_identity current_identity read_result
   fm_afk_launch_record_require || return 1
@@ -558,7 +570,9 @@ fm_afk_launch_handoff_codex_legacy_daemon() {
   fi
   pid=$(daemon_lock_pid 2>/dev/null) || return 1
   pid_identity=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
+  rm -f "$FM_AFK_LAUNCH_STATE/.afk" || return 1
   if ! kill -TERM "$pid" 2>/dev/null; then
+    fm_afk_launch_flag_write || true
     fm_afk_launch_log "failed to signal legacy Codex away daemon pid=$pid"
     return 1
   fi
@@ -572,15 +586,19 @@ fm_afk_launch_handoff_codex_legacy_daemon() {
       return 1
     }
     if [ "$current_identity" = "$pid_identity" ]; then
+      fm_afk_launch_flag_write || true
       fm_afk_launch_log "legacy Codex away daemon did not exit after SIGTERM; preserving lifecycle state"
       return 1
     fi
+  fi
+  if ! fm_afk_launch_requeue_codex_escalations; then
+    fm_afk_launch_log "failed to requeue legacy Codex daemon escalations; checkpoint not started"
+    return 1
   fi
   if [ -e "$FM_AFK_LOCK" ] || [ -L "$FM_AFK_LOCK" ]; then
     fm_lock_remove_path "$FM_AFK_LOCK" || return 1
   fi
   fm_afk_launch_close_recorded || return 1
-  rm -f "$FM_AFK_LAUNCH_STATE/.afk" || return 1
   fm_afk_launch_begin_codex_checkpoint
 }
 

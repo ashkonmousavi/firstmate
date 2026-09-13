@@ -979,7 +979,7 @@ EOF
   payload='{"source":"startup","stop_hook_active":false}'
   out=$(printf '%s' "$payload" | (cd "$dir" && bash -c "$session_start") 2>&1); status=$?
   expect_code 0 "$status" "Codex SessionStart hook must execute successfully"
-  assert_contains "$out" 'session-start args=--harness codex' \
+  assert_contains "$out" 'session-start args=--codex-hook' \
     "Codex SessionStart hook did not pass its verified harness identity"
   assert_contains "$out" "$payload" "Codex SessionStart hook did not preserve the payload"
   out=$(printf '%s' "$payload" | (cd "$dir" && bash -c "$stop") 2>&1); status=$?

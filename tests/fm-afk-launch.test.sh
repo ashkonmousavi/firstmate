@@ -126,12 +126,14 @@ unit_codex_handoff_retires_legacy_daemon_before_checkpoint() {
   printf 'buffered wake\n' > "$st/state/.subsuper-escalations"
   cat > "$fake_root/bin/fm-watch-checkpoint.sh" <<'EOF'
 #!/usr/bin/env bash
+grep -F 'buffered wake' "$FM_HOME/state/.wake-queue" > "$FM_HOME/checkpoint-wakes" || exit 1
 printf 'checkpoint=%s\n' "$*" > "$FM_HOME/checkpoint"
 EOF
   chmod +x "$fake_root/bin/fm-watch-checkpoint.sh"
   lock="$st/state/.supervise-daemon.lock"
   mkdir -p "$lock"
-  bash -c 'trap "rm -rf \"$1\"; exit 0" TERM; while :; do sleep 0.1; done' _ "$lock" &
+  bash -c 'trap "if [ -e \"$2\" ]; then : > \"$3\"; fi; rm -rf \"$1\"; exit 0" TERM; while :; do sleep 0.1; done' \
+    _ "$lock" "$st/state/.afk" "$st/daemon-flushed" &
   daemon_pid=$!
   printf '%s' "$daemon_pid" > "$lock/pid"
   ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$lock/pid-identity" ) || true
@@ -147,11 +149,12 @@ EOF
   if [ "$rc" -eq 0 ] && ! kill -0 "$daemon_pid" 2>/dev/null \
     && [ "$(cat "$st/closed-terminal" 2>/dev/null)" = 'tmux:legacy-terminal' ] \
     && [ ! -e "$st/state/.afk" ] && [ -f "$st/state/.afk-contract" ] \
-    && [ -f "$st/state/.subsuper-escalations" ] \
+    && [ ! -e "$st/daemon-flushed" ] && [ ! -e "$st/state/.subsuper-escalations" ] \
+    && [ -f "$st/checkpoint-wakes" ] \
     && [ "$(cat "$st/checkpoint" 2>/dev/null)" = 'checkpoint=--seconds 180' ]; then
-    pass "Codex handoff: retires the legacy daemon and begins the foreground checkpoint without ending the posture"
+    pass "Codex handoff: requeues buffered wakes before the foreground checkpoint without daemon flush"
   else
-    fail "Codex handoff: daemon, terminal, posture, buffer, or checkpoint transition was wrong (rc=$rc): $out"
+    fail "Codex handoff: daemon flush, terminal, posture, wake requeue, or checkpoint transition was wrong (rc=$rc): $out"
   fi
   kill "$daemon_pid" 2>/dev/null || true
   wait "$daemon_pid" 2>/dev/null || true
