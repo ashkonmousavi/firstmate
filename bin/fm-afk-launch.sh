@@ -542,9 +542,63 @@ fm_afk_launch_create_tmux() {  # <captain-target> <captain-backend>
   fm_afk_launch_log "daemon launched in detached tmux session '$session', supervising $captain_target"
 }
 
+fm_afk_launch_begin_codex_checkpoint() {
+  "$FM_ROOT/bin/fm-watch-checkpoint.sh" --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"
+}
+
+fm_afk_launch_handoff_codex_legacy_daemon() {
+  local pid pid_identity current_identity read_result
+  fm_afk_launch_record_require || return 1
+  daemon_lock_held_by_live_daemon || return 1
+  fm_afk_launch_record_read
+  read_result=$?
+  if [ "$read_result" -ne 0 ]; then
+    fm_afk_launch_log "a live legacy Codex daemon has no valid exact terminal record; refusing handoff"
+    return 1
+  fi
+  pid=$(daemon_lock_pid 2>/dev/null) || return 1
+  pid_identity=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
+  if ! kill -TERM "$pid" 2>/dev/null; then
+    fm_afk_launch_log "failed to signal legacy Codex away daemon pid=$pid"
+    return 1
+  fi
+  for _ in $(seq 1 40); do
+    fm_pid_alive "$pid" || break
+    sleep 0.25
+  done
+  if fm_pid_alive "$pid"; then
+    current_identity=$(fm_pid_identity "$pid" 2>/dev/null) || {
+      fm_afk_launch_log "could not confirm legacy Codex away daemon exit; preserving lifecycle state"
+      return 1
+    }
+    if [ "$current_identity" = "$pid_identity" ]; then
+      fm_afk_launch_log "legacy Codex away daemon did not exit after SIGTERM; preserving lifecycle state"
+      return 1
+    fi
+  fi
+  if [ -e "$FM_AFK_LOCK" ] || [ -L "$FM_AFK_LOCK" ]; then
+    fm_lock_remove_path "$FM_AFK_LOCK" || return 1
+  fi
+  fm_afk_launch_close_recorded || return 1
+  rm -f "$FM_AFK_LAUNCH_STATE/.afk" || return 1
+  fm_afk_launch_begin_codex_checkpoint
+}
+
+fm_afk_launch_handle_codex_start() {
+  if daemon_lock_held_by_live_daemon; then
+    fm_afk_launch_handoff_codex_legacy_daemon
+    return
+  fi
+  fm_afk_launch_daemon_allowed
+}
+
 fm_afk_launch_start() {
   local captain_target captain_backend backup artifact had_afk=0 result
   fm_afk_launch_catchup_pending && return 1
+  if [ "$(fm_afk_launch_primary_harness)" = codex ]; then
+    fm_afk_launch_handle_codex_start
+    return
+  fi
   fm_afk_launch_daemon_allowed || return 1
   fm_afk_launch_record_require || return 1
   # Capture the captain pane FIRST, before creating anything.
@@ -616,6 +670,10 @@ fm_afk_launch_start_native() {
   local backup artifact had_afk=0 result=0
   mkdir -p "$FM_AFK_LAUNCH_STATE" || return 1
   fm_afk_launch_catchup_pending && return 1
+  if [ "$(fm_afk_launch_primary_harness)" = codex ]; then
+    fm_afk_launch_handle_codex_start
+    return
+  fi
   fm_afk_launch_daemon_allowed || return 1
   fm_afk_launch_record_require || return 1
   if daemon_lock_held_by_live_daemon; then

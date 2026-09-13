@@ -116,6 +116,48 @@ unit_foreground_harnesses_never_launch_the_daemon() {
   done
 }
 
+unit_codex_handoff_retires_legacy_daemon_before_checkpoint() {
+  local st fake_root daemon_pid lock out rc
+  st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-codex-handoff.XXXXXX")
+  fake_root="$st/root"
+  mkdir -p "$st/state" "$fake_root/bin"
+  confirm_posture "$st" || fail "Codex handoff: could not confirm fixture posture"
+  : > "$st/state/.afk"
+  printf 'buffered wake\n' > "$st/state/.subsuper-escalations"
+  cat > "$fake_root/bin/fm-watch-checkpoint.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'checkpoint=%s\n' "$*" > "$FM_HOME/checkpoint"
+EOF
+  chmod +x "$fake_root/bin/fm-watch-checkpoint.sh"
+  lock="$st/state/.supervise-daemon.lock"
+  mkdir -p "$lock"
+  bash -c 'trap "rm -rf \"$1\"; exit 0" TERM; while :; do sleep 0.1; done' _ "$lock" &
+  daemon_pid=$!
+  printf '%s' "$daemon_pid" > "$lock/pid"
+  ( . "$ROOT/bin/fm-wake-lib.sh"; fm_pid_identity "$daemon_pid" > "$lock/pid-identity" ) || true
+  printf 'tmux\tlegacy-terminal\towned\n' > "$st/state/.afk-daemon-terminal"
+  out=$(FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" FM_ROOT_OVERRIDE="$fake_root" FM_TEST_HARNESS=codex \
+    bash -c '
+      . "$1"
+      fm_afk_launch_primary_harness() { printf "%s" "$FM_TEST_HARNESS"; }
+      fm_afk_launch_close_recorded() { printf "%s:%s" "$FM_AFK_REC_BACKEND" "$FM_AFK_REC_TARGET" > "$FM_HOME/closed-terminal"; rm -f "$FM_AFK_LAUNCH_RECORD"; }
+      fm_afk_launch_main start
+    ' _ "$LAUNCH" 2>&1)
+  rc=$?
+  if [ "$rc" -eq 0 ] && ! kill -0 "$daemon_pid" 2>/dev/null \
+    && [ "$(cat "$st/closed-terminal" 2>/dev/null)" = 'tmux:legacy-terminal' ] \
+    && [ ! -e "$st/state/.afk" ] && [ -f "$st/state/.afk-contract" ] \
+    && [ -f "$st/state/.subsuper-escalations" ] \
+    && [ "$(cat "$st/checkpoint" 2>/dev/null)" = 'checkpoint=--seconds 180' ]; then
+    pass "Codex handoff: retires the legacy daemon and begins the foreground checkpoint without ending the posture"
+  else
+    fail "Codex handoff: daemon, terminal, posture, buffer, or checkpoint transition was wrong (rc=$rc): $out"
+  fi
+  kill "$daemon_pid" 2>/dev/null || true
+  wait "$daemon_pid" 2>/dev/null || true
+  rm -rf "$st"
+}
+
 unit_daemon_entry_requires_confirmation() {
   local st out rc
   st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-entry-record.XXXXXX")
@@ -1082,6 +1124,7 @@ e2e_tmux() {
 unit_clear_stale
 unit_propose_confirm_records_the_posture_without_a_daemon
 unit_foreground_harnesses_never_launch_the_daemon
+unit_codex_handoff_retires_legacy_daemon_before_checkpoint
 unit_daemon_entry_requires_confirmation
 unit_failed_daemon_launch_preserves_confirmed_record
 unit_stop_archives_the_record_last

@@ -959,14 +959,35 @@ EOF
 }
 
 test_codex_hooks_pin_their_verified_harness_identity() {
-  local session_start stop
+  local session_start stop dir payload out status
   session_start=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$ROOT/.codex/hooks.json")
   stop=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$ROOT/.codex/hooks.json")
-  assert_contains "$session_start" 'fm-sessionstart-run.sh" --harness codex' \
-    "Codex SessionStart still depends on fallible ancestry classification"
-  assert_contains "$stop" 'fm-turnend-guard.sh" --codex' \
-    "Codex Stop still depends on fallible ancestry classification"
-  pass ".codex/hooks.json: native hooks pin Codex protocol selection"
+  dir=$(make_primary_dir "$TMP_ROOT/codex-hook-identity")
+  mkdir -p "$dir/.codex"
+  cp "$ROOT/.codex/hooks.json" "$dir/.codex/hooks.json"
+  cat > "$dir/bin/fm-sessionstart-run.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'session-start args=%s\n' "$*"
+cat
+EOF
+  cat > "$dir/bin/fm-turnend-guard.sh" <<'EOF'
+#!/usr/bin/env bash
+printf 'turnend-guard args=%s\n' "$*"
+cat
+EOF
+  chmod +x "$dir/bin/fm-sessionstart-run.sh" "$dir/bin/fm-turnend-guard.sh"
+  payload='{"source":"startup","stop_hook_active":false}'
+  out=$(printf '%s' "$payload" | (cd "$dir" && bash -c "$session_start") 2>&1); status=$?
+  expect_code 0 "$status" "Codex SessionStart hook must execute successfully"
+  assert_contains "$out" 'session-start args=--harness codex' \
+    "Codex SessionStart hook did not pass its verified harness identity"
+  assert_contains "$out" "$payload" "Codex SessionStart hook did not preserve the payload"
+  out=$(printf '%s' "$payload" | (cd "$dir" && bash -c "$stop") 2>&1); status=$?
+  expect_code 0 "$status" "Codex Stop hook must execute successfully"
+  assert_contains "$out" 'turnend-guard args=--codex' \
+    "Codex Stop hook did not pass its verified harness identity"
+  assert_contains "$out" "$payload" "Codex Stop hook did not preserve the payload"
+  pass ".codex/hooks.json: native hooks execute with pinned Codex protocol selection"
 }
 
 test_codex_hook_ignores_nested_git_root_guard() {
