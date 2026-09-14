@@ -1000,9 +1000,13 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
 #
 # Record: state/.gate-nudge-<task>, one line "<identity>\t<count>\t<epoch>".
 # Identity is the literal `-` when the last probe found no gate, so the ladder's
-# own throttle still applies to a pane that is merely idle. Teardown removes it.
+# own throttle still applies to a pane that is merely idle. A count of
+# GATE_NUDGE_SPENT means both rings and the escalation are behind this identity:
+# the ladder then hands the pane back permanently, so firstmate is woken about
+# one gate once, not once every GATE_NUDGE_SECS. Teardown removes the record.
 
 GATE_NUDGE_NO_GATE='-'
+GATE_NUDGE_SPENT=3   # count value meaning: two rings and the escalation are done
 GATE_NUDGE_TAB=$(printf '\t')
 
 gate_nudge_record_path() {  # <task>
@@ -1096,14 +1100,23 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
 # endpoint is healthy by design and its work is routed, not gated), an away
 # posture (the daemon owns triage), a task that already has an open keyed
 # decision (firstmate, not the worker, answers next, so a ring would prompt the
-# worker to act on something it cannot), and a positively dead or missing
-# endpoint (nobody to ring, and recovery is already the ordinary path's job).
-gate_nudge_check() {  # <window> <task> <kind> <window-key>
-  local w=$1 task=$2 kind=$3 key=$4
+# worker to act on something it cannot), a declared external wait or captain
+# hold (handle_paused_stale owns that pane on an hours-long cadence and by
+# contract costs no crew-state read, which a per-minute probe would undo), and a
+# positively dead or missing endpoint (nobody to ring, and recovery is already
+# the ordinary path's job).
+#
+# Cost: at most ONE bounded crew-state read per GATE_NUDGE_SECS per idle pane,
+# paced by the record's own epoch. On a pane with no gate that read is in
+# addition to the one the unchanged triage below makes on each newly distinct
+# stale hash; the pacing record is what keeps it from repeating every poll.
+gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
+  local w=$1 task=$2 kind=$3 key=$4 statusline=$5
   local rec stored count last now age class detail identity reason
   case "$kind" in ship|scout) ;; *) return 1 ;; esac
   [ -n "$task" ] || return 1
   afk_present && return 1
+  status_is_paused_or_captain_held "$statusline" && return 1
   rec=$(gate_nudge_record_path "$task")
   stored=$GATE_NUDGE_NO_GATE
   count=0
@@ -1116,7 +1129,9 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key>
     [ -n "$stored" ] || stored=$GATE_NUDGE_NO_GATE
     if [ "$((now - last))" -lt "$GATE_NUDGE_SECS" ]; then
       # Between probes: keep owning a pane whose gate is already established,
-      # and leave every other idle pane to the unchanged triage.
+      # and leave every other idle pane - and every spent one - to the
+      # unchanged triage.
+      [ "$count" -ge "$GATE_NUDGE_SPENT" ] && return 1
       [ "$stored" != "$GATE_NUDGE_NO_GATE" ] && return 0
       return 1
     fi
@@ -1147,6 +1162,15 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key>
   esac
   identity=$(gate_nudge_identity "$task" "$detail")
   [ "$identity" = "$stored" ] || count=0
+  if [ "$count" -ge "$GATE_NUDGE_SPENT" ]; then
+    # Budget already spent on this exact gate: firstmate has been woken about it
+    # once and owns the pane from here, so the pane goes back to the unchanged
+    # triage rather than waking firstmate again every GATE_NUDGE_SECS. Only a
+    # new gate identity re-arms the ladder. The record is still rewritten so its
+    # epoch keeps pacing the probe that would notice that new identity.
+    gate_nudge_write "$rec" "$identity" "$count" "$now" || true
+    return 1
+  fi
   age=$(age_of "$STATE/.hash-$key")
   if [ "$age" -lt "$GATE_NUDGE_SECS" ]; then
     # The gate is established but the pane has not been quiet long enough to
@@ -1157,7 +1181,9 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key>
   if [ "$count" -ge 2 ]; then
     reason="stale: $w (idle ${age}s, gate-nudged x2 with no response: the worker is $detail and is not acting on the doorbell - inspect the worker)"
     fm_wake_append stale "$w" "$reason" || exit 1
-    gate_nudge_write "$rec" "$identity" "$count" "$now" || true
+    # Spend the budget BEFORE surfacing: this wake hands the pane to firstmate,
+    # and the ladder must not wake them about the same gate again.
+    gate_nudge_write "$rec" "$identity" "$GATE_NUDGE_SPENT" "$now" || true
     wake "$reason"
   fi
   gate_nudge_write "$rec" "$identity" "$((count + 1))" "$now" || return 1
@@ -2480,7 +2506,7 @@ EOF
         # lasts, and spends it into the ordinary stale wake with a gate-nudged
         # marker; every other pane falls straight through to the triage below,
         # unchanged.
-        if gate_nudge_check "$w" "$task" "$kind" "$key"; then
+        if gate_nudge_check "$w" "$task" "$kind" "$key" "$last"; then
           continue
         fi
         if [ "$kind" = secondmate ]; then

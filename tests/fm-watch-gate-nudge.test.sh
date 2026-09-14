@@ -358,7 +358,52 @@ test_open_decision_is_left_to_firstmate() {
     || fail "a task with an open decision firstmate owns was rung anyway"
   grep -F "gate-nudged" "$out" >/dev/null \
     && fail "an open decision was escalated through the gate-nudge ladder: $(cat "$out")"
-  pass "an open decision firstmate owns suppresses the ring entirely"
+
+  # The same holds for a worker that escalated without choosing a key, which is
+  # the shape this suppression must cover for the comment above it to be true.
+  rm -f "$state/.gate-nudge-$id" "$state/.$id.open-decisions-cursor"
+  ack_stopped_cycle "$state" || fail "the keyed round's wakes could not be acknowledged"
+  printf 'working: implementation committed\nneeds-decision: widen the rename or keep it narrow\n' \
+    > "$state/$id.status"
+  prime_status_seen "$state" "$state/$id.status"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/unkeyed.out" &
+  pid=$!
+  wait_for_exit "$pid" 60 >/dev/null
+  reap "$pid"
+  [ "$(nudge_record_count "$state" "$id")" -eq 0 ] \
+    || fail "a task whose open decision carries no key was rung anyway"
+  pass "an open decision firstmate owns, keyed or not, suppresses the ring entirely"
+}
+
+test_declared_wait_is_left_to_the_pause_cadence() {
+  local dir state fakebin out capture window id pid
+  dir=$(make_case gate-nudge-paused); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gatepaused; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+  printf 'working: implementation committed\npaused: waiting on the upstream release\n' \
+    > "$state/$id.status"
+  prime_status_seen "$state" "$state/$id.status"
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_PAUSE_RESURFACE_SECS=999999 \
+    FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 60 >/dev/null
+  reap "$pid"
+
+  [ "$(nudge_record_count "$state" "$id")" -eq 0 ] \
+    || fail "a task on a declared external wait was rung by the gate-nudge ladder"
+  grep -F "gate-nudged" "$out" >/dev/null \
+    && fail "a declared external wait was escalated through the gate-nudge ladder: $(cat "$out")"
+  pass "a declared external wait stays on the bounded pause cadence, unprobed"
 }
 
 test_secondmate_is_outside_the_ladder() {
@@ -440,20 +485,24 @@ test_new_worktree_head_rearms_a_spent_budget() {
   before=$(nudge_record_count "$state" "$id")
   [ "$before" -eq 2 ] || fail "the first round did not spend exactly two rings: $before"
 
-  # Control: the same gate, the same head, a fresh watcher. The budget stays spent.
+  # Control: the same gate, the same head, a fresh watcher, left running for
+  # several probe windows. A spent budget neither rings again nor re-escalates:
+  # firstmate has been woken about this gate once and owns the pane from here.
   ack_stopped_cycle "$state" || fail "the first round's wakes could not be acknowledged"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
     FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
-    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/control.out" &
   pid=$!
-  rc=0
-  wait_for_exit "$pid" 250 || rc=$?
+  wait_for_exit "$pid" 60 >/dev/null
   reap "$pid"
-  [ "$rc" -ne 124 ] || fail "a spent budget on an unchanged head did not escalate again"
   [ "$(nudge_record_count "$state" "$id")" -eq "$before" ] \
     || fail "a spent budget rang again on an unchanged worktree head"
+  grep -F "stale: $window" "$dir/control.out" >/dev/null \
+    || fail "the spent ladder did not hand the pane back to the unchanged triage: $(cat "$dir/control.out")"
+  grep -F "gate-nudged" "$dir/control.out" >/dev/null \
+    && fail "a spent budget escalated the same gate a second time: $(cat "$dir/control.out")"
 
   # A fix round commits, so the head moves and the same-looking gate is a new one.
   printf 'two\n' > "$wt/f.txt"
@@ -479,6 +528,7 @@ test_worker_that_already_reported_done_is_never_rung
 test_ladder_escalates_only_after_two_unanswered_nudges
 test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
+test_declared_wait_is_left_to_the_pause_cadence
 test_secondmate_is_outside_the_ladder
 test_dead_endpoint_is_never_rung
 test_new_worktree_head_rearms_a_spent_budget
