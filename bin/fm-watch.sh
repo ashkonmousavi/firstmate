@@ -1025,10 +1025,10 @@ gate_nudge_record_path() {  # <task>
 # cannot be paced, so the caller hands the pane back to the unchanged triage
 # rather than probing or ringing on every poll.
 #
-# The identity is written LAST because it is the only free-form field: a tab
-# inside it would otherwise shift every field the reader parses, which silently
-# turns the ladder into an endless ringer that never reaches its escalation.
-# Last field, read last, round-trips whatever a gate detail turns out to hold.
+# The identity - run id, gate step and run head, joined by `|` - carries no raw
+# gate detail. It is still written LAST as a defensive ordering: the step is
+# parsed out of free-form current-state text, and in the last field a stray tab
+# there could never shift the count, epoch and held fields the reader parses.
 gate_nudge_write() {  # <record-path> <identity> <count> <epoch> <held>
   printf '%s\t%s\t%s\t%s\n' "$3" "$4" "$5" "$2" > "$1" 2>/dev/null
 }

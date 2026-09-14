@@ -360,11 +360,11 @@ test_ladder_escalates_only_after_two_unanswered_nudges() {
   pass "two unanswered nudges precede the ordinary stale wake, which names them"
 }
 
-# The gate detail is free-form text from the current-state line, so the ladder
-# record must round-trip a tab inside it. Parsed into the wrong field it would
-# reset the budget on every probe: the ladder would ring forever and never reach
-# the escalation it exists to deliver.
-test_a_tabbed_gate_detail_still_reaches_escalation() {
+# The gate detail is free-form text from the current-state line, and it flows
+# into the step the gate identity is keyed on, the worker's ring message and the
+# escalation reason. A tab inside it must still ring the worker and escalate
+# after exactly two rings.
+test_a_tabbed_gate_detail_still_rings_and_escalates() {
   local dir state fakebin out capture window id pid rc
   dir=$(make_case gate-nudge-tabbed); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; capture="$dir/pane.txt"
@@ -381,12 +381,12 @@ test_a_tabbed_gate_detail_still_reaches_escalation() {
   wait_for_exit "$pid" 250 || rc=$?
   reap "$pid"
 
-  [ "$rc" -ne 124 ] || fail "a tabbed gate detail never accumulated a budget: $(cat "$out")"
+  [ "$rc" -ne 124 ] || fail "a tabbed gate detail never escalated: $(cat "$out")"
   [ "$(nudge_record_count "$state" "$id")" -eq 2 ] \
-    || fail "a tabbed gate detail spent a budget other than two rings: $(nudge_record_count "$state" "$id")"
+    || fail "a tabbed gate detail was rung other than twice before escalating: $(nudge_record_count "$state" "$id")"
   grep -F "gate-nudged x2" "$out" >/dev/null \
     || fail "a tabbed gate detail did not reach the gate-nudged escalation: $(cat "$out")"
-  pass "a tab inside the gate detail still reaches escalation after exactly two rings"
+  pass "a tab inside the gate detail still rings the worker and escalates after exactly two rings"
 }
 
 # A read that finds no gate between two probes of the same gate - a timed-out
@@ -867,7 +867,7 @@ test_ci_green_awaiting_the_done_report_rings_the_worker
 test_worker_that_already_reported_done_is_never_rung
 test_earlier_round_done_still_rings_the_worker
 test_ladder_escalates_only_after_two_unanswered_nudges
-test_a_tabbed_gate_detail_still_reaches_escalation
+test_a_tabbed_gate_detail_still_rings_and_escalates
 test_a_transient_non_gate_read_keeps_the_budget
 test_run_resume_rearms_a_same_looking_gate
 test_consecutive_gates_of_one_run_each_ring
