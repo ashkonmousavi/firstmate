@@ -437,7 +437,7 @@ Handle actionable wakes as follows:
 2. For `stale:`, inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. For `check:`, act on the named poll result, including merges, Relay events, process-to-event source results, and captain inbox notes; a handled inbox note is also acknowledged with `bin/fm-inbox.sh drain --ack <id>`, or it stays counted as still waiting for firstmate.
 4. For `heartbeat:`, review the whole fleet from the structured fleet view, reconcile suspicious tasks and PR state, update the backlog, and never report an unchanged fleet as progress.
-   Also verify, for each project with a deploy target, the latest deploy workflow outcome, that the live server serves the current default-branch commit, and that its health answers, reporting only drift or failure to the captain.
+   Also verify, for each project with a deploy target, that its health answers and that the live server serves the commit the deploy workflow's last successful run targeted, not the default-branch head, reporting to the captain only a failed health check or drift: the newest deploy run failed, or the live server serves a commit other than that last successful deploy's target.
    A registered custom check may perform that probing, but the heartbeat step still reads its result.
 
 When any wake reports a merged PR for a project cloned in this home, refresh that clone through the guarded fleet-sync path.
