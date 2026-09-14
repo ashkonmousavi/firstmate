@@ -296,6 +296,42 @@ SH
   printf '%s\n' "$dir"
 }
 
+# reap() sends TERM to <pid>, waits up to 10s for it to exit, escalates to KILL
+# if it is still alive, then waits again (bounded) to confirm death before
+# reaping the job-table entry. A bare `kill "$1"; wait "$1"` can block the whole
+# suite forever if the target never honors TERM - see
+# cloud-serial1-timeout-note.txt for the hosted run that surfaced this gap. A
+# TERM-resistant owned child proves this helper used to be able to wait
+# indefinitely after TERM; it does not establish that TERM-resistance caused
+# that hosted trap error or the original timeout, and this bound does not
+# resolve that open question either way.
+# Liveness uses is_live_non_zombie (below) rather than bare `kill -0`, which
+# reports success for a zombie: without that, an already-exited-but-unreaped
+# child would burn the full TERM and KILL bounds before reap ever reaches the
+# plain `wait` that would have reaped it at once.
+reap() {  # <pid>
+  local pid=$1 i=0
+  kill -TERM "$pid" 2>/dev/null || true
+  while [ "$i" -lt 100 ] && is_live_non_zombie "$pid"; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if is_live_non_zombie "$pid"; then
+    kill -KILL "$pid" 2>/dev/null || true
+    i=0
+    while [ "$i" -lt 30 ] && is_live_non_zombie "$pid"; do
+      sleep 0.1
+      i=$((i + 1))
+    done
+  fi
+  if is_live_non_zombie "$pid"; then
+    printf 'reap: pid %s survived TERM and KILL\n' "$pid" >&2
+    return 1
+  fi
+  wait "$pid" 2>/dev/null || true
+  return 0
+}
+
 wait_for_exit() {
   local pid=$1 limit=${2:-50} i=0
   while [ "$i" -lt "$limit" ]; do
@@ -306,8 +342,7 @@ wait_for_exit() {
     sleep 0.1
     i=$((i + 1))
   done
-  kill "$pid" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
+  reap "$pid"
   return 124
 }
 
