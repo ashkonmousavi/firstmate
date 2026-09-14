@@ -1,0 +1,80 @@
+
+===== S1 main home: firstmate merges a green PR itself (bin/fm-pr-merge.sh) =====
+exit=0
+--- fm-pr-merge.sh stdout
+armed: state/task-a.check.sh
+verified: https://github.com/example/repo/pull/51 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/51 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7
+--- fm-pr-merge.sh stderr
+verified: https://github.com/example/repo/pull/51 is open and mergeable, with every required check green at head 0123456789abcdef0123456789abcdef01234567
+RESULT PASS: S1 self-merge stdout names merged-not-landed (reminder present)
+--- fm-wake-drain.sh stdout (delivered to firstmate)
+1789409460	1	check	merged-task-a-https://github.com/example/repo/pull/51	check: merge landed: task-a https://github.com/example/repo/pull/51; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7
+--- fm-wake-drain.sh stderr (minus ack token)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+RESULT PASS: S1 durable wake delivered to firstmate carries reminder (reminder present)
+
+===== S1b same PR merged again after the outcome was already recorded =====
+exit=0
+--- fm-pr-merge.sh stdout (repeat)
+armed: state/task-a.check.sh
+verified: https://github.com/example/repo/pull/51 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/51 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7
+--- fm-pr-merge.sh stderr (repeat)
+verified: https://github.com/example/repo/pull/51 is open and mergeable, with every required check green at head 0123456789abcdef0123456789abcdef01234567
+--- merge-landed rows in durable queue: 1
+
+===== S2 merge-queue landing: queued by fm-pr-merge.sh, later detected by the watcher poll =====
+fm-pr-check exit=0
+fm-pr-merge exit=0
+--- fm-pr-merge.sh stdout (queued)
+armed: state/task-a.check.sh
+verified: https://github.com/example/repo/pull/51 is queued (state=OPEN, merged=false, isInMergeQueue=true)
+--- fm-pr-merge.sh stderr (queued)
+verified: https://github.com/example/repo/pull/51 is open and mergeable, with every required check green at head 0123456789abcdef0123456789abcdef01234567
+RESULT PASS: S2a queued merge does not claim a landing (reminder absent)
+fm-watch exit=0
+--- fm-watch.sh stdout (one cycle)
+check: /tmp/fm-post-merge-drive.h3euKS/s2/home/state/task-a.check.sh: merged
+--- fm-wake-drain.sh stdout (delivered to firstmate)
+1789409463	1	check	merged-task-a-https://github.com/example/repo/pull/51	check: merge landed: task-a https://github.com/example/repo/pull/51; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7
+--- fm-wake-drain.sh stderr (minus ack token)
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+RESULT PASS: S2b poll-detected landing delivered to firstmate carries reminder (reminder present)
+
+===== S3 secondmate home merges its own PR: parent channel + own stdout =====
+exit=0
+--- fm-pr-merge.sh stdout
+armed: state/task-a.check.sh
+verified: https://github.com/example/repo/pull/51 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/51 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7
+--- parent channel (state/parent-replies.status)
+done [key=child-pr-task-a]: child task-a PR ready: https://github.com/example/repo/pull/51 mode=no-mistakes
+done [key=merged-task-a]: merged task-a https://github.com/example/repo/pull/51
+RESULT PASS: S3 secondmate self-merge stdout names merged-not-landed (reminder present)
+
+===== S4 adversarial: the forge refuses the merge =====
+exit=1
+--- fm-pr-merge.sh stdout
+armed: state/task-a.check.sh
+--- fm-pr-merge.sh stderr
+verified: https://github.com/example/repo/pull/51 is open and mergeable, with every required check green at head 0123456789abcdef0123456789abcdef01234567
+GraphQL: Pull request is not mergeable
+error: GitHub merge outcome was not successful: state=OPEN, merged=false, isInMergeQueue=false
+RESULT PASS: S4 refused merge produces no landing reminder or merge-landed wake (reminder absent)
+
+===== S5 local-only landing (bin/fm-merge-local.sh): only the local outcome =====
+exit=0
+--- fm-merge-local.sh stdout
+merged fm/task-a into local main (e9fae60 -> c2d42f0) in /tmp/fm-post-merge-drive.h3euKS/s5/project
+--- fm-merge-local.sh stderr
+(empty)
+--- project main now at: c2d42f0 task work
+RESULT PASS: S5 local-only landing reports only the local outcome (reminder absent)
