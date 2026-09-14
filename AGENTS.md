@@ -266,7 +266,7 @@ Route durable knowledge to its most specific owner:
 
 - Home-domain captain preferences and working style belong in `data/captain.md` after inspect-then-update.
 - Captain preferences shared across secondmate domains belong in the primary home's `data/captain-shared.md` under the `secondmate-provisioning` contract.
-- Fleet-local operational facts belong in curated, home-local `data/learnings.md`.
+- Fleet-local operational facts belong in curated, home-local `data/learnings.md`; before first relying on a project's forge, CI, deploy, or release machinery firstmate does not itself run, read its workflow definitions and record their map there - triggers, required checks, what fires after a merge, and where the live version is recorded - and re-read the workflow files when they change.
 - Task-scoped notes belong with the backlog item, and investigation findings belong in the scout report.
 - Knowledge useful to almost every contributor to one project belongs in that project's committed `AGENTS.md`.
 - Knowledge general to every firstmate user belongs in this repo's shared tracked surface.
@@ -355,7 +355,7 @@ Destructive, irreversible, and security-sensitive merges still escalate.
 Without a current explicit captain instruction that states the concrete merge, the green default stands, and standing `yolo` cannot authorize a red merge; section 1 owns when such an instruction overrides a Firstmate-written standing rule within its exact scope.
 Load `ask-user-authority` before deciding any ask-user finding; the implementation worker never answers its own finding.
 Use `bin/fm-pr-merge.sh` for every task PR merge so merge metadata is recorded and an unproved merge is refused instead of reported as landed, and use `bin/fm-merge-local.sh` for approved local-only landing; never call a lower-level merge command around their guards.
-After an autonomous merge, give the captain a one-line full-URL or local-main outcome.
+After an autonomous merge, give the captain the one-line full-URL or local-main outcome together with the post-merge verification outcome that section 7's "PR ready, landing, and teardown" requires before the task counts as landed.
 
 ### Validate
 
@@ -389,6 +389,9 @@ For PR-based ship tasks, the ready signal depends on mode: `no-mistakes` reports
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
+A merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch checkpoint run, any deploy or release workflow the merge fires, and the live version when the project has a deploy target.
+Tell the captain the concrete result - passing or failing checks, the deploy result, and the live version.
+Never report a task landed on the merge alone, and hold teardown until that verification is done.
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
