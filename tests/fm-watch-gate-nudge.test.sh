@@ -11,7 +11,8 @@
 # time if it stays idle, and only then escalated to firstmate with a gate-nudged
 # reason. A busy pane, an open decision firstmate owns, a scout, and a
 # secondmate are never rung, a pane whose agent has exited goes straight to
-# recovery, and a new task worktree head re-arms a spent budget.
+# recovery, a spent budget wakes firstmate about its gate once, and a run that
+# resumes or a new task worktree head re-arms the budget.
 #
 # The general watcher triage matrix lives in fm-watch-triage.test.sh; the
 # steering-inbox record format and re-ring ladder in fm-task-inbox.test.sh.
@@ -167,7 +168,11 @@ test_crew_gate_class_reads_only_run_step_gates() {
   [ "$(crew_gate_class a)" = none ] \
     || fail "a status-log done was read as a gate the worker still owes"
   FM_FAKE_CREW_STATE='state: working · source: run-step · ci running'
-  [ "$(crew_gate_class a)" = none ] || fail "an active run was read as a gate"
+  [ "$(crew_gate_class a)" = resumed ] \
+    || fail "a working read from the run itself was not read as a resume: $(crew_gate_class a)"
+  FM_FAKE_CREW_STATE='state: working · source: run-step · validating (background run)'
+  [ "$(crew_gate_class a)" = none ] \
+    || fail "a coarse runs-list read was taken as proof the run resumed"
   FM_FAKE_CREW_STATE='state: failed · source: run-step · run failed'
   [ "$(crew_gate_class a)" = none ] || fail "a failed run was read as a gate"
   FM_FAKE_CREW_STATE='state: parked · source: pane · idle prompt'
@@ -177,7 +182,7 @@ test_crew_gate_class_reads_only_run_step_gates() {
   [ "$(crew_gate_class "")" = none ] || fail "an empty id was read as a gate"
 
   unset FM_FAKE_CREW_STATE FM_CREW_STATE_BIN
-  pass "crew_gate_class: only a run-step parked or green-CI verdict is a gate"
+  pass "crew_gate_class: only a run-step parked or green-CI verdict is a gate, and only the run's own working read is a resume"
 }
 
 # --- behavior (bin/fm-watch.sh) ---------------------------------------------
@@ -415,6 +420,66 @@ test_a_transient_non_gate_read_keeps_the_budget() {
   pass "a transient non-gate read mid-ladder keeps the ring budget"
 }
 
+# A no-mistakes fix round commits in the pipeline's own checkout, so the task
+# head never moves and the next gate can report the very same step and finding
+# count. A read that proves the run itself resumed is what tells the two gates
+# apart: without it a worker that answered every ring would be escalated as
+# ignoring the doorbell, with no ring at all for the new gate.
+test_run_resume_rearms_a_same_looking_gate() {
+  local dir state fakebin out capture window id pid rc
+  dir=$(make_case gate-nudge-resume); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gateresume; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+
+  # Both rings of the first gate.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" 2 "$pid" \
+    || { reap "$pid"; fail "the first gate did not ring the worker twice: $(cat "$out")"; }
+  reap "$pid"
+
+  # The worker answered, and the run's own status reads it as fixing. Later
+  # rounds are armed as handling successors, as fm-watch-arm.sh arms one.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE='state: working · source: run-step · validating (fixing)' \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/resume.out" &
+  pid=$!
+  for _ in 1 2 3; do
+    wait_poll_cycle "$state" "$pid" \
+      || { reap "$pid"; fail "the resumed run exited the watcher: $(cat "$dir/resume.out")"; }
+  done
+  reap "$pid"
+  [ "$(nudge_record_count "$state" "$id")" -eq 2 ] \
+    || fail "a resumed run was rung about a gate"
+
+  # The fix round parks again with the same detail: a new gate, with its own
+  # two rings before any escalation.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  rc=0
+  wait_for_exit "$pid" 250 || rc=$?
+  reap "$pid"
+
+  [ "$rc" -ne 124 ] || fail "the re-parked gate never escalated: $(cat "$out")"
+  [ "$(nudge_record_count "$state" "$id")" -eq 4 ] \
+    || fail "the same-looking gate after a resume did not earn its own two rings: $(nudge_record_count "$state" "$id") rings in all"
+  grep -F "gate-nudged x2" "$out" >/dev/null \
+    || fail "the re-parked gate did not reach the gate-nudged escalation: $(cat "$out")"
+  pass "a run that resumes re-arms the ladder for a same-looking gate"
+}
+
 test_busy_pane_is_never_nudged() {
   local dir state fakebin out capture window id pid
   dir=$(make_case gate-nudge-busy); state="$dir/state"; fakebin="$dir/fakebin"
@@ -592,8 +657,9 @@ test_dead_endpoint_is_never_rung() {
 }
 
 # The budget is bound to a gate identity that includes the task worktree head,
-# so a later fix round reporting the same step and the same finding count still
-# earns its own rings. The control is the same restart WITHOUT a new commit.
+# so a gate after the worker's own commit reporting the same step and the same
+# finding count still earns its own rings. The control is the same restart
+# WITHOUT a new commit, which must neither ring nor wake firstmate again.
 test_new_worktree_head_rearms_a_spent_budget() {
   local dir state fakebin out capture window id wt pid rc before
   dir=$(make_case gate-nudge-head); state="$dir/state"; fakebin="$dir/fakebin"
@@ -624,8 +690,9 @@ test_new_worktree_head_rearms_a_spent_budget() {
   [ "$before" -eq 2 ] || fail "the first round did not spend exactly two rings: $before"
 
   # Control: the same gate, the same head, a fresh watcher, left running for
-  # several probe windows. A spent budget neither rings again nor re-escalates:
-  # firstmate has been woken about this gate once and owns the pane from here.
+  # several probe windows. A spent budget neither rings again nor wakes
+  # firstmate again: the escalation marked this pane surfaced, so the unchanged
+  # triage only runs its wedge timer on it.
   ack_stopped_cycle "$state" || fail "the first round's wakes could not be acknowledged"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
     FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
@@ -633,22 +700,22 @@ test_new_worktree_head_rearms_a_spent_budget() {
     FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/control.out" &
   pid=$!
-  wait_for_exit "$pid" 60 >/dev/null
+  for _ in 1 2 3; do
+    wait_poll_cycle "$state" "$pid" \
+      || { reap "$pid"; fail "the spent gate woke firstmate a second time: $(cat "$dir/control.out")"; }
+  done
   reap "$pid"
   [ "$(nudge_record_count "$state" "$id")" -eq "$before" ] \
     || fail "a spent budget rang again on an unchanged worktree head"
-  grep -F "stale: $window" "$dir/control.out" >/dev/null \
-    || fail "the spent ladder did not hand the pane back to the unchanged triage: $(cat "$dir/control.out")"
-  grep -F "gate-nudged" "$dir/control.out" >/dev/null \
-    && fail "a spent budget escalated the same gate a second time: $(cat "$dir/control.out")"
+  [ ! -s "$dir/control.out" ] \
+    || fail "the spent gate printed a second wake reason: $(cat "$dir/control.out")"
 
-  # A fix round commits, so the head moves and the same-looking gate is a new one.
+  # The worker commits, so the head moves and the same-looking gate is a new one.
   printf 'two\n' > "$wt/f.txt"
   git -C "$wt" add f.txt
   git -C "$wt" commit -q -m 'fix round'
-  ack_stopped_cycle "$state" || fail "the control round's wakes could not be acknowledged"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
-    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_WATCH_HANDLING_SUCCESSOR=1 \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
@@ -667,6 +734,7 @@ test_earlier_round_done_still_rings_the_worker
 test_ladder_escalates_only_after_two_unanswered_nudges
 test_a_tabbed_gate_detail_still_reaches_escalation
 test_a_transient_non_gate_read_keeps_the_budget
+test_run_resume_rearms_a_same_looking_gate
 test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
 test_declared_wait_is_left_to_the_pause_cadence

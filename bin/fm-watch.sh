@@ -1004,8 +1004,8 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
 # budget left - and 0 otherwise, so the ladder's own throttle still applies to a
 # pane that is merely idle. A count of GATE_NUDGE_SPENT means both rings and the
 # escalation are behind this identity: the ladder then hands the pane back
-# permanently, so firstmate is woken about one gate once, not once every
-# GATE_NUDGE_SECS. Teardown removes the record.
+# until a new identity or a resumed run re-arms it, so firstmate is woken about
+# one gate once, not once every GATE_NUDGE_SECS. Teardown removes the record.
 
 GATE_NUDGE_SPENT=3   # count value meaning: two rings and the escalation are done
 GATE_NUDGE_TAB=$(printf '\t')
@@ -1028,17 +1028,18 @@ gate_nudge_write() {  # <record-path> <identity> <count> <epoch> <held>
 
 # Record a probe that found no gate: the pane goes back to the unchanged triage,
 # but the identity and count stay, so "at most two rings per gate identity"
-# survives a transient non-gate read - a probe that timed out, or a run that
-# flickers back to running between two reads of the same gate. Only a new
-# identity resets the count.
+# survives a transient non-gate read - a probe that timed out, or a coarse
+# runs-list read that cannot see the gate. Only a new identity, or a read that
+# proves the run itself resumed, resets the count.
 gate_nudge_clear() {  # <record-path> <stored-identity> <count> <epoch>
   gate_nudge_write "$1" "$2" "$3" "$4" 0
 }
 
 # The gate identity a nudge budget is bound to: the gate's own detail (its step
 # and finding count), the task's status-log signature, and the task worktree's
-# head. The head is what separates two consecutive fix-review rounds that report
-# the same step and the same finding count, since a fix round commits; an
+# head, which moves when the worker itself commits. A no-mistakes fix round
+# commits in the pipeline's own checkout instead, so two of its gates can share
+# every part; the resume reset in gate_nudge_check is what separates those. An
 # unreadable or absent worktree simply contributes nothing and the coarser
 # identity still bounds the budget.
 gate_nudge_identity() {  # <task> <gate-detail>
@@ -1156,6 +1157,12 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   case "$class" in
     "parked$GATE_NUDGE_TAB"*)   class=parked ;;
     "ci-green$GATE_NUDGE_TAB"*) class=ci-green ;;
+    resumed)
+      # The run itself reads as working, so the next gate it parks at is a new
+      # one, even one reporting the same step and finding count.
+      gate_nudge_write "$rec" '' 0 "$now" 0 || true
+      return 1
+      ;;
     *) gate_nudge_clear "$rec" "$stored" "$count" "$now" || true; return 1 ;;
   esac
   if [ "$class" = ci-green ] && gate_nudge_done_reported "$task"; then
@@ -1177,8 +1184,9 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
     # Budget already spent on this exact gate: firstmate has been woken about it
     # once and owns the pane from here, so the pane goes back to the unchanged
     # triage rather than waking firstmate again every GATE_NUDGE_SECS. Only a
-    # new gate identity re-arms the ladder. The record is still rewritten so its
-    # epoch keeps pacing the probe that would notice that new identity.
+    # new gate identity, or a read that proves the run resumed, re-arms the
+    # ladder. The record is still rewritten so its epoch keeps pacing the probe
+    # that would notice either.
     gate_nudge_write "$rec" "$identity" "$count" "$now" 0 || true
     return 1
   fi
@@ -1192,9 +1200,13 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   if [ "$count" -ge 2 ]; then
     reason="stale: $w (idle ${age}s, gate-nudged x2 with no response: the worker is $detail and is not acting on the doorbell - inspect the worker)"
     fm_wake_append stale "$w" "$reason" || exit 1
-    # Spend the budget BEFORE surfacing: this wake hands the pane to firstmate,
-    # and the ladder must not wake them about the same gate again.
+    # Spend the budget and mark this pane hash surfaced BEFORE surfacing, as
+    # surface_nonterminal_stale does: this wake hands the pane to firstmate, and
+    # neither the ladder nor the unchanged triage may wake them about the same
+    # gate again.
     gate_nudge_write "$rec" "$identity" "$GATE_NUDGE_SPENT" "$now" 0 || true
+    cp "$STATE/.hash-$key" "$STATE/.stale-$key" 2>/dev/null || true
+    rm -f "$STATE/.stale-since-$key"
     wake "$reason"
   fi
   gate_nudge_write "$rec" "$identity" "$((count + 1))" "$now" 1 || return 1

@@ -1844,7 +1844,11 @@ crew_is_paused() {  # <id>
 #                          names the gate step and its finding count
 #   ci-green<TAB><detail>  checks are green and only a merge decision is
 #                          outstanding, so the worker still owes its done: report
-#   none                   neither
+#   resumed                the run's own axi status reads it as working, so it
+#                          has moved past any earlier gate; the coarse runs-list
+#                          reading ("validating (background run)") cannot see a
+#                          gate and does not count
+#   none                   none of these
 # Only a run-step verdict qualifies. A `done` reconciled from the STATUS LOG
 # means the worker already reported, and a pane verdict knows nothing about a
 # gate, so neither may be read as a gate the worker has not answered.
@@ -1872,6 +1876,12 @@ crew_gate_class() {  # <id>
     done)
       case "$detail" in
         'checks green'*) printf 'ci-green\t%s' "$detail"; return ;;
+      esac
+      ;;
+    working)
+      case "$detail" in
+        'validating (background run)'*) ;;
+        *) printf 'resumed'; return ;;
       esac
       ;;
   esac
