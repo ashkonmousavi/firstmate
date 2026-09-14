@@ -13,8 +13,8 @@
 # reason. A busy pane, an open decision firstmate owns, a scout, and a
 # secondmate are never rung, a pane whose agent has exited goes straight to
 # recovery, a spent budget wakes firstmate about its gate once, a run that
-# resumes or a new run or task worktree head re-arms the budget, and a run that
-# cannot be read rings nobody.
+# resumes or a new run head re-arms the budget while a status append or a local
+# commit does not, and a run that cannot be read rings nobody.
 #
 # The general watcher triage matrix lives in fm-watch-triage.test.sh; the
 # steering-inbox record format and re-ring ladder in fm-task-inbox.test.sh.
@@ -127,19 +127,17 @@ SH
 }
 
 # Stage one idle, already-stale pane for task <id> on window <window>: the
-# metadata, a task worktree (a fresh git repository unless one is given), the
-# fake no-mistakes beside the case's other fakes, a primed status log, and the
-# staleness backbone's own markers recorded as if a previous poll had already
-# seen this exact pane content. The hash marker is backdated so the pane reads
-# as idle for well over any FM_GATE_NUDGE_SECS a case sets. Echoes the derived
-# window key.
-stage_idle_pane() {  # <state> <id> <window> <capture-file> <kind> [worktree]
-  local state=$1 id=$2 window=$3 capture=$4 kind=$5 wt=${6:-} key
-  if [ -z "$wt" ]; then
-    wt="$(dirname "$state")/worktree-$id"
-    mkdir -p "$wt"
-    git -C "$wt" init -q
-  fi
+# metadata, a task worktree (a fresh git repository, worktree-<id> beside the
+# state directory), the fake no-mistakes beside the case's other fakes, a primed
+# status log, and the staleness backbone's own markers recorded as if a previous
+# poll had already seen this exact pane content. The hash marker is backdated so
+# the pane reads as idle for well over any FM_GATE_NUDGE_SECS a case sets.
+# Echoes the derived window key.
+stage_idle_pane() {  # <state> <id> <window> <capture-file> <kind>
+  local state=$1 id=$2 window=$3 capture=$4 kind=$5 wt key
+  wt="$(dirname "$state")/worktree-$id"
+  mkdir -p "$wt"
+  git -C "$wt" init -q
   write_fake_no_mistakes "$(dirname "$state")/fakebin"
   printf 'idle prompt, waiting for input' > "$capture"
   printf 'window=%s\nkind=%s\nharness=claude\nworktree=%s\n' "$window" "$kind" "$wt" \
@@ -450,11 +448,10 @@ test_a_transient_non_gate_read_keeps_the_budget() {
   pass "a transient non-gate read mid-ladder keeps the ring budget"
 }
 
-# A no-mistakes fix round commits in the pipeline's own checkout, so the task
-# head never moves and the next gate can report the very same step and finding
-# count. A read that proves the run itself resumed is what tells the two gates
-# apart: without it a worker that answered every ring would be escalated as
-# ignoring the doorbell, with no ring at all for the new gate.
+# A gate can park again at the same step with the same run head, so the identity
+# alone cannot tell it from the gate before. A read that proves the run itself
+# resumed in between does: without it a worker that answered every ring would
+# be escalated as ignoring the doorbell, with no ring at all for the new gate.
 test_run_resume_rearms_a_same_looking_gate() {
   local dir state fakebin out capture window id pid rc
   dir=$(make_case gate-nudge-resume); state="$dir/state"; fakebin="$dir/fakebin"
@@ -512,8 +509,8 @@ test_run_resume_rearms_a_same_looking_gate() {
 
 # The worker can stay busy through a whole fix round - answering the gate and
 # polling in its own turn - so no probe ever reads the run working between two
-# gates, and the fix round leaves the task head where it was. The run's own
-# head is what still tells the gates apart: each is rung, none is escalated.
+# gates. The run head the fix round advances is what still tells the gates
+# apart: each is rung, none is escalated.
 test_consecutive_gates_of_one_run_each_ring() {
   local dir state fakebin capture window id pid n=0 succ=0 run_head
   dir=$(make_case gate-nudge-consecutive); state="$dir/state"; fakebin="$dir/fakebin"
@@ -758,28 +755,19 @@ test_unreadable_run_rings_nobody() {
   pass "a run that cannot be read, or reads as another branch's, rings nobody"
 }
 
-# The budget is bound to a gate identity that includes the task worktree head,
-# so a gate after the worker's own commit reporting the same step and the same
-# finding count still earns its own rings. The control is the same restart
-# WITHOUT a new commit, which must neither ring nor wake firstmate again.
-test_new_worktree_head_rearms_a_spent_budget() {
-  local dir state fakebin out capture window id wt pid rc before
-  dir=$(make_case gate-nudge-head); state="$dir/state"; fakebin="$dir/fakebin"
+# The budget is bound to the gate's identity, whose run head a no-mistakes fix
+# round advances. The control is the same restart with the SAME run head, which
+# must neither ring nor wake firstmate again; a new run head is a new gate.
+test_new_run_head_rearms_a_spent_budget() {
+  local dir state fakebin out capture window id pid rc before
+  dir=$(make_case gate-nudge-run-head); state="$dir/state"; fakebin="$dir/fakebin"
   out="$dir/watch.out"; capture="$dir/pane.txt"
   id=gatehead; window="test:fm-$id"
-  wt="$dir/worktree"
-  mkdir -p "$wt"
-  git -C "$wt" init -q
-  git -C "$wt" config user.email fixture@example.invalid
-  git -C "$wt" config user.name fixture
-  printf 'one\n' > "$wt/f.txt"
-  git -C "$wt" add f.txt
-  git -C "$wt" commit -q -m 'first round'
-  stage_idle_pane "$state" "$id" "$window" "$capture" ship "$wt" >/dev/null
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
 
   # Spend the whole budget once.
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
-    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD=abc0001 \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
@@ -791,13 +779,13 @@ test_new_worktree_head_rearms_a_spent_budget() {
   before=$(nudge_record_count "$state" "$id")
   [ "$before" -eq 2 ] || fail "the first round did not spend exactly two rings: $before"
 
-  # Control: the same gate, the same head, a fresh watcher, left running for
+  # Control: the same gate, the same run head, a fresh watcher, left running for
   # several probe windows. A spent budget neither rings again nor wakes
   # firstmate again: the escalation marked this pane surfaced, so the unchanged
   # triage only runs its wedge timer on it.
   ack_stopped_cycle "$state" || fail "the first round's wakes could not be acknowledged"
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
-    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD=abc0001 \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/control.out" &
@@ -808,24 +796,69 @@ test_new_worktree_head_rearms_a_spent_budget() {
   done
   reap "$pid"
   [ "$(nudge_record_count "$state" "$id")" -eq "$before" ] \
-    || fail "a spent budget rang again on an unchanged worktree head"
+    || fail "a spent budget rang again on an unchanged run head"
   [ ! -s "$dir/control.out" ] \
     || fail "the spent gate printed a second wake reason: $(cat "$dir/control.out")"
 
-  # The worker commits, so the head moves and the same-looking gate is a new one.
-  printf 'two\n' > "$wt/f.txt"
-  git -C "$wt" add f.txt
-  git -C "$wt" commit -q -m 'fix round'
+  # A fix round advances the run head, so the same-looking gate is a new one.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD=abc0002 FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" "$((before + 1))" "$pid" \
+    || { reap "$pid"; fail "a new run head did not re-arm the gate-nudge budget: $(cat "$out")"; }
+  reap "$pid"
+  pass "a new run head re-arms a spent gate-nudge budget, an unchanged one does not"
+}
+
+# A worker that answers the doorbell may append a routine status line, or
+# commit in its own task worktree, while the gate stays open. Neither is a new
+# gate, so neither restarts the budget: the second unanswered ring still
+# escalates.
+test_status_append_or_local_commit_keeps_the_budget() {
+  local dir state fakebin out capture window id wt pid rc
+  dir=$(make_case gate-nudge-worker-activity); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gateactivity; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+  wt="$dir/worktree-$id"
+
+  # The first ring.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" 1 "$pid" \
+    || { reap "$pid"; fail "a parked gate did not ring the worker: $(cat "$out")"; }
+  reap "$pid"
+
+  # The worker appends a status line and commits locally; the gate stays open.
+  printf 'working: answered the gate nudge\n' >> "$state/$id.status"
+  prime_status_seen "$state" "$state/$id.status"
+  git -C "$wt" -c user.email=fixture@example.invalid -c user.name=fixture \
+    commit -q --allow-empty -m 'local commit'
+
+  # Still the same gate: one more ring, then the escalation.
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
     FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_WATCH_HANDLING_SUCCESSOR=1 \
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
     FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
     FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
   pid=$!
-  wait_nudge_records "$state" "$id" "$((before + 1))" "$pid" \
-    || { reap "$pid"; fail "a new worktree head did not re-arm the gate-nudge budget: $(cat "$out")"; }
+  rc=0
+  wait_for_exit "$pid" 250 || rc=$?
   reap "$pid"
-  pass "a new task worktree head re-arms a spent gate-nudge budget"
+
+  [ "$rc" -ne 124 ] || fail "the open gate never escalated after the worker's activity: $(cat "$out")"
+  [ "$(nudge_record_count "$state" "$id")" -eq 2 ] \
+    || fail "a status append or a local commit restarted the ring budget: $(nudge_record_count "$state" "$id") rings"
+  grep -F "gate-nudged x2" "$out" >/dev/null \
+    || fail "the open gate did not reach the gate-nudged escalation: $(cat "$out")"
+  pass "a status append or a local commit while a gate is open keeps the ring budget"
 }
 
 test_crew_gate_class_reads_only_run_step_gates
@@ -845,4 +878,5 @@ test_secondmate_is_outside_the_ladder
 test_scout_is_outside_the_ladder
 test_dead_endpoint_is_never_rung
 test_unreadable_run_rings_nobody
-test_new_worktree_head_rearms_a_spent_budget
+test_new_run_head_rearms_a_spent_budget
+test_status_append_or_local_commit_keeps_the_budget

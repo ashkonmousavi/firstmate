@@ -1042,29 +1042,31 @@ gate_nudge_clear() {  # <record-path> <stored-identity> <count> <epoch>
   gate_nudge_write "$1" "$2" "$3" "$4" 0
 }
 
-# The gate identity a nudge budget is bound to: the gate's own detail (its step
-# and finding count), the task's status-log signature, the task worktree's head,
-# and the id and head of the run itself as a bounded `axi status` in that
-# worktree reports them. The run head is what separates two gates of one run
-# that report the same step and finding count: a no-mistakes fix round commits
-# in the pipeline's own checkout, so the task head never moves, and the worker
-# may stay busy through the whole round, so no probe sees the run working in
-# between. `axi status` exposes no per-gate round while a run is parked.
-# Fails when the worktree is missing or the read fails, times out, or answers
-# for another branch's run, so the caller rings nobody on that probe.
-gate_nudge_identity() {  # <task> <gate-detail>
-  local task=$1 detail=$2 wt head branch out run_id run_head
+# The gate identity a nudge budget is bound to: the run's own id, the gate's
+# step, and the run's head, read by a bounded `axi status` in the task worktree.
+# The step is the one the current-state line names - its "parked at" step, or
+# `ci` for a green-checks gate. The run head is what separates two gates of one
+# run at the same step: a no-mistakes fix round advances it in the pipeline's
+# own checkout, and the worker may stay busy through the whole round, so no
+# probe sees the run working in between. `axi status` exposes no per-gate round
+# while a run is parked. Fails when the worktree is missing or the read fails,
+# times out, or answers for another branch's run, so the caller rings nobody on
+# that probe.
+gate_nudge_identity() {  # <task> <class> <gate-detail>
+  local task=$1 class=$2 detail=$3 step wt branch out run_id run_head
+  case "$class" in
+    ci-green) step=ci ;;
+    *) step=${detail#parked at }; step=${step%%:*}; step=${step%% (*} ;;
+  esac
   wt=$(grep '^worktree=' "$STATE/$task.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
   { [ -n "$wt" ] && [ -d "$wt" ]; } || return 1
-  head=$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)
   branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
   out=$(fm_nm_run_checked "$wt" "$GATE_NUDGE_NM_TIMEOUT" axi status) || return 1
   run_id=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
   run_head=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
   { [ -n "$branch" ] && [ -n "$run_id" ] && [ -n "$run_head" ] \
     && [ "$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")" = "$branch" ]; } || return 1
-  printf '%s|%s|%s|%s|%s' "$detail" "$(fm_wake_signal_sig "$STATE/$task.status" || true)" \
-    "$head" "$run_id" "$run_head"
+  printf '%s|%s|%s' "$run_id" "$step" "$run_head"
 }
 
 # The worker-facing prompt. It names the gate the supervisor can see and the
@@ -1185,7 +1187,7 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
     "ci-green$GATE_NUDGE_TAB"*) class=ci-green ;;
     resumed)
       # The run itself reads as working, so the next gate it parks at is a new
-      # one, even one reporting the same step and finding count.
+      # one, even one at the same step with the same run head.
       gate_nudge_write "$rec" '' 0 "$now" 0 || true
       return 1
       ;;
@@ -1204,7 +1206,7 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
       return 1
       ;;
   esac
-  if ! identity=$(gate_nudge_identity "$task" "$detail"); then
+  if ! identity=$(gate_nudge_identity "$task" "$class" "$detail"); then
     gate_nudge_clear "$rec" "$stored" "$count" "$now" || true
     return 1
   fi
