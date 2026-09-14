@@ -501,6 +501,9 @@ test_github_merged_outcome_is_verified() {
   expect_code 0 "$rc" "github-verified-merged: a merged PR should succeed"
   assert_grep 'verified: https://github.com/example/repo/pull/51 is merged' \
     "$case_dir/stdout" "github-verified-merged: success was not reported as verified"
+  assert_grep 'reminder: https://github.com/example/repo/pull/51 is merged, not yet landed' \
+    "$case_dir/stdout" \
+    "github-verified-merged: a verified merge was not told apart from a landed task"
   assert_grep 'api graphql' "$case_dir/gh.log" \
     "github-verified-merged: the PR outcome was not read back after merging"
   pass "fm-pr-merge verifies a genuinely merged GitHub pull request"
