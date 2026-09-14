@@ -137,6 +137,9 @@ mkdir -p "$STATE"
 . "$SCRIPT_DIR/fm-push-transition-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# The gate-nudge ladder's own bounded `axi status` read (gate_nudge_identity).
+# shellcheck source=bin/fm-nm-run-lib.sh
+. "$SCRIPT_DIR/fm-nm-run-lib.sh"
 # Only for the arm-time check on FM_PROCEVENT_LAUNCH_CONFIRM_SECONDS below;
 # the per-cycle reconcile itself runs as a separate process.
 # shellcheck source=bin/fm-procevent-lib.sh
@@ -278,6 +281,10 @@ BUSY_TURN_MAX_SECS=${FM_BUSY_TURN_MAX_SECS:-3600}
 # cadence).
 GATE_NUDGE_SECS=${FM_GATE_NUDGE_SECS:-60}
 case "$GATE_NUDGE_SECS" in ''|*[!0-9]*|0) GATE_NUDGE_SECS=60 ;; esac
+# The ladder's own `axi status` read carries the same bound fm-crew-state.sh
+# puts on its read of the same run.
+GATE_NUDGE_NM_TIMEOUT=${FM_CREW_STATE_NM_TIMEOUT:-10}
+case "$GATE_NUDGE_NM_TIMEOUT" in ''|*[!0-9]*|0) GATE_NUDGE_NM_TIMEOUT=10 ;; esac
 # A local secondmate's foreign queue is checked on every poll, but only after this
 # bounded interval with no drain progress can it produce a parent notification.
 # A healthy mate drains its queue between turns, not inside one, so this default
@@ -1028,27 +1035,36 @@ gate_nudge_write() {  # <record-path> <identity> <count> <epoch> <held>
 
 # Record a probe that found no gate: the pane goes back to the unchanged triage,
 # but the identity and count stay, so "at most two rings per gate identity"
-# survives a transient non-gate read - a probe that timed out, or a coarse
-# runs-list read that cannot see the gate. Only a new identity, or a read that
-# proves the run itself resumed, resets the count.
+# survives a transient read that cannot see the gate - a probe that timed out,
+# a coarse runs-list read, or an `axi status` read that failed. Only a new
+# identity, or a read that proves the run itself resumed, resets the count.
 gate_nudge_clear() {  # <record-path> <stored-identity> <count> <epoch>
   gate_nudge_write "$1" "$2" "$3" "$4" 0
 }
 
 # The gate identity a nudge budget is bound to: the gate's own detail (its step
-# and finding count), the task's status-log signature, and the task worktree's
-# head, which moves when the worker itself commits. A no-mistakes fix round
-# commits in the pipeline's own checkout instead, so two of its gates can share
-# every part; the resume reset in gate_nudge_check is what separates those. An
-# unreadable or absent worktree simply contributes nothing and the coarser
-# identity still bounds the budget.
+# and finding count), the task's status-log signature, the task worktree's head,
+# and the id and head of the run itself as a bounded `axi status` in that
+# worktree reports them. The run head is what separates two gates of one run
+# that report the same step and finding count: a no-mistakes fix round commits
+# in the pipeline's own checkout, so the task head never moves, and the worker
+# may stay busy through the whole round, so no probe sees the run working in
+# between. `axi status` exposes no per-gate round while a run is parked.
+# Fails when the worktree is missing or the read fails, times out, or answers
+# for another branch's run, so the caller rings nobody on that probe.
 gate_nudge_identity() {  # <task> <gate-detail>
-  local task=$1 detail=$2 wt head=''
+  local task=$1 detail=$2 wt head branch out run_id run_head
   wt=$(grep '^worktree=' "$STATE/$task.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
-  if [ -n "$wt" ] && [ -d "$wt" ]; then
-    head=$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)
-  fi
-  printf '%s|%s|%s' "$detail" "$(fm_wake_signal_sig "$STATE/$task.status" || true)" "$head"
+  { [ -n "$wt" ] && [ -d "$wt" ]; } || return 1
+  head=$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)
+  branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  out=$(fm_nm_run_checked "$wt" "$GATE_NUDGE_NM_TIMEOUT" axi status) || return 1
+  run_id=$(fm_nm_strip_quotes "$(fm_nm_field "$out" id)")
+  run_head=$(fm_nm_strip_quotes "$(fm_nm_field "$out" head)")
+  { [ -n "$branch" ] && [ -n "$run_id" ] && [ -n "$run_head" ] \
+    && [ "$(fm_nm_strip_quotes "$(fm_nm_field "$out" branch)")" = "$branch" ]; } || return 1
+  printf '%s|%s|%s|%s|%s' "$detail" "$(fm_wake_signal_sig "$STATE/$task.status" || true)" \
+    "$head" "$run_id" "$run_head"
 }
 
 # The worker-facing prompt. It names the gate the supervisor can see and the
@@ -1078,10 +1094,19 @@ gate_nudge_message() {  # <class> <detail>
   esac
 }
 
-# 0 if the task's latest status report is `done:`, so a green-CI nudge would
-# tell the worker to do what it has already done this round.
+# 0 if the task's latest status report is the green PR's own `done:` report -
+# the line names the PR and "checks green", the predicate fm-crew-state.sh's
+# log_reports_ci_ready reads - so a green-CI nudge would tell the worker to do
+# what it has already done. The `done:` summary the brief has the worker append
+# before validation starts is not that report.
 gate_nudge_done_reported() {  # <task>
-  [ "$(status_line_verb "$(last_status_line "$STATE/$1.status")")" = "done" ]
+  local line
+  line=$(last_status_line "$STATE/$1.status")
+  [ "$(status_line_verb "$line")" = "done" ] || return 1
+  case "$(status_line_note "$line")" in
+    *PR*"checks green"*|*"checks green"*PR*) return 0 ;;
+  esac
+  return 1
 }
 
 # Write one fire-and-forget record and ring its doorbell. The record IS the
@@ -1120,7 +1145,8 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
 # the ordinary path's job).
 #
 # Cost: at most ONE bounded crew-state read per GATE_NUDGE_SECS per idle pane,
-# paced by the record's own epoch. On a pane with no gate that read is in
+# plus one bounded `axi status` read when it shows a gate, both paced by the
+# record's own epoch. On a pane with no gate that read is in
 # addition to the one the unchanged triage below makes on each newly distinct
 # stale hash; the pacing record is what keeps it from repeating every poll.
 gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
@@ -1178,7 +1204,10 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
       return 1
       ;;
   esac
-  identity=$(gate_nudge_identity "$task" "$detail")
+  if ! identity=$(gate_nudge_identity "$task" "$detail"); then
+    gate_nudge_clear "$rec" "$stored" "$count" "$now" || true
+    return 1
+  fi
   [ "$identity" = "$stored" ] || count=0
   if [ "$count" -ge "$GATE_NUDGE_SPENT" ]; then
     # Budget already spent on this exact gate: firstmate has been woken about it

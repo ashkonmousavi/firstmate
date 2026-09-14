@@ -6,13 +6,15 @@
 # A crew parked at a no-mistakes gate, or holding a green PR whose done: report
 # is still outstanding, is idle because nothing pushed the gate to it. These
 # cases drive a real fm-watch.sh subprocess against a canned current-state
-# verdict and a static fake pane, and assert the behavioral contract: the worker
+# verdict, a canned `axi status` run, and a static fake pane, and assert the
+# behavioral contract: the worker
 # is rung first through a fire-and-forget steering-inbox record, rung a second
 # time if it stays idle, and only then escalated to firstmate with a gate-nudged
 # reason. A busy pane, an open decision firstmate owns, a scout, and a
 # secondmate are never rung, a pane whose agent has exited goes straight to
-# recovery, a spent budget wakes firstmate about its gate once, and a run that
-# resumes or a new task worktree head re-arms the budget.
+# recovery, a spent budget wakes firstmate about its gate once, a run that
+# resumes or a new run or task worktree head re-arms the budget, and a run that
+# cannot be read rings nobody.
 #
 # The general watcher triage matrix lives in fm-watch-triage.test.sh; the
 # steering-inbox record format and re-ring ladder in fm-task-inbox.test.sh.
@@ -106,18 +108,42 @@ record_pi_busy() {  # <state-dir> <id>
 PARKED_VERDICT='state: parked · source: run-step · parked at review: 3 finding(s)'
 CI_GREEN_VERDICT='state: done · source: run-step · checks green: PR ready for review (still monitoring for merge/close)'
 
+# A fake no-mistakes whose `axi status` reports one parked run on the calling
+# worktree's own branch. FM_FAKE_RUN_ID and FM_FAKE_RUN_HEAD name the run,
+# FM_FAKE_RUN_BRANCH overrides its branch, and FM_FAKE_AXI_FAIL=1 fails the
+# read. Every other verb fails, so nothing else can lean on it unnoticed.
+write_fake_no_mistakes() {  # <fakebin>
+  cat > "$1/no-mistakes" <<'SH'
+#!/usr/bin/env bash
+set -u
+[ "${1:-} ${2:-}" = "axi status" ] || exit 2
+[ "${FM_FAKE_AXI_FAIL:-0}" = 1 ] && exit 1
+printf 'run:\n  id: "%s"\n  branch: %s\n  status: awaiting_approval\n  head: "%s"\ngate: review\n' \
+  "${FM_FAKE_RUN_ID:-01RUN}" \
+  "${FM_FAKE_RUN_BRANCH:-$(git symbolic-ref --quiet --short HEAD 2>/dev/null)}" \
+  "${FM_FAKE_RUN_HEAD:-abc1234}"
+SH
+  chmod +x "$1/no-mistakes"
+}
+
 # Stage one idle, already-stale pane for task <id> on window <window>: the
-# metadata, a primed status log, and the staleness backbone's own markers
-# recorded as if a previous poll had already seen this exact pane content. The
-# hash marker is backdated so the pane reads as idle for well over any
-# FM_GATE_NUDGE_SECS a case sets. Echoes the derived window key.
+# metadata, a task worktree (a fresh git repository unless one is given), the
+# fake no-mistakes beside the case's other fakes, a primed status log, and the
+# staleness backbone's own markers recorded as if a previous poll had already
+# seen this exact pane content. The hash marker is backdated so the pane reads
+# as idle for well over any FM_GATE_NUDGE_SECS a case sets. Echoes the derived
+# window key.
 stage_idle_pane() {  # <state> <id> <window> <capture-file> <kind> [worktree]
   local state=$1 id=$2 window=$3 capture=$4 kind=$5 wt=${6:-} key
+  if [ -z "$wt" ]; then
+    wt="$(dirname "$state")/worktree-$id"
+    mkdir -p "$wt"
+    git -C "$wt" init -q
+  fi
+  write_fake_no_mistakes "$(dirname "$state")/fakebin"
   printf 'idle prompt, waiting for input' > "$capture"
-  {
-    printf 'window=%s\nkind=%s\nharness=claude\n' "$window" "$kind"
-    [ -z "$wt" ] || printf 'worktree=%s\n' "$wt"
-  } > "$state/$id.meta"
+  printf 'window=%s\nkind=%s\nharness=claude\nworktree=%s\n' "$window" "$kind" "$wt" \
+    > "$state/$id.meta"
   printf 'working: implementation committed\n' > "$state/$id.status"
   prime_status_seen "$state" "$state/$id.status"
   key=$(printf '%s' "$window" | tr ':/.' '___')
@@ -233,6 +259,10 @@ test_ci_green_awaiting_the_done_report_rings_the_worker() {
   out="$dir/watch.out"; capture="$dir/pane.txt"
   id=gateci; window="test:fm-$id"
   stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+  # The brief has the worker append its done: summary before validation starts,
+  # so that line is still the last one when CI goes green.
+  printf 'working: implementation committed\ndone: implemented the change\n' > "$state/$id.status"
+  prime_status_seen "$state" "$state/$id.status"
 
   PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
     FM_FAKE_CREW_STATE="$CI_GREEN_VERDICT" \
@@ -480,6 +510,38 @@ test_run_resume_rearms_a_same_looking_gate() {
   pass "a run that resumes re-arms the ladder for a same-looking gate"
 }
 
+# The worker can stay busy through a whole fix round - answering the gate and
+# polling in its own turn - so no probe ever reads the run working between two
+# gates, and the fix round leaves the task head where it was. The run's own
+# head is what still tells the gates apart: each is rung, none is escalated.
+test_consecutive_gates_of_one_run_each_ring() {
+  local dir state fakebin capture window id pid n=0 succ=0 run_head
+  dir=$(make_case gate-nudge-consecutive); state="$dir/state"; fakebin="$dir/fakebin"
+  capture="$dir/pane.txt"
+  id=gaterounds; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+
+  for run_head in abc0001 abc0002 abc0003; do
+    n=$((n + 1))
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+      FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD="$run_head" \
+      FM_WATCH_HANDLING_SUCCESSOR="$succ" \
+      FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+      FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+      FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/gate-$n.out" &
+    pid=$!
+    wait_nudge_records "$state" "$id" "$n" "$pid" \
+      || { reap "$pid"; fail "gate $n (run head $run_head) was not rung: $(cat "$dir/gate-$n.out")"; }
+    reap "$pid"
+    grep -F "gate-nudged" "$dir/gate-$n.out" >/dev/null \
+      && fail "gate $n was escalated as an ignored ring: $(cat "$dir/gate-$n.out")"
+    succ=1
+  done
+  [ "$(nudge_record_count "$state" "$id")" -eq 3 ] \
+    || fail "three consecutive gates did not get one ring each: $(nudge_record_count "$state" "$id")"
+  pass "consecutive gates of one run that differ only in run head are each rung"
+}
+
 test_busy_pane_is_never_nudged() {
   local dir state fakebin out capture window id pid
   dir=$(make_case gate-nudge-busy); state="$dir/state"; fakebin="$dir/fakebin"
@@ -656,6 +718,46 @@ test_dead_endpoint_is_never_rung() {
   pass "a positively dead endpoint goes straight to the ordinary recovery path"
 }
 
+# An `axi status` read that fails, or answers for another branch's run, cannot
+# tell this gate from the last one, so the ladder rings nobody on it and leaves
+# the pane to the ordinary triage rather than guess.
+test_unreadable_run_rings_nobody() {
+  local dir state fakebin out capture window id pid
+  dir=$(make_case gate-nudge-unreadable); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gateunread; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_AXI_FAIL=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 200 >/dev/null
+  reap "$pid"
+  [ "$(nudge_record_count "$state" "$id")" -eq 0 ] \
+    || fail "a failed axi status read rang the worker"
+  grep -F "gate-nudged" "$out" >/dev/null \
+    && fail "a failed axi status read was escalated through the gate-nudge ladder: $(cat "$out")"
+
+  ack_stopped_cycle "$state" || fail "the failed-read round's wakes could not be acknowledged"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_BRANCH=someone-elses-branch \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/foreign.out" &
+  pid=$!
+  for _ in 1 2 3; do
+    wait_poll_cycle "$state" "$pid" \
+      || { reap "$pid"; fail "the foreign-branch round exited the watcher: $(cat "$dir/foreign.out")"; }
+  done
+  reap "$pid"
+  [ "$(nudge_record_count "$state" "$id")" -eq 0 ] \
+    || fail "an axi status answer for another branch's run rang the worker"
+  pass "a run that cannot be read, or reads as another branch's, rings nobody"
+}
+
 # The budget is bound to a gate identity that includes the task worktree head,
 # so a gate after the worker's own commit reporting the same step and the same
 # finding count still earns its own rings. The control is the same restart
@@ -735,10 +837,12 @@ test_ladder_escalates_only_after_two_unanswered_nudges
 test_a_tabbed_gate_detail_still_reaches_escalation
 test_a_transient_non_gate_read_keeps_the_budget
 test_run_resume_rearms_a_same_looking_gate
+test_consecutive_gates_of_one_run_each_ring
 test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
 test_declared_wait_is_left_to_the_pause_cadence
 test_secondmate_is_outside_the_ladder
 test_scout_is_outside_the_ladder
 test_dead_endpoint_is_never_rung
+test_unreadable_run_rings_nobody
 test_new_worktree_head_rearms_a_spent_budget
