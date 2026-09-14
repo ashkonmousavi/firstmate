@@ -216,6 +216,10 @@ test_ship_modes_generate_clean_briefs() {
     assert_grep 'never a bare number such as "PR 108"' "$brief" "$id: brief missing the full-PR-URL rule"
     assert_grep "mid-task \`working:\` line (including setup complete) is nonterminal" "$brief" \
       "$id: brief missing nonterminal working:/setup-complete gate protection"
+    assert_grep 'Call your built-in Opus advisor tool at every design fork' "$brief" \
+      "$id: brief missing the built-in advisor instruction"
+    assert_grep "Serena's \`find_symbol\` and \`find_referencing_symbols\`" "$brief" \
+      "$id: brief missing the tool-for-purpose rule"
     assert_no_grep "EOF" "$brief" "$id: brief leaked a heredoc EOF marker (unterminated heredoc)"
   done
   pass "fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly"
@@ -398,6 +402,12 @@ test_ask_user_escalation_format() {
   assert_grep "The status line only points at the file; it never restates or summarizes a finding's content." "$brief" \
     "ship rule 6 must forbid paraphrasing ask-user findings into the status line"
 
+  # The two-round review stop only makes sense on a validation run, so it is
+  # scoped to the no-mistakes brief alongside the rest of the ask-user contract.
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backtick must stay literal
+  assert_grep 'After the second review round on one validation run, stop answering `fix`' "$brief" \
+    "no-mistakes brief missing the two-round review stop rule"
+
   # The DOD's own ask-user paragraph must point back at rule 6's format
   # (one-owner rule) rather than restating or bare-citing it.
   assert_grep "escalate to firstmate using rule 6's ask-user format" "$brief" \
@@ -410,6 +420,8 @@ test_ask_user_escalation_format() {
   other_brief="$home/data/$other_id/brief.md"
   assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
     "scout brief received a no-mistakes-only decision case"
+  assert_no_grep "stop answering \`fix\`" "$other_brief" \
+    "scout brief received the no-mistakes-only two-round review stop rule"
 
   for mode in direct-PR local-only; do
     other_id="brief-no-ask-user-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
@@ -419,6 +431,8 @@ test_ask_user_escalation_format() {
       "$mode brief received a no-mistakes-only escalation format"
     assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
       "$mode brief received a no-mistakes-only decision case"
+    assert_no_grep "stop answering \`fix\`" "$other_brief" \
+      "$mode brief received the no-mistakes-only two-round review stop rule"
   done
 
   pass "fm-brief.sh: no-mistakes ask-user findings use one event plus a verbatim snapshot"
@@ -864,6 +878,8 @@ test_scout_and_secondmate_scaffold() {
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"
+  assert_grep 'Call your built-in Opus advisor tool at every design fork' "$brief" \
+    "scout brief missing the built-in advisor instruction"
 
   FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \
     FM_HOME="$BRIEF_HOME" "$ROOT/bin/fm-brief.sh" brief-sm-q6 --secondmate alpha >/dev/null 2>&1 \
