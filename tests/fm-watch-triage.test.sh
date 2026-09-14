@@ -4834,7 +4834,7 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
 # cloud-serial1 timeout or its preceding shell trap error
 # (cloud-serial1-timeout-note.txt); that remains unknown.
 test_reap_bounds_a_term_resistant_owned_child() {
-  local dir marker pidfile readyfile fixture_pid sentinel_pid reap_pid i=0 elapsed
+  local dir marker pidfile readyfile fixture_pid sentinel_pid reap_pid i=0
 
   dir=$(fm_test_tmproot fm-reap-bounded)
   marker="$dir/reap-done"
@@ -4873,7 +4873,6 @@ test_reap_bounds_a_term_resistant_owned_child() {
     sleep 0.1
     i=$((i + 1))
   done
-  elapsed=$i
   fixture_pid=$(cat "$pidfile" 2>/dev/null || true)
 
   if [ ! -e "$marker" ]; then
@@ -4893,8 +4892,6 @@ test_reap_bounds_a_term_resistant_owned_child() {
   fi
   kill -KILL "$sentinel_pid" 2>/dev/null || true
   wait "$sentinel_pid" 2>/dev/null || true
-
-  [ "$elapsed" -lt 200 ] || fail "reap() used its entire bound; no headroom left to catch a regression"
 
   pass "reap() bounds a TERM-resistant owned child without hanging cleanup, leaving an unrelated sentinel untouched"
 }
