@@ -177,9 +177,9 @@ wait_nudge_records() {  # <state> <id> <want> <pid> [limit-ticks]
 # "<count>\t<epoch>\t<held>\t<identity>") names <identity>, or <pid> exits. An
 # empty <identity> is the reset a read of the run itself working writes.
 wait_nudge_identity() {  # <state> <id> <identity> <pid> [limit-ticks]
-  local state=$1 id=$2 want=$3 pid=$4 limit=${5:-150} i=0 count epoch held identity
+  local state=$1 id=$2 want=$3 pid=$4 limit=${5:-150} i=0 identity
   while [ "$i" -lt "$limit" ]; do
-    if IFS=$(printf '\t') read -r count epoch held identity < "$state/.gate-nudge-$id" 2>/dev/null \
+    if IFS=$(printf '\t') read -r _ _ _ identity < "$state/.gate-nudge-$id" 2>/dev/null \
       && [ "$identity" = "$want" ]; then
       return 0
     fi
