@@ -1,0 +1,14 @@
+# main home: GitHub merge-queue entry, later landed and observed by the watcher poll
+$ bin/fm-pr-check.sh task-a https://github.com/o/r/pull/1
+$ bin/fm-pr-merge.sh task-a https://github.com/o/r/pull/1   (fake forge: OPEN, queued)
+--- merge stdout
+armed: state/task-a.check.sh
+verified: https://github.com/o/r/pull/1 is queued (state=OPEN, merged=false, isInMergeQueue=true)
+--- durable wake-queue rows (kind | key | payload)
+(no wake queue)
+
+$ bin/fm-watch.sh   (bounded; fake forge now reports MERGED)
+--- watcher stdout
+check: /tmp/fm-pr-check-security.Gin7hh/live-queued-then-landed/home/state/task-a.check.sh: merged
+--- durable wake-queue rows (kind | key | payload)
+check | merged-task-a-https://github.com/o/r/pull/1 | check: merge landed: task-a https://github.com/o/r/pull/1; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7

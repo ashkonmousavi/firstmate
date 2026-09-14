@@ -1,0 +1,18 @@
+# synchronous GitHub self-merge (fake forge: MERGED)
+$ bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/51
+exit=0
+--- stdout
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/51 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/51 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+--- stderr
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/51 is open and mergeable, with every required check green at head 1010101010101010101010101010101010101010
+--- durable wake-queue rows (kind | key | payload)
+check | merged-task-x1-https://github.com/example/repo/pull/51 | check: merge landed: task-x1 https://github.com/example/repo/pull/51; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7

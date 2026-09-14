@@ -1,0 +1,14 @@
+# secondmate home: self-merge
+$ bin/fm-pr-merge.sh task-a https://github.com/o/r/pull/1   (fake forge: MERGED)
+exit=0
+--- merge stdout
+armed: state/task-a.check.sh
+verified: https://github.com/o/r/pull/1 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/o/r/pull/1 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+--- merge stderr
+verified: https://github.com/o/r/pull/1 is open and mergeable, with every required check green at head 0123456789abcdef0123456789abcdef01234567
+--- parent channel (state/parent-replies.status)
+done [key=child-pr-task-a]: child task-a PR ready: https://github.com/o/r/pull/1 mode=no-mistakes
+done [key=merged-task-a]: merged task-a https://github.com/o/r/pull/1
+--- durable wake-queue rows (kind | key | payload)
+(no wake queue)

@@ -1,0 +1,21 @@
+# GitLab self-merge confirmed merged (fake glab: merged after merge)
+$ bin/fm-pr-merge.sh task-x1 https://gitlab.example/group/subgroup/project/-/merge_requests/7
+exit=0
+--- stdout
+armed: state/task-x1.check.sh
+reminder: https://gitlab.example/group/subgroup/project/-/merge_requests/7 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+--- durable wake-queue payloads
+check: merge landed: task-x1 https://gitlab.example/group/subgroup/project/-/merge_requests/7; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+--- merge poll still armed?
+yes
+
+# GitLab merge accepted but still open (auto-merge; fake glab stays opened)
+$ bin/fm-pr-merge.sh task-x1 https://gitlab.example/group/subgroup/project/-/merge_requests/7
+exit=0
+--- stdout
+armed: state/task-x1.check.sh
+--- durable wake-queue payloads
+(no wake queue)
+--- merge poll still armed?
+yes
+

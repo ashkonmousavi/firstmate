@@ -1,0 +1,19 @@
+# BASE cfd9941 (/tmp/fm-base-root.7QKNND)
+$ bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/51   (fake forge: MERGED)
+exit=0
+--- stdout
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/51 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+--- durable wake-queue payloads
+check: merge landed: task-x1 https://github.com/example/repo/pull/51
+
+# TARGET a7d4499 (/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M2GMCM5B8H6G2HP5S8SNSV8K)
+$ bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/51   (fake forge: MERGED)
+exit=0
+--- stdout
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/51 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/51 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+--- durable wake-queue payloads
+check: merge landed: task-x1 https://github.com/example/repo/pull/51; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+

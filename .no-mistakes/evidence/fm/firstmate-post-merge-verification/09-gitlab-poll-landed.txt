@@ -1,0 +1,7 @@
+# GitLab merge observed by the watcher poll (main home)
+$ bin/fm-watch.sh   (bounded; fake glab reports merged)
+exit=0
+--- watcher stdout
+check: /tmp/fm-pr-check-security.9XrXGZ/live-gitlab-poll/home/state/task-a.check.sh: merged
+--- durable wake-queue payloads
+check: merge landed: task-a https://gitlab.example/group/subgroup/project/-/merge_requests/17 external; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7

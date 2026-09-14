@@ -1,0 +1,8 @@
+# secondmate home: watcher poll observes the merge
+$ bin/fm-watch.sh   (bounded; fake forge reports MERGED)
+--- watcher stdout
+check: /tmp/fm-pr-check-security.Gin7hh/live-secondmate-poll/home/state/task-a.check.sh: merged
+--- parent channel (state/parent-replies.status)
+done [key=merged-task-a]: merged task-a https://github.com/o/r/pull/1 external
+--- durable wake-queue rows (kind | key | payload)
+check | merged-task-a-https://github.com/o/r/pull/1 | check: merge landed: task-a https://github.com/o/r/pull/1 external; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7

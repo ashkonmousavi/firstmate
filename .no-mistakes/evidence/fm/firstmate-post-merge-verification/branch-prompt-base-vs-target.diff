@@ -1,0 +1,5 @@
+29a30
+> Also verify, for each project with a deploy target, that its health answers and that the live server serves the commit the deploy workflow's last successful run targeted, not the default-branch head, reporting verdict captain only for a failed health check or drift: the newest deploy run failed, or the live server serves a commit other than that last successful deploy's target.
+66a68,69
+> For a PR-based landing, a merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target.
+> Never report a task landed on the merge alone, and hold teardown until that verification is done; a local-only landing reports only the local outcome once the fast-forward merge succeeds.
