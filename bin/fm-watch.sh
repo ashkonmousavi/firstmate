@@ -63,6 +63,11 @@
 #                          for human inspection only - never an automatic
 #                          interrupt, signal, or restart of the worker or its
 #                          tool process.
+#   stale: <window> (idle ..., gate-nudged x2 with no response: ...)
+#                          the gate-nudge ladder rang the worker twice about a
+#                          parked no-mistakes gate, or a green PR whose done:
+#                          report is outstanding, and the pane stayed idle with
+#                          the same gate open (gate_nudge_check owns the ladder)
 #   stale: <window> (unread firstmate instruction: ...)
 #                          the steering-inbox ladder spent its delivery-attempt
 #                          budget on an idle pane without an acknowledgement
@@ -264,6 +269,15 @@ STALE_ESCALATE_SECS=${FM_STALE_ESCALATE_SECS:-240}  # idle secs before a provabl
 # any legitimate interval without observable progress, including silent long
 # tool calls, builds, or test runs.
 BUSY_TURN_MAX_SECS=${FM_BUSY_TURN_MAX_SECS:-3600}
+# A crew whose no-mistakes run has parked at a gate, or whose PR is green and
+# only owes firstmate its done: report, is not wedged. It is idle because
+# no-mistakes pushes nothing when a gate opens, so nobody is attached to it.
+# This is the cadence of the nudge ladder that rings the WORKER first, and only
+# escalates to firstmate after two unanswered rings (gate_nudge_check below owns
+# the ladder and pays for its own bounded current-state reads on this same
+# cadence).
+GATE_NUDGE_SECS=${FM_GATE_NUDGE_SECS:-60}
+case "$GATE_NUDGE_SECS" in ''|*[!0-9]*|0) GATE_NUDGE_SECS=60 ;; esac
 # A local secondmate's foreign queue is checked on every poll, but only after this
 # bounded interval with no drain progress can it produce a parent notification.
 # A healthy mate drains its queue between turns, not inside one, so this default
@@ -955,6 +969,200 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
       fi
       ;;
   esac
+}
+
+# --- gate-nudge ladder: ring the worker before escalating to firstmate -------
+#
+# Why this exists: no-mistakes pushes nothing when a gate opens. The common
+# shape is a worker that ends its turn while its run is still `running`, so the
+# stale path reads crew state once, absorbs the pane as provably working, and
+# starts the wedge timer - which by contract NEVER re-reads crew state. The gate
+# then opens seconds later with nobody attached, and the first thing that moves
+# is the wedge escalation FM_STALE_ESCALATE_SECS later, at which point firstmate
+# rings the worker by hand. The same happens once CI goes green and only the
+# worker's own done: report is outstanding.
+#
+# The ladder inserts exactly that hand ring, before escalation rather than
+# instead of it: at most two fire-and-forget steering-inbox records plus their
+# doorbell per gate identity, and only then the ordinary stale wake, carrying a
+# gate-nudged marker so firstmate reads it as an unanswered ring rather than a
+# fresh wedge. Fire-and-forget is deliberate: the record is a prompt to act on
+# state the worker can already read, so it must not enter the re-ring ladder or
+# escalate as an unread firstmate instruction (bin/fm-task-inbox-lib.sh owns
+# both).
+#
+# Two clocks, each for what it can answer. The record's own epoch paces the
+# bounded current-state probe, because the alternative - the pane-idle clock -
+# is reset by the very doorbell this ladder types. The pane-idle clock decides
+# whether the WORKER responded, which is exactly what it is good at: a pane that
+# has stayed idle for FM_GATE_NUDGE_SECS since the last ring is a worker that
+# did nothing with it.
+#
+# Record: state/.gate-nudge-<task>, one line "<identity>\t<count>\t<epoch>".
+# Identity is the literal `-` when the last probe found no gate, so the ladder's
+# own throttle still applies to a pane that is merely idle. Teardown removes it.
+
+GATE_NUDGE_NO_GATE='-'
+GATE_NUDGE_TAB=$(printf '\t')
+
+gate_nudge_record_path() {  # <task>
+  printf '%s/.gate-nudge-%s' "$STATE" "$1"
+}
+
+# Persist the ladder record. A record that cannot be written means the ladder
+# cannot be paced, so the caller hands the pane back to the unchanged triage
+# rather than probing or ringing on every poll.
+gate_nudge_write() {  # <record-path> <identity> <count> <epoch>
+  printf '%s\t%s\t%s\n' "$2" "$3" "$4" > "$1" 2>/dev/null
+}
+
+# The gate identity a nudge budget is bound to: the gate's own detail (its step
+# and finding count), the task's status-log signature, and the task worktree's
+# head. The head is what separates two consecutive fix-review rounds that report
+# the same step and the same finding count, since a fix round commits; an
+# unreadable or absent worktree simply contributes nothing and the coarser
+# identity still bounds the budget.
+gate_nudge_identity() {  # <task> <gate-detail>
+  local task=$1 detail=$2 wt head=''
+  wt=$(grep '^worktree=' "$STATE/$task.meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  if [ -n "$wt" ] && [ -d "$wt" ]; then
+    head=$(git -C "$wt" rev-parse HEAD 2>/dev/null || true)
+  fi
+  printf '%s|%s|%s' "$detail" "$(fm_wake_signal_sig "$STATE/$task.status" || true)" "$head"
+}
+
+# The worker-facing prompt. It names the gate the supervisor can see and the
+# exact first command, then sends the worker to no-mistakes' own output for the
+# run id, the finding ids, and the response syntax, because those are the facts
+# the authoritative current-state line does not carry and the ones that can
+# change between this ring and the worker reading it.
+gate_nudge_message() {  # <class> <detail>
+  local class=$1 detail=$2
+  printf 'Firstmate gate nudge (automatic prompt, no reply needed).\n\n'
+  case "$class" in
+    ci-green)
+      printf 'Your PR checks are green and firstmate has no report from you yet: %s\n\n' "$detail"
+      printf 'Confirm with "no-mistakes axi status" in your task worktree, then append\n'
+      printf 'a "done: PR <full https URL> checks green" line to your status file. Write\n'
+      printf 'the URL exactly as the forge printed it, never a bare number.\n'
+      ;;
+    *)
+      printf 'Your no-mistakes run is parked at a gate with nothing attached to it: %s\n\n' "$detail"
+      printf 'Run "no-mistakes axi status" in your task worktree for the run id, the gate\n'
+      printf 'step and the finding ids, then respond with the exact command that run step\n'
+      printf 'documents ("no-mistakes axi respond --help"). Never pass --yes, and process\n'
+      printf 'every synchronous return until the run completes or genuinely escalates.\n\n'
+      printf 'If the gate is an ask-user finding, it is firstmate to decide, not you:\n'
+      printf 'append a "needs-decision: <the options>" line to your status file and stop.\n'
+      ;;
+  esac
+}
+
+# 0 if the status log already carries a `done:` report, so a green-CI nudge
+# would tell the worker to do what it has already done.
+gate_nudge_done_reported() {  # <task>
+  local f="$STATE/$1.status" line
+  [ -f "$f" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$(status_line_verb "$line")" = "done" ] && return 0
+  done < "$f"
+  return 1
+}
+
+# Write one fire-and-forget record and ring its doorbell. The record IS the
+# delivery; the ring is best-effort exactly as it is on the steering plane, and
+# no ring verdict is proof, so a failed ring still consumes ladder budget and
+# the escalation below is what covers a worker that never reads it.
+gate_nudge_ring() {  # <window> <task> <class> <detail>
+  local w=$1 task=$2 class=$3 detail=$4 text rec ring_rc=0
+  text=$(gate_nudge_message "$class" "$detail")
+  rec=$(fm_task_inbox_write "$STATE" "$task" "$text" fire-and-forget) || return 1
+  fm_task_inbox_ring "$(window_backend "$w")" "$w" "$rec" "$(window_label "$w")" || ring_rc=$?
+  triage_log "gate nudge rung: $task ${rec##*/} class=$class ring=$ring_rc ($detail)"
+  return 0
+}
+
+# 0 when the ladder owns this idle pane for this poll and the caller must NOT
+# run its ordinary stale triage; 1 when the pane is outside the ladder and that
+# unchanged triage applies.
+#
+# A spent ladder emits the ordinary stale wake itself rather than returning 1,
+# because the pane it is escalating is usually one the wedge timer already
+# absorbed: handing it back would leave the escalation waiting out
+# FM_STALE_ESCALATE_SECS, which is the delay this whole ladder exists to remove.
+# wake() exits the cycle, exactly as it does at every other surfacing site.
+#
+# Deliberately out of scope, each for its own reason: a secondmate (its idle
+# endpoint is healthy by design and its work is routed, not gated), an away
+# posture (the daemon owns triage), a task that already has an open keyed
+# decision (firstmate, not the worker, answers next, so a ring would prompt the
+# worker to act on something it cannot), and a positively dead or missing
+# endpoint (nobody to ring, and recovery is already the ordinary path's job).
+gate_nudge_check() {  # <window> <task> <kind> <window-key>
+  local w=$1 task=$2 kind=$3 key=$4
+  local rec stored count last now age class detail identity reason
+  case "$kind" in ship|scout) ;; *) return 1 ;; esac
+  [ -n "$task" ] || return 1
+  afk_present && return 1
+  rec=$(gate_nudge_record_path "$task")
+  stored=$GATE_NUDGE_NO_GATE
+  count=0
+  last=0
+  now=$(date +%s)
+  if [ -f "$rec" ]; then
+    IFS=$GATE_NUDGE_TAB read -r stored count last < "$rec"
+    case "$count" in ''|*[!0-9]*) count=0 ;; esac
+    case "$last" in ''|*[!0-9]*) last=0 ;; esac
+    [ -n "$stored" ] || stored=$GATE_NUDGE_NO_GATE
+    if [ "$((now - last))" -lt "$GATE_NUDGE_SECS" ]; then
+      # Between probes: keep owning a pane whose gate is already established,
+      # and leave every other idle pane to the unchanged triage.
+      [ "$stored" != "$GATE_NUDGE_NO_GATE" ] && return 0
+      return 1
+    fi
+  fi
+  if [ -n "$(status_open_decisions "$STATE/$task.status")" ]; then
+    gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true
+    return 1
+  fi
+  class=$(crew_gate_class "$task")
+  detail=${class#*"$GATE_NUDGE_TAB"}
+  case "$class" in
+    "parked$GATE_NUDGE_TAB"*)   class=parked ;;
+    "ci-green$GATE_NUDGE_TAB"*) class=ci-green ;;
+    *) gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true; return 1 ;;
+  esac
+  if [ "$class" = ci-green ] && gate_nudge_done_reported "$task"; then
+    gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true
+    return 1
+  fi
+  # A positively dead or missing endpoint has nobody to ring, so spending the
+  # ladder on it would only delay the recovery the ordinary stale path already
+  # routes. Same boundary inbox_steer_check draws for the steering plane.
+  case "$(fm_backend_agent_state "$(window_backend "$w")" "$w" 2>/dev/null || true)" in
+    dead|missing)
+      gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true
+      return 1
+      ;;
+  esac
+  identity=$(gate_nudge_identity "$task" "$detail")
+  [ "$identity" = "$stored" ] || count=0
+  age=$(age_of "$STATE/.hash-$key")
+  if [ "$age" -lt "$GATE_NUDGE_SECS" ]; then
+    # The gate is established but the pane has not been quiet long enough to
+    # call this ring, or the one before it, unanswered. Arm and hold the pane.
+    gate_nudge_write "$rec" "$identity" "$count" "$now" || return 1
+    return 0
+  fi
+  if [ "$count" -ge 2 ]; then
+    reason="stale: $w (idle ${age}s, gate-nudged x2 with no response: the worker is $detail and is not acting on the doorbell - inspect the worker)"
+    fm_wake_append stale "$w" "$reason" || exit 1
+    gate_nudge_write "$rec" "$identity" "$count" "$now" || true
+    wake "$reason"
+  fi
+  gate_nudge_write "$rec" "$identity" "$((count + 1))" "$now" || return 1
+  gate_nudge_ring "$w" "$task" "$class" "$detail" || return 1
+  return 0
 }
 
 # busy_turn_over_age: 0 iff the last completed turn or explicit native-harness
@@ -2265,6 +2473,16 @@ EOF
       if [ "$n" -ge 2 ] && [ "$busy_now" -ne 0 ]; then
         # The pane is idle/stale at hash $h. Triage decides whether this wakes
         # firstmate. Detection itself is unchanged from above.
+        #
+        # One insertion first: an idle pane whose run is parked at a gate, or
+        # whose PR is green and only owes its done: report, gets the worker rung
+        # before firstmate is woken. The ladder owns such a pane while its budget
+        # lasts, and spends it into the ordinary stale wake with a gate-nudged
+        # marker; every other pane falls straight through to the triage below,
+        # unchanged.
+        if gate_nudge_check "$w" "$task" "$kind" "$key"; then
+          continue
+        fi
         if [ "$kind" = secondmate ]; then
           case "$(pause_state_class "$w" "$task")" in
             paused) handle_paused_stale "$w" "$task" "$h" ;;
