@@ -1106,7 +1106,9 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
 # FM_STALE_ESCALATE_SECS, which is the delay this whole ladder exists to remove.
 # wake() exits the cycle, exactly as it does at every other surfacing site.
 #
-# Deliberately out of scope, each for its own reason: a secondmate (its idle
+# Deliberately out of scope, each for its own reason: a scout (bin/fm-crew-state.sh
+# reads a no-mistakes run only for a ship crew, so a scout never shows a gate
+# and probing it would only spend a read), a secondmate (its idle
 # endpoint is healthy by design and its work is routed, not gated), an away
 # posture (the daemon owns triage), a task that already has an open keyed
 # decision (firstmate, not the worker, answers next, so a ring would prompt the
@@ -1123,7 +1125,7 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
 gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   local w=$1 task=$2 kind=$3 key=$4 statusline=$5
   local rec stored count last held now age class detail identity reason
-  case "$kind" in ship|scout) ;; *) return 1 ;; esac
+  case "$kind" in ship) ;; *) return 1 ;; esac
   [ -n "$task" ] || return 1
   afk_present && return 1
   status_is_paused_or_captain_held "$statusline" && return 1

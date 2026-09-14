@@ -9,9 +9,9 @@
 # verdict and a static fake pane, and assert the behavioral contract: the worker
 # is rung first through a fire-and-forget steering-inbox record, rung a second
 # time if it stays idle, and only then escalated to firstmate with a gate-nudged
-# reason. A busy pane, an open decision firstmate owns, and a secondmate are
-# never rung, a pane whose agent has exited goes straight to recovery, and a new
-# task worktree head re-arms a spent budget.
+# reason. A busy pane, an open decision firstmate owns, a scout, and a
+# secondmate are never rung, a pane whose agent has exited goes straight to
+# recovery, and a new task worktree head re-arms a spent budget.
 #
 # The general watcher triage matrix lives in fm-watch-triage.test.sh; the
 # steering-inbox record format and re-ring ladder in fm-task-inbox.test.sh.
@@ -543,6 +543,31 @@ test_secondmate_is_outside_the_ladder() {
   pass "a secondmate's idle endpoint stays outside the ladder"
 }
 
+# Only a ship crew's current state reads its no-mistakes run, so a scout never
+# shows a gate. Even fed a parked verdict it is left to the ordinary triage.
+test_scout_is_outside_the_ladder() {
+  local dir state fakebin out capture window id pid
+  dir=$(make_case gate-nudge-scout); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gatescout; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" scout >/dev/null
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 200 >/dev/null
+  reap "$pid"
+
+  [ "$(nudge_record_count "$state" "$id")" -eq 0 ] \
+    || fail "a scout was rung about a gate"
+  grep -F "gate-nudged" "$out" >/dev/null \
+    && fail "a scout was escalated through the gate-nudge ladder: $(cat "$out")"
+  pass "a scout stays outside the ladder and goes to the ordinary triage"
+}
+
 test_dead_endpoint_is_never_rung() {
   local dir state fakebin out capture window id pid
   dir=$(make_case gate-nudge-dead); state="$dir/state"; fakebin="$dir/fakebin"
@@ -646,5 +671,6 @@ test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
 test_declared_wait_is_left_to_the_pause_cadence
 test_secondmate_is_outside_the_ladder
+test_scout_is_outside_the_ladder
 test_dead_endpoint_is_never_rung
 test_new_worktree_head_rearms_a_spent_budget
