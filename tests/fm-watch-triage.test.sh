@@ -4834,10 +4834,11 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
 # cloud-serial1 timeout or its preceding shell trap error
 # (cloud-serial1-timeout-note.txt); that remains unknown.
 test_reap_bounds_a_term_resistant_owned_child() {
-  local dir marker pidfile readyfile fixture_pid sentinel_pid reap_pid i=0
+  local dir marker notready pidfile readyfile fixture_pid sentinel_pid reap_pid i=0
 
   dir=$(fm_test_tmproot fm-reap-bounded)
   marker="$dir/reap-done"
+  notready="$dir/fixture-not-ready"
   pidfile="$dir/fixture.pid"
   readyfile="$dir/fixture.ready"
 
@@ -4849,19 +4850,27 @@ test_reap_bounds_a_term_resistant_owned_child() {
   # calls reap(), or reap()'s internal `wait` is not waiting on a real child
   # and the test proves nothing about the hang. It ignores TERM outright -
   # only SIGKILL removes it - and signals readiness only after the trap is
-  # installed, closing the race where a kill sent before the trap exists
-  # would terminate it via the default disposition instead of exercising the
-  # ignore path this test targets. The subshell's own loop counter is local
-  # to it (a separate variable from the outer poll below).
+  # installed. reap() is called only once that readiness is observed, so a
+  # kill can never land before the trap exists and terminate the fixture via
+  # the default disposition instead of exercising the ignore path this test
+  # targets; a fixture that never becomes ready fails the test instead. The
+  # subshell's own loop counter is local to it (a separate variable from the
+  # outer poll below).
   (
     local ri=0
     bash -c "trap '' TERM; : > '$readyfile'; while :; do sleep 0.05; done" &
     fixture_pid=$!
     printf '%s\n' "$fixture_pid" > "$pidfile"
-    while [ "$ri" -lt 50 ] && [ ! -e "$readyfile" ]; do
-      sleep 0.02
+    while [ "$ri" -lt 100 ] && [ ! -e "$readyfile" ]; do
+      sleep 0.1
       ri=$((ri + 1))
     done
+    if [ ! -e "$readyfile" ]; then
+      kill -KILL "$fixture_pid" 2>/dev/null || true
+      wait "$fixture_pid" 2>/dev/null || true
+      : > "$notready"
+      exit 0
+    fi
     reap "$fixture_pid"
     : > "$marker"
   ) &
@@ -4869,16 +4878,21 @@ test_reap_bounds_a_term_resistant_owned_child() {
 
   # Bounded wait for reap() to return; a regression that reintroduces an
   # unbounded wait must FAIL this assertion, not hang the suite.
-  while [ "$i" -lt 200 ] && [ ! -e "$marker" ]; do
+  while [ "$i" -lt 300 ] && [ ! -e "$marker" ] && [ ! -e "$notready" ]; do
     sleep 0.1
     i=$((i + 1))
   done
   fixture_pid=$(cat "$pidfile" 2>/dev/null || true)
 
+  if [ -e "$notready" ]; then
+    kill -KILL "$sentinel_pid" 2>/dev/null || true
+    wait "$sentinel_pid" "$reap_pid" 2>/dev/null || true
+    fail "the TERM-resistant fixture never signalled readiness within 10s, so reap() was not exercised"
+  fi
   if [ ! -e "$marker" ]; then
     kill -KILL "$fixture_pid" "$sentinel_pid" "$reap_pid" 2>/dev/null || true
     wait "$sentinel_pid" "$reap_pid" 2>/dev/null || true
-    fail "reap() did not return within 20s against a TERM-resistant owned child"
+    fail "reap() did not return within 30s against a TERM-resistant owned child"
   fi
   wait "$reap_pid" 2>/dev/null || true
 
@@ -4887,7 +4901,7 @@ test_reap_bounds_a_term_resistant_owned_child() {
     fail "reap() returned but left the TERM-resistant child alive"
   fi
 
-  if ! kill -0 "$sentinel_pid" 2>/dev/null; then
+  if ! is_live_non_zombie "$sentinel_pid"; then
     fail "reap() touched an unrelated sentinel process outside its target pid"
   fi
   kill -KILL "$sentinel_pid" 2>/dev/null || true
