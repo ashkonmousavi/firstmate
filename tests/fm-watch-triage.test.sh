@@ -174,7 +174,41 @@ record_pi_busy() {  # <state-dir> <id>
     --source pi-ext --event agent-start
 }
 
-reap() { kill "$1" 2>/dev/null || true; wait "$1" 2>/dev/null || true; }
+# reap() sends TERM to <pid>, waits up to 10s (this file's own wait_for_exit
+# budget) for it to exit, escalates to KILL if it is still alive, then waits
+# again (bounded) to confirm death before reaping the job-table entry. A bare
+# `kill "$1"; wait "$1"` can block the whole suite forever if the target never
+# honors TERM - see cloud-serial1-timeout-note.txt for the hosted run that
+# surfaced this gap. A TERM-resistant owned child proves this helper used to
+# be able to wait indefinitely after TERM; it does not establish that
+# TERM-resistance caused that hosted trap error or the original timeout, and
+# this bound does not resolve that open question either way.
+# Liveness uses is_live_non_zombie (wake-helpers.sh, sourced above) rather
+# than bare `kill -0`, which reports success for a zombie: without that, an
+# already-exited-but-unreaped child would burn the full TERM and KILL bounds
+# before reap ever reaches the plain `wait` that would have reaped it at once.
+reap() {  # <pid>
+  local pid=$1 i=0
+  kill -TERM "$pid" 2>/dev/null || true
+  while [ "$i" -lt 100 ] && is_live_non_zombie "$pid"; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if is_live_non_zombie "$pid"; then
+    kill -KILL "$pid" 2>/dev/null || true
+    i=0
+    while [ "$i" -lt 30 ] && is_live_non_zombie "$pid"; do
+      sleep 0.1
+      i=$((i + 1))
+    done
+  fi
+  if is_live_non_zombie "$pid"; then
+    printf 'reap: pid %s survived TERM and KILL\n' "$pid" >&2
+    return 1
+  fi
+  wait "$pid" 2>/dev/null || true
+  return 0
+}
 
 # --- pure classifier predicates (fm-classify-lib.sh) ------------------------
 
@@ -4790,6 +4824,122 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
   pass "a declared wait whose until time has passed is rechecked at once, then held to the cadence"
 }
 
+# --- reap() cleanup boundedness ---------------------------------------------
+
+# A TERM-resistant owned child used to let reap() (this file's own cleanup
+# helper, defined above) wait indefinitely: `kill "$1"; wait "$1"` never
+# escalates past TERM, so a child that ignores it blocks the whole suite
+# forever. This proves only that an owned TERM-resistant child CAN reproduce
+# a hang here - it does not establish that TERM-resistance caused the hosted
+# cloud-serial1 timeout or its preceding shell trap error
+# (cloud-serial1-timeout-note.txt); that remains unknown.
+test_reap_bounds_a_term_resistant_owned_child() {
+  local dir marker pidfile readyfile fixture_pid sentinel_pid reap_pid i=0 elapsed
+
+  dir=$(fm_test_tmproot fm-reap-bounded)
+  marker="$dir/reap-done"
+  pidfile="$dir/fixture.pid"
+  readyfile="$dir/fixture.ready"
+
+  # An unrelated sentinel reap() must never touch.
+  bash -c 'while :; do sleep 0.05; done' &
+  sentinel_pid=$!
+
+  # The owned fixture must be spawned as a genuine CHILD of the subshell that
+  # calls reap(), or reap()'s internal `wait` is not waiting on a real child
+  # and the test proves nothing about the hang. It ignores TERM outright -
+  # only SIGKILL removes it - and signals readiness only after the trap is
+  # installed, closing the race where a kill sent before the trap exists
+  # would terminate it via the default disposition instead of exercising the
+  # ignore path this test targets. The subshell's own loop counter is local
+  # to it (a separate variable from the outer poll below).
+  (
+    local ri=0
+    bash -c "trap '' TERM; : > '$readyfile'; while :; do sleep 0.05; done" &
+    fixture_pid=$!
+    printf '%s\n' "$fixture_pid" > "$pidfile"
+    while [ "$ri" -lt 50 ] && [ ! -e "$readyfile" ]; do
+      sleep 0.02
+      ri=$((ri + 1))
+    done
+    reap "$fixture_pid"
+    : > "$marker"
+  ) &
+  reap_pid=$!
+
+  # Bounded wait for reap() to return; a regression that reintroduces an
+  # unbounded wait must FAIL this assertion, not hang the suite.
+  while [ "$i" -lt 200 ] && [ ! -e "$marker" ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  elapsed=$i
+  fixture_pid=$(cat "$pidfile" 2>/dev/null || true)
+
+  if [ ! -e "$marker" ]; then
+    kill -KILL "$fixture_pid" "$sentinel_pid" "$reap_pid" 2>/dev/null || true
+    wait "$sentinel_pid" "$reap_pid" 2>/dev/null || true
+    fail "reap() did not return within 20s against a TERM-resistant owned child"
+  fi
+  wait "$reap_pid" 2>/dev/null || true
+
+  if kill -0 "$fixture_pid" 2>/dev/null; then
+    kill -KILL "$fixture_pid" "$sentinel_pid" 2>/dev/null || true
+    fail "reap() returned but left the TERM-resistant child alive"
+  fi
+
+  if ! kill -0 "$sentinel_pid" 2>/dev/null; then
+    fail "reap() touched an unrelated sentinel process outside its target pid"
+  fi
+  kill -KILL "$sentinel_pid" 2>/dev/null || true
+  wait "$sentinel_pid" 2>/dev/null || true
+
+  [ "$elapsed" -lt 200 ] || fail "reap() used its entire bound; no headroom left to catch a regression"
+
+  pass "reap() bounds a TERM-resistant owned child without hanging cleanup, leaving an unrelated sentinel untouched"
+}
+
+test_reap_succeeds_on_a_normal_graceful_exit() {
+  local dir marker pidfile readyfile pid reap_pid i=0
+
+  dir=$(fm_test_tmproot fm-reap-graceful)
+  marker="$dir/reap-done"
+  pidfile="$dir/fixture.pid"
+  readyfile="$dir/fixture.ready"
+
+  (
+    local ri=0
+    bash -c "trap 'exit 0' TERM; : > '$readyfile'; while :; do sleep 0.05; done" &
+    pid=$!
+    printf '%s\n' "$pid" > "$pidfile"
+    while [ "$ri" -lt 50 ] && [ ! -e "$readyfile" ]; do
+      sleep 0.02
+      ri=$((ri + 1))
+    done
+    reap "$pid"
+    : > "$marker"
+  ) &
+  reap_pid=$!
+
+  while [ "$i" -lt 100 ] && [ ! -e "$marker" ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  pid=$(cat "$pidfile" 2>/dev/null || true)
+  if [ ! -e "$marker" ]; then
+    kill -KILL "$pid" "$reap_pid" 2>/dev/null || true
+    wait "$reap_pid" 2>/dev/null || true
+    fail "reap() did not return promptly against a process that exits cleanly on TERM"
+  fi
+  wait "$reap_pid" 2>/dev/null || true
+
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid" 2>/dev/null || true
+    fail "reap() left a gracefully-exiting child alive"
+  fi
+
+  pass "reap() still succeeds against a process that exits gracefully on TERM"
+}
 
 test_status_span_actionable_classifier
 test_status_span_survives_a_later_routine_append
@@ -4904,3 +5054,5 @@ test_afk_one_shot_never_hands_off_captain_held_under_away_record
 test_paused_until_near_future_is_quiet_before_the_cadence
 test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
+test_reap_bounds_a_term_resistant_owned_child
+test_reap_succeeds_on_a_normal_graceful_exit
