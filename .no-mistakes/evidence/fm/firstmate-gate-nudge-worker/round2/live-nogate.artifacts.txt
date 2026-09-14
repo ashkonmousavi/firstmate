@@ -1,0 +1,25 @@
+=== watcher stdout watch.out (what firstmate is woken with) ===
+=== watcher stderr watch.out ===
+=== durable wake queue (state/.wake-queue) ===
+=== gate-nudge record (count TAB epoch TAB held TAB identity) ===
+0	1789415116	0	
+=== steering-inbox records written by the ladder ===
+=== watcher triage log, gate-nudge lines ===
+=== no-mistakes calls (epoch, caller, run mode, cwd, argv) ===
+1789415080	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415083	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415084	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415089	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415095	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415095	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415098	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415098	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415103	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415103	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415110	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+1789415116	crew-state	fixing	/tmp/fm-live-gate/nogate/wt	axi status
+=== lines typed into the worker pane (epoch, text) ===
+1789415092	worker progress line 1
+1789415096	worker progress line 2
+1789415100	worker progress line 3
+=== worker events ===

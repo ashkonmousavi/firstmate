@@ -1,0 +1,28 @@
+=== live tmux pane fmlive:fm-livebusyfix at +42s (after gate 3 was rung) ===
+fake claude worker for livebusyfix - sitting at an empty prompt
+
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 1: busy - answering the gate and polling in-turn
+turn over
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 2: busy - answering the gate and polling in-turn
+turn over
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 3 received - ignoring it
+> 
+
+=== live tmux pane fmlive:fm-livebusyfix at +66s (final) ===
+fake claude worker for livebusyfix - sitting at an empty prompt
+
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 1: busy - answering the gate and polling in-turn
+turn over
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 2: busy - answering the gate and polling in-turn
+turn over
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 3 received - ignoring it
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/busyfix/state/livebusyfix.inbox'/handled/.
+doorbell 4 received - ignoring it
+> 
+

@@ -1,0 +1,12 @@
+[+  1s] scenario=axifail window=fmlive:fm-liveaxifail agent-state=alive
+[+  1s] no-mistakes run now reads: parked-ladderfail 01LIVEF 1666b78d93f7
+[+  1s] real bin/fm-watch.sh started (pid 2058245, FM_GATE_NUDGE_SECS=6; default FM_STALE_ESCALATE_SECS=999)
+[+  5s] PASS: crew-state still read the gate (its axi status call succeeded)
+[+  5s] PASS: the watcher's own gate-identity read was attempted and failed
+[+  5s] PASS: a failed identity read rings nobody
+[+  5s] PASS: no doorbell reached the pane
+[+  5s] PASS: no gate-nudged escalation
+[+  5s] watcher output (ordinary triage, if any): stale: fmlive:fm-liveaxifail 
+[+  5s] PASS: watcher stderr carries no shell errors
+[+  5s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+  5s] RESULT: PASS

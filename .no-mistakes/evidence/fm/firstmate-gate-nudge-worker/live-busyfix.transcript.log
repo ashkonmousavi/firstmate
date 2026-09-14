@@ -1,0 +1,17 @@
+[+  1s] scenario=busyfix window=fmlive:fm-livebusyfix agent-state=alive
+[+  1s] claude-hook busy record armed idle (rc=0)
+[+  1s] no-mistakes run now reads: parked 01LIVEC d393bbbaf103
+[+  1s] real bin/fm-watch.sh started (pid 2959376, FM_GATE_NUDGE_SECS=6, FM_STALE_ESCALATE_SECS=999 so no wedge escalation can fire)
+[+ 42s] PASS: three consecutive same-detail gates (new run head each) were each rung within 120s
+[+ 42s] PASS: no gate-nudged escalation fired before gate 3 was rung
+[+ 42s] PASS: firstmate still asleep after three gates
+[+ 42s] PASS: the run never read as working between gates
+[+ 42s] PASS: the worker's claude-hook busy records applied
+[+ 42s] PASS: no doorbell landed while the worker was busy
+[+ 67s] PASS: gate 3, then ignored, escalates within 60s
+[+ 67s] PASS: escalation carries the gate-nudged x2 marker
+[+ 67s] PASS: four rings in all: gates 1 and 2 once, gate 3 twice
+[+ 67s] PASS: the spent identity is gate 3's run head
+[+ 67s] PASS: watcher stderr carries no shell errors
+[+ 67s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+ 67s] RESULT: PASS

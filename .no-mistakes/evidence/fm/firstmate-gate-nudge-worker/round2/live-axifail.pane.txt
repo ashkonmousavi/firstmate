@@ -1,0 +1,10 @@
+=== live tmux pane fmlive:fm-liveaxifail at +5s (after 30s) ===
+fake claude worker for liveaxifail - sitting at an empty prompt
+
+> 
+
+=== live tmux pane fmlive:fm-liveaxifail at +5s (final) ===
+fake claude worker for liveaxifail - sitting at an empty prompt
+
+> 
+

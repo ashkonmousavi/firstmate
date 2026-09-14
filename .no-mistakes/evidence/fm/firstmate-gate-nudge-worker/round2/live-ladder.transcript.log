@@ -1,0 +1,23 @@
+[+  1s] scenario=ladder window=fmlive:fm-liveladder agent-state=alive
+[+  1s] no-mistakes run now reads: parked 01LIVEA 1666b78d93f7
+[+  1s] real bin/fm-watch.sh started (pid 2058259, FM_GATE_NUDGE_SECS=6; default FM_STALE_ESCALATE_SECS=999)
+[+ 10s] PASS: ring 1: a steering-inbox record for the worker within 45s
+[+ 10s] PASS: ring 1: the doorbell line was typed into the live worker pane
+[+ 10s] PASS: ring 1: firstmate was NOT woken (watcher printed nothing)
+[+ 10s] PASS: ring 1: no durable wake was queued for firstmate
+[+ 10s] PASS: ring 1: record is fire-and-forget
+[+ 10s] PASS: ring 1: record names the gate step and finding count
+[+ 10s] PASS: ring 1: record names the exact next command
+[+ 22s] PASS: ring 2: the still-idle worker is rung a second time within 45s
+[+ 22s] PASS: ring 2: firstmate still NOT woken
+[+ 34s] PASS: escalation: watcher wakes firstmate within 60s of ring 2
+[+ 34s] PASS: escalation: wake reason is the ordinary stale wake for this window
+[+ 34s] PASS: escalation: wake reason carries the gate-nudged x2 marker
+[+ 34s] PASS: escalation: wake reason names the gate
+[+ 34s] PASS: escalation: queued durably for firstmate
+[+ 34s] PASS: escalation: exactly two rings preceded it
+[+ 34s] PASS: escalation: exactly two doorbells reached the pane
+[+ 34s] PASS: gate identity is run id | step | run head
+[+ 34s] PASS: watcher stderr carries no shell errors
+[+ 34s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+ 34s] RESULT: PASS

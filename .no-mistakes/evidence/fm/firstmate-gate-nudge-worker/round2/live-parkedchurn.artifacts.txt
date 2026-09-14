@@ -1,0 +1,94 @@
+=== watcher stdout watch.out (what firstmate is woken with) ===
+stale: fmlive:fm-liveparkedchurn (idle 11s, gate-nudged x2 with no response: the worker is parked at review: 2 finding(s) and is not acting on the doorbell - inspect the worker)
+=== watcher stderr watch.out ===
+=== watcher stdout watch2.out (what firstmate is woken with) ===
+stale: fmlive:fm-liveparkedchurn
+=== watcher stderr watch2.out ===
+=== handling-turn drain and acknowledgement (bin/fm-wake-drain.sh) ===
+1789415918	1	stale	fmlive:fm-liveparkedchurn	stale: fmlive:fm-liveparkedchurn (idle 11s, gate-nudged x2 with no response: the worker is parked at review: 2 finding(s) and is not acting on the doorbell - inspect the worker)
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 2828197.1789415918.trW56q
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+=== durable wake queue (state/.wake-queue) ===
+1789415928	2	stale	fmlive:fm-liveparkedchurn	stale: fmlive:fm-liveparkedchurn
+=== gate-nudge record (count TAB epoch TAB held TAB identity) ===
+3	1789415928	0	01LIVEI|review|3fbb0eeb6c2a
+=== steering-inbox records written by the ladder ===
+--- liveparkedchurn.inbox/001.msg
+schema=fm-task-inbox.v1
+at=2026-09-14T19:58:13Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your no-mistakes run is parked at a gate with nothing attached to it: parked at review: 2 finding(s)
+
+Run "no-mistakes axi status" in your task worktree for the run id, the gate
+step and the finding ids, then respond with the exact command that run step
+documents ("no-mistakes axi respond --help"). Never pass --yes, and process
+every synchronous return until the run completes or genuinely escalates.
+
+If the gate is an ask-user finding, it is firstmate to decide, not you:
+append a "needs-decision: <the options>" line to your status file and stop.
+--- liveparkedchurn.inbox/002.msg
+schema=fm-task-inbox.v1
+at=2026-09-14T19:58:25Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your no-mistakes run is parked at a gate with nothing attached to it: parked at review: 2 finding(s)
+
+Run "no-mistakes axi status" in your task worktree for the run id, the gate
+step and the finding ids, then respond with the exact command that run step
+documents ("no-mistakes axi respond --help"). Never pass --yes, and process
+every synchronous return until the run completes or genuinely escalates.
+
+If the gate is an ask-user finding, it is firstmate to decide, not you:
+append a "needs-decision: <the options>" line to your status file and stop.
+=== watcher triage log, gate-nudge lines ===
+[2026-09-14T12:58:14-0700] gate nudge rung: liveparkedchurn 001.msg class=parked ring=0 (parked at review: 2 finding(s))
+[2026-09-14T12:58:26-0700] gate nudge rung: liveparkedchurn 002.msg class=parked ring=0 (parked at review: 2 finding(s))
+=== no-mistakes calls (epoch, caller, run mode, cwd, argv) ===
+1789415858	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415860	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415860	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415866	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415866	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415872	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415872	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415878	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415878	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415887	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415887	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415893	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415893	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415899	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415899	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415905	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415905	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415912	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415912	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415918	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415918	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415928	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415928	watcher	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+1789415928	crew-state	parked	/tmp/fm-live-gate/parkedchurn/wt	axi status
+=== lines typed into the worker pane (epoch, text) ===
+1789415857	worker output p1-1
+1789415860	worker output p1-2
+1789415863	worker output p1-3
+1789415866	worker output p1-4
+1789415869	worker output p1-5
+1789415872	worker output p1-6
+1789415875	worker output p1-7
+1789415878	worker output p1-8
+1789415881	worker output p1-9
+1789415884	worker output p1-10
+1789415893	: Firstmate instruction waiting: list '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/handled/.
+1789415905	: Firstmate instruction waiting: list '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/handled/.
+1789415923	worker output p2-1
+1789415926	worker output p2-2
+1789415929	worker output p2-3
+=== worker events ===
+1789415893	doorbell 1
+1789415905	doorbell 2

@@ -1,0 +1,16 @@
+=== watcher stdout watch.out (what firstmate is woken with) ===
+stale: fmlive:fm-liveaxifail
+=== watcher stderr watch.out ===
+=== durable wake queue (state/.wake-queue) ===
+1789415147	1	stale	fmlive:fm-liveaxifail	stale: fmlive:fm-liveaxifail
+=== gate-nudge record (count TAB epoch TAB held TAB identity) ===
+0	1789415146	0	
+=== steering-inbox records written by the ladder ===
+=== watcher triage log, gate-nudge lines ===
+=== no-mistakes calls (epoch, caller, run mode, cwd, argv) ===
+1789415143	crew-state	parked-ladderfail	/tmp/fm-live-gate/axifail/wt	axi status
+1789415146	crew-state	parked-ladderfail	/tmp/fm-live-gate/axifail/wt	axi status
+1789415146	watcher	parked-ladderfail	/tmp/fm-live-gate/axifail/wt	axi status
+1789415147	crew-state	parked-ladderfail	/tmp/fm-live-gate/axifail/wt	axi status
+=== lines typed into the worker pane (epoch, text) ===
+=== worker events ===

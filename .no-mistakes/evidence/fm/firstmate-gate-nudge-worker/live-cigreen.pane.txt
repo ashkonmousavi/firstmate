@@ -1,0 +1,16 @@
+=== live tmux pane fmlive:fm-livecigreen at +12s (after the green-CI ring) ===
+fake claude worker for livecigreen - sitting at an empty prompt
+
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/handled/.
+doorbell 1 received - ignoring it
+> 
+
+=== live tmux pane fmlive:fm-livecigreen at +36s (final) ===
+fake claude worker for livecigreen - sitting at an empty prompt
+
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/handled/.
+doorbell 1 received - ignoring it
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/handled/.
+doorbell 2 received - ignoring it
+> 
+

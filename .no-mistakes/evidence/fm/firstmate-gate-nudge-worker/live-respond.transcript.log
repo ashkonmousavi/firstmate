@@ -1,0 +1,15 @@
+[+  1s] scenario=respond window=fmlive:fm-liverespond agent-state=alive
+[+  1s] no-mistakes run now reads: parked 01LIVEB 971d86ac990a
+[+  1s] real bin/fm-watch.sh started (pid 3410919, FM_GATE_NUDGE_SECS=6; default FM_STALE_ESCALATE_SECS=999)
+[+ 10s] PASS: ring 1 for gate 1 within 45s
+[+ 11s] PASS: the worker handled ring 1 (record moved to handled/)
+[+ 19s] PASS: the worker's response resumed the run, and its fix round re-parked on a new head
+[+ 29s] PASS: the re-parked gate (new run head) is rung within 60s
+[+ 29s] PASS: no escalation about the answered gate: firstmate still asleep
+[+ 49s] PASS: escalation only after the new gate is ignored twice (within 60s)
+[+ 49s] PASS: escalation carries the gate-nudged x2 marker
+[+ 49s] PASS: three rings in all: one for the answered gate, two for the ignored one
+[+ 49s] PASS: the spent identity is the second gate's run head
+[+ 49s] PASS: watcher stderr carries no shell errors
+[+ 49s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+ 49s] RESULT: PASS

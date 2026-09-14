@@ -1,0 +1,63 @@
+=== watcher stdout (what firstmate is woken with) ===
+stale: fmlive:fm-liveladder (idle 10s, gate-nudged x2 with no response: the worker is parked at review: 2 finding(s) and is not acting on the doorbell - inspect the worker)
+=== watcher stderr ===
+=== durable wake queue (state/.wake-queue) ===
+1789413093	1	stale	fmlive:fm-liveladder	stale: fmlive:fm-liveladder (idle 10s, gate-nudged x2 with no response: the worker is parked at review: 2 finding(s) and is not acting on the doorbell - inspect the worker)
+=== gate-nudge record (count TAB epoch TAB held TAB identity) ===
+3	1789413093	0	01LIVEA|review|52713ce20e17
+=== steering-inbox records written by the ladder ===
+--- liveladder.inbox/001.msg
+schema=fm-task-inbox.v1
+at=2026-09-14T19:11:08Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your no-mistakes run is parked at a gate with nothing attached to it: parked at review: 2 finding(s)
+
+Run "no-mistakes axi status" in your task worktree for the run id, the gate
+step and the finding ids, then respond with the exact command that run step
+documents ("no-mistakes axi respond --help"). Never pass --yes, and process
+every synchronous return until the run completes or genuinely escalates.
+
+If the gate is an ask-user finding, it is firstmate to decide, not you:
+append a "needs-decision: <the options>" line to your status file and stop.
+--- liveladder.inbox/002.msg
+schema=fm-task-inbox.v1
+at=2026-09-14T19:11:21Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your no-mistakes run is parked at a gate with nothing attached to it: parked at review: 2 finding(s)
+
+Run "no-mistakes axi status" in your task worktree for the run id, the gate
+step and the finding ids, then respond with the exact command that run step
+documents ("no-mistakes axi respond --help"). Never pass --yes, and process
+every synchronous return until the run completes or genuinely escalates.
+
+If the gate is an ask-user finding, it is firstmate to decide, not you:
+append a "needs-decision: <the options>" line to your status file and stop.
+=== watcher triage log, gate-nudge lines ===
+[2026-09-14T12:11:09-0700] gate nudge rung: liveladder 001.msg class=parked ring=0 (parked at review: 2 finding(s))
+[2026-09-14T12:11:22-0700] gate nudge rung: liveladder 002.msg class=parked ring=0 (parked at review: 2 finding(s))
+=== no-mistakes calls (epoch, caller, run mode, cwd, argv) ===
+1789413060	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413062	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413062	watcher	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413068	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413068	watcher	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413074	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413074	watcher	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413081	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413081	watcher	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413087	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413087	watcher	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413093	crew-state	parked	/tmp/fm-live-gate/ladder/wt	axi status
+1789413093	watcher	parked	/tmp/fm-live-gate/ladder/wt	axi status
+=== lines typed into the worker pane (epoch, text) ===
+1789413069	: Firstmate instruction waiting: list '/tmp/fm-live-gate/ladder/state/liveladder.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/ladder/state/liveladder.inbox'/handled/.
+1789413081	: Firstmate instruction waiting: list '/tmp/fm-live-gate/ladder/state/liveladder.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/ladder/state/liveladder.inbox'/handled/.
+=== worker events ===
+1789413069	doorbell 1
+1789413081	doorbell 2

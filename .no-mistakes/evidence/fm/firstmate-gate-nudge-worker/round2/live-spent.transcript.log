@@ -1,0 +1,22 @@
+[+  1s] scenario=spent window=fmlive:fm-livespent agent-state=alive
+[+  1s] no-mistakes run now reads: parked 01LIVEG 1666b78d93f7
+[+  1s] real bin/fm-watch.sh started (pid 2058241, FM_GATE_NUDGE_SECS=6; default FM_STALE_ESCALATE_SECS=999)
+[+ 36s] PASS: the ignored gate reaches the gate-nudged escalation within 90s
+[+ 36s] PASS: that escalation carries the gate-nudged x2 marker
+[+ 37s] PASS: firstmate's handling turn drains and acknowledges the wake
+[+ 37s] stale rows for fmlive:fm-livespent left queued after the acknowledgement: 0
+[+ 37s] real bin/fm-watch.sh started (pid 2118426, FM_GATE_NUDGE_SECS=6, FM_WATCH_HANDLING_SUCCESSOR=1 FM_STALE_ESCALATE_SECS=20; default FM_STALE_ESCALATE_SECS=999)
+[+ 53s] PASS: spent budget: no wake of any kind for 16s (< FM_STALE_ESCALATE_SECS=20) after the successor started
+[+ 53s] PASS: spent budget: no new stale row queued in that span
+[+ 58s] successor watcher output after 21s: stale: fmlive:fm-livespent (idle 20s, possible wedge, escalation 1) 
+[+ 58s] PASS: spent budget: no third ring about the same gate
+[+ 58s] PASS: spent budget: no second gate-nudged escalation
+[+ 58s] PASS: spent budget: any later wake is the ordinary wedge escalation, not a gate re-wake
+[+ 58s] successor watcher exited; restarting a third as handling successor before moving the head
+[+ 58s] real bin/fm-watch.sh started (pid 2140797, FM_GATE_NUDGE_SECS=6, FM_WATCH_HANDLING_SUCCESSOR=1 FM_STALE_ESCALATE_SECS=20; default FM_STALE_ESCALATE_SECS=999)
+[+ 58s] no-mistakes run now reads: parked 01LIVEG 461bd6a86153
+[+ 60s] PASS: a new run head re-arms the spent budget: the worker is rung again within 45s
+[+ 60s] PASS: the re-armed identity carries the new run head
+[+ 60s] PASS: watcher stderr carries no shell errors while running
+[+ 61s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+ 61s] RESULT: PASS

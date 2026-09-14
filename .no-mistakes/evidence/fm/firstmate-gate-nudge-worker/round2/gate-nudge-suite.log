@@ -1,0 +1,25 @@
+ok - crew_gate_class: only a run-step parked or green-CI verdict is a gate, and only the run's own working read is a resume
+ok - a parked gate rings the worker first and leaves firstmate asleep
+ok - a green PR whose done: report is outstanding rings the worker
+ok - a green PR whose done: report already landed is never rung
+ok - a done: from an earlier round does not silence a later round's green-CI ring
+ok - two unanswered nudges precede the ordinary stale wake, which names them
+ok - a tab inside the gate detail still rings the worker and escalates after exactly two rings
+ok - a transient non-gate read mid-ladder keeps the ring budget
+ok - a run that resumes re-arms the ladder for a same-looking gate
+ok - a gate re-parked onto a new pane hash inside the nudge interval rings the worker first
+ok - consecutive gates of one run that differ only in run head are each rung
+ok - a busy pane is never rung, however its run reads
+ok - an open decision firstmate owns, keyed or not, suppresses the ring entirely
+ok - a declared external wait stays on the bounded pause cadence, unprobed
+ok - a secondmate's idle endpoint stays outside the ladder
+ok - a scout stays outside the ladder and goes to the ordinary triage
+ok - a positively dead endpoint goes straight to the ordinary recovery path
+ok - a run that cannot be read, or reads as another branch's, rings nobody
+ok - a new run head re-arms a spent gate-nudge budget, an unchanged one does not
+ok - a status append or a local commit while a gate is open keeps the ring budget
+
+real	1m25.213s
+user	0m30.928s
+sys	0m10.614s
+exit=0

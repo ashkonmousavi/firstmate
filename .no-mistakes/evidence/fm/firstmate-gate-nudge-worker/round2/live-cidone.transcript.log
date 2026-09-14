@@ -1,0 +1,10 @@
+[+  1s] scenario=cidone window=fmlive:fm-livecidone agent-state=alive
+[+  1s] no-mistakes run now reads: green 01LIVEE 1666b78d93f7
+[+  1s] real bin/fm-watch.sh started (pid 2058134, FM_GATE_NUDGE_SECS=6; default FM_STALE_ESCALATE_SECS=999)
+[+  5s] PASS: a worker whose done: PR ... checks green report already landed is never rung
+[+  5s] PASS: no doorbell reached the pane
+[+  5s] PASS: no gate-nudged escalation
+[+  5s] watcher output (ordinary triage, if any): stale: fmlive:fm-livecidone 
+[+  5s] PASS: watcher stderr carries no shell errors
+[+  5s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+  5s] RESULT: PASS

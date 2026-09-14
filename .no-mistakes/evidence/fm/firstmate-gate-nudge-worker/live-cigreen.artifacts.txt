@@ -1,0 +1,62 @@
+=== watcher stdout (what firstmate is woken with) ===
+stale: fmlive:fm-livecigreen (idle 10s, gate-nudged x2 with no response: the worker is checks green: PR ready for review and is not acting on the doorbell - inspect the worker)
+=== watcher stderr ===
+=== durable wake queue (state/.wake-queue) ===
+1789413139	1	stale	fmlive:fm-livecigreen	stale: fmlive:fm-livecigreen (idle 10s, gate-nudged x2 with no response: the worker is checks green: PR ready for review and is not acting on the doorbell - inspect the worker)
+=== gate-nudge record (count TAB epoch TAB held TAB identity) ===
+3	1789413139	0	01LIVED|ci|d393bbbaf103
+=== steering-inbox records written by the ladder ===
+--- livecigreen.inbox/001.msg
+schema=fm-task-inbox.v1
+at=2026-09-14T19:11:54Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your PR checks are green and firstmate has no report from you yet: checks green: PR ready for review
+
+Confirm with "no-mistakes axi status" in your task worktree, then append
+a "done: PR <full https URL> checks green" line to your status file. Write
+the URL exactly as the forge printed it, never a bare number.
+--- livecigreen.inbox/002.msg
+schema=fm-task-inbox.v1
+at=2026-09-14T19:12:06Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your PR checks are green and firstmate has no report from you yet: checks green: PR ready for review
+
+Confirm with "no-mistakes axi status" in your task worktree, then append
+a "done: PR <full https URL> checks green" line to your status file. Write
+the URL exactly as the forge printed it, never a bare number.
+=== watcher triage log, gate-nudge lines ===
+[2026-09-14T12:11:55-0700] gate nudge rung: livecigreen 001.msg class=ci-green ring=0 (checks green: PR ready for review)
+[2026-09-14T12:12:07-0700] gate nudge rung: livecigreen 002.msg class=ci-green ring=0 (checks green: PR ready for review)
+=== no-mistakes calls (epoch, caller, run mode, cwd, argv) ===
+1789413104	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413104	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413107	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413107	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413107	watcher	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413114	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413114	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413114	watcher	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413120	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413120	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413120	watcher	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413126	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413126	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413126	watcher	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413132	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413132	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413132	watcher	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413139	crew-state	green	/tmp/fm-live-gate/cigreen/wt	axi status
+1789413139	crew-state	green	/tmp/fm-live-gate/cigreen/wt	runs --limit 200
+1789413139	watcher	green	/tmp/fm-live-gate/cigreen/wt	axi status
+=== lines typed into the worker pane (epoch, text) ===
+1789413115	: Firstmate instruction waiting: list '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/handled/.
+1789413127	: Firstmate instruction waiting: list '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/cigreen/state/livecigreen.inbox'/handled/.
+=== worker events ===
+1789413115	doorbell 1
+1789413127	doorbell 2

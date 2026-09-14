@@ -1,0 +1,15 @@
+[+  1s] scenario=nogate window=fmlive:fm-livenogate agent-state=alive
+[+  1s] no-mistakes run now reads: fixing 01LIVEH f89e0406f1c7
+[+  1s] real bin/fm-watch.sh started (pid 1944418, FM_GATE_NUDGE_SECS=6; default FM_STALE_ESCALATE_SECS=999)
+[+ 13s] pane changed: worker printed progress line 1
+[+ 17s] pane changed: worker printed progress line 2
+[+ 21s] pane changed: worker printed progress line 3
+[+ 37s] crew-state reads: 12 in 36s over 4 distinct stale hashes (bound 15; one per 1s poll would be ~36)
+[+ 37s] PASS: a working run on a changing pane rings nobody
+[+ 37s] PASS: no doorbell reached the pane
+[+ 37s] PASS: firstmate not woken (the triage absorbs a provably working run)
+[+ 37s] PASS: crew-state reads stay inside the documented bound, not one per poll
+[+ 37s] PASS: the watcher's own identity read never ran without a gate
+[+ 37s] PASS: watcher stderr carries no shell errors while running
+[+ 38s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+ 38s] RESULT: PASS

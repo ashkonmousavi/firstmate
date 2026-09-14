@@ -1,0 +1,15 @@
+[+  1s] scenario=cigreen window=fmlive:fm-livecigreen agent-state=alive
+[+  1s] no-mistakes run now reads: green 01LIVED d393bbbaf103
+[+  1s] real bin/fm-watch.sh started (pid 2959074, FM_GATE_NUDGE_SECS=6, FM_STALE_ESCALATE_SECS=999 so no wedge escalation can fire)
+[+ 11s] PASS: green CI with only a pre-validation done: summary rings the worker within 45s
+[+ 12s] PASS: the doorbell reached the live pane
+[+ 12s] PASS: firstmate not woken by the first green-CI ring
+[+ 12s] PASS: the ring names the green PR
+[+ 12s] PASS: the ring names the report the worker owes
+[+ 36s] PASS: ignored twice, it escalates within 90s
+[+ 36s] PASS: escalation carries the gate-nudged x2 marker
+[+ 36s] PASS: exactly two rings preceded it
+[+ 36s] PASS: the identity step is ci
+[+ 36s] PASS: watcher stderr carries no shell errors
+[+ 36s] PASS: only inspection verbs (axi status, runs) ever reached no-mistakes
+[+ 36s] RESULT: PASS

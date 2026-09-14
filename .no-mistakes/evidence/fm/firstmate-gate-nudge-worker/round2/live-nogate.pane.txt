@@ -1,0 +1,16 @@
+=== live tmux pane fmlive:fm-livenogate at +37s (after 36s of a working run on a changing pane) ===
+fake claude worker for livenogate - sitting at an empty prompt
+
+> worker progress line 1
+> worker progress line 2
+> worker progress line 3
+> 
+
+=== live tmux pane fmlive:fm-livenogate at +38s (final) ===
+fake claude worker for livenogate - sitting at an empty prompt
+
+> worker progress line 1
+> worker progress line 2
+> worker progress line 3
+> 
+

@@ -1,0 +1,44 @@
+=== live tmux pane fmlive:fm-liveparkedchurn at +73s (after both churn phases) ===
+fake claude worker for liveparkedchurn - sitting at an empty prompt
+
+> worker output p1-1
+> worker output p1-2
+> worker output p1-3
+> worker output p1-4
+> worker output p1-5
+> worker output p1-6
+> worker output p1-7
+> worker output p1-8
+> worker output p1-9
+> worker output p1-10
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/handled/.
+doorbell 1 received - ignoring it
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/handled/.
+doorbell 2 received - ignoring it
+> worker output p2-1
+> worker output p2-2
+> worker output p2-3
+> 
+
+=== live tmux pane fmlive:fm-liveparkedchurn at +73s (final) ===
+fake claude worker for liveparkedchurn - sitting at an empty prompt
+
+> worker output p1-1
+> worker output p1-2
+> worker output p1-3
+> worker output p1-4
+> worker output p1-5
+> worker output p1-6
+> worker output p1-7
+> worker output p1-8
+> worker output p1-9
+> worker output p1-10
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/handled/.
+doorbell 1 received - ignoring it
+> : Firstmate instruction waiting: list '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-live-gate/parkedchurn/state/liveparkedchurn.inbox'/handled/.
+doorbell 2 received - ignoring it
+> worker output p2-1
+> worker output p2-2
+> worker output p2-3
+> 
+

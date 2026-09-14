@@ -1,0 +1,7 @@
+=== test_reparked_gate_on_a_new_pane_hash_rings_the_worker_first against PRE-FIX bin/ (commit b0877df) ===
+not ok - the re-parked gate went to firstmate before the ladder probed it: stale: test:fm-gaterepark
+exit=1
+
+=== same test against FIXED bin/ (commit b62fcff) ===
+ok - a gate re-parked onto a new pane hash inside the nudge interval rings the worker first
+exit=0
