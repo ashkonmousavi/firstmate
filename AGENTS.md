@@ -389,8 +389,8 @@ For PR-based ship tasks, the ready signal depends on mode: `no-mistakes` reports
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
-For a PR-based landing, a merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch CI run that the merge triggers, and any deploy or release workflow and the live version when the project has a deploy target.
-Tell the captain the concrete result - passing or failing checks, and the deploy result and live version when a deploy target exists.
+For a PR-based landing, a merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target.
+Tell the captain the concrete result - passing or failing checks when a default-branch CI run exists, and the deploy result and live version when a deploy target exists.
 Never report a task landed on the merge alone, and hold teardown until that verification is done; a local-only landing reports only the local outcome once the fast-forward merge succeeds.
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
