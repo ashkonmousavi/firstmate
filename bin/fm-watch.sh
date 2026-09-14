@@ -1009,8 +1009,9 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
 # "<count>\t<epoch>\t<held>\t<identity>". <held> is 1 only while the ladder owns
 # the pane between probes - the last probe found this identity's gate open with
 # budget left - and 0 otherwise, so the ladder's own throttle still applies to a
-# pane that is merely idle. A count of GATE_NUDGE_SPENT means both rings and the
-# escalation are behind this identity: the ladder then hands the pane back
+# pane that is merely idle on a hash already classified. A count of
+# GATE_NUDGE_SPENT means both rings and the escalation are behind this
+# identity: the ladder then hands the pane back
 # until a new identity or a resumed run re-arms it, so firstmate is woken about
 # one gate once, not once every GATE_NUDGE_SECS. Teardown removes the record.
 
@@ -1146,11 +1147,13 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
 # positively dead or missing endpoint (nobody to ring, and recovery is already
 # the ordinary path's job).
 #
-# Cost: at most ONE bounded crew-state read per GATE_NUDGE_SECS per idle pane,
-# plus one bounded `axi status` read when it shows a gate, both paced by the
-# record's own epoch. On a pane with no gate that read is in
-# addition to the one the unchanged triage below makes on each newly distinct
-# stale hash; the pacing record is what keeps it from repeating every poll.
+# Cost: one bounded crew-state read per probe, plus one bounded `axi status`
+# read when it shows a gate. A probe runs at most once per GATE_NUDGE_SECS per
+# idle pane, paced by the record's own epoch, and otherwise only on a newly
+# distinct stale hash - the same hashes the unchanged triage below already pays
+# its own crew-state read for. On a pane with no gate those reads are in
+# addition to the triage's; the pacing record and the classified-hash record
+# are what keep them from repeating every poll.
 gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   local w=$1 task=$2 kind=$3 key=$4 statusline=$5
   local rec stored count last held now age class detail identity reason
@@ -1170,10 +1173,18 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
     case "$last" in ''|*[!0-9]*) last=0 ;; esac
     if [ "$((now - last))" -lt "$GATE_NUDGE_SECS" ]; then
       # Between probes: keep owning a pane the last probe found parked at a gate
-      # with budget left, and leave every other idle pane - and every spent one
-      # - to the unchanged triage.
+      # with budget left. Every other idle pane - and every spent one - goes to
+      # the unchanged triage, unless it has settled on a hash nobody has
+      # classified yet. .stale-<key> is that record for both: every hand-back
+      # from a probe is followed by the triage classifying the same hash, and
+      # the escalation below marks its hash too. An unclassified hash is where
+      # a re-parked gate appears once the worker answered the last one, and
+      # the triage would spend a crew-state read on it anyway, so it is probed
+      # now rather than surfaced to firstmate unrung. The caller reaches this
+      # only on a repeat capture, so .hash-<key> is the pane's current hash.
       [ "$held" = 1 ] && return 0
-      return 1
+      [ "$(cat "$STATE/.hash-$key" 2>/dev/null || true)" \
+        = "$(cat "$STATE/.stale-$key" 2>/dev/null || true)" ] && return 1
     fi
   fi
   if [ -n "$(status_open_decisions "$STATE/$task.status")" ]; then

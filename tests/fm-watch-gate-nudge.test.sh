@@ -173,6 +173,23 @@ wait_nudge_records() {  # <state> <id> <want> <pid> [limit-ticks]
   return 1
 }
 
+# Wait until <id>'s ladder record (state/.gate-nudge-<id>, one line
+# "<count>\t<epoch>\t<held>\t<identity>") names <identity>, or <pid> exits. An
+# empty <identity> is the reset a read of the run itself working writes.
+wait_nudge_identity() {  # <state> <id> <identity> <pid> [limit-ticks]
+  local state=$1 id=$2 want=$3 pid=$4 limit=${5:-150} i=0 count epoch held identity
+  while [ "$i" -lt "$limit" ]; do
+    if IFS=$(printf '\t') read -r count epoch held identity < "$state/.gate-nudge-$id" 2>/dev/null \
+      && [ "$identity" = "$want" ]; then
+      return 0
+    fi
+    is_live_non_zombie "$pid" || return 1
+    sleep 0.1
+    i=$((i + 1))
+  done
+  return 1
+}
+
 # --- pure classifier (fm-classify-lib.sh) -----------------------------------
 
 test_crew_gate_class_reads_only_run_step_gates() {
@@ -505,6 +522,80 @@ test_run_resume_rearms_a_same_looking_gate() {
   grep -F "gate-nudged x2" "$out" >/dev/null \
     || fail "the re-parked gate did not reach the gate-nudged escalation: $(cat "$out")"
   pass "a run that resumes re-arms the ladder for a same-looking gate"
+}
+
+# A worker that answers a gate usually leaves its pane on a new idle hash when
+# the fix round re-parks - its poll returns, or it prints anything - and that
+# lands well inside FM_GATE_NUDGE_SECS of the probe that read the run working.
+# The ladder still probes that unclassified hash first: handed straight to the
+# ordinary triage, the new gate would reach firstmate as a bare stale wake with
+# no ring at all.
+test_reparked_gate_on_a_new_pane_hash_rings_the_worker_first() {
+  local dir state fakebin out capture window id pid
+  dir=$(make_case gate-nudge-repark); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gaterepark; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+
+  # Gate A is rung once.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD=abc0001 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=30 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" 1 "$pid" \
+    || { reap "$pid"; fail "gate A did not ring the worker: $(cat "$out")"; }
+  reap "$pid"
+
+  # The worker answered, and a probe reads the run itself as fixing. Later
+  # rounds are armed as handling successors, as fm-watch-arm.sh arms one.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE='state: working · source: run-step · validating (fixing)' \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/fixing.out" &
+  pid=$!
+  wait_nudge_identity "$state" "$id" '' "$pid" \
+    || { reap "$pid"; fail "the fixing run was never read as resumed: $(cat "$dir/fixing.out")"; }
+  wait_poll_cycle "$state" "$pid" \
+    || { reap "$pid"; fail "the fixing run exited the watcher: $(cat "$dir/fixing.out")"; }
+  reap "$pid"
+
+  # The fix round re-parks on a new run head, and the worker's pane settles on
+  # a new idle hash inside FM_GATE_NUDGE_SECS of that resumed read.
+  printf 'idle prompt, fix round answered' > "$capture"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD=abc0002 \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=30 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_identity "$state" "$id" '01RUN|review|abc0002' "$pid" \
+    || { reap "$pid"; fail "the re-parked gate went to firstmate before the ladder probed it: $(cat "$out")"; }
+  wait_poll_cycle "$state" "$pid" \
+    || { reap "$pid"; fail "the re-parked gate woke firstmate instead of being held for the worker: $(cat "$out")"; }
+  reap "$pid"
+  [ ! -s "$out" ] || fail "the re-parked gate printed a wake reason: $(cat "$out")"
+
+  # Once the pane has idled out the nudge interval, the new gate is rung.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_FAKE_RUN_HEAD=abc0002 \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" 2 "$pid" \
+    || { reap "$pid"; fail "the re-parked gate was never rung: $(cat "$out")"; }
+  reap "$pid"
+
+  [ ! -s "$out" ] || fail "ringing the re-parked gate also printed a wake reason: $(cat "$out")"
+  [ ! -s "$state/.wake-queue" ] \
+    || fail "firstmate was queued a wake about a gate the worker was rung about: $(cat "$state/.wake-queue")"
+  pass "a gate re-parked onto a new pane hash inside the nudge interval rings the worker first"
 }
 
 # The worker can stay busy through a whole fix round - answering the gate and
@@ -870,6 +961,7 @@ test_ladder_escalates_only_after_two_unanswered_nudges
 test_a_tabbed_gate_detail_still_rings_and_escalates
 test_a_transient_non_gate_read_keeps_the_budget
 test_run_resume_rearms_a_same_looking_gate
+test_reparked_gate_on_a_new_pane_hash_rings_the_worker_first
 test_consecutive_gates_of_one_run_each_ring
 test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
