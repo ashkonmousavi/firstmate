@@ -998,14 +998,15 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
 # has stayed idle for FM_GATE_NUDGE_SECS since the last ring is a worker that
 # did nothing with it.
 #
-# Record: state/.gate-nudge-<task>, one line "<count>\t<epoch>\t<identity>".
-# Identity is the literal `-` when the last probe found no gate, so the ladder's
-# own throttle still applies to a pane that is merely idle. A count of
-# GATE_NUDGE_SPENT means both rings and the escalation are behind this identity:
-# the ladder then hands the pane back permanently, so firstmate is woken about
-# one gate once, not once every GATE_NUDGE_SECS. Teardown removes the record.
+# Record: state/.gate-nudge-<task>, one line
+# "<count>\t<epoch>\t<held>\t<identity>". <held> is 1 only while the ladder owns
+# the pane between probes - the last probe found this identity's gate open with
+# budget left - and 0 otherwise, so the ladder's own throttle still applies to a
+# pane that is merely idle. A count of GATE_NUDGE_SPENT means both rings and the
+# escalation are behind this identity: the ladder then hands the pane back
+# permanently, so firstmate is woken about one gate once, not once every
+# GATE_NUDGE_SECS. Teardown removes the record.
 
-GATE_NUDGE_NO_GATE='-'
 GATE_NUDGE_SPENT=3   # count value meaning: two rings and the escalation are done
 GATE_NUDGE_TAB=$(printf '\t')
 
@@ -1021,21 +1022,17 @@ gate_nudge_record_path() {  # <task>
 # inside it would otherwise shift every field the reader parses, which silently
 # turns the ladder into an endless ringer that never reaches its escalation.
 # Last field, read last, round-trips whatever a gate detail turns out to hold.
-gate_nudge_write() {  # <record-path> <identity> <count> <epoch>
-  printf '%s\t%s\t%s\n' "$3" "$4" "$2" > "$1" 2>/dev/null
+gate_nudge_write() {  # <record-path> <identity> <count> <epoch> <held>
+  printf '%s\t%s\t%s\t%s\n' "$3" "$4" "$5" "$2" > "$1" 2>/dev/null
 }
 
-# Forget the gate this record was holding. A SPENT budget keeps its identity and
-# count instead, so "at most two rings per gate identity" survives a transient
-# non-gate read - a probe that timed out, or a run that flickers back to running
-# between two reads of the same gate. Such a record never holds the pane away
-# from the ordinary triage, because the spent check precedes the hold below.
+# Record a probe that found no gate: the pane goes back to the unchanged triage,
+# but the identity and count stay, so "at most two rings per gate identity"
+# survives a transient non-gate read - a probe that timed out, or a run that
+# flickers back to running between two reads of the same gate. Only a new
+# identity resets the count.
 gate_nudge_clear() {  # <record-path> <stored-identity> <count> <epoch>
-  if [ "$3" -ge "$GATE_NUDGE_SPENT" ]; then
-    gate_nudge_write "$1" "$2" "$3" "$4"
-  else
-    gate_nudge_write "$1" "$GATE_NUDGE_NO_GATE" 0 "$4"
-  fi
+  gate_nudge_write "$1" "$2" "$3" "$4" 0
 }
 
 # The gate identity a nudge budget is bound to: the gate's own detail (its step
@@ -1080,15 +1077,10 @@ gate_nudge_message() {  # <class> <detail>
   esac
 }
 
-# 0 if the status log already carries a `done:` report, so a green-CI nudge
-# would tell the worker to do what it has already done.
+# 0 if the task's latest status report is `done:`, so a green-CI nudge would
+# tell the worker to do what it has already done this round.
 gate_nudge_done_reported() {  # <task>
-  local f="$STATE/$1.status" line
-  [ -f "$f" ] || return 1
-  while IFS= read -r line || [ -n "$line" ]; do
-    [ "$(status_line_verb "$line")" = "done" ] && return 0
-  done < "$f"
-  return 1
+  [ "$(status_line_verb "$(last_status_line "$STATE/$1.status")")" = "done" ]
 }
 
 # Write one fire-and-forget record and ring its doorbell. The record IS the
@@ -1130,27 +1122,26 @@ gate_nudge_ring() {  # <window> <task> <class> <detail>
 # stale hash; the pacing record is what keeps it from repeating every poll.
 gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   local w=$1 task=$2 kind=$3 key=$4 statusline=$5
-  local rec stored count last now age class detail identity reason
+  local rec stored count last held now age class detail identity reason
   case "$kind" in ship|scout) ;; *) return 1 ;; esac
   [ -n "$task" ] || return 1
   afk_present && return 1
   status_is_paused_or_captain_held "$statusline" && return 1
   rec=$(gate_nudge_record_path "$task")
-  stored=$GATE_NUDGE_NO_GATE
+  stored=''
   count=0
   last=0
+  held=0
   now=$(date +%s)
   if [ -f "$rec" ]; then
-    IFS=$GATE_NUDGE_TAB read -r count last stored < "$rec"
+    IFS=$GATE_NUDGE_TAB read -r count last held stored < "$rec"
     case "$count" in ''|*[!0-9]*) count=0 ;; esac
     case "$last" in ''|*[!0-9]*) last=0 ;; esac
-    [ -n "$stored" ] || stored=$GATE_NUDGE_NO_GATE
     if [ "$((now - last))" -lt "$GATE_NUDGE_SECS" ]; then
-      # Between probes: keep owning a pane whose gate is already established,
-      # and leave every other idle pane - and every spent one - to the
-      # unchanged triage.
-      [ "$count" -ge "$GATE_NUDGE_SPENT" ] && return 1
-      [ "$stored" != "$GATE_NUDGE_NO_GATE" ] && return 0
+      # Between probes: keep owning a pane the last probe found parked at a gate
+      # with budget left, and leave every other idle pane - and every spent one
+      # - to the unchanged triage.
+      [ "$held" = 1 ] && return 0
       return 1
     fi
   fi
@@ -1186,14 +1177,14 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
     # triage rather than waking firstmate again every GATE_NUDGE_SECS. Only a
     # new gate identity re-arms the ladder. The record is still rewritten so its
     # epoch keeps pacing the probe that would notice that new identity.
-    gate_nudge_write "$rec" "$identity" "$count" "$now" || true
+    gate_nudge_write "$rec" "$identity" "$count" "$now" 0 || true
     return 1
   fi
   age=$(age_of "$STATE/.hash-$key")
   if [ "$age" -lt "$GATE_NUDGE_SECS" ]; then
     # The gate is established but the pane has not been quiet long enough to
     # call this ring, or the one before it, unanswered. Arm and hold the pane.
-    gate_nudge_write "$rec" "$identity" "$count" "$now" || return 1
+    gate_nudge_write "$rec" "$identity" "$count" "$now" 1 || return 1
     return 0
   fi
   if [ "$count" -ge 2 ]; then
@@ -1201,10 +1192,10 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
     fm_wake_append stale "$w" "$reason" || exit 1
     # Spend the budget BEFORE surfacing: this wake hands the pane to firstmate,
     # and the ladder must not wake them about the same gate again.
-    gate_nudge_write "$rec" "$identity" "$GATE_NUDGE_SPENT" "$now" || true
+    gate_nudge_write "$rec" "$identity" "$GATE_NUDGE_SPENT" "$now" 0 || true
     wake "$reason"
   fi
-  gate_nudge_write "$rec" "$identity" "$((count + 1))" "$now" || return 1
+  gate_nudge_write "$rec" "$identity" "$((count + 1))" "$now" 1 || return 1
   gate_nudge_ring "$w" "$task" "$class" "$detail" || return 1
   return 0
 }

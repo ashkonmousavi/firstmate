@@ -271,6 +271,31 @@ test_worker_that_already_reported_done_is_never_rung() {
   pass "a green PR whose done: report already landed is never rung"
 }
 
+# The status log is append-only across rounds, so only the latest report may
+# silence the green-CI ring: a worker sent back after an earlier done: still
+# owes this round's report.
+test_earlier_round_done_still_rings_the_worker() {
+  local dir state fakebin out capture window id pid
+  dir=$(make_case gate-nudge-done-earlier); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gatedonebefore; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+  printf 'working: implementation committed\ndone: PR https://example.invalid/pr/7 checks green\nworking: addressing the review round\n' \
+    > "$state/$id.status"
+  prime_status_seen "$state" "$state/$id.status"
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$CI_GREEN_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=30 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" 1 "$pid" \
+    || { reap "$pid"; fail "a done: from an earlier round silenced this round's green-CI ring: $(cat "$out")"; }
+  reap "$pid"
+  pass "a done: from an earlier round does not silence a later round's green-CI ring"
+}
+
 test_ladder_escalates_only_after_two_unanswered_nudges() {
   local dir state fakebin out capture window id pid rc
   dir=$(make_case gate-nudge-ladder); state="$dir/state"; fakebin="$dir/fakebin"
@@ -329,6 +354,65 @@ test_a_tabbed_gate_detail_still_reaches_escalation() {
   grep -F "gate-nudged x2" "$out" >/dev/null \
     || fail "a tabbed gate detail did not reach the gate-nudged escalation: $(cat "$out")"
   pass "a tab inside the gate detail still reaches escalation after exactly two rings"
+}
+
+# A read that finds no gate between two probes of the same gate - a timed-out
+# probe, or a run that flickers back to running - must not restart the budget:
+# a flicker landing between probes would otherwise ring the worker again and
+# again and never reach the escalation.
+test_a_transient_non_gate_read_keeps_the_budget() {
+  local dir state fakebin out capture window id pid rc
+  dir=$(make_case gate-nudge-flicker); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gateflicker; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+
+  # The first ring.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  wait_nudge_records "$state" "$id" 1 "$pid" \
+    || { reap "$pid"; fail "a parked gate did not ring the worker: $(cat "$out")"; }
+  reap "$pid"
+
+  # The same gate reads as a running run for several probe windows. Each later
+  # round is armed as a handling successor, as fm-watch-arm.sh arms one, so it
+  # stays in the poll loop instead of exiting on `check: rearm-resurface`.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE='state: working · source: run-step · validating (background run)' \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$dir/flicker.out" &
+  pid=$!
+  for _ in 1 2 3; do
+    wait_poll_cycle "$state" "$pid" \
+      || { reap "$pid"; fail "the running read exited the watcher: $(cat "$dir/flicker.out")"; }
+  done
+  reap "$pid"
+  [ "$(nudge_record_count "$state" "$id")" -eq 1 ] \
+    || fail "a running run was rung about a gate"
+
+  # The gate reads parked again: one more ring, then the escalation.
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$PARKED_VERDICT" FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  rc=0
+  wait_for_exit "$pid" 250 || rc=$?
+  reap "$pid"
+
+  [ "$rc" -ne 124 ] || fail "the ladder never escalated after the flicker: $(cat "$out")"
+  [ "$(nudge_record_count "$state" "$id")" -eq 2 ] \
+    || fail "a transient non-gate read restarted the ring budget: $(nudge_record_count "$state" "$id") rings"
+  grep -F "gate-nudged x2" "$out" >/dev/null \
+    || fail "the flickered gate did not reach the gate-nudged escalation: $(cat "$out")"
+  pass "a transient non-gate read mid-ladder keeps the ring budget"
 }
 
 test_busy_pane_is_never_nudged() {
@@ -554,8 +638,10 @@ test_crew_gate_class_reads_only_run_step_gates
 test_first_nudge_rings_the_worker_without_waking_firstmate
 test_ci_green_awaiting_the_done_report_rings_the_worker
 test_worker_that_already_reported_done_is_never_rung
+test_earlier_round_done_still_rings_the_worker
 test_ladder_escalates_only_after_two_unanswered_nudges
 test_a_tabbed_gate_detail_still_reaches_escalation
+test_a_transient_non_gate_read_keeps_the_budget
 test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
 test_declared_wait_is_left_to_the_pause_cadence
