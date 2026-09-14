@@ -107,6 +107,10 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
     fm_pr_poll_merge_mark_notified "$state" "$id" \
       "$provider" "$host" "$path" "$number" || status=1
   fi
+  if [ "$status" -eq 0 ] && [ "$origin" = self ]; then
+    printf 'reminder: %s is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7\n' \
+      "$FM_PR_URL"
+  fi
   fm_lock_release "$lock"
   return "$status"
 }

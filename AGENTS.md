@@ -355,7 +355,7 @@ Destructive, irreversible, and security-sensitive merges still escalate.
 Without a current explicit captain instruction that states the concrete merge, the green default stands, and standing `yolo` cannot authorize a red merge; section 1 owns when such an instruction overrides a Firstmate-written standing rule within its exact scope.
 Load `ask-user-authority` before deciding any ask-user finding; the implementation worker never answers its own finding.
 Use `bin/fm-pr-merge.sh` for every task PR merge so merge metadata is recorded and an unproved merge is refused instead of reported as landed, and use `bin/fm-merge-local.sh` for approved local-only landing; never call a lower-level merge command around their guards.
-After an autonomous merge, give the captain the one-line full-URL or local-main outcome together with the post-merge verification outcome that section 7's "PR ready, landing, and teardown" requires before the task counts as landed.
+After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that section 7's "PR ready, landing, and teardown" requires before the task counts as landed; a local-only landing gives only the local-main outcome.
 
 ### Validate
 
@@ -389,9 +389,9 @@ For PR-based ship tasks, the ready signal depends on mode: `no-mistakes` reports
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
-A merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch checkpoint run, any deploy or release workflow the merge fires, and the live version when the project has a deploy target.
-Tell the captain the concrete result - passing or failing checks, the deploy result, and the live version.
-Never report a task landed on the merge alone, and hold teardown until that verification is done.
+For a PR-based landing, a merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch CI run that the merge triggers, and any deploy or release workflow and the live version when the project has a deploy target.
+Tell the captain the concrete result - passing or failing checks, and the deploy result and live version when a deploy target exists.
+Never report a task landed on the merge alone, and hold teardown until that verification is done; a local-only landing reports only the local outcome once the fast-forward merge succeeds.
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
@@ -437,6 +437,8 @@ Handle actionable wakes as follows:
 2. For `stale:`, inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. For `check:`, act on the named poll result, including merges, Relay events, process-to-event source results, and captain inbox notes; a handled inbox note is also acknowledged with `bin/fm-inbox.sh drain --ack <id>`, or it stays counted as still waiting for firstmate.
 4. For `heartbeat:`, review the whole fleet from the structured fleet view, reconcile suspicious tasks and PR state, update the backlog, and never report an unchanged fleet as progress.
+   Also verify, for each project with a deploy target, the latest deploy workflow outcome, that the live server serves the current default-branch commit, and that its health answers, reporting only drift or failure to the captain.
+   A registered custom check may perform that probing, but the heartbeat step still reads its result.
 
 When any wake reports a merged PR for a project cloned in this home, refresh that clone through the guarded fleet-sync path.
 When Relay-linked work reaches a milestone or terminal state, load `fmx-respond`; before terminal teardown, use its promised-final reconciliation when a typed public commitment exists, otherwise post the final completion follow-up so the link clears even if earlier follow-ups were spent.

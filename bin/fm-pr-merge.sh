@@ -1211,10 +1211,7 @@ outcome_rc=0
 fm_merge_outcome_report "$FM_HOME" "$STATE" "$ID" "$URL" self \
   "${FM_PR_MERGE_AUTHORITY:-}" || outcome_rc=$?
 case "$outcome_rc" in
-  0)
-    printf 'reminder: %s is merged, not yet landed - verify its post-merge machinery (checkpoint run, deploy/release workflow, live version) before reporting this task landed; see AGENTS.md section 7\n' \
-      "$URL"
-    ;;
+  0) ;;
   3)
     printf 'actionable: merged %s but could not report it upward: this home has no readable secondmate identity or parent binding (.fm-secondmate-home, .fm-secondmate-parent)\n' \
       "$URL" >&2
