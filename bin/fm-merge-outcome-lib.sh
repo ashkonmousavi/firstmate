@@ -62,7 +62,7 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
   local authority=${6-} suffix=
   local self_rc=0 destination='' line lock status=0
   local provider host path number
-  local reminder='not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7'
+  local reminder='not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7'
   # shellcheck disable=SC2034 # Sourced wake helpers consume these scoped globals.
   local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
   FM_MERGE_OUTCOME_ALREADY_RECORDED=false

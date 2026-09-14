@@ -2164,7 +2164,7 @@ archive_away_record() {  # <dir>
     || fail "could not archive the away-posture record"
 }
 
-MERGE_LANDED_REMINDER='; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7'
+MERGE_LANDED_REMINDER='; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7'
 
 # The durable queue is TSV (epoch, sequence, kind, key, payload).
 merged_ledger_row() {  # <state> <task-id>
