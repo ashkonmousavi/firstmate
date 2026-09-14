@@ -58,6 +58,7 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
   local authority=${6-} suffix=
   local self_rc=0 destination='' line lock status=0
   local provider host path number
+  local reminder='not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7'
   # shellcheck disable=SC2034 # Sourced wake helpers consume these scoped globals.
   local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
   FM_MERGE_OUTCOME_ALREADY_RECORDED=false
@@ -92,24 +93,21 @@ fm_merge_outcome_report() {  # <home> <state> <task-id> <pr-url> <origin> [autho
     "$provider" "$host" "$path" "$number"; then
     # shellcheck disable=SC2034 # Public result consumed by sourcing callers.
     FM_MERGE_OUTCOME_ALREADY_RECORDED=true
-    fm_lock_release "$lock"
-    return 0
-  fi
-
-  if [ -n "$destination" ]; then
-    fm_parent_channel_append_once "$destination" "$line" || status=1
-  fi
-  if [ "$status" -eq 0 ] && { [ "$origin" = poll ] || [ -z "$destination" ]; }; then
-    fm_wake_append check "merged-$id-$FM_PR_URL" \
-      "check: merge landed: $id $FM_PR_URL$suffix" || status=1
-  fi
-  if [ "$status" -eq 0 ]; then
-    fm_pr_poll_merge_mark_notified "$state" "$id" \
-      "$provider" "$host" "$path" "$number" || status=1
+  else
+    if [ -n "$destination" ]; then
+      fm_parent_channel_append_once "$destination" "$line" || status=1
+    fi
+    if [ "$status" -eq 0 ] && { [ "$origin" = poll ] || [ -z "$destination" ]; }; then
+      fm_wake_append check "merged-$id-$FM_PR_URL" \
+        "check: merge landed: $id $FM_PR_URL$suffix; reminder: merged, $reminder" || status=1
+    fi
+    if [ "$status" -eq 0 ]; then
+      fm_pr_poll_merge_mark_notified "$state" "$id" \
+        "$provider" "$host" "$path" "$number" || status=1
+    fi
   fi
   if [ "$status" -eq 0 ] && [ "$origin" = self ]; then
-    printf 'reminder: %s is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers, any deploy or release workflow, live version) before reporting this task landed; see AGENTS.md section 7\n' \
-      "$FM_PR_URL"
+    printf 'reminder: %s is merged, %s\n' "$FM_PR_URL" "$reminder"
   fi
   fm_lock_release "$lock"
   return "$status"
