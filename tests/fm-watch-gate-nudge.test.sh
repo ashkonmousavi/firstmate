@@ -302,6 +302,35 @@ test_ladder_escalates_only_after_two_unanswered_nudges() {
   pass "two unanswered nudges precede the ordinary stale wake, which names them"
 }
 
+# The gate detail is free-form text from the current-state line, so the ladder
+# record must round-trip a tab inside it. Parsed into the wrong field it would
+# reset the budget on every probe: the ladder would ring forever and never reach
+# the escalation it exists to deliver.
+test_a_tabbed_gate_detail_still_reaches_escalation() {
+  local dir state fakebin out capture window id pid rc
+  dir=$(make_case gate-nudge-tabbed); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture="$dir/pane.txt"
+  id=gatetabbed; window="test:fm-$id"
+  stage_idle_pane "$state" "$id" "$window" "$capture" ship >/dev/null
+
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_FAKE_CREW_STATE="$(printf 'state: parked · source: run-step · parked at review:\t3 finding(s)')" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_GATE_NUDGE_SECS=1 FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  rc=0
+  wait_for_exit "$pid" 250 || rc=$?
+  reap "$pid"
+
+  [ "$rc" -ne 124 ] || fail "a tabbed gate detail never accumulated a budget: $(cat "$out")"
+  [ "$(nudge_record_count "$state" "$id")" -eq 2 ] \
+    || fail "a tabbed gate detail spent a budget other than two rings: $(nudge_record_count "$state" "$id")"
+  grep -F "gate-nudged x2" "$out" >/dev/null \
+    || fail "a tabbed gate detail did not reach the gate-nudged escalation: $(cat "$out")"
+  pass "a tab inside the gate detail still reaches escalation after exactly two rings"
+}
+
 test_busy_pane_is_never_nudged() {
   local dir state fakebin out capture window id pid
   dir=$(make_case gate-nudge-busy); state="$dir/state"; fakebin="$dir/fakebin"
@@ -526,6 +555,7 @@ test_first_nudge_rings_the_worker_without_waking_firstmate
 test_ci_green_awaiting_the_done_report_rings_the_worker
 test_worker_that_already_reported_done_is_never_rung
 test_ladder_escalates_only_after_two_unanswered_nudges
+test_a_tabbed_gate_detail_still_reaches_escalation
 test_busy_pane_is_never_nudged
 test_open_decision_is_left_to_firstmate
 test_declared_wait_is_left_to_the_pause_cadence

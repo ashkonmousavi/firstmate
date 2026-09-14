@@ -998,7 +998,7 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
 # has stayed idle for FM_GATE_NUDGE_SECS since the last ring is a worker that
 # did nothing with it.
 #
-# Record: state/.gate-nudge-<task>, one line "<identity>\t<count>\t<epoch>".
+# Record: state/.gate-nudge-<task>, one line "<count>\t<epoch>\t<identity>".
 # Identity is the literal `-` when the last probe found no gate, so the ladder's
 # own throttle still applies to a pane that is merely idle. A count of
 # GATE_NUDGE_SPENT means both rings and the escalation are behind this identity:
@@ -1016,8 +1016,26 @@ gate_nudge_record_path() {  # <task>
 # Persist the ladder record. A record that cannot be written means the ladder
 # cannot be paced, so the caller hands the pane back to the unchanged triage
 # rather than probing or ringing on every poll.
+#
+# The identity is written LAST because it is the only free-form field: a tab
+# inside it would otherwise shift every field the reader parses, which silently
+# turns the ladder into an endless ringer that never reaches its escalation.
+# Last field, read last, round-trips whatever a gate detail turns out to hold.
 gate_nudge_write() {  # <record-path> <identity> <count> <epoch>
-  printf '%s\t%s\t%s\n' "$2" "$3" "$4" > "$1" 2>/dev/null
+  printf '%s\t%s\t%s\n' "$3" "$4" "$2" > "$1" 2>/dev/null
+}
+
+# Forget the gate this record was holding. A SPENT budget keeps its identity and
+# count instead, so "at most two rings per gate identity" survives a transient
+# non-gate read - a probe that timed out, or a run that flickers back to running
+# between two reads of the same gate. Such a record never holds the pane away
+# from the ordinary triage, because the spent check precedes the hold below.
+gate_nudge_clear() {  # <record-path> <stored-identity> <count> <epoch>
+  if [ "$3" -ge "$GATE_NUDGE_SPENT" ]; then
+    gate_nudge_write "$1" "$2" "$3" "$4"
+  else
+    gate_nudge_write "$1" "$GATE_NUDGE_NO_GATE" 0 "$4"
+  fi
 }
 
 # The gate identity a nudge budget is bound to: the gate's own detail (its step
@@ -1123,7 +1141,7 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   last=0
   now=$(date +%s)
   if [ -f "$rec" ]; then
-    IFS=$GATE_NUDGE_TAB read -r stored count last < "$rec"
+    IFS=$GATE_NUDGE_TAB read -r count last stored < "$rec"
     case "$count" in ''|*[!0-9]*) count=0 ;; esac
     case "$last" in ''|*[!0-9]*) last=0 ;; esac
     [ -n "$stored" ] || stored=$GATE_NUDGE_NO_GATE
@@ -1137,7 +1155,7 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
     fi
   fi
   if [ -n "$(status_open_decisions "$STATE/$task.status")" ]; then
-    gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true
+    gate_nudge_clear "$rec" "$stored" "$count" "$now" || true
     return 1
   fi
   class=$(crew_gate_class "$task")
@@ -1145,10 +1163,10 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   case "$class" in
     "parked$GATE_NUDGE_TAB"*)   class=parked ;;
     "ci-green$GATE_NUDGE_TAB"*) class=ci-green ;;
-    *) gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true; return 1 ;;
+    *) gate_nudge_clear "$rec" "$stored" "$count" "$now" || true; return 1 ;;
   esac
   if [ "$class" = ci-green ] && gate_nudge_done_reported "$task"; then
-    gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true
+    gate_nudge_clear "$rec" "$stored" "$count" "$now" || true
     return 1
   fi
   # A positively dead or missing endpoint has nobody to ring, so spending the
@@ -1156,7 +1174,7 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
   # routes. Same boundary inbox_steer_check draws for the steering plane.
   case "$(fm_backend_agent_state "$(window_backend "$w")" "$w" 2>/dev/null || true)" in
     dead|missing)
-      gate_nudge_write "$rec" "$GATE_NUDGE_NO_GATE" 0 "$now" || true
+      gate_nudge_clear "$rec" "$stored" "$count" "$now" || true
       return 1
       ;;
   esac
