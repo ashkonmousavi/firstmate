@@ -1,0 +1,2 @@
+zombie pid=3026276 ps stat=Z (kill -0 says: exists)
+reap rc=0 elapsed=0.02s (no 10s TERM + 3s KILL burn on a zombie)

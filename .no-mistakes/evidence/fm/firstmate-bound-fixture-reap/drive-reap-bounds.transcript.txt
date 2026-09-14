@@ -1,0 +1,27 @@
+== 1. reap() (target) vs TERM-resistant owned child
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M2GP12JDYM0FR5E7480JDBZF/tests/wake-helpers.sh: line 312: 2830591 Killed                  bash -c "trap '' TERM; : > '$1'; while :; do sleep 0.05; done"
+   reap rc=0 elapsed=10.87s child=gone
+== 2. wait_for_exit(pid, 5) (target) vs TERM-resistant owned child
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M2GP12JDYM0FR5E7480JDBZF/tests/wake-helpers.sh: line 312: 2846075 Killed                  bash -c "trap '' TERM; : > '$1'; while :; do sleep 0.05; done"
+   wait_for_exit rc=124 elapsed=11.24s child=gone
+== 3. reap() (target) vs an ordinary child that honors TERM
+   reap rc=0 elapsed=0.11s child=gone
+== 4. reap() (target) vs an already-exited, unreaped (zombie) child
+   before: ps stat=
+   reap rc=0 elapsed=0.00s ps-entry-after=reaped
+== 5. wait_for_exit (target) passes through a normal exit status
+   wait_for_exit rc=3 elapsed=0.32s
+== 6. regression fixture from fm-watch-triage.test.sh vs BASE reap (expect bounded FAIL)
+   fixture rc=1 elapsed=30.17s output: not ok - reap_base did not return within 30s against a TERM-resistant owned child
+== 7. regression fixture vs BASE wait_for_exit (expect bounded FAIL)
+   fixture rc=1 elapsed=30.20s output: not ok - wait_for_exit_base did not return within 30s against a TERM-resistant owned child
+== 8. regression fixture vs TARGET reap / wait_for_exit (expect PASS)
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M2GP12JDYM0FR5E7480JDBZF/tests/wake-helpers.sh: line 312: 2954829 Killed                  bash -c "trap '' TERM; : > '$readyfile'; while :; do sleep 0.05; done"
+   reap fixture rc=0 status=0 elapsed=11.10s
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M2GP12JDYM0FR5E7480JDBZF/tests/wake-helpers.sh: line 312: 2976024 Killed                  bash -c "trap '' TERM; : > '$readyfile'; while :; do sleep 0.05; done"
+   wait_for_exit fixture rc=0 status=124 elapsed=11.50s
+== 9. fault injection: KILL never takes effect (kill shadowed) -> reap reports, returns 1, bounded
+reap: pid 2990690 survived TERM and KILL
+   reap rc=1 elapsed=14.23s child=alive
+== leftover TERM-resistant fixtures owned by this driver:
+   none
