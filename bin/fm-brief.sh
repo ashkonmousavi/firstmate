@@ -69,6 +69,17 @@
 # Scaffolds carry no role scope: fm-spawn.sh supplies fm_brief_worker_role from
 # fm-dod-lib.sh to every ship/scout launch brief, so this file never becomes a
 # second owner of a contract that must stay current across relaunches.
+# Every ship and scout scaffold opens with a line telling the worker to call its
+# built-in Opus advisor tool at every design fork, before each commit, and before
+# answering a validation gate or writing needs-decision.
+# Ship scaffolds carry a fixed Rules line naming which tool serves which step:
+# Serena find_symbol/find_referencing_symbols before renaming, moving, or
+# changing a function's signature; GitNexus impact against the GitNexus clone
+# (never inside the worktree) before changing a shared module; semantic search
+# only when the symbol's name is unknown. A no-mistakes ship scaffold also gets
+# a two-round review stop: after the second review round on one validation run,
+# stop answering fix and escalate needs-decision with the findings so far and
+# the worker's reading of the root cause instead.
 # Refuses to overwrite an existing brief.
 set -eu
 
@@ -188,8 +199,11 @@ BRIEF="$DATA/$ID/brief.md"
 mkdir -p "$DATA/$ID"
 
 ASK_USER_BLOCK=
+REVIEW_STOP_RULE=
 if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
   ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks must stay literal
+  REVIEW_STOP_RULE='After the second review round on one validation run, stop answering `fix` to new findings; append `needs-decision` with the full findings list so far and your reading of the root cause, then stop and wait for firstmate.'
 fi
 
 shell_quote() {
@@ -355,6 +369,11 @@ IFS= read -r -d '' TASK_SECTION <<'EOF' || true
 EOF
 TASK_SECTION=${TASK_SECTION%$'\n'}
 
+# Shared across ship and scout: call the reviewer, not just the code, at the
+# points where an unreviewed choice is costliest to redo.
+# shellcheck disable=SC2016 # single quotes are deliberate: the backticks must stay literal
+ADVISOR_LINE='Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.'
+
 if [ "$KIND" = scout ]; then
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, you may host the Lavish review loop yourself (poll, revise, re-serve, staying alive) instead of handing it back to firstmate.'
@@ -363,6 +382,7 @@ else
 fi
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+$ADVISOR_LINE
 
 $TASK_SECTION
 
@@ -449,6 +469,7 @@ DOD=$(fm_dod_block "$MODE" "$ID") || exit 1
 
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
+$ADVISOR_LINE
 
 $TASK_SECTION
 
@@ -501,6 +522,8 @@ $ASK_USER_BLOCK
    going. A drive-call error, timeout, slow read, or generic unreachability is NOT a daemon error:
    the daemon accepts \`respond\` immediately and runs the round in the background, so a killed or
    timed-out call was only waiting for a read while the run kept working.
+$REVIEW_STOP_RULE
+8. Before renaming, moving, or changing the signature of a function, use Serena's \`find_symbol\` and \`find_referencing_symbols\`; before changing a shared module, run GitNexus impact against the GitNexus clone, never inside this worktree; reach for semantic search only when you do not know the symbol's name.
 
 $INBOX_SECTION
 
