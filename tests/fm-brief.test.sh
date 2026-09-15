@@ -970,6 +970,10 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not offer the n/a answer that keeps a small change small"
   grep -c '^<!-- ' "$prep" | grep -qx 14 \
     || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
+  assert_grep 'unwired-export allowlist' "$prep" \
+    "prep record does not carry the unwired-export allowlist convention"
+  assert_grep 'the lane that wires it up removes it again' "$prep" \
+    "prep record names the allowlist convention without saying who clears the entry"
   assert_grep 'START WITH THE COMPONENT CHECK' "$prep" \
     "prep record does not open the UI/UX section with the component check"
   assert_grep 'name the V4 component or kit piece with its path' "$prep" \

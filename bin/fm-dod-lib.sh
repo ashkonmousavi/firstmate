@@ -215,7 +215,7 @@ FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s wo
 ## 4. Blast radius|BLAST_RADIUS|1|PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown.|gitnexus serena
 ## 5. Data and contracts|DATA_AND_CONTRACTS|2|Request and response shapes, versions, migrations.
 ## 6. Tests|TESTS|1|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
-## 7. Records|RECORDS|2|Boxes to tick, verification records, log-book entries.
+## 7. Records|RECORDS|2|Boxes to tick, verification records, log-book entries. By convention a lane that lands a component ahead of its consumer adds it to the project unwired-export allowlist, and the lane that wires it up removes it again.
 ## 8. Out of scope and follow-ups|OUT_OF_SCOPE|1|What this task deliberately leaves alone, and the follow-up work it creates.
 ## 9. Risks, dependencies, merge order|RISKS|2|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
 ## 10. Demo receipt plan|DEMO_RECEIPT|2|What the worker walks and records before validation.
