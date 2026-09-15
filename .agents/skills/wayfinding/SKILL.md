@@ -62,7 +62,7 @@ A blocking chore mistaken for a slice of the build is how planning turns into bu
 The first slice is a tracer: the smallest **retained, production-quality** path end to end through a real entry point, the core behavior, a durable record, and an observable result.
 Retained and production-quality are the load-bearing words.
 A tracer that is thrown away proves the route existed once; a tracer that is kept becomes the spine every later slice attaches to, and it surfaces integration problems while they are still cheap.
-For an application with several destinations or pages, the tracer is the frame.
+For an application with several destinations or pages, the tracer is its navigation and the shared structure every later piece attaches to.
 
 After the tracer, decompose into vertical outcomes, not layer lanes.
 A vertical outcome is independently landable and independently observable.
@@ -76,7 +76,7 @@ Multiple owners of one contract produce divergence that only appears at merge.
 The frontier is the set of nodes whose dependencies have cleared.
 Recompute it whenever the graph changes: `AGENTS.md` section 10 owns when that happens after a teardown or heartbeat, and section 7 owns how many independent nodes may go at once and when to serialize.
 Do not restate either here, and never set how many lanes go at once or a cap those sections do not impose.
-That limit is about the count, not the shape: how the split is shaped and ordered is this skill's own to state, and the paragraphs below state it, one lane per area owning its files, merging one at a time in dependency order, with a single integration owner for every shared module.
+That limit is about the count, not the shape: how the split is shaped and ordered is this skill's own to state.
 
 Building in parallel stays the default here for disjoint work, and that is deliberate.
 The external method this is adapted from recommends one thing at a time, because two live sessions planning the same effort re-ask each other questions they cannot see the answers to.
