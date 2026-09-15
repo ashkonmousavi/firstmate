@@ -62,6 +62,7 @@ A blocking chore mistaken for a slice of the build is how planning turns into bu
 The first slice is a tracer: the smallest **retained, production-quality** path end to end through a real entry point, the core behavior, a durable record, and an observable result.
 Retained and production-quality are the load-bearing words.
 A tracer that is thrown away proves the route existed once; a tracer that is kept becomes the spine every later slice attaches to, and it surfaces integration problems while they are still cheap.
+For an application with several destinations or pages, the tracer is the frame: navigation reaches every destination, even those that only say what is missing, so breadth is visible from the first slice and no destination waits behind another's depth.
 
 After the tracer, decompose into vertical outcomes, not layer lanes.
 A vertical outcome is independently landable and independently observable.
@@ -76,10 +77,14 @@ The frontier is the set of nodes whose dependencies have cleared.
 Recompute it whenever the graph changes: `AGENTS.md` section 10 owns when that happens after a teardown or heartbeat, and section 7 owns how many independent nodes may go at once and when to serialize.
 Do not restate either here, and do not invent a cap those sections do not impose.
 
-Building in parallel is the default here and that is deliberate.
+Building in parallel stays the default here for disjoint work, and that is deliberate.
 The external method this is adapted from recommends one thing at a time, because two live sessions planning the same effort re-ask each other questions they cannot see the answers to.
 That cost is real for decisions and absent for building: every dispatched task carries a zero-memory brief and an isolated copy, so two builders share no context to lose.
-So parallelize the building freely under section 7, and keep decisions on one shared record so a second lane never resolves what a first lane already settled.
+That zero-shared-context argument holds only when builders touch disjoint files; parallel builders on one shared head make conflicting implicit decisions that surface at merge, so many lanes on one journey or page pay the cost of parallelism without its benefit.
+Parallelize by area under section 7, one lane per area at a time, owning its files.
+That area's slices queue behind it and merge one at a time in dependency order.
+Every shared module is held by its single integration owner, which a lane asks rather than edits.
+Keep decisions on one shared record so a second lane never resolves what a first lane already settled.
 
 What this skill adds is the accounting:
 
