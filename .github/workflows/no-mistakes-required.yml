@@ -27,4 +27,8 @@ jobs:
       github.event.pull_request.user.login != 'dependabot[bot]'
     steps:
       - name: Verify no-mistakes signature and pipeline attestation
-        uses: kunchenguid/no-mistakes/.github/actions/require-no-mistakes@32d396ac0f29135daf7fcb9964aba9d5f4e796d6 # post-v1.57.1, untagged (action added in #819)
+        uses: kunchenguid/no-mistakes/.github/actions/require-no-mistakes@9fcc8657e1cf3b53cc6457d7e78092c2bf506929 # v1.72.0
+        with:
+          # Internal upkeep travels on fm/ops-* and lands by direct PR, never
+          # through the no-mistakes pipeline; exempt that head branch pattern.
+          exempt-head-branches: fm/ops-*
