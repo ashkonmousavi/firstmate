@@ -48,6 +48,12 @@
 #   and nothing else, a tier-1 change five sections, and only a tier-2 change
 #   costs a page.
 #   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+#   Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
+#   result for every module touched and the Serena find_referencing_symbols
+#   counts for every symbol whose signature changes, reaching for claude-context
+#   semantic search only when a name is unknown. Where a tier requires it, a
+#   filled Blast radius that names neither gitnexus nor serena is refused unless
+#   it is answered `n/a: <reason>`; nothing checks whether the output is right.
 #   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
 #   header is missing or leaves any of its three answers unanswered or outside
 #   its format, or where a section the declared tier requires is missing, still

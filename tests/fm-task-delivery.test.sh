@@ -72,6 +72,15 @@ answer_tier() {
     "$prep" > "$prep.tier" && mv "$prep.tier" "$prep"
 }
 
+# fill_section <prep-file> <heading> <text>: replace a section's whole answer,
+# guide comment included, with one line of text.
+fill_section() {
+  local prep=$1 heading=$2 text=$3
+  blank_section "$prep" "$heading"
+  awk -v h="$heading" -v t="$text" '$0 == h { print; print t; next } { print }' "$prep" \
+    > "$prep.fill" && mv "$prep.fill" "$prep"
+}
+
 # blank_section <prep-file> <heading>: keep the heading, remove its answer.
 blank_section() {
   local prep=$1 heading=$2
@@ -936,6 +945,51 @@ EOF
   assert_contains "$out" "tier 1 requires ## 6. Tests, which is empty" \
     "the prep-gate refusal did not name the empty tier-1 section"
 
+  # The blast radius is the one section that owes tool output rather than prose,
+  # so an answer that ran no tool is refused at every tier that requires it.
+  id="prep-blast"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "blast-radius prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  sed 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no yes
+  fill_section "$prep" "## 4. Blast radius" "I read the code and nothing else changes."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a blast radius answered from memory should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
+    "the prep-gate refusal did not say the blast radius owes tool output"
+  assert_contains "$out" "gitnexus or serena" \
+    "the prep-gate refusal did not name the tools that answer the blast radius"
+
+  # Naming the tool that was run is the whole check: it reads what was run, never
+  # whether the output is right.
+  fill_section "$prep" "## 4. Blast radius" "gitnexus impact bin/fm-dod-lib.sh: 3 modules, 0 callers outside."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a blast radius carrying impact output was still refused"
+
+  # Serena answers it too, and case never matters.
+  fill_section "$prep" "## 4. Blast radius" "Serena find_referencing_symbols: 4 callers, all in tests/."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a blast radius carrying caller counts was still refused"
+
+  # A decision already taken needs no tool output, but a bare n/a is not one.
+  fill_section "$prep" "## 4. Blast radius" "n/a: this change crosses no module boundary."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an n/a blast radius with a reason was refused"
+  fill_section "$prep" "## 4. Blast radius" "n/a"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a bare n/a blast radius with no reason should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
+    "the prep-gate accepted a blast radius dismissed without a reason"
+
   # UI wiring yes forces tier 2 whatever Q1 and Q2 say: a change the user meets
   # owes its behaviour spec even when it looks small from the code's side.
   id="prep-ui-wiring"
@@ -956,8 +1010,7 @@ EOF
 
   # Answering the same record's behaviour spec launches it, so the refusal above
   # was the missing section rather than the UI wiring answer itself.
-  sed 's|^## 2. Behaviour spec$|## 2. Behaviour spec\nThe user sees a new button.|' "$prep" > "$prep.f" \
-    && mv "$prep.f" "$prep"
+  fill_section "$prep" "## 2. Behaviour spec" "The user sees a new button."
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   assert_not_contains "$out" "cannot ship without its preparation record" \
     "an answered UI-wiring record was still refused"

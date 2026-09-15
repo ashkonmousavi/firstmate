@@ -21,7 +21,9 @@
 #   unanswered or outside its format, or where a section THAT TIER REQUIRES is
 #   missing, still carries a `{PLACEHOLDER}`, or is empty, naming
 #   that section; a section below the declared tier may be omitted entirely, and
-#   a required one that does not apply is answered `n/a: <reason>`. Scouts and
+#   a required one that does not apply is answered `n/a: <reason>`. A required
+#   Blast radius section also has to name gitnexus or serena, because it is the
+#   one section that owes tool output rather than prose. Scouts and
 #   secondmates are not gated, and --relaunch is exempt so tasks dispatched
 #   before the gate still relaunch.
 #   When the record exists, the launch brief points the worker at it as the

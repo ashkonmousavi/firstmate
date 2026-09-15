@@ -970,6 +970,14 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not offer the n/a answer that keeps a small change small"
   grep -c '^<!-- ' "$prep" | grep -qx 14 \
     || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
+  assert_grep 'PASTE TOOL OUTPUT, not prose' "$prep" \
+    "prep record does not tell the author the blast radius is tool output"
+  assert_grep 'gitnexus impact' "$prep" \
+    "prep record does not name the impact tool the blast radius owes"
+  assert_grep 'find_referencing_symbols' "$prep" \
+    "prep record does not name the caller tool a signature change owes"
+  assert_grep 'claude-context semantic search only when a name is unknown' "$prep" \
+    "prep record does not bound when semantic search replaces the two tools"
   assert_grep '<!-- tier 1+.' "$prep" "prep record sections do not say which tier requires them"
   assert_grep '<!-- tier 2+.' "$prep" "prep record does not mark its tier-2-only sections"
 
@@ -1009,6 +1017,10 @@ EOF
     "--help does not say a UI wiring yes forces tier 2"
   assert_contains "$help_text" "a tier-0 change costs three answers" \
     "--help does not say what a tier-0 change costs"
+  assert_contains "$help_text" "Blast radius is TOOL OUTPUT, not prose" \
+    "--help does not say the blast radius owes tool output"
+  assert_contains "$help_text" "names neither gitnexus nor serena is refused" \
+    "--help does not say what the blast radius check refuses"
   pass "fm-brief.sh: --help lists the tier rules and every section the record scaffolds"
 }
 

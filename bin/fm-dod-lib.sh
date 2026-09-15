@@ -205,11 +205,14 @@ fm_brief_task_content_valid() {  # <file>
 # unanswered. Each section carries a one-line `<!-- ... -->` guide and a single
 # `{PLACEHOLDER}` the author replaces.
 FM_PREP_TIER_HEADING='## Tier'
-# heading|placeholder|required-from-tier|guide
+# heading|placeholder|required-from-tier|guide|evidence-tokens
+# A row with evidence tokens owes tool output rather than prose: once that
+# section is filled it must name one of those tokens, or be answered n/a with a
+# reason. Rows without them are prose and are only checked for being answered.
 FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s words, and each Change box this task discharges, VERIFIED still open against origin/main with the command used.
 ## 2. Behaviour spec|BEHAVIOUR_SPEC|2|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
 ## 3. UI/UX|UI_UX|2|Which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
-## 4. Blast radius|BLAST_RADIUS|1|Modules touched with their GitNexus impact result, callers found with Serena for any signature change, contracts and generated files affected, records and docs that cite the changed behaviour.
+## 4. Blast radius|BLAST_RADIUS|1|PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown.|gitnexus serena
 ## 5. Data and contracts|DATA_AND_CONTRACTS|2|Request and response shapes, versions, migrations.
 ## 6. Tests|TESTS|1|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
 ## 7. Records|RECORDS|2|Boxes to tick, verification records, log-book entries.
@@ -228,7 +231,7 @@ fm_prep_path() {
 # The tier header comes first, because its three answers decide how much of the
 # rest this task owes.
 fm_prep_template() {
-  local id=$1 heading placeholder tier guide
+  local id=$1 heading placeholder tier guide evidence
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
   printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->\n'
@@ -241,7 +244,7 @@ fm_prep_template() {
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
   printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
   printf 'This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.\n'
-  while IFS='|' read -r heading placeholder tier guide; do
+  while IFS='|' read -r heading placeholder tier guide evidence; do
     [ -n "$heading" ] || continue
     printf '\n%s\n<!-- tier %s+. %s -->\n{%s}\n' "$heading" "$tier" "$guide" "$placeholder"
   done <<EOF
@@ -326,13 +329,31 @@ fm_prep_section_state() {  # <file> <heading> <placeholder>
   fi
 }
 
+# fm_prep_evidence_ok <file> <heading> <token>...
+# True when a filled section that owes tool output carries it: its body names one
+# of the tool tokens, or answers `n/a: <reason>`. Deliberately the cheapest check
+# that can tell evidence from prose - it reads what tool was run, never whether
+# the output is right.
+fm_prep_evidence_ok() {  # <file> <heading> <token>...
+  local file=$1 heading=$2 body lowered token
+  shift 2
+  body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//')
+  lowered=$(printf '%s' "$body" | tr '[:upper:]' '[:lower:]')
+  # `n/a: <reason>` is a decision already taken, so it needs no tool output.
+  printf '%s' "$lowered" | grep -q 'n/a:[[:space:]]*[^[:space:]]' && return 0
+  for token in "$@"; do
+    case "$lowered" in *"$token"*) return 0 ;; esac
+  done
+  return 1
+}
+
 # fm_prep_unfilled_reason <file>
 # Prints the first refusal reason and exits 0; exits 1 when the record answers
 # everything its declared tier requires. A missing file and an unreadable tier
 # header are refusals of their own; a section below the declared tier is not
 # checked at all, so omitting it entirely is legitimate rather than a hole.
 fm_prep_unfilled_reason() {  # <file>
-  local file=$1 tier heading placeholder required guide state
+  local file=$1 tier heading placeholder required guide evidence state
   if [ ! -f "$file" ] || [ ! -r "$file" ]; then
     printf 'no preparation record at %s\n' "$file"
     return 0
@@ -354,7 +375,7 @@ fm_prep_unfilled_reason() {  # <file>
     return 0
   fi
   [ "$tier" != 0 ] || return 1
-  while IFS='|' read -r heading placeholder required guide; do
+  while IFS='|' read -r heading placeholder required guide evidence; do
     [ -n "$heading" ] || continue
     [ "$required" -le "$tier" ] || continue
     state=$(fm_prep_section_state "$file" "$heading" "$placeholder")
@@ -363,6 +384,14 @@ fm_prep_unfilled_reason() {  # <file>
       unfilled) printf 'tier %s requires %s, which still carries its {%s} placeholder in %s\n' "$tier" "$heading" "$placeholder" "$file"; return 0 ;;
       empty) printf 'tier %s requires %s, which is empty in %s\n' "$tier" "$heading" "$file"; return 0 ;;
     esac
+    [ -n "$evidence" ] || continue
+    # shellcheck disable=SC2086 # the token list is deliberately word-split
+    if ! fm_prep_evidence_ok "$file" "$heading" $evidence; then
+      # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal answer text
+      printf 'tier %s requires %s to paste the tool output behind it, naming %s, or to answer `n/a: <reason>`, in %s\n' \
+        "$tier" "$heading" "$(printf '%s' "$evidence" | sed 's/ / or /g')" "$file"
+      return 0
+    fi
   done <<EOF
 $FM_PREP_SECTIONS
 EOF
