@@ -29,12 +29,37 @@
 # different shapes on disk.
 #
 # WORKTREE MODE. <worktree> must be a LINKED git worktree - its own git dir,
-# sharing <project>'s common dir - whose top level is exactly the resolved
-# argument. Git is the ground truth, so the argument is never trusted on its
-# own word: a primary checkout (git dir == common dir), a worktree of an
-# unrelated repo, a subdirectory of a worktree, a plain directory, and a home
-# directory are each refused. Refusal is a non-zero exit, never a warning and
-# never a silent skip.
+# never its own common dir - whose top level is exactly the resolved argument,
+# and it must be the SAME REPOSITORY as <project>: either <project>'s own
+# common dir, or a sibling clone of the same origin remote whose checked-out
+# commit <project> can already vouch for (a `git cat-file -e <sha>^{commit}`
+# in <project>'s own object database). Git is the ground truth, so the
+# argument is never trusted on its own word: a primary checkout (git dir ==
+# common dir), a worktree of an unrelated repo, a subdirectory of a worktree,
+# a plain directory, and a home directory are each refused. Refusal is a
+# non-zero exit, never a warning and never a silent skip.
+#
+# The sibling-clone allowance exists because a Treehouse pool keyed by
+# repository mixes slots leased from every clone of that repository: a
+# navigator's own clone of the SAME repo (a full checkout under its own home,
+# not a worktree of <project>) leases worktrees into the same pool as the
+# operator's primary clone, and `treehouse get` cannot promise which clone's
+# slot it hands back. Those slots ran real tasks before this check existed -
+# they are linked worktrees of the same repository at a commit the primary has
+# already seen, refused only because their common dir names the sibling clone
+# rather than <project> itself. Matching the origin URL alone is not proof (a
+# stale or reseeded clone can keep a URL after its history diverges), so it is
+# paired with the worktree's exact HEAD commit OBJECT being present in
+# <project>'s own object database (`git cat-file -e`, presence rather than
+# ref-reachability), which a worktree built from unrelated or not-yet-fetched
+# history cannot satisfy. fm-spawn.sh's own freshen step fetches INTO THE
+# SIBLING CLONE and resets the pooled worktree to that clone's freshly-fetched
+# origin/<default> before this runs, while <project> only refreshes on the
+# next fleet sync - so a genuine sibling slot can still be refused whenever an
+# upstream commit lands between a fleet sync and the next spawn, which is an
+# ordinary merge-then-dispatch rhythm rather than a rarity. That refusal names
+# the exact remedy (fetch <project>) rather than leaving it a mystery, because
+# this check cannot tell "unrelated history" apart from "not fetched yet".
 #
 # The test is deliberately NOT a treehouse or orca path prefix. Treehouse's
 # root is configurable (--root, TREEHOUSE_ROOT, config, and a relative
@@ -149,6 +174,16 @@ common_dir_of() {
   (cd -P -- "$dir" && real_dir "$common")
 }
 
+# A remote URL normalised enough to compare two clones of one origin. The only
+# variance seen between sibling clones of the same repository is a trailing
+# slash or a trailing ".git" suffix, so that is all this strips.
+normalize_origin_url() {
+  local url=$1
+  url=${url%/}
+  url=${url%.git}
+  printf '%s' "$url"
+}
+
 TARGET_REAL=$(real_dir "$TARGET_ARG") || true
 [ -n "$TARGET_REAL" ] || refuse "$SCOPE_NOUN '$TARGET_ARG' is not an accessible directory"
 if [ "$MODE" = worktree ]; then
@@ -203,7 +238,18 @@ if [ "$MODE" = worktree ]; then
 
   PROJ_COMMON=$(common_dir_of "$PROJ_REAL") || true
   [ -n "$PROJ_COMMON" ] || refuse "project '$PROJ_REAL' is not inside a git repository"
-  [ "$WT_COMMON" = "$PROJ_COMMON" ] || refuse "'$TARGET_REAL' is not a worktree of project '$PROJ_REAL'"
+  if [ "$WT_COMMON" != "$PROJ_COMMON" ]; then
+    WT_ORIGIN=$(git -C "$TARGET_REAL" remote get-url origin 2>/dev/null) || true
+    PROJ_ORIGIN=$(git -C "$PROJ_REAL" remote get-url origin 2>/dev/null) || true
+    if [ -z "$WT_ORIGIN" ] || [ -z "$PROJ_ORIGIN" ] \
+       || [ "$(normalize_origin_url "$WT_ORIGIN")" != "$(normalize_origin_url "$PROJ_ORIGIN")" ]; then
+      refuse "'$TARGET_REAL' is not a worktree of project '$PROJ_REAL'"
+    fi
+    WT_HEAD=$(git -C "$TARGET_REAL" rev-parse HEAD 2>/dev/null) || true
+    [ -n "$WT_HEAD" ] || refuse "'$TARGET_REAL' has no resolvable HEAD commit"
+    git -C "$PROJ_REAL" cat-file -e "$WT_HEAD^{commit}" 2>/dev/null \
+      || refuse "'$TARGET_REAL' shares project '$PROJ_REAL''s origin but its checked-out commit $WT_HEAD is not present in that clone's objects; fetch that clone (git -C '$PROJ_REAL' fetch origin) and retry"
+  fi
 else
   # The seed evidence, in the order that names the most useful reason first: the
   # marker decides whether this is a secondmate home at all, the id decides

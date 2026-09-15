@@ -921,6 +921,7 @@ SPAWN_TASK_SET_LOCK_HELD=0
 SPAWN_TREEHOUSE_PROJECT_LOCK=
 SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
 SPAWN_SLOT_CLAIMED=0
+SPAWN_ABORT_ZELLIJ_TAB_ID=
 RELAUNCH_REPLACEMENT_PENDING=0
 RELAUNCH_REPLACEMENT_BUSY_GEN=
 RELAUNCH_REPLACEMENT_HARNESS=
@@ -1064,7 +1065,33 @@ spawn_abort_cleanup() {
      && fm_treehouse_pool_slot "$PROJ_ABS" "$WT"; then
     SPAWN_SLOT_CLAIMED=0
     if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
-      fm_treehouse_slot_owner_release "$WT" "$ID" || true
+      # No task record was ever published, so nothing else (teardown, the
+      # watcher) will ever learn this slot or the tab opened for it exist to
+      # close them: left alone, a refusal here (the trust pre-registration
+      # below, or any other abort in this window) strands the slot leased and
+      # the tab open. `--force` is safe specifically because nothing has run
+      # in this worktree yet - trust pre-registration is the first refusal
+      # point after `treehouse get` claims the slot and freshens its base,
+      # before any worker launches - so the only thing it can discard is the
+      # idle shell `treehouse get` itself left sitting there, never agent
+      # work. `treehouse return` must run from the project, as
+      # fm-teardown.sh's own return does; the claim is dropped only once that
+      # return actually confirms the slot is back in the pool, matching
+      # fm-teardown.sh's own rule ("only after a return that succeeded"), so a
+      # failed return leaves the claim for a human to inspect rather than
+      # reporting a slot free that Treehouse still considers leased. The tab
+      # is closed either way, the same way rovo_endpoint_cleanup closes one
+      # for its own never-published-record case further below, since nothing
+      # else will ever learn it is orphaned.
+      if ( cd "$PROJ_ABS" && treehouse return --force "$WT" >/dev/null 2>&1 ); then
+        fm_treehouse_slot_owner_release "$WT" "$ID" || true
+      else
+        echo "warning: could not return task $ID's Treehouse pool slot $WT to the pool; leaving its claim in place" >&2
+      fi
+      SPAWN_ABORT_ZELLIJ_TAB_ID=
+      [ "${BACKEND:-}" != zellij ] || SPAWN_ABORT_ZELLIJ_TAB_ID=${ZELLIJ_TAB_ID:-}
+      [ -z "${T:-}" ] || [ -z "${BACKEND:-}" ] \
+        || fm_backend_kill "$BACKEND" "$T" "$SPAWN_ABORT_ZELLIJ_TAB_ID" "fm-$ID" 2>/dev/null || true
     else
       echo "warning: leaving task $ID's slot claim on $WT in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it" >&2
     fi
