@@ -291,12 +291,63 @@ test_foreign_project_worktree_is_refused() {
   read_case "$rec"
   other="$CASE_DIR/other-project"
   other_wt="$CASE_DIR/other-wt"
+  # "$other" has its own real origin (fm_git_worktree adds one), distinct from
+  # PROJ's, so this also regression-covers the widened ownership test's
+  # origin-mismatch branch: a worktree of a genuinely unrelated repository -
+  # different origin, unrelated history - stays refused rather than being
+  # loosened by the sibling-clone allowance below.
   fm_git_worktree "$other" "$other_wt" wt-other
   out=$(run_trust "$CONFIG" "$other_wt" "$PROJ")
   expect_code 1 $? "another project's worktree must be refused: $out"
   assert_contains "$out" "is not a worktree of project" "the refusal did not name the project mismatch"
   assert_not_trusted "$CONFIG/.claude.json" "$other_wt" "a foreign project's worktree was trusted"
   pass "fm-claude-trust.sh: refuses a worktree belonging to another project"
+}
+
+# A Treehouse pool keyed by repository mixes slots leased from every clone of
+# that repository, so a linked worktree of a SIBLING clone of PROJ's own repo -
+# same origin, same history - must be accepted even though its common dir
+# names the sibling clone rather than PROJ. The two halves of that allowance
+# are driven apart rather than left to pass together vacuously: a same-origin
+# worktree whose HEAD PROJ cannot vouch for is still refused, and the sibling
+# clone's own root is still refused as a primary checkout.
+test_sibling_clone_worktree_is_accepted() {
+  local rec out proj_origin sibling sibling_wt sibling_ahead_wt
+  rec=$(make_case sibling)
+  read_case "$rec"
+  proj_origin=$(git -C "$PROJ" remote get-url origin) || fail "PROJ has no origin to clone"
+  sibling="$CASE_DIR/sibling"
+  sibling_wt="$CASE_DIR/sibling-wt"
+  sibling_ahead_wt="$CASE_DIR/sibling-ahead-wt"
+  git clone --quiet "$proj_origin" "$sibling" || fail "could not clone PROJ's own origin as a sibling"
+  git -C "$sibling" worktree add --quiet -b sib-wt "$sibling_wt"
+
+  out=$(run_trust "$CONFIG" "$sibling_wt" "$PROJ")
+  expect_code 0 $? "a linked worktree of a sibling clone of the same repository must be accepted: $out"
+  assert_trusted "$CONFIG/.claude.json" "$sibling_wt" "the sibling clone's worktree was not recorded as trusted"
+
+  # A second worktree, never itself registered, ahead of PROJ by a commit PROJ
+  # was never given: same origin, but the allowance must not degrade into "any
+  # worktree naming the same origin URL". Kept separate from sibling_wt above
+  # so this refusal is proven on a path the earlier acceptance never trusted.
+  git -C "$sibling" worktree add --quiet -b sib-wt-ahead "$sibling_ahead_wt"
+  git -C "$sibling_ahead_wt" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' \
+    commit -q --allow-empty -m ahead
+  out=$(run_trust "$CONFIG" "$sibling_ahead_wt" "$PROJ")
+  expect_code 1 $? "a same-origin worktree at a commit PROJ cannot vouch for must be refused: $out"
+  assert_contains "$out" "is not present in that clone's objects" \
+    "the refusal did not name the unreachable commit"
+  assert_not_trusted "$CONFIG/.claude.json" "$sibling_ahead_wt" \
+    "a same-origin worktree at an unverifiable commit was trusted"
+
+  # The sibling clone's own root is a primary checkout of a different clone,
+  # and the sibling-clone allowance is for its WORKTREES, never for itself.
+  out=$(run_trust "$CONFIG" "$sibling" "$PROJ")
+  expect_code 1 $? "the sibling clone's own root must still be refused as a primary checkout: $out"
+  assert_contains "$out" "primary checkout" "the refusal did not name the primary checkout"
+  assert_not_trusted "$CONFIG/.claude.json" "$sibling" "the sibling clone's own root was trusted"
+
+  pass "fm-claude-trust.sh: accepts a sibling clone's worktree while still requiring a verifiable commit and refusing the clone's own root"
 }
 
 test_worktree_subdirectory_is_refused() {
@@ -655,6 +706,7 @@ test_relative_config_dir_is_refused
 test_non_git_directory_is_refused
 test_missing_directory_is_refused
 test_foreign_project_worktree_is_refused
+test_sibling_clone_worktree_is_accepted
 test_worktree_subdirectory_is_refused
 test_unrelated_store_content_is_preserved
 test_symlinked_store_to_a_foreign_owned_target_is_refused
