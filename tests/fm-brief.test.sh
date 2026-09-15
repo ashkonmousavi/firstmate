@@ -970,6 +970,12 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not offer the n/a answer that keeps a small change small"
   grep -c '^<!-- ' "$prep" | grep -qx 14 \
     || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
+  assert_grep 'START WITH THE COMPONENT CHECK' "$prep" \
+    "prep record does not open the UI/UX section with the component check"
+  assert_grep 'name the V4 component or kit piece with its path' "$prep" \
+    "prep record does not ask the UI/UX section to name each component and its path"
+  assert_grep 'exists, must be created, or kit covers it' "$prep" \
+    "prep record does not give the component check its three verdicts"
   assert_grep 'PASTE TOOL OUTPUT, not prose' "$prep" \
     "prep record does not tell the author the blast radius is tool output"
   assert_grep 'gitnexus impact' "$prep" \

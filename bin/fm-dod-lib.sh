@@ -211,7 +211,7 @@ FM_PREP_TIER_HEADING='## Tier'
 # reason. Rows without them are prose and are only checked for being answered.
 FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s words, and each Change box this task discharges, VERIFIED still open against origin/main with the command used.
 ## 2. Behaviour spec|BEHAVIOUR_SPEC|2|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
-## 3. UI/UX|UI_UX|2|Which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
+## 3. UI/UX|UI_UX|2|START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path and say exists, must be created, or kit covers it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
 ## 4. Blast radius|BLAST_RADIUS|1|PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown.|gitnexus serena
 ## 5. Data and contracts|DATA_AND_CONTRACTS|2|Request and response shapes, versions, migrations.
 ## 6. Tests|TESTS|1|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
