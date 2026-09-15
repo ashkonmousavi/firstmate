@@ -1834,6 +1834,60 @@ crew_is_paused() {  # <id>
   [ "$(crew_absorb_class "$1")" = paused ]
 }
 
+# Classify an idle crew's GATE state from the same authoritative current-state
+# line crew_absorb_class reads. A gate is a point where the no-mistakes pipeline
+# has STOPPED and is waiting for the WORKER's own next command; crew_absorb_class
+# folds every such state into `none` because it answers a different question (may
+# this wake be absorbed), so a caller that wants to act on the gate itself needs
+# this second reading of the same line. Prints one tab-separated record:
+#   parked<TAB><detail>    parked at an approval or fix-review gate; the detail
+#                          names the gate step and its finding count
+#   ci-green<TAB><detail>  checks are green and only a merge decision is
+#                          outstanding, so the worker still owes its done: report
+#   resumed                the run's own axi status reads it as working, so it
+#                          has moved past any earlier gate; the coarse runs-list
+#                          reading ("validating (background run)") cannot see a
+#                          gate and does not count
+#   none                   none of these
+# Only a run-step verdict qualifies. A `done` reconciled from the STATUS LOG
+# means the worker already reported, and a pane verdict knows nothing about a
+# gate, so neither may be read as a gate the worker has not answered.
+# NOT a pure read, exactly like crew_absorb_class: one bounded fm-crew-state.sh
+# call, so callers must rate-limit it instead of running it on every poll.
+crew_gate_class() {  # <id>
+  local id=$1 line sep=' · ' state rest src detail
+  [ -n "$id" ] || { printf 'none'; return; }
+  line=$("$FM_CREW_STATE_BIN" "$id" 2>/dev/null) || true
+  case "$line" in state:*) ;; *) printf 'none'; return ;; esac
+  state=${line#state: }; state=${state%% *}
+  rest=${line#*source: }
+  src=${rest%% *}
+  [ "$src" = run-step ] || { printf 'none'; return; }
+  case "$rest" in
+    *"$sep"*) detail=${rest#*"$sep"} ;;
+    *) printf 'none'; return ;;
+  esac
+  case "$state" in
+    parked)
+      case "$detail" in
+        'parked at '*) printf 'parked\t%s' "$detail"; return ;;
+      esac
+      ;;
+    done)
+      case "$detail" in
+        'checks green'*) printf 'ci-green\t%s' "$detail"; return ;;
+      esac
+      ;;
+    working)
+      case "$detail" in
+        'validating (background run)'*) ;;
+        *) printf 'resumed'; return ;;
+      esac
+      ;;
+  esac
+  printf 'none'
+}
+
 # Directories excluded from the worktree write probe below, and the depth it walks.
 # The excluded set is everything a supervisor read or a package manager can write
 # without the crew doing any work - .git first, so firstmate's own read-only git

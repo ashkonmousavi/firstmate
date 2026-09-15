@@ -2164,6 +2164,8 @@ archive_away_record() {  # <dir>
     || fail "could not archive the away-posture record"
 }
 
+MERGE_LANDED_REMINDER='; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7'
+
 # The durable queue is TSV (epoch, sequence, kind, key, payload).
 merged_ledger_row() {  # <state> <task-id>
   awk -F'\t' -v prefix="check: merge landed: $2 " \
@@ -2216,7 +2218,7 @@ test_merged_poll_row_carries_the_merge_authority() {
     queue_merge "$dir" "$url"
     archive_away_record "$dir"
     run_merged_poll_cycle "$dir"
-    [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url $expected" ] \
+    [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url $expected$MERGE_LANDED_REMINDER" ] \
       || fail "$posture: archived posture lost persisted authority: $(merged_ledger_row "$state" task-a)"
     [ ! -e "$state/task-a.merge-authority" ] \
       || fail "$posture: published merge left its authority record behind"
@@ -2236,7 +2238,7 @@ test_merged_poll_row_names_no_authority_when_no_record_grants_one() {
     || fail "attended: could not arm the merge poll"
   queue_merge "$dir" "$url"
   run_merged_poll_cycle "$dir"
-  [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url" ] \
+  [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url$MERGE_LANDED_REMINDER" ] \
     || fail "attended queued merge was tagged: $(merged_ledger_row "$state" task-a)"
 
   dir=$(make_case merged-poll-authority-external)
@@ -2245,7 +2247,7 @@ test_merged_poll_row_names_no_authority_when_no_record_grants_one() {
   write_away_record "$dir"
   seed_canonical_poll "$dir" task-a "$url"
   run_merged_poll_cycle "$dir"
-  [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url external" ] \
+  [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url external$MERGE_LANDED_REMINDER" ] \
     || fail "external merge was attributed from live away posture: $(merged_ledger_row "$state" task-a)"
   assert_poll_absent "$state" task-a
 
@@ -2348,7 +2350,7 @@ test_teardown_cannot_race_authority_consumption() {
   rc=0
   wait "$watcher_pid" || rc=$?
   [ "$rc" -eq 0 ] || fail "teardown race: watcher failed with $rc: $(cat "$dir/watch.err")"
-  [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url yolo" ] \
+  [ "$(merged_ledger_row "$state" task-a)" = "check: merge landed: task-a $url yolo$MERGE_LANDED_REMINDER" ] \
     || fail "teardown race: concurrent cleanup downgraded the merge authority"
   pass "teardown cannot race merged-poll authority consumption"
 }
@@ -2411,7 +2413,7 @@ SH
   ack_watcher_cycle "$state" || fail "replacement: could not acknowledge the original wake"
   rm -f "$dir/fakebin/mv" "$state/.last-check"
   run_merged_poll_cycle "$dir"
-  awk -F'\t' -v expected="check: merge landed: task-a $url_b" \
+  awk -F'\t' -v expected="check: merge landed: task-a $url_b$MERGE_LANDED_REMINDER" \
     '$5 == expected { found=1 } END { exit !found }' "$state/.wake-queue" \
     || fail "replacement: replacement merge lost its attended authority"
   pass "poll retirement preserves a replacement authority record"
