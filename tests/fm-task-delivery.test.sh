@@ -55,8 +55,8 @@ write_brief() {  # <home> <id> [<recorded-mode>]
 # The preparation record a ship spawn requires, so these delivery cases reach
 # the checks they are about instead of stopping at the prep gate. Tier 0 by
 # default, the cheapest record the gate accepts.
-write_prep() {  # <home> <id> [<q1>] [<q2>]
-  fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" \
+write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>]
+  fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" "${5:-no}" \
     || fail "prep record scaffold failed for $2"
 }
 
