@@ -7,6 +7,11 @@ set -u
 # shellcheck source=tests/git-config-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/git-config-helpers.sh"
 
+# The task preparation record a ship spawn requires. These suites drive the real
+# fm-spawn but stay out of tests/lib.sh (see below), so they take it directly.
+# shellcheck source=tests/prep-record-helper.sh
+. "$(dirname "${BASH_SOURCE[0]}")/prep-record-helper.sh"
+
 # Herdr backend tests drive the real fm-spawn/fm-teardown but do not source
 # tests/lib.sh, so exempt them from the gate-lifecycle refusal here too (see
 # tests/lib.sh and bin/fm-gate-refuse-lib.sh for why firstmate's own suite,

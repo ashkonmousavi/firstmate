@@ -917,6 +917,95 @@ test_worker_role_scope() {
   pass "fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract"
 }
 
+# --prep scaffolds the task preparation record alone: no repo, no delivery mode,
+# no brief. Every section arrives with a guide and one placeholder to replace.
+test_prep_scaffolds_the_preparation_record() {
+  local home prep out status
+  home="$TMP_ROOT/prep-scaffold"
+  mkdir -p "$home/data"
+  prep="$home/data/prep-a1/prep.md"
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
+  expect_code 0 "$status" "--prep should scaffold (got: $out)"
+  assert_present "$prep" "--prep wrote no preparation record"
+  assert_absent "$home/data/prep-a1/brief.md" "--prep also wrote a brief"
+  assert_contains "$out" "prep-a1/prep.md" "--prep did not name the record it wrote"
+
+  assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
+  assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
+  assert_grep '## 3. UI/UX' "$prep" "prep record lost its UI/UX section"
+  assert_grep '## 4. Blast radius' "$prep" "prep record lost its blast radius"
+  assert_grep '## 5. Data and contracts' "$prep" "prep record lost its data and contracts"
+  assert_grep '## 6. Tests' "$prep" "prep record lost its tests section"
+  assert_grep '## 7. Records' "$prep" "prep record lost its records section"
+  assert_grep '## 8. Out of scope and follow-ups' "$prep" "prep record lost its out-of-scope section"
+  assert_grep '## 9. Risks, dependencies, merge order' "$prep" "prep record lost its risks section"
+  assert_grep '## 10. Demo receipt plan' "$prep" "prep record lost its demo receipt plan"
+  assert_grep '## 11. Definition of done' "$prep" "prep record lost its definition of done"
+  assert_grep '## 12. Size' "$prep" "prep record lost its size section"
+  assert_grep '{INTENT_AND_BOXES}' "$prep" "prep record section 1 carries no placeholder to replace"
+  assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
+  assert_grep 'n/a: <one-line reason>' "$prep" \
+    "prep record does not offer the n/a answer that keeps a small change small"
+  grep -c '^<!-- ' "$prep" | grep -qx 12 \
+    || fail "prep record does not carry one guide line per section"
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
+  [ "$status" -ne 0 ] || fail "--prep overwrote an existing preparation record"
+  assert_contains "$out" "already exists" "--prep overwrite refusal did not say why"
+  pass "fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one"
+}
+
+# Every prep section named in --help must exist in the record --prep writes, so
+# the documented contract and the scaffold cannot drift apart.
+test_prep_help_lists_every_scaffolded_section() {
+  local home prep help_text heading number title
+  home="$TMP_ROOT/prep-help"
+  mkdir -p "$home/data"
+  prep="$home/data/prep-b1/prep.md"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-b1 --prep >/dev/null 2>&1 \
+    || fail "prep scaffold failed"
+  help_text=$("$ROOT/bin/fm-brief.sh" --help)
+
+  while IFS= read -r heading; do
+    number=${heading#\#\# }
+    number=${number%%.*}
+    title=${heading#*. }
+    assert_contains "$help_text" "$number. $title" \
+      "--help does not list the scaffolded prep section '$title'"
+  done <<EOF
+$(grep '^## [0-9]' "$prep")
+EOF
+  pass "fm-brief.sh: --help lists every section the preparation record scaffolds"
+}
+
+# --prep is its own scaffold, not a modifier on a brief.
+test_prep_refuses_brief_flags() {
+  local home out status
+  home="$TMP_ROOT/prep-flags"
+  mkdir -p "$home/data"
+  while IFS='|' read -r label flags; do
+    [ -n "$label" ] || continue
+    # shellcheck disable=SC2086  # flags is an intentional word-split arg list
+    out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-c1 $flags 2>&1); status=$?
+    [ "$status" -ne 0 ] || fail "$label: --prep should refuse"
+    assert_contains "$out" "--prep scaffolds the task preparation record alone" \
+      "$label: refusal did not explain what --prep takes"
+    assert_absent "$home/data/prep-c1/prep.md" "$label: refused --prep still wrote a record"
+  done <<'ROWS'
+with a delivery mode|--prep --mode direct-PR
+with --scout|--prep --scout
+with --secondmate|--prep --secondmate
+with --herdr-lab|--prep --herdr-lab
+ROWS
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-c1 some-repo --prep 2>&1); status=$?
+  [ "$status" -ne 0 ] || fail "--prep with a repo positional should refuse"
+  assert_contains "$out" "usage: fm-brief.sh <task-id> --prep" \
+    "--prep arity refusal did not print its usage"
+  pass "fm-brief.sh: --prep refuses brief flags and extra positionals"
+}
+
 test_worker_role_scope
 test_script_parses
 test_no_heredoc_in_command_substitution
@@ -941,3 +1030,6 @@ test_pause_verb_override_renders_all_brief_scaffolds
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_scout_lavish_line_follows_presentation_floor
+test_prep_scaffolds_the_preparation_record
+test_prep_help_lists_every_scaffolded_section
+test_prep_refuses_brief_flags

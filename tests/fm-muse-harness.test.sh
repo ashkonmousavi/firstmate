@@ -126,6 +126,7 @@ make_spawn_case() {
   id="muse-$name-x1"
   mkdir -p "$home/data/$id" "$home/projects" "$home/state" "$home/config" \
     "$home/xdgconfig" "$home/xdgdata"
+  fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
   cat > "$home/data/$id/brief.md" <<'EOF'
 # Task
 ## Captain's intent

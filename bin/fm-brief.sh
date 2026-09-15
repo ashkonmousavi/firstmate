@@ -15,6 +15,27 @@
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--herdr-lab]
 #        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
+#        fm-brief.sh <task-id> --prep
+#   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
+#   nothing else, so it is written and reviewed before the brief exists. The
+#   record is the specification beneath the brief: what the change does, where it
+#   lands, and what done means, decided before a worker starts rather than
+#   discovered during review. Write it for any task that touches product
+#   behaviour or shared code. Its sections are:
+#     1. Intent and boxes        7. Records
+#     2. Behaviour spec          8. Out of scope and follow-ups
+#     3. UI/UX                   9. Risks, dependencies, merge order
+#     4. Blast radius           10. Demo receipt plan
+#     5. Data and contracts     11. Definition of done
+#     6. Tests                  12. Size
+#   Each section carries a one-line guide and one `{PLACEHOLDER}` to replace.
+#   Size the record to the change: any section may instead be answered
+#   `n/a: <one-line reason>`, so a one-file fix costs a few lines and a UI slice
+#   costs a page. Sections 2 and 11 are the acceptance criteria the reviewer
+#   holds the work to. bin/fm-spawn.sh refuses a ship launch whose record is
+#   missing, still placeheld, or has an empty section, naming that section.
+#   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
+#   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
 #   It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
@@ -131,10 +152,14 @@ else
 fi
 KIND=ship
 HERDR_LAB=0
+PREP=0
 NO_PROJECTS=0
 MODE=
 MODE_SET=0
 POS=()
+# Bash 3.2 errors on ${#POS[@]} for an empty array under `set -u`, and the
+# --prep arity check runs before ID=${POS[0]} guarantees one, so count here.
+POS_N=0
 want_value=
 for a in "$@"; do
   if [ -n "$want_value" ]; then
@@ -151,6 +176,7 @@ for a in "$@"; do
   case "$a" in
     --scout) KIND=scout ;;
     --secondmate) KIND=secondmate ;;
+    --prep) PREP=1 ;;
     --herdr-lab) HERDR_LAB=1 ;;
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
@@ -159,10 +185,31 @@ for a in "$@"; do
     # brief input. Refuse it loudly so it is never silently dropped here and then
     # believed to have been recorded.
     --yolo|--yolo=*) echo "error: --yolo is not a brief input; pass it to bin/fm-spawn.sh, which records the task's merge posture" >&2; exit 1 ;;
-    *) POS+=("$a") ;;
+    *) POS+=("$a"); POS_N=$((POS_N + 1)) ;;
   esac
 done
 [ -z "$want_value" ] || { echo "error: --$want_value requires a value" >&2; exit 1; }
+
+# The preparation record is scaffolded on its own, before the brief, so it can be
+# written and reviewed while the brief is still unwritten. It carries no delivery
+# mode, no repo, and no kind: it is one file about the change itself.
+if [ "$PREP" -eq 1 ]; then
+  if [ "$KIND" != ship ] || [ "$MODE_SET" -eq 1 ] || [ "$HERDR_LAB" -eq 1 ] || [ "$NO_PROJECTS" -eq 1 ]; then
+    echo "error: --prep scaffolds the task preparation record alone; it takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects" >&2
+    exit 1
+  fi
+  [ "$POS_N" -eq 1 ] || {
+    echo "error: usage: fm-brief.sh <task-id> --prep" >&2
+    exit 1
+  }
+  PREP_ID=${POS[0]}
+  PREP_FILE=$(fm_prep_path "$DATA" "$PREP_ID")
+  [ -e "$PREP_FILE" ] && { echo "error: $PREP_FILE already exists" >&2; exit 1; }
+  mkdir -p "$DATA/$PREP_ID"
+  fm_prep_template "$PREP_ID" > "$PREP_FILE"
+  echo "scaffolded: $PREP_FILE (task prep; replace every {PLACEHOLDER}, or answer a section 'n/a: <reason>')"
+  exit 0
+fi
 
 # Ship delivery mode is an explicit per-task decision (AGENTS.md section 7). A
 # missing or invalid value stops the scaffold rather than silently defaulting.

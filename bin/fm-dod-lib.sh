@@ -22,6 +22,10 @@
 # restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
+# This file also renders and validates the task preparation record that
+# bin/fm-brief.sh --prep scaffolds and bin/fm-spawn.sh gates a ship launch on.
+# The canonical section list lives here once so the writer and the validator
+# cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
 # fm_brief_worker_role owns the ship/scout role scope. bin/fm-spawn.sh is its one
 # emitter, supplying it to every ship/scout launch brief and never to a
 # secondmate charter. Like fm_brief_intent_overlay it is a distinctly titled
@@ -179,6 +183,105 @@ fm_brief_task_content_valid() {  # <file>
   fi
   task=$(fm_brief_heading_body "$file" "# Task")
   [ -n "$(printf '%s' "$task" | tr -d '[:space:]')" ]
+}
+
+# Task preparation record (bin/fm-brief.sh --prep). This file renders the
+# template and validates a filled one; bin/fm-brief.sh's header owns the prose
+# contract for what belongs in each section, and bin/fm-spawn.sh refuses a ship
+# launch whose record is missing or unfilled. The canonical heading list lives
+# here exactly once so the writer and the validator cannot drift: a section the
+# author deleted is as refusable as one left unfilled.
+# Each section carries a one-line `<!-- ... -->` guide and a single
+# `{PLACEHOLDER}` the author replaces. Any section may instead be answered
+# `n/a: <one-line reason>`, so a one-file fix costs a few lines and a UI slice
+# costs a page.
+FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|The captain'"'"'s words, and each Change box this task discharges, VERIFIED still open against origin/main with the command used.
+## 2. Behaviour spec|BEHAVIOUR_SPEC|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
+## 3. UI/UX|UI_UX|Which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
+## 4. Blast radius|BLAST_RADIUS|Modules touched with their GitNexus impact result, callers found with Serena for any signature change, contracts and generated files affected, records and docs that cite the changed behaviour.
+## 5. Data and contracts|DATA_AND_CONTRACTS|Request and response shapes, versions, migrations.
+## 6. Tests|TESTS|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
+## 7. Records|RECORDS|Boxes to tick, verification records, log-book entries.
+## 8. Out of scope and follow-ups|OUT_OF_SCOPE|What this task deliberately leaves alone, and the follow-up work it creates.
+## 9. Risks, dependencies, merge order|RISKS|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
+## 10. Demo receipt plan|DEMO_RECEIPT|What the worker walks and records before validation.
+## 11. Definition of done|DEFINITION_OF_DONE|The done criteria, checked line by line against the intent above.
+## 12. Size|SIZE|Files expected to change; more than about eight files means split the slice.'
+
+# fm_prep_path <data-dir> <task-id>
+fm_prep_path() {
+  printf '%s/%s/prep.md\n' "$1" "$2"
+}
+
+# fm_prep_template <task-id> - the scaffold written to data/<task-id>/prep.md.
+fm_prep_template() {
+  local id=$1 heading placeholder guide
+  printf '# Task prep: %s\n\n' "$id"
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
+  printf 'Answer every section. A section that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
+  printf 'This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.\n'
+  while IFS='|' read -r heading placeholder guide; do
+    [ -n "$heading" ] || continue
+    printf '\n%s\n<!-- %s -->\n{%s}\n' "$heading" "$guide" "$placeholder"
+  done <<EOF
+$FM_PREP_SECTIONS
+EOF
+}
+
+# fm_prep_section_state <file> <heading> <placeholder>
+# Prints missing|unfilled|empty|filled for one section. Guide comments and blank
+# lines never count as an answer; an exact leftover placeholder is unfilled.
+# Matching stays per-section and exact, so a filled section that quotes a
+# placeholder token as example text is still accepted.
+fm_prep_section_state() {  # <file> <heading> <placeholder>
+  local file=$1 heading=$2 placeholder=$3 body stripped
+  fm_brief_heading_present "$file" "$heading" || { printf 'missing\n'; return 0; }
+  body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//')
+  stripped=$(printf '%s' "$body" | tr -d '[:space:]')
+  if [ -z "$stripped" ]; then
+    printf 'empty\n'
+  elif [ "$stripped" = "{$placeholder}" ]; then
+    printf 'unfilled\n'
+  else
+    printf 'filled\n'
+  fi
+}
+
+# fm_prep_unfilled_reason <file>
+# Prints the first refusal reason naming its section and exits 0; exits 1 when
+# every section is answered. A missing file is its own refusal.
+fm_prep_unfilled_reason() {  # <file>
+  local file=$1 heading placeholder guide state
+  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+    printf 'no preparation record at %s\n' "$file"
+    return 0
+  fi
+  while IFS='|' read -r heading placeholder guide; do
+    [ -n "$heading" ] || continue
+    state=$(fm_prep_section_state "$file" "$heading" "$placeholder")
+    case "$state" in
+      missing) printf '%s is missing from %s\n' "$heading" "$file"; return 0 ;;
+      unfilled) printf '%s still carries its {%s} placeholder in %s\n' "$heading" "$placeholder" "$file"; return 0 ;;
+      empty) printf '%s is empty in %s\n' "$heading" "$file"; return 0 ;;
+    esac
+  done <<EOF
+$FM_PREP_SECTIONS
+EOF
+  return 1
+}
+
+# fm_brief_prep_overlay <prep-path> - launch-brief section pointing the worker
+# at the preparation record as the specification beneath the brief.
+fm_brief_prep_overlay() {  # <prep-path>
+  printf '\n# Task preparation record\n'
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal brief text
+  printf 'This task has a preparation record at `%s`.\n' "$1"
+  cat <<'EOF'
+Read it in full before you plan or write anything: it is the specification beneath this brief, and it supersedes your own reconstruction of what the change should do.
+Its `## 2. Behaviour spec` and `## 11. Definition of done` are the acceptance criteria the reviewer will hold this work to, alongside `## Captain's intent` above.
+A section answered `n/a: <reason>` is a decision already taken, not an invitation to fill the gap yourself.
+If the record is wrong or incomplete for what you find in the code, say so through the status file rather than silently building something else.
+EOF
 }
 
 fm_ask_user_escalation_block() {  # <data-dir> <task-id>

@@ -84,6 +84,7 @@ make_settle_case() {
   fm_git_worktree "$proj" "$wt" "wt-$name"
   fm_git_init_commit "$stale"
   mkdir -p "$home/data/$id"
+  fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent

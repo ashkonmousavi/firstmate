@@ -75,6 +75,7 @@ path = "data/backlog.md"
 EOF
   for id in "$@"; do
     mkdir -p "$home/data/$id"
+    fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
     cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent

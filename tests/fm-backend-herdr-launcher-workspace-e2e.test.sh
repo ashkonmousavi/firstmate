@@ -184,6 +184,8 @@ mkdir -p "$PRES_HOME/state" "$PRES_HOME/config"
 : > "$PRES_HOME/config/herdr-presentation-spaces"
 
 write_ship_brief() {  # <file> <id>
+  fm_test_prep_record "$(dirname "$(dirname "$1")")" "$2" \
+    || { echo "prep record scaffold failed for $2" >&2; exit 1; }
   cat > "$1" <<EOF
 # Task
 ## Captain's intent

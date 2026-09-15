@@ -46,6 +46,8 @@ SPAWN_HOME="$TMP_ROOT/user-home"
 mkdir -p "$SPAWN_HOME"
 
 write_spawn_brief() {  # <file> <id>
+  fm_test_prep_record "$(dirname "$(dirname "$1")")" "$2" \
+    || fail "prep record scaffold failed for $2"
   cat > "$1" <<EOF
 # Task
 ## Captain's intent

@@ -14,6 +14,14 @@
 #   scaffolded before that line existed warns once and launches on the flag. A
 #   ship or scout spawn also refuses leftover `{TASK}` / `{FIRSTMATE_SPEC}`
 #   placeholders, an empty Task, or an incomplete pair of Task subsections.
+#   A ship spawn additionally requires the task's preparation record at
+#   data/<task-id>/prep.md (bin/fm-brief.sh --prep) and refuses one that is
+#   missing, still carries a `{PLACEHOLDER}`, or has a section left empty,
+#   naming the section that stopped it; a section that does not apply is
+#   answered `n/a: <reason>`. Scouts and secondmates are not gated, and
+#   --relaunch is exempt so tasks dispatched before the gate still relaunch.
+#   When the record exists, the launch brief points the worker at it as the
+#   specification beneath the brief.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
 #   intent. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
@@ -2268,6 +2276,19 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     echo "error: $BRIEF must contain nonempty ## Captain's intent and ## Firstmate spec subsections (or a nonempty legacy # Task body) before spawn" >&2
     exit 1
   fi
+  # The task preparation record is the specification beneath the brief, so a ship
+  # launch refuses one that was never written or never filled in, naming the
+  # section that stopped it. A scout produces knowledge rather than a change and a
+  # secondmate is not a work item, so neither is gated. --relaunch is the one
+  # escape: it relaunches a task that already exists, including every task
+  # dispatched before this gate, into its own recorded endpoint.
+  PREP_FILE=$(fm_prep_path "$DATA" "$ID")
+  if [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ]; then
+    if PREP_REASON=$(fm_prep_unfilled_reason "$PREP_FILE"); then
+      echo "error: task $ID cannot ship without its preparation record: $PREP_REASON; scaffold it with bin/fm-brief.sh $ID --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')" >&2
+      exit 1
+    fi
+  fi
   if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
     if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
       CAPTAIN_INTENT=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
@@ -2289,6 +2310,9 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
     cat "$SOURCE_BRIEF" &&
       printf '\n' &&
       fm_brief_worker_role &&
+      if [ "$KIND" = ship ] && [ -f "$PREP_FILE" ]; then
+        fm_brief_prep_overlay "$PREP_FILE"
+      fi &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
         fm_brief_intent_overlay "$CAPTAIN_INTENT"
       fi

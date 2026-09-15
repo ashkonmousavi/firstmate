@@ -975,6 +975,7 @@ test_spawn_fallback_chain_and_crew_scout_unaffected() {
   fakebin=$(make_launch_capturing_tmux "$w/tmux-crew")
   fm_git_worktree "$proj" "$wt" "wt-crew"
   mkdir -p "$home/data/$id" "$home/projects" "$home/state"
+  fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
   cat > "$home/data/$id/brief.md" <<'EOF'
 # Task
 ## Captain's intent
