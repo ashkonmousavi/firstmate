@@ -918,7 +918,9 @@ test_worker_role_scope() {
 }
 
 # --prep scaffolds the task preparation record alone: no repo, no delivery mode,
-# no brief. Every section arrives with a guide and one placeholder to replace.
+# no brief. The tier header comes first, because its two answers decide which
+# sections the task owes; every section then arrives with a guide, the tier it
+# becomes required at, and one placeholder to replace.
 test_prep_scaffolds_the_preparation_record() {
   local home prep out status
   home="$TMP_ROOT/prep-scaffold"
@@ -931,6 +933,15 @@ test_prep_scaffolds_the_preparation_record() {
   assert_absent "$home/data/prep-a1/brief.md" "--prep also wrote a brief"
   assert_contains "$out" "prep-a1/prep.md" "--prep did not name the record it wrote"
 
+  assert_grep '## Tier' "$prep" "prep record lost its tier header"
+  assert_grep '- Q1 does this change alter what a user sees or can do: {Q1}' "$prep" \
+    "prep record's tier header does not ask Q1 with a placeholder to answer"
+  assert_grep '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}' \
+    "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
+  [ "$(grep -n '^## Tier$' "$prep" | cut -d: -f1)" -lt "$(grep -n '^## 1\.' "$prep" | cut -d: -f1)" ] \
+    || fail "the tier header does not come before the sections it governs"
+  assert_grep 'Both no: tier 0, this header is the whole record' "$prep" \
+    "prep record does not say a tier-0 change owes nothing but its two answers"
   assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
   assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
   assert_grep '## 3. UI/UX' "$prep" "prep record lost its UI/UX section"
@@ -947,8 +958,10 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
   assert_grep 'n/a: <one-line reason>' "$prep" \
     "prep record does not offer the n/a answer that keeps a small change small"
-  grep -c '^<!-- ' "$prep" | grep -qx 12 \
-    || fail "prep record does not carry one guide line per section"
+  grep -c '^<!-- ' "$prep" | grep -qx 13 \
+    || fail "prep record does not carry a guide line for the tier header and each section"
+  assert_grep '<!-- tier 1+.' "$prep" "prep record sections do not say which tier requires them"
+  assert_grep '<!-- tier 2+.' "$prep" "prep record does not mark its tier-2-only sections"
 
   out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
   [ "$status" -ne 0 ] || fail "--prep overwrote an existing preparation record"
@@ -976,7 +989,13 @@ test_prep_help_lists_every_scaffolded_section() {
   done <<EOF
 $(grep '^## [0-9]' "$prep")
 EOF
-  pass "fm-brief.sh: --help lists every section the preparation record scaffolds"
+  assert_contains "$help_text" "tier 2 - every section below" \
+    "--help does not say what tier 2 requires"
+  assert_contains "$help_text" "tier 1 - sections 1, 4, 6, 8 and 11 only" \
+    "--help does not say what tier 1 requires"
+  assert_contains "$help_text" "tier 0 - the header IS the record" \
+    "--help does not say that a tier-0 change owes nothing but its two answers"
+  pass "fm-brief.sh: --help lists the tier rules and every section the record scaffolds"
 }
 
 # --prep is its own scaffold, not a modifier on a brief.

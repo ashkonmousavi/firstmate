@@ -20,20 +20,30 @@
 #   nothing else, so it is written and reviewed before the brief exists. The
 #   record is the specification beneath the brief: what the change does, where it
 #   lands, and what done means, decided before a worker starts rather than
-#   discovered during review. Write it for any task that touches product
-#   behaviour or shared code. Its sections are:
+#   discovered during review.
+#   It is TIERED, never flat, so preparation costs what the change is worth. The
+#   scaffold's `## Tier` header comes first and answers two yes-or-no questions:
+#     Q1  does this change alter what a user sees or can do?
+#     Q2  does it touch a shared module, a contract, or more than about eight files?
+#   Those two answers alone decide what the record owes:
+#     Q1 yes            tier 2 - every section below
+#     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
+#     both no           tier 0 - the header IS the record; delete every section
+#   The sections are:
 #     1. Intent and boxes        7. Records
 #     2. Behaviour spec          8. Out of scope and follow-ups
 #     3. UI/UX                   9. Risks, dependencies, merge order
 #     4. Blast radius           10. Demo receipt plan
 #     5. Data and contracts     11. Definition of done
 #     6. Tests                  12. Size
-#   Each section carries a one-line guide and one `{PLACEHOLDER}` to replace.
-#   Size the record to the change: any section may instead be answered
-#   `n/a: <one-line reason>`, so a one-file fix costs a few lines and a UI slice
-#   costs a page. Sections 2 and 11 are the acceptance criteria the reviewer
-#   holds the work to. bin/fm-spawn.sh refuses a ship launch whose record is
-#   missing, still placeheld, or has an empty section, naming that section.
+#   Each carries a one-line guide, the tier it becomes required at, and one
+#   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
+#   is answered `n/a: <one-line reason>`, so a tier-0 change costs two answers,
+#   a tier-1 change five sections, and only a tier-2 change costs a page.
+#   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+#   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
+#   header is missing or unanswered, or where a section the declared tier
+#   requires is missing, still placeheld, or empty, naming that section.
 #   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
 #   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at
@@ -207,7 +217,7 @@ if [ "$PREP" -eq 1 ]; then
   [ -e "$PREP_FILE" ] && { echo "error: $PREP_FILE already exists" >&2; exit 1; }
   mkdir -p "$DATA/$PREP_ID"
   fm_prep_template "$PREP_ID" > "$PREP_FILE"
-  echo "scaffolded: $PREP_FILE (task prep; replace every {PLACEHOLDER}, or answer a section 'n/a: <reason>')"
+  echo "scaffolded: $PREP_FILE (task prep; answer the ## Tier header first - it decides which sections this task owes)"
   exit 0
 fi
 

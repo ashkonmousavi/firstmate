@@ -15,11 +15,14 @@
 #   ship or scout spawn also refuses leftover `{TASK}` / `{FIRSTMATE_SPEC}`
 #   placeholders, an empty Task, or an incomplete pair of Task subsections.
 #   A ship spawn additionally requires the task's preparation record at
-#   data/<task-id>/prep.md (bin/fm-brief.sh --prep) and refuses one that is
-#   missing, still carries a `{PLACEHOLDER}`, or has a section left empty,
-#   naming the section that stopped it; a section that does not apply is
-#   answered `n/a: <reason>`. Scouts and secondmates are not gated, and
-#   --relaunch is exempt so tasks dispatched before the gate still relaunch.
+#   data/<task-id>/prep.md (bin/fm-brief.sh --prep), which is tiered by its own
+#   `## Tier` header. The spawn refuses a record that is absent, whose tier
+#   header is missing or not answered yes/no, or where a section THAT TIER
+#   REQUIRES is missing, still carries a `{PLACEHOLDER}`, or is empty, naming
+#   that section; a section below the declared tier may be omitted entirely, and
+#   a required one that does not apply is answered `n/a: <reason>`. Scouts and
+#   secondmates are not gated, and --relaunch is exempt so tasks dispatched
+#   before the gate still relaunch.
 #   When the record exists, the launch brief points the worker at it as the
 #   specification beneath the brief.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
