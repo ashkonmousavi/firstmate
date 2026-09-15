@@ -225,15 +225,18 @@ fm_prep_path() {
 }
 
 # fm_prep_template <task-id> - the scaffold written to data/<task-id>/prep.md.
-# The tier header comes first, because its two answers decide how much of the
+# The tier header comes first, because its three answers decide how much of the
 # rest this task owes.
 fm_prep_template() {
   local id=$1 heading placeholder tier guide
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer both yes or no. Q1 yes: tier 2, every section below. Q1 no and Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. Both no: tier 0, this header is the whole record - delete every section. -->\n'
+  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n'
   printf -- '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}\n'
+  printf -- '- UI wiring: {UI_WIRING}\n'
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
+  printf '<!-- UI wiring answers `yes, <the V4 step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
   printf '\n'
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
   printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
@@ -266,16 +269,39 @@ fm_prep_answer() {  # <file> <Q1|Q2>
   esac
 }
 
+# fm_prep_ui_wiring <file> - yes or no when the tier header's UI wiring line
+# answers in its required "<yes|no>, <reason>" form, empty otherwise. The reason
+# is mandatory in both directions: a yes has to name the step and control the
+# user meets, and a no has to say why the user never meets the change, so the
+# answer cannot be given without looking at the interface.
+fm_prep_ui_wiring() {  # <file>
+  local file=$1 line verdict reason
+  line=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+  ')
+  verdict=$(printf '%s' "$line" | sed 's/,.*//' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
+  reason=$(printf '%s' "$line" | sed 's/^[^,]*,*//' | tr -d '[:space:].')
+  case "$verdict" in
+    yes|no) ;;
+    *) printf '\n'; return 0 ;;
+  esac
+  [ -n "$reason" ] || { printf '\n'; return 0; }
+  printf '%s\n' "$verdict"
+}
+
 # fm_prep_tier <file> - the declared tier (0, 1 or 2), or empty when the header
-# is missing or either answer is malformed. Never guesses a tier: an unreadable
-# header is a refusal, not a default.
+# is missing or any of its three answers is malformed. A UI wiring yes is tier 2
+# whatever Q1 and Q2 say, because a change the user meets owes its behaviour and
+# its interface in writing. Never guesses a tier: an unreadable header is a
+# refusal, not a default.
 fm_prep_tier() {  # <file>
-  local file=$1 q1 q2
+  local file=$1 q1 q2 ui
   fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING" || { printf '\n'; return 0; }
   q1=$(fm_prep_answer "$file" Q1)
   q2=$(fm_prep_answer "$file" Q2)
-  if [ -z "$q1" ] || [ -z "$q2" ]; then printf '\n'; return 0; fi
-  if [ "$q1" = yes ]; then printf '2\n'
+  ui=$(fm_prep_ui_wiring "$file")
+  if [ -z "$q1" ] || [ -z "$q2" ] || [ -z "$ui" ]; then printf '\n'; return 0; fi
+  if [ "$ui" = yes ] || [ "$q1" = yes ]; then printf '2\n'
   elif [ "$q2" = yes ]; then printf '1\n'
   else printf '0\n'
   fi
@@ -313,6 +339,12 @@ fm_prep_unfilled_reason() {  # <file>
   fi
   if ! fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING"; then
     printf 'its %s header is missing from %s\n' "$FM_PREP_TIER_HEADING" "$file"
+    return 0
+  fi
+  if [ -z "$(fm_prep_ui_wiring "$file")" ]; then
+    # shellcheck disable=SC2016 # single quotes are deliberate: the answer format is literal
+    printf 'its %s header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in %s\n' \
+      "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
   tier=$(fm_prep_tier "$file")

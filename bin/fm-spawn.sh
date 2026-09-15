@@ -17,8 +17,9 @@
 #   A ship spawn additionally requires the task's preparation record at
 #   data/<task-id>/prep.md (bin/fm-brief.sh --prep), which is tiered by its own
 #   `## Tier` header. The spawn refuses a record that is absent, whose tier
-#   header is missing or not answered yes/no, or where a section THAT TIER
-#   REQUIRES is missing, still carries a `{PLACEHOLDER}`, or is empty, naming
+#   header is missing or leaves any of its three answers (Q1, Q2, UI wiring)
+#   unanswered or outside its format, or where a section THAT TIER REQUIRES is
+#   missing, still carries a `{PLACEHOLDER}`, or is empty, naming
 #   that section; a section below the declared tier may be omitted entirely, and
 #   a required one that does not apply is answered `n/a: <reason>`. Scouts and
 #   secondmates are not gated, and --relaunch is exempt so tasks dispatched

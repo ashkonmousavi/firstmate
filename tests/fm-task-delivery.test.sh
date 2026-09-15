@@ -61,9 +61,14 @@ write_prep() {  # <home> <id> [<q1>] [<q2>]
 }
 
 # answer_tier <prep-file> <q1> <q2>: set or reset both tier answers in place.
+# answer_tier <prep-file> <q1> <q2> [<ui-wiring>]: rewrite the tier header's
+# answers. The greedy match before the final colon works because no tier
+# question carries a colon of its own, which is also what fm_prep_answer relies
+# on; the UI wiring line keeps the reason its own format requires.
 answer_tier() {
-  local prep=$1 q1=$2 q2=$3
+  local prep=$1 q1=$2 q2=$3 ui=${4:-no}
   sed -E -e "s/^(- Q1 .*): .*$/\\1: $q1/" -e "s/^(- Q2 .*): .*$/\\1: $q2/" \
+    -e "s/^- UI wiring: .*$/- UI wiring: $ui, test fixture./" \
     "$prep" > "$prep.tier" && mv "$prep.tier" "$prep"
 }
 
@@ -864,9 +869,28 @@ EOF
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a ship spawn with an unanswered tier header should exit non-zero"
-  assert_contains "$out" "## Tier header does not answer both Q1 and Q2" \
-    "the prep-gate refusal did not name the unanswered tier header"
+  assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
+    "the prep-gate refusal did not name the unanswered UI wiring question"
   assert_absent "$home/state/$id.meta" "an unanswered-header spawn wrote task metadata"
+
+  # UI wiring takes a verdict AND a reason, so a bare yes is still unanswered:
+  # the answer cannot be given without having looked at the interface.
+  sed 's/{UI_WIRING}/yes/' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a bare UI wiring yes with no reason should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
+    "the prep-gate accepted a UI wiring verdict with no reason behind it"
+
+  # With UI wiring answered in full, the two remaining questions are what is
+  # still unanswered, and the refusal moves on to name them.
+  sed 's/^- UI wiring: .*$/- UI wiring: no, a fixture no user meets./' "$prep" > "$prep.f" \
+    && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with unanswered Q1 and Q2 should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer both Q1 and Q2" \
+    "the prep-gate refusal did not name the unanswered tier questions"
 
   # Q1 yes is tier 2: every section is required, so the placeheld ones are
   # refused one by one, by name.
@@ -912,8 +936,34 @@ EOF
   assert_contains "$out" "tier 1 requires ## 6. Tests, which is empty" \
     "the prep-gate refusal did not name the empty tier-1 section"
 
-  # Tier 0 is two answers and nothing else: with every section deleted and both
-  # questions answered no, the record is complete and the launch proceeds.
+  # UI wiring yes forces tier 2 whatever Q1 and Q2 say: a change the user meets
+  # owes its behaviour spec even when it looks small from the code's side.
+  id="prep-ui-wiring"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "UI-wiring prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  sed 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no no yes
+  blank_section "$prep" "## 2. Behaviour spec"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a UI wiring yes did not force tier 2 over two no answers"
+  assert_contains "$out" "tier 2 requires ## 2. Behaviour spec, which is empty" \
+    "a UI wiring yes did not require the behaviour spec"
+
+  # Answering the same record's behaviour spec launches it, so the refusal above
+  # was the missing section rather than the UI wiring answer itself.
+  sed 's|^## 2. Behaviour spec$|## 2. Behaviour spec\nThe user sees a new button.|' "$prep" > "$prep.f" \
+    && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an answered UI-wiring record was still refused"
+
+  # Tier 0 is three answers and nothing else: with every section deleted and all
+  # three answers no, the record is complete and the launch proceeds.
   id="prep-tier0"
   mkdir -p "$home/data/$id"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
@@ -926,7 +976,7 @@ EOF
   assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   assert_not_contains "$out" "cannot ship without its preparation record" \
-    "a tier-0 record carrying only its two answers was refused"
+    "a tier-0 record carrying only its three answers was refused"
 
   # An answered record is a complete answer: the launch proceeds past the gate
   # (the fake tmux still stops it before any endpoint exists) and the worker's

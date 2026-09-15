@@ -22,13 +22,19 @@
 #   lands, and what done means, decided before a worker starts rather than
 #   discovered during review.
 #   It is TIERED, never flat, so preparation costs what the change is worth. The
-#   scaffold's `## Tier` header comes first and answers two yes-or-no questions:
-#     Q1  does this change alter what a user sees or can do?
-#     Q2  does it touch a shared module, a contract, or more than about eight files?
-#   Those two answers alone decide what the record owes:
+#   scaffold's `## Tier` header comes first and carries three mandatory answers:
+#     Q1  does this change alter what a user sees or can do?  yes or no
+#     Q2  does it touch a shared module, a contract, or more than about eight
+#         files?  yes or no
+#     UI wiring  `yes, <the V4 step and control the user meets>` or
+#         `no, <why the user never meets this change>`; a change that lets a user
+#         configure or choose something is always yes, and the reason is
+#         mandatory in both directions
+#   Those three answers alone decide what the record owes:
+#     UI wiring yes     tier 2 - whatever Q1 and Q2 say
 #     Q1 yes            tier 2 - every section below
 #     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
-#     both no           tier 0 - the header IS the record; delete every section
+#     all three no      tier 0 - the header IS the record; delete every section
 #   The sections are:
 #     1. Intent and boxes        7. Records
 #     2. Behaviour spec          8. Out of scope and follow-ups
@@ -38,12 +44,14 @@
 #     6. Tests                  12. Size
 #   Each carries a one-line guide, the tier it becomes required at, and one
 #   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
-#   is answered `n/a: <one-line reason>`, so a tier-0 change costs two answers,
-#   a tier-1 change five sections, and only a tier-2 change costs a page.
+#   is answered `n/a: <one-line reason>`, so a tier-0 change costs three answers
+#   and nothing else, a tier-1 change five sections, and only a tier-2 change
+#   costs a page.
 #   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
 #   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
-#   header is missing or unanswered, or where a section the declared tier
-#   requires is missing, still placeheld, or empty, naming that section.
+#   header is missing or leaves any of its three answers unanswered or outside
+#   its format, or where a section the declared tier requires is missing, still
+#   placeheld, or empty, naming that section.
 #   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
 #   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at

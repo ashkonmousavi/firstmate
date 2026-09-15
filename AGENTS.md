@@ -317,7 +317,7 @@ Record the resulting mode, `yolo` merge posture, and the one-line reason for any
 Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work immediately with no concurrency cap when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; same-file editing alone is insufficient, and genuine blockers remain durable.
 Write the task's preparation record before the brief with `bin/fm-brief.sh <task-id> --prep`, which owns the template, its tier header, and its sections; give it an Opus pass whenever the task touches product behaviour or shared code.
-The record's own tier answers decide what it owes, so a change that alters nothing a user sees and touches nothing shared costs two answers and no sections.
+The record's own tier answers decide what it owes, so a change no user meets, that alters nothing a user sees and touches nothing shared, costs three answers and no sections.
 A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, or where a section that tier requires is missing, still placeheld, or empty.
 Write the task-specific brief under section 11 before spawning.
 Fill the task subsections according to section 11.

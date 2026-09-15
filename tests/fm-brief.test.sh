@@ -938,10 +938,20 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record's tier header does not ask Q1 with a placeholder to answer"
   assert_grep '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}' \
     "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
+  assert_grep '- UI wiring: {UI_WIRING}' "$prep" \
+    "prep record's tier header does not ask the UI wiring question with a placeholder to answer"
+  assert_grep 'yes, <the V4 step and control the user meets>' "$prep" \
+    "prep record does not give the UI wiring answer its required yes format"
+  assert_grep 'no, <why the user never meets this change>' "$prep" \
+    "prep record does not give the UI wiring answer its required no format"
+  assert_grep 'lets a user configure or choose something is always yes' "$prep" \
+    "prep record does not give the worked example of a UI wiring yes"
+  assert_grep 'a yes is tier 2 whatever Q1 and Q2 say' "$prep" \
+    "prep record does not say a UI wiring yes forces tier 2"
   [ "$(grep -n '^## Tier$' "$prep" | cut -d: -f1)" -lt "$(grep -n '^## 1\.' "$prep" | cut -d: -f1)" ] \
     || fail "the tier header does not come before the sections it governs"
-  assert_grep 'Both no: tier 0, this header is the whole record' "$prep" \
-    "prep record does not say a tier-0 change owes nothing but its two answers"
+  assert_grep 'All no: tier 0, this header is the whole record' "$prep" \
+    "prep record does not say a tier-0 change owes nothing but its three answers"
   assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
   assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
   assert_grep '## 3. UI/UX' "$prep" "prep record lost its UI/UX section"
@@ -958,8 +968,8 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
   assert_grep 'n/a: <one-line reason>' "$prep" \
     "prep record does not offer the n/a answer that keeps a small change small"
-  grep -c '^<!-- ' "$prep" | grep -qx 13 \
-    || fail "prep record does not carry a guide line for the tier header and each section"
+  grep -c '^<!-- ' "$prep" | grep -qx 14 \
+    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
   assert_grep '<!-- tier 1+.' "$prep" "prep record sections do not say which tier requires them"
   assert_grep '<!-- tier 2+.' "$prep" "prep record does not mark its tier-2-only sections"
 
@@ -994,7 +1004,11 @@ EOF
   assert_contains "$help_text" "tier 1 - sections 1, 4, 6, 8 and 11 only" \
     "--help does not say what tier 1 requires"
   assert_contains "$help_text" "tier 0 - the header IS the record" \
-    "--help does not say that a tier-0 change owes nothing but its two answers"
+    "--help does not say that a tier-0 change owes nothing but its three answers"
+  assert_contains "$help_text" "UI wiring yes     tier 2 - whatever Q1 and Q2 say" \
+    "--help does not say a UI wiring yes forces tier 2"
+  assert_contains "$help_text" "a tier-0 change costs three answers" \
+    "--help does not say what a tier-0 change costs"
   pass "fm-brief.sh: --help lists the tier rules and every section the record scaffolds"
 }
 
