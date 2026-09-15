@@ -396,6 +396,8 @@ make_project() {  # <dir>
 write_ship_brief() {  # <home> <id> [description]
   local home=$1 id=$2 description=${3:-Herdr presentation fixture $2}
   mkdir -p "$home/data/$id"
+  fm_test_prep_record "$home/data" "$id" \
+    || { echo "prep record scaffold failed for $id" >&2; exit 1; }
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent

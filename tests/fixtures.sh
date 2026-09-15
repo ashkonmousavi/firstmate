@@ -236,7 +236,13 @@ fm_test_spawn_home() {
   fi
 }
 
+# fm_test_spawn_prep <home> <id> - fm_test_prep_record for a home's data dir.
+fm_test_spawn_prep() {
+  fm_test_prep_record "$1/data" "$2"
+}
+
 # fm_test_spawn_brief <home> <id> [captain-intent]
+# Also writes the preparation record, because a ship spawn refuses without one.
 fm_test_spawn_brief() {
   local home=$1 id=$2 intent=${3:-brief for $2}
   mkdir -p "$home/data/$id"
@@ -248,6 +254,7 @@ $intent
 ## Firstmate spec
 Exercise the spawn behavior under test.
 EOF
+  fm_test_spawn_prep "$home" "$id"
 }
 
 # fm_test_make_spawn_fakebin <dir> [extra-exit0-tool...]

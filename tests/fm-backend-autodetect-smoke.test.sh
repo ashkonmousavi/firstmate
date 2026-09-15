@@ -90,6 +90,7 @@ mkdir -p "$STATE" "$DATA/$ID" "$CONFIG"
 # Backend auto-detection is what is under test here, so opt out of the default-on
 # presentation projection and keep the assertions on the flat per-home workspace.
 printf 'off\n' > "$CONFIG/herdr-presentation-spaces"
+fm_test_prep_record "$DATA" "$ID" || { echo "prep record scaffold failed" >&2; exit 1; }
 cat > "$DATA/$ID/brief.md" <<'EOF'
 # Task
 ## Captain's intent

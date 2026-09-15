@@ -898,6 +898,27 @@ test_ship_relaunch_ignores_the_crew_harness_config() {
   pass "fm-control relaunch: a ship task keeps its recorded harness instead of re-reading crew config"
 }
 
+# A ship spawn requires the task's preparation record (bin/fm-brief.sh --prep),
+# but --relaunch replaces the agent on a task that already exists, including
+# every task dispatched before that gate existed. add_ship_task writes no
+# record, so this relaunch reaches the brief checks without one and must still
+# launch, and its launch brief must not point at a record that is not there.
+test_relaunch_is_exempt_from_the_task_preparation_gate() {
+  local dir out
+  dir=$(new_case prepgate rl60)
+  add_ship_task "$dir" rl60 claude
+  printf 'zsh' > "$dir/fake/command"
+  [ ! -e "$dir/home/data/rl60/prep.md" ] || fail "the relaunch fixture already has a preparation record"
+  out=$(run_spawn "$dir" rl60 --relaunch)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a relaunch of a task dispatched before the preparation gate was refused"
+  assert_contains "$out" "spawned rl60" "the exempt relaunch did not launch"
+  assert_absent "$dir/home/data/rl60/prep.md" "a relaunch fabricated a preparation record"
+  assert_no_grep "# Task preparation record" "$dir/home/data/rl60/launch-brief.md" \
+    "the launch brief points at a preparation record the task does not have"
+  pass "fm-spawn --relaunch: a task dispatched before the preparation gate still relaunches"
+}
+
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one() {
   local dir out
   dir=$(new_case spawnharness rl21)
@@ -1582,6 +1603,7 @@ test_secondmate_relaunch_onto_a_crewmate_only_adapter_refuses_before_stop
 test_explicit_secondmate_harness_ignores_configured_profile_axes
 test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
+test_relaunch_is_exempt_from_the_task_preparation_gate
 test_prefixed_prior_harness_wiring_is_still_retired
 test_muse_session_binding_is_retired_on_a_harness_switch
 test_cursor_session_binding_is_retired_on_a_harness_switch

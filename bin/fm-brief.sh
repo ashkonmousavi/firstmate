@@ -15,6 +15,51 @@
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--herdr-lab]
 #        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
+#        fm-brief.sh <task-id> --prep
+#   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
+#   nothing else, so it is written and reviewed before the brief exists. The
+#   record is the specification beneath the brief: what the change does, where it
+#   lands, and what done means, decided before a worker starts rather than
+#   discovered during review.
+#   It is TIERED, never flat, so preparation costs what the change is worth. The
+#   scaffold's `## Tier` header comes first and carries three mandatory answers:
+#     Q1  does this change alter what a user sees or can do?  yes or no
+#     Q2  does it touch a shared module, a contract, or more than about eight
+#         files?  yes or no
+#     UI wiring  `yes, <the V4 step and control the user meets>` or
+#         `no, <why the user never meets this change>`; a change that lets a user
+#         configure or choose something is always yes, and the reason is
+#         mandatory in both directions
+#   Those three answers alone decide what the record owes:
+#     UI wiring yes     tier 2 - whatever Q1 and Q2 say
+#     Q1 yes            tier 2 - every section below
+#     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
+#     all three no      tier 0 - the header IS the record; delete every section
+#   The sections are:
+#     1. Intent and boxes        7. Records
+#     2. Behaviour spec          8. Out of scope and follow-ups
+#     3. UI/UX                   9. Risks, dependencies, merge order
+#     4. Blast radius           10. Demo receipt plan
+#     5. Data and contracts     11. Definition of done
+#     6. Tests                  12. Size
+#   Each carries a one-line guide, the tier it becomes required at, and one
+#   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
+#   is answered `n/a: <one-line reason>`, so a tier-0 change costs three answers
+#   and nothing else, a tier-1 change five sections, and only a tier-2 change
+#   costs a page.
+#   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+#   Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
+#   result for every module touched and the Serena find_referencing_symbols
+#   counts for every symbol whose signature changes, reaching for claude-context
+#   semantic search only when a name is unknown. Where a tier requires it, a
+#   filled Blast radius that names neither gitnexus nor serena is refused unless
+#   it is answered `n/a: <reason>`; nothing checks whether the output is right.
+#   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
+#   header is missing or leaves any of its three answers unanswered or outside
+#   its format, or where a section the declared tier requires is missing, still
+#   placeheld, or empty, naming that section.
+#   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
+#   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
 #   It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
@@ -131,10 +176,14 @@ else
 fi
 KIND=ship
 HERDR_LAB=0
+PREP=0
 NO_PROJECTS=0
 MODE=
 MODE_SET=0
 POS=()
+# Bash 3.2 errors on ${#POS[@]} for an empty array under `set -u`, and the
+# --prep arity check runs before ID=${POS[0]} guarantees one, so count here.
+POS_N=0
 want_value=
 for a in "$@"; do
   if [ -n "$want_value" ]; then
@@ -151,6 +200,7 @@ for a in "$@"; do
   case "$a" in
     --scout) KIND=scout ;;
     --secondmate) KIND=secondmate ;;
+    --prep) PREP=1 ;;
     --herdr-lab) HERDR_LAB=1 ;;
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
@@ -159,10 +209,31 @@ for a in "$@"; do
     # brief input. Refuse it loudly so it is never silently dropped here and then
     # believed to have been recorded.
     --yolo|--yolo=*) echo "error: --yolo is not a brief input; pass it to bin/fm-spawn.sh, which records the task's merge posture" >&2; exit 1 ;;
-    *) POS+=("$a") ;;
+    *) POS+=("$a"); POS_N=$((POS_N + 1)) ;;
   esac
 done
 [ -z "$want_value" ] || { echo "error: --$want_value requires a value" >&2; exit 1; }
+
+# The preparation record is scaffolded on its own, before the brief, so it can be
+# written and reviewed while the brief is still unwritten. It carries no delivery
+# mode, no repo, and no kind: it is one file about the change itself.
+if [ "$PREP" -eq 1 ]; then
+  if [ "$KIND" != ship ] || [ "$MODE_SET" -eq 1 ] || [ "$HERDR_LAB" -eq 1 ] || [ "$NO_PROJECTS" -eq 1 ]; then
+    echo "error: --prep scaffolds the task preparation record alone; it takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects" >&2
+    exit 1
+  fi
+  [ "$POS_N" -eq 1 ] || {
+    echo "error: usage: fm-brief.sh <task-id> --prep" >&2
+    exit 1
+  }
+  PREP_ID=${POS[0]}
+  PREP_FILE=$(fm_prep_path "$DATA" "$PREP_ID")
+  [ -e "$PREP_FILE" ] && { echo "error: $PREP_FILE already exists" >&2; exit 1; }
+  mkdir -p "$DATA/$PREP_ID"
+  fm_prep_template "$PREP_ID" > "$PREP_FILE"
+  echo "scaffolded: $PREP_FILE (task prep; answer the ## Tier header first - it decides which sections this task owes)"
+  exit 0
+fi
 
 # Ship delivery mode is an explicit per-task decision (AGENTS.md section 7). A
 # missing or invalid value stops the scaffold rather than silently defaulting.

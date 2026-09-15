@@ -13,6 +13,8 @@ SPAWN="$ROOT/bin/fm-spawn.sh"
 TMP_ROOT=$(fm_test_tmproot fm-trace-context-spawn)
 
 write_ship_brief() {  # <file> <id>
+  fm_test_prep_record "$(dirname "$(dirname "$1")")" "$2" \
+    || fail "prep record scaffold failed for $2"
   cat > "$1" <<EOF
 # Task
 ## Captain's intent

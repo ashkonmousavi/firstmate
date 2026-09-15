@@ -22,6 +22,10 @@
 # restating the rule.
 # Every heredoc here stays outside a command substitution: `VAR=$(cat <<EOF ...)`
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
+# This file also renders and validates the task preparation record that
+# bin/fm-brief.sh --prep scaffolds and bin/fm-spawn.sh gates a ship launch on.
+# The canonical section list lives here once so the writer and the validator
+# cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
 # fm_brief_worker_role owns the ship/scout role scope. bin/fm-spawn.sh is its one
 # emitter, supplying it to every ship/scout launch brief and never to a
 # secondmate charter. Like fm_brief_intent_overlay it is a distinctly titled
@@ -179,6 +183,234 @@ fm_brief_task_content_valid() {  # <file>
   fi
   task=$(fm_brief_heading_body "$file" "# Task")
   [ -n "$(printf '%s' "$task" | tr -d '[:space:]')" ]
+}
+
+# Task preparation record (bin/fm-brief.sh --prep). This file renders the
+# template and validates a filled one; bin/fm-brief.sh's header owns the prose
+# contract for what belongs in each section, and bin/fm-spawn.sh refuses a ship
+# launch whose record is missing or unanswered.
+#
+# The record is TIERED, never flat, so preparation costs what the change is
+# worth. Its `## Tier` header answers two yes-or-no questions and those answers
+# alone decide which sections are required:
+#   Q1 yes                  -> tier 2, every section (an `n/a: <reason>` answer
+#                              still settles one that does not apply)
+#   Q1 no and Q2 yes        -> tier 1, sections 1, 4, 6, 8 and 11 only; the rest
+#                              may be omitted entirely
+#   both no                 -> tier 0, the header IS the whole record
+#
+# The canonical section list lives here exactly once, with the tier each section
+# becomes required at, so the writer and the validator cannot drift: within a
+# declared tier, a section the author deleted is as refusable as one left
+# unanswered. Each section carries a one-line `<!-- ... -->` guide and a single
+# `{PLACEHOLDER}` the author replaces.
+FM_PREP_TIER_HEADING='## Tier'
+# heading|placeholder|required-from-tier|guide|evidence-tokens
+# A row with evidence tokens owes tool output rather than prose: once that
+# section is filled it must name one of those tokens, or be answered n/a with a
+# reason. Rows without them are prose and are only checked for being answered.
+FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s words, and each Change box this task discharges, VERIFIED still open against origin/main with the command used.
+## 2. Behaviour spec|BEHAVIOUR_SPEC|2|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
+## 3. UI/UX|UI_UX|2|START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path and say exists, must be created, or kit covers it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
+## 4. Blast radius|BLAST_RADIUS|1|PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown.|gitnexus serena
+## 5. Data and contracts|DATA_AND_CONTRACTS|2|Request and response shapes, versions, migrations.
+## 6. Tests|TESTS|1|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
+## 7. Records|RECORDS|2|Boxes to tick, verification records, log-book entries. By convention a lane that lands a component ahead of its consumer adds it to the project unwired-export allowlist, and the lane that wires it up removes it again.
+## 8. Out of scope and follow-ups|OUT_OF_SCOPE|1|What this task deliberately leaves alone, and the follow-up work it creates.
+## 9. Risks, dependencies, merge order|RISKS|2|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
+## 10. Demo receipt plan|DEMO_RECEIPT|2|What the worker walks and records before validation.
+## 11. Definition of done|DEFINITION_OF_DONE|1|The done criteria, checked line by line against the intent above.
+## 12. Size|SIZE|2|Files expected to change; more than about eight files means split the slice.'
+
+# fm_prep_path <data-dir> <task-id>
+fm_prep_path() {
+  printf '%s/%s/prep.md\n' "$1" "$2"
+}
+
+# fm_prep_template <task-id> - the scaffold written to data/<task-id>/prep.md.
+# The tier header comes first, because its three answers decide how much of the
+# rest this task owes.
+fm_prep_template() {
+  local id=$1 heading placeholder tier guide evidence
+  printf '# Task prep: %s\n\n' "$id"
+  printf '%s\n' "$FM_PREP_TIER_HEADING"
+  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->\n'
+  printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n'
+  printf -- '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}\n'
+  printf -- '- UI wiring: {UI_WIRING}\n'
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
+  printf '<!-- UI wiring answers `yes, <the V4 step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
+  printf '\n'
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
+  printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
+  printf 'This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.\n'
+  while IFS='|' read -r heading placeholder tier guide evidence; do
+    [ -n "$heading" ] || continue
+    printf '\n%s\n<!-- tier %s+. %s -->\n{%s}\n' "$heading" "$tier" "$guide" "$placeholder"
+  done <<EOF
+$FM_PREP_SECTIONS
+EOF
+}
+
+# fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
+# empty when the question is unanswered, left placeheld, or not yes/no. The
+# answer is whatever follows the final colon on that question's line.
+fm_prep_answer() {  # <file> <Q1|Q2>
+  local file=$1 question=$2 answer
+  answer=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk -v q="$question" '
+    index($0, "- " q " ") == 1 {
+      pos = 0
+      for (i = length($0); i > 0; i--) { if (substr($0, i, 1) == ":") { pos = i; break } }
+      if (pos == 0) next
+      print substr($0, pos + 1)
+      exit
+    }
+  ' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
+  case "$answer" in
+    yes|no) printf '%s\n' "$answer" ;;
+    *) printf '\n' ;;
+  esac
+}
+
+# fm_prep_ui_wiring <file> - yes or no when the tier header's UI wiring line
+# answers in its required "<yes|no>, <reason>" form, empty otherwise. The reason
+# is mandatory in both directions: a yes has to name the step and control the
+# user meets, and a no has to say why the user never meets the change, so the
+# answer cannot be given without looking at the interface.
+fm_prep_ui_wiring() {  # <file>
+  local file=$1 line verdict reason
+  line=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+  ')
+  verdict=$(printf '%s' "$line" | sed 's/,.*//' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
+  reason=$(printf '%s' "$line" | sed 's/^[^,]*,*//' | tr -d '[:space:].')
+  case "$verdict" in
+    yes|no) ;;
+    *) printf '\n'; return 0 ;;
+  esac
+  [ -n "$reason" ] || { printf '\n'; return 0; }
+  printf '%s\n' "$verdict"
+}
+
+# fm_prep_tier <file> - the declared tier (0, 1 or 2), or empty when the header
+# is missing or any of its three answers is malformed. A UI wiring yes is tier 2
+# whatever Q1 and Q2 say, because a change the user meets owes its behaviour and
+# its interface in writing. Never guesses a tier: an unreadable header is a
+# refusal, not a default.
+fm_prep_tier() {  # <file>
+  local file=$1 q1 q2 ui
+  fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING" || { printf '\n'; return 0; }
+  q1=$(fm_prep_answer "$file" Q1)
+  q2=$(fm_prep_answer "$file" Q2)
+  ui=$(fm_prep_ui_wiring "$file")
+  if [ -z "$q1" ] || [ -z "$q2" ] || [ -z "$ui" ]; then printf '\n'; return 0; fi
+  if [ "$ui" = yes ] || [ "$q1" = yes ]; then printf '2\n'
+  elif [ "$q2" = yes ]; then printf '1\n'
+  else printf '0\n'
+  fi
+}
+
+# fm_prep_section_state <file> <heading> <placeholder>
+# Prints missing|unfilled|empty|filled for one section. Guide comments and blank
+# lines never count as an answer; an exact leftover placeholder is unfilled.
+# Matching stays per-section and exact, so a filled section that quotes a
+# placeholder token as example text is still accepted.
+fm_prep_section_state() {  # <file> <heading> <placeholder>
+  local file=$1 heading=$2 placeholder=$3 body stripped
+  fm_brief_heading_present "$file" "$heading" || { printf 'missing\n'; return 0; }
+  body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//')
+  stripped=$(printf '%s' "$body" | tr -d '[:space:]')
+  if [ -z "$stripped" ]; then
+    printf 'empty\n'
+  elif [ "$stripped" = "{$placeholder}" ]; then
+    printf 'unfilled\n'
+  else
+    printf 'filled\n'
+  fi
+}
+
+# fm_prep_evidence_ok <file> <heading> <token>...
+# True when a filled section that owes tool output carries it: its body names one
+# of the tool tokens, or answers `n/a: <reason>`. Deliberately the cheapest check
+# that can tell evidence from prose - it reads what tool was run, never whether
+# the output is right.
+fm_prep_evidence_ok() {  # <file> <heading> <token>...
+  local file=$1 heading=$2 body lowered token
+  shift 2
+  body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//')
+  lowered=$(printf '%s' "$body" | tr '[:upper:]' '[:lower:]')
+  # `n/a: <reason>` is a decision already taken, so it needs no tool output.
+  printf '%s' "$lowered" | grep -q 'n/a:[[:space:]]*[^[:space:]]' && return 0
+  for token in "$@"; do
+    case "$lowered" in *"$token"*) return 0 ;; esac
+  done
+  return 1
+}
+
+# fm_prep_unfilled_reason <file>
+# Prints the first refusal reason and exits 0; exits 1 when the record answers
+# everything its declared tier requires. A missing file and an unreadable tier
+# header are refusals of their own; a section below the declared tier is not
+# checked at all, so omitting it entirely is legitimate rather than a hole.
+fm_prep_unfilled_reason() {  # <file>
+  local file=$1 tier heading placeholder required guide evidence state
+  if [ ! -f "$file" ] || [ ! -r "$file" ]; then
+    printf 'no preparation record at %s\n' "$file"
+    return 0
+  fi
+  if ! fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING"; then
+    printf 'its %s header is missing from %s\n' "$FM_PREP_TIER_HEADING" "$file"
+    return 0
+  fi
+  if [ -z "$(fm_prep_ui_wiring "$file")" ]; then
+    # shellcheck disable=SC2016 # single quotes are deliberate: the answer format is literal
+    printf 'its %s header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in %s\n' \
+      "$FM_PREP_TIER_HEADING" "$file"
+    return 0
+  fi
+  tier=$(fm_prep_tier "$file")
+  if [ -z "$tier" ]; then
+    printf 'its %s header does not answer both Q1 and Q2 yes or no in %s\n' \
+      "$FM_PREP_TIER_HEADING" "$file"
+    return 0
+  fi
+  [ "$tier" != 0 ] || return 1
+  while IFS='|' read -r heading placeholder required guide evidence; do
+    [ -n "$heading" ] || continue
+    [ "$required" -le "$tier" ] || continue
+    state=$(fm_prep_section_state "$file" "$heading" "$placeholder")
+    case "$state" in
+      missing) printf 'tier %s requires %s, which is missing from %s\n' "$tier" "$heading" "$file"; return 0 ;;
+      unfilled) printf 'tier %s requires %s, which still carries its {%s} placeholder in %s\n' "$tier" "$heading" "$placeholder" "$file"; return 0 ;;
+      empty) printf 'tier %s requires %s, which is empty in %s\n' "$tier" "$heading" "$file"; return 0 ;;
+    esac
+    [ -n "$evidence" ] || continue
+    # shellcheck disable=SC2086 # the token list is deliberately word-split
+    if ! fm_prep_evidence_ok "$file" "$heading" $evidence; then
+      # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal answer text
+      printf 'tier %s requires %s to paste the tool output behind it, naming %s, or to answer `n/a: <reason>`, in %s\n' \
+        "$tier" "$heading" "$(printf '%s' "$evidence" | sed 's/ / or /g')" "$file"
+      return 0
+    fi
+  done <<EOF
+$FM_PREP_SECTIONS
+EOF
+  return 1
+}
+
+# fm_brief_prep_overlay <prep-path> - launch-brief section pointing the worker
+# at the preparation record as the specification beneath the brief.
+fm_brief_prep_overlay() {  # <prep-path>
+  printf '\n# Task preparation record\n'
+  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal brief text
+  printf 'This task has a preparation record at `%s`.\n' "$1"
+  cat <<'EOF'
+Read it in full before you plan or write anything: it is the specification beneath this brief, and it supersedes your own reconstruction of what the change should do.
+Its `## Tier` header decides how much the record says; a section it does not carry was ruled out there, not forgotten.
+Where the record carries `## 2. Behaviour spec` and `## 11. Definition of done`, those are the acceptance criteria the reviewer will hold this work to, alongside `## Captain's intent` above.
+A section answered `n/a: <reason>` is a decision already taken, not an invitation to fill the gap yourself.
+If the record is wrong or incomplete for what you find in the code, say so through the status file rather than silently building something else.
+EOF
 }
 
 fm_ask_user_escalation_block() {  # <data-dir> <task-id>

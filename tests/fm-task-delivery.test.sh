@@ -49,6 +49,54 @@ write_brief() {  # <home> <id> [<recorded-mode>]
     printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
     [ -z "$mode" ] || printf 'Delivery contract: mode=%s\n' "$mode"
   } > "$home/data/$id/brief.md"
+  write_prep "$home" "$id"
+}
+
+# The preparation record a ship spawn requires, so these delivery cases reach
+# the checks they are about instead of stopping at the prep gate. Tier 0 by
+# default, the cheapest record the gate accepts.
+write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>]
+  fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" "${5:-no}" \
+    || fail "prep record scaffold failed for $2"
+}
+
+# answer_tier <prep-file> <q1> <q2>: set or reset both tier answers in place.
+# answer_tier <prep-file> <q1> <q2> [<ui-wiring>]: rewrite the tier header's
+# answers. The greedy match before the final colon works because no tier
+# question carries a colon of its own, which is also what fm_prep_answer relies
+# on; the UI wiring line keeps the reason its own format requires.
+answer_tier() {
+  local prep=$1 q1=$2 q2=$3 ui=${4:-no}
+  sed -E -e "s/^(- Q1 .*): .*$/\\1: $q1/" -e "s/^(- Q2 .*): .*$/\\1: $q2/" \
+    -e "s/^- UI wiring: .*$/- UI wiring: $ui, test fixture./" \
+    "$prep" > "$prep.tier" && mv "$prep.tier" "$prep"
+}
+
+# fill_section <prep-file> <heading> <text>: replace a section's whole answer,
+# guide comment included, with one line of text.
+fill_section() {
+  local prep=$1 heading=$2 text=$3
+  blank_section "$prep" "$heading"
+  awk -v h="$heading" -v t="$text" '$0 == h { print; print t; next } { print }' "$prep" \
+    > "$prep.fill" && mv "$prep.fill" "$prep"
+}
+
+# blank_section <prep-file> <heading>: keep the heading, remove its answer.
+blank_section() {
+  local prep=$1 heading=$2
+  awk -v h="$heading" '$0 == h { print; blank = 1; next }
+    blank && /^$/ { next }
+    blank && !/^## / { next }
+    blank { print ""; blank = 0 }
+    { print }' "$prep" > "$prep.blank" && mv "$prep.blank" "$prep"
+}
+
+# drop_section <prep-file> <heading> <next-heading-prefix>: delete it entirely.
+drop_section() {
+  local prep=$1 heading=$2 next=$3
+  awk -v h="$heading" -v n="$next" '$0 == h { skip = 1 }
+    index($0, n) == 1 { skip = 0 }
+    !skip' "$prep" > "$prep.drop" && mv "$prep.drop" "$prep"
 }
 
 fill_brief_subsections() {  # <file> <intent> <spec>
@@ -456,6 +504,7 @@ EOF
   id=delivery-filled-ship
   FM_HOME="$home" "$BRIEF" "$id" proj --mode direct-PR >/dev/null 2>&1 \
     || fail "filled-ship brief should scaffold"
+  write_prep "$home" "$id"
   fill_brief_subsections "$home/data/$id/brief.md" \
     "Fix replacement of \`{TASK}\` in Herdr briefs." \
     "Keep literal \`{FIRSTMATE_SPEC}\` examples intact."
@@ -483,6 +532,7 @@ Example specification
 # Definition of done
 Delivery contract: mode=direct-PR
 EOF
+  write_prep "$home" "$id"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   assert_not_contains "$out" "must contain nonempty" \
     "fenced example headings made a filled legacy Task fail validation"
@@ -500,6 +550,7 @@ Do not copy this Firstmate-authored constraint into intent.
 Delivery contract: mode=no-mistakes
 Pass the entire Task as --intent.
 EOF
+  write_prep "$home" "$id"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_not_contains "$out" "has no provenance-marked captain words" \
     "legacy no-mistakes spawn rejected explicitly marked captain words"
@@ -531,6 +582,7 @@ Preserve the existing compatibility path.
 Delivery contract: mode=no-mistakes
 Pass the entire Task and every Firstmate requirement as --intent.
 EOF
+  write_prep "$home" "$id"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_present "$home/data/$id/launch-brief.md" \
     "migrated subsection brief did not receive the current launch contract"
@@ -565,6 +617,7 @@ Unrelated notes must not become task intent.
 ## Firstmate spec
 Unrelated notes must not satisfy task validation.
 EOF
+  write_prep "$home" "$id"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "unmarked legacy no-mistakes spawn should require provenance"
@@ -585,6 +638,7 @@ EOF
   id=delivery-empty-ship
   FM_HOME="$home" "$BRIEF" "$id" proj --mode direct-PR >/dev/null 2>&1 \
     || fail "empty-ship brief should scaffold"
+  write_prep "$home" "$id"
   fill_brief_subsections "$home/data/$id/brief.md" "" ""
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   status=$?
@@ -790,6 +844,230 @@ EOF
   pass "fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions"
 }
 
+# The task preparation record gates a ship launch, and the record is tiered by
+# its own ## Tier header, so the gate costs what the change is worth: a launch
+# with no record or an unanswered header is refused, a tier-0 header alone
+# launches, and a section is required only from the tier that declares it - a
+# tier-2 record owes every section, while a tier-1 record legitimately omits the
+# ones below it. A scout is not gated. tests/fm-control-relaunch.test.sh owns the
+# --relaunch exemption, where a relaunch reaches this check with a live endpoint.
+test_ship_spawn_requires_the_task_preparation_record() {
+  local rec home proj fakebin id prep out status
+  rec=$(make_home prep-gate)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  id="prep-absent"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn without a preparation record should exit non-zero"
+  assert_contains "$out" "cannot ship without its preparation record" \
+    "the prep-gate refusal did not say what was missing"
+  assert_contains "$out" "--prep" "the prep-gate refusal did not name the command that writes the record"
+  assert_absent "$home/state/$id.meta" "a prep-gated spawn wrote task metadata"
+
+  # A freshly scaffolded record answers nothing, so the tier itself is unknown
+  # and the gate refuses on the header rather than guessing a tier.
+  prep="$home/data/$id/prep.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "prep scaffold failed"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with an unanswered tier header should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
+    "the prep-gate refusal did not name the unanswered UI wiring question"
+  assert_absent "$home/state/$id.meta" "an unanswered-header spawn wrote task metadata"
+
+  # UI wiring takes a verdict AND a reason, so a bare yes is still unanswered:
+  # the answer cannot be given without having looked at the interface.
+  sed 's/{UI_WIRING}/yes/' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a bare UI wiring yes with no reason should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
+    "the prep-gate accepted a UI wiring verdict with no reason behind it"
+
+  # With UI wiring answered in full, the two remaining questions are what is
+  # still unanswered, and the refusal moves on to name them.
+  sed 's/^- UI wiring: .*$/- UI wiring: no, a fixture no user meets./' "$prep" > "$prep.f" \
+    && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with unanswered Q1 and Q2 should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer both Q1 and Q2" \
+    "the prep-gate refusal did not name the unanswered tier questions"
+
+  # Q1 yes is tier 2: every section is required, so the placeheld ones are
+  # refused one by one, by name.
+  answer_tier "$prep" yes no
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a tier-2 spawn with placeheld sections should exit non-zero"
+  assert_contains "$out" "tier 2 requires ## 1. Intent and boxes" \
+    "the prep-gate refusal did not name the unanswered section and its tier"
+  assert_contains "$out" "placeholder" "the prep-gate refusal did not say the section was never filled"
+
+  # One section left blank is refused by name even when every other one is answered.
+  sed 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  blank_section "$prep" "## 3. UI/UX"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with an empty required section should exit non-zero"
+  assert_contains "$out" "tier 2 requires ## 3. UI/UX, which is empty" \
+    "the prep-gate refusal did not name the empty section"
+  assert_absent "$home/state/$id.meta" "an empty-section-prep spawn wrote task metadata"
+
+  # At tier 2 a deleted section is as refusable as an unanswered one: the gate is
+  # not escapable by removing the heading the author does not want to answer.
+  drop_section "$prep" "## 3. UI/UX" "## 4."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a tier-2 spawn with a deleted section should exit non-zero"
+  assert_contains "$out" "tier 2 requires ## 3. UI/UX, which is missing" \
+    "the prep-gate refusal did not name the deleted section"
+
+  # The SAME record at tier 1 launches: section 3 is below that tier, so deleting
+  # it was a decision the tier authorizes rather than a hole in the record.
+  answer_tier "$prep" no yes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a tier-1 record was refused for a section only tier 2 requires"
+
+  # Tier 1 still owes its own five sections, so blanking one is refused by name.
+  blank_section "$prep" "## 6. Tests"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a tier-1 spawn with an empty required section should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 6. Tests, which is empty" \
+    "the prep-gate refusal did not name the empty tier-1 section"
+
+  # The blast radius is the one section that owes tool output rather than prose,
+  # so an answer that ran no tool is refused at every tier that requires it.
+  id="prep-blast"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "blast-radius prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  sed 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no yes
+  fill_section "$prep" "## 4. Blast radius" "I read the code and nothing else changes."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a blast radius answered from memory should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
+    "the prep-gate refusal did not say the blast radius owes tool output"
+  assert_contains "$out" "gitnexus or serena" \
+    "the prep-gate refusal did not name the tools that answer the blast radius"
+
+  # Naming the tool that was run is the whole check: it reads what was run, never
+  # whether the output is right.
+  fill_section "$prep" "## 4. Blast radius" "gitnexus impact bin/fm-dod-lib.sh: 3 modules, 0 callers outside."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a blast radius carrying impact output was still refused"
+
+  # Serena answers it too, and case never matters.
+  fill_section "$prep" "## 4. Blast radius" "Serena find_referencing_symbols: 4 callers, all in tests/."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a blast radius carrying caller counts was still refused"
+
+  # A decision already taken needs no tool output, but a bare n/a is not one.
+  fill_section "$prep" "## 4. Blast radius" "n/a: this change crosses no module boundary."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an n/a blast radius with a reason was refused"
+  fill_section "$prep" "## 4. Blast radius" "n/a"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a bare n/a blast radius with no reason should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
+    "the prep-gate accepted a blast radius dismissed without a reason"
+
+  # UI wiring yes forces tier 2 whatever Q1 and Q2 say: a change the user meets
+  # owes its behaviour spec even when it looks small from the code's side.
+  id="prep-ui-wiring"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "UI-wiring prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  sed 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no no yes
+  blank_section "$prep" "## 2. Behaviour spec"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a UI wiring yes did not force tier 2 over two no answers"
+  assert_contains "$out" "tier 2 requires ## 2. Behaviour spec, which is empty" \
+    "a UI wiring yes did not require the behaviour spec"
+
+  # Answering the same record's behaviour spec launches it, so the refusal above
+  # was the missing section rather than the UI wiring answer itself.
+  fill_section "$prep" "## 2. Behaviour spec" "The user sees a new button."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an answered UI-wiring record was still refused"
+
+  # Tier 0 is three answers and nothing else: with every section deleted and all
+  # three answers no, the record is complete and the launch proceeds.
+  id="prep-tier0"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "tier-0 prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  awk '/^## [0-9]+\. / { exit } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no no
+  assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a tier-0 record carrying only its three answers was refused"
+
+  # An answered record is a complete answer: the launch proceeds past the gate
+  # (the fake tmux still stops it before any endpoint exists) and the worker's
+  # launch brief points at the record as the specification.
+  id="prep-answered"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  write_prep "$home" "$id" yes no
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an answered tier-2 preparation record was refused"
+  assert_present "$home/data/$id/launch-brief.md" "an answered-prep spawn rendered no launch contract"
+  assert_grep "# Task preparation record" "$home/data/$id/launch-brief.md" \
+    "the launch brief does not point the worker at the preparation record"
+  assert_grep "$home/data/$id/prep.md" "$home/data/$id/launch-brief.md" \
+    "the launch brief does not name the preparation record path"
+  assert_grep "acceptance criteria the reviewer will hold this work to" \
+    "$home/data/$id/launch-brief.md" \
+    "the launch brief does not make the behaviour spec and definition of done the acceptance criteria"
+  assert_grep "a section it does not carry was ruled out there, not forgotten" \
+    "$home/data/$id/launch-brief.md" \
+    "the launch brief does not tell the worker the tier decides which sections exist"
+
+  # A scout produces knowledge rather than a change, so it is never prep-gated.
+  id="prep-scout"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nInvestigate.\n\n## Firstmate spec\nReport.\n' \
+    > "$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --scout)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a scout spawn was refused for having no preparation record"
+  assert_no_grep "# Task preparation record" "$home/data/$id/launch-brief.md" \
+    "a scout launch brief carried the ship-only preparation-record overlay"
+
+  pass "fm-spawn: a ship launch requires an answered task preparation record, and a scout never is"
+}
+
 test_spawn_refreshes_legacy_worker_roles
 test_ship_spawn_requires_a_valid_delivery_contract
 test_scout_and_secondmate_refuse_delivery_flags
@@ -801,4 +1079,5 @@ test_promote_refuses_a_symlinked_task_record
 test_promotion_delivers_the_real_definition_of_done
 test_project_mode_maps_the_conditional_policy
 test_spawn_and_promote_require_filled_task_subsections
+test_ship_spawn_requires_the_task_preparation_record
 echo "# all fm-task-delivery tests passed"

@@ -38,6 +38,10 @@ umask 022
 # shellcheck source=tests/git-config-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/git-config-helpers.sh"
 
+# The task preparation record a ship spawn requires; the helper's header owns it.
+# shellcheck source=tests/prep-record-helper.sh
+. "$(dirname "${BASH_SOURCE[0]}")/prep-record-helper.sh"
+
 # Exempt firstmate's own test suite from the gate-lifecycle refusal
 # (bin/fm-gate-refuse-lib.sh). The no-mistakes gate runs this suite FROM a gate
 # worktree - the exact environment that guard refuses - so without this every

@@ -917,6 +917,150 @@ test_worker_role_scope() {
   pass "fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract"
 }
 
+# --prep scaffolds the task preparation record alone: no repo, no delivery mode,
+# no brief. The tier header comes first, because its two answers decide which
+# sections the task owes; every section then arrives with a guide, the tier it
+# becomes required at, and one placeholder to replace.
+test_prep_scaffolds_the_preparation_record() {
+  local home prep out status
+  home="$TMP_ROOT/prep-scaffold"
+  mkdir -p "$home/data"
+  prep="$home/data/prep-a1/prep.md"
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
+  expect_code 0 "$status" "--prep should scaffold (got: $out)"
+  assert_present "$prep" "--prep wrote no preparation record"
+  assert_absent "$home/data/prep-a1/brief.md" "--prep also wrote a brief"
+  assert_contains "$out" "prep-a1/prep.md" "--prep did not name the record it wrote"
+
+  assert_grep '## Tier' "$prep" "prep record lost its tier header"
+  assert_grep '- Q1 does this change alter what a user sees or can do: {Q1}' "$prep" \
+    "prep record's tier header does not ask Q1 with a placeholder to answer"
+  assert_grep '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}' \
+    "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
+  assert_grep '- UI wiring: {UI_WIRING}' "$prep" \
+    "prep record's tier header does not ask the UI wiring question with a placeholder to answer"
+  assert_grep 'yes, <the V4 step and control the user meets>' "$prep" \
+    "prep record does not give the UI wiring answer its required yes format"
+  assert_grep 'no, <why the user never meets this change>' "$prep" \
+    "prep record does not give the UI wiring answer its required no format"
+  assert_grep 'lets a user configure or choose something is always yes' "$prep" \
+    "prep record does not give the worked example of a UI wiring yes"
+  assert_grep 'a yes is tier 2 whatever Q1 and Q2 say' "$prep" \
+    "prep record does not say a UI wiring yes forces tier 2"
+  [ "$(grep -n '^## Tier$' "$prep" | cut -d: -f1)" -lt "$(grep -n '^## 1\.' "$prep" | cut -d: -f1)" ] \
+    || fail "the tier header does not come before the sections it governs"
+  assert_grep 'All no: tier 0, this header is the whole record' "$prep" \
+    "prep record does not say a tier-0 change owes nothing but its three answers"
+  assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
+  assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
+  assert_grep '## 3. UI/UX' "$prep" "prep record lost its UI/UX section"
+  assert_grep '## 4. Blast radius' "$prep" "prep record lost its blast radius"
+  assert_grep '## 5. Data and contracts' "$prep" "prep record lost its data and contracts"
+  assert_grep '## 6. Tests' "$prep" "prep record lost its tests section"
+  assert_grep '## 7. Records' "$prep" "prep record lost its records section"
+  assert_grep '## 8. Out of scope and follow-ups' "$prep" "prep record lost its out-of-scope section"
+  assert_grep '## 9. Risks, dependencies, merge order' "$prep" "prep record lost its risks section"
+  assert_grep '## 10. Demo receipt plan' "$prep" "prep record lost its demo receipt plan"
+  assert_grep '## 11. Definition of done' "$prep" "prep record lost its definition of done"
+  assert_grep '## 12. Size' "$prep" "prep record lost its size section"
+  assert_grep '{INTENT_AND_BOXES}' "$prep" "prep record section 1 carries no placeholder to replace"
+  assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
+  assert_grep 'n/a: <one-line reason>' "$prep" \
+    "prep record does not offer the n/a answer that keeps a small change small"
+  grep -c '^<!-- ' "$prep" | grep -qx 14 \
+    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
+  assert_grep 'unwired-export allowlist' "$prep" \
+    "prep record does not carry the unwired-export allowlist convention"
+  assert_grep 'the lane that wires it up removes it again' "$prep" \
+    "prep record names the allowlist convention without saying who clears the entry"
+  assert_grep 'START WITH THE COMPONENT CHECK' "$prep" \
+    "prep record does not open the UI/UX section with the component check"
+  assert_grep 'name the V4 component or kit piece with its path' "$prep" \
+    "prep record does not ask the UI/UX section to name each component and its path"
+  assert_grep 'exists, must be created, or kit covers it' "$prep" \
+    "prep record does not give the component check its three verdicts"
+  assert_grep 'PASTE TOOL OUTPUT, not prose' "$prep" \
+    "prep record does not tell the author the blast radius is tool output"
+  assert_grep 'gitnexus impact' "$prep" \
+    "prep record does not name the impact tool the blast radius owes"
+  assert_grep 'find_referencing_symbols' "$prep" \
+    "prep record does not name the caller tool a signature change owes"
+  assert_grep 'claude-context semantic search only when a name is unknown' "$prep" \
+    "prep record does not bound when semantic search replaces the two tools"
+  assert_grep '<!-- tier 1+.' "$prep" "prep record sections do not say which tier requires them"
+  assert_grep '<!-- tier 2+.' "$prep" "prep record does not mark its tier-2-only sections"
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
+  [ "$status" -ne 0 ] || fail "--prep overwrote an existing preparation record"
+  assert_contains "$out" "already exists" "--prep overwrite refusal did not say why"
+  pass "fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one"
+}
+
+# Every prep section named in --help must exist in the record --prep writes, so
+# the documented contract and the scaffold cannot drift apart.
+test_prep_help_lists_every_scaffolded_section() {
+  local home prep help_text heading number title
+  home="$TMP_ROOT/prep-help"
+  mkdir -p "$home/data"
+  prep="$home/data/prep-b1/prep.md"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-b1 --prep >/dev/null 2>&1 \
+    || fail "prep scaffold failed"
+  help_text=$("$ROOT/bin/fm-brief.sh" --help)
+
+  while IFS= read -r heading; do
+    number=${heading#\#\# }
+    number=${number%%.*}
+    title=${heading#*. }
+    assert_contains "$help_text" "$number. $title" \
+      "--help does not list the scaffolded prep section '$title'"
+  done <<EOF
+$(grep '^## [0-9]' "$prep")
+EOF
+  assert_contains "$help_text" "tier 2 - every section below" \
+    "--help does not say what tier 2 requires"
+  assert_contains "$help_text" "tier 1 - sections 1, 4, 6, 8 and 11 only" \
+    "--help does not say what tier 1 requires"
+  assert_contains "$help_text" "tier 0 - the header IS the record" \
+    "--help does not say that a tier-0 change owes nothing but its three answers"
+  assert_contains "$help_text" "UI wiring yes     tier 2 - whatever Q1 and Q2 say" \
+    "--help does not say a UI wiring yes forces tier 2"
+  assert_contains "$help_text" "a tier-0 change costs three answers" \
+    "--help does not say what a tier-0 change costs"
+  assert_contains "$help_text" "Blast radius is TOOL OUTPUT, not prose" \
+    "--help does not say the blast radius owes tool output"
+  assert_contains "$help_text" "names neither gitnexus nor serena is refused" \
+    "--help does not say what the blast radius check refuses"
+  pass "fm-brief.sh: --help lists the tier rules and every section the record scaffolds"
+}
+
+# --prep is its own scaffold, not a modifier on a brief.
+test_prep_refuses_brief_flags() {
+  local home out status
+  home="$TMP_ROOT/prep-flags"
+  mkdir -p "$home/data"
+  while IFS='|' read -r label flags; do
+    [ -n "$label" ] || continue
+    # shellcheck disable=SC2086  # flags is an intentional word-split arg list
+    out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-c1 $flags 2>&1); status=$?
+    [ "$status" -ne 0 ] || fail "$label: --prep should refuse"
+    assert_contains "$out" "--prep scaffolds the task preparation record alone" \
+      "$label: refusal did not explain what --prep takes"
+    assert_absent "$home/data/prep-c1/prep.md" "$label: refused --prep still wrote a record"
+  done <<'ROWS'
+with a delivery mode|--prep --mode direct-PR
+with --scout|--prep --scout
+with --secondmate|--prep --secondmate
+with --herdr-lab|--prep --herdr-lab
+ROWS
+
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-c1 some-repo --prep 2>&1); status=$?
+  [ "$status" -ne 0 ] || fail "--prep with a repo positional should refuse"
+  assert_contains "$out" "usage: fm-brief.sh <task-id> --prep" \
+    "--prep arity refusal did not print its usage"
+  pass "fm-brief.sh: --prep refuses brief flags and extra positionals"
+}
+
 test_worker_role_scope
 test_script_parses
 test_no_heredoc_in_command_substitution
@@ -941,3 +1085,6 @@ test_pause_verb_override_renders_all_brief_scaffolds
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_scout_lavish_line_follows_presentation_floor
+test_prep_scaffolds_the_preparation_record
+test_prep_help_lists_every_scaffolded_section
+test_prep_refuses_brief_flags

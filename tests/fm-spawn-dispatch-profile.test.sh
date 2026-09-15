@@ -1166,6 +1166,10 @@ test_worker_launch_delivers_role_scope() {
       content=${content//'{FIRSTMATE_SPEC}'/Exercise the spawn behavior under test.}
       printf '%s\n' "$content" > "$brief"
     fi
+    # A ship launch is prep-gated, so every kind but scout owes a record here;
+    # fm_test_spawn_brief already wrote one for the briefs it authored.
+    [ "$kind" = scout ] || fm_test_prep_record "$HOME_DIR/data" "$id" \
+      || fail "prep record scaffold failed for $id"
     cp "$HOME_DIR/data/$id/brief.md" "$CASE_DIR/brief-before"
     cat > "$FAKEBIN_DIR/codex" <<'SH'
 #!/usr/bin/env bash

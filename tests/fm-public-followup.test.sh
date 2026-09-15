@@ -31,6 +31,7 @@ PF_TEST_LOCK_HOLDER=
 write_promotion_brief() {  # <home> <id>
   local home=$1 id=$2
   mkdir -p "$home/data/$id"
+  fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
   cat > "$home/data/$id/brief.md" <<'EOF'
 # Task
 ## Captain's intent
