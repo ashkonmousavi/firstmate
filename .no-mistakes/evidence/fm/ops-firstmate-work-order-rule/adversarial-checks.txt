@@ -1,0 +1,28 @@
+# Adversarial checks against the delivered instruction set
+
+## The two passages the intent requires removed (tracked tree, data/ excluded)
+$ git grep -n -e "no concurrency cap" -e "parallelize the building freely" -- . ":(exclude)data/"
+(no matches; git grep exit 1)
+
+## Any surviving old-rule dispatch guidance in tracked prose
+$ git grep -n -i -e "parallelize" -e "concurrency cap" -- "*.md" ":(exclude)data/"
+.agents/skills/wayfinding/SKILL.md:85:Parallelize by area under section 7, one lane per area at a time, owning its files.
+
+## Dispatch-time artifacts: prep-record template and brief bodies
+$ git grep -n -i -e "ready item" -e "concurren" -e "in parallel" -e "dispatch" -e "sequenc" -- bin/fm-brief.sh
+bin/fm-brief.sh:6:# fills before dispatch: `{TASK}` under `## Captain's intent` (the captain's
+bin/fm-brief.sh:427:If the task will start, stop, delete, restart, profile, or otherwise drive Herdr lifecycle behavior, stop and regenerate the brief with `--herdr-lab` before dispatch.
+
+## Emitted preparation record (bin/fm-brief.sh <id> --prep, isolated home), merge-order section
+## 9. Risks, dependencies, merge order
+<!-- tier 2+. Risks, dependencies, sibling lanes touching the same files, and the order these must land in. -->
+
+## Product consumers run against the edited files
+$ bin/fm-doc-audience-check.sh
+fm-doc-audience-check: ok surfaces=99 local_links=395
+
+$ bin/fm-ensure-agents-md.sh <fresh project holding the edited AGENTS.md>
+wrote: CLAUDE.md @AGENTS.md pointer
+$ bin/fm-ensure-agents-md.sh <same dir>   # second run
+unchanged: AGENTS.md with CLAUDE.md @AGENTS.md pointer
+AGENTS.md sha256 before/after/after-2nd-run: 2323bc4d5c0c9a4e623411ade1446d095aff67dcadd675184330d2bcbe14a249 (identical)
