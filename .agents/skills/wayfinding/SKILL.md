@@ -83,7 +83,7 @@ The external method this is adapted from recommends one thing at a time, because
 That cost is real for decisions and absent for building: every dispatched task carries a zero-memory brief and an isolated copy, so two builders share no context to lose.
 That zero-shared-context argument holds only when builders touch disjoint files; parallel builders on one shared head make conflicting implicit decisions that surface at merge, so many lanes on one journey or page pay the cost of parallelism without its benefit.
 Parallelize by area under section 7, one lane per area at a time, owning its files.
-An area's slices queue behind it, and landed work across every area merges one at a time in dependency order.
+An area's slices queue behind it, and finished work across every area merges one at a time in dependency order.
 Every shared module is held by its single integration owner, which a lane asks rather than edits.
 Keep decisions on one shared record so a second lane never resolves what a first lane already settled.
 
