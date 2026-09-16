@@ -1,0 +1,106 @@
+=== Setup: navigator (secondmate) filled nav-preps; primary registry lists navigator home ===
+data-coverage.md
+profiles.md
+results.md
+- nav - navigation (home: relative/ignored; scope: x; projects: firstmate; added 2026-09-16)
+- nav2 - navigation (home: $TMP/navigator; scope: wayfinding; projects: firstmate; added 2026-09-16)
+
+=== Scenario 1: reproduce 2026-09-15 - primary scaffolds empty --prep, spawn refuses but names the real sheet ===
+
+$ fm-spawn.sh profiles ... (empty local scaffold)
+error: task profiles cannot ship without its preparation record: its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in $TMP/primary/data/profiles/prep.md; scaffold it with bin/fm-brief.sh profiles --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+hint: a filled secondmate nav-prep is at $TMP/navigator/data/nav-preps/profiles.md; install it with bin/fm-prep-install.sh profiles
+[exit 1]
+
+$ local prep is still the empty scaffold after spawn (spawn did not install)
+1
+differs from nav-prep
+
+=== Scenario 2: missing local prep (no scaffold) also hints ===
+
+$ fm-spawn.sh results ... (no prep.md)
+error: task results cannot ship without its preparation record: no preparation record at $TMP/primary/data/results/prep.md; scaffold it with bin/fm-brief.sh results --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+hint: a filled secondmate nav-prep is at $TMP/navigator/data/nav-preps/results.md; install it with bin/fm-prep-install.sh results
+[exit 1]
+brief.md
+
+=== Scenario 3: install the filled nav-prep, then spawn passes the prep gate ===
+
+$ fm-prep-install.sh profiles
+installed: $TMP/primary/data/profiles/prep.md (from $TMP/navigator/data/nav-preps/profiles.md)
+[exit 0]
+identical to nav-prep
+
+$ fm-prep-install.sh data-coverage
+installed: $TMP/primary/data/data-coverage/prep.md (from $TMP/navigator/data/nav-preps/data-coverage.md)
+[exit 0]
+identical to nav-prep
+
+$ fm-prep-install.sh results
+installed: $TMP/primary/data/results/prep.md (from $TMP/navigator/data/nav-preps/results.md)
+[exit 0]
+identical to nav-prep
+
+$ fm-spawn.sh profiles ... (after install; fake tmux fails later, prep gate must not fire)
+notice: profiles ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+[exit 1]
+
+=== Scenario 4 (adversarial): filled local prep is not overwritten without --force ===
+
+$ fm-prep-install.sh profiles (again)
+error: $TMP/primary/data/profiles/prep.md already passes the preparation gate; pass --force to overwrite
+[exit 1]
+
+$ fm-prep-install.sh profiles --force
+installed: $TMP/primary/data/profiles/prep.md (from $TMP/navigator/data/nav-preps/profiles.md)
+[exit 0]
+
+=== Scenario 5 (adversarial): unfilled/absent nav-prep, bad ids, removed --from ===
+
+$ fm-prep-install.sh draft (nav-prep is only a scaffold)
+error: no filled nav-prep for draft (looked under each home= in $TMP/primary/data/secondmates.md for data/nav-preps/draft.md)
+[exit 1]
+ls: cannot access '$TMP/primary/data/draft': No such file or directory
+
+$ fm-spawn.sh draft (unfilled nav-prep must not be hinted)
+error: task draft cannot ship without its preparation record: its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in $TMP/primary/data/draft/prep.md; scaffold it with bin/fm-brief.sh draft --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+[exit 1]
+
+$ fm-prep-install.sh nosuch
+error: no filled nav-prep for nosuch (looked under each home= in $TMP/primary/data/secondmates.md for data/nav-preps/nosuch.md)
+[exit 1]
+
+$ fm-prep-install.sh ../escape
+error: usage: fm-prep-install.sh <task-id> [--force]
+[exit 2]
+
+$ fm-prep-install.sh profiles --from /etc/passwd
+error: unknown flag --from
+usage: fm-prep-install.sh <task-id> [--force]
+[exit 2]
+
+$ fm-prep-install.sh --from=/etc/passwd profiles
+error: unknown flag --from=/etc/passwd
+usage: fm-prep-install.sh <task-id> [--force]
+[exit 2]
+
+$ symlinked registry is ignored
+error: no filled nav-prep for results (looked under each home= in $TMP/primary/data/secondmates.md for data/nav-preps/results.md)
+[exit 1]
+
+$ fm-prep-install.sh --help
+Install a filled secondmate nav-prep into this home's ship-prep path.
+Usage: fm-prep-install.sh <task-id> [--force]
+  Copies a filled preparation record into $FM_HOME/data/<task-id>/prep.md
+  (creating the task directory). Default source discovery walks each home=
+  path in data/secondmates.md and takes the first
+  <home>/data/nav-preps/<task-id>.md that passes fm_prep_unfilled_reason as
+  filled.
+  A destination that already passes the prep gate is refused unless --force.
+  Missing or unfilled destinations are replaced, including an empty local
+  --prep scaffold. This helper never auto-runs from spawn; spawn only names
+  a discovered filled nav-prep and this command.
+  Exits non-zero when no filled nav-prep is found.
+Environment:
+  FM_HOME              operational home whose data/ receives the install
+  FM_DATA_OVERRIDE     optional data directory; default $FM_HOME/data
