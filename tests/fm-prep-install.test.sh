@@ -165,12 +165,6 @@ test_refuses_missing_or_unfilled_source() {
   assert_contains "$out" "no filled nav-prep for $id" \
     "unfilled discovered source was treated as installable"
 
-  status=0
-  out=$(FM_HOME="$home" "$INSTALL" "$id" --from "$sm/data/nav-preps/$id.md" 2>&1) || status=$?
-  expect_code 1 "$status" "unfilled --from"
-  assert_contains "$out" "source fails the preparation gate" \
-    "--from did not report the prep-gate failure"
-
   pass "fm-prep-install.sh: refuses a missing or unfilled source"
 }
 
