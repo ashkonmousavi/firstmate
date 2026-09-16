@@ -23,9 +23,11 @@
 #   that section; a section below the declared tier may be omitted entirely, and
 #   a required one that does not apply is answered `n/a: <reason>`. A required
 #   Blast radius section also has to name gitnexus or serena, because it is the
-#   one section that owes tool output rather than prose. Scouts and
-#   secondmates are not gated, and --relaunch is exempt so tasks dispatched
-#   before the gate still relaunch.
+#   one section that owes tool output rather than prose. When that refusal
+#   fires and a filled secondmate nav-prep exists, stderr also names that
+#   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
+#   installs it. Scouts and secondmates are not gated, and --relaunch is
+#   exempt so tasks dispatched before the gate still relaunch.
 #   When the record exists, the launch brief points the worker at it as the
 #   specification beneath the brief.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
@@ -2319,6 +2321,9 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   if [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ]; then
     if PREP_REASON=$(fm_prep_unfilled_reason "$PREP_FILE"); then
       echo "error: task $ID cannot ship without its preparation record: $PREP_REASON; scaffold it with bin/fm-brief.sh $ID --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')" >&2
+      if NAV_PREP=$(fm_nav_prep_filled_source "$DATA/secondmates.md" "$ID"); then
+        echo "hint: a filled secondmate nav-prep is at $NAV_PREP; install it with bin/fm-prep-install.sh $ID" >&2
+      fi
       exit 1
     fi
   fi

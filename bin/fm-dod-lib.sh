@@ -26,11 +26,18 @@
 # bin/fm-brief.sh --prep scaffolds and bin/fm-spawn.sh gates a ship launch on.
 # The canonical section list lives here once so the writer and the validator
 # cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
+# fm_nav_prep_filled_source owns discovery of a filled secondmate
+# data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
+# spawn names that path when this home's data/<task-id>/prep.md is missing or
+# unfilled. The install helper's header owns flags and overwrite rules.
 # fm_brief_worker_role owns the ship/scout role scope. bin/fm-spawn.sh is its one
 # emitter, supplying it to every ship/scout launch brief and never to a
 # secondmate charter. Like fm_brief_intent_overlay it is a distinctly titled
 # launch section that states its own precedence for Firstmate tasks, so a brief
 # that authors its own role wording is superseded rather than duplicated.
+
+# shellcheck source=bin/fm-secondmate-registry-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-secondmate-registry-lib.sh"
 
 fm_brief_worker_role() {
   cat <<'EOF'
@@ -225,6 +232,46 @@ FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s wo
 # fm_prep_path <data-dir> <task-id>
 fm_prep_path() {
   printf '%s/%s/prep.md\n' "$1" "$2"
+}
+
+# fm_nav_prep_path <secondmate-home> <task-id>
+fm_nav_prep_path() {
+  printf '%s/data/nav-preps/%s.md\n' "$1" "$2"
+}
+
+# fm_prep_file_absolute <file>
+# Prints the physical path of an existing readable file.
+fm_prep_file_absolute() {
+  local file=$1 dir base
+  dir=$(CDPATH='' cd -- "$(dirname -- "$file")" && pwd -P) || return 1
+  base=$(basename -- "$file")
+  printf '%s/%s\n' "$dir" "$base"
+}
+
+# fm_nav_prep_filled_source <registry> <task-id>
+# Prints the first filled nav-prep path: each parseable home= in registry
+# order is tried at <home>/data/nav-preps/<task-id>.md. A missing, unreadable,
+# or unfilled candidate is skipped. Exit 1 when none pass the prep gate.
+fm_nav_prep_filled_source() {
+  local registry=$1 id=$2 line home candidate abs seen='|'
+  [ -n "$id" ] || return 1
+  [ -f "$registry" ] && [ ! -L "$registry" ] || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    secondmate_registry_parse_line "$line" || continue
+    home=$SECONDMATE_REGISTRY_HOME
+    case "$home" in /*) ;; *) continue ;; esac
+    candidate=$(fm_nav_prep_path "$home" "$id")
+    [ -f "$candidate" ] && [ -r "$candidate" ] || continue
+    abs=$(fm_prep_file_absolute "$candidate") || continue
+    case "$seen" in *"|$abs|"*) continue ;; esac
+    seen="${seen}${abs}|"
+    if fm_prep_unfilled_reason "$candidate" >/dev/null; then
+      continue
+    fi
+    printf '%s\n' "$abs"
+    return 0
+  done < "$registry"
+  return 1
 }
 
 # fm_prep_template <task-id> - the scaffold written to data/<task-id>/prep.md.
