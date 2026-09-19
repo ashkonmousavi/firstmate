@@ -1,0 +1,22 @@
+$ bin/fm-brief.sh --help | grep -A7 "A V4 destination (UI"
+  A V4 destination (UI wiring yes, reason names V4) must also answer every
+  traveling-layer item in section 3 as present, not-applicable-because-<named
+  kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and
+  a bare later are not answers. Its section 10 demo receipt must include the
+  kit screen beside the shipped screen at the same viewport, with Explain on
+  and Explain off. A deferred-to id is proven against this home's backlog at
+  ship spawn. Non-V4 and non-screen records are unchanged.
+  --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
+
+$ bin/fm-brief.sh kit-demo --prep  (sections 3 and 10 of the scaffold)
+scaffolded: /tmp/tmp.Co4a7TJkLU/kit-demo/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path. For a V4 destination, answer every traveling-layer item (explain, provenance, verdict, pills, gate-bar, readout, legend, meter, switches) as present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and a bare later are not answers. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+{UI_UX}
+
+## 4. Blast radius
+## 10. Demo receipt plan
+<!-- tier 2+. What the worker walks and records before validation. For a V4 destination the receipt includes the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off. -->
+{DEMO_RECEIPT}
+
+## 11. Definition of done

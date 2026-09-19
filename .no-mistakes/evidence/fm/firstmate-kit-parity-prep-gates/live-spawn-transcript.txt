@@ -1,0 +1,230 @@
+
+=================== SCENARIO: v4-exists-imported
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-exists-imported/home bin/fm-brief.sh kit-v4-exists-imported --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-exists-imported/home/data/kit-v4-exists-imported/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: exists, imported unchanged
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: present
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-exists-imported <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-exists-imported cannot ship without its preparation record: a V4 destination traveling-layer item explain answers exists in /tmp/kitdrive.I5Qn/v4-exists-imported/home/data/kit-v4-exists-imported/prep.md; only present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> are accepted; scaffold it with bin/fm-brief.sh kit-v4-exists-imported --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-bare-later
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-bare-later/home bin/fm-brief.sh kit-v4-bare-later --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-bare-later/home/data/kit-v4-bare-later/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: later
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: present
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-bare-later <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-bare-later cannot ship without its preparation record: a V4 destination traveling-layer item explain answers later in /tmp/kitdrive.I5Qn/v4-bare-later/home/data/kit-v4-bare-later/prep.md; only present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> are accepted; scaffold it with bin/fm-brief.sh kit-v4-bare-later --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-missing-item
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-missing-item/home bin/fm-brief.sh kit-v4-missing-item --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-missing-item/home/data/kit-v4-missing-item/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: present
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- switches: present
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-missing-item <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-missing-item cannot ship without its preparation record: a V4 destination requires traveling-layer item meter in ## 3. UI/UX answered present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> in /tmp/kitdrive.I5Qn/v4-missing-item/home/data/kit-v4-missing-item/prep.md; scaffold it with bin/fm-brief.sh kit-v4-missing-item --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-bare-not-applicable
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-bare-not-applicable/home bin/fm-brief.sh kit-v4-bare-not-applicable --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-bare-not-applicable/home/data/kit-v4-bare-not-applicable/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: not-applicable
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: present
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-bare-not-applicable <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-bare-not-applicable cannot ship without its preparation record: a V4 destination traveling-layer item explain answers not-applicable in /tmp/kitdrive.I5Qn/v4-bare-not-applicable/home/data/kit-v4-bare-not-applicable/prep.md; only present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> are accepted; scaffold it with bin/fm-brief.sh kit-v4-bare-not-applicable --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-deferred-absent
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-deferred-absent/home bin/fm-brief.sh kit-v4-deferred-absent --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-deferred-absent/home/data/kit-v4-deferred-absent/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: present
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: deferred-to-no-such-task
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-deferred-absent <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-deferred-absent cannot ship without its preparation record: a V4 destination defers a traveling-layer item to no-such-task, which is absent from this home's backlog; scaffold it with bin/fm-brief.sh kit-v4-deferred-absent --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-no-kit-demo
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-no-kit-demo/home bin/fm-brief.sh kit-v4-no-kit-demo --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-no-kit-demo/home/data/kit-v4-no-kit-demo/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: present
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: present
+
+## 10. Demo receipt plan
+Walk Profiles at 1280px and capture a screenshot.
+
+$ bin/fm-spawn.sh kit-v4-no-kit-demo <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-no-kit-demo cannot ship without its preparation record: a V4 destination ## 10. Demo receipt plan must include the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off, in /tmp/kitdrive.I5Qn/v4-no-kit-demo/home/data/kit-v4-no-kit-demo/prep.md; scaffold it with bin/fm-brief.sh kit-v4-no-kit-demo --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-demo-no-explain-off
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-demo-no-explain-off/home bin/fm-brief.sh kit-v4-demo-no-explain-off --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-demo-no-explain-off/home/data/kit-v4-demo-no-explain-off/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: present
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: present
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport with Explain on.
+
+$ bin/fm-spawn.sh kit-v4-demo-no-explain-off <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-demo-no-explain-off cannot ship without its preparation record: a V4 destination ## 10. Demo receipt plan must include the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off, in /tmp/kitdrive.I5Qn/v4-demo-no-explain-off/home/data/kit-v4-demo-no-explain-off/prep.md; scaffold it with bin/fm-brief.sh kit-v4-demo-no-explain-off --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-section3-na
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-section3-na/home bin/fm-brief.sh kit-v4-section3-na --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-section3-na/home/data/kit-v4-section3-na/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path. For a V4 destination, answer every traveling-layer item (explain, provenance, verdict, pills, gate-bar, readout, legend, meter, switches) as present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and a bare later are not answers. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+n/a: fixture.
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-section3-na <proj> claude --mode no-mistakes --yolo off
+error: task kit-v4-section3-na cannot ship without its preparation record: a V4 destination cannot answer ## 3. UI/UX with n/a in /tmp/kitdrive.I5Qn/v4-section3-na/home/data/kit-v4-section3-na/prep.md; scaffold it with bin/fm-brief.sh kit-v4-section3-na --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1  meta_written=no  reached_backend_window_create=no
+
+=================== SCENARIO: v4-complete
+$ FM_HOME=/tmp/kitdrive.I5Qn/v4-complete/home bin/fm-brief.sh kit-v4-complete --prep
+scaffolded: /tmp/kitdrive.I5Qn/v4-complete/home/data/kit-v4-complete/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+- explain: present
+- provenance: present
+- verdict: present
+- pills: present
+- gate-bar: present
+- readout: present
+- legend: not-applicable-because-kit-legend-only-on-instrument-screens
+- meter: present
+- switches: deferred-to-XAU-v4-traveling
+
+## 10. Demo receipt plan
+Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.
+
+$ bin/fm-spawn.sh kit-v4-complete <proj> claude --mode no-mistakes --yolo off
+exit=1  meta_written=no  reached_backend_window_create=yes
+
+=================== SCENARIO: non-v4-screen
+$ FM_HOME=/tmp/kitdrive.I5Qn/non-v4-screen/home bin/fm-brief.sh kit-non-v4-screen --prep
+scaffolded: /tmp/kitdrive.I5Qn/non-v4-screen/home/data/kit-non-v4-screen/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: yes, the settings form save button.
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path. For a V4 destination, answer every traveling-layer item (explain, provenance, verdict, pills, gate-bar, readout, legend, meter, switches) as present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and a bare later are not answers. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+n/a: fixture.
+
+## 10. Demo receipt plan
+<!-- tier 2+. What the worker walks and records before validation. For a V4 destination the receipt includes the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off. -->
+n/a: fixture.
+
+$ bin/fm-spawn.sh kit-non-v4-screen <proj> claude --mode no-mistakes --yolo off
+exit=1  meta_written=no  reached_backend_window_create=yes
+
+=================== SCENARIO: non-screen
+$ FM_HOME=/tmp/kitdrive.I5Qn/non-screen/home bin/fm-brief.sh kit-non-screen --prep
+scaffolded: /tmp/kitdrive.I5Qn/non-screen/home/data/kit-non-screen/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+--- prep.md: UI wiring / section 3 / section 10
+- UI wiring: no, internal refactor the user never meets.
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path. For a V4 destination, answer every traveling-layer item (explain, provenance, verdict, pills, gate-bar, readout, legend, meter, switches) as present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and a bare later are not answers. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+n/a: fixture.
+
+## 10. Demo receipt plan
+<!-- tier 2+. What the worker walks and records before validation. For a V4 destination the receipt includes the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off. -->
+n/a: fixture.
+
+$ bin/fm-spawn.sh kit-non-screen <proj> claude --mode no-mistakes --yolo off
+exit=1  meta_written=no  reached_backend_window_create=yes
