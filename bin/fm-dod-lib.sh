@@ -408,17 +408,20 @@ fm_prep_n_a_answer() {  # <body>
 fm_prep_traveling_verdict() {  # <body> <label>
   printf '%s\n' "$1" | awk -v label="$2" '
     {
-      lower = tolower($0)
-      sub(/^[[:space:]]+/, "", lower)
-      sub(/^[-*][[:space:]]+/, "", lower)
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/^[-*][[:space:]]+/, "", line)
       prefix = tolower(label) ":"
-      if (index(lower, prefix) != 1) next
-      rest = substr(lower, length(prefix) + 1)
+      if (index(tolower(line), prefix) != 1) next
+      rest = substr(line, length(prefix) + 1)
       sub(/^[[:space:]]+/, "", rest)
       if (rest == "") exit
       split(rest, tok, /[[:space:]]+/)
       gsub(/[.,;:)]+$/, "", tok[1])
-      print tok[1]
+      verdict = tok[1]
+      if (match(tolower(verdict), /^deferred-to-/)) verdict = "deferred-to-" substr(verdict, RLENGTH + 1)
+      else verdict = tolower(verdict)
+      print verdict
       exit
     }
   '

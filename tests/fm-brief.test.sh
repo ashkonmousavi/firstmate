@@ -1170,6 +1170,19 @@ test_v4_destination_prep_accepts_schema_and_real_deferral() {
   pass "prep gate: a V4 destination with present, not-applicable-because, and deferred-to a real id is accepted"
 }
 
+test_v4_destination_prep_keeps_deferred_id_case() {
+  local home prep reason status
+  home="$TMP_ROOT/kit-case"
+  mkdir -p "$home/data"
+  kit_seed_backlog "$home" XAU-12
+  prep=$(kit_v4_prep "$home" kit-case)
+  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body present XAU-12)"
+  kit_fill_section "$prep" "## 10. Demo receipt plan" "$(kit_demo_body)"
+  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
+  [ "$status" -eq 1 ] || fail "a deferred-to id with uppercase letters present in the backlog should pass (got: $reason)"
+  pass "prep gate: a deferred-to id keeps its case for the backlog proof"
+}
+
 test_v4_destination_prep_refuses_absent_deferral() {
   local home prep reason status
   home="$TMP_ROOT/kit-missing"
@@ -1255,6 +1268,7 @@ test_prep_help_lists_every_scaffolded_section
 test_prep_refuses_brief_flags
 test_v4_destination_prep_refuses_exists_imported_unchanged
 test_v4_destination_prep_accepts_schema_and_real_deferral
+test_v4_destination_prep_keeps_deferred_id_case
 test_v4_destination_prep_refuses_absent_deferral
 test_v4_destination_prep_requires_kit_side_by_side_receipt
 test_non_v4_and_non_screen_preps_are_unchanged
