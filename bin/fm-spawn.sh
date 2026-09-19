@@ -2319,7 +2319,11 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   # dispatched before this gate, into its own recorded endpoint.
   PREP_FILE=$(fm_prep_path "$DATA" "$ID")
   if [ "$KIND" = ship ] && [ "$RELAUNCH" -eq 0 ]; then
-    if PREP_REASON=$(fm_prep_unfilled_reason "$PREP_FILE"); then
+    PREP_BACKLOG_DATA=
+    if fm_backlog_transition_applies "$CONFIG" "$DATA" "$KIND"; then
+      PREP_BACKLOG_DATA=$DATA
+    fi
+    if PREP_REASON=$(fm_prep_unfilled_reason "$PREP_FILE" "$PREP_BACKLOG_DATA"); then
       echo "error: task $ID cannot ship without its preparation record: $PREP_REASON; scaffold it with bin/fm-brief.sh $ID --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')" >&2
       if NAV_PREP=$(fm_nav_prep_filled_source "$DATA/secondmates.md" "$ID"); then
         echo "hint: a filled secondmate nav-prep is at $NAV_PREP; install it with bin/fm-prep-install.sh $ID" >&2
