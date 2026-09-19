@@ -26,6 +26,12 @@
 # bin/fm-brief.sh --prep scaffolds and bin/fm-spawn.sh gates a ship launch on.
 # The canonical section list lives here once so the writer and the validator
 # cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
+# A V4 destination (UI wiring yes, and the reason names V4 as its own token)
+# additionally owes the traveling-layer answer schema in section 3 and the kit
+# side-by-side demo receipt in section 10; fm_prep_unfilled_reason is the one
+# gate. A deferred-to id is proven against the dispatching home's backlog only
+# when the caller passes that data directory (bin/fm-spawn.sh); discovery and
+# install keep syntax-only checks.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
 # data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
 # spawn names that path when this home's data/<task-id>/prep.md is missing or
@@ -218,16 +224,27 @@ FM_PREP_TIER_HEADING='## Tier'
 # reason. Rows without them are prose and are only checked for being answered.
 FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s words, and each Change box this task discharges, VERIFIED still open against origin/main with the command used.
 ## 2. Behaviour spec|BEHAVIOUR_SPEC|2|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
-## 3. UI/UX|UI_UX|2|START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path and say exists, must be created, or kit covers it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
+## 3. UI/UX|UI_UX|2|START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the V4 component or kit piece with its path. For a V4 destination, answer every traveling-layer item (__TRAVELING_LAYERS__) as present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and a bare later are not answers. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
 ## 4. Blast radius|BLAST_RADIUS|1|PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown.|gitnexus serena
 ## 5. Data and contracts|DATA_AND_CONTRACTS|2|Request and response shapes, versions, migrations.
 ## 6. Tests|TESTS|1|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
 ## 7. Records|RECORDS|2|Boxes to tick, verification records, log-book entries. By convention a lane that lands a component ahead of its consumer adds it to the project unwired-export allowlist, and the lane that wires it up removes it again.
 ## 8. Out of scope and follow-ups|OUT_OF_SCOPE|1|What this task deliberately leaves alone, and the follow-up work it creates.
 ## 9. Risks, dependencies, merge order|RISKS|2|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
-## 10. Demo receipt plan|DEMO_RECEIPT|2|What the worker walks and records before validation.
+## 10. Demo receipt plan|DEMO_RECEIPT|2|What the worker walks and records before validation. For a V4 destination the receipt includes the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off.
 ## 11. Definition of done|DEFINITION_OF_DONE|1|The done criteria, checked line by line against the intent above.
 ## 12. Size|SIZE|2|Files expected to change; more than about eight files means split the slice.'
+# label - traveling-layer roll-call owned here once so the scaffold guide and the
+# V4 destination gate cannot drift. Each item is one component-check line.
+FM_PREP_TRAVELING_LAYERS='explain
+provenance
+verdict
+pills
+gate-bar
+readout
+legend
+meter
+switches'
 
 # fm_prep_path <data-dir> <task-id>
 fm_prep_path() {
@@ -274,11 +291,19 @@ fm_nav_prep_filled_source() {
   return 1
 }
 
+# fm_prep_traveling_layer_list
+# Comma-separated traveling-layer labels from the one owner string, used by the
+# scaffold guide so it cannot drift from the gate.
+fm_prep_traveling_layer_list() {
+  printf '%s\n' "$FM_PREP_TRAVELING_LAYERS" | awk 'NF { if (n++) printf ", "; printf "%s", $0 }'
+}
+
 # fm_prep_template <task-id> - the scaffold written to data/<task-id>/prep.md.
 # The tier header comes first, because its three answers decide how much of the
 # rest this task owes.
 fm_prep_template() {
-  local id=$1 heading placeholder tier guide evidence
+  local id=$1 heading placeholder tier guide evidence layers
+  layers=$(fm_prep_traveling_layer_list)
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
   printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->\n'
@@ -286,17 +311,26 @@ fm_prep_template() {
   printf -- '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}\n'
   printf -- '- UI wiring: {UI_WIRING}\n'
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
-  printf '<!-- UI wiring answers `yes, <the V4 step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
+  printf '<!-- UI wiring answers `yes, <the V4 step and control the user meets>` or `no, <why the user never meets this change>`. A V4 destination answers yes and names that V4 step. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
   printf '\n'
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
   printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
   printf 'This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.\n'
   while IFS='|' read -r heading placeholder tier guide evidence; do
     [ -n "$heading" ] || continue
+    guide=${guide/__TRAVELING_LAYERS__/$layers}
     printf '\n%s\n<!-- tier %s+. %s -->\n{%s}\n' "$heading" "$tier" "$guide" "$placeholder"
   done <<EOF
 $FM_PREP_SECTIONS
 EOF
+}
+
+# fm_prep_ui_wiring_line <file> - raw text after the tier header's UI wiring
+# label, including leading space. Empty when the line is missing.
+fm_prep_ui_wiring_line() {  # <file>
+  fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | awk '
+    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+  '
 }
 
 # fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
@@ -326,9 +360,7 @@ fm_prep_answer() {  # <file> <Q1|Q2>
 # answer cannot be given without looking at the interface.
 fm_prep_ui_wiring() {  # <file>
   local file=$1 line verdict reason
-  line=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
-    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
-  ')
+  line=$(fm_prep_ui_wiring_line "$file")
   verdict=$(printf '%s' "$line" | sed 's/,.*//' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
   reason=$(printf '%s' "$line" | sed 's/^[^,]*,*//' | tr -d '[:space:].')
   case "$verdict" in
@@ -337,6 +369,83 @@ fm_prep_ui_wiring() {  # <file>
   esac
   [ -n "$reason" ] || { printf '\n'; return 0; }
   printf '%s\n' "$verdict"
+}
+
+# fm_prep_kit_destination <file>
+# True when this record is a V4 destination: UI wiring answers yes, and the
+# reason names V4 as its own token. Non-screen and non-V4 records are untouched.
+# Matching uses the unsquashed reason so "the V4 Profiles step" counts and
+# "v4destination" does not.
+fm_prep_kit_destination() {  # <file>
+  local line reason
+  [ "$(fm_prep_ui_wiring "$1")" = yes ] || return 1
+  line=$(fm_prep_ui_wiring_line "$1")
+  reason=$(printf '%s' "$line" | sed 's/^[^,]*,[[:space:]]*//')
+  printf '%s' "$reason" | tr '[:upper:]' '[:lower:]' | grep -Eq '(^|[^a-z0-9])v4([^a-z0-9]|$)'
+}
+
+# fm_prep_section_body <file> <heading>
+# Comment-stripped section body. Reuses the same single-line comment strip as
+# fm_prep_section_state so a guide cannot satisfy a later check by itself.
+fm_prep_section_body() {  # <file> <heading>
+  fm_brief_heading_body "$1" "$2" | sed 's/<!--.*-->//'
+}
+
+# fm_prep_n_a_answer <body>
+# True when the section's first non-empty line is an n/a decision with a reason.
+# Later n/a notes (accessibility, a sub-control) do not turn a filled roll-call
+# into a whole-section dismissal.
+fm_prep_n_a_answer() {  # <body>
+  printf '%s\n' "$1" | awk '
+    /^[[:space:]]*$/ { next }
+    { print; exit }
+  ' | tr '[:upper:]' '[:lower:]' | grep -q '^[[:space:]]*n/a:[[:space:]]*[^[:space:]]'
+}
+
+# fm_prep_traveling_verdict <body> <label>
+# Prints the first token after `<label>:` on a component-check line, or empty
+# when that label is absent.
+fm_prep_traveling_verdict() {  # <body> <label>
+  printf '%s\n' "$1" | awk -v label="$2" '
+    {
+      lower = tolower($0)
+      sub(/^[[:space:]]+/, "", lower)
+      sub(/^[-*][[:space:]]+/, "", lower)
+      prefix = tolower(label) ":"
+      if (index(lower, prefix) != 1) next
+      rest = substr(lower, length(prefix) + 1)
+      sub(/^[[:space:]]+/, "", rest)
+      if (rest == "") exit
+      split(rest, tok, /[[:space:]]+/)
+      gsub(/[.,;:)]+$/, "", tok[1])
+      print tok[1]
+      exit
+    }
+  '
+}
+
+# fm_prep_traveling_id <verdict>
+# Prints the task id in a deferred-to-<id> verdict, or empty.
+fm_prep_traveling_id() {  # <verdict>
+  local verdict=$1
+  case "$verdict" in
+    deferred-to-?*) printf '%s\n' "${verdict#deferred-to-}" ;;
+  esac
+}
+
+# fm_prep_demo_receipt_ok <body>
+# True when a V4 destination demo-receipt body plants the kit side-by-side
+# phrases the scaffold asks for. Proves the author wrote the plan, not that
+# the receipt is photographically correct.
+fm_prep_demo_receipt_ok() {  # <body>
+  local lowered
+  lowered=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  printf '%s' "$lowered" | grep -q 'kit' || return 1
+  printf '%s' "$lowered" | grep -Eq 'side-by-side|side by side|beside' || return 1
+  printf '%s' "$lowered" | grep -q 'same viewport' || return 1
+  printf '%s' "$lowered" | grep -q 'explain on' || return 1
+  printf '%s' "$lowered" | grep -q 'explain off' || return 1
+  return 0
 }
 
 # fm_prep_tier <file> - the declared tier (0, 1 or 2), or empty when the header
@@ -394,13 +503,19 @@ fm_prep_evidence_ok() {  # <file> <heading> <token>...
   return 1
 }
 
-# fm_prep_unfilled_reason <file>
+# fm_prep_unfilled_reason <file> [<resolved-data-dir>]
 # Prints the first refusal reason and exits 0; exits 1 when the record answers
 # everything its declared tier requires. A missing file and an unreadable tier
 # header are refusals of their own; a section below the declared tier is not
 # checked at all, so omitting it entirely is legitimate rather than a hole.
-fm_prep_unfilled_reason() {  # <file>
-  local file=$1 tier heading placeholder required guide evidence state
+# The optional data directory is the dispatching home's data dir; when a V4
+# destination defers a traveling-layer item, that id is proven there with
+# fm_backlog_row_probe. Discovery and install omit it and check syntax only.
+# Passing a data directory without sourcing the backlog stack is a programming
+# error, not a skip.
+fm_prep_unfilled_reason() {  # <file> [<resolved-data-dir>]
+  local file=$1 data_dir=${2-} tier heading placeholder required guide evidence state
+  local body label verdict deferred_ids deferred_id rest
   if [ ! -f "$file" ] || [ ! -r "$file" ]; then
     printf 'no preparation record at %s\n' "$file"
     return 0
@@ -442,6 +557,73 @@ fm_prep_unfilled_reason() {  # <file>
   done <<EOF
 $FM_PREP_SECTIONS
 EOF
+  fm_prep_kit_destination "$file" || return 1
+  body=$(fm_prep_section_body "$file" '## 3. UI/UX')
+  if fm_prep_n_a_answer "$body"; then
+    printf 'a V4 destination cannot answer %s with n/a in %s\n' '## 3. UI/UX' "$file"
+    return 0
+  fi
+  deferred_ids='|'
+  while IFS= read -r label || [ -n "$label" ]; do
+    [ -n "$label" ] || continue
+    verdict=$(fm_prep_traveling_verdict "$body" "$label")
+    if [ -z "$verdict" ]; then
+      printf 'a V4 destination requires traveling-layer item %s in %s answered present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> in %s\n' \
+        "$label" '## 3. UI/UX' "$file"
+      return 0
+    fi
+    case "$verdict" in
+      present) ;;
+      not-applicable-because-?*) ;;
+      deferred-to-?*)
+        deferred_id=$(fm_prep_traveling_id "$verdict")
+        case "$deferred_ids" in
+          *"|$deferred_id|"*) ;;
+          *) deferred_ids="${deferred_ids}${deferred_id}|" ;;
+        esac
+        ;;
+      *)
+        printf 'a V4 destination traveling-layer item %s answers %s in %s; only present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> are accepted\n' \
+          "$label" "$verdict" "$file"
+        return 0
+        ;;
+    esac
+  done <<EOF
+$FM_PREP_TRAVELING_LAYERS
+EOF
+  if [ -n "$data_dir" ] && [ "$deferred_ids" != '|' ]; then
+    if ! type fm_backlog_row_probe >/dev/null 2>&1; then
+      printf 'a V4 destination deferred-to id cannot be checked because fm_backlog_row_probe is not loaded\n'
+      return 0
+    fi
+    rest=${deferred_ids#|}
+    while [ -n "$rest" ]; do
+      deferred_id=${rest%%|*}
+      rest=${rest#*|}
+      [ -n "$deferred_id" ] || continue
+      if fm_backlog_row_probe "$data_dir" "$deferred_id"; then
+        continue
+      fi
+      if [ "${FM_BACKLOG_ROW_RESULT:-}" = not_found ]; then
+        printf 'a V4 destination defers a traveling-layer item to %s, which is absent from this home'\''s backlog\n' \
+          "$deferred_id"
+        return 0
+      fi
+      printf 'a V4 destination deferred-to id %s could not be read from this home'\''s backlog (%s)\n' \
+        "$deferred_id" "${FM_BACKLOG_ROW_ERROR:-unreadable}"
+      return 0
+    done
+  fi
+  body=$(fm_prep_section_body "$file" '## 10. Demo receipt plan')
+  if fm_prep_n_a_answer "$body"; then
+    printf 'a V4 destination cannot answer %s with n/a in %s\n' '## 10. Demo receipt plan' "$file"
+    return 0
+  fi
+  if ! fm_prep_demo_receipt_ok "$body"; then
+    printf 'a V4 destination %s must include the kit screen beside the shipped screen at the same viewport, with Explain on and Explain off, in %s\n' \
+      '## 10. Demo receipt plan' "$file"
+    return 0
+  fi
   return 1
 }
 
