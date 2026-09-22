@@ -1,10 +1,10 @@
 ---
 name: quota-array-dispatch
 description: >-
-  Agent-only decision procedure for resolving a matched crew-dispatch profile
-  array from quota-axi's default TOON, ranking by spendPriority after three
-  orthogonal gates.
-  Load when a dispatch rule or default resolves to more than one profile candidate.
+  Agent-only decision procedure for an explicitly quota-balanced crew-dispatch
+  rule or default, using quota-axi's default TOON and ranking by spendPriority
+  after three orthogonal gates.
+  Load only when select is quota-balanced.
 user-invocable: false
 metadata:
   internal: true
@@ -12,12 +12,12 @@ metadata:
 
 # quota-array-dispatch
 
-This skill is the single owner of the completion-aware profile-array selection procedure.
-`AGENTS.md` section 4 owns the always-loaded intake boundary, load trigger, malformed-config refusal, every-candidate accounting, and strongest-reasoning/tie safety rules.
+This skill is the single owner of the completion-aware selection procedure for explicit `quota-balanced` rules and defaults only.
+`AGENTS.md` section 4 owns the always-loaded intake boundary and load trigger; `docs/configuration.md` owns selection-mode and disabled-profile semantics.
 `harness-adapters` owns harness verification, model/provider discovery, and effort fallback.
 `quota-axi` remains data-only: it publishes `spendPriority` as a comparable scalar and never recommends, selects, ranks, or infers a route.
 Do not add a daemon, opaque composite score, routing wrapper, hard-coded model-specific policy, or producer-side route recommendation.
-Deterministic shell owns only schema, configuration, and version validation plus concrete spawn safeguards; every model-to-provider, provider-to-credential, and quota-applicability relation is yours to establish transparently and to show your evidence for.
+Within this quota-balanced procedure, deterministic shell owns only schema, configuration, and version validation plus concrete spawn safeguards; every model-to-provider, provider-to-credential, and quota-applicability relation is yours to establish transparently and to show your evidence for.
 
 ## Worker-side quota helper
 
@@ -60,6 +60,8 @@ Apply the three cheap orthogonal gates first.
 It cannot override a hard-gate failure, and it is never hidden inside a new composite score.
 
 ### 1. Eligibility
+
+Exclude disabled profiles under `docs/configuration.md` before applying these gates.
 
 Deterministic shell must never map a model to a provider, a provider to a credential store, or a name prefix to a family.
 You establish those relations yourself, in the open, from the candidate's own authoritative catalog (`harness-adapters` owns the per-harness discovery surface) plus the one intake snapshot.

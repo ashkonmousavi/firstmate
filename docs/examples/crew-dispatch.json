@@ -12,11 +12,13 @@
     },
     {
       "when": "The task is a big or ambiguous multi-file feature, a risky refactor, or work that requires holding many moving parts in mind.",
+      "select": "ordered",
       "use": [
+        { "harness": "cursor", "model": "auto", "off": true },
         { "harness": "claude", "model": "claude-sonnet-5", "effort": "high" },
         { "harness": "codex", "model": "gpt-5.5", "effort": "high" }
       ],
-      "why": "Use a strong coding profile for big, ambiguous work; resolve the alternatives through quota-array-dispatch."
+      "why": "Try the enabled profiles in list order; retain the disabled candidate for later use."
     }
   ],
   "default": [

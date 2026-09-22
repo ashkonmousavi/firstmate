@@ -410,24 +410,26 @@ Every claude launch's inline `--settings` JSON also carries `"attribution":{"com
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
-The shell scripts do not match those rules; firstmate chooses the best matching rule with judgment, resolves its profile object or array under the operating contract in `AGENTS.md` section 4 and `quota-array-dispatch`, and passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+The shell scripts do not match those rules; firstmate chooses the best matching rule with judgment, resolves its profile object or array under the operating contract in `AGENTS.md` section 4, and passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
 When the file exists, `fm-spawn.sh` enforces that contract by refusing crewmate and scout spawns that lack an explicit harness (`--harness`, a positional adapter, or a raw launch command).
 Batch spawns satisfy the same requirement with a shared `--harness`.
 Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
 This section is the single owner of the canonical schema and its per-field semantics.
-`AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the completion-aware profile-array selection procedure.
+`AGENTS.md` section 4 owns the always-loaded dispatch intake boundary, and `quota-array-dispatch` owns the explicit quota-balanced selection procedure.
 
 ```json
 {
   "rules": [
     {
       "when": "<natural-language condition describing a kind of task>",
+      "select": "ordered",
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>" }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "off": false }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
   ],
+  "select": "ordered",
   "default": [
     { "harness": "<adapter>", "model": "<optional model>", "effort": "<optional effort>" }
   ]
@@ -440,14 +442,25 @@ The single-object form stays fully backward-compatible, and every profile needs 
 Profile `model` and `effort` fields and rule `why` are optional.
 `ultra` is native-only: the model-aware validation contract and launch mapping are owned by `bin/fm-harness.sh validate-native-effort` and `bin/fm-spawn.sh` respectively.
 An omitted model or effort means the selected harness uses its own default for that axis.
-Every profile array is an implicit quota-aware choice resolved through `quota-array-dispatch`.
-If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path before falling back to `config/crew-harness`.
+Optional rule `select` accepts `ordered` or `quota-balanced`; absent means `ordered`.
+Optional top-level `select` governs only `default`, with the same values and default; it does not change a rule's selection mode.
+Optional profile `off` must be a boolean and defaults to false; `off: true` excludes that profile in either selection mode.
+Ordered selection walks the configured list and picks the first available candidate, preserving its harness, model, and effort.
+A candidate is unavailable only when disabled or when firstmate supplies concrete evidence of a launch failure, a known block, or quota-axi reporting its applicable provider `exhausted_now` with `established` confidence.
+Lower headroom, `projected_exhaustion`, or `early` confidence never skip an ordered candidate.
+Firstmate establishes which provider and account evidence applies; the resolver neither discovers credentials nor infers provider mappings.
+Explicit `quota-balanced` selection retains the procedure owned by `quota-array-dispatch`.
+If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path; the static crewmate harness is the fallback only when no configured rule or default applies.
+If every candidate in the selected rule or default is unavailable, stop and report every skip instead of silently trying another rule or the static harness.
+`bin/fm-dispatch-resolve.sh` is the stateless resolver for an already-selected rule index or `default`; its header and `--help` own arguments, availability-fact format, output, and exit codes.
+It prints the chosen profile and each prior skip reason, or an explicit quota-balanced handoff without choosing by order.
+`tests/fm-dispatch-resolve.test.sh` verifies these paths through its public command interface.
 Except for `ultra`, which refuses unsupported profiles under the native-effort contract above, an effort value the chosen harness does not accept is recorded as `effort=` in task meta for traceability but omitted from the launch flags.
 Bootstrap reports unsupported harness/model/effort combinations as a `CREW_DISPATCH` diagnostic when they are visible in the file.
 See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a starting point to copy into local `config/crew-dispatch.json`.
 When the file exists, bootstrap validates it with `jq`.
 Valid files stay silent by default; with `FM_BOOTSTRAP_VERBOSE_FACTS=1`, bootstrap emits `BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json`, one `BOOTSTRAP_INFO:` fact per rule, and one fact for the optional default profile set.
-Malformed JSON, an empty or malformed rule/default array, an unverified harness, or an effort value unsupported by that harness is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`; missing `jq` is reported through the normal `MISSING: jq` install-consent flow.
+Malformed JSON, an empty or malformed rule/default array, an unknown selection mode, a non-boolean `off`, an unverified harness, or an effort value unsupported by that harness is reported as `CREW_DISPATCH: invalid config/crew-dispatch.json - ...`; missing `jq` is reported through the normal `MISSING: jq` install-consent flow.
 While the file remains present, no crewmate or scout spawn may proceed without an explicit resolved harness; malformed configuration must be reported and corrected rather than selected around.
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
