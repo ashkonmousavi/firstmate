@@ -58,7 +58,7 @@ esac
 rule=$(printf '%s\n' "$config" | jq -ce --arg s "$selector" '
   .[0] |
   if $s == "default" then
-    if has("default") then {use:.default, select:(.select // "ordered")} else empty end
+    if has("default") then {use:.default} else empty end
   else (.rules // []) | .[$s|tonumber] | select(. != null) end
   | .use |= (if type == "array" then . else [.] end)
 ' 2>/dev/null) || refuse "selector $selector names no rule"

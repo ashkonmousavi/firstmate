@@ -429,7 +429,6 @@ This section is the single owner of the canonical schema and its per-field seman
       "why": "<optional rationale that helps firstmate choose>"
     }
   ],
-  "select": "ordered",
   "default": [
     { "harness": "<adapter>", "model": "<optional model>", "effort": "<optional effort>" }
   ]
@@ -443,7 +442,6 @@ Profile `model` and `effort` fields and rule `why` are optional.
 `ultra` is native-only: the model-aware validation contract and launch mapping are owned by `bin/fm-harness.sh validate-native-effort` and `bin/fm-spawn.sh` respectively.
 An omitted model or effort means the selected harness uses its own default for that axis.
 Optional rule `select` accepts `ordered` or `quota-balanced`; absent means `ordered`.
-Optional top-level `select` governs only `default`, with the same values and default; it does not change a rule's selection mode.
 Optional profile `off` must be a boolean and defaults to false; `off: true` excludes that profile in either selection mode.
 Ordered selection walks the configured list and picks the first available candidate, preserving its harness, model, and effort.
 A candidate is unavailable only when disabled or when firstmate supplies concrete evidence of a launch failure, a known block, or quota-axi reporting its applicable provider `exhausted_now` with `established` confidence.

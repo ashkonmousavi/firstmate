@@ -1120,12 +1120,10 @@ test_crew_dispatch_validation() {
         printf '%s\n' "$out" | grep -Fx "$expect" >/dev/null || fail "$label: missing '$expect' (got: $out)" ;;
     esac
   done <<'ROWS'
-ordered with off is accepted^{"rules":[{"when":"ordered work","select":"ordered","use":[{"harness":"cursor","off":true},{"harness":"codex","off":false}]}],"select":"ordered","default":{"harness":"claude","off":false}}^empty^
+ordered with off is accepted^{"rules":[{"when":"ordered work","select":"ordered","use":[{"harness":"cursor","off":true},{"harness":"codex","off":false}]}],"default":{"harness":"claude","off":false}}^empty^
 non-boolean use off is refused^{"rules":[{"when":"work","use":{"harness":"codex","off":"yes"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - use profile off must be a boolean
 non-boolean default off is refused^{"default":{"harness":"codex","off":null}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - default profile off must be a boolean
 unknown fastest selection is refused^{"rules":[{"when":"work","select":"fastest","use":{"harness":"codex"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - unknown select: fastest
-quota-balanced default is accepted^{"select":"quota-balanced","default":[{"harness":"codex"},{"harness":"claude"}]}^empty^
-unknown default selection is refused^{"select":"fastest","default":{"harness":"codex"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - unknown select: fastest
 malformed dispatch config is flagged^{"rules":[^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - malformed JSON
 unverified dispatch harness is flagged^{"rules":[{"when":"anything","use":{"harness":"spaceship"}}],"default":{"harness":"codex"}}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - unverified harness: spaceship
 unsupported codex max effort is flagged^{"rules":[{"when":"big feature","use":{"harness":"codex","model":"gpt-5","effort":"max"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - invalid effort: codex:max

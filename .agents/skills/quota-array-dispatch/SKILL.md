@@ -2,7 +2,7 @@
 name: quota-array-dispatch
 description: >-
   Agent-only decision procedure for an explicitly quota-balanced crew-dispatch
-  rule or default, using quota-axi's default TOON and ranking by spendPriority
+  rule, using quota-axi's default TOON and ranking by spendPriority
   after three orthogonal gates.
   Load only when select is quota-balanced.
 user-invocable: false
@@ -12,7 +12,7 @@ metadata:
 
 # quota-array-dispatch
 
-This skill is the single owner of the completion-aware selection procedure for explicit `quota-balanced` rules and defaults only.
+This skill is the single owner of the completion-aware selection procedure for explicit `quota-balanced` rules only.
 `AGENTS.md` section 4 owns the always-loaded intake boundary and load trigger; `docs/configuration.md` owns selection-mode and disabled-profile semantics.
 `harness-adapters` owns harness verification, model/provider discovery, and effort fallback.
 `quota-axi` remains data-only: it publishes `spendPriority` as a comparable scalar and never recommends, selects, ranks, or infers a route.

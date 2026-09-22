@@ -224,7 +224,7 @@ Missing model-level quota, a missing authentication source, unmeasurable headroo
 Only concrete contradictory evidence blocks a candidate, such as an authoritative catalog proving the model unsupported or proof that the credential selected for that surface is unusable; never infer a credential store, provider family, or quota mapping from a harness, model, or source name, and never launch another harness's CLI to judge a candidate.
 Preserve malformed profile configuration as an actionable error rather than selecting around it.
 `quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
-Load `quota-array-dispatch` only for an explicit `quota-balanced` rule or default; that skill owns its TOON-first spendPriority procedure, every-candidate accounting, strongest-reasoning protection, and tie escalation.
+Load `quota-array-dispatch` only for an explicit `quota-balanced` rule; that skill owns its TOON-first spendPriority procedure, every-candidate accounting, strongest-reasoning protection, and tie escalation.
 The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
 Do not add model-specific versions of that policy.
 
@@ -579,7 +579,7 @@ These skills are not captain-invocable; load them only at their precise triggers
 - `research-first-decisions` - load before selecting a tool, library, framework, service, vendor, or approach from candidates, and before recording such a selection as decided; also load before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage, where its Context7 version check is mandatory whether or not a candidate is being chosen.
 - `wayfinding` - load before scoping work larger than one task, such as a stage, a release, a migration, or a campaign of related changes; before dispatching a task whose backlog dependency names a stage, a release, or a final acceptance; when work is blocked only at its final step or the queue looks fully gated; and whenever the ready frontier lists only umbrellas or nothing while holds still exist.
 - `ask-user-authority` - load before deciding any ask-user finding.
-- `quota-array-dispatch` - load before resolving an explicitly `quota-balanced` crew-dispatch rule or default.
+- `quota-array-dispatch` - load before resolving an explicitly `quota-balanced` crew-dispatch rule.
 - `harness-adapters` - load before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter.
 - `firstmate-orca` - load before switching to Orca, spawning or supervising Orca-backed work, smoke-testing Orca backend behavior, debugging Orca task state, or reconciling Orca-backed task metadata.
 - `project-management` - load before adding, creating, removing, or initializing a project.

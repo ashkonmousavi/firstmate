@@ -73,16 +73,13 @@ unknown unknown 0
 ROWS
 pass 'headroom, spendPriority, projection, and early confidence do not reorder'
 
-for selector in 0 default; do
-  jq --arg s "$selector" 'if $s == "default" then .select = "quota-balanced" else .rules[0].select = "quota-balanced" end' "$CONFIG" > "$LAB/quota.json"
-  out=$("$RESOLVER" "$LAB/quota.json" "$selector") || fail 'quota handoff'
-  assert_contains "$out" 'selection: quota-balanced; use quota-array-dispatch' 'quota handoff'
-  assert_not_contains "$out" 'selected[' 'quota must not resolve by order'
-done
-# The top-level selector applies only to default, not to individual rules.
-out=$("$RESOLVER" "$LAB/quota.json" 0)
-assert_contains "$out" 'selected[0]:' 'default selector leaked into rule'
-pass 'explicit quota-balanced remains a handoff for rules and default'
+jq '.rules[0].select = "quota-balanced"' "$CONFIG" > "$LAB/quota.json"
+out=$("$RESOLVER" "$LAB/quota.json" 0) || fail 'quota handoff'
+assert_contains "$out" 'selection: quota-balanced; use quota-array-dispatch' 'quota handoff'
+assert_not_contains "$out" 'selected[' 'quota must not resolve by order'
+out=$("$RESOLVER" "$LAB/quota.json" default)
+assert_contains "$out" 'selected[0]: {"harness":"claude"' 'default resolves in list order'
+pass 'explicit quota-balanced rule is a handoff; default stays ordered'
 
 printf '%s\n' '{"default":{"harness":"codex","off":false}}' > "$LAB/single.json"
 out=$("$RESOLVER" "$LAB/single.json" default)
@@ -107,8 +104,7 @@ done <<'ROWS'
 {"default":{"harness":"codex","off":null}}^off must be a boolean
 {"default":{"harness":"spaceship"}}^unverified harness
 {"default":{"harness":"codex","effort":"max"}}^invalid effort
-{"select":"fastest","default":{"harness":"codex"}}^unknown select
-{"select":false,"default":{"harness":"codex"}}^select must be a non-empty string
+{"rules":[{"when":"work","select":false,"use":{"harness":"codex"}}],"default":{"harness":"claude"}}^select must be a non-empty string
 {"rules":[{"when":"work","select":"fastest","use":{"harness":"codex"}}],"default":{"harness":"claude"}}^unknown select
 ROWS
 for selector in 99 -1 1.5 00 planning; do

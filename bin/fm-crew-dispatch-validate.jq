@@ -27,7 +27,7 @@ def configured_profiles:
 def malformed_optional_fields($items):
   ($items | any(has("model") and (((.model | type) != "string") or (.model | length) == 0)))
   or ($items | any(has("effort") and (((.effort | type) != "string") or (.effort | length) == 0)));
-def selections: [(.rules // [])[]?, .] | map(select(has("select")));
+def selections: [(.rules // [])[]? | select(has("select"))];
 def bad_efforts:
   configured_profiles
   | map({h: .harness, m: .model, e: .effort})

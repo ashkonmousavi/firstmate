@@ -1132,7 +1132,7 @@ crew_dispatch_validate() {
       end;
     (["BOOTSTRAP_INFO: crew dispatch active config/crew-dispatch.json"]
       + [(.rules // [])[]? | "BOOTSTRAP_INFO: crew dispatch rule: " + (.when | tostring) + " -> " + profile_set(.use; .select?)]
-      + (if has("default") then ["BOOTSTRAP_INFO: crew dispatch default: " + profile_set(.default; .select?)] else [] end))
+      + (if has("default") then ["BOOTSTRAP_INFO: crew dispatch default: " + profile_set(.default; null)] else [] end))
     | .[]
   ' "$file"
   fi
