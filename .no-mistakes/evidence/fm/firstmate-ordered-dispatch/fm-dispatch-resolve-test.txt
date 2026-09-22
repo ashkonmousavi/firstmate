@@ -1,0 +1,8 @@
+$ bash tests/fm-dispatch-resolve.test.sh
+ok - each rule and default preserve order, explain skips, and stop when exhausted
+ok - headroom, spendPriority, projection, and early confidence do not reorder
+ok - explicit quota-balanced rule is a handoff; default stays ordered
+ok - single profiles obey availability
+ok - schema and selector refusals are actionable
+ok - invalid availability facts fail closed
+[exit 0]

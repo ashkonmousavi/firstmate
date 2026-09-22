@@ -1,0 +1,4 @@
+$ tests/fm-bootstrap.test.sh (crew-dispatch cases only)
+ok - bootstrap surfaces active crew-dispatch rules only as verbose BOOTSTRAP_INFO
+ok - bootstrap validates crew-dispatch.json and reports malformed or unverified configs
+[exit 0]

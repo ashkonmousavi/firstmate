@@ -1,0 +1,94 @@
+== config ==
+{"rules":[
+ {"when":"big feature","use":[{"harness":"claude","model":"claude-opus-5-5","effort":"high"},{"harness":"codex","model":"gpt-6-astra","effort":"xhigh"}]},
+ {"when":"review","use":[{"harness":"codex","model":"gpt-6-astra","effort":"high"},{"harness":"claude","model":"claude-fable-5-1","effort":"high"}]},
+ {"when":"dormant quota","select":"quota-balanced","use":[{"harness":"claude"},{"harness":"codex"}]}
+],
+ "select":"quota-balanced",
+ "default":[{"harness":"grok","model":"grok-4.7","effort":"high"},{"harness":"claude","model":"claude-opus-5-5","effort":"high"}]}
+
+== S1: list order decides (rule 0 claude first, rule 1 codex first) ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 0
+selection: ordered
+selected[0]: {"harness":"claude","model":"claude-opus-5-5","effort":"high"}
+[exit 0]
+
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 1
+selection: ordered
+selected[0]: {"harness":"codex","model":"gpt-6-astra","effort":"high"}
+[exit 0]
+
+== S2: quota headroom favouring second candidate does NOT reorder ==
+[{"candidate":0,"kind":"quota","provider":"anthropic","runway":"projected_exhaustion","confidence":"established","effectivePercentRemaining":3,"spendPriority":-100},{"candidate":1,"kind":"quota","provider":"openai","runway":"through_reset","confidence":"established","effectivePercentRemaining":97,"spendPriority":100}]
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 0 --facts /tmp/tmp.IZZWonymli/low.json
+selection: ordered
+selected[0]: {"harness":"claude","model":"claude-opus-5-5","effort":"high"}
+[exit 0]
+
+== S3: concrete unavailability falls to next in order, with reason ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 0 --facts /tmp/tmp.IZZWonymli/lf.json
+selection: ordered
+skipped[0]: launch_failed: claude auth expired; profile={"harness":"claude","model":"claude-opus-5-5","effort":"high"}
+selected[1]: {"harness":"codex","model":"gpt-6-astra","effort":"xhigh"}
+[exit 0]
+
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 0 --facts /tmp/tmp.IZZWonymli/ex.json
+selection: ordered
+skipped[0]: quota: anthropic exhausted_now (established); profile={"harness":"claude","model":"claude-opus-5-5","effort":"high"}
+selected[1]: {"harness":"codex","model":"gpt-6-astra","effort":"xhigh"}
+[exit 0]
+
+== S4: all unavailable stops, no fall-through to another rule/default ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 0 --facts /tmp/tmp.IZZWonymli/all.json
+selection: ordered
+skipped[0]: blocked: account suspended; profile={"harness":"claude","model":"claude-opus-5-5","effort":"high"}
+skipped[1]: launch_failed: codex crashed; profile={"harness":"codex","model":"gpt-6-astra","effort":"xhigh"}
+error: all candidates unavailable
+[exit 1]
+
+== S5: quota selection kept but dormant: only explicit per-rule opt-in hands off ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 2
+selection: quota-balanced; use quota-array-dispatch
+[exit 0]
+
+== S6: top-level select ignored; default always resolves in list order ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json default
+selection: ordered
+selected[0]: {"harness":"grok","model":"grok-4.7","effort":"high"}
+[exit 0]
+
+== S7: off flag skips candidate ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/off.json 0
+selection: ordered
+skipped[0]: off=true; profile={"harness":"claude","model":"claude-opus-5-5","effort":"high","off":true}
+selected[1]: {"harness":"codex","model":"gpt-6-astra","effort":"xhigh"}
+[exit 0]
+
+== S8: fail-closed on bad input ==
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/bad.json 0
+error: config: unknown select: fastest
+[exit 2]
+
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 0 --facts /tmp/tmp.IZZWonymli/badf.json
+error: facts require an existing candidate index and a concrete launch_failed, blocked, or valid quota fact
+[exit 2]
+
+$ fm-dispatch-resolve.sh /tmp/tmp.IZZWonymli/crew.json 7
+error: selector 7 names no rule
+[exit 2]
+
+== S9: shipped example config resolves in order with off candidate skipped ==
+$ fm-dispatch-resolve.sh docs/examples/crew-dispatch.json 1
+selection: ordered
+selected[0]: {"harness":"claude","model":"haiku","effort":"low"}
+[exit 0]
+
+$ fm-dispatch-resolve.sh docs/examples/crew-dispatch.json default
+selection: ordered
+selected[0]: {"harness":"codex","model":"gpt-5.5","effort":"medium"}
+[exit 0]
+
+$ fm-dispatch-resolve.sh docs/examples/crew-dispatch.json 2
+selection: ordered
+skipped[0]: off=true; profile={"harness":"cursor","model":"auto","off":true}
+selected[1]: {"harness":"claude","model":"claude-sonnet-5","effort":"high"}
