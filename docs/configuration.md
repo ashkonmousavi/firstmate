@@ -367,7 +367,7 @@ Firstmate shallow-merges the object into the inline `--settings` JSON each launc
 When the file is absent, the Claude launch is byte-for-byte the same as it was before the file existed.
 A file that is not exactly one JSON object (invalid JSON, an array or other value, several values, or an empty file), or an unreadable file, refuses every spawn and relaunch from that home, whichever harness it would launch, before any endpoint, worktree, or task record exists, with one error line naming the file; Firstmate never launches a worker without the settings the file asks for.
 `bin/fm-spawn.sh` reads the file on every spawn and relaunch, so a change takes effect at the next launch without a restart.
-The file is not inherited into secondmate homes: each home, including each secondmate home, reads only its own copy.
+The file is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract, the same way `config/claude-permission-mode` is, so a secondmate's own Claude crewmates launch with the same settings.
 The captain's global `~/.claude/settings.json` and `~/.claude.json` are never changed by this mechanism.
 
 On Claude Code 2.1.281, two keys switch off an add-on for the launched worker only, and a live probe confirmed that neither server process started while the others still did:

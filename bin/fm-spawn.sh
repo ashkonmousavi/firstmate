@@ -284,8 +284,9 @@
 #   attribution) always win, so the file can never turn either back on. Absent,
 #   the launch is byte-identical to one without it. Anything other than exactly
 #   one JSON object, or an unreadable file, refuses the spawn before any
-#   endpoint, worktree, or record exists. Read on every spawn and relaunch; NOT
-#   inherited into secondmate homes. docs/configuration.md owns the schema.
+#   endpoint, worktree, or record exists. Read on every spawn and relaunch, and
+#   inherited into secondmate homes (bin/fm-config-inherit-lib.sh).
+#   docs/configuration.md owns the schema.
 #   Launch templates live in launch_template() below; placeholders replaced before launch:
 #     __BRIEF__    absolute path to data/<task-id>/brief.md
 #     __CLAUDEPERMFLAG__ the claude permission flag selected by config/claude-permission-mode
