@@ -2236,12 +2236,14 @@ SH
 }
 
 test_board_later_defers_while_done_and_release_keep_their_modes() {
-  local home sid stub out show snap
+  local home sid stub out show snap reason_before
   home=$(make_home board-later)
   sid=lavish-b0a4d0000000f1e3
   fm_test_track_procevent_home "$home" "$home/procevent-claims"
   run_captain "$home" hold sample-later-choice --title "Revisit sample choice" \
-    --reason "choice pending" --repo sample >/dev/null || fail "could not hold later choice"
+    --reason "approve sample merge after QA?" --repo sample >/dev/null || fail "could not hold later choice"
+  reason_before=$(tasks_in "$home" show sample-later-choice --full | sed -n 's/^  hold_reason: //p')
+  [ -n "$reason_before" ] || fail "the later choice has no hold reason before deferral"
   run_captain "$home" hold sample-done-choice --title "Finish sample choice" \
     --reason "choice pending" --repo sample >/dev/null || fail "could not hold done choice"
   run_captain "$home" hold sample-release-choice --title "Start sample work" \
@@ -2272,6 +2274,11 @@ SH
   assert_contains "$show" "state: queued" "later closed the captain call"
   assert_contains "$show" "hold_kind: captain" "later released the captain hold"
   assert_contains "$show" "hold_until: 2026-12-01" "later lost its deferral date"
+  [ "$(printf '%s\n' "$show" | sed -n 's/^  hold_reason: //p')" = "$reason_before" ] \
+    || fail "later replaced the pending question with other text: $show"
+  assert_contains "$show" "Captain deferred this call until 2026-12-01 through " \
+    "later recorded no deferral provenance: $show"
+  assert_contains "$show" ": later" "the deferral provenance lost the captain's answer: $show"
   show=$(tasks_in "$home" show sample-done-choice --full)
   assert_contains "$show" "state: done" "done stopped closing answered calls"
   show=$(tasks_in "$home" show sample-release-choice --full)
