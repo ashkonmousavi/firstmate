@@ -2,10 +2,14 @@
 // shim and print what the renderer actually produced, so board behavior is
 // asserted through the real template rather than by reading its source.
 //
-// Usage: node board-render-harness.mjs <built-board.html>
+// Usage: node board-render-harness.mjs <built-board.html> [answers-json]
+// answers-json is an array of {question, selection, note}; each one checks
+// that option on the card's form and submits it, and the prompt and context
+// data the page hands window.lavish.queuePrompt are reported under queued.
 // Prints one JSON document:
 //   { stats:[{n,label}], underway:[{title,sub,badges}],
-//     charted:[{title,sub,badges,pickable}], empty, more, error }
+//     charted:[{title,sub,badges,pickable}], empty, more, error,
+//     queued:[{prompt,data}] }
 import { readFileSync } from "node:fs";
 
 const html = readFileSync(process.argv[2], "utf8");
@@ -24,9 +28,14 @@ class Node {
     this.type = "";
     this.value = "";
     this.checked = false;
+    this.listeners = {};
+    const has = (c) => this.className.split(/\s+/).includes(c);
+    const remove = (c) => { this.className = this.className.split(/\s+/).filter((x) => x !== c).join(" "); };
     this.classList = {
       add: (c) => { this.className = (this.className + " " + c).trim(); },
-      contains: (c) => this.className.split(/\s+/).includes(c),
+      remove,
+      toggle: (c, on) => { remove(c); if (on) this.classList.add(c); },
+      contains: has,
     };
   }
   get textContent() {
@@ -37,7 +46,8 @@ class Node {
   set textContent(v) { this._text = String(v); this.children = []; }
   appendChild(n) { n.parentNode = this; this.children.push(n); return n; }
   setAttribute(k, v) { this.attributes[k] = v; }
-  addEventListener() {}
+  addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
+  descendants() { return this.children.flatMap((c) => [c, ...c.descendants()]); }
   querySelectorAll(sel) {
     const want = sel.replace(/^\./, "").replace(/:checked$/, "");
     const checkedOnly = sel.endsWith(":checked");
@@ -78,11 +88,34 @@ globalThis.document = {
     return byId.get(id);
   },
 };
-globalThis.window = {};
+const queued = [];
+globalThis.window = {
+  lavish: { queuePrompt: (prompt, ctx) => queued.push({ prompt, data: ctx.data }) },
+};
 globalThis.TextEncoder = TextEncoder;
+globalThis.setTimeout = () => 0;
+globalThis.FormData = class {
+  constructor(form) { this.inputs = form.descendants().filter((n) => n.tagName === "input"); }
+  get(name) {
+    const hit = this.inputs.find((n) => n.name === name && (n.type !== "radio" || n.checked));
+    return hit ? hit.value : null;
+  }
+};
 
 const script = html.slice(html.indexOf("<script>") + "<script>".length, html.lastIndexOf("</script>"));
 new Function(script)();
+
+const deckNode = byId.get("bb-call") || new Node("div");
+for (const answer of JSON.parse(process.argv[3] || "[]")) {
+  const form = deckNode.descendants()
+    .find((n) => n.tagName === "form" && n.attributes["data-lavish-question"] === answer.question);
+  if (!form) throw new Error("no rendered card for question " + answer.question);
+  for (const input of form.descendants().filter((n) => n.tagName === "input")) {
+    if (input.type === "radio") input.checked = input.value === answer.selection;
+    if (input.name === "note") input.value = answer.note || "";
+  }
+  for (const fn of form.listeners.submit || []) fn({ preventDefault() {} });
+}
 
 const badgesOf = (row) =>
   row.children
@@ -123,4 +156,4 @@ const empty = ch.children.filter((c) => c.className.includes("bb-empty")).map((c
 const more = ch.children.filter((c) => c.className.includes("bb-morechip")).map((c) => c.textContent);
 
 process.stdout.write(
-  JSON.stringify({ stats, underway, charted, empty, more, error: errorText }) + "\n");
+  JSON.stringify({ stats, underway, charted, empty, more, error: errorText, queued }) + "\n");

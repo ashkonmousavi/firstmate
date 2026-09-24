@@ -2235,6 +2235,155 @@ SH
   pass "a board answer reaches the keyed-answer intake and wakes firstmate"
 }
 
+test_board_later_defers_while_done_and_release_keep_their_modes() {
+  local home sid stub out show snap reason_before
+  home=$(make_home board-later)
+  sid=lavish-b0a4d0000000f1e3
+  fm_test_track_procevent_home "$home" "$home/procevent-claims"
+  run_captain "$home" hold sample-later-choice --title "Revisit sample choice" \
+    --reason "approve sample merge after QA?" --repo sample >/dev/null || fail "could not hold later choice"
+  reason_before=$(tasks_in "$home" show sample-later-choice --full | sed -n 's/^  hold_reason: //p')
+  [ -n "$reason_before" ] || fail "the later choice has no hold reason before deferral"
+  run_captain "$home" hold sample-done-choice --title "Finish sample choice" \
+    --reason "choice pending" --repo sample >/dev/null || fail "could not hold done choice"
+  run_captain "$home" hold sample-release-choice --title "Start sample work" \
+    --reason "approval pending" --repo sample >/dev/null || fail "could not hold release choice"
+
+  stub="$home/board-later-source.sh"
+  cat > "$stub" <<'SH'
+#!/usr/bin/env bash
+cat <<'OUT'
+session:
+  status: feedback
+  session_ended: false
+prompts[3]{tag,text,prompt}:
+  "choice","Revisit sample choice -> later - after the release ships","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-later-choice\",\"selection\":\"later\",\"note\":\"after the release ships\",\"close\":\"defer:2026-12-01\"}"
+  "choice","Yes","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-done-choice\",\"selection\":\"yes\",\"note\":\"\",\"close\":\"done\"}"
+  "choice","Go","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-release-choice\",\"selection\":\"go\",\"note\":\"\",\"close\":\"release\"}"
+OUT
+SH
+  chmod +x "$stub"
+  run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
+    || fail "could not register the board source"
+  run_captain "$home" bind "$sid" >/dev/null || fail "could not bind the board source"
+  out=$(FM_CAPTAIN_HOLD_NOW=2026-07-14T12:00:00Z run_procevent "$home" start "$sid" 2>&1) \
+    || fail "the board source runner did not complete: $out"
+  assert_contains "$out" "answers-fed: $sid" "the board choices did not reach the intake: $out"
+
+  show=$(tasks_in "$home" show sample-later-choice --full)
+  assert_contains "$show" "state: queued" "later closed the captain call"
+  assert_contains "$show" "hold_kind: captain" "later released the captain hold"
+  assert_contains "$show" "hold_until: 2026-12-01" "later lost its deferral date"
+  [ "$(printf '%s\n' "$show" | sed -n 's/^  hold_reason: //p')" = "$reason_before" ] \
+    || fail "later replaced the pending question with other text: $show"
+  assert_contains "$show" "Captain deferred this call until 2026-12-01 through " \
+    "later recorded no deferral provenance: $show"
+  assert_contains "$show" ": later (answer as shown to the captain: Revisit sample choice -> later - after the release ships)" \
+    "the deferral provenance lost the captain's answer or note: $show"
+  show=$(tasks_in "$home" show sample-done-choice --full)
+  assert_contains "$show" "state: done" "done stopped closing answered calls"
+  show=$(tasks_in "$home" show sample-release-choice --full)
+  assert_contains "$show" "state: queued" "release closed the gated work"
+  assert_contains "$show" "held: no" "release stopped lifting the hold"
+  snap=$(run_bearings "$home") || fail "Bearings could not read the dated deferral"
+  printf '%s' "$snap" | jq -e '
+    (.decisions_open | any(.id == "sample-later-choice") | not)
+      and (.gates | any(.id == "sample-later-choice" and (.reason | startswith("until 2026-12-01"))))
+  ' >/dev/null || fail "the deferred choice stayed in Captain's Call: $snap"
+  pass "a captured board later choice dates the open hold while done and release retain their behavior"
+}
+
+test_legacy_board_later_answer_leaves_the_call_held() {
+  local home sid stub out show id
+  home=$(make_home legacy-board-later)
+  sid=lavish-b0a4d0000000f1e4
+  fm_test_track_procevent_home "$home" "$home/procevent-claims"
+  for id in sample-old-later sample-old-later-note sample-old-changed sample-old-yes; do
+    run_captain "$home" hold "$id" --title "Captain call $id" \
+      --reason "choice pending" --repo sample >/dev/null || fail "could not hold $id"
+  done
+
+  stub="$home/legacy-board-later-source.sh"
+  cat > "$stub" <<'SH'
+#!/usr/bin/env bash
+cat <<'OUT'
+session:
+  status: feedback
+  session_ended: false
+prompts[5]{tag,text,prompt}:
+  "choice","Later","Context data: {\"question\":\"sample-old-later\",\"answer\":\"later\"}"
+  "choice","Yes","Context data: {\"question\":\"sample-old-changed\",\"answer\":\"yes\"}"
+  "choice","Later","Context data: {\"question\":\"sample-old-changed\",\"answer\":\"later\"}"
+  "choice","Later - after release","Context data: {\"question\":\"sample-old-later-note\",\"answer\":\"later - after release\"}"
+  "choice","Yes","Context data: {\"question\":\"sample-old-yes\",\"answer\":\"yes\"}"
+OUT
+SH
+  chmod +x "$stub"
+  run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
+    || fail "could not register the legacy board source"
+  run_captain "$home" bind "$sid" >/dev/null || fail "could not bind the legacy board source"
+  out=$(run_procevent "$home" start "$sid" 2>&1) \
+    || fail "the legacy board source runner did not complete: $out"
+  assert_contains "$out" "answers-fed: $sid" "the legacy board choices did not reach the intake: $out"
+
+  show=$(tasks_in "$home" show sample-old-yes --full)
+  assert_contains "$show" "state: done" "an ordinary legacy board choice did not close its task"
+  for id in sample-old-later sample-old-later-note sample-old-changed; do
+    show=$(tasks_in "$home" show "$id" --full)
+    assert_contains "$show" "state: queued" "a legacy later answer closed $id"
+    assert_contains "$show" "hold_kind: captain" "a legacy later answer released $id"
+    case "$show" in
+      *"Resolution recorded by"*) fail "a legacy later answer gave $id a resolution record" ;;
+    esac
+  done
+  pass "a legacy board later answer, bare, annotated, or replacing an earlier answer, leaves its captain call held"
+}
+
+test_keyed_intake_refuses_undated_or_misdated_deferrals() {
+  local home id out rc show
+  local -a cases=(
+    "sample-later-bare	later	Later	"
+    "sample-later-done	later	Later	done"
+    "sample-later-release	later	Later	release"
+    "sample-later-baddate	later	Later	defer:2026-02-30"
+    "sample-later-today	later	Later	defer:2026-07-14"
+    "sample-yes-deferred	yes	Yes	defer:2026-12-01"
+  )
+  home=$(make_home keyed-deferral-guards)
+  for id in "${cases[@]}"; do
+    id=${id%%	*}
+    run_captain "$home" hold "$id" --title "Captain call $id" \
+      --reason "choice pending" --repo sample >/dev/null || fail "could not hold $id"
+  done
+
+  set +e
+  out=$(printf '%s\n' "${cases[@]}" \
+    | FM_CAPTAIN_HOLD_NOW=2026-07-14T12:00:00Z run_captain "$home" answers --source "board fixture" 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "the intake reported success for refused deferrals: $out"
+  assert_contains "$out" "answers: closed=0 deferred=0 skipped=6" \
+    "a guarded deferral row closed or deferred a captain call: $out"
+  assert_contains "$out" "skipped: sample-later-bare (later requires a dated deferral)" "$out"
+  assert_contains "$out" "skipped: sample-later-done (later requires a dated deferral)" "$out"
+  assert_contains "$out" "skipped: sample-later-release (later requires a dated deferral)" "$out"
+  assert_contains "$out" "skipped: sample-later-baddate (invalid deferral date)" "$out"
+  assert_contains "$out" "skipped: sample-later-today (deferral date is not in the future)" "$out"
+  assert_contains "$out" "skipped: sample-yes-deferred (a dated deferral is only for later)" "$out"
+
+  for id in "${cases[@]}"; do
+    id=${id%%	*}
+    show=$(tasks_in "$home" show "$id" --full)
+    assert_contains "$show" "state: queued" "$id was closed by a guarded deferral row"
+    assert_contains "$show" "hold_kind: captain" "$id lost its captain hold"
+    case "$show" in
+      *"Resolution recorded by"*) fail "$id gained a resolution record" ;;
+      *"hold_until: 2"*) fail "$id gained a deferral date" ;;
+    esac
+  done
+  pass "the keyed intake leaves captain calls open for undated, invalid, past, or non-later deferrals"
+}
+
 # The intake is channel-agnostic, so chat must reach it the same way a captured
 # review does - for a task-id key, and for a legacy composed identity.
 test_chat_channel_feeds_the_same_keyed_answer_intake() {
@@ -3873,6 +4022,9 @@ test_reconcile_outcomes_retry_partial_failures_once
 test_unbound_source_closes_no_hold
 test_legacy_identities_keep_working
 test_board_answer_reaches_the_keyed_answer_intake
+test_board_later_defers_while_done_and_release_keep_their_modes
+test_legacy_board_later_answer_leaves_the_call_held
+test_keyed_intake_refuses_undated_or_misdated_deferrals
 test_chat_channel_feeds_the_same_keyed_answer_intake
 test_origin_slug_validation_precedes_path_construction
 test_status_resolution_over_an_open_hold_is_signalled

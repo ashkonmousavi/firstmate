@@ -11,6 +11,9 @@
 #   fm-bearings-board.sh build <data.json>
 #   fm-bearings-board.sh path
 #
+# Test and lab boards must set LAVISH_AXI_NO_OPEN=1 and use their own scratch
+# LAVISH_AXI_PORT and LAVISH_AXI_STATE_DIR, never the shared review server.
+#
 # build      Validate the payload, drop the Captain's Call cards whose subject
 #            already landed, give every surviving decision card the standard
 #            reconcile choice, and inject the result into a fresh copy of the
@@ -78,6 +81,10 @@
 # that date with a UTC timestamp) the template orders the section by, newest
 # first; a row with no comparable date keeps its payload order after every dated
 # row. Anything else in that field refuses rather than sorting on garbage.
+# A decision option valued `later` requires `defer_until: "YYYY-MM-DD"` on
+# that option. Only a `later` option may carry that dated deferral; the field on
+# any other option refuses, and other options retain the card's ordinary `done`
+# or `release` close mode.
 #
 # The board path is stable - $FM_HOME/.lavish/bearings-board.html - so a
 # re-invocation rebuilds the same file in place, which keeps the same Lavish
@@ -112,6 +119,13 @@ fail() {
 board_path() { printf '%s/.lavish/bearings-board.html\n' "$FM_HOME"; }
 
 validate_payload() {  # <data.json>
+  local misplaced
+  misplaced=$(jq -r '
+    first(.captains_call[]? | objects | .key as $key
+      | .options[]? | objects | select(has("defer_until") and .value != "later")
+      | "card \($key | tojson) option \(.value | tojson)")
+  ' "$1" 2>/dev/null) || misplaced=''
+  [ -z "$misplaced" ] || fail "defer_until is only allowed on a later option: $misplaced"
   jq -e --arg schema "$BOARD_SCHEMA" '
     def nonempty_string: type == "string" and length > 0;
     def slug($max): type == "string" and test("^[A-Za-z0-9._-]{1," + ($max | tostring) + "}$");
@@ -153,7 +167,10 @@ validate_payload() {  # <data.json>
         | type == "object"
           and (.value | slug(128))
           and (.label | nonempty_string)
-          and optional_string("hint")] | all)
+          and optional_string("hint")
+          and (if .value == "later"
+            then has("defer_until") and (.defer_until | valid_filed and length == 10)
+            else true end)] | all)
       and (optional_string("about"))
       and (optional_string("decide"))
       and (optional_string("detail"))

@@ -11,6 +11,8 @@ set -u
 BOARD="$ROOT/bin/fm-bearings-board.sh"
 TMP_ROOT=$(fm_test_tmproot fm-bearings-board)
 
+lab_lavish_port() { printf '%s' "$1" | cksum | awk '{print 40000 + ($1 % 20000)}'; }
+
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
 
 # A lavish-axi stub that reproduces the shapes verified against the real
@@ -27,6 +29,7 @@ make_home() {  # <name>
   # caller and every listener this suite started used to survive the run.
   fm_test_track_procevent_home "$home" "$home/procevent-claims"
   mkdir -p "$home/state" "$home/data" "$home/lavish-state"
+  mkdir -m 700 "$home/lavish-axi-state"
   fakebin=$(fm_fakebin "$home")
   cat > "$fakebin/lavish-axi" <<'SH'
 #!/usr/bin/env bash
@@ -106,6 +109,8 @@ run_board() {  # <home> <args...>
   PATH="$home/fakebin:$PATH" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
+    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
     LAVISH_FAKE_STATE="$home/lavish-state" \
     "$BOARD" "$@"
 }
@@ -254,6 +259,24 @@ test_build_refuses_malformed_payloads_before_touching_the_board() {
   jq '.captains_call[0].options[0].label = ""' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
   set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
   [ "$rc" -ne 0 ] || fail "a captains_call option with an empty label was accepted"
+
+  write_valid_payload "$data"
+  jq '.captains_call[0].options[0].value = "later"' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "an undated later choice was accepted"
+
+  jq '.captains_call[0].options[0].defer_until = "2026-02-30"' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "an invalid later date was accepted"
+
+  write_valid_payload "$data"
+  jq '.captains_call[0].options[0].defer_until = "2099-12-01"' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "a dated deferral on a non-later option was accepted"
+  case "$out" in
+    *'defer_until is only allowed on a later option: card "sample-instruction-layer-refinement-review-decision-perishable-first-admission-choice" option "yes"'*) : ;;
+    *) fail "the misplaced deferral refusal did not name its card and option: $out" ;;
+  esac
 
   write_valid_payload "$data"
   jq 'del(.charted[0].repo)' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
@@ -416,6 +439,8 @@ SH
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$runtime" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
+    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
     FM_BEARINGS_BOARD_TEMPLATE="$ROOT/.agents/skills/bearings/assets/board-template.html" \
     REAL_LAVISH_ADAPTER="$ROOT/bin/fm-procevent-lavish.sh" \
     REAL_PROCEVENT="$ROOT/bin/fm-procevent.sh" ORDER_PROOF_HOLD="$hold" \

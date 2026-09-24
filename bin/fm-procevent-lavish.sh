@@ -412,7 +412,7 @@ cmd_silent() {
 
 # Print `key<TAB>answer<TAB>label[<TAB>mode]` for each non-reconcile structured choice the
 # captain submitted in a captured result; the optional mode column relays the
-# card's declared close mode (`done` or `release`) to the keyed-answer intake. The published response frames queued feedback as
+# selected option's close mode (`done`, `release`, or dated `defer`) to the keyed-answer intake. The published response frames queued feedback as
 # a `prompts[N]{field,...}:` header followed by exactly N indented CSV rows whose
 # quoted fields carry JSON-style escapes, so this reads the declared field ORDER
 # rather than assuming a fixed column, and takes only rows whose `tag` field is
@@ -421,7 +421,8 @@ cmd_silent() {
 # and the versioned `selection` and `note` fields inside its `Context data:` block
 # is skipped. A time-limited rollout branch accepts the old question/answer
 # shape only for ordinary answers and rejects its bare or annotated reconcile
-# values because old rows do not separate the selected option from its note.
+# and later values because old rows do not separate the selected option from
+# its note, and an old later row carries no dated deferral.
 # The question cap is 128 so any task id fits, including the long legacy
 # `<origin>-decision-<key>` identities pre-collapse decks still carry; the
 # security property is the slug SHAPE, which is unchanged.
@@ -471,6 +472,7 @@ cmd_choice_rows() {
       my $data = eval { decode_json($ctx) };
       next unless ref($data) eq "HASH";
       my ($key, $selected, $note, $answer, $legacy);
+      my $drop = 0;
       if (defined($data->{schema}) && !ref($data->{schema})
           && $data->{schema} eq "fm-bearings-answer.v1") {
         $key = $data->{question};
@@ -491,7 +493,8 @@ cmd_choice_rows() {
         $answer = $data->{answer};
         next if !defined($key) || ref($key) || !defined($answer) || ref($answer);
         next unless length($answer) && length($answer) <= 512;
-        next if $answer eq "reconcile" || index($answer, "reconcile - ") == 0;
+        $drop = 1 if $answer eq "reconcile" || index($answer, "reconcile - ") == 0
+          || $answer eq "later" || index($answer, "later - ") == 0;
         $selected = "";
         $note = "";
         $legacy = 1;
@@ -502,7 +505,8 @@ cmd_choice_rows() {
       my $mode = "";
       if (exists $data->{close}) {
         next if !defined($data->{close}) || ref($data->{close})
-          || ($data->{close} ne "done" && $data->{close} ne "release");
+          || ($data->{close} ne "done" && $data->{close} ne "release"
+            && $data->{close} !~ /\Adefer:[0-9]{4}-[0-9]{2}-[0-9]{2}\z/);
         $mode = $data->{close};
       }
       my $label = defined $f{text} ? $f{text} : "";
@@ -511,7 +515,7 @@ cmd_choice_rows() {
       if (defined $seen{$key}) { $choices[$seen{$key}] = undef }
       $seen{$key} = scalar @choices;
       push @choices, {
-        key => $key, selection => $selected, note => $note, legacy => $legacy,
+        key => $key, selection => $selected, note => $note, legacy => $legacy, drop => $drop,
         answer => $answer, label => $label, mode => $mode
       };
     }
@@ -525,7 +529,7 @@ cmd_choice_rows() {
         }
         next;
       }
-      next if $choice->{selection} eq "reconcile";
+      next if $choice->{drop} || $choice->{selection} eq "reconcile";
       print length $choice->{mode}
         ? "$choice->{key}\t$choice->{answer}\t$choice->{label}\t$choice->{mode}\n"
         : "$choice->{key}\t$choice->{answer}\t$choice->{label}\n";

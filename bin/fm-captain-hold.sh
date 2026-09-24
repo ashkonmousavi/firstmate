@@ -73,7 +73,10 @@
 # identically no matter which channel the answer arrived on. The key IS the
 # task id - no identity arithmetic. The optional fourth field selects the close:
 # empty or `done` completes the task, `release` lifts the hold so held work
-# resumes; anything else is skipped. A key that names no task, a task that is
+# resumes, and `defer:YYYY-MM-DD` retains a dated captain hold under its
+# existing reason and appends the deferral's provenance to the body. The exact
+# answer `later` without a dated defer mode is skipped, as is a dated defer mode
+# on any other answer; anything else unknown is skipped. A key that names no task, a task that is
 # not held for the captain, or a task already closed is reported as `skipped:`
 # and feeds nothing. A replayed delivery whose answer digest and requested
 # close mode both match the newest record is reported `closed:` and is a no-op;
@@ -107,7 +110,8 @@
 #
 # A channel's ONLY job is to turn whatever it received into those keyed lines
 # and pipe them here. It must never map keys to tasks, build decision records,
-# choose a close mode beyond what its card declared, or close anything itself.
+# choose a close mode beyond what its card or selected option declared, or close
+# anything itself.
 #
 # `bind`, `unbind`, and `binding` record that a captured-answer SOURCE feeds
 # this intake, for any channel whose answers arrive detached from their origin
@@ -1200,6 +1204,26 @@ legacy_keyed_decision_text() {  # <source> <key> <answer> <label>
   [ -z "$4" ] || printf 'Answer as shown to the captain: %s\n' "$4"
 }
 
+# Append one provenance line to a task body under its control lock; a line the
+# body already carries is not repeated, so a replayed answer records it once.
+append_body_line() {  # <task-id> <line>
+  local id=$1 line=$2 show body tmp
+  acquire_task_control_lock "$id"
+  task_show_or_fail "$id" "task $id disappeared before recording its provenance"
+  body=$(decode_shown_value "$(show_field "$show" body)") \
+    || fail "could not decode the existing body for $id"
+  case "$body" in *"$line"*) release_task_control_lock; return 0 ;; esac
+  tmp=$(umask 077; mktemp "${TMPDIR:-/tmp}/fm-captain-hold-provenance.XXXXXX") \
+    || fail "cannot stage the provenance for $id"
+  if ! printf '%s\n\n%s\n' "$body" "$line" > "$tmp" \
+    || ! tasks_axi update "$id" --body-file "$tmp" >/dev/null; then
+    rm -f -- "$tmp"
+    fail "could not record the provenance on $id"
+  fi
+  rm -f -- "$tmp"
+  release_task_control_lock
+}
+
 sanitize_field() {  # <text>
   printf '%s' "$1" | tr '\n\r\t' '   ' | LC_ALL=C tr -d '\000-\037\177' | cut -c1-512
 }
@@ -1210,8 +1234,8 @@ sanitize_reconcile_provenance() {
 
 command_answers() {
   local origin='' source='' row rest key answer label mode id show state hold_kind body digest legacy_digest legacy_key
-  local recorded_digest recorded_mode occurrence tmp err closed=0 skipped=0 reason release_flag tab=$'\t'
-  local resolve_rc
+  local recorded_digest recorded_mode occurrence tmp err closed=0 deferred=0 skipped=0 reason release_flag defer_until hold_reason tab=$'\t'
+  local resolve_rc today
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --source) shift; source=${1:-} ;;
@@ -1253,15 +1277,44 @@ command_answers() {
       continue
     fi
     release_flag=''
+    defer_until=''
     case "${mode:-}" in
       ''|done) : ;;
       release) release_flag=--release ;;
+      defer:*)
+        defer_until=${mode#defer:}
+        if ! printf '%s\n' "$defer_until" | jq -e -R '
+          . as $date
+          | test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+            and (try (((. + "T00:00:00Z") | fromdateiso8601 | strftime("%Y-%m-%d")) == $date) catch false)
+        ' >/dev/null; then
+          printf 'skipped: %s (invalid deferral date)\n' "$key"
+          skipped=$((skipped + 1))
+          continue
+        fi
+        today=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
+        if ! [[ "$defer_until" > "${today%%T*}" ]]; then
+          printf 'skipped: %s (deferral date is not in the future)\n' "$key"
+          skipped=$((skipped + 1))
+          continue
+        fi
+        ;;
       *)
         printf 'skipped: %s (unknown close mode %s)\n' "$key" "$(sanitize_field "$mode")"
         skipped=$((skipped + 1))
         continue
         ;;
     esac
+    if [ "$answer" = later ] && [ -z "$defer_until" ]; then
+      printf 'skipped: %s (later requires a dated deferral)\n' "$key"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if [ "$answer" != later ] && [ -n "$defer_until" ]; then
+      printf 'skipped: %s (a dated deferral is only for later)\n' "$key"
+      skipped=$((skipped + 1))
+      continue
+    fi
     resolve_rc=0
     id=$(resolve_entry "$origin" "$key" 2>"$err") || resolve_rc=$?
     id=${id%% *}
@@ -1280,6 +1333,30 @@ command_answers() {
         || fail "the backlog backend exceeded its read bound resolving $key"
       printf 'skipped: %s (no captain-held task with that id)\n' "$key"
       skipped=$((skipped + 1))
+      continue
+    fi
+    if [ -n "$defer_until" ]; then
+      task_show "$id" || { printf 'skipped: %s (absent)\n' "$id"; skipped=$((skipped + 1)); continue; }
+      show=$TASK_SHOW_OUTPUT
+      state=$(show_field "$show" state)
+      hold_kind=$(show_field_value "$show" hold_kind)
+      if [ "$state" = "done" ] || [ "$hold_kind" != captain ]; then
+        printf 'skipped: %s (not an open captain hold)\n' "$id"
+        skipped=$((skipped + 1))
+        continue
+      fi
+      hold_reason=$(show_field_value "$show" hold_reason)
+      if "$0" hold "$id" --reason "$hold_reason" --until "$defer_until" </dev/null >/dev/null 2>"$err" \
+        && ( trap captain_hold_cleanup EXIT
+          append_body_line "$id" "Captain deferred this call until $defer_until through $source: $answer${label:+ (answer as shown to the captain: $label)}" ) 2>>"$err"; then
+        [ ! -s "$err" ] || cat "$err" >&2
+        printf 'deferred: %s until %s\n' "$id" "$defer_until"
+        deferred=$((deferred + 1))
+      else
+        reason=$(tr -d '\n' < "$err" | sed 's/^fm-captain-hold: //')
+        printf 'skipped: %s (%s)\n' "$id" "$reason"
+        skipped=$((skipped + 1))
+      fi
       continue
     fi
     keyed_decision_text "$source" "$id" "$answer" "$label" > "$tmp" \
@@ -1347,7 +1424,7 @@ command_answers() {
     fi
   done
   rm -f -- "$tmp" "$err"
-  printf 'answers: closed=%s skipped=%s\n' "$closed" "$skipped"
+  printf 'answers: closed=%s deferred=%s skipped=%s\n' "$closed" "$deferred" "$skipped"
   [ "$skipped" -eq 0 ]
 }
 
