@@ -15,6 +15,8 @@ BOARD="$ROOT/bin/fm-bearings-board.sh"
 HARNESS="$ROOT/tests/assets/board-render-harness.mjs"
 TMP_ROOT=$(fm_test_tmproot fm-bearings-board-render)
 
+lab_lavish_port() { printf '%s' "$1" | cksum | awk '{print 40000 + ($1 % 20000)}'; }
+
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
 command -v node >/dev/null 2>&1 || { echo "skip: node not found"; exit 0; }
 
@@ -25,6 +27,7 @@ make_home() {  # <name>
   # substitution, where an array append never reaches the caller.
   fm_test_track_procevent_home "$home" "$home/procevent-claims"
   mkdir -p "$home/state" "$home/data"
+  mkdir -m 700 "$home/lavish-axi-state"
   fakebin=$(fm_fakebin "$home")
   # The build proves the board session is live before it arms anything, so the
   # stub reports the opened shape the real lavish-axi emits. This suite is about
@@ -68,6 +71,8 @@ render_board() {  # <home> <underway-json> <charted-json> [charted_more] [charte
   PATH="$home/fakebin:$PATH" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
+    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
     "$BOARD" build "$data" >/dev/null || fail "the board did not build"
   node "$HARNESS" "$home/.lavish/bearings-board.html" \
     || fail "the built board could not be rendered"

@@ -11,6 +11,9 @@
 #   fm-bearings-board.sh build <data.json>
 #   fm-bearings-board.sh path
 #
+# Test and lab boards must set LAVISH_AXI_NO_OPEN=1 and use their own scratch
+# LAVISH_AXI_PORT and LAVISH_AXI_STATE_DIR, never the shared review server.
+#
 # build      Validate the payload, drop the Captain's Call cards whose subject
 #            already landed, give every surviving decision card the standard
 #            reconcile choice, and inject the result into a fresh copy of the
