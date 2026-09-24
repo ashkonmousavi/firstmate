@@ -1628,8 +1628,27 @@ test_spawn_relaunch_refuses_a_live_agent
 test_spawn_relaunch_refuses_a_symlinked_task_record_before_inspection
 test_spawn_relaunch_keeps_its_early_meta_lock_continuous
 test_spawn_relaunch_refuses_a_pending_authoritative_close
+# config/claude-worker-settings.json (bin/fm-spawn.sh header) must reach a
+# relaunched claude agent exactly as it reaches a fresh spawn.
+test_relaunch_carries_claude_worker_settings() {
+  local dir out rc
+  dir=$(new_case worker-settings rl50)
+  add_ship_task "$dir" rl50 claude
+  mkdir -p "$dir/home/config"
+  printf '%s\n' '{"enabledPlugins":{"viewer@market":false},"attribution":{"commit":"x"}}' \
+    > "$dir/home/config/claude-worker-settings.json"
+  out=$(run_control "$dir" rl50 relaunch --note "lean tools"); rc=$?
+  expect_code 0 "$rc" "a relaunch with a worker settings file should succeed"$'\n'"$out"
+  assert_grep '"enabledPlugins":{"viewer@market":false}' "$dir/fake/literal" \
+    "the relaunched claude must carry the worker settings file"
+  assert_grep '"attribution":{"commit":"","pr":"","sessionUrl":false}' "$dir/fake/literal" \
+    "firstmate's attribution policy must win over the file on relaunch"
+  pass "fm-control relaunch: config/claude-worker-settings.json reaches the replacement claude launch"
+}
+
 test_spawn_relaunch_refuses_contradicting_flags
 test_spawn_relaunch_refuses_an_unrecorded_task
 test_spawn_relaunch_refuses_a_pane_outside_the_worktree
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight
+test_relaunch_carries_claude_worker_settings

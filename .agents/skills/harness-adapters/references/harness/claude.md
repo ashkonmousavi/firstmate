@@ -46,6 +46,7 @@ Styled capture stays internal to the boolean detector; `fm-peek` and model-facin
 
 The spawn disables Claude's `/bug` and `/feedback` model-drafted feedback flow for every Claude worker and secondmate, preventing a fleet-launched agent from queuing or submitting a bug report on the captain's behalf.
 The controls are scoped to the launched process and never modify the captain's global Claude settings; `launch_template()` in `../../../../../bin/fm-spawn.sh` owns their exact mechanics and defense-in-depth rationale.
+A home's optional `config/claude-worker-settings.json` adds further per-launch settings, such as switching off unused add-on servers, underneath those controls; [`docs/configuration.md`](../../../../../docs/configuration.md) "Claude worker settings" owns its contract.
 
 ## Primary integration
 

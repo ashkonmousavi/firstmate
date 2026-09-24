@@ -1300,6 +1300,142 @@ test_non_claude_harness_ignores_claude_permission_mode() {
   pass "config/claude-permission-mode changes claude launches only"
 }
 
+# config/claude-worker-settings.json (bin/fm-spawn.sh header): an absent file
+# keeps today's launch, a valid object is merged into the per-launch --settings
+# JSON with firstmate's own keys winning, and anything else refuses before any
+# endpoint or metadata. The launch is executed against an argv-capturing claude
+# so the assertions read the settings value the worker would actually receive.
+claude_worker_settings_arg() {  # <launch-command> -> the --settings value claude receives
+  local launch=$1 argv="$CASE_DIR/claude-argv"
+  cat > "$FAKEBIN_DIR/claude" <<'SH'
+#!/usr/bin/env bash
+printf '%s\0' "$@" > "$FM_CLAUDE_ARGV"
+SH
+  chmod +x "$FAKEBIN_DIR/claude"
+  FM_CLAUDE_ARGV="$argv" PATH="$FAKEBIN_DIR:$PATH" bash -c "$launch" || fail "could not consume claude launch command"
+  local prev='' arg
+  while IFS= read -r -d '' arg; do
+    if [ "$prev" = --settings ]; then printf '%s' "$arg"; return 0; fi
+    prev=$arg
+  done < "$argv"
+  fail "claude launch carried no --settings argument"
+}
+
+# A value holding a quote and an ampersand guards the launch-line quoting.
+write_claude_worker_settings() {  # <home>
+  mkdir -p "$1/config"
+  printf '%s\n' '{"enabledPlugins":{"viewer@market":false},"deniedMcpServers":[{"serverName":"thinker"}],"note":"it'\''s a & b __BRIEF__","attribution":{"commit":"Co-Authored-By: x"},"feedbackDrafts":"on"}' \
+    > "$1/config/claude-worker-settings.json"
+}
+
+assert_claude_worker_settings_merged() {  # <settings-json> <what>
+  local settings=$1 what=$2
+  printf '%s' "$settings" | jq -e '
+    .enabledPlugins == {"viewer@market": false}
+    and .deniedMcpServers == [{"serverName": "thinker"}]
+    and .note == "it'\''s a & b __BRIEF__"
+    and .feedbackDrafts == "off"
+    and .attribution == {"commit": "", "pr": "", "sessionUrl": false}
+  ' >/dev/null || fail "$what did not receive the merged worker settings with firstmate keys winning; got: $settings"
+}
+
+test_claude_worker_settings_absent_keeps_launch() {
+  local rec id out status launch expected
+  id=workersettings-absent-z24
+  rec=$(make_spawn_case workersettings-absent claude "$id")
+  read_case_record "$rec"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "claude spawn without config/claude-worker-settings.json should succeed"$'\n'"$out"
+  launch=$(cat "$LAUNCH_LOG")
+  expected=$(claude_expected_launch "$HOME_DIR" "$id" --dangerously-skip-permissions)
+  [ "$launch" = "$expected" ] || fail "an absent worker settings file changed the launch"$'\n'"expected: $expected"$'\n'"actual:   $launch"
+  pass "an absent config/claude-worker-settings.json leaves the claude launch byte-identical"
+}
+
+test_claude_worker_settings_merge_into_ship_launch() {
+  local rec id out status launch
+  id=workersettings-ship-z25
+  rec=$(make_spawn_case workersettings-ship claude "$id")
+  read_case_record "$rec"
+  write_claude_worker_settings "$HOME_DIR"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "claude spawn with a valid worker settings file should succeed"$'\n'"$out"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_claude_worker_settings_merged "$(claude_worker_settings_arg "$launch")" "claude ship launch"
+  pass "config/claude-worker-settings.json merges into a claude ship launch and cannot override firstmate's keys"
+}
+
+test_claude_worker_settings_reach_scout_and_secondmate() {
+  local rec id sm out status launch
+  id=workersettings-scout-z26
+  rec=$(make_spawn_case workersettings-scout claude "$id")
+  read_case_record "$rec"
+  write_claude_worker_settings "$HOME_DIR"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
+  status=$?
+  expect_code 0 "$status" "claude scout spawn with a worker settings file should succeed"$'\n'"$out"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_claude_worker_settings_merged "$(claude_worker_settings_arg "$launch")" "claude scout launch"
+
+  id=workersettings-secondmate-z27
+  rec=$(make_spawn_case workersettings-secondmate claude "$id")
+  read_case_record "$rec"
+  write_claude_worker_settings "$HOME_DIR"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
+  status=$?
+  expect_code 0 "$status" "claude secondmate spawn with a worker settings file should succeed"$'\n'"$out"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_claude_worker_settings_merged "$(claude_worker_settings_arg "$launch")" "claude secondmate launch"
+  pass "config/claude-worker-settings.json reaches scout and secondmate claude launches"
+}
+
+test_claude_worker_settings_invalid_refuses_before_endpoint_or_metadata() {
+  local rec id out status n=0 content
+  for content in '{"enabledPlugins":' '["not","an","object"]' '"just a string"' '{} {}' '' DIRECTORY; do
+    n=$((n + 1))
+    id=workersettings-invalid-z28-$n
+    rec=$(make_spawn_case "workersettings-invalid-$n" claude "$id")
+    read_case_record "$rec"
+    mkdir -p "$HOME_DIR/config"
+    if [ "$content" = DIRECTORY ]; then
+      mkdir "$HOME_DIR/config/claude-worker-settings.json"
+    else
+      printf '%s\n' "$content" > "$HOME_DIR/config/claude-worker-settings.json"
+    fi
+
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    expect_code 1 "$status" "worker settings '$content' must refuse the spawn"$'\n'"$out"
+    assert_contains "$out" "config/claude-worker-settings.json" "refusal for '$content' must name the file"
+    [ "$(printf '%s\n' "$out" | grep -c 'claude-worker-settings')" -eq 1 ] \
+      || fail "refusal for '$content' must be one line naming the file; got: $out"
+    [ ! -s "$LAUNCH_LOG" ] || fail "invalid worker settings '$content' must launch nothing (got: $(cat "$LAUNCH_LOG"))"
+    assert_absent "$HOME_DIR/state/$id.meta" "refusal for '$content' must happen before meta is written"
+  done
+  pass "invalid, non-object, or unreadable config/claude-worker-settings.json refuses before any endpoint or metadata"
+}
+
+test_non_claude_harness_ignores_claude_worker_settings() {
+  local rec id out status launch
+  id=workersettings-codex-z29
+  rec=$(make_spawn_case workersettings-codex codex "$id")
+  read_case_record "$rec"
+  write_claude_worker_settings "$HOME_DIR"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness codex)
+  status=$?
+  expect_code 0 "$status" "codex spawn with a claude worker settings file should succeed"$'\n'"$out"
+  launch=$(cat "$LAUNCH_LOG")
+  assert_not_contains "$launch" "viewer@market" "claude worker settings must not leak into a codex launch"
+  pass "config/claude-worker-settings.json changes claude launches only"
+}
+
 test_worker_launch_delivers_role_scope
 test_no_profile_keeps_claude_profile_defaults
 test_non_cursor_launch_clears_inherited_cursor_markers
@@ -1338,6 +1474,11 @@ test_claude_permission_mode_auto_swaps_only_the_permission_flag
 test_claude_permission_mode_auto_reaches_scout_launch
 test_claude_permission_mode_invalid_refuses_before_endpoint_or_metadata
 test_non_claude_harness_ignores_claude_permission_mode
+test_claude_worker_settings_absent_keeps_launch
+test_claude_worker_settings_merge_into_ship_launch
+test_claude_worker_settings_reach_scout_and_secondmate
+test_claude_worker_settings_invalid_refuses_before_endpoint_or_metadata
+test_non_claude_harness_ignores_claude_worker_settings
 test_non_claude_harness_ignores_config_dir
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_claude_secondmate_launch_carries_the_attribution_policy

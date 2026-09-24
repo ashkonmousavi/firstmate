@@ -1022,7 +1022,7 @@ new_world() {
     [ "$dispatch_ignore" = no ] || printf 'config/crew-dispatch.json\n'
     printf 'config/crew-harness\nconfig/secondmate-harness\nconfig/backlog-backend\n'
     printf 'config/backend\nconfig/herdr-presentation-spaces\nconfig/startup-memory-budget\n'
-    printf 'config/claude-permission-mode\n'
+    printf 'config/claude-permission-mode\nconfig/claude-worker-settings.json\n'
   } > "$w/main/.gitignore"
   printf 'v1\n' > "$w/main/AGENTS.md"
   printf 'r1\n' > "$w/main/README.md"
@@ -1451,6 +1451,31 @@ test_claude_permission_mode_inheritance_present_and_absent() {
   expect_code 0 "$status" "claude-permission-mode absence push should succeed"
   [ -e "$w/sm/config/claude-permission-mode" ] && fail "claude-permission-mode not removed on primary absence"
   pass "B12c claude-permission-mode inheritance: present values and primary absence converge exactly"
+}
+
+# The worker settings file is captain-wide like config/claude-permission-mode,
+# so a secondmate's own claude crewmates launch lean too: present bytes
+# converge exactly and primary absence mirrors.
+test_claude_worker_settings_inheritance_present_and_absent() {
+  local w head out err status settings
+  w=$(new_world worker-settings-inherit)
+  head=$(git -C "$w/main" rev-parse HEAD)
+  add_sm_worktree "$w" sm "$head"
+
+  settings='{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}]}'
+  printf '%s\n' "$settings" > "$w/home/config/claude-worker-settings.json"
+  err="$w/worker-settings-inherit.err"
+  out=$(run_config_push "$w" 2>"$err"); status=$?
+  expect_code 0 "$status" "claude-worker-settings.json present push should succeed"
+  assert_contains "$out" "claude-worker-settings.json: pushed" "present value should report pushed"
+  cmp -s "$w/home/config/claude-worker-settings.json" "$w/sm/config/claude-worker-settings.json" \
+    || fail "claude-worker-settings.json present value not pushed byte-for-byte"
+
+  rm -f "$w/home/config/claude-worker-settings.json"
+  out=$(run_config_push "$w" 2>"$err"); status=$?
+  expect_code 0 "$status" "claude-worker-settings.json absence push should succeed"
+  [ -e "$w/sm/config/claude-worker-settings.json" ] && fail "claude-worker-settings.json not removed on primary absence"
+  pass "B12c claude-worker-settings.json inheritance: present values and primary absence converge exactly"
 }
 
 test_backend_inheritance_present_and_absent() {
@@ -2652,6 +2677,7 @@ test_bootstrap_sweep_materializes_and_inherits_memory_default
 test_backend_inheritance_present_and_absent
 test_spawn_secondmate_claude_permission_mode_auto
 test_claude_permission_mode_inheritance_present_and_absent
+test_claude_worker_settings_inheritance_present_and_absent
 test_presentation_inheritance_default_on_and_opt_out
 test_bootstrap_sweep_surfaces_config_propagation_failure
 test_bootstrap_rereads_after_partial_propagation
