@@ -276,9 +276,20 @@
 #   worktree, or record exists and names the accepted values. The file is read
 #   on every spawn and relaunch, so a change reaches the next launch without a
 #   restart, and it is inherited into secondmate homes (bin/fm-config-inherit-lib.sh).
+# Claude worker settings (config/claude-worker-settings.json):
+#   Optional JSON object of Claude Code settings keys added to every claude
+#   launch (ship, scout, secondmate, and relaunch), for example to switch off
+#   add-on servers workers never use. It is shallow-merged into the launch's
+#   inline --settings JSON and firstmate's own keys (feedbackDrafts,
+#   attribution) always win, so the file can never turn either back on. Absent,
+#   the launch is byte-identical to one without it. Invalid JSON, a value that
+#   is not an object, or an unreadable file refuses the spawn before any
+#   endpoint, worktree, or record exists. Read on every spawn and relaunch; NOT
+#   inherited into secondmate homes. docs/configuration.md owns the schema.
 #   Launch templates live in launch_template() below; placeholders replaced before launch:
 #     __BRIEF__    absolute path to data/<task-id>/brief.md
 #     __CLAUDEPERMFLAG__ the claude permission flag selected by config/claude-permission-mode
+#     __CLAUDESETTINGS__ quoted inline --settings JSON: firstmate's keys merged over config/claude-worker-settings.json
 #     __PIBIN__    quoted concrete Pi-family executable path resolved from PATH
 #     __PITUIMODE__ optional --tui-mode regular when that executable advertises it
 #     __TURNEND__  absolute path to state/<task-id>.turn-ended (for harnesses whose
@@ -462,6 +473,23 @@ case "$CLAUDE_PERMISSION_MODE" in
   auto) CLAUDE_PERM_FLAG='--permission-mode auto' ;;
   *) CLAUDE_PERM_FLAG='--dangerously-skip-permissions' ;;
 esac
+# config/claude-worker-settings.json (header above): resolved once per spawn
+# or relaunch, before any mutation, so a malformed file refuses instead of
+# launching a worker without the settings the captain configured.
+CLAUDE_FIRSTMATE_SETTINGS='{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}'
+CLAUDE_SETTINGS=$CLAUDE_FIRSTMATE_SETTINGS
+if ! CLAUDE_WORKER_SETTINGS_PRESENT=$(fm_config_source_present "$CONFIG/claude-worker-settings.json"); then
+  exit 1
+fi
+if [ "$CLAUDE_WORKER_SETTINGS_PRESENT" = 1 ]; then
+  if [ ! -f "$CONFIG/claude-worker-settings.json" ] || [ ! -r "$CONFIG/claude-worker-settings.json" ] \
+    || ! CLAUDE_SETTINGS=$(jq -ce --argjson fm "$CLAUDE_FIRSTMATE_SETTINGS" \
+      'if type == "object" then . + $fm else error("not an object") end' \
+      "$CONFIG/claude-worker-settings.json" 2>/dev/null); then
+    echo "error: config/claude-worker-settings.json must be a readable regular file holding one JSON object of Claude Code settings" >&2
+    exit 1
+  fi
+fi
 SUB_HOME_MARKER=".fm-secondmate-home"
 if [ -e "$STATE" ] || [ -L "$STATE" ]; then
   fm_backlog_directory_present "$STATE" "state directory" || {
@@ -1546,7 +1574,9 @@ launch_template() {
     # __CLAUDEPERMFLAG__ is the permission flag config/claude-permission-mode
     # selects (header above): --dangerously-skip-permissions by default, or
     # --permission-mode auto for a captain who refuses bypass mode.
-    claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude __CLAUDEPERMFLAG__ --settings '\''{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}'\'' __MODELFLAG____EFFORTFLAG__"$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
+    # __CLAUDESETTINGS__ is that inline JSON, with any config/claude-worker-settings.json
+    # keys merged underneath firstmate's own (header above).
+    claude) printf '%s' 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude __CLAUDEPERMFLAG__ --settings __CLAUDESETTINGS__ __MODELFLAG____EFFORTFLAG__"$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
     codex)
       if [ "$kind" = secondmate ]; then
         printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
@@ -3959,6 +3989,8 @@ case "$HARNESS" in
   omp) LAUNCH=${LAUNCH//__OMPBIN__/"$(shell_quote "$OMP_BIN")"} ;;
 esac
 LAUNCH=${LAUNCH//__WORKTREE__/$sq_worktree}
+# Last placeholder pass, so operator-supplied settings text is never rewritten by an earlier one.
+[ "$HARNESS" != claude ] || LAUNCH=${LAUNCH//__CLAUDESETTINGS__/"$(shell_quote "$CLAUDE_SETTINGS")"}
 case "$HARNESS" in
   claude|codex|opencode|pi|pi-signed|grok|kimi|gemini|muse|rovo)
     LAUNCH="env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI $LAUNCH"

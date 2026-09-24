@@ -359,6 +359,31 @@ Any other value, or an unreadable file, refuses every spawn from that home, whic
 The file is a captain-wide safety preference, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract; a secondmate's own Claude crewmates then launch on the same posture.
 The [Claude adapter reference](../.agents/skills/harness-adapters/references/harness/claude.md) records the verified shape of both launches and which once-per-machine dialog each one can meet.
 
+## Claude worker settings (config/claude-worker-settings.json)
+
+The optional local, gitignored `config/claude-worker-settings.json` holds one JSON object of Claude Code settings keys that every Claude worker launch carries: crewmates, scouts, Claude secondmates, and control-plane relaunches alike.
+Its main use is switching off add-on servers workers never use, so each worker stops paying their memory, while the captain's own Claude sessions keep every tool.
+Firstmate shallow-merges the object into the inline `--settings` JSON each launch already passes, and Firstmate's own keys (`feedbackDrafts` and `attribution`) always win on conflict, so the file can never turn feedback drafts or commit and PR attribution back on.
+When the file is absent, the Claude launch is byte-for-byte the same as it was before the file existed.
+Invalid JSON, a value that is not an object, or an unreadable file refuses every spawn and relaunch from that home, whichever harness it would launch, before any endpoint, worktree, or task record exists, with one error line naming the file; Firstmate never launches a worker without the settings the file asks for.
+`bin/fm-spawn.sh` reads the file on every spawn and relaunch, so a change takes effect at the next launch without a restart.
+The file is not inherited into secondmate homes: each home, including each secondmate home, reads only its own copy.
+The captain's global `~/.claude/settings.json` and `~/.claude.json` are never changed by this mechanism.
+
+On Claude Code 2.1.281, two keys switch off an add-on for the launched worker only, and a live probe confirmed that neither server process started while the others still did:
+
+- `enabledPlugins` with `false` disables an installed plugin, including its MCP server, by its `name@marketplace` id.
+- `deniedMcpServers` with a `serverName` entry blocks a user-scope MCP server from `~/.claude.json`; Claude Code merges this denylist from every settings scope, including `--settings`.
+
+For example, this file stops the PDF viewer plugin and the sequential-thinking server from starting in workers:
+
+```json
+{
+  "enabledPlugins": { "pdf-viewer@synced": false },
+  "deniedMcpServers": [{ "serverName": "sequential-thinking" }]
+}
+```
+
 ## Worker launch environment (config/launch-env-allowlist)
 
 The optional local, gitignored `config/launch-env-allowlist` limits the ambient environment passed to newly launched workers, scouts, and secondmates, including relaunches.
