@@ -48,6 +48,7 @@
 # accepts only the replacement listener as live. A registered board with no
 # live owner also gets a replacement before build returns, because
 # `already-armed` is not the same fact as `listening`.
+# A rebuild of a listed-open board uses `--no-open` so it refreshes without launching another browser tab.
 #
 # CAPTAIN'S CALL HYGIENE. A decision card is dropped when its work item, PR, or
 # structured artifact/version subject appears among the payload's own landed
@@ -266,7 +267,11 @@ establish_board_session() {  # <board>
   local board=$1 real out status version
   BOARD_SESSION_REOPENED=0
   real=$(board_realpath "$board") || fail "cannot resolve the board path: $board"
-  out=$(lavish-axi "$board") || fail "cannot establish the board Lavish session"
+  if lavish_session_listed_open "$real"; then
+    out=$(lavish-axi "$board" --no-open) || fail "cannot establish the board Lavish session"
+  else
+    out=$(lavish-axi "$board") || fail "cannot establish the board Lavish session"
+  fi
   printf '%s\n' "$out"
   if lavish_board_live "$out" "$real"; then
     printf 'session: live\n'
