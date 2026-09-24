@@ -1,0 +1,43 @@
+{
+  "schema": "fm-bearings-board.v1",
+  "home": "test-home",
+  "generated": "2026-08-19T00:00Z",
+  "prs_live": false,
+  "captains_call": [
+    {
+      "key": "sample-instruction-layer-refinement-review-decision-perishable-first-admission-choice",
+      "type": "decision",
+      "repo": "sample",
+      "title": "Perishable-first admission",
+      "about": "A payload string that tries to break out: </script><b>x</b>",
+      "decide": "Adopt it?",
+      "options": [
+        { "value": "yes", "label": "Adopt", "hint": "recommended" },
+        { "value": "no", "label": "Keep current" }
+      ],
+      "allow_freeform": true
+    },
+    {
+      "key": "merge.sample-task",
+      "type": "merge",
+      "repo": "sample",
+      "title": "Merge: sample change",
+      "detail": "validation green",
+      "task_id": "sample-task",
+      "pr_url": "https://github.com/example/sample/pull/1",
+      "checks": "green",
+      "risk": "low",
+      "options": [
+        { "value": "merge", "label": "Merge now" },
+        { "value": "hold", "label": "Not yet" }
+      ],
+      "allow_freeform": true
+    }
+  ],
+  "underway": [],
+  "landed": [],
+  "charted": [
+    { "id": "sample-queued", "repo": "sample", "title": "Queued work", "reason": "", "dispatchable": true }
+  ],
+  "charted_more": 0
+}

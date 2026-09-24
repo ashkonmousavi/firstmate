@@ -1,0 +1,13 @@
+Browser tabs launched per 'fm-bearings-board.sh build' against the REAL lavish-axi 0.1.76
+(isolated LAVISH_AXI_STATE_DIR/port; the `open` package's powershell.exe launch intercepted and logged instead of reaching Chrome)
+
+STEP                                                                     BEFORE FIX    AFTER FIX
+build 1 - first build, no session yet                                    1 (exit 0)    1 (exit 0)
+build 2 - rebuild while board session is open                            1 (exit 0)    0 (exit 0)
+build 3 - rebuild again while board session is open                      1 (exit 0)    0 (exit 0)
+build 4 - rebuild after the session was ended (not listed open)          1 (exit 0)    1 (exit 0)
+build 5 - rebuild while the re-established session is open               1 (exit 0)    0 (exit 0)
+build 6 - rebuild after the captain ended the session from the browser   1 (exit 0)    1 (exit 0)
+build 7 - rebuild while the reopened session is open                     1 (exit 0)    0 (exit 0)
+
+TOTAL tabs: before fix 7, after fix 3

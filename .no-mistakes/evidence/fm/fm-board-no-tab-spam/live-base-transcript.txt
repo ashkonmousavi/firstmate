@@ -1,0 +1,88 @@
+== base-before-fix: fm-bearings-board.sh against real lavish-axi 0.1.76 on isolated port 46933
+
+### build 1 - first build, no session yet  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: opened
+session: live
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+armed: lavish-3cf419e1d5ab8177
+listening: live
+browser tabs opened by this build: 1   (total so far: 1)
+
+### build 2 - rebuild while board session is open  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: opened
+session: live
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+already-armed: lavish-3cf419e1d5ab8177
+browser tabs opened by this build: 1   (total so far: 2)
+
+### build 3 - rebuild again while board session is open  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: opened
+session: live
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+already-armed: lavish-3cf419e1d5ab8177
+browser tabs opened by this build: 1   (total so far: 3)
+
+### server listing after build 3
+  <home>/.lavish/bearings-board.html,open,"http://127.0.0.1:46933/session/3cf419e1d5ab8177",0,agent-listener
+
+### agent ends the session: lavish-axi end <board>
+  status: ended
+
+### build 4 - rebuild after the session was ended (not listed open)  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: opened
+session: live
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+armed: lavish-3cf419e1d5ab8177
+listening: live
+browser tabs opened by this build: 1   (total so far: 4)
+
+### build 5 - rebuild while the re-established session is open  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: opened
+session: live
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+already-armed: lavish-3cf419e1d5ab8177
+browser tabs opened by this build: 1   (total so far: 5)
+
+### captain ends the session from the browser (the page End button: POST /api/<key>/end)
+{"status":"ended"}
+### a plain lavish-axi open of the captain-ended board now reports:
+  status: user-ended
+
+### build 6 - rebuild after the captain ended the session from the browser  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: user-ended
+  status: opened
+session: reopened
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+armed: lavish-3cf419e1d5ab8177
+listening: live
+browser tabs opened by this build: 1   (total so far: 6)
+
+### build 7 - rebuild while the reopened session is open  (exit 0)
+board: <home>/.lavish/bearings-board.html
+  status: opened
+session: live
+served: <home>/.lavish/bearings-board.html
+bound: lavish-3cf419e1d5ab8177
+already-armed: lavish-3cf419e1d5ab8177
+browser tabs opened by this build: 1   (total so far: 7)
+
+== base-before-fix TOTAL browser tabs across 7 builds: 7
+   tab-launch: {"at":"2026-09-24T10:09:02.101Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}
+   tab-launch: {"at":"2026-09-24T10:09:03.193Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}
+   tab-launch: {"at":"2026-09-24T10:09:03.864Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}
+   tab-launch: {"at":"2026-09-24T10:09:04.638Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}
+   tab-launch: {"at":"2026-09-24T10:09:05.659Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}
+   tab-launch: {"at":"2026-09-24T10:09:06.657Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}
+   tab-launch: {"at":"2026-09-24T10:09:07.792Z","launcher":"powershell.exe","target":"Start \"http://127.0.0.1:46933/session/3cf419e1d5ab8177\""}

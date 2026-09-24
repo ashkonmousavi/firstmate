@@ -1,0 +1,2 @@
+ok - path prints the stable home-scoped board location
+not ok - the open session rebuild did not suppress a new tab
