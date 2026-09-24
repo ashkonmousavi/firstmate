@@ -1348,7 +1348,7 @@ command_answers() {
       hold_reason=$(show_field_value "$show" hold_reason)
       if "$0" hold "$id" --reason "$hold_reason" --until "$defer_until" </dev/null >/dev/null 2>"$err" \
         && ( trap captain_hold_cleanup EXIT
-          append_body_line "$id" "Captain deferred this call until $defer_until through $source: $answer" ) 2>>"$err"; then
+          append_body_line "$id" "Captain deferred this call until $defer_until through $source: $answer${label:+ (answer as shown to the captain: $label)}" ) 2>>"$err"; then
         [ ! -s "$err" ] || cat "$err" >&2
         printf 'deferred: %s until %s\n' "$id" "$defer_until"
         deferred=$((deferred + 1))

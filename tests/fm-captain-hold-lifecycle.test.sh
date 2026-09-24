@@ -2257,7 +2257,7 @@ session:
   status: feedback
   session_ended: false
 prompts[3]{tag,text,prompt}:
-  "choice","Later","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-later-choice\",\"selection\":\"later\",\"note\":\"\",\"close\":\"defer:2026-12-01\"}"
+  "choice","Revisit sample choice -> later - after the release ships","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-later-choice\",\"selection\":\"later\",\"note\":\"after the release ships\",\"close\":\"defer:2026-12-01\"}"
   "choice","Yes","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-done-choice\",\"selection\":\"yes\",\"note\":\"\",\"close\":\"done\"}"
   "choice","Go","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-release-choice\",\"selection\":\"go\",\"note\":\"\",\"close\":\"release\"}"
 OUT
@@ -2278,7 +2278,8 @@ SH
     || fail "later replaced the pending question with other text: $show"
   assert_contains "$show" "Captain deferred this call until 2026-12-01 through " \
     "later recorded no deferral provenance: $show"
-  assert_contains "$show" ": later" "the deferral provenance lost the captain's answer: $show"
+  assert_contains "$show" ": later (answer as shown to the captain: Revisit sample choice -> later - after the release ships)" \
+    "the deferral provenance lost the captain's answer or note: $show"
   show=$(tasks_in "$home" show sample-done-choice --full)
   assert_contains "$show" "state: done" "done stopped closing answered calls"
   show=$(tasks_in "$home" show sample-release-choice --full)
