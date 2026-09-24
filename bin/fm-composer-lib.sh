@@ -1643,7 +1643,7 @@ EOF
 
 fm_composer_classify_screen() {  # <caps> <screen> [cursor_row] [identity]
   local caps=$1 screen=$2 cy=${3:-} identity=${4:-}
-  local styled=0 cursor=0 has_identity=0 kv plain
+  local styled=0 cursor=0 has_identity=0 kv plain top lower title lower_extra
   while IFS= read -r kv; do
     case "$kv" in
       styled=1) styled=1 ;;
@@ -1717,6 +1717,36 @@ EOF
   # rules layered on (a live pi composer pair below the generic candidate
   # proves that candidate stale).
   if ! _fm_composer_select_cursorless "$plain"; then
+    # Current Claude on Herdr draws a titled transcript rule, an agent-glyph
+    # composer row, then one solid closing rule and status footer. The single
+    # closing rule looks like the start of an unfinished Pi composer to the
+    # generic selector. Require the exact adjacent shape AND native Claude
+    # identity before treating the glyph row as the live composer.
+    if [ "$has_identity" = 1 ] \
+       && [ "$FM_COMPOSER_SCAN_PI_PAIR_FOUND" = 0 ] \
+       && [ "$FM_COMPOSER_SCAN_BARE_ROW" -ge 1 ] \
+       && [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -eq "$((FM_COMPOSER_SCAN_BARE_ROW + 1))" ] \
+       && [ "$FM_COMPOSER_SCAN_INCOMPLETE_BOX_FROM" -lt 0 ] \
+       && [ "$FM_COMPOSER_SCAN_SHELL_ROW" -lt "$FM_COMPOSER_SCAN_BARE_ROW" ]; then
+      top=$(_fm_composer_screen_row "$((FM_COMPOSER_SCAN_BARE_ROW - 1))" "$plain")
+      lower=$(_fm_composer_screen_row "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" "$plain")
+      fm_composer_normalize_trim_var top
+      fm_composer_normalize_trim_var lower
+      title=${top//─/}
+      fm_composer_normalize_trim_var title
+      lower_extra=${lower//─/}
+      fm_composer_normalize_trim_var lower_extra
+      case "$top:$lower" in '─'*'─:─'*)
+        if [ -n "$title" ] && [ -z "$lower_extra" ]; then
+          if [ -z "$identity" ]; then printf 'need-identity'; return 0; fi
+          case "$identity" in $'claude\tidle'|$'claude\tdone')
+            _fm_composer_classify_bare_row "$screen" "$styled" "$FM_COMPOSER_SCAN_BARE_ROW"
+            return 0 ;;
+          esac
+        fi
+        ;;
+      esac
+    fi
     printf 'unknown'
     return 0
   fi

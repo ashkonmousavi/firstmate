@@ -1135,6 +1135,9 @@ The refusal is a JSON error on stderr with exit 1 and empty stdout, and both cli
 
 ### Submit confirmation
 
+On 2026-09-24, a read-only guard against an existing idle Claude Code 2.1.282 pane on Herdr 0.9.1 confirmed that the titled-rule, bare `❯`, closing-rule composer classified `empty` with native Claude idle identity.
+`FM_CLAUDE_HERDR_COMPOSER_LIVE=1 FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<pane> bin/fm-test-run.sh tests/fm-claude-herdr-composer-live-e2e.test.sh` refreshes this check without launching or changing a pane.
+
 Measured 2026-08-19 against Herdr 0.8.0 and Claude Code 2.1.236 in an isolated `fm-lab-` session.
 
 `herdr agent get` reported `agent_status=idle` on every sample across a landed one-word turn and an 8-second `sleep` tool call, while the pane rendered `Pontificating…` then `Sock-hopping… (11s · ↓ 234 tokens)`.

@@ -281,6 +281,7 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 
 ANSI capture preserves de-emphasized placeholder style.
 `bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
+Claude's Herdr transcript can end in a titled rule, a bare `❯` composer, and one closing rule; with native Claude idle or done identity, that adjacent shape is an empty composer, while typed text remains pending.
 If the ANSI capture ever fails, the plain fallback declares itself unstyled and the classifier degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input, which safely defers injection and eventually raises the wedge alarm.
 
 A bare shell prompt is never an empty agent composer.
@@ -337,6 +338,7 @@ The away daemon supports tmux and Herdr supervisor panes only.
 It refuses Zellij, Orca, and cmux as supervisor backends rather than applying the wrong transport.
 For Herdr, target existence, native state, capture, composer state, and verified submit all route through the shared backend dispatcher and the explicit named-session CLI owner.
 The pane-independent max-defer alert is configured in [`wedge-alarm.md`](wedge-alarm.md).
+An undeliverable max-defer escalation exits the tracked daemon and leaves its durable buffer and wake queue for the ordinary turn-end path.
 
 Harnesses with native tracked background execution can run the daemon in their terminal.
 Pi, pi-signed, and Codex no longer launch the away daemon; their ordinary supervision session continues under the posture record.
