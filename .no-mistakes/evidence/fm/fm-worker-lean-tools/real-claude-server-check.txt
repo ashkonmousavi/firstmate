@@ -1,0 +1,20 @@
+$ claude mcp list   # captain session, no worker settings
+plugin:playwright:playwright: npx @playwright/mcp@latest - ✔ Connected
+plugin:pdf-viewer:pdf: npx -y @modelcontextprotocol/server-pdf --stdio - ✔ Connected
+gitnexus: /home/linuxbrew/.linuxbrew/bin/gitnexus mcp - ✔ Connected
+serena: /home/tegris/.local/bin/serena start-mcp-server --context claude-code - ✔ Connected
+sequential-thinking: npx -y @modelcontextprotocol/server-sequential-thinking - ✔ Connected
+
+$ claude --settings "$(cat settings-primary-crewmate.json)" mcp list   # settings fm-spawn produced for the primary-crewmate
+{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}],"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}
+plugin:playwright:playwright: npx @playwright/mcp@latest - ✔ Connected
+gitnexus: /home/linuxbrew/.linuxbrew/bin/gitnexus mcp - ✔ Connected
+serena: /home/tegris/.local/bin/serena start-mcp-server --context claude-code - ✔ Connected
+pdf-viewer lines: 0  sequential-thinking lines: 0  total servers: 65 (baseline total: 67)
+
+$ claude --settings "$(cat settings-secondmate-crewmate.json)" mcp list   # settings fm-spawn produced for the secondmate-crewmate
+{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}],"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}
+plugin:playwright:playwright: npx @playwright/mcp@latest - ✔ Connected
+gitnexus: /home/linuxbrew/.linuxbrew/bin/gitnexus mcp - ✔ Connected
+serena: /home/tegris/.local/bin/serena start-mcp-server --context claude-code - ✔ Connected
+pdf-viewer lines: 0  sequential-thinking lines: 0  total servers: 65 (baseline total: 67)

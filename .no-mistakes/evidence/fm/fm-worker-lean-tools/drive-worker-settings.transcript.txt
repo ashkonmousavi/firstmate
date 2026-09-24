@@ -1,0 +1,60 @@
+### Scenario A: primary home with the captain's example file -> claude crewmate spawn
+warning: /tmp/fm-worker-settings-live.4qkwrk/primary/home/data/lean-a1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+/tmp/fm-worker-settings-live.4qkwrk/primary/fake/fakebin/timeout: line 3: exec: 1: not found
+/tmp/fm-worker-settings-live.4qkwrk/primary/fake/fakebin/timeout: line 3: exec: 1: not found
+spawned lean-a1 harness=claude kind=ship mode=no-mistakes yolo=off window=firstmate:fm-lean-a1 worktree=/tmp/fm-worker-settings-live.4qkwrk/primary/wt
+fm-spawn exit=0
+--- launch line typed into the worker pane:
+env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}],"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M38BXW7ZW42FTK6SKAFDRSYN/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-worker-settings-live.4qkwrk/primary/home/data/lean-a1/launch-brief.md')"
+
+--- --settings value claude receives:
+{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}],"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}
+
+### Scenario B: no file -> launch unchanged (firstmate keys only)
+warning: /tmp/fm-worker-settings-live.4qkwrk/absent/home/data/plain-b1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+/tmp/fm-worker-settings-live.4qkwrk/absent/fake/fakebin/timeout: line 3: exec: 1: not found
+/tmp/fm-worker-settings-live.4qkwrk/absent/fake/fakebin/timeout: line 3: exec: 1: not found
+spawned plain-b1 harness=claude kind=ship mode=no-mistakes yolo=off window=firstmate:fm-plain-b1 worktree=/tmp/fm-worker-settings-live.4qkwrk/absent/wt
+fm-spawn exit=0
+env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M38BXW7ZW42FTK6SKAFDRSYN/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-worker-settings-live.4qkwrk/absent/home/data/plain-b1/launch-brief.md')"
+
+
+### Scenario C: file tries to re-enable attribution/feedback -> firstmate keys win
+warning: /tmp/fm-worker-settings-live.4qkwrk/override/home/data/override-c1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+/tmp/fm-worker-settings-live.4qkwrk/override/fake/fakebin/timeout: line 3: exec: 1: not found
+/tmp/fm-worker-settings-live.4qkwrk/override/fake/fakebin/timeout: line 3: exec: 1: not found
+spawned override-c1 harness=claude kind=ship mode=no-mistakes yolo=off window=firstmate:fm-override-c1 worktree=/tmp/fm-worker-settings-live.4qkwrk/override/wt
+fm-spawn exit=0
+{"enabledPlugins":{"pdf-viewer@synced":false},"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}
+
+### Scenario D: malformed file -> spawn refused, nothing launched, no record
+file=\{\"enabledPlugins\": exit=1 output=error: config/claude-worker-settings.json must be a readable regular file holding one JSON object of Claude Code settings launch-log-bytes=0 meta=absent
+file=\[\{\"enabledPlugins\":\{\}\}\] exit=1 output=error: config/claude-worker-settings.json must be a readable regular file holding one JSON object of Claude Code settings launch-log-bytes=0 meta=absent
+file='' exit=1 output=error: config/claude-worker-settings.json must be a readable regular file holding one JSON object of Claude Code settings launch-log-bytes=0 meta=absent
+
+### Scenario E: primary file -> fm-config-push -> secondmate home -> secondmate's own crewmate
+config-push: /tmp/fm-worker-settings-live.4qkwrk/world/home -> live secondmate homes
+secondmate sm (/tmp/fm-worker-settings-live.4qkwrk/world/sm):
+  crew-dispatch.json: unchanged
+  crew-harness: unchanged
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  startup-memory-budget: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  claude-worker-settings.json: pushed
+  data/captain-shared.md: unchanged
+  config-reread: sent
+fm-config-push exit=0
+--- secondmate home config/claude-worker-settings.json:
+{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}]}
+warning: /tmp/fm-worker-settings-live.4qkwrk/world/sm/data/smcrew-e1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode no-mistakes - confirm its definition of done matches
+/tmp/fm-worker-settings-live.4qkwrk/world/fake/fakebin/timeout: line 3: exec: 1: not found
+/tmp/fm-worker-settings-live.4qkwrk/world/fake/fakebin/timeout: line 3: exec: 1: not found
+spawned smcrew-e1 harness=claude kind=ship mode=no-mistakes yolo=off window=firstmate:fm-smcrew-e1 worktree=/tmp/fm-worker-settings-live.4qkwrk/world/smwt
+fm-spawn (secondmate home) exit=0
+--- --settings value the secondmate's crewmate receives:
+{"enabledPlugins":{"pdf-viewer@synced":false},"deniedMcpServers":[{"serverName":"sequential-thinking"}],"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}
+after primary removal + push, secondmate copy: removed
