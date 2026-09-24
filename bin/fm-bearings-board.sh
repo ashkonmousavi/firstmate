@@ -78,6 +78,9 @@
 # that date with a UTC timestamp) the template orders the section by, newest
 # first; a row with no comparable date keeps its payload order after every dated
 # row. Anything else in that field refuses rather than sorting on garbage.
+# A decision option valued `later` requires `defer_until: "YYYY-MM-DD"` on
+# that option. Any option may carry that dated deferral; other options retain
+# the card's ordinary `done` or `release` close mode.
 #
 # The board path is stable - $FM_HOME/.lavish/bearings-board.html - so a
 # re-invocation rebuilds the same file in place, which keeps the same Lavish
@@ -153,7 +156,9 @@ validate_payload() {  # <data.json>
         | type == "object"
           and (.value | slug(128))
           and (.label | nonempty_string)
-          and optional_string("hint")] | all)
+          and optional_string("hint")
+          and ((has("defer_until") | not) or (.defer_until | valid_filed and length == 10))
+          and (if .value == "later" then has("defer_until") else true end)] | all)
       and (optional_string("about"))
       and (optional_string("decide"))
       and (optional_string("detail"))

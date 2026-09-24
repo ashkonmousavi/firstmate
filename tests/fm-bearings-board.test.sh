@@ -256,6 +256,15 @@ test_build_refuses_malformed_payloads_before_touching_the_board() {
   [ "$rc" -ne 0 ] || fail "a captains_call option with an empty label was accepted"
 
   write_valid_payload "$data"
+  jq '.captains_call[0].options[0].value = "later"' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "an undated later choice was accepted"
+
+  jq '.captains_call[0].options[0].defer_until = "2026-02-30"' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "an invalid later date was accepted"
+
+  write_valid_payload "$data"
   jq 'del(.charted[0].repo)' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
   set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
   [ "$rc" -ne 0 ] || fail "a fleet row without an explicit repo marker was accepted"

@@ -2235,6 +2235,56 @@ SH
   pass "a board answer reaches the keyed-answer intake and wakes firstmate"
 }
 
+test_board_later_defers_while_done_and_release_keep_their_modes() {
+  local home sid stub out show snap
+  home=$(make_home board-later)
+  sid=lavish-b0a4d0000000f1e3
+  fm_test_track_procevent_home "$home" "$home/procevent-claims"
+  run_captain "$home" hold sample-later-choice --title "Revisit sample choice" \
+    --reason "choice pending" --repo sample >/dev/null || fail "could not hold later choice"
+  run_captain "$home" hold sample-done-choice --title "Finish sample choice" \
+    --reason "choice pending" --repo sample >/dev/null || fail "could not hold done choice"
+  run_captain "$home" hold sample-release-choice --title "Start sample work" \
+    --reason "approval pending" --repo sample >/dev/null || fail "could not hold release choice"
+
+  stub="$home/board-later-source.sh"
+  cat > "$stub" <<'SH'
+#!/usr/bin/env bash
+cat <<'OUT'
+session:
+  status: feedback
+  session_ended: false
+prompts[3]{tag,text,prompt}:
+  "choice","Later","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-later-choice\",\"selection\":\"later\",\"note\":\"\",\"close\":\"defer:2026-12-01\"}"
+  "choice","Yes","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-done-choice\",\"selection\":\"yes\",\"note\":\"\",\"close\":\"done\"}"
+  "choice","Go","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-release-choice\",\"selection\":\"go\",\"note\":\"\",\"close\":\"release\"}"
+OUT
+SH
+  chmod +x "$stub"
+  run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
+    || fail "could not register the board source"
+  run_captain "$home" bind "$sid" >/dev/null || fail "could not bind the board source"
+  out=$(run_procevent "$home" start "$sid" 2>&1) \
+    || fail "the board source runner did not complete: $out"
+  assert_contains "$out" "answers-fed: $sid" "the board choices did not reach the intake: $out"
+
+  show=$(tasks_in "$home" show sample-later-choice --full)
+  assert_contains "$show" "state: queued" "later closed the captain call"
+  assert_contains "$show" "hold_kind: captain" "later released the captain hold"
+  assert_contains "$show" "hold_until: 2026-12-01" "later lost its deferral date"
+  show=$(tasks_in "$home" show sample-done-choice --full)
+  assert_contains "$show" "state: done" "done stopped closing answered calls"
+  show=$(tasks_in "$home" show sample-release-choice --full)
+  assert_contains "$show" "state: queued" "release closed the gated work"
+  assert_contains "$show" "held: no" "release stopped lifting the hold"
+  snap=$(run_bearings "$home") || fail "Bearings could not read the dated deferral"
+  printf '%s' "$snap" | jq -e '
+    (.decisions_open | any(.id == "sample-later-choice") | not)
+      and (.gates | any(.id == "sample-later-choice" and (.reason | startswith("until 2026-12-01"))))
+  ' >/dev/null || fail "the deferred choice stayed in Captain's Call: $snap"
+  pass "a captured board later choice dates the open hold while done and release retain their behavior"
+}
+
 # The intake is channel-agnostic, so chat must reach it the same way a captured
 # review does - for a task-id key, and for a legacy composed identity.
 test_chat_channel_feeds_the_same_keyed_answer_intake() {
@@ -3873,6 +3923,7 @@ test_reconcile_outcomes_retry_partial_failures_once
 test_unbound_source_closes_no_hold
 test_legacy_identities_keep_working
 test_board_answer_reaches_the_keyed_answer_intake
+test_board_later_defers_while_done_and_release_keep_their_modes
 test_chat_channel_feeds_the_same_keyed_answer_intake
 test_origin_slug_validation_precedes_path_construction
 test_status_resolution_over_an_open_hold_is_signalled
