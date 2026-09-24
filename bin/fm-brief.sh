@@ -406,11 +406,11 @@ BRIEF="$DATA/$ID/brief.md"
 mkdir -p "$DATA/$ID"
 
 ASK_USER_BLOCK=
-REVIEW_STOP_RULE=
 if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
   ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
+  # The two-round review stop is a validation-run escalation, so it rides rule 6.
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks must stay literal
-  REVIEW_STOP_RULE='After the second review round on one validation run, stop answering `fix` to new findings; append `needs-decision` with the full findings list so far and your reading of the root cause, then stop and wait for firstmate.'
+  ASK_USER_BLOCK+=$'\n''   After the second review round on one validation run, stop answering `fix` to new findings; append `needs-decision` with the full findings list so far and your reading of the root cause, then stop and wait for firstmate.'
 fi
 
 shell_quote() {
@@ -738,7 +738,7 @@ $ASK_USER_BLOCK
    A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
 $SHARED_INFRA_RULE
-$REVIEW_STOP_RULE
+
 8. Before renaming, moving, or changing the signature of a function, use Serena's \`find_symbol\` and \`find_referencing_symbols\`; before changing a shared module, run GitNexus impact against the GitNexus clone, never inside this worktree; reach for semantic search only when you do not know the symbol's name.
 
 $INBOX_SECTION

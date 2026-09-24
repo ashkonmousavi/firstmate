@@ -2807,8 +2807,9 @@ test_away_record_permits_any_green_merge_under_away_authority() {
   add_gh_mocks "$case_dir" "$head"
   FM_TEST_HOME="$case_dir/home" run_pr_merge "$case_dir" task-x1 "$url" \
     > "$case_dir/stdout" 2> "$case_dir/stderr" || fail "attended-untagged: an attended green merge should succeed"
+  # The landing reminder may follow the URL directly; an authority tag may not.
   case "$(grep -F "merge landed: task-x1 $url" "$case_dir/state/.wake-queue")" in
-    *"$url") ;;
+    *"$url"|*"$url; reminder: merged, not yet landed"*) ;;
     *) fail "attended-untagged: the attended outcome carried an authority tag: $(grep -F 'merge landed' "$case_dir/state/.wake-queue")" ;;
   esac
   pass "while the away-posture record exists any green merge lands under away authority, yolo or not, and attended merges stay untagged"
