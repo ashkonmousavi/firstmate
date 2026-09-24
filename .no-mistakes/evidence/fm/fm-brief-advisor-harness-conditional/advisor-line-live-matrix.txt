@@ -1,0 +1,17 @@
+RECORD                                       HARNESS LINES  HEADINGS  SECTION          SOURCE_BRIEF
+proj-live-codex-wt.codex.txt                 codex   0      0         -                unchanged
+proj-live-default-wt.claude.txt              claude  0      0         -                unchanged
+proj-live-fable-mixedcase-wt.claude.txt      claude  0      0         -                unchanged
+RELAUNCH:proj-live-fable-wt.claude.txt       claude  1      1         # Advisor tool   unchanged
+proj-live-legacy-codex-wt.codex.txt          codex   0      0         -                unchanged,has-stale-line
+proj-live-legacy-fable-wt.claude.txt         claude  0      0         -                unchanged,has-stale-line
+proj-live-legacy-nomodel-wt.claude.txt       claude  0      0         -                unchanged,has-stale-line
+proj-live-legacy-sonnet-wt.claude.txt        claude  1      1         # Advisor tool   unchanged,has-stale-line
+proj-live-nomodel-wt.claude.txt              claude  0      0         -                unchanged
+proj-live-scout-legacy-codex-wt.codex.txt    codex   0      0         -                unchanged,has-stale-line
+proj-live-scout-sonnet-wt.claude.txt         claude  1      1         # Advisor tool   unchanged
+proj-live-settings-fable-wt.claude.txt       claude  0      0         -                unchanged
+proj-live-sonnet-wt.claude.txt               claude  1      1         # Advisor tool   unchanged
+RELAUNCH:proj-live-sonnet-wt.codex.txt       codex   0      0         -                unchanged
+FIRST:proj-live-fable-wt.claude.txt          claude  0      0         -                -
+FIRST:proj-live-sonnet-wt.claude.txt         claude  1      1         # Advisor tool   -

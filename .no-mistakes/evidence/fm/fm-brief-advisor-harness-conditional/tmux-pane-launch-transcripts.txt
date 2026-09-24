@@ -1,0 +1,24 @@
+### tmux window firstmate:fm-live-settings-fable
+bash-5.2$ treehouse get
+bash-5.2$ export GOTMPDIR=/tmp/fm-live-settings-fable/gotmp
+bash-5.2$ export FM_TASK_ID=live-settings-fable
+bash-5.2$ env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"model":"claude-fable-5-1","feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M39HXVXEDXXB24D4GGTGGJKT/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-advisor-live.R1tPJP/fmhome/data/live-settings-fable/launch-brief.md')"
+### tmux window firstmate:fm-live-nomodel
+bash-5.2$ treehouse get
+bash-5.2$ export GOTMPDIR=/tmp/fm-live-nomodel/gotmp
+bash-5.2$ export FM_TASK_ID=live-nomodel
+bash-5.2$ env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M39HXVXEDXXB24D4GGTGGJKT/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-advisor-live.R1tPJP/fmhome/data/live-nomodel/launch-brief.md')"
+### tmux window firstmate:fm-live-legacy-sonnet
+bash-5.2$ treehouse get
+bash-5.2$ export GOTMPDIR=/tmp/fm-live-legacy-sonnet/gotmp
+bash-5.2$ export FM_TASK_ID=live-legacy-sonnet
+bash-5.2$ env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' --model 'claude-sonnet-4-5' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M39HXVXEDXXB24D4GGTGGJKT/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-advisor-live.R1tPJP/fmhome/data/live-legacy-sonnet/launch-brief.md')"
+### tmux window firstmate:fm-live-fable
+bash-5.2$ treehouse get
+bash-5.2$ export GOTMPDIR=/tmp/fm-live-fable/gotmp
+bash-5.2$ export FM_TASK_ID=live-fable
+bash-5.2$ env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' --model 'claude-fable-5-1' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M39HXVXEDXXB24D4GGTGGJKT/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-advisor-live.R1tPJP/fmhome/data/live-fable/launch-brief.md')"
+^C
+bash-5.2$ export GOTMPDIR=/tmp/fm-live-fable/gotmp
+bash-5.2$ export FM_TASK_ID=live-fable
+bash-5.2$ unset TRACEPARENT; env -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u GEMINI_CLI CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=false CLAUDE_CODE_SEND_FEEDBACK=0 claude --dangerously-skip-permissions --settings '{"feedbackDrafts":"off","attribution":{"commit":"","pr":"","sessionUrl":false}}' --model 'claude-sonnet-4-5' "$('/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M39HXVXEDXXB24D4GGTGGJKT/bin/fm-operational-input.sh' encode launch-brief < '/tmp/fm-advisor-live.R1tPJP/fmhome/data/live-fable/launch-brief.md')"
