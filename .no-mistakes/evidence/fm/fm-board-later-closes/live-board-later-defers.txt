@@ -1,0 +1,77 @@
+# Live board run: real lavish-axi 0.1.76 on scratch port 47311, real fm-bearings-board.sh build + armed fm-procevent listener.
+# Captain answered in Chromium: card1=Later (+note), card2=Yes, card3=Go, then Send to Agent.
+
+$ fm-bearings-board.sh build payload.json
+board: /tmp/fm-later-lab/home/.lavish/bearings-board.html
+session:
+  file: /tmp/fm-later-lab/home/.lavish/bearings-board.html
+  url: "http://127.0.0.1:47311/session/4bdd65da8f6b3b62"
+  status: opened
+session: live
+served: /tmp/fm-later-lab/home/.lavish/bearings-board.html
+bound: lavish-4bdd65da8f6b3b62
+armed: lavish-4bdd65da8f6b3b62
+listening: live
+
+$ tasks-axi show sample-later-choice --full
+task:
+  id: sample-later-choice
+  title: Revisit sample choice
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: approve sample merge after QA?
+  hold_kind: captain
+  hold_until: 2026-12-01
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-09-24T09:23:42Z\n\nCaptain deferred this call until 2026-12-01 through the captured result lavish-4bdd65da8f6b3b62 sequence 1: later (answer as shown to the captain: Revisit sample choice -> later - after the release ships)"
+
+$ tasks-axi show sample-done-choice --full
+task:
+  id: sample-done-choice
+  title: Finish sample choice
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: choice pending
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: "-"
+  closed: 2026-09-24
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: bcc15fc7e3cdfa855b5a3dfa9d7f5aae19d4c6d7c7accd9d69a49d25683bd95a\nResolution mode: answered\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-4bdd65da8f6b3b62 sequence 1.\nTask: sample-done-choice\nAnswer: yes\nAnswer as shown to the captain: Finish sample choice -> yes"
+
+$ tasks-axi show sample-release-choice --full
+task:
+  id: sample-release-choice
+  title: Start sample work
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: a02e963cbc5b77bf38e3bc46a534fb4bc1898ef9614b05adc37f23983e154c01\nResolution mode: released\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-4bdd65da8f6b3b62 sequence 1.\nTask: sample-release-choice\nAnswer: go\nAnswer as shown to the captain: Start sample work -> go"
+
+$ fm-bearings-snapshot.sh --json | jq (decisions_open, gates)
+{"decisions_open":[],"gates":[{"id":"sample-later-choice","reason":"until 2026-12-01: approve sample merge a…"},{"id":"sample-release-choice","reason":"-"}]}

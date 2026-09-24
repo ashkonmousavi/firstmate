@@ -1,0 +1,5 @@
+# Deferred call resurfaces after its date (same live lab home)
+$ FM_BEARINGS_NOW=2026-09-24T12:00:00Z fm-bearings-snapshot.sh --json
+{"decisions_open":[],"gates":["until 2026-12-01: approve sample merge a…"]}
+$ FM_BEARINGS_NOW=2026-12-02T00:00:00Z fm-bearings-snapshot.sh --json
+{"decisions_open":["sample-later-choice"],"gates":[]}

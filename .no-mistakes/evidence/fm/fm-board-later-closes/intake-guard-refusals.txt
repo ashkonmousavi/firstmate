@@ -1,0 +1,26 @@
+# Keyed-answer intake guards (real clock 2026-09-24): no row below may close or date a captain call
+adv-later-bare^Ilater^ILater^I
+adv-later-done^Ilater^ILater^Idone
+adv-later-past^Ilater^ILater^Idefer:2026-01-01
+adv-later-today^Ilater^ILater^Idefer:2026-09-24
+adv-yes-deferred^Iyes^IYes^Idefer:2026-12-01
+$ ... | fm-captain-hold.sh answers --source "adversarial rows"
+skipped: adv-later-bare (later requires a dated deferral)
+skipped: adv-later-done (later requires a dated deferral)
+skipped: adv-later-past (deferral date is not in the future)
+skipped: adv-later-today (deferral date is not in the future)
+skipped: adv-yes-deferred (a dated deferral is only for later)
+answers: closed=0 deferred=0 skipped=5
+exit=1
+
+$ tasks-axi list
+  adv-later-bare,queued,captain,sample,Adversarial adv-later-bare
+  adv-later-done,queued,captain,sample,Adversarial adv-later-done
+  adv-later-past,queued,captain,sample,Adversarial adv-later-past
+  adv-later-today,queued,captain,sample,Adversarial adv-later-today
+  adv-yes-deferred,queued,captain,sample,Adversarial adv-yes-deferred
+adv-later-bare:  state: queued held: yes hold_until: "-" 
+adv-later-done:  state: queued held: yes hold_until: "-" 
+adv-later-past:  state: queued held: yes hold_until: "-" 
+adv-later-today:  state: queued held: yes hold_until: "-" 
+adv-yes-deferred:  state: queued held: yes hold_until: "-" 

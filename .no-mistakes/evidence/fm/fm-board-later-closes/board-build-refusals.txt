@@ -1,0 +1,11 @@
+# Board build refuses an undated later option and a dated deferral on a non-later option (existing board left untouched)
+$ fm-bearings-board.sh build p-undated.json   # later option without defer_until
+fm-bearings-board: board data does not satisfy fm-bearings-board.v1: /tmp/fm-later-lab/p-undated.json
+exit=1
+$ fm-bearings-board.sh build p-baddate.json   # later with impossible date 2026-02-30
+fm-bearings-board: board data does not satisfy fm-bearings-board.v1: /tmp/fm-later-lab/p-baddate.json
+exit=1
+$ fm-bearings-board.sh build p-misplaced.json   # defer_until on the yes option
+fm-bearings-board: defer_until is only allowed on a later option: card "sample-later-choice" option "yes"
+exit=1
+board file unchanged: yes

@@ -1,0 +1,22 @@
+# BASE commit 9a5e435 reproduction: a board later answer with no defer mode
+prompts[1]{uid,prompt,selector,tag,text}:
+  "1","Captain's Call answer - Revisit sample choice: later - after the release ships\n\nContext data:\n{\n  \"schema\": \"fm-bearings-answer.v1\",\n  \"question\": \"sample-later-choice\",\n  \"selection\": \"later\",\n  \"note\": \"after the release ships\"\n}","div#bb-call > div:nth-of-type(1) > div > form",choice,Revisit sample choice -> later - after the release ships
+$ (base) fm-procevent-lavish.sh answers base.result | fm-captain-hold.sh answers --source "base board capture"
+closed: sample-later-choice
+answers: closed=1 skipped=0
+exit=0
+  state: done
+  held: no
+  hold_until: "-"
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 70b85c9d73803e8f2120625223820cf44fad86fec5097ab7294df263755dc430\nResolution mode: answered\n\nCaptain decision:\nCaptain answered this call through base board capture.\nTask: sample-later-choice\nAnswer: later\nAnswer as shown to the captain: Revisit sample choice -> later - after the release ships"
+
+# TARGET commit dc168fa, same captured row:
+$ (target) fm-procevent-lavish.sh answers base.result | fm-captain-hold.sh answers --source "base board capture"
+skipped: sample-later-choice (later requires a dated deferral)
+answers: closed=0 deferred=0 skipped=1
+exit=1
+  state: queued
+  held: yes
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T09:26:03Z"

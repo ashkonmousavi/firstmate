@@ -1,0 +1,11 @@
+# Legacy pre-v1 board capture (single `answer` field): bare later, annotated later, and yes-then-later on one card
+$ fm-procevent-lavish.sh answers legacy.result
+leg-yes^Iyes^ILegacy leg-yes -> yes
+$ fm-procevent-lavish.sh answers legacy.result | fm-captain-hold.sh answers --source "legacy board capture"
+closed: leg-yes
+answers: closed=1 deferred=0 skipped=0
+exit=0
+leg-later:  state: queued held: yes hold_kind: captain 
+leg-later-note:  state: queued held: yes hold_kind: captain 
+leg-changed:  state: queued held: yes hold_kind: captain 
+leg-yes:  state: done held: no hold_kind: captain  [resolution recorded]

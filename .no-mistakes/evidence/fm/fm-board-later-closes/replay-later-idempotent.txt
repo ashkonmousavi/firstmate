@@ -1,0 +1,29 @@
+# Replay: the same captured board result fed to the keyed-answer intake a second time
+$ fm-procevent-lavish.sh answers <captured result> | fm-captain-hold.sh answers --source "the captured result lavish-4bdd65da8f6b3b62 sequence 1"
+deferred: sample-later-choice until 2026-12-01
+closed: sample-done-choice
+closed: sample-release-choice
+answers: closed=2 deferred=1 skipped=0
+exit=0
+
+$ tasks-axi show sample-later-choice --full
+task:
+  id: sample-later-choice
+  title: Revisit sample choice
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: approve sample merge after QA?
+  hold_kind: captain
+  hold_until: 2026-12-01
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-09-24T09:23:42Z\n\nCaptain deferred this call until 2026-12-01 through the captured result lavish-4bdd65da8f6b3b62 sequence 1: later (answer as shown to the captain: Revisit sample choice -> later - after the release ships)"
+
+provenance lines in body: 1
