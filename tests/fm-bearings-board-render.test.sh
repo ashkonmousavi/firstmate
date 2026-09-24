@@ -3,8 +3,8 @@
 # (.agents/skills/bearings/assets/board-template.html), exercised through a real
 # `fm-bearings-board.sh build` and then executed under the minimal DOM shim in
 # tests/assets/board-render-harness.mjs. The assertions are on what the page
-# renders - row badges, the stat strip, the empty state - never on the
-# template's source text.
+# renders - row badges, the stat strip, the empty state, the answer a submitted
+# card queues - never on the template's source text.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -59,6 +59,16 @@ SH
   printf '%s\n' "$home"
 }
 
+build_board() {  # <home> <payload.json>
+  local home=$1 data=$2
+  PATH="$home/fakebin:$PATH" FM_HOME="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
+    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
+    "$BOARD" build "$data" >/dev/null || fail "the board did not build"
+}
+
 # Build the board from <underway-json> plus <charted-json> and return what the
 # renderer produced.
 render_board() {  # <home> <underway-json> <charted-json> [charted_more] [charted_warning_more]
@@ -68,14 +78,22 @@ render_board() {  # <home> <underway-json> <charted-json> [charted_more] [charte
     schema:"fm-bearings-board.v1", home:"render-home", generated:"2026-08-26T00:00Z",
     prs_live:false, captains_call:[], underway:$underway, landed:[],
     charted:$charted, charted_more:$more, charted_warning_more:$warning_more}' > "$data"
-  PATH="$home/fakebin:$PATH" FM_HOME="$home" \
-    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
-    FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
-    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
-    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
-    "$BOARD" build "$data" >/dev/null || fail "the board did not build"
+  build_board "$home" "$data"
   node "$HARNESS" "$home/.lavish/bearings-board.html" \
     || fail "the built board could not be rendered"
+}
+
+# Build a board whose Captain's Call is <call-json>, submit <answers-json> on
+# its cards, and return what the renderer queued.
+answer_board() {  # <home> <call-json> <answers-json>
+  local home=$1 data="$1/payload.json"
+  jq -n --argjson call "$2" '{
+    schema:"fm-bearings-board.v1", home:"render-home", generated:"2026-08-26T00:00Z",
+    prs_live:false, captains_call:$call, underway:[], landed:[],
+    charted:[], charted_more:0, charted_warning_more:0}' > "$data"
+  build_board "$home" "$data"
+  node "$HARNESS" "$home/.lavish/bearings-board.html" "$3" \
+    || fail "the built board could not be answered"
 }
 
 # Build the board from <charted-json> alone and return what the renderer produced.
@@ -233,6 +251,33 @@ test_charted_rows_without_a_filed_date_follow_the_dated_rows_in_payload_order() 
   pass "charted rows with no filed date follow the dated rows in payload order"
 }
 
+test_a_later_answer_queues_a_dated_deferral_and_other_answers_keep_the_close_mode() {
+  local home out card
+  home=$(make_home later-defers)
+  card='{"type":"decision","repo":"sample","title":"Approve sample merge","close":"release",
+    "options":[{"value":"yes","label":"Yes"},
+      {"value":"later","label":"Later","defer_until":"2026-12-01"}],
+    "allow_freeform":true}'
+  out=$(answer_board "$home" "[
+    $(printf '%s' "$card" | jq -c '.key = "call-deferred"'),
+    $(printf '%s' "$card" | jq -c '.key = "call-approved"')
+  ]" '[
+    {"question":"call-deferred","selection":"later","note":"after the release ships"},
+    {"question":"call-approved","selection":"yes","note":""}
+  ]')
+  printf '%s' "$out" | jq -e '.error == ""' >/dev/null \
+    || fail "the board rendered its fail-closed error instead of the call: $out"
+  printf '%s' "$out" | jq -e '
+    [.queued[] | .data] == [
+      {schema:"fm-bearings-answer.v1", question:"call-deferred", selection:"later",
+       note:"after the release ships", close:"defer:2026-12-01"},
+      {schema:"fm-bearings-answer.v1", question:"call-approved", selection:"yes",
+       note:"", close:"release"}]
+  ' >/dev/null || fail "a later answer did not queue its dated deferral apart from the card close mode: $out"
+  pass "a later answer queues defer:<date> while another answer keeps the card close mode"
+}
+
+test_a_later_answer_queues_a_dated_deferral_and_other_answers_keep_the_close_mode
 test_an_underway_row_leads_with_the_task_name_and_keeps_its_run_status
 test_an_underway_identifier_label_is_not_replaced_by_run_status
 test_charted_next_reads_newest_filed_first
