@@ -40,8 +40,10 @@
 #   no-mistakes-prod-only is a registry policy rather than a task mode and is
 #   refused as a flag value.
 #   Ship/scout launches always supply fm-dod-lib.sh's current worker role scope
-#   using the same private launch-brief overlay. This never rewrites a project's
-#   instruction files or a secondmate's charter.
+#   using the same private launch-brief overlay. The overlay supplies the Opus
+#   advisor line only for a claude worker whose --model is set, not default,
+#   and not Fable, stripping any stale copy from an older source brief. This
+#   never rewrites a project's instruction files or a secondmate's charter.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>]
 #   --relaunch launches a replacement agent for an EXISTING task into that
 #   task's own recorded endpoint and worktree instead of creating either. It is
@@ -2379,10 +2381,17 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   SOURCE_BRIEF=$BRIEF
   BRIEF="$DATA/$ID/launch-brief.md"
   BRIEF_TMP="$DATA/$ID/.launch-brief.md.${BASHPID:-$$}"
+  ADVISOR_LINE=$(fm_brief_advisor_line)
   {
-    cat "$SOURCE_BRIEF" &&
+    awk -v advisor="$ADVISOR_LINE" '$0 != advisor' "$SOURCE_BRIEF" &&
       printf '\n' &&
       fm_brief_worker_role &&
+      if [ "$HARNESS" = claude ]; then
+        case "$MODEL" in
+          ''|default|*[Ff][Aa][Bb][Ll][Ee]*) ;;
+          *) printf '\n# Advisor tool\n' && fm_brief_advisor_line ;;
+        esac
+      fi &&
       if [ "$KIND" = ship ] && [ -f "$PREP_FILE" ]; then
         fm_brief_prep_overlay "$PREP_FILE"
       fi &&

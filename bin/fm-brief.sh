@@ -122,9 +122,8 @@
 # Scaffolds carry no role scope: fm-spawn.sh supplies fm_brief_worker_role from
 # fm-dod-lib.sh to every ship/scout launch brief, so this file never becomes a
 # second owner of a contract that must stay current across relaunches.
-# Every ship and scout scaffold opens with a line telling the worker to call its
-# built-in Opus advisor tool at every design fork, before each commit, and before
-# answering a validation gate or writing needs-decision.
+# bin/fm-spawn.sh owns the harness/model-dependent Opus advisor line in the
+# launch brief; ship and scout scaffolds do not supply it.
 # Ship scaffolds carry a fixed Rules line naming which tool serves which step:
 # Serena find_symbol/find_referencing_symbols before renaming, moving, or
 # changing a function's signature; GitNexus impact against the GitNexus clone
@@ -448,11 +447,6 @@ IFS= read -r -d '' TASK_SECTION <<'EOF' || true
 EOF
 TASK_SECTION=${TASK_SECTION%$'\n'}
 
-# Shared across ship and scout: call the reviewer, not just the code, at the
-# points where an unreviewed choice is costliest to redo.
-# shellcheck disable=SC2016 # single quotes are deliberate: the backticks must stay literal
-ADVISOR_LINE='Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.'
-
 if [ "$KIND" = scout ]; then
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, you may host the Lavish review loop yourself (poll, revise, re-serve, staying alive) instead of handing it back to firstmate.'
@@ -461,7 +455,6 @@ else
 fi
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
-$ADVISOR_LINE
 
 $TASK_SECTION
 
@@ -548,7 +541,6 @@ DOD=$(fm_dod_block "$MODE" "$ID") || exit 1
 
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
-$ADVISOR_LINE
 
 $TASK_SECTION
 

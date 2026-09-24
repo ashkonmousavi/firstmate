@@ -1207,6 +1207,49 @@ SH
   pass "fm-spawn: actual ship/scout launch commands deliver the worker role contract"
 }
 
+test_advisor_line_follows_resolved_worker() {
+  local case_name rec id harness model legacy out status source launch advisor count section
+  local -a model_args
+  # shellcheck disable=SC2016 # The backticks are literal brief text.
+  advisor='Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.'
+  for case_name in claude-eligible codex-legacy fable-legacy claude-legacy claude-nomodel-legacy; do
+    case "$case_name" in
+      claude-eligible) harness=claude; model=claude-sonnet-4-5; legacy=0 ;;
+      codex-legacy) harness=codex; model=gpt-6-sol; legacy=1 ;;
+      fable-legacy) harness=claude; model=claude-fable-5-1; legacy=1 ;;
+      claude-legacy) harness=claude; model=claude-sonnet-4-5; legacy=1 ;;
+      claude-nomodel-legacy) harness=claude; model=; legacy=1 ;;
+    esac
+    id="advisor-$case_name"
+    rec=$(make_spawn_case "$id" "$harness" "$id")
+    read_case_record "$rec"
+    source="$HOME_DIR/data/$id/brief.md"
+    if [ "$legacy" -eq 1 ]; then
+      printf '%s\n' "$advisor" >> "$source"
+    fi
+    model_args=()
+    [ -n "$model" ] && model_args=(--model "$model")
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness "$harness" "${model_args[@]}")
+    status=$?
+    expect_code 0 "$status" "$case_name spawn should succeed: $out"
+    launch="$HOME_DIR/data/$id/launch-brief.md"
+    assert_present "$launch" "$case_name launch brief missing"
+    count=$(grep -Fxc -- "$advisor" "$launch" || true)
+    case "$case_name" in
+      claude-eligible|claude-legacy)
+        [ "$count" -eq 1 ] || fail "$case_name must deliver exactly one advisor line (got $count)"
+        section=$(awk -v advisor="$advisor" '/^# / { heading = $0 } $0 == advisor { print heading; exit }' "$launch")
+        [ "$section" = '# Advisor tool' ] || fail "$case_name advisor line must sit in its own section (got '$section')" ;;
+      *)
+        [ "$count" -eq 0 ] || fail "$case_name must omit the advisor line (got $count)" ;;
+    esac
+    if [ "$legacy" -eq 1 ]; then
+      assert_grep "$advisor" "$source" "$case_name source brief changed during launch"
+    fi
+  done
+  pass "fm-spawn: advisor line follows resolved harness and model, with stale source copies normalized"
+}
+
 # config/claude-permission-mode (bin/fm-spawn.sh header): absent and `bypass`
 # must both produce today's launch byte-for-byte, `auto` swaps only the
 # permission flag, and any other token refuses before endpoint or metadata.
@@ -1437,6 +1480,7 @@ test_non_claude_harness_ignores_claude_worker_settings() {
 }
 
 test_worker_launch_delivers_role_scope
+test_advisor_line_follows_resolved_worker
 test_no_profile_keeps_claude_profile_defaults
 test_non_cursor_launch_clears_inherited_cursor_markers
 test_relative_home_overrides_launch_with_absolute_cross_process_paths

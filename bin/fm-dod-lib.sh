@@ -41,6 +41,8 @@
 # secondmate charter. Like fm_brief_intent_overlay it is a distinctly titled
 # launch section that states its own precedence for Firstmate tasks, so a brief
 # that authors its own role wording is superseded rather than duplicated.
+# fm_brief_advisor_line owns the exact legacy line that bin/fm-spawn.sh strips
+# from source briefs and conditionally emits for eligible workers.
 
 # shellcheck source=bin/fm-secondmate-registry-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-secondmate-registry-lib.sh"
@@ -53,6 +55,12 @@ When this task works on Firstmate itself, the repository root `AGENTS.md` (also 
 For that Firstmate task, do the assigned work yourself and report to firstmate; do not adopt the supervisor identity, delegate the task, run fleet supervision, or address the captain.
 This exception preserves this brief's safety and authority boundaries and applicable contributor guidance, including `CONTRIBUTING.md` and `firstmate-coding-guidelines` for Firstmate changes.
 Other projects retain their own instructions unchanged.
+EOF
+}
+
+fm_brief_advisor_line() {
+  cat <<'EOF'
+Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.
 EOF
 }
 
