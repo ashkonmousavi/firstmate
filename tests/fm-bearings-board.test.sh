@@ -64,7 +64,7 @@ case "${1-}" in
     exit 0
     ;;
   '')
-    if [ -e "$state/end-before-next-list" ]; then
+    if [ -e "$state/end-before-next-list" ] && [ -s "$state/open" ]; then
       : > "$state/open"
       rm -f "$state/end-before-next-list"
     fi
@@ -81,6 +81,7 @@ case "${1-}" in
 esac
 file=$1
 shift
+printf '%s\n' "$*" >> "$state/open-args"
 reopen=0
 for arg in "$@"; do [ "$arg" != --reopen ] || reopen=1; done
 real=$(cd "$(dirname "$file")" && pwd -P)/$(basename "$file")
@@ -102,6 +103,26 @@ SH
 }
 
 end_session_as_captain() { : > "$1/lavish-state/user-ended"; : > "$1/lavish-state/open"; }
+
+test_build_opens_only_when_session_is_not_listed() {
+  local home data
+  home=$(make_home browser-tabs)
+  data="$home/payload.json"
+  write_valid_payload "$data"
+  run_board "$home" build "$data" >/dev/null || fail "the first build failed"
+  [ "$(sed -n '1p' "$home/lavish-state/open-args")" = "" ] \
+    || fail "the first build suppressed the browser open"
+  run_board "$home" build "$data" >/dev/null || fail "the rebuild failed"
+  [ "$(sed -n '2p' "$home/lavish-state/open-args")" = "--no-open" ] \
+    || fail "the open session rebuild did not suppress a new tab"
+  end_session_as_captain "$home"
+  run_board "$home" build "$data" >/dev/null || fail "the ended session rebuild failed"
+  [ "$(sed -n '3p' "$home/lavish-state/open-args")" = "" ] \
+    || fail "the ended session's first attempt suppressed the browser open"
+  [ "$(sed -n '4p' "$home/lavish-state/open-args")" = "--reopen" ] \
+    || fail "the reopen suppressed the browser open"
+  pass "first build and reopen open a tab; live rebuild does not"
+}
 
 run_board() {  # <home> <args...>
   local home=$1
@@ -803,6 +824,7 @@ test_build_refuses_a_nondecision_reconcile_value() {
 }
 
 test_path_is_stable_and_home_scoped
+test_build_opens_only_when_session_is_not_listed
 test_build_refuses_malformed_payloads_before_touching_the_board
 test_charted_kind_is_optional_and_accepts_both_values
 test_build_injects_binds_then_arms
