@@ -365,7 +365,7 @@ The optional local, gitignored `config/claude-worker-settings.json` holds one JS
 Its main use is switching off add-on servers workers never use, so each worker stops paying their memory, while the captain's own Claude sessions keep every tool.
 Firstmate shallow-merges the object into the inline `--settings` JSON each launch already passes, and Firstmate's own keys (`feedbackDrafts` and `attribution`) always win on conflict, so the file can never turn feedback drafts or commit and PR attribution back on.
 When the file is absent, the Claude launch is byte-for-byte the same as it was before the file existed.
-Invalid JSON, a value that is not an object, or an unreadable file refuses every spawn and relaunch from that home, whichever harness it would launch, before any endpoint, worktree, or task record exists, with one error line naming the file; Firstmate never launches a worker without the settings the file asks for.
+A file that is not exactly one JSON object (invalid JSON, an array or other value, several values, or an empty file), or an unreadable file, refuses every spawn and relaunch from that home, whichever harness it would launch, before any endpoint, worktree, or task record exists, with one error line naming the file; Firstmate never launches a worker without the settings the file asks for.
 `bin/fm-spawn.sh` reads the file on every spawn and relaunch, so a change takes effect at the next launch without a restart.
 The file is not inherited into secondmate homes: each home, including each secondmate home, reads only its own copy.
 The captain's global `~/.claude/settings.json` and `~/.claude.json` are never changed by this mechanism.

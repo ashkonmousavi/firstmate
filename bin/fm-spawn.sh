@@ -282,8 +282,8 @@
 #   add-on servers workers never use. It is shallow-merged into the launch's
 #   inline --settings JSON and firstmate's own keys (feedbackDrafts,
 #   attribution) always win, so the file can never turn either back on. Absent,
-#   the launch is byte-identical to one without it. Invalid JSON, a value that
-#   is not an object, or an unreadable file refuses the spawn before any
+#   the launch is byte-identical to one without it. Anything other than exactly
+#   one JSON object, or an unreadable file, refuses the spawn before any
 #   endpoint, worktree, or record exists. Read on every spawn and relaunch; NOT
 #   inherited into secondmate homes. docs/configuration.md owns the schema.
 #   Launch templates live in launch_template() below; placeholders replaced before launch:
@@ -483,8 +483,8 @@ if ! CLAUDE_WORKER_SETTINGS_PRESENT=$(fm_config_source_present "$CONFIG/claude-w
 fi
 if [ "$CLAUDE_WORKER_SETTINGS_PRESENT" = 1 ]; then
   if [ ! -f "$CONFIG/claude-worker-settings.json" ] || [ ! -r "$CONFIG/claude-worker-settings.json" ] \
-    || ! CLAUDE_SETTINGS=$(jq -ce --argjson fm "$CLAUDE_FIRSTMATE_SETTINGS" \
-      'if type == "object" then . + $fm else error("not an object") end' \
+    || ! CLAUDE_SETTINGS=$(jq -ces --argjson fm "$CLAUDE_FIRSTMATE_SETTINGS" \
+      'if length == 1 and (.[0] | type) == "object" then .[0] + $fm else error("not one object") end' \
       "$CONFIG/claude-worker-settings.json" 2>/dev/null); then
     echo "error: config/claude-worker-settings.json must be a readable regular file holding one JSON object of Claude Code settings" >&2
     exit 1

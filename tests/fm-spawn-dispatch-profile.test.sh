@@ -1397,7 +1397,7 @@ test_claude_worker_settings_reach_scout_and_secondmate() {
 
 test_claude_worker_settings_invalid_refuses_before_endpoint_or_metadata() {
   local rec id out status n=0 content
-  for content in '{"enabledPlugins":' '["not","an","object"]' '"just a string"' DIRECTORY; do
+  for content in '{"enabledPlugins":' '["not","an","object"]' '"just a string"' '{} {}' '' DIRECTORY; do
     n=$((n + 1))
     id=workersettings-invalid-z28-$n
     rec=$(make_spawn_case "workersettings-invalid-$n" claude "$id")
