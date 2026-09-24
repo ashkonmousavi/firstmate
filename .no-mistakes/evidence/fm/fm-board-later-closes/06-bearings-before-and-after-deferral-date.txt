@@ -1,0 +1,45 @@
+$ FM_BEARINGS_NOW=2026-09-24T08:00:00Z fm-bearings-snapshot.sh --json | jq "{decisions_open, gates}"
+{
+  "decisions_open": [],
+  "gates": [
+    {
+      "id": "sample-later-card",
+      "title": "Revisit sample merge",
+      "blocked_by": "-",
+      "reason": "until 2026-12-01: approve sample merge a…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-release-card",
+      "title": "Start sample work",
+      "blocked_by": "-",
+      "reason": "-",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    }
+  ]
+}
+
+$ FM_BEARINGS_NOW=2026-12-01T09:00:00Z fm-bearings-snapshot.sh --json | jq "{decisions_open, gates}"   # deferral date arrives
+{
+  "decisions_open": [
+    {
+      "id": "sample-later-card",
+      "key": "sample-later-card",
+      "verb": "captain-hold",
+      "summary": "Revisit sample merge: approve sample merge after QA?",
+      "owner": "(main)"
+    }
+  ],
+  "gates": [
+    {
+      "id": "sample-release-card",
+      "title": "Start sample work",
+      "blocked_by": "-",
+      "reason": "-",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    }
+  ]
+}

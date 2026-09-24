@@ -1,0 +1,55 @@
+$ captured prompts (real Lavish result lavish-c83416a146978879.2.result)
+prompts[6]{uid,prompt,selector,tag,text}:
+  "1","Captain's Call answer - v1 undated: later\n\nContext data:\n{\n  \"schema\": \"fm-bearings-answer.v1\",\n  \"question\": \"sample-v1-undated\",\n  \"selection\": \"later\",\n  \"note\": \"\",\n  \"close\": \"done\"\n}",html > body > header,choice,v1 undated -> later
+  "2","Captain's Call answer - old later: later\n\nContext data:\n{\n  \"question\": \"sample-old-later\",\n  \"answer\": \"later\"\n}",html > body > main,choice,old later -> later
+  "3","Captain's Call answer - old note: later - after release\n\nContext data:\n{\n  \"question\": \"sample-old-note\",\n  \"answer\": \"later - after release\"\n}",div#bb-call,choice,old note -> later - after release
+  "4","Captain's Call answer - old changed: yes\n\nContext data:\n{\n  \"question\": \"sample-old-changed\",\n  \"answer\": \"yes\"\n}",div#bb-stats,choice,old changed -> yes
+  "5","Captain's Call answer - old changed: later\n\nContext data:\n{\n  \"question\": \"sample-old-changed\",\n  \"answer\": \"later\"\n}","html > body > main > div:nth-of-type(2)",choice,old changed -> later
+  "6","Captain's Call answer - old yes: yes\n\nContext data:\n{\n  \"question\": \"sample-old-yes\",\n  \"answer\": \"yes\"\n}","html > body > main > div:nth-of-type(3)",choice,old yes -> yes
+
+$ fm-procevent-lavish.sh answers <result>   # keyed lines the adapter feeds the intake
+sample-v1-undated	later	v1 undated -> later	done
+sample-old-yes	yes	old yes -> yes
+exit=0
+
+$ replaying those keyed lines into the intake shows what the live runner saw
+skipped: sample-v1-undated (later requires a dated deferral)
+skipped: sample-old-yes (already closed)
+answers: closed=0 deferred=0 skipped=2
+exit=1
+
+$ tasks-axi show sample-v1-undated --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-v1-undated
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T08:08:45Z"
+$ tasks-axi show sample-old-later --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-old-later
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T08:08:46Z"
+$ tasks-axi show sample-old-note --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-old-note
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T08:08:46Z"
+$ tasks-axi show sample-old-changed --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-old-changed
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T08:08:47Z"
+$ tasks-axi show sample-old-yes --full
+  state: done
+  held: no
+  hold_reason: choice pending for sample-old-yes
+  hold_kind: captain
+  hold_until: "-"
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: abd333fef3e323f9f61f051744f0f4ada54d298fd247bee43f7d06fb5d0a150a\nResolution mode: answered\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-c83416a146978879 sequence 2.\nTask: sample-old-yes\nAnswer: yes\nAnswer as shown to the captain: old yes -> yes"

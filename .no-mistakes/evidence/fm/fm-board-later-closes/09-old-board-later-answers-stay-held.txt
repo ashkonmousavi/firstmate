@@ -1,0 +1,45 @@
+$ captured prompts (real Lavish result, sequence 3)
+prompts[5]{uid,prompt,selector,tag,text}:
+  "1","Captain's Call answer - v1 undated: later\n\nContext data:\n{\n  \"schema\": \"fm-bearings-answer.v1\",\n  \"question\": \"sample-v1-undated\",\n  \"selection\": \"later\",\n  \"note\": \"\",\n  \"close\": \"done\"\n}",html > body > header,choice,v1 undated -> later
+  "2","Captain's Call answer - old later: later\n\nContext data:\n{\n  \"question\": \"sample-old-later\",\n  \"answer\": \"later\"\n}",html > body > main > footer,choice,old later -> later
+  "3","Captain's Call answer - old note: later - after release\n\nContext data:\n{\n  \"question\": \"sample-old-note\",\n  \"answer\": \"later - after release\"\n}","html > body > main > div:nth-of-type(2) > section:nth-of-type(1)",choice,old note -> later - after release
+  "4","Captain's Call answer - old changed: yes\n\nContext data:\n{\n  \"question\": \"sample-old-changed\",\n  \"answer\": \"yes\"\n}","html > body > main > div:nth-of-type(2) > section:nth-of-type(2)",choice,old changed -> yes
+  "5","Captain's Call answer - old changed: later\n\nContext data:\n{\n  \"question\": \"sample-old-changed\",\n  \"answer\": \"later\"\n}","html > body > main > div:nth-of-type(3) > section:nth-of-type(1)",choice,old changed -> later
+
+$ fm-procevent-lavish.sh answers <result 3>   # keyed lines the adapter feeds the intake
+sample-v1-undated	later	v1 undated -> later	done
+exit=0
+
+$ replaying those keyed lines into the intake shows what the runner saw
+skipped: sample-v1-undated (later requires a dated deferral)
+answers: closed=0 deferred=0 skipped=1
+exit=1
+
+$ tasks-axi show sample-v1-undated --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-v1-undated
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T07:56:53Z"
+$ tasks-axi show sample-old-later --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-old-later
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T07:56:54Z"
+$ tasks-axi show sample-old-note --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-old-note
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T07:56:54Z"
+$ tasks-axi show sample-old-changed --full
+  state: queued
+  held: yes
+  hold_reason: choice pending for sample-old-changed
+  hold_kind: captain
+  hold_until: "-"
+  body: "Captain hold set: 2026-09-24T07:56:55Z"

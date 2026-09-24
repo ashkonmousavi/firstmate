@@ -1,0 +1,23 @@
+$ printf keyed lines | fm-captain-hold.sh answers --source chat   # today is 2026-09-24
+skipped: guard-baddate (invalid deferral date)
+skipped: guard-today (deferral date is not in the future)
+skipped: guard-past (deferral date is not in the future)
+skipped: guard-yes-defer (a dated deferral is only for later)
+skipped: guard-later-release (later requires a dated deferral)
+answers: closed=0 deferred=0 skipped=5
+exit=1
+
+guard-baddate:   state: queued  held: yes  hold_until: "-"
+guard-today:   state: queued  held: yes  hold_until: "-"
+guard-past:   state: queued  held: yes  hold_until: "-"
+guard-yes-defer:   state: queued  held: yes  hold_until: "-"
+guard-later-release:   state: queued  held: yes  hold_until: "-"
+
+$ replay the sequence-1 later deferral a second time (duplicate delivery)
+deferred: sample-later-card until 2026-12-01
+answers: closed=0 deferred=1 skipped=0
+exit=0
+  state: queued
+  hold_reason: approve sample merge after QA?
+  hold_until: 2026-12-01
+  body: "Captain hold set: 2026-09-24T08:08:43Z\n\nCaptain deferred this call until 2026-12-01 through the captured result lavish-c83416a146978879 sequence 1: later"

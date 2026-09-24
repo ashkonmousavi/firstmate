@@ -1,0 +1,121 @@
+$ FM_BEARINGS_NOW=2026-09-24T08:15:00Z fm-bearings-snapshot.sh --json | jq "{decisions_open, gates}"
+{
+  "decisions_open": [
+    {
+      "id": "sample-v1-undated",
+      "key": "sample-v1-undated",
+      "verb": "captain-hold",
+      "summary": "v1-undated: choice pending for sample-v1-undated",
+      "owner": "(main)"
+    },
+    {
+      "id": "sample-old-later",
+      "key": "sample-old-later",
+      "verb": "captain-hold",
+      "summary": "old-later: choice pending for sample-old-later",
+      "owner": "(main)"
+    },
+    {
+      "id": "sample-old-note",
+      "key": "sample-old-note",
+      "verb": "captain-hold",
+      "summary": "old-note: choice pending for sample-old-note",
+      "owner": "(main)"
+    },
+    {
+      "id": "sample-old-changed",
+      "key": "sample-old-changed",
+      "verb": "captain-hold",
+      "summary": "old-changed: choice pending for sample-old-changed",
+      "owner": "(main)"
+    },
+    {
+      "id": "sample-old-yes",
+      "key": "sample-old-yes",
+      "verb": "captain-hold",
+      "summary": "old-yes: choice pending for sample-old-yes",
+      "owner": "(main)"
+    }
+  ],
+  "gates": [
+    {
+      "id": "sample-later-card",
+      "title": "Revisit sample merge",
+      "blocked_by": "-",
+      "reason": "until 2026-12-01: approve sample merge a…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-release-card",
+      "title": "Start sample work",
+      "blocked_by": "-",
+      "reason": "-",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    }
+  ]
+}
+
+$ FM_BEARINGS_NOW=2026-12-01T09:00:00Z fm-bearings-snapshot.sh --json | jq "{decisions_open, gates}"   # deferral date arrives
+{
+  "decisions_open": [
+    {
+      "id": "sample-later-card",
+      "key": "sample-later-card",
+      "verb": "captain-hold",
+      "summary": "Revisit sample merge: approve sample merge after QA?",
+      "owner": "(main)"
+    }
+  ],
+  "gates": [
+    {
+      "id": "sample-release-card",
+      "title": "Start sample work",
+      "blocked_by": "-",
+      "reason": "-",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-v1-undated",
+      "title": "v1-undated",
+      "blocked_by": "-",
+      "reason": "held 68d: choice pending for sample-v1-u…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-old-later",
+      "title": "old-later",
+      "blocked_by": "-",
+      "reason": "held 68d: choice pending for sample-old-…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-old-note",
+      "title": "old-note",
+      "blocked_by": "-",
+      "reason": "held 68d: choice pending for sample-old-…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-old-changed",
+      "title": "old-changed",
+      "blocked_by": "-",
+      "reason": "held 68d: choice pending for sample-old-…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    },
+    {
+      "id": "sample-old-yes",
+      "title": "old-yes",
+      "blocked_by": "-",
+      "reason": "held 68d: choice pending for sample-old-…",
+      "owner": "(main)",
+      "filed": "2026-09-24"
+    }
+  ]
+}

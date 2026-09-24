@@ -1,0 +1,27 @@
+# BASE commit 9a5e435 scripts on a fresh isolated home, fed the same real Lavish capture sequence 2
+$ base fm-procevent-lavish.sh answers <result 2> | base fm-captain-hold.sh answers
+closed: sample-v1-undated
+closed: sample-old-later
+closed: sample-old-note
+closed: sample-old-changed
+closed: sample-old-yes
+answers: closed=5 skipped=0
+exit=0
+
+# the original report's shape: a base-era v1 card whose later option carried no defer_until (close done)
+closed: sample-base-undated
+answers: closed=1 skipped=0
+exit=0
+
+sample-v1-undated: done
+sample-old-later: done
+sample-old-note: done
+sample-old-changed: done
+sample-old-yes: done
+sample-base-undated: done
+
+# HEAD 2bd1535 on the identical undated later line
+skipped: sample-base-undated (later requires a dated deferral)
+answers: closed=0 deferred=0 skipped=1
+exit=1
+sample-base-undated: queued

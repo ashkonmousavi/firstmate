@@ -1,0 +1,60 @@
+$ tasks-axi show sample-later-card --full
+task:
+  id: sample-later-card
+  title: Revisit sample merge
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: approve sample merge after QA?
+  hold_kind: captain
+  hold_until: 2026-12-01
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-09-24T07:54:56Z\n\nCaptain deferred this call until 2026-12-01 through the captured result lavish-e904f549e7d3f8a9 sequence 1: later"
+
+$ tasks-axi show sample-done-card --full
+task:
+  id: sample-done-card
+  title: Pick sample option
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: which sample option?
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: "-"
+  closed: 2026-09-24
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 546943c69e2b2e0bdde2199f4db584684cdd3a435e4c514ed78e1c0693fedcaa\nResolution mode: answered\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-e904f549e7d3f8a9 sequence 1.\nTask: sample-done-card\nAnswer: yes\nAnswer as shown to the captain: Pick sample option -> yes"
+
+$ tasks-axi show sample-release-card --full
+task:
+  id: sample-release-card
+  title: Start sample work
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: a9a8033404937a080a16b330ad0840a2a0b428a72247cd2e8233a5e9d1cc8c24\nResolution mode: released\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-e904f549e7d3f8a9 sequence 1.\nTask: sample-release-card\nAnswer: go\nAnswer as shown to the captain: Start sample work -> go"
+

@@ -1,0 +1,61 @@
+# after the captain queued later/yes/go on the live board and pressed Send to Agent (HEAD 2bd1535)
+$ tasks-axi show sample-later-card --full
+task:
+  id: sample-later-card
+  title: Revisit sample merge
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: approve sample merge after QA?
+  hold_kind: captain
+  hold_until: 2026-12-01
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-09-24T08:08:43Z\n\nCaptain deferred this call until 2026-12-01 through the captured result lavish-c83416a146978879 sequence 1: later"
+
+$ tasks-axi show sample-done-card --full
+task:
+  id: sample-done-card
+  title: Pick sample option
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: which sample option?
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: "-"
+  closed: 2026-09-24
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: 1a52086027d207d827bdaa2d40cd51272625e182c87fbb33f295e56e29aae57d\nResolution mode: answered\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-c83416a146978879 sequence 1.\nTask: sample-done-card\nAnswer: yes\nAnswer as shown to the captain: Pick sample option -> yes"
+
+$ tasks-axi show sample-release-card --full
+task:
+  id: sample-release-card
+  title: Start sample work
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-24
+  closed: "-"
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: cb2401b38aa94b770076b7077970679347f7e9b09cbc6047538e90f8f1e866b4\nResolution mode: released\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-c83416a146978879 sequence 1.\nTask: sample-release-card\nAnswer: go\nAnswer as shown to the captain: Start sample work -> go"
+

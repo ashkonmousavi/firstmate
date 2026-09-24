@@ -1,0 +1,11 @@
+# HEAD 2bd1535, isolated FM_HOME=/tmp/fm-later-lab3.Z0XxKz
+$ fm-bearings-board.sh build undated.json   # later option without defer_until
+fm-bearings-board: board data does not satisfy fm-bearings-board.v1: /tmp/fm-later-lab3.Z0XxKz/undated.json
+exit=1
+
+$ fm-bearings-board.sh build misplaced.json   # defer_until on the yes option
+fm-bearings-board: defer_until is only allowed on a later option: card "sample-later-card" option "yes"
+exit=1
+
+$ ls $FM_HOME/.lavish/   # nothing built or armed
+ls: cannot access '/tmp/fm-later-lab3.Z0XxKz/.lavish': No such file or directory

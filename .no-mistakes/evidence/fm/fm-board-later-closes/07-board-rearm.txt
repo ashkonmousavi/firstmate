@@ -1,0 +1,16 @@
+$ fm-bearings-board.sh build payload.json   # rebuild after the first wake was handled
+dropped-landed-card: sample-done-card (no longer an open captain call)
+dropped-landed-card: sample-release-card (no longer an open captain call)
+board: /tmp/fm-later-lab.QF8vvt/.lavish/bearings-board.html
+session:
+  file: /tmp/fm-later-lab.QF8vvt/.lavish/bearings-board.html
+  url: "http://127.0.0.1:56665/session/e904f549e7d3f8a9"
+  status: opened
+session: live
+served: /tmp/fm-later-lab.QF8vvt/.lavish/bearings-board.html
+bound: lavish-e904f549e7d3f8a9
+already-armed: lavish-e904f549e7d3f8a9
+listening: live
+exit=0
+SOURCE                       ADAPTER      OWNER      PENDING
+lavish-e904f549e7d3f8a9      lavish       live       0

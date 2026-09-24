@@ -1,0 +1,21 @@
+# BASE commit 9a5e435 scripts, fed the same real Lavish captures (sequence 1 later card and sequence 3)
+$ base fm-procevent-lavish.sh answers <result 1> | grep -v sample-done/-release | base fm-captain-hold.sh answers
+answers: closed=0 skipped=0
+exit=0
+$ base fm-procevent-lavish.sh answers <result 3> | grep -v sample-done/-release | base fm-captain-hold.sh answers
+sample-v1-undated	later	v1 undated -> later	done
+sample-old-later	later	old later -> later
+sample-old-note	later - after release	old note -> later - after release
+sample-old-changed	later	old changed -> later
+closed: sample-v1-undated
+closed: sample-old-later
+closed: sample-old-note
+closed: sample-old-changed
+answers: closed=4 skipped=0
+exit=0
+
+sample-later-card: queued
+sample-v1-undated: done
+sample-old-later: done
+sample-old-note: done
+sample-old-changed: done
