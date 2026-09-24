@@ -1209,14 +1209,16 @@ SH
 
 test_advisor_line_follows_resolved_worker() {
   local case_name rec id harness model legacy out status source launch advisor count section
+  local -a model_args
   # shellcheck disable=SC2016 # The backticks are literal brief text.
   advisor='Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.'
-  for case_name in claude-eligible codex-legacy fable-legacy claude-legacy; do
+  for case_name in claude-eligible codex-legacy fable-legacy claude-legacy claude-nomodel-legacy; do
     case "$case_name" in
       claude-eligible) harness=claude; model=claude-sonnet-4-5; legacy=0 ;;
       codex-legacy) harness=codex; model=gpt-6-sol; legacy=1 ;;
       fable-legacy) harness=claude; model=claude-fable-5-1; legacy=1 ;;
       claude-legacy) harness=claude; model=claude-sonnet-4-5; legacy=1 ;;
+      claude-nomodel-legacy) harness=claude; model=; legacy=1 ;;
     esac
     id="advisor-$case_name"
     rec=$(make_spawn_case "$id" "$harness" "$id")
@@ -1225,7 +1227,9 @@ test_advisor_line_follows_resolved_worker() {
     if [ "$legacy" -eq 1 ]; then
       printf '%s\n' "$advisor" >> "$source"
     fi
-    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness "$harness" --model "$model")
+    model_args=()
+    [ -n "$model" ] && model_args=(--model "$model")
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --harness "$harness" "${model_args[@]}")
     status=$?
     expect_code 0 "$status" "$case_name spawn should succeed: $out"
     launch="$HOME_DIR/data/$id/launch-brief.md"

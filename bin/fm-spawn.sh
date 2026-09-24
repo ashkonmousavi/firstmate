@@ -41,9 +41,9 @@
 #   refused as a flag value.
 #   Ship/scout launches always supply fm-dod-lib.sh's current worker role scope
 #   using the same private launch-brief overlay. The overlay supplies the Opus
-#   advisor line only for a claude worker on a non-Fable model, stripping any
-#   stale copy from an older source brief. This never rewrites a project's
-#   instruction files or a secondmate's charter.
+#   advisor line only for a claude worker whose --model is set, not default,
+#   and not Fable, stripping any stale copy from an older source brief. This
+#   never rewrites a project's instruction files or a secondmate's charter.
 #        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>]
 #   --relaunch launches a replacement agent for an EXISTING task into that
 #   task's own recorded endpoint and worktree instead of creating either. It is
@@ -2388,7 +2388,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fm_brief_worker_role &&
       if [ "$HARNESS" = claude ]; then
         case "$MODEL" in
-          *[Ff][Aa][Bb][Ll][Ee]*) ;;
+          ''|default|*[Ff][Aa][Bb][Ll][Ee]*) ;;
           *) printf '\n# Advisor tool\n' && fm_brief_advisor_line ;;
         esac
       fi &&
