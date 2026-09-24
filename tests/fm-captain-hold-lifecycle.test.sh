@@ -2285,6 +2285,51 @@ SH
   pass "a captured board later choice dates the open hold while done and release retain their behavior"
 }
 
+test_keyed_intake_refuses_undated_or_misdated_deferrals() {
+  local home id out rc show
+  local -a cases=(
+    "sample-later-bare	later	Later	"
+    "sample-later-done	later	Later	done"
+    "sample-later-release	later	Later	release"
+    "sample-later-baddate	later	Later	defer:2026-02-30"
+    "sample-later-today	later	Later	defer:2026-07-14"
+    "sample-yes-deferred	yes	Yes	defer:2026-12-01"
+  )
+  home=$(make_home keyed-deferral-guards)
+  for id in "${cases[@]}"; do
+    id=${id%%	*}
+    run_captain "$home" hold "$id" --title "Captain call $id" \
+      --reason "choice pending" --repo sample >/dev/null || fail "could not hold $id"
+  done
+
+  set +e
+  out=$(printf '%s\n' "${cases[@]}" \
+    | FM_CAPTAIN_HOLD_NOW=2026-07-14T12:00:00Z run_captain "$home" answers --source "board fixture" 2>&1)
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "the intake reported success for refused deferrals: $out"
+  assert_contains "$out" "answers: closed=0 deferred=0 skipped=6" \
+    "a guarded deferral row closed or deferred a captain call: $out"
+  assert_contains "$out" "skipped: sample-later-bare (later requires a dated deferral)" "$out"
+  assert_contains "$out" "skipped: sample-later-done (later requires a dated deferral)" "$out"
+  assert_contains "$out" "skipped: sample-later-release (later requires a dated deferral)" "$out"
+  assert_contains "$out" "skipped: sample-later-baddate (invalid deferral date)" "$out"
+  assert_contains "$out" "skipped: sample-later-today (deferral date is not in the future)" "$out"
+  assert_contains "$out" "skipped: sample-yes-deferred (a dated deferral is only for later)" "$out"
+
+  for id in "${cases[@]}"; do
+    id=${id%%	*}
+    show=$(tasks_in "$home" show "$id" --full)
+    assert_contains "$show" "state: queued" "$id was closed by a guarded deferral row"
+    assert_contains "$show" "hold_kind: captain" "$id lost its captain hold"
+    case "$show" in
+      *"Resolution recorded by"*) fail "$id gained a resolution record" ;;
+      *"hold_until: 2"*) fail "$id gained a deferral date" ;;
+    esac
+  done
+  pass "the keyed intake leaves captain calls open for undated, invalid, past, or non-later deferrals"
+}
+
 # The intake is channel-agnostic, so chat must reach it the same way a captured
 # review does - for a task-id key, and for a legacy composed identity.
 test_chat_channel_feeds_the_same_keyed_answer_intake() {
@@ -3924,6 +3969,7 @@ test_unbound_source_closes_no_hold
 test_legacy_identities_keep_working
 test_board_answer_reaches_the_keyed_answer_intake
 test_board_later_defers_while_done_and_release_keep_their_modes
+test_keyed_intake_refuses_undated_or_misdated_deferrals
 test_chat_channel_feeds_the_same_keyed_answer_intake
 test_origin_slug_validation_precedes_path_construction
 test_status_resolution_over_an_open_hold_is_signalled
