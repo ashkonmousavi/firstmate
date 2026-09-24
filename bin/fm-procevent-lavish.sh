@@ -421,7 +421,8 @@ cmd_silent() {
 # and the versioned `selection` and `note` fields inside its `Context data:` block
 # is skipped. A time-limited rollout branch accepts the old question/answer
 # shape only for ordinary answers and rejects its bare or annotated reconcile
-# values because old rows do not separate the selected option from its note.
+# and later values because old rows do not separate the selected option from
+# its note, and an old later row carries no dated deferral.
 # The question cap is 128 so any task id fits, including the long legacy
 # `<origin>-decision-<key>` identities pre-collapse decks still carry; the
 # security property is the slug SHAPE, which is unchanged.
@@ -492,6 +493,7 @@ cmd_choice_rows() {
         next if !defined($key) || ref($key) || !defined($answer) || ref($answer);
         next unless length($answer) && length($answer) <= 512;
         next if $answer eq "reconcile" || index($answer, "reconcile - ") == 0;
+        next if $answer eq "later" || index($answer, "later - ") == 0;
         $selected = "";
         $note = "";
         $legacy = 1;

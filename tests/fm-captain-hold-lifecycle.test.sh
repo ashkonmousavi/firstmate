@@ -2292,6 +2292,50 @@ SH
   pass "a captured board later choice dates the open hold while done and release retain their behavior"
 }
 
+test_legacy_board_later_answer_leaves_the_call_held() {
+  local home sid stub out show id
+  home=$(make_home legacy-board-later)
+  sid=lavish-b0a4d0000000f1e4
+  fm_test_track_procevent_home "$home" "$home/procevent-claims"
+  for id in sample-old-later sample-old-later-note sample-old-yes; do
+    run_captain "$home" hold "$id" --title "Captain call $id" \
+      --reason "choice pending" --repo sample >/dev/null || fail "could not hold $id"
+  done
+
+  stub="$home/legacy-board-later-source.sh"
+  cat > "$stub" <<'SH'
+#!/usr/bin/env bash
+cat <<'OUT'
+session:
+  status: feedback
+  session_ended: false
+prompts[3]{tag,text,prompt}:
+  "choice","Later","Context data: {\"question\":\"sample-old-later\",\"answer\":\"later\"}"
+  "choice","Later - after release","Context data: {\"question\":\"sample-old-later-note\",\"answer\":\"later - after release\"}"
+  "choice","Yes","Context data: {\"question\":\"sample-old-yes\",\"answer\":\"yes\"}"
+OUT
+SH
+  chmod +x "$stub"
+  run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
+    || fail "could not register the legacy board source"
+  run_captain "$home" bind "$sid" >/dev/null || fail "could not bind the legacy board source"
+  out=$(run_procevent "$home" start "$sid" 2>&1) \
+    || fail "the legacy board source runner did not complete: $out"
+  assert_contains "$out" "answers-fed: $sid" "the legacy board choices did not reach the intake: $out"
+
+  show=$(tasks_in "$home" show sample-old-yes --full)
+  assert_contains "$show" "state: done" "an ordinary legacy board choice did not close its task"
+  for id in sample-old-later sample-old-later-note; do
+    show=$(tasks_in "$home" show "$id" --full)
+    assert_contains "$show" "state: queued" "a legacy later answer closed $id"
+    assert_contains "$show" "hold_kind: captain" "a legacy later answer released $id"
+    case "$show" in
+      *"Resolution recorded by"*) fail "a legacy later answer gave $id a resolution record" ;;
+    esac
+  done
+  pass "a legacy board later answer, bare or annotated, leaves its captain call held"
+}
+
 test_keyed_intake_refuses_undated_or_misdated_deferrals() {
   local home id out rc show
   local -a cases=(
@@ -3976,6 +4020,7 @@ test_unbound_source_closes_no_hold
 test_legacy_identities_keep_working
 test_board_answer_reaches_the_keyed_answer_intake
 test_board_later_defers_while_done_and_release_keep_their_modes
+test_legacy_board_later_answer_leaves_the_call_held
 test_keyed_intake_refuses_undated_or_misdated_deferrals
 test_chat_channel_feeds_the_same_keyed_answer_intake
 test_origin_slug_validation_precedes_path_construction
