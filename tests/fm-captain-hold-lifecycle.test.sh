@@ -2264,7 +2264,7 @@ SH
   run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
     || fail "could not register the board source"
   run_captain "$home" bind "$sid" >/dev/null || fail "could not bind the board source"
-  out=$(run_procevent "$home" start "$sid" 2>&1) \
+  out=$(FM_CAPTAIN_HOLD_NOW=2026-07-14T12:00:00Z run_procevent "$home" start "$sid" 2>&1) \
     || fail "the board source runner did not complete: $out"
   assert_contains "$out" "answers-fed: $sid" "the board choices did not reach the intake: $out"
 

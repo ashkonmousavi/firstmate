@@ -1213,7 +1213,7 @@ sanitize_reconcile_provenance() {
 command_answers() {
   local origin='' source='' row rest key answer label mode id show state hold_kind body digest legacy_digest legacy_key
   local recorded_digest recorded_mode occurrence tmp err closed=0 deferred=0 skipped=0 reason release_flag defer_until tab=$'\t'
-  local resolve_rc
+  local resolve_rc today
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --source) shift; source=${1:-} ;;
@@ -1270,7 +1270,8 @@ command_answers() {
           skipped=$((skipped + 1))
           continue
         fi
-        if ! [[ "$defer_until" > "$(date -u +%Y-%m-%d)" ]]; then
+        today=${FM_CAPTAIN_HOLD_NOW:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}
+        if ! [[ "$defer_until" > "${today%%T*}" ]]; then
           printf 'skipped: %s (deferral date is not in the future)\n' "$key"
           skipped=$((skipped + 1))
           continue
