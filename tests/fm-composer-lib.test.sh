@@ -323,6 +323,21 @@ test_composer_footer_zone_refuses_rather_than_allows() {
   pass "fm_composer_classify_screen: the footer zone only ever refuses, never allows"
 }
 
+test_claude_herdr_titled_rule_idle() {
+  # Reproduces the 2026-09-24 idle Claude pane: a titled transcript rule,
+  # the bare prompt, one closing rule, and two status-footer rows. Without
+  # native identity the lone lower rule remains an ambiguous Pi opening.
+  local screen typed
+  screen=$'answer complete\n────────────── Firstmate ─\n❯\r\n────────────────────────\r\n  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
+  assert_screen "Claude Herdr idle with native identity" empty "$CAPS_STYLED" "$screen" '' $'claude\tidle'
+  assert_screen "Claude Herdr completed with native identity" empty "$CAPS_STYLED" "$screen" '' $'claude\tdone'
+  assert_screen "Claude Herdr waits for native identity" need-identity "$CAPS_STYLED" "$screen"
+  assert_screen "unidentified titled rule stays unknown" unknown "$CAPS_STYLED_NOID" "$screen"
+  typed=$'answer complete\n────────────── Firstmate ─\n❯ hold this draft\r\n────────────────────────\r\n  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
+  assert_screen "Claude Herdr real draft stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
+  pass "Claude Herdr titled-rule composer is empty only with matching native identity and no draft"
+}
+
 test_matrix_codex_dim_hint_row() {
   # Real idle codex: bold `›`, reset, then an SGR-2 dim hint. Styled captures
   # strip the ghost and prove empty; plain captures must defer as unknown -
@@ -936,6 +951,7 @@ test_idle_placeholder_is_empty
 test_idle_placeholder_case_mode_is_explicit
 test_real_text_is_pending
 test_matrix_claude_bare_nbsp_row
+test_claude_herdr_titled_rule_idle
 test_matrix_claude_arrow_statusline_footer
 test_composer_footer_demotion_needs_a_proven_pair
 test_composer_footer_zone_is_shape_independent

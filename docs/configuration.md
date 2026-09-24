@@ -209,14 +209,22 @@ Selecting any other supervisor backend, including `zellij`, `orca`, or `cmux`, r
 
 ## Away-mode wedge alarm channels (config/wedge-alarm)
 
-When away-mode injection wedges past `FM_MAX_DEFER_SECS`, the sub-supervisor raises a loud, rate-limited alarm.
+When away-mode injection wedges past `FM_MAX_DEFER_SECS`, the sub-supervisor raises an alarm, clears its legacy `state/.afk` flag, and exits its tracked background job so ordinary turn-end supervision can resume.
 Beyond the durable `state/.subsuper-inject-wedged` marker and the tmux status-line flash, it attempts a configured backend-independent active alert that can reach the captain even when every pane and its backend status-line is unreadable.
 `config/wedge-alarm` (local, gitignored) lists channel directives, one per non-empty, non-comment line; every listed non-`off` channel fires, best-effort.
 `FM_WEDGE_ALARM_CHANNEL` overrides the file with a single directive.
 Directives are `off` (a position-independent kill switch that disables every active alert), `auto`/`default`, `osascript` (macOS Notification Center banner), `herdr` (herdr UI notification), and `command:<cmd>` (run `<cmd>` via `sh -c`, summary on `$1` and stdin).
-An absent file means `auto`, i.e. default-on on macOS: the alarm exists precisely so a wedged away-mode primary is never silent, and it fires at most once per max-defer window after a genuine wedge.
-A missing or failing channel logs and falls through to the next, never crashing the daemon.
+An absent file means `auto`, which selects macOS Notification Center on macOS and Herdr notification when Herdr owns the primary on another platform.
+A missing or failing channel logs and falls through to the next before the daemon exits on the undeliverable escalation.
 See [`wedge-alarm.md`](wedge-alarm.md) for the current channel reference, [`verification/supervision.md`](verification/supervision.md#wedge-alarm-channels) for active evidence, and [`examples/wedge-alarm`](examples/wedge-alarm) for a copyable config.
+
+## Idle writing-lane wake (config/writing-lane-cap)
+
+`config/writing-lane-cap` is a local, gitignored file containing one positive integer; absence disables the idle-capacity check.
+The watcher counts ship tasks with positive current-state evidence of an active run step or busy pane, and reads `fm-tasks-axi.sh ready` for dependency, date, and hold eligibility.
+When the active count is below the cap and at least one item is ready, it queues an actionable `check: idle writing lanes` wake with the active count, cap, ready count, and ready ids.
+It repeats when the ready set or active count changes, or after `FM_IDLE_LANE_REPEAT_SECS` (default one hour), and stays quiet when the cap is full or no item is ready.
+`FM_IDLE_LANE_CHECK_INTERVAL` defaults to 60 seconds; `state/.last-idle-lane-check` and `state/.last-idle-lane-wake` are watcher-owned cadence and deduplication markers.
 
 ## Trace context propagation (config/trace-context / FM_TRACE_CONTEXT)
 
@@ -1350,8 +1358,8 @@ FM_SUPERVISOR_BACKEND=             # optional supervisor pane backend override; 
 FM_SUPERVISOR_TARGET=              # optional supervisor pane target override; tmux target or herdr <session>:<pane-id>, otherwise auto-detected
 FM_INJECT_SKIP=heartbeat           # |-prefixes force-self-handled bypassing classification; empty disables
 FM_ESCALATE_BATCH_SECS=90          # buffer window for batched escalation digests; 0 = flush immediately
-FM_MAX_DEFER_SECS=300              # max buffered escalation age before retry plus wedge alarm; 0 disables
-FM_WEDGE_ALARM_CHANNEL=            # override config/wedge-alarm with one active-alert directive for the wedge alarm; off|auto|osascript|herdr|command:<cmd>; absent = auto (macOS -> an OS notification)
+FM_MAX_DEFER_SECS=300              # max buffered escalation age before retry, alarm, and daemon handback; 0 disables
+FM_WEDGE_ALARM_CHANNEL=            # override config/wedge-alarm with one active-alert directive for the wedge alarm; off|auto|osascript|herdr|command:<cmd>; absent = auto (macOS -> OS notification, other Herdr primary -> Herdr notification)
 FM_WEDGE_ALARM_EXEC=              # notifier seam: route every channel (osascript, herdr, command:) through this command as `<cmd> <channel> <summary>`; "discard" fires nothing; unset in production; the daemon defaults it to "discard" when sourced so no test posts a real notification (docs/wedge-alarm.md)
 FM_WEDGE_ALARM_TIMEOUT_SECS=10    # maximum seconds for each osascript, herdr, override, or command: notifier before its watchdog terminates it and continues to the next channel; invalid or zero values use 10
 FM_INJECT_FAIL_SLEEP=30            # seconds to back off when the supervisor pane is unavailable

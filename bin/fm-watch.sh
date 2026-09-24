@@ -269,6 +269,10 @@ WATCHER_STALE_GRACE=${FM_WATCHER_STALE_GRACE:-${FM_GUARD_GRACE:-$(fm_poll_derive
 HEARTBEAT=${FM_HEARTBEAT:-600}        # base seconds between heartbeat scans
 HEARTBEAT_MAX=${FM_HEARTBEAT_MAX:-7200}  # heartbeat backoff cap
 CHECK_INTERVAL=${FM_CHECK_INTERVAL:-300}  # seconds between *.check.sh sweeps
+IDLE_LANE_CHECK_INTERVAL=${FM_IDLE_LANE_CHECK_INTERVAL:-60}
+IDLE_LANE_REPEAT_SECS=${FM_IDLE_LANE_REPEAT_SECS:-3600}
+case "$IDLE_LANE_CHECK_INTERVAL" in ''|*[!0-9]*) IDLE_LANE_CHECK_INTERVAL=60 ;; esac
+case "$IDLE_LANE_REPEAT_SECS" in ''|*[!0-9]*|0) IDLE_LANE_REPEAT_SECS=3600 ;; esac
 CHECK_TIMEOUT=${FM_CHECK_TIMEOUT:-30}     # seconds allowed per *.check.sh
 HOME_SUMMARY_INTERVAL=${FM_HOME_SUMMARY_INTERVAL:-300}
 case "$HOME_SUMMARY_INTERVAL" in
@@ -2218,6 +2222,46 @@ age_of() {  # seconds since file mtime; "due immediately" if missing
   echo $(( now - m ))
 }
 
+# A configured writing-lane cap turns dispatchable backlog work into one
+# actionable capacity wake. The backlog tool owns dependency, hold, and date
+# eligibility; the shared current-state proof counts only ship crews in an
+# active run step or busy pane. Status events alone cannot fill a lane because
+# they may remain stale after a worker stops. The marker resets when full or empty.
+idle_lane_tick() {
+  local cap ready ids count active=0 meta task signature marker previous reason
+  marker="$STATE/.last-idle-lane-wake"
+  [ -f "$CONFIG/writing-lane-cap" ] || return 0
+  cap=$(cat "$CONFIG/writing-lane-cap" 2>/dev/null) || return 1
+  case "$cap" in ''|*[!0-9]*|0) triage_log "invalid config/writing-lane-cap"; return 1 ;; esac
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    grep -qx 'kind=ship' "$meta" 2>/dev/null || continue
+    task=${meta##*/}; task=${task%.meta}
+    crew_is_provably_working "$task" && active=$((active + 1))
+    [ "$active" -lt "$cap" ] || break
+  done
+  if [ "$active" -ge "$cap" ]; then rm -f "$marker"; return 0; fi
+  ready=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-tasks-axi.sh" ready 2>/dev/null) || {
+    triage_log "idle-lane ready read unavailable"
+    return 1
+  }
+  ids=$(printf '%s\n' "$ready" | awk '
+    /^ready\[[0-9]+\]/ { rows = 1; next }
+    rows && /^  [a-zA-Z0-9][a-zA-Z0-9_-]*,/ { sub(/^  /, ""); sub(/,.*/, ""); print; next }
+  ')
+  [ -n "$ids" ] || { rm -f "$marker"; return 0; }
+  count=$(printf '%s\n' "$ids" | wc -l | tr -d ' ')
+  signature=$(printf '%s|%s|%s\n' "$cap" "$active" "$ids" | cksum)
+  previous=$(cat "$marker" 2>/dev/null || true)
+  if [ "$signature" = "$previous" ] && [ "$(age_of "$marker")" -lt "$IDLE_LANE_REPEAT_SECS" ]; then
+    return 0
+  fi
+  reason="check: idle writing lanes: $active/$cap active, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"
+  fm_wake_append check idle-writing-lanes "$reason" || return 1
+  printf '%s\n' "$signature" > "$marker" || return 1
+  wake "$reason"
+}
+
 # Layer 2 + 3 signal scan: status files and turn-end markers.
 # Each file is compared against its persisted reported signature in .seen-* rather
 # than mtime-vs-a-startup-touch, so signals that land while no watcher is running
@@ -2909,6 +2953,12 @@ while :; do
     fi
   else
     triage_log "inactive-outcome reconciliation unavailable"
+  fi
+
+  if [ -f "$CONFIG/writing-lane-cap" ] \
+     && [ "$(age_of "$STATE/.last-idle-lane-check")" -ge "$IDLE_LANE_CHECK_INTERVAL" ]; then
+    touch "$STATE/.last-idle-lane-check"
+    idle_lane_tick || triage_log "idle-lane capacity check failed"
   fi
 
   # Slow per-task checks (firstmate writes these, e.g. a merged-PR poll).

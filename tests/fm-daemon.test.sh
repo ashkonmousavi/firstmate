@@ -525,8 +525,8 @@ EOF
   ln -snf "$dir/target-two-longer" "$state/symlink-r9.status"
   FM_DAEMON_DIR="$fakebin" handle_durable_wakes fallback "$state" \
     || fail "a changed permanent failure retained its wake"
-  [ "$(grep -c 'unreadable status span' "$state/.subsuper-escalations")" = 2 ] \
-    || fail "a changed failure state did not report again exactly once"
+  [ "$(grep -c 'unreadable status span' "$state/.subsuper-escalations")" = 1 ] \
+    || fail "a changed failure state did not refresh its one buffered wake"
   [ "$(status_seen_offset "$state" symlink-r9)" = 0 ] \
     || fail "a changed classification failure advanced its position"
 
@@ -1432,6 +1432,26 @@ test_escalate_batches_into_one_digest() {
   pass "multiple escalations flush as a single batched digest"
 }
 
+test_escalate_refreshes_one_buffered_item_per_wake_key() {
+  local dir state first
+  dir=$(make_supercase keyed-escalation)
+  state="$dir/state"
+  escalate_add "$state" 'first reminder' 'check:idle-writing-lanes'
+  first=$(cat "$state/.subsuper-escalations.since")
+  escalate_add "$state" 'refreshed reminder' 'check:idle-writing-lanes'
+  escalate_add "$state" 'different wake' 'check:another'
+  escalate_add "$state" 'latest reminder' 'check:idle-writing-lanes'
+  [ "$(wc -l < "$state/.subsuper-escalations" | tr -d ' ')" = 2 ] \
+    || fail "repeated wake keys grew the away escalation buffer"
+  [ "$(cat "$state/.subsuper-escalations.since")" = "$first" ] \
+    || fail "refreshing a wake reset the buffer's first-arrival age"
+  grep -F 'latest reminder' "$state/.subsuper-escalations" >/dev/null \
+    || fail "the latest reminder was not retained"
+  grep -F 'first reminder' "$state/.subsuper-escalations" >/dev/null \
+    && fail "the old reminder was not replaced"
+  pass "away escalation buffer keeps and refreshes one item per durable wake key"
+}
+
 test_escalate_batch_age_uses_first_append() {
   local dir state fakebin sent capture
   dir=$(make_supercase batch-age)
@@ -2114,14 +2134,54 @@ test_max_defer_pending_composer_alarms_without_typing() {
   escalate_add "$state" "needs-decision: pick B"
   echo $(( $(date +%s) - 600 )) > "$state/.subsuper-escalations.since"
   afk_enter "$state"
+  FM_DAEMON_HANDOFF=0
   PATH="$fakebin:$PATH" FM_FAKE_COMPOSER="$dir/composer" FM_FAKE_SENT="$sent" \
     FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=60 FM_INJECT_CONFIRM_SLEEP=0.05 \
     housekeeping "$state"
   [ ! -s "$sent" ] || fail "max-defer typed into a pending composer"
   [ -s "$state/.subsuper-inject-wedged" ] || fail "pending composer did not raise a wedge alarm marker"
   [ -s "$state/.subsuper-escalations" ] || fail "buffer lost while composer was pending"
+  [ "$FM_DAEMON_HANDOFF" = 1 ] || fail "max-defer did not request daemon handback"
   grep -F 'human draft' "$dir/composer" >/dev/null || fail "pending composer content changed"
-  pass "max-defer on a pending composer alarms without typing"
+  FM_DAEMON_HANDOFF=0
+  pass "max-defer on a pending composer requests handback without typing"
+}
+
+test_prepared_daemon_hands_back_after_undeliverable_wake() {
+  local dir state fakebin capture out pid rc i
+  dir=$(make_supercase prepared-handoff)
+  state="$dir/state"; fakebin="$dir/fakebin"
+  capture="$dir/pane.txt"; out="$dir/daemon.out"
+  printf '╭─────────────────╮\n│ > human draft   │\n╰─────────────────╯\n' > "$capture"
+  printf 'prepared\n' > "$state/.afk"
+  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
+  echo $(( $(date +%s) - 60 )) > "$state/.subsuper-escalations.since"
+  append_wake "$state" check held-choice 'check: held choice'
+  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
+    FM_FAKE_TMUX_CAPTURE="$capture" FM_POLL=1 FM_HOUSEKEEPING_TICK=1 \
+    FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=1 FM_WEDGE_ALARM_CHANNEL=herdr \
+    "$AFK_START" > "$out" 2>&1 &
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 100 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if is_live_non_zombie "$pid"; then
+    kill "$pid" 2>/dev/null || true
+    fail "prepared daemon did not hand back after max-defer"
+  fi
+  wait "$pid"; rc=$?
+  [ "$rc" -ne 0 ] || fail "undeliverable daemon reported success"
+  grep -F 'ordinary turn-end supervision must resume' "$out" >/dev/null \
+    || fail "undeliverable daemon did not announce handback"
+  [ ! -e "$state/.afk" ] || fail "daemon left its flag blocking Claude Stop auto-arm"
+  [ ! -e "$state/.supervise-daemon.lock" ] || fail "daemon retained the supervision lock"
+  [ -s "$state/.wake-queue" ] || fail "daemon lost the durable wake"
+  [ -s "$state/.subsuper-escalations" ] || fail "daemon lost the undelivered buffer"
+  grep -F 'human draft' "$capture" >/dev/null || fail "daemon changed the pending draft"
+  pass "prepared native daemon exits loudly at max-defer and leaves durable wakes for Stop-hook recovery"
 }
 
 test_normal_flush_clears_stale_wedge_marker() {
@@ -2365,6 +2425,16 @@ test_wedge_alarm_auto_non_darwin_has_no_os_channel() {
     wedge_alarm_notify "away-mode WEDGED 900s" "/s/.marker"
   [ ! -s "$log" ] || fail "auto selected a built-in OS channel on a non-macOS platform: $(cat "$log")"
   pass "auto on a non-macOS platform selects no built-in OS channel (the marker or a configured command carries it)"
+}
+
+test_wedge_alarm_auto_non_darwin_herdr_selects_notification() {
+  local dir log
+  dir=$(make_wedge_case wedge-auto-herdr); log="$dir/alert.log"
+  PATH="$dir/fakebin:$PATH" FM_WEDGE_ALARM_LOG="$log" FM_FAKE_UNAME=Linux \
+    FM_SUPERVISOR_BACKEND=herdr FM_WEDGE_ALARM_CHANNEL=auto \
+    wedge_alarm_notify "away-mode WEDGED 900s" "/s/.marker"
+  grep -F 'herdr' "$log" >/dev/null || fail "auto omitted Herdr's active notification on Linux"
+  pass "auto selects a Herdr notification for a non-macOS Herdr primary"
 }
 
 test_wedge_alarm_config_file_multi_channel() {
@@ -2818,6 +2888,7 @@ test_housekeeping_herdr_idle_busy_record_clears_stale
 test_housekeeping_herdr_resumed_stale_cleared
 test_housekeeping_orca_persistent_stale_resolves_terminal
 test_escalate_batches_into_one_digest
+test_escalate_refreshes_one_buffered_item_per_wake_key
 test_escalate_batch_age_uses_first_append
 test_heartbeat_scan_dedup
 test_handle_wake_routes_self_and_escalate
@@ -2869,6 +2940,7 @@ test_submit_ack_reports_pending_on_persistent_swallow
 test_max_defer_empty_swallow_types_once_and_alarms
 test_max_defer_flushes_empty_idle_pane
 test_max_defer_pending_composer_alarms_without_typing
+test_prepared_daemon_hands_back_after_undeliverable_wake
 test_normal_flush_clears_stale_wedge_marker
 test_below_max_defer_does_nothing
 test_max_defer_afk_inactive_does_not_flush_or_alarm
@@ -2884,6 +2956,7 @@ test_wedge_alarm_unknown_channel_hides_configured_directive
 test_wedge_alarm_off_disables_active_alert_regardless_of_position
 test_wedge_alarm_auto_darwin_selects_osascript
 test_wedge_alarm_auto_non_darwin_has_no_os_channel
+test_wedge_alarm_auto_non_darwin_herdr_selects_notification
 test_wedge_alarm_config_file_multi_channel
 test_wedge_alarm_failing_channel_degrades_gracefully
 test_wedge_alarm_hung_channel_times_out_and_falls_through
