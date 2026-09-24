@@ -265,6 +265,15 @@ test_build_refuses_malformed_payloads_before_touching_the_board() {
   [ "$rc" -ne 0 ] || fail "an invalid later date was accepted"
 
   write_valid_payload "$data"
+  jq '.captains_call[0].options[0].defer_until = "2099-12-01"' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
+  set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
+  [ "$rc" -ne 0 ] || fail "a dated deferral on a non-later option was accepted"
+  case "$out" in
+    *'defer_until is only allowed on a later option: card "sample-instruction-layer-refinement-review-decision-perishable-first-admission-choice" option "yes"'*) : ;;
+    *) fail "the misplaced deferral refusal did not name its card and option: $out" ;;
+  esac
+
+  write_valid_payload "$data"
   jq 'del(.charted[0].repo)' "$data" > "$data.tmp" && mv "$data.tmp" "$data"
   set +e; out=$(run_board "$home" build "$data" 2>&1); rc=$?; set -e
   [ "$rc" -ne 0 ] || fail "a fleet row without an explicit repo marker was accepted"

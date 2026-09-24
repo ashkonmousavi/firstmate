@@ -79,8 +79,9 @@
 # first; a row with no comparable date keeps its payload order after every dated
 # row. Anything else in that field refuses rather than sorting on garbage.
 # A decision option valued `later` requires `defer_until: "YYYY-MM-DD"` on
-# that option. Any option may carry that dated deferral; other options retain
-# the card's ordinary `done` or `release` close mode.
+# that option. Only a `later` option may carry that dated deferral; the field on
+# any other option refuses, and other options retain the card's ordinary `done`
+# or `release` close mode.
 #
 # The board path is stable - $FM_HOME/.lavish/bearings-board.html - so a
 # re-invocation rebuilds the same file in place, which keeps the same Lavish
@@ -115,6 +116,13 @@ fail() {
 board_path() { printf '%s/.lavish/bearings-board.html\n' "$FM_HOME"; }
 
 validate_payload() {  # <data.json>
+  local misplaced
+  misplaced=$(jq -r '
+    first(.captains_call[]? | objects | .key as $key
+      | .options[]? | objects | select(has("defer_until") and .value != "later")
+      | "card \($key | tojson) option \(.value | tojson)")
+  ' "$1" 2>/dev/null) || misplaced=''
+  [ -z "$misplaced" ] || fail "defer_until is only allowed on a later option: $misplaced"
   jq -e --arg schema "$BOARD_SCHEMA" '
     def nonempty_string: type == "string" and length > 0;
     def slug($max): type == "string" and test("^[A-Za-z0-9._-]{1," + ($max | tostring) + "}$");
@@ -157,8 +165,9 @@ validate_payload() {  # <data.json>
           and (.value | slug(128))
           and (.label | nonempty_string)
           and optional_string("hint")
-          and ((has("defer_until") | not) or (.defer_until | valid_filed and length == 10))
-          and (if .value == "later" then has("defer_until") else true end)] | all)
+          and (if .value == "later"
+            then has("defer_until") and (.defer_until | valid_filed and length == 10)
+            else true end)] | all)
       and (optional_string("about"))
       and (optional_string("decide"))
       and (optional_string("detail"))

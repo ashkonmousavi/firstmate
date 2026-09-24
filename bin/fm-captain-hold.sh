@@ -74,8 +74,8 @@
 # task id - no identity arithmetic. The optional fourth field selects the close:
 # empty or `done` completes the task, `release` lifts the hold so held work
 # resumes, and `defer:YYYY-MM-DD` retains a dated captain hold. The exact
-# answer `later` without a dated defer mode is skipped; anything else unknown
-# is skipped. A key that names no task, a task that is
+# answer `later` without a dated defer mode is skipped, as is a dated defer mode
+# on any other answer; anything else unknown is skipped. A key that names no task, a task that is
 # not held for the captain, or a task already closed is reported as `skipped:`
 # and feeds nothing. A replayed delivery whose answer digest and requested
 # close mode both match the newest record is reported `closed:` and is a no-op;
@@ -1285,6 +1285,11 @@ command_answers() {
     esac
     if [ "$answer" = later ] && [ -z "$defer_until" ]; then
       printf 'skipped: %s (later requires a dated deferral)\n' "$key"
+      skipped=$((skipped + 1))
+      continue
+    fi
+    if [ "$answer" != later ] && [ -n "$defer_until" ]; then
+      printf 'skipped: %s (a dated deferral is only for later)\n' "$key"
       skipped=$((skipped + 1))
       continue
     fi
