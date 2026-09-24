@@ -109,7 +109,8 @@
 #
 # A channel's ONLY job is to turn whatever it received into those keyed lines
 # and pipe them here. It must never map keys to tasks, build decision records,
-# choose a close mode beyond what its card declared, or close anything itself.
+# choose a close mode beyond what its card or selected option declared, or close
+# anything itself.
 #
 # `bind`, `unbind`, and `binding` record that a captured-answer SOURCE feeds
 # this intake, for any channel whose answers arrive detached from their origin
