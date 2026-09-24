@@ -2297,7 +2297,7 @@ test_legacy_board_later_answer_leaves_the_call_held() {
   home=$(make_home legacy-board-later)
   sid=lavish-b0a4d0000000f1e4
   fm_test_track_procevent_home "$home" "$home/procevent-claims"
-  for id in sample-old-later sample-old-later-note sample-old-yes; do
+  for id in sample-old-later sample-old-later-note sample-old-changed sample-old-yes; do
     run_captain "$home" hold "$id" --title "Captain call $id" \
       --reason "choice pending" --repo sample >/dev/null || fail "could not hold $id"
   done
@@ -2309,8 +2309,10 @@ cat <<'OUT'
 session:
   status: feedback
   session_ended: false
-prompts[3]{tag,text,prompt}:
+prompts[5]{tag,text,prompt}:
   "choice","Later","Context data: {\"question\":\"sample-old-later\",\"answer\":\"later\"}"
+  "choice","Yes","Context data: {\"question\":\"sample-old-changed\",\"answer\":\"yes\"}"
+  "choice","Later","Context data: {\"question\":\"sample-old-changed\",\"answer\":\"later\"}"
   "choice","Later - after release","Context data: {\"question\":\"sample-old-later-note\",\"answer\":\"later - after release\"}"
   "choice","Yes","Context data: {\"question\":\"sample-old-yes\",\"answer\":\"yes\"}"
 OUT
@@ -2325,7 +2327,7 @@ SH
 
   show=$(tasks_in "$home" show sample-old-yes --full)
   assert_contains "$show" "state: done" "an ordinary legacy board choice did not close its task"
-  for id in sample-old-later sample-old-later-note; do
+  for id in sample-old-later sample-old-later-note sample-old-changed; do
     show=$(tasks_in "$home" show "$id" --full)
     assert_contains "$show" "state: queued" "a legacy later answer closed $id"
     assert_contains "$show" "hold_kind: captain" "a legacy later answer released $id"
@@ -2333,7 +2335,7 @@ SH
       *"Resolution recorded by"*) fail "a legacy later answer gave $id a resolution record" ;;
     esac
   done
-  pass "a legacy board later answer, bare or annotated, leaves its captain call held"
+  pass "a legacy board later answer, bare, annotated, or replacing an earlier answer, leaves its captain call held"
 }
 
 test_keyed_intake_refuses_undated_or_misdated_deferrals() {

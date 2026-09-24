@@ -472,6 +472,7 @@ cmd_choice_rows() {
       my $data = eval { decode_json($ctx) };
       next unless ref($data) eq "HASH";
       my ($key, $selected, $note, $answer, $legacy);
+      my $drop = 0;
       if (defined($data->{schema}) && !ref($data->{schema})
           && $data->{schema} eq "fm-bearings-answer.v1") {
         $key = $data->{question};
@@ -492,8 +493,8 @@ cmd_choice_rows() {
         $answer = $data->{answer};
         next if !defined($key) || ref($key) || !defined($answer) || ref($answer);
         next unless length($answer) && length($answer) <= 512;
-        next if $answer eq "reconcile" || index($answer, "reconcile - ") == 0;
-        next if $answer eq "later" || index($answer, "later - ") == 0;
+        $drop = 1 if $answer eq "reconcile" || index($answer, "reconcile - ") == 0
+          || $answer eq "later" || index($answer, "later - ") == 0;
         $selected = "";
         $note = "";
         $legacy = 1;
@@ -514,7 +515,7 @@ cmd_choice_rows() {
       if (defined $seen{$key}) { $choices[$seen{$key}] = undef }
       $seen{$key} = scalar @choices;
       push @choices, {
-        key => $key, selection => $selected, note => $note, legacy => $legacy,
+        key => $key, selection => $selected, note => $note, legacy => $legacy, drop => $drop,
         answer => $answer, label => $label, mode => $mode
       };
     }
@@ -528,7 +529,7 @@ cmd_choice_rows() {
         }
         next;
       }
-      next if $choice->{selection} eq "reconcile";
+      next if $choice->{drop} || $choice->{selection} eq "reconcile";
       print length $choice->{mode}
         ? "$choice->{key}\t$choice->{answer}\t$choice->{label}\t$choice->{mode}\n"
         : "$choice->{key}\t$choice->{answer}\t$choice->{label}\n";
