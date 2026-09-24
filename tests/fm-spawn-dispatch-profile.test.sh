@@ -1208,7 +1208,7 @@ SH
 }
 
 test_advisor_line_follows_resolved_worker() {
-  local case_name rec id harness model legacy out status source launch advisor count
+  local case_name rec id harness model legacy out status source launch advisor count section
   # shellcheck disable=SC2016 # The backticks are literal brief text.
   advisor='Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.'
   for case_name in claude-eligible codex-legacy fable-legacy claude-legacy; do
@@ -1233,7 +1233,9 @@ test_advisor_line_follows_resolved_worker() {
     count=$(grep -Fxc -- "$advisor" "$launch" || true)
     case "$case_name" in
       claude-eligible|claude-legacy)
-        [ "$count" -eq 1 ] || fail "$case_name must deliver exactly one advisor line (got $count)" ;;
+        [ "$count" -eq 1 ] || fail "$case_name must deliver exactly one advisor line (got $count)"
+        section=$(awk -v advisor="$advisor" '/^# / { heading = $0 } $0 == advisor { print heading; exit }' "$launch")
+        [ "$section" = '# Advisor tool' ] || fail "$case_name advisor line must sit in its own section (got '$section')" ;;
       *)
         [ "$count" -eq 0 ] || fail "$case_name must omit the advisor line (got $count)" ;;
     esac

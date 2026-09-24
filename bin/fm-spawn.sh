@@ -2389,7 +2389,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       if [ "$HARNESS" = claude ]; then
         case "$MODEL" in
           *[Ff][Aa][Bb][Ll][Ee]*) ;;
-          *) fm_brief_advisor_line ;;
+          *) printf '\n# Advisor tool\n' && fm_brief_advisor_line ;;
         esac
       fi &&
       if [ "$KIND" = ship ] && [ -f "$PREP_FILE" ]; then
