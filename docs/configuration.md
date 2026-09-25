@@ -99,7 +99,7 @@ Both choices are local to each Firstmate home and are not part of secondmate inh
 ## Supervision host (config/supervision-host)
 
 The optional local, gitignored `config/supervision-host` opts this home into the supervision host, which runs the supervision branch's contract on a headless engine session beside a non-Pi primary; [docs/supervision-host.md](supervision-host.md) owns the design, its current scope, and the verified engines.
-Today a Claude, Cursor, OpenCode, omp, Grok, or Codex primary runs it, and only for the away posture: with the file present, that primary's arm owner runs the host in the watcher arm's place, the host handles wakes on the engine while the away-posture record `state/.afk-contract` exists, and `/afk` launches no away daemon on that home, while `/quiet` still does.
+Today a Claude, Cursor, OpenCode, omp, Grok, or Codex primary runs it, and only for the away posture: with the file present, that primary's arm owner runs the host in the watcher arm's place, the host handles wakes on the engine while the away-posture record `state/.afk-contract` exists, and `/afk` launches no away daemon on that home, while `/quiet` still does except on Codex, which refuses `/quiet`.
 Absence leaves the home exactly as it is without the host, on every harness; a Pi primary keeps its in-process supervision branch whether or not the file exists.
 A Grok primary reads the file when its session-start block renders, so a change takes effect at its next session start; every other owner reads it at every arm.
 The file may be empty, or hold one line `<engine> [<model>]`:

@@ -22,5 +22,6 @@ Supervision host: on for this home (`config/supervision-host`; [`supervision-hos
 4. A guarded command that exits 6 naming the branch actor's lease means the away session is handling that task right now: leave the lease alone and retry after it releases, which it does when its turn ends.
 5. Captain outcomes the away session records wait in the outcome store for the return brief (`bin/fm-afk-return.sh`); nothing processes them in this conversation before the return.
 {claude,grok} 6. `/afk` writes only the record here (`bin/fm-afk-launch.sh start-native` refuses the away daemon on this home), while `/quiet` still launches the daemon, which then owns supervision as above.
-{cursor,opencode,omp,codex} 6. `/afk` writes only the record here (`bin/fm-afk-launch.sh start` refuses the away daemon on this home), while `/quiet` still launches the daemon, which then owns supervision as above.
+{cursor,opencode,omp} 6. `/afk` writes only the record here (`bin/fm-afk-launch.sh start` refuses the away daemon on this home), while `/quiet` still launches the daemon, which then owns supervision as above.
+{codex} 6. `/afk` writes only the record here, because no away daemon runs on Codex, and `/quiet` is refused here for the same reason (the `quiet` skill).
 {grok} 7. The pre-tool seatbelt does not classify the host command, so keep it exactly the one background call above: never shell `&`, a pipe, or another command bundled onto it.

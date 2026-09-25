@@ -12,7 +12,7 @@ Today it runs beside a Claude, Cursor, OpenCode, omp, Grok, or Codex primary and
 
 - Attended (no away-posture record `state/.afk-contract`), the host is a pass-through: every close reaches main exactly as the plain watcher arm delivers it.
 - Away (the record exists), the host hands each close to the engine, and main stays parked unless the host hands the wake back.
-- `/afk` launches no away daemon on an opted-in home of those harnesses, because the host is the away session there; `/quiet` still launches the daemon, and while its flag `state/.afk` exists the host stands aside exactly as the plain arm does.
+- `/afk` launches no away daemon on an opted-in home of those harnesses, because the host is the away session there; `/quiet` still launches the daemon except on Codex, which runs no daemon and refuses `/quiet`, and while its flag `state/.afk` exists the host stands aside exactly as the plain arm does.
 - Pi keeps its in-process branch whether or not the file exists, and no Pi engine is built.
 - Kimi has no primary supervision protocol, so it has no arm owner to run the host.
 
