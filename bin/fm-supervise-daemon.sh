@@ -1677,7 +1677,7 @@ fm_super_main() {
   migrate_watcher_pause_markers "$STATE"
 
   # --- shutdown: flush buffered escalations, reap child, release lock -------
-  local WATCHER_PID="" CUR_TMP="" WATCHER_STARTED=0
+  local WATCHER_PID="" CUR_TMP=""
   cleanup() {
     trap - TERM INT
     wedge_alarm_stop_active_notifier
@@ -1756,7 +1756,6 @@ fm_super_main() {
     CUR_TMP=$(mktemp "${TMPDIR:-/tmp}/fm-watch.XXXXXX") || { log "error: mktemp failed; retrying in 5s"; sleep 5; return 1; }
     "$WATCH" >"$CUR_TMP" 2>>"$WATCH_ERR" &
     WATCHER_PID=$!
-    WATCHER_STARTED=1
   }
 
   local rc reason start_retried=0
@@ -1769,10 +1768,6 @@ fm_super_main() {
     # Catch-up signals persist in state/*.status and flow on the next run, so
     # this delays rather than loses work.
     if ! fm_backend_target_exists "$BACKEND" "$TARGET"; then
-      if [ "$WATCHER_STARTED" = 0 ]; then
-        fail_watcher_start "supervisor target '$TARGET' disappeared before the watcher started"
-        return 1
-      fi
       log "warn: supervisor target '$TARGET' gone; backing off ${INJECT_FAIL_SLEEP}s, will retry"
       # Flush is pointless with no pane; preserve any buffered escalations.
       sleep "$INJECT_FAIL_SLEEP"

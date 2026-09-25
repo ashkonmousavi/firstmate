@@ -20,7 +20,7 @@ It lists channel directives, one per non-empty, non-comment line, and every list
 
 An absent `config/wedge-alarm` behaves as `auto`.
 The daemon raises the alarm once at max-defer, requeues the escalation buffer as one durable wake row, clears its legacy `state/.afk` flag, then exits so the Claude Stop auto-arm can resume and deliver it.
-The same alert, requeue, and handback happen when the daemon's watcher cannot start and one immediate retry also finds no live peer watcher holding the watcher lock, or when the supervisor pane disappears before the first watcher start.
+The same alert, requeue, and handback happen when the daemon's watcher cannot start and one immediate retry also finds no live peer watcher holding the watcher lock.
 A live peer watcher with a fresh beacon is not a failed start; the daemon idles and retries each housekeeping tick until that peer exits.
 Known limit: a watcher that exits non-zero on every start still goes through the crash-backoff retry loop without an alert or handback.
 

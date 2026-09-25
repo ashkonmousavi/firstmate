@@ -40,7 +40,7 @@ test_idle_capacity_wake() {
 if [ -e "$FM_HOME/state/$1.busy" ]; then
   printf 'state: working · source: pane · fixture\n'
 else
-  printf 'state: working · source: status-log · stale fixture\n'
+  printf 'state: parked · source: run-step · approval gate fixture\n'
 fi
 SH
   chmod +x "$home/fakebin/crew-state"
@@ -52,7 +52,7 @@ SH
   printf '%s\n' '- [ ] ready-one - One dispatchable item (kind: ship)' >> "$home/data/backlog.md"
   run_watch "$home" "$out"
   wait_for_exit "$WATCH_PID" 100 || fail "idle capacity did not wake with ready work"
-  grep -F '0/2 active, 1 ready: ready-one' "$out" >/dev/null \
+  grep -F '0/2 occupied, 0 working, 1 ready: ready-one' "$out" >/dev/null \
     || fail "idle wake omitted the configured cap or ready id: $(cat "$out")"
   [ -s "$state/.wake-queue" ] || fail "idle wake was not durable"
 
@@ -63,29 +63,25 @@ SH
   printf '%s\n' '- [ ] ready-two - Another dispatchable item with a deliberately long title that makes the ready listing wrap onto a continuation line before the next item is listed (kind: ship)' >> "$home/data/backlog.md"
   run_watch "$home" "$out"
   wait_for_exit "$WATCH_PID" 100 || fail "a changed ready set did not wake"
-  grep -F '0/2 active, 2 ready: ready-one,ready-two' "$out" >/dev/null \
+  grep -F '0/2 occupied, 0 working, 2 ready: ready-one,ready-two' "$out" >/dev/null \
     || fail "changed ready set was not named: $(cat "$out")"
 
   printf 'window=fixture:one\nkind=ship\n' > "$state/one.meta"
-  printf 'working: writing\n' > "$state/one.status"
-  prime_status_seen "$state" "$state/one.status"
-  printf 'window=fixture:two\nkind=ship\n' > "$state/two.meta"
-  printf 'working: writing\n' > "$state/two.status"
-  prime_status_seen "$state" "$state/two.status"
+  : > "$state/one.busy"
   printf '%s\n' '- [ ] ready-three - A third dispatchable item (kind: ship)' >> "$home/data/backlog.md"
   : > "$out"
   run_watch "$home" "$out"
-  wait_for_exit "$WATCH_PID" 100 || fail "stale working statuses hid free capacity"
-  grep -F '0/2 active, 3 ready:' "$out" >/dev/null \
-    || fail "stale working statuses counted as active lanes: $(cat "$out")"
+  wait_for_exit "$WATCH_PID" 100 || fail "one live crew under the cap hid free capacity"
+  grep -F '1/2 occupied, 1 working, 3 ready:' "$out" >/dev/null \
+    || fail "one working crew was not counted as an occupied lane: $(cat "$out")"
 
-  : > "$state/one.busy"
-  : > "$state/two.busy"
+  rm -f "$state/one.busy"
+  printf 'window=fixture:two\nkind=ship\n' > "$state/two.meta"
   : > "$out"
   run_watch "$home" "$out"
   stop_quiet_watch "$out"
   [ ! -e "$state/.last-idle-lane-wake" ] || fail "full writing cap retained the capacity wake marker"
-  pass "watcher wakes once for configured free writing lanes and a changed ready set, not for empty or full capacity"
+  pass "watcher wakes once for configured free writing lanes and a changed ready set, not for empty capacity or a cap filled by parked crews"
 }
 
 test_idle_capacity_wake
