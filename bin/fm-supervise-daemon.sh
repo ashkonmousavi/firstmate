@@ -965,8 +965,8 @@ wedge_alarm_notify() {  # <summary> <marker>
 # an ERROR, drops a durable marker firstmate/recovery can surface, flashes
 # the tmux supervisor client's status line when applicable, and attempts a
 # configurable backend-independent active alert (wedge_alarm_notify). Nothing
-# is lost - the buffer and the
-# wake-queue both survive - but the stall stops being invisible.
+# is lost - the main loop requeues the buffer as a durable wake row before it
+# hands supervision back - and the stall stops being invisible.
 inject_wedge_alarm() {  # <state> <age-seconds>
   local state=$1 age=$2 marker target backend max_defer now notify=1
   marker="$state/.subsuper-inject-wedged"
