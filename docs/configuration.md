@@ -224,7 +224,7 @@ See [`wedge-alarm.md`](wedge-alarm.md) for the current channel reference, [`veri
 The watcher counts ship tasks with positive current-state evidence of an active run step or busy pane, and reads `fm-tasks-axi.sh ready` for dependency, date, and hold eligibility.
 When the active count is below the cap and at least one item is ready, it queues an actionable `check: idle writing lanes` wake with the active count, cap, ready count, and ready ids.
 It repeats when the ready set or active count changes, or after one hour, and stays quiet when the cap is full or no item is ready.
-`FM_IDLE_LANE_CHECK_INTERVAL` defaults to 60 seconds; `state/.last-idle-lane-check` and `state/.last-idle-lane-wake` are watcher-owned cadence and deduplication markers.
+`FM_IDLE_LANE_CHECK_INTERVAL` sets the check cadence; `state/.last-idle-lane-check` and `state/.last-idle-lane-wake` are watcher-owned cadence and deduplication markers.
 
 ## Trace context propagation (config/trace-context / FM_TRACE_CONTEXT)
 
@@ -1258,6 +1258,7 @@ FM_HEARTBEAT_MAX=7200   # heartbeat backoff cap
 FM_INACTIVE_RECONCILE_SECS=900  # 60..1800-second watcher cadence and inactivity threshold; locked session start also requests an immediate scan in the deferred worker
 FM_INACTIVE_RECONCILE_BUDGET_SECS=10  # 1..30-second scan deadline; wedged-scan kill backstop follows one second later
 FM_CHECK_INTERVAL=300   # seconds between slow checks (authenticated merge polls, custom checks, or Relay dispatch)
+FM_IDLE_LANE_CHECK_INTERVAL=60   # seconds between idle writing-lane capacity checks while config/writing-lane-cap exists; non-numeric values use 60
 FM_TASK_INBOX_GRACE_SECS=90   # seconds an unhandled steering-inbox message may sit before the watcher attempts doorbell delivery on an idle pane; also the minimum spacing between attempts
 FM_TASK_INBOX_RING_MAX=3      # watcher delivery attempts without an acknowledgement before the task surfaces as a stale wake for recovery
 FM_CHECK_TIMEOUT=30     # seconds allowed per slow check script
