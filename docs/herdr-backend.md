@@ -77,7 +77,9 @@ The one recovery that does place new work is the control plane's reclaim of a de
 Existing task operations use recorded endpoint ids and do not move a live task when labels change.
 Task cleanup closes the task's own pane, and closing a tab's only pane closes the tab.
 A sidebar plugin such as herdr-sidebar docks its own pane, labelled `Sidebar`, into every new tab, so cleanup then also closes the task's tab when every pane left in it is such a sidebar pane with no agent.
-A tab holding any other pane, and a workspace's last tab, stay open; `tests/fm-backend-herdr-sidebar-tab-e2e.test.sh` covers all three cases in a guarded lab.
+This holds for flat tabs and for projected per-task workspaces, on teardown and on restart cleanup alike.
+When that tab is its workspace's last one, closing it removes the workspace, which then holds nothing but sidebar panes; wherever cleanup holds a focus snapshot, the exact-tab focus restore backstops that explicit close.
+A tab holding any other pane stays open; `tests/fm-backend-herdr-sidebar-tab-e2e.test.sh` covers these cases in a guarded lab.
 The per-home workspace is reused while it has task tabs.
 Closing its last tab can remove the workspace, and the next spawn recreates it.
 

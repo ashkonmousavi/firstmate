@@ -1005,7 +1005,9 @@ fm_backend_herdr_projection_target_tab_mutation_allowed() {  # <session> <tab-id
 # shell so Herdr removes the emptied workspace through its focus-preserving
 # pane-death path. The exact-tab restore below remains the backstop, and any
 # ambiguity falls back to the plain explicit close, which the backstop masks
-# exactly as before this hardening.
+# exactly as before this hardening. A confirmed plain close then also closes
+# the target tab, and with it an emptied workspace, when only plugin sidebar
+# panes remain (fm_backend_herdr_close_sidebar_only_tab).
 fm_backend_herdr_projection_close_pane_focus_preserving() {  # <session> <pane-id> [required-agent-state]
   local session=$1 pane_id=$2 required_agent_state=${3:-}
   local before active_tab info target_pane target_tab target_ws close_status state plan plan_shell_pid plan_move_record workspace_presence
@@ -1093,6 +1095,13 @@ fm_backend_herdr_projection_close_pane_focus_preserving() {  # <session> <pane-i
     fi
   else
     close_status=1
+  fi
+  if [ "$close_status" -eq 0 ] && [ "$plan" = plain ]; then
+    fm_backend_herdr_close_sidebar_only_tab "$session" "$target_ws" "$target_tab" "$target_tab"
+    if [ -n "${FM_BACKEND_HERDR_PROJECTION_MUTATION_FOCUS:-}" ]; then
+      before=$FM_BACKEND_HERDR_PROJECTION_MUTATION_FOCUS
+      skip_restore=0
+    fi
   fi
   if [ "$close_status" -eq 0 ] && [ -n "$plan_move_record" ]; then
     workspace_presence=$(fm_backend_herdr_workspace_presence_state "$session" "$target_ws")
@@ -3424,18 +3433,16 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
 # close that task's own <tab-id> when every pane still in it is a plugin
 # sidebar pane (label "Sidebar", no agent). Closing a tab's only pane closes
 # the tab, but a sidebar plugin (herdr-sidebar) docks its own pane into every
-# new tab, which otherwise keeps each finished task's tab open forever.
-# Best-effort and conservative: any read failure, any other pane, a tab that
-# is already gone, or a tab that is its workspace's last one (an explicit
-# close would delete the workspace) leaves everything untouched.
-fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id>
-  local session=$1 ws_id=$2 tab_id=$3 tabs panes
+# new tab, which otherwise keeps each finished task's tab open forever. When
+# that tab is its workspace's last one, the close removes the workspace, which
+# then holds nothing but sidebar panes; the next spawn recreates it. Callers
+# run it before their exact-tab focus restore, which backstops the explicit
+# close. [guard-tab-id] re-checks the projection focus guard right before the
+# close. Best-effort and conservative: any read failure, any other pane, a tab
+# that is already gone, or a refused guard leaves everything untouched.
+fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id> [guard-tab-id]
+  local session=$1 ws_id=$2 tab_id=$3 guard_tab=${4:-} panes
   [ -n "$ws_id" ] && [ -n "$tab_id" ] || return 0
-  tabs=$(fm_backend_herdr_cli "$session" tab list --workspace "$ws_id" 2>/dev/null) || return 0
-  printf '%s' "$tabs" | jq -e --arg tab "$tab_id" '
-    (.result.tabs | type) == "array" and (.result.tabs | length) > 1
-    and any(.result.tabs[]; .tab_id == $tab)
-  ' >/dev/null 2>&1 || return 0
   panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$ws_id" 2>/dev/null) || return 0
   printf '%s' "$panes" | jq -e --arg tab "$tab_id" '
     select((.result.panes | type) == "array")
@@ -3444,8 +3451,9 @@ fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id>
       and all($p[]; .label == "Sidebar" and (.agent // null) == null
         and ((.agent_status // "unknown") == "unknown"))
   ' >/dev/null 2>&1 || return 0
+  [ -z "$guard_tab" ] || fm_backend_herdr_projection_target_tab_mutation_allowed "$session" "$guard_tab" || return 0
   fm_backend_herdr_cli "$session" tab close "$tab_id" >/dev/null 2>&1 \
-    || echo "warning: herdr task kill could not close the task's sidebar-only tab $tab_id" >&2
+    || echo "warning: herdr cleanup could not close the task's sidebar-only tab $tab_id" >&2
   return 0
 }
 
