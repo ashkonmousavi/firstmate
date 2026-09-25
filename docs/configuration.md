@@ -572,6 +572,9 @@ Route it only file-free work such as web research and public-repository reading.
 When selection lands on it, firstmate sends the brief through `bin/fm-grok-bot-dispatch.sh` rather than `fm-spawn.sh`; that script's header owns its arguments, the home-private bridge it drives, and its outcomes.
 The reply comes back marked unverified, and firstmate has it checked under the independent-verification rule by a candidate from a vendor other than xAI before relaying or acting on it.
 When the Bot's usage is spent, firstmate supplies a `blocked` fact for that candidate so ordered selection moves to the next one.
+Grok Bot targets run only in the home that holds the bridge, which is the primary.
+A secondmate inherits the rules but not the bridge, so there `bin/fm-grok-bot-dispatch.sh` refuses with exit 2 and names this; firstmate then supplies a `launch_failed` fact for that candidate, treating the Bot target as unavailable so the rule falls to its other candidates.
+A `"select": "quota-balanced"` rule cannot use a Grok Bot target, because a Bot has no quota evidence; bootstrap, `fm-dispatch-select.sh`, and typed resolution all refuse that configuration.
 Typed resolution reports a Grok Bot target as eligible but unranked and never emits it as a `profile:` line.
 Profile `model` and `effort` fields and rule `why` are optional.
 Rule `approval`, `min_confidence`, and `floor`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.

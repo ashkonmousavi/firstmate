@@ -87,6 +87,7 @@ elif typed and ([(.rules // [])[]? | select(has("min_confidence") and ((.min_con
 elif [selections[] | select((.select | type) != "string" or (.select | length) == 0)] | length > 0 then "select must be a non-empty string"
 elif [selections[].select | select(. != "ordered" and . != "quota-balanced")] | length > 0 then
   "unknown select: " + ([selections[].select | select(. != "ordered" and . != "quota-balanced")] | unique | join(", "))
+elif [selections[] | select(.select == "quota-balanced") | profiles(.use?)[]? | select(bot(.))] | length > 0 then "a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence"
 elif has("default") and ((.default | type) != "object" and (.default | type) != "array") then "default must be a profile object or non-empty profile array"
 elif has("default") and ((.default | type) == "array" and (.default | length) == 0) then "default needs at least one profile"
 elif has("default") and ([profiles(.default)[]? | select(type != "object")] | length) > 0 then "each default profile must be an object"

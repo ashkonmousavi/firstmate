@@ -114,6 +114,7 @@ done <<'ROWS'
 {"default":{"harness":"spaceship"}}^unverified harness
 {"default":{"grok_bot":"fm-researcher","harness":"claude"}}^grok_bot default profile needs a non-empty Bot name
 {"rules":[{"when":"work","use":{"grok_bot":""}}]}^grok_bot use profile needs a non-empty Bot name
+{"rules":[{"when":"work","select":"quota-balanced","use":[{"grok_bot":"fm-researcher"},{"harness":"claude"}]}]}^a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
 {"default":{"harness":"codex","effort":"max"}}^invalid effort
 {"rules":[{"when":"work","select":false,"use":{"harness":"codex"}}],"default":{"harness":"claude"}}^select must be a non-empty string
 {"rules":[{"when":"work","select":"fastest","use":{"harness":"codex"}}],"default":{"harness":"claude"}}^unknown select

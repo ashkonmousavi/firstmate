@@ -66,13 +66,10 @@ assert_not_contains "$chat" 'SECRET-SETUP-TEXT' "the rest of the brief stays loc
 assert_contains "$chat" '"30"' "the timeout is passed through"
 pass "a routed task reaches the named Bot with only its task sections"
 
-run code out err "$BRIEF" --bot fm-researcher --out "$TMP_ROOT/reply.md"
-expect_code 0 "$code" "--out succeeds"
-assert_grep 'Finding one' "$TMP_ROOT/reply.md" "--out writes the reply"
 STUB_RUNNING=1 run code out err "$BRIEF" --bot fm-researcher
 expect_code 3 "$code" "a Bot still working at the timeout exits 3"
 assert_contains "$err" 'still working' "the timeout is explained"
-pass "--out and still-working outcomes"
+pass "a still-working Bot exits 3"
 
 : > "$LOG"
 run code out err "$BRIEF" --bot nobody
@@ -84,6 +81,8 @@ assert_no_grep '["chat"' "$LOG" "nothing is sent to an unresolved Bot"
 FM_GROKBOT_BRIDGE="$TMP_ROOT/missing.mjs" run code out err "$BRIEF" --bot fm-researcher
 expect_code 2 "$code" "a missing bridge refuses"
 assert_contains "$err" 'Grok Bot bridge not found' "the missing bridge is named"
+assert_contains "$err" 'run only in the home that holds the bridge (the primary)' "the missing bridge names the primary-only rule"
+assert_contains "$err" "treat this candidate as unavailable" "the missing bridge says how to route on"
 run code out err "$BRIEF"
 expect_code 2 "$code" "a missing --bot refuses"
 pass "unknown, ambiguous, and missing inputs refuse before sending"

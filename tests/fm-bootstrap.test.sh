@@ -1163,6 +1163,7 @@ one-element array use is accepted^{"rules":[{"when":"focused feature","use":[{"h
 default array is accepted^{"default":[{"harness":"pi","model":"anthropic/claude-sonnet-5"},{"harness":"grok"}]}^empty^
 provider-less multi-provider profile remains accepted without opt-in^{"rules":[{"when":"cross-provider work","use":{"harness":"opencode","model":"anthropic/claude-sonnet-4-5"}}],"default":{"harness":"pi","model":"anthropic/claude-sonnet-5"}}^empty^
 grok bot target is accepted^{"rules":[{"when":"web research","use":[{"grok_bot":"fm-researcher"},{"harness":"claude"}]}],"default":{"grok_bot":"fm-repo-scout","off":false}}^empty^
+grok bot target in a quota-balanced rule is flagged^{"rules":[{"when":"web research","use":[{"grok_bot":"fm-researcher"},{"harness":"claude"}],"select":"quota-balanced"}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
 grok bot target with a harness is flagged^{"rules":[{"when":"web research","use":{"grok_bot":"fm-researcher","harness":"grok"}}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
 one-element default array is accepted^{"default":[{"harness":"codex"}]}^empty^
 empty array use is flagged^{"rules":[{"when":"big feature","use":[]}]}^exact^CREW_DISPATCH: invalid config/crew-dispatch.json - each rule needs at least one use profile

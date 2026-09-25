@@ -184,6 +184,7 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif any((.rules // [])[]; has("select") and ((.select | type) != "string" or (.select | length) == 0)) then "select must be a non-empty string"
   elif any((.rules // [])[]; has("select") and .select != "ordered" and .select != "quota-balanced") then
     "unknown select: " + ([.rules[] | select(has("select") and .select != "ordered" and .select != "quota-balanced") | .select] | unique | join(", "))
+  elif any((.rules // [])[]; .select == "quota-balanced" and any(profiles(.use)[]; bot(.))) then "a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence"
   elif any((.rules // [])[]; has("floor") and floor_bad(.floor; true)) then "rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\\z"
   elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"

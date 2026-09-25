@@ -893,6 +893,7 @@ assert_contains "$err" 'not JSON' "non-JSON rules is named"
 for bad in \
   '{"rules":[{"when":"x","use":{"harness":"claude"},"approval":"firstmate"}]}|approval must be "captain" when present' \
   '{"rules":[{"when":"x","use":{"harness":"claude"},"select":"mystery"}]}|unknown select: mystery' \
+  '{"rules":[{"when":"x","use":[{"grok_bot":"fm-researcher"},{"harness":"claude"}],"select":"quota-balanced"}]}|a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence' \
   '{"rules":[{"when":"x","use":{"harness":"claude"},"min_confidence":"high"}]}|min_confidence must be a number from 0 through 1 when present' \
   '{"rules":[{"when":"x","use":{"harness":"claude"},"min_confidence":1.5}]}|min_confidence must be a number from 0 through 1 when present' \
   '{"rules":[{"when":"x","use":{"harness":"claude"},"floor":{"scope":"model:fable","min_percent":20}}]}|rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\z' \

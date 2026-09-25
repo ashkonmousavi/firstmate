@@ -3,7 +3,7 @@
 # return its reply, for a crew-dispatch profile {"grok_bot":"<Bot name>"}.
 #
 # Usage:
-#   fm-grok-bot-dispatch.sh <brief-file> --bot <name> [--timeout <sec>] [--out <file>]
+#   fm-grok-bot-dispatch.sh <brief-file> --bot <name> [--timeout <sec>]
 #
 # Grok Bot is not a launchable harness: it has no worktree, hooks, or access
 # to local files, so route it only file-free work such as web research and
@@ -21,7 +21,7 @@
 #   outlast a supervisor's per-command limit, so run long turns in the
 #   background.
 #
-# Output: the reply text on stdout, or written to --out, followed by one
+# Output: the reply text on stdout, followed by one
 #   `grok-bot: unverified` line. The reply is unverified: firstmate has it
 #   checked by a candidate from another vendor before relaying or acting on it.
 #
@@ -47,12 +47,11 @@ usage() {
   ' "$0"
 }
 
-BRIEF='' BOT='' TIMEOUT=300 OUT=''
+BRIEF='' BOT='' TIMEOUT=300
 while [ $# -gt 0 ]; do
   case "$1" in
     --bot) [ $# -ge 2 ] || die "--bot needs a value"; BOT=$2; shift 2 ;;
     --timeout) [ $# -ge 2 ] || die "--timeout needs a value"; TIMEOUT=$2; shift 2 ;;
-    --out) [ $# -ge 2 ] || die "--out needs a value"; OUT=$2; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     -*) die "unknown flag $1" ;;
     *) [ -z "$BRIEF" ] || die "one brief file only"; BRIEF=$1; shift ;;
@@ -63,7 +62,7 @@ done
 [ -r "$BRIEF" ] || die "brief file not readable: $BRIEF"
 [[ "$BOT" =~ [^[:space:]] ]] || die "--bot <name> required"
 [[ "$TIMEOUT" =~ ^[1-9][0-9]*$ ]] || die "--timeout must be a positive number of seconds"
-[ -f "$BRIDGE" ] || die "Grok Bot bridge not found: $BRIDGE"
+[ -f "$BRIDGE" ] || die "Grok Bot bridge not found: $BRIDGE; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates"
 command -v node >/dev/null 2>&1 || die "node required"
 command -v jq >/dev/null 2>&1 || die "jq required"
 
@@ -90,11 +89,8 @@ REPLY=$(jq -r --arg p "$PROMPT" '
   [.newEntries[]? | .text | select(type == "string" and test("\\S") and . != $p)] | join("\n\n")' <<<"$RESULT") \
   || die "Grok Bot bridge returned malformed output"
 
-emit() {
-  printf '%s\n' "$REPLY"
-  printf 'grok-bot: unverified reply from %s; have another vendor check it before relaying\n' "$BOT"
-}
-if [ -n "$OUT" ]; then emit > "$OUT" || die "could not write $OUT"; else emit; fi
+printf '%s\n' "$REPLY"
+printf 'grok-bot: unverified reply from %s; have another vendor check it before relaying\n' "$BOT"
 
 if [ "$(jq -r '.stillRunning' <<<"$RESULT")" = true ]; then
   printf 'grok-bot: %s (%s) still working after %ss; read the rest with the bridge transcript command\n' "$BOT" "$ID" "$TIMEOUT" >&2
