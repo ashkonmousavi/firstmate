@@ -525,13 +525,14 @@ EOF
 
   # 5. landed, cleanup due: finished work whose task record is still live.
   # Listing it keeps a landed task that remains live past the return from being
-  # overlooked. The cleanup itself is ordinary fleet work and waits for the gate.
+  # overlooked. The cleanup itself is ordinary fleet work and waits for the gate
+  # and for the post-merge verification AGENTS.md section 7 requires.
   printf 'Landed, cleanup due:\n'
   count=0
   while IFS="$(printf '\t')" read -r task url; do
     [ -n "$task" ] || continue
     count=$((count + 1))
-    printf '  - %s: %s is merged and the worker is still up; close it with bin/fm-teardown.sh %s once catch-up clears\n' "$task" "$url" "$task"
+    printf '  - %s: %s is merged and the worker is still up; once catch-up clears, verify its post-merge CI (and deploy plus live version where a deploy target exists), then close it with bin/fm-teardown.sh %s\n' "$task" "$url" "$task"
   done <<EOF
 $(scan_landed_awaiting_cleanup)
 EOF

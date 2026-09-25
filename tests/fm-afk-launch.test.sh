@@ -141,6 +141,32 @@ unit_foreground_harnesses_never_launch_the_daemon() {
   done
 }
 
+unit_codex_refuses_quiet_before_the_record() {
+  local st harness mode out rc
+  for harness in codex claude; do
+    for mode in quiet away; do
+      st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-quiet.XXXXXX")
+      mkdir -p "$st/state"
+      out=$(FM_HOME="$st" FM_STATE_OVERRIDE="$st/state" FM_TEST_HARNESS="$harness" FM_AFK_MODE="$mode" \
+        bash -c '. "$1"; fm_afk_launch_primary_harness() { printf "%s" "$FM_TEST_HARNESS"; }; fm_afk_launch_main enter --words "watch the fleet"' _ "$LAUNCH" 2>&1)
+      rc=$?
+      if [ "$harness:$mode" = codex:quiet ]; then
+        if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -F 'quiet mode is refused on codex' >/dev/null \
+          && [ ! -e "$st/state/.afk-contract" ] && [ ! -e "$st/state/.afk" ] && [ ! -d "$st/state/.afk-launch.lock" ]; then
+          pass "codex: /quiet entry is refused before any away record is written"
+        else
+          fail "codex: /quiet entry was not refused cleanly (rc=$rc): $out"
+        fi
+      elif [ "$rc" -eq 0 ] && [ -f "$st/state/.afk-contract" ]; then
+        pass "$harness: ${mode} entry still writes the away record"
+      else
+        fail "$harness: ${mode} entry did not write the away record (rc=$rc): $out"
+      fi
+      rm -rf "$st"
+    done
+  done
+}
+
 unit_codex_handoff_retires_legacy_daemon_before_checkpoint() {
   local st fake_root daemon_pid lock out rc
   st=$(mktemp -d "${TMPDIR:-/tmp}/fm-afk-codex-handoff.XXXXXX")
@@ -1363,6 +1389,7 @@ unit_clear_stale
 unit_enter_records_the_posture_in_one_step_without_a_daemon
 unit_retired_two_step_entry_is_refused
 unit_foreground_harnesses_never_launch_the_daemon
+unit_codex_refuses_quiet_before_the_record
 unit_codex_handoff_retires_legacy_daemon_before_checkpoint
 unit_pi_enter_stop_does_not_claim_a_daemon_terminal
 unit_daemon_entry_requires_the_record

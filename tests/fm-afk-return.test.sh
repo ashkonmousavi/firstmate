@@ -494,7 +494,7 @@ test_return_brief_lists_landed_work_awaiting_cleanup() {
   [ -n "$landed_line" ] && [ -n "$failed_line" ] && [ -n "$handled_line" ] || fail "the brief is missing a section: $out"
   [ "$failed_line" -lt "$landed_line" ] && [ "$landed_line" -lt "$handled_line" ] \
     || fail "landed work is out of order (failed $failed_line, landed $landed_line, handled $handled_line)"
-  assert_contains "$out" '  - landed: https://github.com/example/landed/pull/7 is merged and the worker is still up; close it with bin/fm-teardown.sh landed once catch-up clears' "the landed worker was not listed for cleanup"
+  assert_contains "$out" '  - landed: https://github.com/example/landed/pull/7 is merged and the worker is still up; once catch-up clears, verify its post-merge CI (and deploy plus live version where a deploy target exists), then close it with bin/fm-teardown.sh landed' "the landed worker was not listed for cleanup"
   assert_not_contains "$out" '  - open:' "a done worker with no durable merge evidence was listed as landed"
   assert_contains "$out" 'catch-up clear' "landed work must not hold the gate"
   pass "the return brief lists landed work whose worker is still up, from the durable merge marker only, without gating on it"

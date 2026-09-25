@@ -52,6 +52,9 @@
 #                              announcement and the read-back. With no words
 #                              while away it is a refresh; new words replace
 #                              the mandate. On Pi and Codex this is the whole entry.
+#                              With FM_AFK_MODE=quiet on Codex it refuses and
+#                              writes no record: quiet mode lives only in the
+#                              daemon's state/.afk, which Codex never runs.
 #   fm-afk-launch.sh start     On daemon-backed harnesses, capture the captain
 #                              pane, then (unless the daemon is already running)
 #                              launch it in a fresh non-visible terminal for the
@@ -273,6 +276,10 @@ fm_afk_launch_record_require() {
 
 fm_afk_launch_enter() {
   fm_afk_launch_catchup_pending && return 1
+  if [ "${FM_AFK_MODE:-}" = quiet ] && [ "$(fm_afk_launch_primary_harness)" = codex ]; then
+    fm_afk_launch_log "quiet mode is refused on codex: no daemon runs there, so nothing records the quiet mode and the posture would read as away; no record was written (use /afk to be away)"
+    return 1
+  fi
   "$FM_AFK_CONTRACT_CMD" enter "$@" || return
   fm_afk_launch_host_engine_note
 }

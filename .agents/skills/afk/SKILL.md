@@ -37,7 +37,7 @@ Hold-for-return is the default and the only reach profile this release records: 
      On a quiet bounded return, drain anyway, process any newly visible captain message, and enter the next checkpoint while the posture remains active.
      This route never types into the composer, so a pending captain draft remains untouched.
      With `config/supervision-host` the checkpoint runs the supervision host in the watcher's place, so the host takes away wakes inside this same loop (`docs/supervision-host.md`).
-     `/quiet` launches no daemon on Codex either, because the foreground checkpoint loop is the only supervision shape there.
+     `/quiet` is refused on Codex: with no daemon there is no `state/.afk` to record the quiet mode, so `bin/fm-afk-launch.sh enter` under `FM_AFK_MODE=quiet` writes no record and exits non-zero (`/quiet` skill).
    - **Claude, Cursor, OpenCode, omp, or Grok with `config/supervision-host`**: nothing to launch for `/afk`; go on to the announcement.
      The supervision host (`docs/supervision-host.md`) is the away session there: it runs the branch's contract on a headless engine under the record while main is parked, and `bin/fm-afk-launch.sh start` and `start-native` refuse the away daemon on that home.
      If `enter` printed a `Supervision host: no engine ...` line, every away wake reaches this conversation instead; say so in the announcement.
@@ -83,7 +83,8 @@ No `/back` is needed. The first genuine message is the return signal:
   Once the record is archived, resume full per-wake responsiveness through the emitted primary-harness supervision protocol while blocker handling proceeds, so the gate never creates a blind wait.
   A Bearings request may be answered while the gate is open, and the digest surfaces the catch-up state as a Charted Next `(return-catchup)` warning row naming what still holds it.
   Acting on the fleet - dispatching, steering, merging, or any other ordinary captain work - still waits until the check exits successfully.
-  Once it does, close every task the brief lists under "Landed, cleanup due" through ordinary teardown (`bin/fm-teardown.sh <task>`, never forced; a refusal is a stop-and-investigate result) and tell the captain those workers are closed in outcome language.
+  Once it does, verify each task the brief lists under "Landed, cleanup due" the way `AGENTS.md` section 7 requires (the default-branch CI run the merge triggered when the project runs one, and the deploy or release workflow and the live version when the project has a deploy target), then close each verified task through ordinary teardown (`bin/fm-teardown.sh <task>`, never forced; a refusal is a stop-and-investigate result) and tell the captain those workers are closed, with the verification result, in outcome language.
+  A task whose verification is still running keeps its worker up until it passes, and a failed verification is reported to the captain instead of torn down.
 - A message **with** the current operational prefix (`FM_OPERATIONAL_PREFIX`, U+2063 INVISIBLE SEPARATOR followed by `FIRSTMATE_OP: `), or a legacy bare `FM_INJECT_MARK` daemon escalation -> stay away and process it.
 - A `Stop hook feedback` wake from the Stop hook or the supervision host, or a Grok background-task-completed notification for the arm -> stay away and process it; it is automatic supervision, not a message from the captain.
 - Re-invoking `/afk` while already away -> stay away (refresh); this does **not** trigger an exit.

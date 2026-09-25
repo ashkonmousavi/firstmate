@@ -28,9 +28,14 @@ exits it.
    Follow the `afk` skill's "What it does" steps 1-3 verbatim (terminal-
    backed vs harness-native entry, daemon-already-running refresh, never
    arming a separate `fm-watch.sh`) with one addition: export
-   `FM_AFK_MODE=quiet` in the shell that invokes `bin/fm-afk-launch.sh start`
-   (or `start-native`), so `state/.afk`'s first line reads `quiet` instead of
-   `away`.
+   `FM_AFK_MODE=quiet` in the shell that invokes `bin/fm-afk-launch.sh enter`
+   and then `start` (or `start-native`), so `state/.afk`'s first line reads
+   `quiet` instead of `away`.
+   On Codex, `/quiet` is refused: no daemon runs there, so nothing could
+   record the quiet mode and the posture would read back as away.
+   `enter` under `FM_AFK_MODE=quiet` exits non-zero there and writes no
+   away-posture record; tell the captain quiet mode is unavailable on Codex
+   and that `/afk` is the away posture there, and stop.
    Leaving `FM_AFK_MODE` unset on a bare refresh of an already-running quiet
    daemon is also correct and does nothing wrong: `fm_afk_flag_write`
    preserves the on-disk mode when no explicit mode is given, so a plain
