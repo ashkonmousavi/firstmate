@@ -1,0 +1,38 @@
+### S4: a quota-balanced rule naming a Grok Bot is refused (adversarial)
+{"rules":[{"when":"web research","select":"quota-balanced","use":[{"grok_bot":"fm-researcher"},{"harness":"claude"}]}]}
+$ bin/fm-dispatch-select.sh qb.json 0
+error: config: a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+exit=2
+$ bin/fm-crew-dispatch-validate.jq (bootstrap schema, typed=false and typed=true)
+a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+$ TYPESAFE_API_KEY=<dummy> FM_HOME=<lab> bin/fm-dispatch-resolve.sh brief.md   (network blackholed via proxy)
+error: malformed rules file: /tmp/fm-grokbot-lab.1KDJ/typed/config/crew-dispatch.json - a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+exit=2
+
+### S5: malformed Grok Bot profiles are refused (adversarial)
+config: {"rules":[{"when":"w","use":{"grok_bot":"fm-researcher","harness":"claude"}}]}
+  select:  exit=2 error: config: a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
+  resolve: exit=2 error: malformed rules file: /tmp/fm-grokbot-lab.1KDJ/typed/config/crew-dispatch.json - each use profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\z when present
+config: {"rules":[{"when":"w","use":{"grok_bot":"   "}}]}
+  select:  exit=2 error: config: a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
+  resolve: exit=2 error: malformed rules file: /tmp/fm-grokbot-lab.1KDJ/typed/config/crew-dispatch.json - each use profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\z when present
+config: {"rules":[{"when":"w","use":{"grok_bot":"fm-researcher","provider":"xai"}}]}
+  select:  exit=2 error: config: a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
+  resolve: exit=2 error: malformed rules file: /tmp/fm-grokbot-lab.1KDJ/typed/config/crew-dispatch.json - each use profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\z when present
+config: {"default":{"grok_bot":7}}
+  select:  exit=2 error: config: a grok_bot default profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
+  resolve: exit=2 error: malformed rules file: /tmp/fm-grokbot-lab.1KDJ/typed/config/crew-dispatch.json - each default profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\z when present
+
+### S6: the removed --out option is refused; reply goes to stdout only
+$ bin/fm-grok-bot-dispatch.sh brief.md --bot fm-researcher --out reply.txt
+error: unknown flag --out
+exit=2
+ls: cannot access '/tmp/fm-grokbot-lab.1KDJ/reply.txt': No such file or directory
+$ bin/fm-grok-bot-dispatch.sh --help
+fm-grok-bot-dispatch.sh - send one routed task to a named Grok Bot and
+return its reply, for a crew-dispatch profile {"grok_bot":"<Bot name>"}.
+
+Usage:
+  fm-grok-bot-dispatch.sh <brief-file> --bot <name> [--timeout <sec>]
+

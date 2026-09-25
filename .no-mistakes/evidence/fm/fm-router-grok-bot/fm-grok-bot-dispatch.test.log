@@ -1,0 +1,4 @@
+ok - a routed task reaches the named Bot with only its task sections
+ok - a still-working Bot exits 3
+ok - unknown, ambiguous, and missing inputs refuse before sending
+# all fm-grok-bot-dispatch tests passed

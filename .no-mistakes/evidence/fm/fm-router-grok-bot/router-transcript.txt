@@ -1,0 +1,73 @@
+=== S1: primary intake selects the Grok Bot target from the router ===
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/primary/config/crew-dispatch.json 0
+selection: ordered
+selected[0]: {"grok_bot":"fm-researcher"}
+[exit 0]
+
+=== S2: selected Bot target dispatched through the router tool (primary home, default bridge path) ===
+Repo A uses SQLite; repo B uses Postgres. Sources: https://example.com/a
+grok-bot: unverified reply from fm-researcher; have another vendor check it before relaying
+[exit 0]
+--- what the bridge received (chat call) ---
+["chat","bot-7","## Captain's intent\n\"compare the three public trading-journal repos\"\n\n## Firstmate spec\n- Read each public repository and report storage differences.","45"]
+OK: setup section stayed local
+
+=== S3: Bot still working at the timeout ===
+Repo A uses SQLite; repo B uses Postgres. Sources: https://example.com/a
+grok-bot: unverified reply from fm-repo-scout; have another vendor check it before relaying
+grok-bot: fm-repo-scout (bot-9) still working after 5s; read the rest with the bridge transcript command
+[exit 3]
+
+=== S4: usage spent -> blocked fact -> router falls to next candidate ===
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/primary/config/crew-dispatch.json 0 --facts /tmp/tmp.Y46rJBHBYe/blocked.json
+selection: ordered
+skipped[0]: blocked: Grok Bot weekly usage spent; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet"}
+[exit 0]
+
+=== S5: secondmate home (rules inherited, no bridge) ===
+error: Grok Bot bridge not found: /tmp/tmp.Y46rJBHBYe/secondmate/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+[exit 2]
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/secondmate/config/crew-dispatch.json 0 --facts /tmp/tmp.Y46rJBHBYe/nobridge.json
+selection: ordered
+skipped[0]: launch_failed: Grok Bot bridge not found in this home; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet"}
+[exit 0]
+--- Bot-only rule in the secondmate ---
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/secondmate/config/crew-dispatch.json 1 --facts /tmp/tmp.Y46rJBHBYe/nobridge.json
+selection: ordered
+skipped[0]: launch_failed: Grok Bot bridge not found in this home; profile={"grok_bot":"fm-repo-scout"}
+error: all candidates unavailable
+[exit 1]
+
+=== S6: removed --out option is refused ===
+error: unknown flag --out
+[exit 2]
+no reply file written
+
+=== S7: grok_bot inside a quota-balanced rule is rejected by the router ===
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/qb.json 0
+error: config: a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+[exit 2]
+
+=== S8: malformed Bot profiles are rejected ===
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/mixed.json 0
+error: config: a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
+[exit 2]
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/blank.json 0
+error: config: a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor
+[exit 2]
+--- off Bot is skipped in order ---
+
+$ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3D5BBZNSJHATDY775QQ3EB0/bin/fm-dispatch-select.sh /tmp/tmp.Y46rJBHBYe/off.json 0
+selection: ordered
+skipped[0]: off=true; profile={"grok_bot":"fm-researcher","off":true}
+selected[1]: {"harness":"claude"}
+[exit 0]

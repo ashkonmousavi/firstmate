@@ -1,0 +1,19 @@
+### S3: secondmate home (inherited rules, no bridge) dispatches the selected Bot
+$ ls $FM_HOME/data/grok-bot-bridge
+ls: cannot access '/tmp/fm-grokbot-lab.1KDJ/secondmate/data/grok-bot-bridge': No such file or directory
+$ FM_HOME=<secondmate> bin/fm-grok-bot-dispatch.sh brief.md --bot fm-researcher
+error: Grok Bot bridge not found: /tmp/fm-grokbot-lab.1KDJ/secondmate/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+exit=2
+
+### S3b: firstmate records launch_failed for the Bot; the rule falls to its other candidate
+$ bin/fm-dispatch-select.sh config/crew-dispatch.json 0 --facts lf.json
+selection: ordered
+skipped[0]: launch_failed: Grok Bot bridge not found in this secondmate home; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet","effort":"high"}
+exit=0
+
+### S3c: Bot-only rule in a secondmate -> all candidates unavailable, stop and report
+selection: ordered
+skipped[0]: launch_failed: Grok Bot bridge not found in this secondmate home; profile={"grok_bot":"fm-researcher"}
+error: all candidates unavailable
+exit=1

@@ -1,0 +1,9 @@
+### S7 (STUB bridge): primary home sends the selected Bot the brief task sections only
+$ FM_HOME=<primary> bin/fm-grok-bot-dispatch.sh brief.md --bot fm-researcher --timeout 30
+Repo A uses SQLite; repo B uses Postgres. https://example.com/a
+grok-bot: unverified reply from fm-researcher; have another vendor check it before relaying
+exit=0
+--- bridge argv recorded by stub:
+["list"]
+["chat","a1","## Captain's intent\n\"compare the three public trading-journal repos\"\n\n## Firstmate spec\n- Read each public repository and report differences.","30"]
+PRIVATE-SETUP-TEXT occurrences sent to bridge: 0

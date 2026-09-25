@@ -1,0 +1,15 @@
+$ cat config/crew-dispatch.json
+{"rules":[{"when":"web research and public-repository reading","use":[{"grok_bot":"fm-researcher"},{"harness":"claude","model":"sonnet","effort":"high"}],"why":"file-free work"}],"default":{"harness":"codex"}}
+
+### S1: firstmate resolves the matched web-research rule
+$ bin/fm-dispatch-select.sh config/crew-dispatch.json 0
+selection: ordered
+selected[0]: {"grok_bot":"fm-researcher"}
+exit=0
+
+### S2: Bot usage spent -> blocked fact -> ordered selection falls to next candidate
+$ bin/fm-dispatch-select.sh config/crew-dispatch.json 0 --facts blocked.json
+selection: ordered
+skipped[0]: blocked: Grok Bot weekly usage spent; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet","effort":"high"}
+exit=0
