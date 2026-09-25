@@ -2237,6 +2237,35 @@ test_prepared_daemon_hands_back_when_watcher_cannot_start() {
   pass "a watcher that cannot start without a live peer alerts, requeues, and hands back"
 }
 
+test_prepared_daemon_retries_start_after_peer_releases_lock() {
+  local dir state out alerts peer pid i
+  dir=$(make_supercase watcher-peer-exit)
+  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
+  : > "$dir/pane.txt"
+  mkdir -p "$dir/tmp"
+  # shellcheck disable=SC2016  # $1 expands in the child shell
+  bash -c 'until grep -qs "already running" "$1"/fm-watch.*; do sleep 0.05; done' _ "$dir/tmp" &
+  peer=$!
+  TMPDIR="$dir/tmp" run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ] \
+    && ! grep -F 'retrying start once' "$state/.supervise-daemon.log" >/dev/null 2>&1; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  sleep 2
+  wait "$peer" 2>/dev/null || true
+  if ! is_live_non_zombie "$pid"; then
+    fail "daemon handed back although the peer released the lock before the retry: $(cat "$out")"
+  fi
+  [ -e "$state/.afk" ] || fail "daemon cleared its flag although its retried watcher could start"
+  [ ! -s "$alerts" ] || fail "daemon alerted although its retried watcher could start"
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  pass "daemon retries its watcher start once when the colliding peer has already exited"
+}
+
 test_prepared_daemon_idles_while_live_peer_watcher_holds_lock() {
   local dir state out alerts peer pid i
   dir=$(make_supercase watcher-live-peer)
@@ -3031,6 +3060,7 @@ test_max_defer_pending_composer_alarms_without_typing
 test_prepared_daemon_hands_back_after_undeliverable_wake
 test_prepared_daemon_hands_back_when_watcher_cannot_start
 test_prepared_daemon_idles_while_live_peer_watcher_holds_lock
+test_prepared_daemon_retries_start_after_peer_releases_lock
 test_normal_flush_clears_stale_wedge_marker
 test_below_max_defer_does_nothing
 test_max_defer_afk_inactive_does_not_flush_or_alarm

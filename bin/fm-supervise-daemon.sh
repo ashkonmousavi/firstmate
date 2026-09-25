@@ -1759,7 +1759,7 @@ fm_super_main() {
     WATCHER_STARTED=1
   }
 
-  local rc reason
+  local rc reason start_retried=0
   while true; do
     # --- pane-gone guard (preserved) ---------------------------------------
     # With the #29 watcher's enqueue-before-suppress, a wake is no longer
@@ -1801,19 +1801,29 @@ fm_super_main() {
         fi
         # A non-wake stdout line (notably a singleton collision) means this
         # daemon does not own a watcher. A live peer watcher with a fresh beacon
-        # is still supervising, so idle and retry until it exits; otherwise
-        # release supervision instead of holding the Stop-hook path while
-        # queued rows cannot be handled.
+        # is still supervising, so idle and retry until it exits. With no live
+        # peer, retry the start once at once, because the peer may have released
+        # the lock after the collision; release supervision only if that retry
+        # also fails instead of holding the Stop-hook path while queued rows
+        # cannot be handled.
         if ! is_wake_reason "$reason"; then
           if fm_watcher_healthy "$STATE" "$WATCH" "${FM_GUARD_GRACE:-$(fm_poll_derived_grace)}" "$FM_HOME"; then
             log "watcher non-wake stdout while live peer pid $FM_WATCHER_HEALTHY_PID holds the watcher lock, idling: $reason"
+            start_retried=0
             WATCHER_PID=""
             sleep "${FM_HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}"
+            continue
+          fi
+          if [ "$start_retried" = 0 ]; then
+            log "watcher non-wake stdout with no live peer watcher, retrying start once: $reason"
+            start_retried=1
+            WATCHER_PID=""
             continue
           fi
           fail_watcher_start "$reason"
           return 1
         fi
+        start_retried=0
         log "wake: $reason"
         if ! handle_durable_wakes "$reason" "$STATE"; then
           log "durable wake handling was not acknowledged; restarting for recovery"
