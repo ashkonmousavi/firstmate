@@ -452,7 +452,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
       if $ties > 1 then $ev + {status: "escalate", reason: "genuine spendPriority tie", note: $sel.note, candidates: $cands}
       else $ev + {status: "clear", note: $sel.note, candidates: $cands, chosen: $best}
         + (if ($unranked | length) > 0 then
-             {unranked_note: "\($unranked | length) eligible candidate(s) unranked (\([$unranked[].provider] | unique | join(", ")))"}
+             {unranked_note: "\($unranked | length) eligible candidate(s) unranked (\([$unranked[] | .provider // "grok-bot"] | unique | join(", ")))"}
            else {} end)
       end
     end

@@ -328,6 +328,7 @@ reset_log
 TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
 expect_code 0 "$code" "a Grok Bot target is a valid typed rule profile"
 assert_contains "$out" 'candidate: grok-bot:fm-researcher  -> eligible, unranked: Grok Bot target has no quota evidence' "a Grok Bot target is reported unranked"
+assert_contains "$out" '  note: 1 eligible candidate(s) unranked (grok-bot)' "the unranked note names a Grok Bot target"
 assert_contains "$out" "  profile: --harness 'claude' --model 'sonnet' --effort 'high'" "a Grok Bot target never becomes a spawn profile"
 printf '%s\n' '{"rules":[{"when":"Web research.","use":{"grok_bot":"fm-researcher"}}]}' > "$RULES"
 reset_log
