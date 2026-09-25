@@ -1,0 +1,15 @@
+$ bin/fm-spawn.sh gated-task <proj> --mode local-only --yolo off   # no data/gated-task/prep.md; a filled nav-prep exists in the registered secondmate home
+error: task gated-task cannot ship without its preparation record: no preparation record at /tmp/fm-live.CSCc2b/prep/home/data/gated-task/prep.md; scaffold it with bin/fm-brief.sh gated-task --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+hint: a filled secondmate nav-prep is at /tmp/fm-live.CSCc2b/prep/mate/data/nav-preps/gated-task.md; install it with bin/fm-prep-install.sh gated-task
+[exit 1]
+
+$ bin/fm-brief.sh gated-task --prep   # adversarial: an unanswered scaffold must still be refused
+scaffolded: /tmp/fm-live.CSCc2b/prep/home/data/gated-task/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+$ bin/fm-spawn.sh gated-task <proj> --mode local-only --yolo off
+error: task gated-task cannot ship without its preparation record: its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /tmp/fm-live.CSCc2b/prep/home/data/gated-task/prep.md; scaffold it with bin/fm-brief.sh gated-task --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+hint: a filled secondmate nav-prep is at /tmp/fm-live.CSCc2b/prep/mate/data/nav-preps/gated-task.md; install it with bin/fm-prep-install.sh gated-task
+[exit 1]
+
+$ bin/fm-prep-install.sh gated-task   # replaces the empty local scaffold with the filled nav-prep
+installed: /tmp/fm-live.CSCc2b/prep/home/data/gated-task/prep.md (from /tmp/fm-live.CSCc2b/prep/mate/data/nav-preps/gated-task.md)
+[exit 0]

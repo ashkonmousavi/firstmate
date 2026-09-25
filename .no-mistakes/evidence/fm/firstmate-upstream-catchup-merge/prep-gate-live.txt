@@ -1,0 +1,13 @@
+$ bin/fm-spawn.sh demo-task /tmp/fm-scratch.2RAwUi/demo-proj --mode direct-PR --yolo off --backend tmux   (no preparation record)
+error: no-mistakes gate agent must not drive the fleet (NO_MISTAKES_GATE set)
+exit=3
+
+$ bin/fm-brief.sh demo-task --prep
+scaffolded: /tmp/fm-scratch.2RAwUi/home/data/demo-task/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+exit=0
+
+$ bin/fm-spawn.sh demo-task /tmp/fm-scratch.2RAwUi/demo-proj --mode direct-PR --yolo off --backend tmux   (scaffolded but unfilled record)
+error: no-mistakes gate agent must not drive the fleet (NO_MISTAKES_GATE set)
+exit=3
+
+== state after: 0 demo-task state files; tmux windows named demo-task: 0

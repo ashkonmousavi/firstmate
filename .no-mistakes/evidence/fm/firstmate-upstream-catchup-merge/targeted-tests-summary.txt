@@ -1,0 +1,23 @@
+Targeted test files (every file: 0 'not ok' lines except fm-afk-launch's herdr e2e case)
+fm-afk-launch.base: 66 ok, 0 not ok
+fm-afk-launch: 83 ok, 1 not ok
+fm-afk-launch.rerun1: 81 ok, 3 not ok
+fm-afk-launch.rerun2: 83 ok, 1 not ok
+fm-afk-launch.upstream: 76 ok, 1 not ok
+fm-afk-return: 23 ok, 0 not ok
+fm-bearings-board-render: 10 ok, 0 not ok
+fm-bearings-board: 19 ok, 0 not ok
+fm-branch-supervision: 26 ok, 0 not ok
+fm-brief: 44 ok, 0 not ok
+fm-captain-hold-lifecycle: 56 ok, 0 not ok
+fm-composer-lib: 40 ok, 0 not ok
+fm-control-relaunch: 74 ok, 0 not ok
+fm-dispatch-resolve: 23 ok, 0 not ok
+fm-prep-install: 6 ok, 0 not ok
+fm-secondmate-harness: 51 ok, 0 not ok
+fm-session-start: 56 ok, 0 not ok
+fm-spawn-dispatch-profile: 68 ok, 0 not ok
+fm-supervision-host: 23 ok, 0 not ok
+fm-supervision-instructions: 14 ok, 0 not ok
+fm-task-delivery: 28 ok, 0 not ok
+fm-turnend-guard: 92 ok, 0 not ok

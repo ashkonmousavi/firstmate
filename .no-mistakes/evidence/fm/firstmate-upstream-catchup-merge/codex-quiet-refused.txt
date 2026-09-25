@@ -1,0 +1,21 @@
+== primary harness: codex
+== state before: .inactive-outcome-reconcile .lock .session-start-complete .startup-network.report .startup-network.status .startup-network.timings .trace-context-effective .wake-queue home-summary.json terminal-outcomes 
+$ FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter --words "watch the fleet quietly"
+fm-afk-launch: quiet mode is refused on codex: no daemon runs there, so nothing records the quiet mode and the posture would read as away; no record was written (use /afk to be away)
+exit=1
+== state after: .inactive-outcome-reconcile .lock .session-start-complete .startup-network.report .startup-network.status .startup-network.timings .trace-context-effective .wake-queue home-summary.json terminal-outcomes 
+absent: state/.afk
+absent: state/.afk-contract
+absent: state/.afk-launch.lock
+$ FM_AFK_MODE=quiet bin/fm-afk-launch.sh start
+fm-afk-launch: the away daemon is no longer launched on codex; the away-posture record is the posture there (run bin/fm-afk-launch.sh enter and stop)
+exit=1
+absent: state/.afk
+absent: state/.afk-contract
+== session-start posture after the refused /quiet:
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+Whenever this session owns supervision, including while the away-posture record exists:
+Away mode changes notification and decision handling, not this ownership loop.
+Do not launch `bin/fm-afk-launch.sh start` except when the repair line identifies a live legacy away daemon for its guarded handoff, and do not finalize to an idle prompt while supervision is needed.

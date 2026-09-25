@@ -1,0 +1,20 @@
+== primary harness: codex
+$ bin/fm-afk-launch.sh enter --words "watch the fleet"   (plain /afk, FM_AFK_MODE unset)
+Away posture recorded at 2026-09-25T02:00:54Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return. Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-09-25T02:00:54Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    watch the fleet
+exit=0
+absent: state/.afk
+PRESENT: state/.afk-contract
+$ FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter --words "switch to quiet"   (while already away)
+fm-afk-launch: quiet mode is refused on codex: no daemon runs there, so nothing records the quiet mode and the posture would read as away; no record was written (use /afk to be away)
+exit=1
+away record unchanged by the refused /quiet
+== session-start posture:
+SUPERVISION OPERATING INSTRUCTIONS - primary harness: codex
+- Away mode: active; Codex foreground checkpoint continues to own the watcher. Do not finalize to idle or launch the away daemon while supervision is needed.

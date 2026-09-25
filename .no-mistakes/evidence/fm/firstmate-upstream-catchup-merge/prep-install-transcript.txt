@@ -1,0 +1,28 @@
+primary home: /tmp/fm-live.CSCc2b/prep/home ; secondmate home (registered in data/secondmates.md): /tmp/fm-live.CSCc2b/prep/mate
+
+$ bin/fm-prep-install.sh nav-task
+installed: /tmp/fm-live.CSCc2b/prep/home/data/nav-task/prep.md (from /tmp/fm-live.CSCc2b/prep/mate/data/nav-preps/nav-task.md)
+[exit 0]
+
+$ head -6 /tmp/fm-live.CSCc2b/prep/home/data/nav-task/prep.md
+# Task prep: nav-task
+
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->
+- Q1 does this change alter what a user sees or can do: no
+- Q2 does this change touch a shared module, a contract, or more than about eight files: no
+[exit 0]
+
+$ bin/fm-prep-install.sh nav-task    # adversarial: re-install over a filled record without --force
+error: /tmp/fm-live.CSCc2b/prep/home/data/nav-task/prep.md already passes the preparation gate; pass --force to overwrite
+
+$ bin/fm-prep-install.sh no-such-task    # adversarial: nothing filled to install
+error: no filled nav-prep for no-such-task (looked under each home= in /tmp/fm-live.CSCc2b/prep/home/data/secondmates.md for data/nav-preps/no-such-task.md)
+
+$ bin/fm-prep-install.sh nav-task --force
+installed: /tmp/fm-live.CSCc2b/prep/home/data/nav-task/prep.md (from /tmp/fm-live.CSCc2b/prep/mate/data/nav-preps/nav-task.md)
+[exit 0]
+
+--- exit codes of the two refusals ---
+fm-prep-install.sh nav-task -> exit 1
+fm-prep-install.sh no-such-task -> exit 1

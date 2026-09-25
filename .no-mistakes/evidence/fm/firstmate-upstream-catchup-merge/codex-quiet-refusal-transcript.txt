@@ -1,0 +1,55 @@
+=== Scenario A: Codex primary runs /quiet (fresh home) ===
+
+$ [primary=codex] FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter --words 'watch the fleet quietly'
+fm-afk-launch: quiet mode is refused on codex: no daemon runs there, so nothing records the quiet mode and the posture would read as away; no record was written (use /afk to be away)
+[exit 1]
+$ ls -A state/  ->  
+--- session start afterwards: posture must not read as away ---
+
+$ [primary=codex] bin/fm-session-start.sh | sed -n '/^Current state:/,/^Mode:/p;/^AFK$/,/^=====/p'
+Current state:
+- Lock: held by this session; this session owns normal supervision unless away mode says otherwise.
+- Away/quiet mode: inactive.
+- X mode: inactive; use the default watcher cadence.
+- Ordinary wake: take the next foreground bin/fm-watch-checkpoint.sh checkpoint as directed below.
+
+Mode: Codex foreground checkpoint.
+AFK
+--------------------------------------------------------------------------------
+absent
+
+================================================================================
+[exit 0]
+=== Scenario B: Codex primary runs /afk (control: away still works) ===
+
+$ [primary=codex] bin/fm-afk-launch.sh enter --words 'watch the fleet'
+Away posture recorded at 2026-09-25T01:30:48Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return. Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-09-25T01:30:48Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    watch the fleet
+[exit 0]
+$ ls -A state/  ->  .afk-contract 
+--- adversarial: /quiet while already away on Codex must refuse and leave the away record untouched ---
+
+$ [primary=codex] FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter --words 'switch to quiet'
+fm-afk-launch: quiet mode is refused on codex: no daemon runs there, so nothing records the quiet mode and the posture would read as away; no record was written (use /afk to be away)
+[exit 1]
+$ ls -A state/  ->  .afk-contract 
+away record unchanged: e9bba1ecc2db678c368850f2d7dde01a36ac834ecd2d27713f60063e6742186a  /tmp/fm-live.CSCc2b/codexafk/home/state/.afk-contract
+=== Scenario C: Claude primary runs /quiet enter (control: quiet still allowed off Codex) ===
+
+$ [primary=claude] FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter --words 'watch quietly'
+Away posture recorded at 2026-09-25T01:30:49Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return. Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-09-25T01:30:49Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    watch quietly
+[exit 0]
+$ ls -A state/  ->  .afk-contract 

@@ -1,0 +1,7 @@
+$ [primary=codex, pre-fix b1d729e] FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter
+[exit 0]
+state: .afk-contract
+- Away mode: active; Codex foreground checkpoint continues to own the watcher. Do not finalize to idle or launch the away daemon while supervision is needed.
+Mode: Codex foreground checkpoint.
+Away mode changes notification and decision handling, not this ownership loop.
+Away mode is active. Follow the supervision operating instructions block above:

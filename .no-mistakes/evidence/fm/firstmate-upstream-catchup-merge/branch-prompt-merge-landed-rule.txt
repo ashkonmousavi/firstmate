@@ -1,0 +1,20 @@
+$ bin/fm-branch-prompt.sh   (emitted supervision-branch system prompt; excerpt: step 3 tools line and the landed-work rule)
+[exit 0] 27295 bytes
+22:3. Handle with real tools: `bin/fm-crew-state.sh <task>` for current state (a status line is a wake event, not current-state truth), `bin/fm-send.sh` for a short steer, `bin/fm-control.sh <task> interrupt|exit|relaunch` for lifecycle, `bin/fm-pr-check.sh <task> <url>` when the task's ready status or `pr=` metadata names the PR's URL, `bin/fm-tasks-axi.sh` for backlog moves, and `bin/fm-teardown.sh <task>` for the ordinary cleanup of a task whose PR has landed, which for a PR means merged with its post-merge verification done (Role limits below).
+A worker whose pull request has landed is finished, not stuck, and closing it is your job in both postures.
+A `check: merge landed:` wake names the merge, which starts that moment but does not finish it; a stale, inactive-outcome, or heartbeat row for a task whose current state is done with a merged PR is the same moment seen later, and "nothing to recover" is never the whole outcome for it.
+First verify the post-merge machinery the merge triggers, as Role limits below defines it: the default-branch CI run when the project runs one, and the deploy or release workflow and the live version when the project has a deploy target.
+While that verification is still running, hold teardown and report what is pending; a failed verification is verdict captain, and the task stays up.
+Once it passes, claim the task's lease and run `bin/fm-teardown.sh <task>` with no flags: the script proves the merge and refuses otherwise, so a refusal is reported with its exact reason and never forced, worked around, or repaired by hand.
+Report the cleanup in that event's outcome with the PR's URL and the verification result.
+
+--- Role limits post-merge duty (same prompt) ---
+22:3. Handle with real tools: `bin/fm-crew-state.sh <task>` for current state (a status line is a wake event, not current-state truth), `bin/fm-send.sh` for a short steer, `bin/fm-control.sh <task> interrupt|exit|relaunch` for lifecycle, `bin/fm-pr-check.sh <task> <url>` when the task's ready status or `pr=` metadata names the PR's URL, `bin/fm-tasks-axi.sh` for backlog moves, and `bin/fm-teardown.sh <task>` for the ordinary cleanup of a task whose PR has landed, which for a PR means merged with its post-merge verification done (Role limits below).
+39:First verify the post-merge machinery the merge triggers, as Role limits below defines it: the default-branch CI run when the project runs one, and the deploy or release workflow and the live version when the project has a deploy target.
+40:While that verification is still running, hold teardown and report what is pending; a failed verification is verdict captain, and the task stays up.
+75:For a PR-based landing, a merge is landed only once every post-merge machinery it triggers is verified, not merely once the merge itself is confirmed: the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target.
+76:Never report a task landed on the merge alone, and hold teardown until that verification is done; a local-only landing reports only the local outcome once the fast-forward merge succeeds.
+125:A stale or dead-endpoint report for a worker whose pull request has already landed is not a recovery case: the work is finished, so close the task through ordinary teardown once its post-merge verification is done (the default-branch CI run, and the deploy or release workflow and the live version where a deploy target exists; `AGENTS.md` section 7 for firstmate, the landed-work rule in `bin/fm-branch-prompt.sh` for the supervision branch) instead of this playbook, never with `--force`.
+
+--- 'names exactly that moment' occurrences: 0
+pre-fix b1d729e: 38:A `check: merge landed:` wake names exactly that moment; a stale, inactive-outcome, or heartbeat row for a task whose current state is done with a merged PR is the same moment seen later, and "nothing to recover" is never the whole outcome for it.

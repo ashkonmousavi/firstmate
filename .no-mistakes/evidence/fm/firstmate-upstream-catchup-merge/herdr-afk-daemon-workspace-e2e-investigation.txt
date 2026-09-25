@@ -1,0 +1,24 @@
+# herdr e2e "daemon workspace leaked": hand-driven repro at HEAD (isolated lab session, host herdr 0.9.1 with user plugins enabled)
+before: [{"id":"w1","label":"captain"}]
+start: fm-afk-launch: daemon launched in non-visible herdr workspace w2 (pane fm-lab-afk-repro-4483:w2:p1), supervising fm-lab-afk-repro-4483:w1:p1
+record: herdr	fm-lab-afk-repro-4483:w2:p1	w2
+during: [{"id":"w1","label":"captain"},{"id":"w2","label":"firstmate-afk-daemon-5121-22688-1790300670"}]
+stop: fm-afk-launch: away-posture record archived at /tmp/fm-repro-home.7oO1Ec/state/afk-contracts/1790300670.afk-contract
+stop: fm-afk-launch: away mode stopped; daemon terminal torn down, .afk cleared, and the posture record archived
+after(immediate): [{"id":"w1","label":"captain"},{"id":"w2","label":"firstmate-afk-daemon-5121-22688-1790300670"}]
+after(1s): [{"id":"w1","label":"captain"},{"id":"w2","label":"firstmate-afk-daemon-5121-22688-1790300670"}]
+panes in w1: [{"pane_id":"w1:p1","tab_id":"w1:t1"},{"pane_id":"w1:p2","tab_id":"w1:t1"}]
+panes in w2: [{"pane_id":"w2:p2","tab_id":"w2:t1"}]
+
+# stop/close logic is identical at fork main 80332111:
+298:      fm_backend_herdr_cli "$session" pane close "$pane" >/dev/null 2>&1
+349:      fm_backend_herdr_cli "$session" pane close "$pane" >/dev/null 2>&1
+
+# test file results: HEAD run1/run2/run3, upstream 31c47af, fork main 80332111
+fm-afk-launch: 83 ok, not ok - herdr e2e: daemon workspace leaked (1 -> 2);
+fm-afk-launch.rerun1: 81 ok, not ok - herdr e2e: captain tab pane count changed (1 -> 2);not ok - herdr e2e: captain tab pane count not restored (1 -> 2);not ok - herdr e2e: daemon workspace leaked (1 -> 2);
+fm-afk-launch.rerun2: 83 ok, not ok - herdr e2e: daemon workspace leaked (1 -> 2);
+fm-afk-launch.upstream: 76 ok, not ok - herdr e2e: daemon workspace leaked (1 -> 2);
+fm-afk-launch.base: 66 ok, 
+base run 2 rc=1 not ok - herdr e2e: daemon workspace leaked (1 -> 2);
+base run 3 rc=0 

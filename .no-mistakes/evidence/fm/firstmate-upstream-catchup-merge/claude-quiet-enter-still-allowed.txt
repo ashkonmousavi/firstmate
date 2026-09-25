@@ -1,0 +1,13 @@
+== primary harness: claude
+$ FM_AFK_MODE=quiet bin/fm-afk-launch.sh enter --words "quiet watch"
+Away posture recorded at 2026-09-25T02:01:01Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return. Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-09-25T02:01:01Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    quiet watch
+exit=0
+absent: state/.afk
+PRESENT: state/.afk-contract

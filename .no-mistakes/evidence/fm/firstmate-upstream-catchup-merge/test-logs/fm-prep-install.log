@@ -1,0 +1,7 @@
+ok - fm-prep-install.sh: bash -n succeeds
+ok - fm-prep-install.sh: copies a filled nav-prep into data/<id>/prep.md
+ok - fm-prep-install.sh: refuses a filled destination unless --force
+ok - fm-prep-install.sh: replaces an empty local --prep scaffold
+ok - fm-prep-install.sh: refuses a missing or unfilled source
+ok - fm-spawn: names a filled nav-prep on prep refusal and never auto-installs
+# all fm-prep-install tests passed
