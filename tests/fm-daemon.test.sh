@@ -1629,7 +1629,8 @@ test_inject_skip_forces_self() {
 
 test_is_wake_reason_distinguishes_status_stdout() {
   # Real wake reasons are recognized; watcher status lines (singleton collision)
-  # are not, so the main loop can idle them without flooding escalations.
+  # are not, so the main loop idles them while a live peer watcher holds the
+  # lock and otherwise hands back, never flooding escalations.
   is_wake_reason "signal: /x/y.status" || fail "signal: not recognized as wake"
   is_wake_reason "stale: s:fm-x" || fail "stale: not recognized as wake"
   is_wake_reason "check: /s/c.sh: merged" || fail "check: not recognized as wake"
@@ -2179,9 +2180,96 @@ test_prepared_daemon_hands_back_after_undeliverable_wake() {
   [ ! -e "$state/.afk" ] || fail "daemon left its flag blocking Claude Stop auto-arm"
   [ ! -e "$state/.supervise-daemon.lock" ] || fail "daemon retained the supervision lock"
   [ -s "$state/.wake-queue" ] || fail "daemon lost the durable wake"
-  [ -s "$state/.subsuper-escalations" ] || fail "daemon lost the undelivered buffer"
+  grep -F 'needs-decision: held choice' "$state/.wake-queue" >/dev/null \
+    || fail "daemon did not requeue the undelivered buffer as a durable wake"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "daemon left the requeued buffer behind"
   grep -F 'human draft' "$capture" >/dev/null || fail "daemon changed the pending draft"
-  pass "prepared native daemon exits loudly at max-defer and leaves durable wakes for Stop-hook recovery"
+  pass "prepared native daemon exits loudly at max-defer and requeues its buffer for Stop-hook recovery"
+}
+
+# run_prepared_daemon_with_peer_lock <dir> <peer-pid> <out> <alerts>: start the
+# prepared native daemon while <peer-pid> holds the watcher lock with a fresh
+# beacon, so its watcher child reports a singleton collision instead of a wake.
+run_prepared_daemon_with_peer_lock() {
+  local dir=$1 peer=$2 out=$3 alerts=$4 state="$1/state"
+  mkdir -p "$state/.watch.lock"
+  printf '%s\n' "$peer" > "$state/.watch.lock/pid"
+  touch "$state/.last-watcher-beat"
+  printf 'prepared\n' > "$state/.afk"
+  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
+  _now > "$state/.subsuper-escalations.since"
+  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
+    FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" FM_POLL=1 FM_HOUSEKEEPING_TICK=1 \
+    FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=0 FM_WEDGE_ALARM_CHANNEL=herdr \
+    FM_WEDGE_ALARM_LOG="$alerts" \
+    "$AFK_START" > "$out" 2>&1 &
+}
+
+test_prepared_daemon_hands_back_when_watcher_cannot_start() {
+  local dir state out alerts peer pid rc i
+  dir=$(make_supercase watcher-start-handback)
+  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
+  : > "$dir/pane.txt"
+  sleep 60 & peer=$!
+  run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if is_live_non_zombie "$pid"; then
+    kill "$pid" "$peer" 2>/dev/null || true
+    fail "daemon kept holding supervision when its watcher could not start"
+  fi
+  wait "$pid"; rc=$?
+  kill "$peer" 2>/dev/null || true
+  wait "$peer" 2>/dev/null || true
+  [ "$rc" -ne 0 ] || fail "failed watcher start reported success"
+  grep -F 'ordinary turn-end supervision must resume' "$out" >/dev/null \
+    || fail "failed watcher start did not announce handback"
+  grep -F 'handed back' "$alerts" >/dev/null || fail "failed watcher start sent no active alert"
+  [ ! -e "$state/.afk" ] || fail "failed watcher start left its flag blocking Claude Stop auto-arm"
+  grep -F 'needs-decision: held choice' "$state/.wake-queue" >/dev/null \
+    || fail "failed watcher start did not requeue the buffered escalation"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "failed watcher start left the requeued buffer behind"
+  pass "a watcher that cannot start without a live peer alerts, requeues, and hands back"
+}
+
+test_prepared_daemon_idles_while_live_peer_watcher_holds_lock() {
+  local dir state out alerts peer pid i
+  dir=$(make_supercase watcher-live-peer)
+  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
+  : > "$dir/pane.txt"
+  sleep 60 & peer=$!
+  mkdir -p "$state/.watch.lock"
+  printf '%s\n' "$dir" > "$state/.watch.lock/fm-home"
+  printf '%s\n' "$ROOT/bin/fm-watch.sh" > "$state/.watch.lock/watcher-path"
+  # shellcheck disable=SC2016  # $1/$2 expand in the child shell
+  bash -c '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$peer" \
+    > "$state/.watch.lock/pid-identity" || fail "could not record the peer watcher identity"
+  run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ] \
+    && ! grep -F 'live peer' "$state/.supervise-daemon.log" >/dev/null 2>&1; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  sleep 2
+  if ! is_live_non_zombie "$pid"; then
+    kill "$peer" 2>/dev/null || true
+    fail "daemon handed back while a live peer watcher was supervising: $(cat "$out")"
+  fi
+  grep -F 'live peer' "$state/.supervise-daemon.log" >/dev/null \
+    || fail "daemon did not recognise the live peer watcher"
+  [ -e "$state/.afk" ] || fail "daemon cleared its flag while a live peer watcher was supervising"
+  [ ! -s "$alerts" ] || fail "daemon alerted while a live peer watcher was supervising"
+  kill "$pid" "$peer" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  wait "$peer" 2>/dev/null || true
+  pass "daemon idles and retries while a live peer watcher holds the lock"
 }
 
 test_normal_flush_clears_stale_wedge_marker() {
@@ -2941,6 +3029,8 @@ test_max_defer_empty_swallow_types_once_and_alarms
 test_max_defer_flushes_empty_idle_pane
 test_max_defer_pending_composer_alarms_without_typing
 test_prepared_daemon_hands_back_after_undeliverable_wake
+test_prepared_daemon_hands_back_when_watcher_cannot_start
+test_prepared_daemon_idles_while_live_peer_watcher_holds_lock
 test_normal_flush_clears_stale_wedge_marker
 test_below_max_defer_does_nothing
 test_max_defer_afk_inactive_does_not_flush_or_alarm

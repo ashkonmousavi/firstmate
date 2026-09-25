@@ -19,7 +19,9 @@ It lists channel directives, one per non-empty, non-comment line, and every list
 - `command:<cmd>` runs `<cmd>` through `sh -c` with the alarm summary as `$1` and on stdin, allowing delivery to a phone or pager service.
 
 An absent `config/wedge-alarm` behaves as `auto`.
-The daemon raises the alarm once at max-defer, clears its legacy `state/.afk` flag, then exits with the buffer and durable wake queue intact so the Claude Stop auto-arm can resume.
+The daemon raises the alarm once at max-defer, requeues the escalation buffer as one durable wake row, clears its legacy `state/.afk` flag, then exits so the Claude Stop auto-arm can resume and deliver it.
+The same alert, requeue, and handback happen when the daemon's watcher cannot start because no live peer watcher holds the watcher lock, or when the supervisor pane disappears before the first watcher start.
+A live peer watcher with a fresh beacon is not a failed start; the daemon idles and retries each housekeeping tick until that peer exits.
 
 Each channel is best-effort.
 A missing binary or non-zero exit logs a warning and continues to the next channel before handback.
