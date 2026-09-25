@@ -17,7 +17,9 @@
 #   FM_GROKBOT_BRIDGE when set. The bridge is private to the home and is not
 #   shipped with this repository; when it is absent this tool refuses.
 #   It resolves <name> to exactly one Bot with `list`, then runs one `chat`
-#   turn that waits up to --timeout seconds (default 600).
+#   turn that waits up to --timeout seconds (default 300). A longer wait can
+#   outlast a supervisor's per-command limit, so run long turns in the
+#   background.
 #
 # Output: the reply text on stdout, or written to --out, followed by one
 #   `grok-bot: unverified` line. The reply is unverified: firstmate has it
@@ -45,7 +47,7 @@ usage() {
   ' "$0"
 }
 
-BRIEF='' BOT='' TIMEOUT=600 OUT=''
+BRIEF='' BOT='' TIMEOUT=300 OUT=''
 while [ $# -gt 0 ]; do
   case "$1" in
     --bot) [ $# -ge 2 ] || die "--bot needs a value"; BOT=$2; shift 2 ;;

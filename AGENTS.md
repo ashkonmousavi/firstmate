@@ -233,6 +233,7 @@ If static `config/crew-harness` or `config/secondmate-harness` names an unverifi
 When dispatch profiles exist, consult them at every crewmate or scout intake and pass the resolved concrete profile required by `fm-spawn`.
 Routing precedence is an explicit per-task captain override, then the best-fit configured rule, then the configured default, then the static crewmate harness.
 Firstmate alone chooses the matching rule; resolve its profile object or array with `bin/fm-dispatch-select.sh` under the selection contract in `docs/configuration.md` ("Crew dispatch profiles").
+A selected Grok Bot target is never spawned; send it through `bin/fm-grok-bot-dispatch.sh` under that same section's Grok Bot contract.
 Ordered selection is the default intake: configured list order wins unless a candidate is unavailable; quota-balanced selection applies only where `select` explicitly requests it.
 Supply concrete unavailability facts and retain the selector's choice and skip reasons; if every candidate is unavailable, stop and report it rather than falling through to another rule.
 Establish model support and provider family from that harness's own authoritative catalog, then apply the [account and scope matching rules in `quota-array-dispatch`](.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).

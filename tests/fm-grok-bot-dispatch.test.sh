@@ -52,6 +52,7 @@ run() {  # <code-var> <out-var> <err-var> args...
   printf -v "$_e" '%s' "$(cat "$TMP_ROOT/stderr")"
 }
 
+code='' out='' err=''
 run code out err "$BRIEF" --bot fm-researcher --timeout 30
 expect_code 0 "$code" "a routed task reaches the bridge"
 assert_contains "$out" 'Finding one. https://example.com/a' "the Bot reply is returned"
