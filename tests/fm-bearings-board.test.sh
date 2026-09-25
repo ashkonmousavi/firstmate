@@ -11,8 +11,6 @@ set -u
 BOARD="$ROOT/bin/fm-bearings-board.sh"
 TMP_ROOT=$(fm_test_tmproot fm-bearings-board)
 
-lab_lavish_port() { printf '%s' "$1" | cksum | awk '{print 40000 + ($1 % 20000)}'; }
-
 command -v jq >/dev/null 2>&1 || { echo "skip: jq not found"; exit 0; }
 
 # A lavish-axi stub that reproduces the shapes verified against the real
@@ -29,7 +27,6 @@ make_home() {  # <name>
   # caller and every listener this suite started used to survive the run.
   fm_test_track_procevent_home "$home" "$home/procevent-claims"
   mkdir -p "$home/state" "$home/data" "$home/lavish-state"
-  mkdir -m 700 "$home/lavish-axi-state"
   fakebin=$(fm_fakebin "$home")
   cat > "$fakebin/lavish-axi" <<'SH'
 #!/usr/bin/env bash
@@ -38,7 +35,7 @@ state=${LAVISH_FAKE_STATE:?}
 emit() {  # <canonical-file> <status>
   printf 'session:\n'
   printf '  file: %s\n' "$1"
-  printf '  url: "http://127.0.0.1:4387/session/deadbeef"\n'
+  printf '  url: "http://127.0.0.1:4387/session/0123456789abcdef"\n'
   printf '  status: %s\n' "$2"
 }
 case "${1-}" in
@@ -72,7 +69,7 @@ case "${1-}" in
     if [ -s "$state/open" ]; then
       while IFS= read -r listed; do
         [ -n "$listed" ] || continue
-        printf '  %s,open,"http://127.0.0.1:4387/session/deadbeef",0\n' "$listed"
+        printf '  %s,open,"http://127.0.0.1:4387/session/0123456789abcdef",0\n' "$listed"
       done < "$state/open"
     fi
     exit 0
@@ -95,6 +92,9 @@ if [ -e "$state/refuse-reopen" ]; then
 fi
 rm -f -- "$state/user-ended"
 printf '%s\n' "$real" > "$state/open"
+jq -n --arg file "$real" \
+  '{sessions:{"0123456789abcdef":{file:$file,url:"http://127.0.0.1:4387/session/0123456789abcdef"}}}' \
+  > "$state/state.json"
 emit "$real" opened
 exit 0
 SH
@@ -130,9 +130,7 @@ run_board() {  # <home> <args...>
   PATH="$home/fakebin:$PATH" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
-    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
-    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
-    LAVISH_FAKE_STATE="$home/lavish-state" \
+    LAVISH_FAKE_STATE="$home/lavish-state" LAVISH_AXI_STATE_DIR="$home/lavish-state" \
     "$BOARD" "$@"
 }
 
@@ -142,6 +140,7 @@ run_procevent() {  # <home> <command args...>
   PATH="$home/fakebin:$PATH" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-state" \
     "$ROOT/bin/fm-procevent.sh" "$@"
 }
 
@@ -444,6 +443,10 @@ fi
 if [ "${1:-}" != poll ]; then
   real=$(cd "$(dirname "$1")" && pwd -P)/$(basename "$1")
   printf '%s\n' "$real" > "$FM_HOME/order-open"
+  mkdir -p "$LAVISH_AXI_STATE_DIR"
+  jq -n --arg file "$real" \
+    '{sessions:{"0123456789abcdef":{file:$file,url:"http://127.0.0.1:14387/session/0123456789abcdef"}}}' \
+    > "$LAVISH_AXI_STATE_DIR/state.json"
   printf 'session:\n  status: opened\n'
   exit 0
 fi
@@ -460,11 +463,10 @@ SH
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$runtime" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROCEVENT_CLAIM_ROOT="$home/procevent-claims" \
-    LAVISH_AXI_NO_OPEN=1 LAVISH_AXI_PORT="$(lab_lavish_port "$home")" \
-    LAVISH_AXI_STATE_DIR="$home/lavish-axi-state" \
     FM_BEARINGS_BOARD_TEMPLATE="$ROOT/.agents/skills/bearings/assets/board-template.html" \
     REAL_LAVISH_ADAPTER="$ROOT/bin/fm-procevent-lavish.sh" \
     REAL_PROCEVENT="$ROOT/bin/fm-procevent.sh" ORDER_PROOF_HOLD="$hold" \
+    LAVISH_AXI_STATE_DIR="$home/lavish-state" \
     "$runtime/bin/fm-bearings-board.sh" build "$data" >/dev/null \
     || fail "the order-proof board build failed"
 

@@ -22,6 +22,14 @@ fm_git_identity fmtest fmtest@example.invalid
 REQUIRED_REASON='watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn'
 AWAY_REQUIRED_REASON='Away mode owns watcher supervision'
 
+# REQUIRED_REASON is the CLAUDE repair line, so the cases asserting it need
+# detect_own to answer claude. CLAUDECODE=1 alone no longer pins that - a
+# structural ancestor of a different harness outranks a marker - so those
+# invocations also blind the ancestry walk. Only per-pid comm/args/ppid queries
+# are answered here; watcher liveness still reaches the real ps.
+BLIND_BIN=$(fm_fakebin "$TMP_ROOT/blind-ancestry")
+fm_fake_blind_ancestry "$BLIND_BIN"
+
 # --- PREDICATE: bin/fm-supervision-lib.sh -----------------------------------
 
 test_predicate_healthy_no_inflight() {
@@ -184,6 +192,8 @@ install_guard_scripts() {
   cp "$ROOT/bin/fm-supervision-lib.sh" "$dir/bin/fm-supervision-lib.sh"
   cp "$ROOT/bin/fm-wake-lib.sh" "$dir/bin/fm-wake-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
+  cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
+  cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
   mkdir -p "$dir/docs"
   cp -R "$ROOT/docs/supervision-protocols" "$dir/docs/supervision-protocols"
   chmod +x "$dir/bin/fm-turnend-guard.sh" "$dir/bin/fm-turnend-guard-grok.sh" "$dir/bin/fm-operational-input.sh" "$dir/bin/fm-supervision-instructions.sh" "$dir/bin/fm-harness.sh"
@@ -260,7 +270,7 @@ make_secondmate_linked_home_dir() {
 run_hook() {
   local dir=$1 stop_active=$2 home
   home=$(cd "$dir" && pwd)
-  printf '{"stop_hook_active":%s}' "$stop_active" | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1
+  printf '{"stop_hook_active":%s}' "$stop_active" | PATH="$BLIND_BIN:$PATH" CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1
 }
 
 run_hook_codex() {
@@ -445,7 +455,7 @@ test_hook_blocks_from_fm_home_state() {
   home="$TMP_ROOT/hook-fm-home-op"
   mkdir -p "$home/state"
   : > "$home/state/task1.meta"
-  out=$(printf '{"stop_hook_active":false}' | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
+  out=$(printf '{"stop_hook_active":false}' | PATH="$BLIND_BIN:$PATH" CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
   expect_code 2 "$status" "hook must inspect the active FM_HOME state dir"
   assert_contains "$out" "$REQUIRED_REASON" "block reason must contain the exact required instruction"
   pass "fm-turnend-guard: blocks from active FM_HOME state, not only repo-root state"
@@ -504,7 +514,7 @@ test_hook_uses_state_override() {
   state="$TMP_ROOT/hook-state-override-active"
   mkdir -p "$home/state" "$state"
   : > "$state/task1.meta"
-  out=$(printf '{"stop_hook_active":false}' | CLAUDECODE=1 FM_HOME="$home" FM_STATE_OVERRIDE="$state" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
+  out=$(printf '{"stop_hook_active":false}' | PATH="$BLIND_BIN:$PATH" CLAUDECODE=1 FM_HOME="$home" FM_STATE_OVERRIDE="$state" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
   expect_code 2 "$status" "hook must let FM_STATE_OVERRIDE win over FM_HOME/state"
   assert_contains "$out" "$REQUIRED_REASON" "block reason must contain the exact required instruction"
   pass "fm-turnend-guard: uses FM_STATE_OVERRIDE ahead of FM_HOME/state"
@@ -784,6 +794,24 @@ test_grok_adapter_native_false_blocks_without_resume() {
   assert_contains "$out" 'TURN WOULD END BLIND' "native block must pass shared guard feedback to Grok"
   [ ! -e "$log" ] || fail "native path started grok --resume"
   pass "fm-turnend-guard-grok: native false delegates blocking feedback with zero resume processes"
+}
+
+test_hook_away_record_on_supervision_host_home_repairs_with_host() {
+  local dir home out status
+  dir=$(make_primary_dir "$TMP_ROOT/grok-host-away")
+  home=$(cd "$dir" && pwd)
+  : > "$dir/state/task1.meta"
+  : > "$dir/state/.afk-contract"
+  out=$(printf '{"stop_hook_active":false}' | env -u CLAUDECODE PATH="$BLIND_BIN:$PATH" GROK_AGENT=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
+  expect_code 2 "$status" "an away record without the host must still block"
+  assert_contains "$out" "$AWAY_REQUIRED_REASON" "an away record without the host must route repair to the away daemon"
+  mkdir -p "$dir/config"
+  : > "$dir/config/supervision-host"
+  out=$(printf '{"stop_hook_active":false}' | env -u CLAUDECODE PATH="$BLIND_BIN:$PATH" GROK_AGENT=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
+  expect_code 2 "$status" "an away record on a supervision-host home must still block"
+  assert_not_contains "$out" "$AWAY_REQUIRED_REASON" "a supervision-host home must not be told to start the away daemon"
+  assert_contains "$out" 'bin/fm-supervision-host.sh park' "a supervision-host home must repair through the host arm"
+  pass "fm-turnend-guard: an away record on a supervision-host home repairs through the host, not the daemon"
 }
 
 test_grok_adapter_native_true_allows_without_resume() {
@@ -1665,25 +1693,13 @@ test_hook_claude_mode_integrated_monotonic_fail_open() {
 }
 
 # The auto-arm's ledger epoch advances only when the hook reaches its
-# generation claim. A live harness-named process outside the hook's ancestry
-# holding state/.lock keeps the hook inert by its identity contract, so the
+# generation claim. An unowned hook with no session lock stays inert, so the
 # ledger stays at the exhausted-failure epoch the hook wrote before it went
 # quiet. The block budget used to advance only on an epoch change, so this
 # shape re-blocked without limit and the attended fail-open never fired: the
 # budget must count consecutive re-blocks against an unchanged epoch instead.
-hold_session_lock_from_foreign_harness() {  # sets FOREIGN_LOCK_HOLDER
-  local dir=$1
-  # `bash -c` execs a single command in place, which would rename the process
-  # to sleep; the trailing no-op keeps the harness-named shell as the holder.
-  # Started in this shell, not a command substitution, so the caller can reap
-  # it and no inherited pipe keeps a substitution waiting on the sleeper.
-  "$dir/fake-claude" -c 'sleep 60; true' >/dev/null 2>&1 &
-  FOREIGN_LOCK_HOLDER=$!
-  printf '%s\n' "$FOREIGN_LOCK_HOLDER" > "$dir/state/.lock"
-}
-
 test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
-  local dir out status guard_out guard_status holder i pid identity count epoch_line
+  local dir out status guard_out guard_status i pid identity count epoch_line
   dir=$(make_primary_dir "$TMP_ROOT/hook-claude-frozen-epoch")
   : > "$dir/state/task1.meta"
   install_integrated_autoarm "$dir"
@@ -1695,8 +1711,9 @@ test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
   expect_code 0 "$guard_status" "the first failed epoch must own its Stop handoff"
   epoch_line=$(sed -n '1p' "$dir/state/.claude-autoarm-epoch")
 
-  hold_session_lock_from_foreign_harness "$dir"
-  holder=$FOREIGN_LOCK_HOLDER
+  # Remove the dead lock left by the fixture arm so this case isolates the
+  # frozen-ledger accounting path rather than the live foreign-owner escape.
+  rm -f "$dir/state/.lock"
   for i in 1 2 3 4; do
     out=$(run_integrated_autoarm_unowned "$dir"); status=$?
     expect_code 0 "$status" "an auto-arm outside the lock owner's ancestry must stay inert at stop $i"
@@ -1727,8 +1744,6 @@ test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
   identity=$(watcher_identity "$dir" "$pid") || {
     kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
-    kill "$holder" 2>/dev/null || true
-    wait "$holder" 2>/dev/null || true
     fail "could not identify the frozen-epoch recovery watcher"
   }
   record_watcher_lock "$dir" "$pid" "$identity"
@@ -1736,8 +1751,6 @@ test_hook_claude_mode_frozen_epoch_reaches_bounded_fail_open() {
   guard_out=$(run_hook_claude "$dir" true); guard_status=$?
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
-  kill "$holder" 2>/dev/null || true
-  wait "$holder" 2>/dev/null || true
   rm -rf "$dir/state/.watch.lock"
   expect_code 0 "$guard_status" "a healthy watcher must still allow the stop after a frozen-epoch alarm"
   [ -z "$guard_out" ] || fail "healthy allow after the frozen-epoch alarm produced output: $guard_out"
@@ -2293,6 +2306,7 @@ test_hook_runs_fast
 test_grok_adapter_forces_one_resume_when_unhealthy
 test_grok_adapter_loop_guard_skips_resume
 test_grok_adapter_native_false_blocks_without_resume
+test_hook_away_record_on_supervision_host_home_repairs_with_host
 test_grok_adapter_native_true_allows_without_resume
 test_grok_adapter_snake_case_native_and_camel_precedence
 test_grok_adapter_invalid_inputs_start_neither_path
