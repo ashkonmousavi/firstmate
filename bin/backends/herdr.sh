@@ -3268,8 +3268,9 @@ fm_backend_herdr_proof_lines() {  # <text>
 # fm_backend_herdr_composer_content: the selected composer's visible text.
 # Styled capture is preferred. An empty or failed styled read falls through to
 # the plain capture so a missing ANSI format does not look like an empty draft.
-fm_backend_herdr_composer_content() {  # <target> [lines]
-  local target=$1 lines=${2:-$FM_COMPOSER_CAPTURE_LINES} cap caps
+# [identity] is the native "<agent>\t<status>" the caller already probed.
+fm_backend_herdr_composer_content() {  # <target> [lines] [identity]
+  local target=$1 lines=${2:-$FM_COMPOSER_CAPTURE_LINES} identity=${3:-} cap caps
   if cap=$(fm_backend_herdr_capture_ansi "$target" "$lines" 2>/dev/null) && [ -n "$cap" ]; then
     caps=$(printf 'styled=1\ncursor=0\nidentity=0\nrows=%s' "$lines")
   elif cap=$(fm_backend_herdr_capture "$target" "$lines") && [ -n "$cap" ]; then
@@ -3277,7 +3278,7 @@ fm_backend_herdr_composer_content() {  # <target> [lines]
   else
     return 1
   fi
-  fm_composer_extract_selected_content "$caps" "$cap"
+  fm_composer_extract_selected_content "$caps" "$cap" "$identity"
 }
 
 # fm_backend_herdr_composer_payload_shown: 0 when <after>, read from a
@@ -3339,14 +3340,14 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   if [ "${identity%%$'\t'*}" = claude ]; then
     proof=1
     proof_lines=$(fm_backend_herdr_proof_lines "$text")
-    content=$(fm_backend_herdr_composer_content "$target" "$proof_lines") \
+    content=$(fm_backend_herdr_composer_content "$target" "$proof_lines" "$identity") \
       || { printf 'send-failed'; return 0; }
     [ -z "${content//[$' \t\r\n\v\f']/}" ] || { printf 'send-failed'; return 0; }
   fi
   fm_backend_herdr_send_literal "$target" "$text" || { printf 'send-failed'; return 0; }
   sleep "$settle"
   if [ "$proof" = 1 ]; then
-    if ! content=$(fm_backend_herdr_composer_content "$target" "$proof_lines") \
+    if ! content=$(fm_backend_herdr_composer_content "$target" "$proof_lines" "$identity") \
       || ! fm_backend_herdr_composer_payload_shown "$text" "$content"; then
       if fm_backend_herdr_composer_clear "$target" "$text"; then
         printf 'send-failed'
