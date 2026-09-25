@@ -368,6 +368,7 @@ Tests use thin compatibility wrappers in `tests/herdr-test-safety.sh` and never 
 - A Firstmate outside Herdr cannot resolve a launcher workspace, so a colliding home label refuses new spawns until the collision is cleared.
 - Ghost and placeholder recognition uses ANSI de-emphasis when available; an unstyled glyph row carrying trailing non-idle text fails safely to `unknown`.
 - Only tmux and Herdr can host the away-mode supervisor terminal.
+- The away-mode daemon terminal's dedicated workspace is still retired by a single pane close, so with a sidebar plugin such as herdr-sidebar installed its sidebar-only workspace can linger until closed manually (tracked as follow-up).
 
 ## Regression entry points
 
