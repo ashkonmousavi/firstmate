@@ -1495,7 +1495,7 @@ handle_wake() {  # <reason> <state> [<wake-key>]
 }
 
 handle_durable_wakes() {  # <watcher-reason> <state>
-  local fallback_reason=$1 state=$2 out err tab epoch sequence kind key payload rest
+  local fallback_reason=$1 state=$2 out err tab epoch sequence kind key payload rest wake_key
   local handled=0 failed=0 ack_through ack_generation
   out=$(mktemp "$state/.subsuper-wake-drain.XXXXXX") || return 1
   err=$(mktemp "$state/.subsuper-wake-drain.XXXXXX") || { rm -f "$out"; return 1; }
@@ -1510,7 +1510,9 @@ handle_durable_wakes() {  # <watcher-reason> <state>
     case "$epoch" in ''|*[!0-9]*) continue ;; esac
     case "$sequence" in ''|*[!0-9]*) continue ;; esac
     case "$kind" in signal|stale|check|heartbeat) ;; *) continue ;; esac
-    handle_wake "$payload" "$state" "$kind:$key" || failed=1
+    wake_key=
+    [ "$kind" = check ] && wake_key="check:$key"
+    handle_wake "$payload" "$state" "$wake_key" || failed=1
     handled=$((handled + 1))
   done < "$out"
   if [ "$handled" -eq 0 ]; then handle_wake "$fallback_reason" "$state" || failed=1; fi

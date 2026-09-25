@@ -525,8 +525,8 @@ EOF
   ln -snf "$dir/target-two-longer" "$state/symlink-r9.status"
   FM_DAEMON_DIR="$fakebin" handle_durable_wakes fallback "$state" \
     || fail "a changed permanent failure retained its wake"
-  [ "$(grep -c 'unreadable status span' "$state/.subsuper-escalations")" = 1 ] \
-    || fail "a changed failure state did not refresh its one buffered wake"
+  [ "$(grep -c 'unreadable status span' "$state/.subsuper-escalations")" = 2 ] \
+    || fail "a changed failure state did not report again exactly once"
   [ "$(status_seen_offset "$state" symlink-r9)" = 0 ] \
     || fail "a changed classification failure advanced its position"
 
