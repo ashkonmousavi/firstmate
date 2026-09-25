@@ -335,7 +335,34 @@ test_claude_herdr_titled_rule_idle() {
   assert_screen "unidentified titled rule stays unknown" unknown "$CAPS_STYLED_NOID" "$screen"
   typed=$'answer complete\n────────────── Firstmate ─\n❯ hold this draft\r\n────────────────────────\r\n  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
   assert_screen "Claude Herdr real draft stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
+  typed=$'answer complete\n────────────── Firstmate ─\n❯ wrapped draft head\n  wrapped draft tail\r\n────────────────────────\r\n  Opus 5.5 · high · 97%'
+  assert_screen "Claude Herdr wrapped draft stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
+  typed=$'answer complete\n────────────── Firstmate ─\n❯\n  draft after a leading newline\r\n────────────────────────\r\n  Opus 5.5 · high · 97%'
+  assert_screen "Claude Herdr draft opening with a newline stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
   pass "Claude Herdr titled-rule composer is empty only with matching native identity and no draft"
+}
+
+test_claude_herdr_titled_rule_extract() {
+  # The Claude pre-send and post-send proofs on Herdr read this extractor, so
+  # it must select the same identity-gated titled-rule composer the classifier
+  # reports empty, including a payload wrapped down to the closing rule.
+  local head rule footer out rc
+  head=$'answer complete\n────────────── Firstmate ─\n'
+  rule=$'\r\n────────────────────────\r\n'
+  footer=$'  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
+  rc=0; out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯$rule$footer" $'claude\tidle') || rc=$?
+  [ "$rc" = 0 ] && [ -z "$out" ] || fail "idle titled Claude composer should extract empty, got rc=$rc '$out'"
+  rc=0; out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯$rule$footer") || rc=$?
+  [ "$rc" = 1 ] || fail "titled rule without native identity must stay unproven, got rc=$rc '$out'"
+  rc=0; out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯$rule$footer" $'claude\tworking') || rc=$?
+  [ "$rc" = 1 ] || fail "titled rule on a working Claude must stay unproven, got rc=$rc '$out'"
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯ hold this draft$rule$footer" $'claude\tidle') \
+    || fail "titled Claude draft should extract"
+  [ "$out" = "hold this draft" ] || fail "titled Claude draft extracted '$out'"
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯ wrapped payload head"$'\n  middle of it\n  wrapped tail'"$rule$footer" $'claude\tdone') \
+    || fail "wrapped titled Claude payload should extract"
+  [ "$out" = "wrapped payload head middle of it wrapped tail" ] || fail "wrapped titled Claude payload extracted '$out'"
+  pass "fm_composer_extract_selected_content: titled-rule Claude composer extracts only with native identity"
 }
 
 test_matrix_codex_dim_hint_row() {
@@ -952,6 +979,7 @@ test_idle_placeholder_case_mode_is_explicit
 test_real_text_is_pending
 test_matrix_claude_bare_nbsp_row
 test_claude_herdr_titled_rule_idle
+test_claude_herdr_titled_rule_extract
 test_matrix_claude_arrow_statusline_footer
 test_composer_footer_demotion_needs_a_proven_pair
 test_composer_footer_zone_is_shape_independent

@@ -4815,6 +4815,62 @@ test_send_text_submit_long_literal_submits_when_composer_holds_every_byte() {
   pass "fm_backend_herdr_send_text_submit: a 1500-character payload a Claude composer still holds is submitted whole"
 }
 
+# herdr_titled_claude_composer: current Claude's Herdr composer under a
+# `claude -n Firstmate` title: titled rule, the composer rows, one solid
+# closing rule, and the status footer.
+herdr_titled_claude_composer() {  # <composer-rows>
+  printf 'answer complete\n'
+  printf '\xe2\x94\x80%.0s' $(seq 1 90); printf ' Firstmate \xe2\x94\x80\n'
+  printf '%s\n' "$1"
+  printf '\xe2\x94\x80%.0s' $(seq 1 102); printf '\n'
+  printf '  Opus 5.5 \xc2\xb7 high \xc2\xb7 97%%\n'
+}
+
+test_send_text_submit_titled_claude_composer_submits_the_payload() {
+  local dir log resp fb out enter_count text
+  dir="$TMP_ROOT/submit-titled-claude"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  text=$(herdr_long_payload 292)
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/2.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/4.out"
+  herdr_submit_claude_prefix "$resp" "$text"
+  herdr_titled_claude_composer $'  \xe2\x9d\xaf' > "$resp/2.out"
+  herdr_titled_claude_composer "$(herdr_wrapped_composer "$text" 96 0)" > "$resp/4.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+  [ "$out" = empty ] || fail "an idle titled-rule Claude composer should accept and confirm a wrapped payload, got '$out'"
+  assert_contains "$(cat "$log")" $'\x1f'"$text" "send_text_submit did not type the payload into the titled Claude composer"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 1 ] || fail "a proven titled-composer payload should be submitted once, sent $enter_count Enter(s)"
+  [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a proven titled-composer payload must not be cleared"
+  pass "fm_backend_herdr_send_text_submit: an idle titled-rule Claude composer takes a wrapped payload and submits it once"
+}
+
+# After Enter, live Claude can strip an away digest's U+2063 mark and keep the
+# wrapped draft in the titled composer. That draft must read pending so the
+# Enter is retried, not unknown.
+test_send_text_submit_titled_claude_retries_enter_on_a_kept_wrapped_draft() {
+  local dir log resp fb out enter_count text
+  dir="$TMP_ROOT/submit-titled-claude-retry"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  text=$(herdr_long_payload 292)
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/2.out"
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/4.out"
+  herdr_titled_claude_composer "$(herdr_wrapped_composer "$text" 96 0)" > "$resp/5.out"
+  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/6.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/8.out"
+  herdr_submit_claude_prefix "$resp" "$text"
+  herdr_titled_claude_composer $'  \xe2\x9d\xaf' > "$resp/2.out"
+  herdr_titled_claude_composer "$(herdr_wrapped_composer "$text" 96 0)" > "$resp/4.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+  [ "$out" = empty ] || fail "a wrapped draft kept in the titled Claude composer should be retried and confirmed, got '$out'"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 2 ] || fail "a kept titled-composer draft should take a second Enter, sent $enter_count Enter(s)"
+  [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a proven titled-composer payload must not be cleared"
+  pass "fm_backend_herdr_send_text_submit: a wrapped draft kept in the titled Claude composer after Enter reads pending and gets a second Enter"
+}
+
 test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix() {
   local dir log resp fb out enter_count text suffix
   dir="$TMP_ROOT/submit-long-suffix"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -5907,6 +5963,8 @@ test_send_text_submit_send_failed
 test_send_text_submit_unknown_on_capture_failure
 test_send_text_submit_unknown_on_composer_capture_failure
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte
+test_send_text_submit_titled_claude_composer_submits_the_payload
+test_send_text_submit_titled_claude_retries_enter_on_a_kept_wrapped_draft
 test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix
 test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown
 test_send_text_submit_clears_a_wrapped_suffix_one_row_per_press

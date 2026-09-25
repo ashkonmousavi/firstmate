@@ -282,6 +282,7 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 ANSI capture preserves de-emphasized placeholder style.
 `bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
 Claude's Herdr transcript can end in a titled rule, a bare `❯` composer, and one closing rule; with native Claude idle or done identity, that adjacent shape is an empty composer, while typed text remains pending.
+Rows wrapped between that `❯` row and the closing rule are draft text and read pending, and the Claude pre-send and post-send payload proofs extract the same identity-gated shape so away-mode alerts can be delivered into it.
 If the ANSI capture ever fails, the plain fallback declares itself unstyled and the classifier degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input, which safely defers injection and eventually raises the wedge alarm.
 
 A bare shell prompt is never an empty agent composer.
