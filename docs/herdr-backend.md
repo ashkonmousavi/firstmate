@@ -75,6 +75,9 @@ Recovery and list-live still scan the first workspace matching the home label, b
 The one recovery that does place new work is the control plane's reclaim of a destroyed endpoint, which mints a replacement tab through this section's ordinary placement rules while pinning the herdr session the task's record names ([`agent-control.md`](agent-control.md) "Reclaiming a task whose endpoint is gone").
 
 Existing task operations use recorded endpoint ids and do not move a live task when labels change.
+Task cleanup closes the task's own pane, and closing a tab's only pane closes the tab.
+A sidebar plugin such as herdr-sidebar docks its own pane, labelled `Sidebar`, into every new tab, so cleanup then also closes the task's tab when every pane left in it is such a sidebar pane with no agent.
+A tab holding any other pane, and a workspace's last tab, stay open; `tests/fm-backend-herdr-sidebar-tab-e2e.test.sh` covers all three cases in a guarded lab.
 The per-home workspace is reused while it has task tabs.
 Closing its last tab can remove the workspace, and the next spawn recreates it.
 
@@ -375,6 +378,7 @@ tests/fm-backend-herdr-workspace-per-home-e2e.test.sh
 tests/fm-backend-herdr-launcher-workspace-e2e.test.sh
 tests/fm-backend-herdr-presentation-e2e.test.sh
 tests/fm-backend-herdr-agent-exit-shell-e2e.test.sh
+tests/fm-backend-herdr-sidebar-tab-e2e.test.sh
 tests/fm-herdr-pi-stale-registration-live-e2e.test.sh
 tests/fm-backend-herdr-eventwait-smoke.test.sh
 tests/fm-control-herdr-smoke.test.sh

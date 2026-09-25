@@ -3420,9 +3420,38 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   done
 }
 
+# fm_backend_herdr_close_sidebar_only_tab: after a confirmed task-pane close,
+# close that task's own <tab-id> when every pane still in it is a plugin
+# sidebar pane (label "Sidebar", no agent). Closing a tab's only pane closes
+# the tab, but a sidebar plugin (herdr-sidebar) docks its own pane into every
+# new tab, which otherwise keeps each finished task's tab open forever.
+# Best-effort and conservative: any read failure, any other pane, a tab that
+# is already gone, or a tab that is its workspace's last one (an explicit
+# close would delete the workspace) leaves everything untouched.
+fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id>
+  local session=$1 ws_id=$2 tab_id=$3 tabs panes
+  [ -n "$ws_id" ] && [ -n "$tab_id" ] || return 0
+  tabs=$(fm_backend_herdr_cli "$session" tab list --workspace "$ws_id" 2>/dev/null) || return 0
+  printf '%s' "$tabs" | jq -e --arg tab "$tab_id" '
+    (.result.tabs | type) == "array" and (.result.tabs | length) > 1
+    and any(.result.tabs[]; .tab_id == $tab)
+  ' >/dev/null 2>&1 || return 0
+  panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$ws_id" 2>/dev/null) || return 0
+  printf '%s' "$panes" | jq -e --arg tab "$tab_id" '
+    select((.result.panes | type) == "array")
+    | [.result.panes[] | select(.tab_id == $tab)] as $p
+    | ($p | length) > 0
+      and all($p[]; .label == "Sidebar" and (.agent // null) == null
+        and ((.agent_status // "unknown") == "unknown"))
+  ' >/dev/null 2>&1 || return 0
+  fm_backend_herdr_cli "$session" tab close "$tab_id" >/dev/null 2>&1 \
+    || echo "warning: herdr task kill could not close the task's sidebar-only tab $tab_id" >&2
+  return 0
+}
+
 # fm_backend_herdr_kill: remove the task's pane, best-effort (mirrors
-# tmux-kill-window's `|| true` contract). Verified: closing a tab's only pane
-# closes the tab too, so a separate tab close is unnecessary.
+# tmux-kill-window's `|| true` contract), then close the task's tab when only
+# plugin sidebar panes remain in it (fm_backend_herdr_close_sidebar_only_tab).
 # When the close would empty a non-focused workspace, Herdr 0.7.5's explicit
 # close moves focus to that workspace's neighbor with no restore anywhere in
 # this path, so the kill follows the same focus-safe removal plan as
@@ -3460,7 +3489,11 @@ fm_backend_herdr_kill_serialized() {  # <session> <pane>
           fi
           ;;
         *)
-          fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane" || close_failed=1
+          if fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane"; then
+            fm_backend_herdr_close_sidebar_only_tab "$session" "$target_ws" "$target_tab"
+          else
+            close_failed=1
+          fi
           ;;
       esac
       if [ "$close_failed" = 0 ] && [ -n "$plan_move_record" ]; then
@@ -3477,7 +3510,13 @@ fm_backend_herdr_kill_serialized() {  # <session> <pane>
       return 0
     fi
   fi
-  fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane" || true
+  [ -n "${info:-}" ] || info=$(fm_backend_herdr_cli "$session" pane get "$pane" 2>/dev/null) || info=
+  target_pane=$(printf '%s' "$info" | jq -r '.result.pane.pane_id // empty' 2>/dev/null)
+  target_tab=$(printf '%s' "$info" | jq -r '.result.pane.tab_id // empty' 2>/dev/null)
+  target_ws=$(printf '%s' "$info" | jq -r '.result.pane.workspace_id // empty' 2>/dev/null)
+  if fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane" && [ "$target_pane" = "$pane" ]; then
+    fm_backend_herdr_close_sidebar_only_tab "$session" "$target_ws" "$target_tab"
+  fi
 }
 
 fm_backend_herdr_kill() {  # <target>

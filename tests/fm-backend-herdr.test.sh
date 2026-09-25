@@ -3699,6 +3699,59 @@ test_send_key_normalizes_and_targets_pane() {
   pass "fm_backend_herdr_send_key: normalizes the key and targets the right pane"
 }
 
+# run_sidebar_tab_kill: drive the fallback kill path (no focus snapshot) with
+# a scripted pane get, confirmed close, then the given tab list and pane list.
+run_sidebar_tab_kill() {  # <dir> <tabs-json> <panes-json> [close-exit]
+  local dir=$1 resp="$1/responses"
+  mkdir -p "$resp"; : > "$dir/log"
+  printf '1\n' > "$resp/1.exit"
+  printf '%s\n' '{"result":{"pane":{"pane_id":"w1:p2","tab_id":"w1:t2","workspace_id":"w1"}}}' > "$resp/2.out"
+  [ -z "${4:-}" ] || printf '%s\n' "$4" > "$resp/3.exit"
+  printf '%s\n' '{"error":{"code":"pane_not_found"}}' > "$resp/4.out"
+  printf '%s\n' "$2" > "$resp/5.out"
+  printf '%s\n' "$3" > "$resp/6.out"
+  PATH="$(make_herdr_fakebin "$dir"):$PATH" FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '
+      . "$0/bin/backends/herdr.sh"
+      fm_backend_herdr_target_ready() { fm_backend_herdr_parse_target "$1"; }
+      fm_backend_herdr_presentation_session_lock_path() { printf "/tmp/fm-herdr-test-lock"; }
+      fm_lock_try_acquire() { return 0; }
+      fm_lock_release() { return 0; }
+      fm_backend_herdr_kill default:w1:p2
+    ' "$ROOT" >/dev/null 2>&1
+}
+
+test_kill_closes_sidebar_only_task_tab() {
+  local dir two_tabs one_tab sidebar mixed agent_sidebar
+  two_tabs='{"result":{"tabs":[{"tab_id":"w1:t1"},{"tab_id":"w1:t2"}]}}'
+  one_tab='{"result":{"tabs":[{"tab_id":"w1:t2"}]}}'
+  sidebar='{"result":{"panes":[{"pane_id":"w1:p1","tab_id":"w1:t1"},{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent_status":"unknown"}]}}'
+  mixed='{"result":{"panes":[{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent_status":"unknown"},{"pane_id":"w1:p4","tab_id":"w1:t2","label":"notes"}]}}'
+  agent_sidebar='{"result":{"panes":[{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent":"claude","agent_status":"idle"}]}}'
+
+  dir="$TMP_ROOT/kill-sidebar-tab"
+  run_sidebar_tab_kill "$dir" "$two_tabs" "$sidebar"
+  expect_code 0 $? "sidebar-only tab kill must stay best-effort"
+  assert_contains "$(cat "$dir/log")" $'tab\x1fclose\x1fw1:t2' "a task tab left holding only a plugin sidebar pane was not closed"
+
+  dir="$TMP_ROOT/kill-sidebar-mixed"
+  run_sidebar_tab_kill "$dir" "$two_tabs" "$mixed"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a tab still holding a non-sidebar pane was closed"
+
+  dir="$TMP_ROOT/kill-sidebar-agent"
+  run_sidebar_tab_kill "$dir" "$two_tabs" "$agent_sidebar"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a tab holding an agent pane labelled Sidebar was closed"
+
+  dir="$TMP_ROOT/kill-sidebar-last-tab"
+  run_sidebar_tab_kill "$dir" "$one_tab" "$sidebar"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "the workspace's last tab was closed"
+
+  dir="$TMP_ROOT/kill-sidebar-unconfirmed"
+  run_sidebar_tab_kill "$dir" "$two_tabs" "$sidebar" 1
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a tab was closed after an unconfirmed task pane close"
+  pass "fm_backend_herdr_kill: closes the task's own tab only when plugin sidebar panes alone remain"
+}
+
 test_kill_is_best_effort() {
   local dir log resp fb
   dir="$TMP_ROOT/kill"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -5719,6 +5772,7 @@ test_capture_works_around_small_lines_bug
 test_capture_preserves_pane_read_failure
 test_send_key_normalizes_and_targets_pane
 test_kill_is_best_effort
+test_kill_closes_sidebar_only_task_tab
 test_current_path_reads_cwd
 test_busy_state_working_maps_to_busy
 test_busy_state_done_and_blocked_map_to_idle
