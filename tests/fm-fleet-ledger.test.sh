@@ -50,6 +50,7 @@ Exercise the fleet ledger for $TASK.
 ## Firstmate spec
 Nothing to build.
 EOF
+  fm_test_prep_record "$HOME_DIR/data" "$TASK" || fail "prep record scaffold failed for $TASK"
   FAKEBIN=$(make_fakebin "$dir")
 }
 
