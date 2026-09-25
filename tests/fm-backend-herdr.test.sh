@@ -78,10 +78,11 @@ SH
   printf '%s\n' "$fb"
 }
 
-# herdr_submit_shift: move every canned response <by> slots later, so a
-# fixture numbered from the literal send can take new calls in front of it.
-herdr_submit_shift() {  # <resp-dir> <by>
-  local resp=$1 by=$2 n ext f sorted
+# herdr_submit_shift: move every canned response numbered <from> or later
+# (default: all) <by> slots later, so a fixture can take new calls in front of
+# them.
+herdr_submit_shift() {  # <resp-dir> <by> [from]
+  local resp=$1 by=$2 from=${3:-1} n ext f sorted
   local -a found=()
   shopt -s nullglob
   for f in "$resp"/*.out "$resp"/*.exit; do
@@ -93,7 +94,7 @@ herdr_submit_shift() {  # <resp-dir> <by>
   [ "${#found[@]}" -gt 0 ] || return 0
   sorted=$(printf '%s\n' "${found[@]}" | sort -rn -u)
   while IFS= read -r n; do
-    [ -n "$n" ] || continue
+    [ -n "$n" ] && [ "$n" -ge "$from" ] || continue
     for ext in out exit; do
       f="$resp/$n.$ext"
       if [ -f "$f" ]; then
@@ -1889,6 +1890,8 @@ test_projection_create_uses_exact_response_ids_and_leaves_one_task_pane() {
   printf '{"error":{"code":"pane_not_found"}}\n' > "$resp/9.out"
   printf '{"result":{"tabs":[{"tab_id":"w9:t2","label":"fm-task-p2","workspace_id":"w9"}]}}\n' > "$resp/10.out"
   printf '{"result":{"panes":[{"pane_id":"w9:p2","tab_id":"w9:t2"}]}}\n' > "$resp/11.out"
+  # Call 10 is the post-close sidebar-only tab check, left empty here.
+  herdr_submit_shift "$resp" 1 10
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" HERDR_SESSION=fmtest \
     bash -c '
@@ -1934,6 +1937,7 @@ test_projection_create_never_closes_a_concurrent_same_label_tab() {
   printf '{"error":{"code":"pane_not_found"}}\n' > "$resp/9.out"
   printf '{"result":{"tabs":[{"tab_id":"w9:t2","label":"fm-task-p2","workspace_id":"w9"},{"tab_id":"w9:t3","label":"fm-task-p2","workspace_id":"w9"}]}}\n' > "$resp/10.out"
   printf '{"result":{"panes":[{"pane_id":"w9:p2","tab_id":"w9:t2"},{"pane_id":"w9:p3","tab_id":"w9:t3"}]}}\n' > "$resp/11.out"
+  herdr_submit_shift "$resp" 1 10
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" HERDR_SESSION=fmtest \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_focus_snapshot() { printf "captain-ws\tcaptain-tab"; }; fm_backend_herdr_projection_focus_restore() { return 0; }; fm_backend_herdr_projection_create_task /tmp/proj label fm-task-p2' "$ROOT" 2>&1)
@@ -1979,6 +1983,7 @@ test_projection_close_restores_exact_prior_focus() {
   printf '%s\n' '{"result":{"tab":{"tab_id":"w2:t2","workspace_id":"w2","focused":true}}}' > "$resp/10.out"
   printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w1","active_tab_id":"w1:t1","focused":false},{"workspace_id":"w2","active_tab_id":"w2:t2","focused":true},{"workspace_id":"w3","active_tab_id":"w3:t1","focused":false}]}}' > "$resp/11.out"
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w2:t1","focused":false},{"tab_id":"w2:t2","focused":true}]}}' > "$resp/12.out"
+  herdr_submit_shift "$resp" 1 7
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_close_pane_focus_preserving fmtest w9:p2' "$ROOT" 2>&1)
@@ -2085,6 +2090,7 @@ test_projection_close_reports_focus_restore_failure() {
   : > "$resp/10.out"
   cp "$resp/7.out" "$resp/11.out"
   cp "$resp/8.out" "$resp/12.out"
+  herdr_submit_shift "$resp" 1 7
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_close_pane_focus_preserving fmtest w9:p2' "$ROOT" 2>&1)
@@ -2419,6 +2425,7 @@ test_projection_close_non_emptying_stays_plain_without_proof_or_move() {
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w1:t1","focused":true}]}}' > "$resp/8.out"
   sleep 300 & bgpid=$!
   make_death_lab "$dir" "$bgpid"
+  herdr_submit_shift "$resp" 1 7
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     FM_HERDR_PS_BIN="$dir/ps" FM_BACKEND_HERDR_WORKSPACE_MOVER="$dir/mover" \
@@ -2475,6 +2482,7 @@ test_projection_close_ambiguous_positions_fall_back_to_plain_close() {
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w1:t1","focused":true}]}}' > "$resp/10.out"
   sleep 300 & bgpid=$!
   make_death_lab "$dir" "$bgpid"
+  herdr_submit_shift "$resp" 1 9
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     FM_HERDR_PS_BIN="$dir/ps" FM_BACKEND_HERDR_WORKSPACE_MOVER="$dir/mover" \
@@ -2511,6 +2519,7 @@ test_projection_close_move_failure_falls_back_to_plain_close() {
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w2:t1","focused":true}]}}' > "$resp/14.out"
   sleep 300 & bgpid=$!
   make_death_lab "$dir" "$bgpid"
+  herdr_submit_shift "$resp" 1 12
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_HERDR_SCRIPT_STATUS=1 \
     FM_HERDR_PS_BIN="$dir/ps" FM_BACKEND_HERDR_WORKSPACE_MOVER="$dir/mover" \
@@ -2545,6 +2554,7 @@ test_projection_close_busy_pane_falls_back_to_plain_close() {
   printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w1","active_tab_id":"w1:t1","focused":true}]}}' > "$resp/10.out"
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w1:t1","focused":true}]}}' > "$resp/11.out"
   make_death_lab "$dir" "$bgpid"
+  herdr_submit_shift "$resp" 1 10
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     FM_HERDR_PS_BIN="$dir/ps" FM_BACKEND_HERDR_WORKSPACE_MOVER="$dir/mover" \
@@ -3504,6 +3514,7 @@ test_projection_reclaim_replaces_only_exact_husk_and_advances_binding() {
   cp "$resp/1.out" "$resp/26.out"
   printf '%s\n' '{"result":{"tabs":[{"tab_id":"w2:t3","label":"fm-fm-hibit-r1"}]}}' > "$resp/27.out"
   printf '%s\n' '{"result":{"panes":[{"pane_id":"w2:p3","tab_id":"w2:t3"}]}}' > "$resp/28.out"
+  herdr_submit_shift "$resp" 1 23
   fb=$(make_herdr_fakebin "$dir")
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
     bash -c '
@@ -3697,6 +3708,98 @@ test_send_key_normalizes_and_targets_pane() {
   expect_code 0 $? "send_key should succeed"
   assert_contains "$(cat "$log")" $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''escape' "send_key did not normalize Escape to escape"
   pass "fm_backend_herdr_send_key: normalizes the key and targets the right pane"
+}
+
+# run_sidebar_tab_kill: drive the fallback kill path (no focus snapshot) with
+# a scripted pane get, confirmed close, then the given pane list.
+run_sidebar_tab_kill() {  # <dir> <panes-json> [close-exit]
+  local dir=$1 resp="$1/responses"
+  mkdir -p "$resp"; : > "$dir/log"
+  printf '1\n' > "$resp/1.exit"
+  printf '%s\n' '{"result":{"pane":{"pane_id":"w1:p2","tab_id":"w1:t2","workspace_id":"w1"}}}' > "$resp/2.out"
+  [ -z "${3:-}" ] || printf '%s\n' "$3" > "$resp/3.exit"
+  printf '%s\n' '{"error":{"code":"pane_not_found"}}' > "$resp/4.out"
+  printf '%s\n' "$2" > "$resp/5.out"
+  PATH="$(make_herdr_fakebin "$dir"):$PATH" FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '
+      . "$0/bin/backends/herdr.sh"
+      fm_backend_herdr_target_ready() { fm_backend_herdr_parse_target "$1"; }
+      fm_backend_herdr_presentation_session_lock_path() { printf "/tmp/fm-herdr-test-lock"; }
+      fm_lock_try_acquire() { return 0; }
+      fm_lock_release() { return 0; }
+      fm_backend_herdr_kill default:w1:p2
+    ' "$ROOT" >/dev/null 2>&1
+}
+
+test_kill_closes_sidebar_only_task_tab() {
+  local dir sidebar last_tab mixed agent_sidebar
+  sidebar='{"result":{"panes":[{"pane_id":"w1:p1","tab_id":"w1:t1"},{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent_status":"unknown"}]}}'
+  last_tab='{"result":{"panes":[{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent_status":"unknown"}]}}'
+  mixed='{"result":{"panes":[{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent_status":"unknown"},{"pane_id":"w1:p4","tab_id":"w1:t2","label":"notes"}]}}'
+  agent_sidebar='{"result":{"panes":[{"pane_id":"w1:p3","tab_id":"w1:t2","label":"Sidebar","agent":"claude","agent_status":"idle"}]}}'
+
+  dir="$TMP_ROOT/kill-sidebar-tab"
+  run_sidebar_tab_kill "$dir" "$sidebar"
+  expect_code 0 $? "sidebar-only tab kill must stay best-effort"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a task tab left holding only a plugin sidebar pane was not closed"
+
+  dir="$TMP_ROOT/kill-sidebar-last-tab"
+  run_sidebar_tab_kill "$dir" "$last_tab"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a workspace's sidebar-only last task tab was not closed"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a workspace's last tab was closed with tab close, which Herdr 0.7.4 refuses"
+
+  dir="$TMP_ROOT/kill-sidebar-mixed"
+  run_sidebar_tab_kill "$dir" "$mixed"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a tab still holding a non-sidebar pane was closed"
+
+  dir="$TMP_ROOT/kill-sidebar-agent"
+  run_sidebar_tab_kill "$dir" "$agent_sidebar"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a tab holding an agent pane labelled Sidebar was closed"
+
+  dir="$TMP_ROOT/kill-sidebar-unconfirmed"
+  run_sidebar_tab_kill "$dir" "$sidebar" 1
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a tab was closed after an unconfirmed task pane close"
+  assert_not_contains "$(cat "$dir/log")" $'workspace\x1fclose' "sidebar-only tab cleanup introduced workspace-close authority"
+  pass "fm_backend_herdr_kill: closes the task's own tab, even a workspace's last, only when plugin sidebar panes alone remain"
+}
+
+# run_sidebar_projection_close: close projected task pane w9:p2 in its own
+# single-tab workspace w9, whose tab w9:t2 also holds sidebar pane w9:p3,
+# while w2:t2 keeps focus. <after-panes-json> is w9's pane list once the task
+# pane is gone; <restore-call> is the call number of the focus restore check.
+run_sidebar_projection_close() {  # <dir> <after-panes-json> <restore-call>
+  local dir=$1 resp="$1/responses"
+  mkdir -p "$resp"; : > "$dir/log"
+  printf '%s\n' '{"result":{"workspaces":[{"workspace_id":"w2","active_tab_id":"w2:t2","focused":true},{"workspace_id":"w9","active_tab_id":"w9:t2","focused":false}]}}' > "$resp/1.out"
+  printf '%s\n' '{"result":{"tabs":[{"tab_id":"w2:t2","focused":true}]}}' > "$resp/2.out"
+  printf '%s\n' '{"result":{"pane":{"pane_id":"w9:p2","tab_id":"w9:t2","workspace_id":"w9"}}}' > "$resp/3.out"
+  printf '%s\n' '{"result":{"tabs":[{"tab_id":"w9:t2","workspace_id":"w9"}]}}' > "$resp/4.out"
+  printf '%s\n' '{"result":{"panes":[{"pane_id":"w9:p2","tab_id":"w9:t2"},{"pane_id":"w9:p3","tab_id":"w9:t2","label":"Sidebar","agent_status":"unknown"}]}}' > "$resp/5.out"
+  printf '%s\n' '{"error":{"code":"pane_not_found"}}' > "$resp/7.out"
+  printf '%s\n' "$2" > "$resp/8.out"
+  cp "$resp/1.out" "$resp/$3.out"
+  cp "$resp/2.out" "$resp/$(($3 + 1)).out"
+  PATH="$(make_herdr_fakebin "$dir"):$PATH" FM_HERDR_LOG="$dir/log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_projection_close_pane_focus_preserving fmtest w9:p2' "$ROOT" 2>&1
+}
+
+test_projection_close_removes_sidebar_only_task_workspace() {
+  local dir out status
+  dir="$TMP_ROOT/projection-sidebar-workspace"
+  out=$(run_sidebar_projection_close "$dir" '{"result":{"panes":[{"pane_id":"w9:p3","tab_id":"w9:t2","label":"Sidebar","agent_status":"unknown"}]}}' 10)
+  status=$?
+  [ "$status" -eq 0 ] || fail "a projected close leaving only a sidebar pane should succeed: $out"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw9:p2' "projected cleanup did not close the exact task pane"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw9:p3' "projected cleanup left its task workspace open with only a sidebar pane in it"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "projected cleanup closed its single-tab workspace's last tab with tab close, which Herdr 0.7.4 refuses"
+  assert_not_contains "$(cat "$dir/log")" $'workspace\x1fclose' "projected sidebar cleanup introduced workspace-close authority"
+
+  dir="$TMP_ROOT/projection-sidebar-mixed"
+  out=$(run_sidebar_projection_close "$dir" '{"result":{"panes":[{"pane_id":"w9:p3","tab_id":"w9:t2","label":"Sidebar","agent_status":"unknown"},{"pane_id":"w9:p4","tab_id":"w9:t2","label":"notes"}]}}' 9)
+  status=$?
+  [ "$status" -eq 0 ] || fail "a projected close leaving a non-sidebar pane should still succeed: $out"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw9:p3' "projected cleanup closed a tab still holding a non-sidebar pane"
+  pass "herdr presentation cleanup: removes a projected task workspace once only plugin sidebar panes remain"
 }
 
 test_kill_is_best_effort() {
@@ -5276,6 +5379,34 @@ EOF
   pass "fm_backend_herdr_workspace_prune_seeded_default_tab: refuses to close the seeded default tab when its pane reports a working agent (defense in depth)"
 }
 
+test_prune_closes_seeded_shell_and_sidebar_only_seeded_tab() {
+  local dir events
+  dir="$TMP_ROOT/prune-seeded-sidebar"; mkdir -p "$dir"
+  events="$dir/events"; : > "$events"
+  EVENTS="$events" bash -c '
+    . "$0/bin/backends/herdr.sh"
+    fm_backend_herdr_cli() {
+      shift
+      case "$1 $2" in
+        "tab list") printf "%s\n" "{\"result\":{\"tabs\":[{\"tab_id\":\"w1:t1\",\"label\":\"1\"},{\"tab_id\":\"w1:t2\",\"label\":\"fm-task\"}]}}" ;;
+        "pane list")
+          if grep -q "^pane close" "$EVENTS"; then
+            printf "%s\n" "{\"result\":{\"panes\":[{\"pane_id\":\"w1:p9\",\"tab_id\":\"w1:t1\",\"label\":\"Sidebar\",\"agent_status\":\"unknown\"},{\"pane_id\":\"w1:p2\",\"tab_id\":\"w1:t2\"}]}}"
+          else
+            printf "%s\n" "{\"result\":{\"panes\":[{\"pane_id\":\"w1:p9\",\"tab_id\":\"w1:t1\",\"label\":\"Sidebar\",\"agent_status\":\"unknown\"},{\"pane_id\":\"w1:p1\",\"tab_id\":\"w1:t1\"},{\"pane_id\":\"w1:p2\",\"tab_id\":\"w1:t2\"}]}}"
+          fi
+          ;;
+        "agent get") printf "%s\n" "{\"error\":{\"code\":\"agent_not_found\"}}" ;;
+        "pane close"|"tab close") printf "%s %s %s\n" "$1" "$2" "$3" >> "$EVENTS" ;;
+      esac
+    }
+    fm_backend_herdr_workspace_prune_seeded_default_tab fmtest w1 w1:t1
+  ' "$ROOT" || fail "direct seeded-tab prune must stay best-effort"
+  [ "$(cat "$events")" = $'pane close w1:p1\npane close w1:p9' ] \
+    || fail "direct seeded-tab prune did not close the seeded shell and then its sidebar-only tab: $(cat "$events")"
+  pass "fm_backend_herdr_workspace_prune_seeded_default_tab: closes the seeded shell, never the sidebar pane, then the sidebar-only seeded tab"
+}
+
 # --- native event push: normalize / policy-routing / dedupe / wait ----------
 #
 # These exercise the herdr subscriber (fm_backend_herdr_wait_transition and its
@@ -5636,6 +5767,7 @@ test_repeated_cycles_reuse_one_workspace_no_orphans
 test_adopted_workspace_never_prunes_default_tab
 test_label_collision_startup_workspace_leaves_live_tab_alone
 test_prune_refuses_a_working_agent_pane_defense_in_depth
+test_prune_closes_seeded_shell_and_sidebar_only_seeded_tab
 test_create_task_refuses_duplicate_label
 test_create_task_refuses_duplicate_label_when_agent_live
 test_create_task_refuses_when_any_duplicate_label_is_live
@@ -5719,6 +5851,8 @@ test_capture_works_around_small_lines_bug
 test_capture_preserves_pane_read_failure
 test_send_key_normalizes_and_targets_pane
 test_kill_is_best_effort
+test_kill_closes_sidebar_only_task_tab
+test_projection_close_removes_sidebar_only_task_workspace
 test_current_path_reads_cwd
 test_busy_state_working_maps_to_busy
 test_busy_state_done_and_blocked_map_to_idle

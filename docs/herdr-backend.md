@@ -75,6 +75,12 @@ Recovery and list-live still scan the first workspace matching the home label, b
 The one recovery that does place new work is the control plane's reclaim of a destroyed endpoint, which mints a replacement tab through this section's ordinary placement rules while pinning the herdr session the task's record names ([`agent-control.md`](agent-control.md) "Reclaiming a task whose endpoint is gone").
 
 Existing task operations use recorded endpoint ids and do not move a live task when labels change.
+Task cleanup closes the task's own pane, and closing a tab's only pane closes the tab.
+A sidebar plugin such as herdr-sidebar docks its own pane, labelled `Sidebar`, into every new tab, so cleanup then also closes the task's tab when every pane left in it is such a sidebar pane with no agent.
+It does so by closing those exact sidebar panes, not the tab, because Herdr 0.7.4 refuses to close a workspace's last tab.
+This holds for flat tabs and for projected per-task workspaces, on teardown and on restart cleanup alike.
+When that tab is its workspace's last one, closing its last pane removes the workspace, which then holds nothing but sidebar panes; wherever cleanup holds a focus snapshot, the exact-tab focus restore backstops that explicit close.
+A tab holding any other pane stays open; `tests/fm-backend-herdr-sidebar-tab-e2e.test.sh` covers these cases in a guarded lab.
 The per-home workspace is reused while it has task tabs.
 Closing its last tab can remove the workspace, and the next spawn recreates it.
 
@@ -156,14 +162,16 @@ Locked session start has one narrower cleanup for a restored projected child tha
 It runs only when the current home has at least one ordinary presentation journal and considers only that home; a primary never recursively sweeps a secondmate home.
 Discovery starts from the exact current `└ <concise-task> · p:<22-character-token>` grammar, but a title or token alone is never mutation authority.
 The title must contain exactly one token occurrence across the named-session snapshot and must equal the title derived from exactly one valid presentation journal in this home's own `state/`; a version 2 journal additionally must bind this exact physical home, named session, workspace, tab, and pane.
-The task's ordinary metadata must be absent, and the candidate must have exactly one tab and exactly one pane.
+The task's ordinary metadata must be absent, and the candidate must have exactly one tab and exactly one pane besides any plugin sidebar panes docked in that tab.
+A sidebar pane here is exactly what task cleanup closes a sidebar-only tab for: labelled `Sidebar`, with no agent and an unknown or absent agent status.
+Any other extra pane, including an agent pane labelled `Sidebar`, still preserves the candidate.
 Before cleanup, Firstmate acquires the existing task-id spawn lock and then the shared named-session presentation lock.
 Inside both locks it takes one exact snapshot, requires one unambiguous non-target focus and the exact title, token, tab, and pane shape, positively confirms no registered agent, and reads Herdr's process information for the exact named-session pane.
 The process proof requires one recognized idle shell as both the shell process and the sole foreground process-group member, an operating-system process-table row for that shell, no child process, and a sleeping or idle shell state.
 The proof retries strict single samples for a bounded settle window because an idle interactive shell transiently hosts short-lived prompt helpers; a genuinely busy pane fails every sample.
 Any foreground command, child process, active shell job, unknown shell, unreadable process table, missing field, or API error preserves the pane.
-Firstmate immediately revalidates the same journal, metadata absence, workspace title and token uniqueness, one-tab and one-pane topology, exact pane relationship, absent agent, process proof, and non-target focus before calling the existing exact-pane focus-preserving close helper.
-It closes only that pane, never a workspace.
+Firstmate immediately revalidates the same journal, metadata absence, workspace title and token uniqueness, one-tab and one-pane topology besides sidebar panes, exact pane relationship, absent agent, process proof, and non-target focus before calling the existing exact-pane focus-preserving close helper.
+It closes only that pane and never calls workspace close; when only plugin sidebar panes remain, the helper's sidebar-only tab close described in the task cleanup rules above then removes the husk's tab and with it the husk workspace.
 The matching journal is retired only after the exact pane is positively confirmed gone; an unconfirmed close retains the journal, while a confirmed close may retire it even when focus restoration reported an error after the close.
 A second run finds no matching title or journal and is a no-op.
 A malformed or missing title or token, duplicate token, zero or multiple journal matches, cross-home version 2 binding, current metadata, registered or unknown agent, extra tab or pane, active target, busy lock, changed revalidation, unreadable check, or any error preserves the candidate and lets session startup continue with at most a concise warning.
@@ -361,6 +369,8 @@ Tests use thin compatibility wrappers in `tests/herdr-test-safety.sh` and never 
 - A Firstmate outside Herdr cannot resolve a launcher workspace, so a colliding home label refuses new spawns until the collision is cleared.
 - Ghost and placeholder recognition uses ANSI de-emphasis when available; an unstyled glyph row carrying trailing non-idle text fails safely to `unknown`.
 - Only tmux and Herdr can host the away-mode supervisor terminal.
+- The away-mode daemon terminal's dedicated workspace is still retired by a single pane close, so with a sidebar plugin such as herdr-sidebar installed its sidebar-only workspace can linger until closed manually (tracked as follow-up).
+- With a sidebar plugin installed, a flat workspace can keep at most one sidebar-only seeded default tab, because the plugin labels its pane `Sidebar` only after the seeded-tab prune runs; the next spawn reuses that workspace and tab, and this is not a regression from base (tracked as follow-up).
 
 ## Regression entry points
 
@@ -375,6 +385,7 @@ tests/fm-backend-herdr-workspace-per-home-e2e.test.sh
 tests/fm-backend-herdr-launcher-workspace-e2e.test.sh
 tests/fm-backend-herdr-presentation-e2e.test.sh
 tests/fm-backend-herdr-agent-exit-shell-e2e.test.sh
+tests/fm-backend-herdr-sidebar-tab-e2e.test.sh
 tests/fm-herdr-pi-stale-registration-live-e2e.test.sh
 tests/fm-backend-herdr-eventwait-smoke.test.sh
 tests/fm-control-herdr-smoke.test.sh

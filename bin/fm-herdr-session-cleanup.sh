@@ -12,15 +12,18 @@
 # A visible title is discovery only. Cleanup requires the exact current
 # "└ <concise-task> · p:<22-char-token>" grammar, one token occurrence across
 # the named-session snapshot, exactly one matching home-local journal, one tab,
-# one pane, absent task metadata, no registered agent, and a process proof that
-# the pane contains only one idle recognized shell with no child process. A
-# version 2 journal must also bind the exact workspace, tab, and pane.
+# one pane besides any plugin sidebar panes docked in that tab (the shared
+# FM_BACKEND_HERDR_SIDEBAR_PANE_JQ predicate), absent task metadata, no
+# registered agent, and a process proof that the pane contains only one idle
+# recognized shell with no child process. A version 2 journal must also bind
+# the exact workspace, tab, and pane.
 # Topology is first checked from one locked API snapshot, then every mutation
 # prerequisite is immediately rechecked before the existing exact-pane
 # focus-preserving close helper is called.
-# The script never closes a workspace. It removes only the matching journal,
-# and only after the exact pane is confirmed gone. Every error warns and returns
-# success so session startup continues conservatively.
+# The script never calls workspace close; the close helper's sidebar-only tab
+# close removes a husk's leftover sidebar tab. It removes only the matching
+# journal, and only after the exact pane is confirmed gone. Every error warns
+# and returns success so session startup continues conservatively.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -122,19 +125,20 @@ fm_herdr_cleanup_snapshot_candidate() { # <snapshot> <workspace> <title> <token>
   record=$(printf '%s' "$snapshot" | jq -er \
     --arg workspace "$workspace" --arg title "$title" --arg token "$token" \
     --arg bound_workspace "$bound_workspace" --arg bound_tab "$bound_tab" \
-    --arg bound_pane "$bound_pane" '
+    --arg bound_pane "$bound_pane" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
     .result.snapshot as $s
     | [$s.workspaces[]? | select(.workspace_id == $workspace)] as $workspaces
     | [$s.tabs[]? | select(.workspace_id == $workspace)] as $tabs
-    | [$s.panes[]? | select(.workspace_id == $workspace)] as $panes
+    | [$s.panes[]? | select(.workspace_id == $workspace)] as $all_panes
+    | [$all_panes[] | select(fm_sidebar_pane | not)] as $panes
     | ([ $s.workspaces[]?.label? // "" |
          ((split("p:" + $token) | length) - 1) ] | add // 0) as $token_count
     | select($workspaces | length == 1)
     | select($workspaces[0].label == $title)
-    | select($workspaces[0].tab_count == 1 and $workspaces[0].pane_count == 1)
+    | select($workspaces[0].tab_count == 1 and $workspaces[0].pane_count == ($all_panes | length))
     | select($tabs | length == 1)
     | select($panes | length == 1)
-    | select($panes[0].tab_id == $tabs[0].tab_id)
+    | select(all($all_panes[]; .tab_id == $tabs[0].tab_id))
     | select($bound_workspace == "" or $workspace == $bound_workspace)
     | select($bound_tab == "" or $tabs[0].tab_id == $bound_tab)
     | select($bound_pane == "" or $panes[0].pane_id == $bound_pane)
@@ -154,7 +158,7 @@ fm_herdr_cleanup_snapshot_candidate() { # <snapshot> <workspace> <title> <token>
 fm_herdr_cleanup_revalidate() { # <session> <workspace> <tab> <pane> <title> <token> <home-real> <journal> <task-id> <version> <bound-workspace> <bound-tab> <bound-pane>
   local session=$1 workspace=$2 tab=$3 pane=$4 title=$5 token=$6 home_real=$7
   local journal=$8 id=$9 version=${10} bound_workspace=${11} bound_tab=${12} bound_pane=${13}
-  local workspaces workspace_info tabs panes focus
+  local workspaces workspace_info pane_count tabs panes focus
   [ ! -e "$STATE/$id.meta" ] && [ ! -L "$STATE/$id.meta" ] || return 1
   fm_herdr_cleanup_unique_match "$title" "$session" "$home_real" || return 1
   [ "$FM_HERDR_CLEANUP_JOURNAL" = "$journal" ] \
@@ -172,12 +176,13 @@ fm_herdr_cleanup_revalidate() { # <session> <workspace> <tab> <pane> <title> <to
           ((split("p:" + $token) | length) - 1)] | add // 0) == 1
   ' >/dev/null 2>&1 || return 1
   workspace_info=$(fm_backend_herdr_cli "$session" workspace get "$workspace" 2>/dev/null) || return 1
-  printf '%s' "$workspace_info" | jq -e --arg workspace "$workspace" --arg title "$title" '
-    .result.workspace.workspace_id == $workspace
-    and .result.workspace.label == $title
-    and .result.workspace.tab_count == 1
-    and .result.workspace.pane_count == 1
-  ' >/dev/null 2>&1 || return 1
+  pane_count=$(printf '%s' "$workspace_info" | jq -er --arg workspace "$workspace" --arg title "$title" '
+    select(.result.workspace.workspace_id == $workspace
+      and .result.workspace.label == $title
+      and .result.workspace.tab_count == 1)
+    | .result.workspace.pane_count
+    | select(type == "number" and . >= 1)
+  ' 2>/dev/null) || return 1
   tabs=$(fm_backend_herdr_cli "$session" tab list --workspace "$workspace" 2>/dev/null) || return 1
   printf '%s' "$tabs" | jq -e --arg workspace "$workspace" --arg tab "$tab" '
     (.result.tabs | type) == "array"
@@ -186,12 +191,12 @@ fm_herdr_cleanup_revalidate() { # <session> <workspace> <tab> <pane> <title> <to
     and .result.tabs[0].tab_id == $tab
   ' >/dev/null 2>&1 || return 1
   panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$workspace" 2>/dev/null) || return 1
-  printf '%s' "$panes" | jq -e --arg workspace "$workspace" --arg tab "$tab" --arg pane "$pane" '
+  printf '%s' "$panes" | jq -e --arg workspace "$workspace" --arg tab "$tab" --arg pane "$pane" \
+    --argjson count "$pane_count" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
     (.result.panes | type) == "array"
-    and (.result.panes | length) == 1
-    and .result.panes[0].workspace_id == $workspace
-    and .result.panes[0].tab_id == $tab
-    and .result.panes[0].pane_id == $pane
+    and (.result.panes | length) == $count
+    and all(.result.panes[]; .workspace_id == $workspace and .tab_id == $tab)
+    and ([.result.panes[] | select(fm_sidebar_pane | not) | .pane_id] == [$pane])
   ' >/dev/null 2>&1 || return 1
   [ "$(fm_backend_herdr_pane_agent_state "$session" "$pane")" = no-agent ] || return 1
   fm_backend_herdr_pane_idle_shell_pid "$session" "$pane" >/dev/null || return 1
