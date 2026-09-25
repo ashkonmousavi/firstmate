@@ -5,8 +5,9 @@
 # This file is the single owner of how a brief's sections are read: the
 # `# Task` subsections bin/fm-brief.sh scaffolds feed the no-mistakes
 # `--intent` contract in bin/fm-dod-lib.sh, spawn and promotion validation,
-# and the task text bin/fm-dispatch-resolve.sh sends to the router, so every
-# consumer sees the same section bodies.
+# the task text bin/fm-dispatch-resolve.sh sends to the router, and the task
+# text bin/fm-grok-bot-dispatch.sh sends to a Grok Bot, so every consumer sees
+# the same section bodies.
 
 # Parse an exact ATX heading outside fenced blocks. Body mode prints through
 # the next unfenced heading at the same or a higher level; present mode reports
