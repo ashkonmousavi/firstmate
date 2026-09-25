@@ -192,6 +192,7 @@ Classify each wake this way:
 Escalations are buffered up to `FM_ESCALATE_BATCH_SECS` (default 90s; 0 =
 immediate) and flushed as one single-line digest prefixed with the current
 operational prefix, carrying pre-read status summaries and a recommended action.
+A repeated `check` wake with the same key replaces its earlier buffered item, tagged `{check:<key>}`, instead of adding another, so one recurring check yields one digest item.
 The single-line format makes the submission unambiguous across harnesses, and
 the operational prefix lets firstmate distinguish it from a real captain message.
 
