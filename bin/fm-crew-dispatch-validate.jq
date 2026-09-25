@@ -6,6 +6,8 @@
 # typed=true (bootstrap, while typed dispatch resolution is active) also
 # validates the resolver-only rule approval/min_confidence/floor and profile
 # provider/floor fields that bin/fm-dispatch-resolve.sh applies in code.
+# A profile is either a harness launch profile or a Grok Bot target
+# ({"grok_bot":"<Bot name>"}, optional off only), never both.
 def typed: ($ARGS.named.typed // false) == true;
 def verified_list: $ARGS.named.verified_harnesses // ["claude","codex","opencode","pi","pi-signed","grok","kimi","cursor","agy","muse","rovo","omp","devin"];
 def provider_id($p): ($p | type) == "string" and ($p | test($ARGS.named.provider_re // "^[a-z0-9]+(-[a-z0-9]+)*\\z"));
@@ -29,6 +31,10 @@ def profiles($value):
   elif ($value | type) == "object" then [$value]
   else []
   end;
+def bot($p): ($p | type) == "object" and ($p | has("grok_bot"));
+def bot_bad($p):
+  (($p.grok_bot | type) != "string") or (($p.grok_bot | test("\\S")) | not)
+  or ($p | has("harness") or has("model") or has("effort") or has("provider") or has("floor"));
 def configured_profiles:
   ([(.rules // [])[]? | profiles(.use?)[]?]
     + (if has("default") then [profiles(.default)[]?] else [] end));
@@ -67,7 +73,8 @@ elif [(.rules // [])[]? | select((.when? | type) != "string" or (.when | length)
 elif [(.rules // [])[]? | select((.use? | type) != "object" and (.use? | type) != "array")] | length > 0 then "each rule needs use"
 elif [(.rules // [])[]? | select((.use? | type) == "array" and (.use | length) == 0)] | length > 0 then "each rule needs at least one use profile"
 elif [(.rules // [])[]? | profiles(.use?)[]? | select(type != "object")] | length > 0 then "each use profile must be an object"
-elif [(.rules // [])[]? | profiles(.use?)[]? | select((.harness? | type) != "string" or (.harness | length) == 0)] | length > 0 then "each use profile needs harness"
+elif [(.rules // [])[]? | profiles(.use?)[]? | select(bot(.) and bot_bad(.))] | length > 0 then "a grok_bot use profile needs a non-empty Bot name and no harness, model, effort, provider, or floor"
+elif [(.rules // [])[]? | profiles(.use?)[]? | select((bot(.) | not) and ((.harness? | type) != "string" or (.harness | length) == 0))] | length > 0 then "each use profile needs harness or grok_bot"
 elif [(.rules // [])[]? | profiles(.use?)[]? | select(has("off") and (.off | type) != "boolean")] | length > 0 then "use profile off must be a boolean"
 elif malformed_optional_fields([(.rules // [])[]? | profiles(.use?)[]?]) then
   if typed then "use profile model and effort must be non-empty strings, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
@@ -80,10 +87,12 @@ elif typed and ([(.rules // [])[]? | select(has("min_confidence") and ((.min_con
 elif [selections[] | select((.select | type) != "string" or (.select | length) == 0)] | length > 0 then "select must be a non-empty string"
 elif [selections[].select | select(. != "ordered" and . != "quota-balanced")] | length > 0 then
   "unknown select: " + ([selections[].select | select(. != "ordered" and . != "quota-balanced")] | unique | join(", "))
+elif [selections[] | select(.select == "quota-balanced") | profiles(.use?)[]? | select(bot(.))] | length > 0 then "a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence"
 elif has("default") and ((.default | type) != "object" and (.default | type) != "array") then "default must be a profile object or non-empty profile array"
 elif has("default") and ((.default | type) == "array" and (.default | length) == 0) then "default needs at least one profile"
 elif has("default") and ([profiles(.default)[]? | select(type != "object")] | length) > 0 then "each default profile must be an object"
-elif has("default") and ([profiles(.default)[]? | select((.harness? | type) != "string" or (.harness | length) == 0)] | length) > 0 then "each default profile needs harness"
+elif has("default") and ([profiles(.default)[]? | select(bot(.) and bot_bad(.))] | length) > 0 then "a grok_bot default profile needs a non-empty Bot name and no harness, model, effort, provider, or floor"
+elif has("default") and ([profiles(.default)[]? | select((bot(.) | not) and ((.harness? | type) != "string" or (.harness | length) == 0))] | length) > 0 then "each default profile needs harness or grok_bot"
 elif has("default") and ([profiles(.default)[]? | select(has("off") and (.off | type) != "boolean")] | length) > 0 then "default profile off must be a boolean"
 elif has("default") and malformed_optional_fields([profiles(.default)[]?]) then
   if typed then "default profile model and effort must be non-empty strings, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"

@@ -324,7 +324,7 @@ The intake and authority contract in `AGENTS.md` owns when separate scout resear
 ## Dispatch profiles
 
 Crewmate and scout dispatch can stay on the static crewmate harness resolved by `config/crew-harness`, or it can use local dispatch profiles in `config/crew-dispatch.json`.
-Firstmate reads the natural-language rules at intake, chooses the best matching rule under `AGENTS.md` section 4, and passes only concrete `--harness`, `--model`, and `--effort` axes to `fm-spawn.sh`.
+Firstmate reads the natural-language rules at intake, chooses the best matching rule under `AGENTS.md` section 4, and passes only concrete `--harness`, `--model`, and `--effort` axes to `fm-spawn.sh`, except that a selected Grok Bot target is sent through `bin/fm-grok-bot-dispatch.sh` instead.
 `docs/configuration.md` owns selection semantics; `bin/fm-dispatch-select.sh` resolves the chosen rule from supplied facts or hands explicit quota-balanced selection to `quota-array-dispatch`.
 Bootstrap and the resolver share `bin/fm-crew-dispatch-validate.jq` for JSON shape and verified harness/effort validation; scripts never parse task intent or match natural-language rules.
 The session-start bootstrap step keeps valid dispatch configuration silent unless verbose facts are enabled and surfaces a concise invalid-config line when validation fails.

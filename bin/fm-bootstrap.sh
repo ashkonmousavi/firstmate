@@ -1059,12 +1059,15 @@ crew_dispatch_validate() {
   if [ "${FM_BOOTSTRAP_VERBOSE_FACTS:-0}" = 1 ]; then
     jq -r '
     def profile($p):
+      if $p.grok_bot? != null then "grok-bot:" + ($p.grok_bot | tostring) + (if $p.off == true then " (off)" else "" end)
+      else
       ($p.harness | tostring)
       + (if ($p.model? != null) then "/" + ($p.model | tostring)
          elif ($p.effort? != null) then "/default"
          else "" end)
       + (if ($p.effort? != null) then "/" + ($p.effort | tostring) else "" end)
-      + (if $p.off == true then " (off)" else "" end);
+      + (if $p.off == true then " (off)" else "" end)
+      end;
     def profile_set($value; $selector):
       if ($value | type) == "array" then
         (($selector // "ordered") + "[" + ([$value[] | profile(.)] | join(", ")) + "]")

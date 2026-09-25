@@ -535,7 +535,7 @@ Every claude launch's inline `--settings` JSON also carries `"attribution":{"com
 ## Crew dispatch profiles (config/crew-dispatch.json)
 
 `config/crew-dispatch.json` is an optional local, gitignored file containing natural-language rules that firstmate reads before dispatching a crewmate or scout.
-The shell scripts do not match those rules; firstmate chooses the best matching rule with judgment, resolves its profile object or array under the operating contract in `AGENTS.md` section 4, and passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`.
+The shell scripts do not match those rules; firstmate chooses the best matching rule with judgment, resolves its profile object or array under the operating contract in `AGENTS.md` section 4, and passes only concrete `--harness`, `--model`, and `--effort` flags to `fm-spawn.sh`, except that a selected Grok Bot target goes to `bin/fm-grok-bot-dispatch.sh` instead (see below).
 When the file exists, `fm-spawn.sh` enforces that contract by refusing crewmate and scout spawns that lack an explicit harness (`--harness`, a positional adapter, or a raw launch command).
 Batch spawns satisfy the same requirement with a shared `--harness`.
 Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
@@ -552,7 +552,8 @@ This section is the single owner of the canonical schema and its per-field seman
       "min_confidence": 0.85,
       "floor": { "scope": "<quota-axi scope>", "min_percent": 20, "provider": "<quota-axi provider>" },
       "use": [
-        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "off": false }
+        { "harness": "<adapter>", "model": "<optional model>", "effort": "<low|medium|high|xhigh|max|ultra, optional>", "provider": "<optional quota-axi provider>", "floor": { "scope": "<quota-axi scope>", "min_percent": 50 }, "off": false },
+        { "grok_bot": "<Grok Bot name>", "off": false }
       ],
       "why": "<optional rationale that helps firstmate choose>"
     }
@@ -565,7 +566,16 @@ This section is the single owner of the canonical schema and its per-field seman
 
 Per rule, `when` and `use` are required; the top-level `rules` array itself may be absent or empty for a default-only configuration.
 Both `use` and the optional top-level `default` accept either one profile object or a non-empty array of profile objects.
-The single-object form stays fully backward-compatible, and every profile needs `harness`.
+The single-object form stays fully backward-compatible, and every profile needs `harness` unless it is a Grok Bot target.
+A Grok Bot target profile carries `grok_bot`, the name of one standing Bot, and optionally `off`; it takes no `harness`, `model`, `effort`, `provider`, or `floor`, because Grok Bot is not a launchable harness and runs on its own cloud computer with no worktree, hooks, or access to local files.
+Route it only file-free work such as web research and public-repository reading.
+When selection lands on it, firstmate sends the brief through `bin/fm-grok-bot-dispatch.sh` rather than `fm-spawn.sh`; that script's header owns its arguments, the home-private bridge it drives, and its outcomes.
+The reply comes back marked unverified, and firstmate has it checked under the independent-verification rule by a candidate from a vendor other than xAI before relaying or acting on it.
+When the Bot's usage is spent, firstmate supplies a `blocked` fact for that candidate so ordered selection moves to the next one.
+Grok Bot targets run only in the home that holds the bridge, which is the primary.
+A secondmate inherits the rules but not the bridge, so there `bin/fm-grok-bot-dispatch.sh` refuses with exit 2 and names this; firstmate then supplies a `launch_failed` fact for that candidate, treating the Bot target as unavailable so the rule falls to its other candidates.
+A `"select": "quota-balanced"` rule cannot use a Grok Bot target, because a Bot has no quota evidence; bootstrap, `fm-dispatch-select.sh`, and typed resolution all refuse that configuration.
+Typed resolution reports a Grok Bot target as eligible but unranked and never emits it as a `profile:` line.
 Profile `model` and `effort` fields and rule `why` are optional.
 Rule `approval`, `min_confidence`, and `floor`, and profile `provider` and `floor` are optional declarations that only [typed dispatch resolution](#typed-dispatch-resolution-env-typesafe_api_key) applies in code; without that opt-in they are inert, and firstmate's own intake reads them as ordinary hints.
 The typed resolver supplies the fixed neutral Choice option `No listed rule applies to this task.` for work that matches no listed rule.
