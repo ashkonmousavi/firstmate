@@ -231,16 +231,19 @@ if [ "$(fm_path_age "$STATE/.last-watcher-beat")" -lt "$AFK_GRACE" ] \
 fi
 
 block_stop() {
-  local afk x_mode reason rule
-  local -a harness_args=()
+  local afk x_mode reason rule harness
+  if [ "$CODEX_MODE" -eq 1 ]; then
+    harness=codex
+  else
+    harness=$("$SCRIPT_DIR/fm-harness.sh" 2>/dev/null || printf unknown)
+  fi
   afk=0
-  if [ -f "$STATE/.afk-contract" ] || [ -e "$STATE/.afk" ]; then
+  if fm_afk_owns_supervision "$STATE" "$CONFIG" "$harness"; then
     afk=1
   fi
   x_mode=0
   [ -f "$CONFIG/x-mode.env" ] && x_mode=1
-  [ "$CODEX_MODE" -eq 0 ] || harness_args=(--harness codex)
-  reason=$("$SCRIPT_DIR/fm-supervision-instructions.sh" "${harness_args[@]}" --afk "$afk" --x-mode "$x_mode" --repair-line 2>/dev/null \
+  reason=$("$SCRIPT_DIR/fm-supervision-instructions.sh" --harness "$harness" --afk "$afk" --x-mode "$x_mode" --repair-line 2>/dev/null \
     || printf '%s\n' 'tasks in flight, no live watcher - repair missing watcher supervision according to the session-start operating block before ending the turn')
   rule='━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
   {

@@ -372,6 +372,23 @@ fm_afk_mode() {
   esac
 }
 
+# fm_afk_owns_supervision <state> <config> <harness>
+# True when away mode owns this primary's watcher supervision, the --afk value
+# bin/fm-supervision-instructions.sh renders from. The legacy flag marks a
+# running daemon. The posture record alone is the away posture on the
+# foreground harnesses (Codex, Pi); elsewhere it means a daemon is owed, unless
+# the opted-in supervision host (config/supervision-host) runs the away
+# session instead.
+fm_afk_owns_supervision() {
+  local state=$1 config=$2 harness=$3
+  [ -e "$state/.afk" ] && return 0
+  [ -f "$state/.afk-contract" ] || return 1
+  case "$harness" in
+    claude|cursor|opencode|omp|grok) [ ! -f "$config/supervision-host" ] ;;
+    *) return 0 ;;
+  esac
+}
+
 # fm_watcher_supervision_verdict <state> <watch-path> [grace] [home] [root]
 # Model-aware "is supervision healthy right now" verdict for the pull warning
 # guard (bin/fm-guard.sh), NOT the arm layer or the turn-end guard. Sets:

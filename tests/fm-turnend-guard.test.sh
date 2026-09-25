@@ -796,6 +796,24 @@ test_grok_adapter_native_false_blocks_without_resume() {
   pass "fm-turnend-guard-grok: native false delegates blocking feedback with zero resume processes"
 }
 
+test_hook_away_record_on_supervision_host_home_repairs_with_host() {
+  local dir home out status
+  dir=$(make_primary_dir "$TMP_ROOT/grok-host-away")
+  home=$(cd "$dir" && pwd)
+  : > "$dir/state/task1.meta"
+  : > "$dir/state/.afk-contract"
+  out=$(printf '{"stop_hook_active":false}' | env -u CLAUDECODE PATH="$BLIND_BIN:$PATH" GROK_AGENT=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
+  expect_code 2 "$status" "an away record without the host must still block"
+  assert_contains "$out" "$AWAY_REQUIRED_REASON" "an away record without the host must route repair to the away daemon"
+  mkdir -p "$dir/config"
+  : > "$dir/config/supervision-host"
+  out=$(printf '{"stop_hook_active":false}' | env -u CLAUDECODE PATH="$BLIND_BIN:$PATH" GROK_AGENT=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" 2>&1); status=$?
+  expect_code 2 "$status" "an away record on a supervision-host home must still block"
+  assert_not_contains "$out" "$AWAY_REQUIRED_REASON" "a supervision-host home must not be told to start the away daemon"
+  assert_contains "$out" 'bin/fm-supervision-host.sh park' "a supervision-host home must repair through the host arm"
+  pass "fm-turnend-guard: an away record on a supervision-host home repairs through the host, not the daemon"
+}
+
 test_grok_adapter_native_true_allows_without_resume() {
   local dir fakebin log out status
   dir=$(make_primary_dir "$TMP_ROOT/grok-native-true")
@@ -2288,6 +2306,7 @@ test_hook_runs_fast
 test_grok_adapter_forces_one_resume_when_unhealthy
 test_grok_adapter_loop_guard_skips_resume
 test_grok_adapter_native_false_blocks_without_resume
+test_hook_away_record_on_supervision_host_home_repairs_with_host
 test_grok_adapter_native_true_allows_without_resume
 test_grok_adapter_snake_case_native_and_camel_precedence
 test_grok_adapter_invalid_inputs_start_neither_path

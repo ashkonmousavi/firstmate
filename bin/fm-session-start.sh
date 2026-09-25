@@ -767,16 +767,8 @@ fi
 # --- 4. supervision operating instructions ----------------------------------
 stage supervision-instructions
 AFK_PRESENT=0
-# The legacy flag marks a running daemon. The posture record alone is the away
-# posture on the foreground harnesses (Codex, Pi); elsewhere it means a daemon is
-# owed, unless the opted-in supervision host runs the away session instead.
-if [ -e "$STATE/.afk" ]; then
+if fm_afk_owns_supervision "$STATE" "$CONFIG" "$PRIMARY_HARNESS"; then
   AFK_PRESENT=1
-elif [ -f "$STATE/.afk-contract" ]; then
-  case "$PRIMARY_HARNESS" in
-    claude|cursor|opencode|omp|grok) [ -f "$CONFIG/supervision-host" ] || AFK_PRESENT=1 ;;
-    *) AFK_PRESENT=1 ;;
-  esac
 fi
 AFK_MODE=$(fm_afk_mode "$STATE")
 X_MODE_PRESENT=0
