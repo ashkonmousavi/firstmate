@@ -1,0 +1,10 @@
+ok - real named lab reproduced the exact restored one-tab one-pane childless no-agent shell shape
+ok - real named lab snapshot labels the restored sidebar pane beside the idle task shell
+ok - real named lab cleanup closes only the exact stale pane and preserves exact focus
+ok - real named lab cleanup retires a sidebar-docked husk and its sidebar-only workspace
+ok - real named lab cleanup is idempotent and leaves the default fleet session to the teardown tripwire
+evidence: herdr=0.9.1 protocol=22 default-session-tripwire=armed
+
+real	0m3.332s
+user	0m1.039s
+sys	0m0.333s

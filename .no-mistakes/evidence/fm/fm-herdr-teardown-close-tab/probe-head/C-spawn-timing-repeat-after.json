@@ -1,0 +1,32 @@
+{
+  "tabs": [
+    {
+      "tab_id": "w3:t1",
+      "label": "1"
+    },
+    {
+      "tab_id": "w3:t2",
+      "label": "fm-C-spawn-timing-repeat"
+    }
+  ],
+  "panes": [
+    {
+      "pane_id": "w3:p2",
+      "tab_id": "w3:t1",
+      "label": "Sidebar",
+      "agent_status": "unknown"
+    },
+    {
+      "pane_id": "w3:p3",
+      "tab_id": "w3:t2",
+      "label": null,
+      "agent_status": "unknown"
+    },
+    {
+      "pane_id": "w3:p4",
+      "tab_id": "w3:t2",
+      "label": "Sidebar",
+      "agent_status": "unknown"
+    }
+  ]
+}

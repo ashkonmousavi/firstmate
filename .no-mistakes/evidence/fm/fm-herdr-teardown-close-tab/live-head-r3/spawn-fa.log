@@ -1,0 +1,4 @@
+warning: /tmp/fm-live-sidebar.LzrWiQ/home/data/fa/launch-brief.md records no ship branch; defaulting to legacy branch fm/fa
+warning: /tmp/fm-live-sidebar.LzrWiQ/home/data/fa/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: fa ships mode=local-only while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned fa harness=sh kind=ship mode=local-only yolo=off window=fm-lab-live-sidebar-1116682-4881:w1:p2 worktree=/home/tegris/.treehouse/project-df4ce8/1/project

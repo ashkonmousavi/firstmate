@@ -1,0 +1,10 @@
+target HEAD: 2a1f253754807ec7dfe07ef7f97e06d445696d05
+before cleanup: [{"label":"captain-anchor","pane_count":2},{"label":"└ explorer-husk · p:ExPlOrErHuSkToKeN0000A","pane_count":2},{"label":"└ notes-husk · p:NoTeSHuSkToKeN0000000B","pane_count":2},{"label":"└ sidebar-husk · p:SiDeBaRHuSkToKeN00000C","pane_count":2}]
+cleanup: warning: herdr session-start projection cleanup: explorer-husk preserved because its locked candidate snapshot was ambiguous
+cleanup: warning: herdr session-start projection cleanup: notes-husk preserved because its locked candidate snapshot was ambiguous
+after cleanup: [{"label":"captain-anchor","pane_count":2},{"label":"└ explorer-husk · p:ExPlOrErHuSkToKeN0000A","pane_count":2},{"label":"└ notes-husk · p:NoTeSHuSkToKeN0000000B","pane_count":2}]
+CHECK PASS: explorer-husk (extra non-Sidebar pane) preserved with its journal
+CHECK PASS: notes-husk (extra non-Sidebar pane) preserved with its journal
+CHECK PASS: control sidebar-husk retired with its sidebar-only workspace and journal
+lab teardown ok (fm-lab-live-refusal-1305589-32745)
+exit=0

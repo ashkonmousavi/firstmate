@@ -1,0 +1,26 @@
+[
+  {
+    "workspace_id": "w1",
+    "label": "firstmate",
+    "tabs": [
+      {
+        "tab_id": "w1:t3",
+        "label": "fm-fb",
+        "panes": [
+          {
+            "pane_id": "w1:p5",
+            "label": null,
+            "agent": null,
+            "agent_status": "unknown"
+          },
+          {
+            "pane_id": "w1:p6",
+            "label": "Sidebar",
+            "agent": null,
+            "agent_status": "unknown"
+          }
+        ]
+      }
+    ]
+  }
+]

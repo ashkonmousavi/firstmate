@@ -1,0 +1,7 @@
+lab session: fm-lab-live-sidebar-4024543-12805
+real plugin docked a Sidebar pane in fa's tab
+CHECK FAIL: flat spawn fa: per-home workspace keeps no seeded tab "1" (tabs=["1","fm-fa"])
+CHECK PASS: real plugin Sidebar pane matches the cleanup predicate (label Sidebar, no agent, status unknown/absent)
+CHECK PASS: flat teardown fa: fa's task tab is closed, not left holding only the Sidebar pane
+CHECK PASS: flat teardown fa: fb's tab and pane survive
+lab teardown ok (fm-lab-live-sidebar-4024543-12805)

@@ -1,0 +1,28 @@
+lab session: fm-lab-live-sidebar-561569-25755
+target HEAD: b0e107d84136e71333d9a524ee93a86de9950eba
+real plugin docked a Sidebar pane in fa's tab
+CHECK PASS: real plugin Sidebar pane matches the cleanup predicate
+CHECK PASS: residual bound after spawn fa: at most one seeded tab "1", holding only Sidebar panes (count=1, tabs=["1","fm-fa"])
+CHECK PASS: flat teardown fa: fa's task tab is closed, not left holding only the Sidebar pane
+CHECK PASS: flat teardown fa: fb's tab and pane survive
+real plugin docked a Sidebar pane in pj1's projected tab
+CHECK PASS: projected spawn pj1: has a presentation journal and its own workspace
+CHECK PASS: projected teardown pj1: its per-task workspace is removed, not left sidebar-only
+CHECK PASS: projected teardown pj1: flat fb survives
+CHECK PASS: flat teardown fb (last task): fm-fb tab closed
+CHECK PASS: flat teardown fb: workspace either removed or left holding only the single sidebar-only seeded tab (tabs=["1"])
+CHECK PASS: no fm- task tab lingers after fb
+CHECK PASS: cycle 1 spawn fc1: reuses the surviving per-home workspace (w1 == w1)
+CHECK PASS: cycle 1 spawn fc1: residual bound holds (seeded count=1, tabs=["1","fm-fc1"])
+CHECK PASS: cycle 1 teardown fc1: task tab closed and no fm- tab lingers
+CHECK PASS: cycle 1 teardown fc1: residual bound holds (seeded count=1)
+CHECK PASS: cycle 2 spawn fc2: reuses the surviving per-home workspace (w1 == w1)
+CHECK PASS: cycle 2 spawn fc2: residual bound holds (seeded count=1, tabs=["1","fm-fc2"])
+CHECK PASS: cycle 2 teardown fc2: task tab closed and no fm- tab lingers
+CHECK PASS: cycle 2 teardown fc2: residual bound holds (seeded count=1)
+CHECK PASS: cycle 3 spawn fc3: reuses the surviving per-home workspace (w1 == w1)
+CHECK PASS: cycle 3 spawn fc3: residual bound holds (seeded count=1, tabs=["1","fm-fc3"])
+CHECK PASS: cycle 3 teardown fc3: task tab closed and no fm- tab lingers
+CHECK PASS: cycle 3 teardown fc3: residual bound holds (seeded count=1)
+CHECK PASS: session-wide: total tabs after 3 cycles <= 1 (tabs=["1"])
+lab teardown ok (fm-lab-live-sidebar-561569-25755)

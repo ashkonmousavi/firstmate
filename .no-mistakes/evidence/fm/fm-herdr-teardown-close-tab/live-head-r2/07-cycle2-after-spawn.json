@@ -1,0 +1,38 @@
+[
+  {
+    "workspace_id": "w1",
+    "label": "firstmate",
+    "tabs": [
+      {
+        "tab_id": "w1:t1",
+        "label": "1",
+        "panes": [
+          {
+            "pane_id": "w1:p2",
+            "label": "Sidebar",
+            "agent": null,
+            "agent_status": "unknown"
+          }
+        ]
+      },
+      {
+        "tab_id": "w1:t5",
+        "label": "fm-fc2",
+        "panes": [
+          {
+            "pane_id": "w1:p9",
+            "label": null,
+            "agent": null,
+            "agent_status": "unknown"
+          },
+          {
+            "pane_id": "w1:pA",
+            "label": "Sidebar",
+            "agent": null,
+            "agent_status": "unknown"
+          }
+        ]
+      }
+    ]
+  }
+]

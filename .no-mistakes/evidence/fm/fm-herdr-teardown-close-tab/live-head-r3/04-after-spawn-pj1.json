@@ -1,0 +1,50 @@
+[
+  {
+    "workspace_id": "w1",
+    "label": "firstmate",
+    "tabs": [
+      {
+        "tab_id": "w1:t3",
+        "label": "fm-fb",
+        "panes": [
+          {
+            "pane_id": "w1:p5",
+            "label": null,
+            "agent": null,
+            "agent_status": "unknown"
+          },
+          {
+            "pane_id": "w1:p6",
+            "label": "Sidebar",
+            "agent": null,
+            "agent_status": "unknown"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "workspace_id": "w2",
+    "label": "└ pj1 · p:mwPYxJ1fOtHmNgJfkzlJjw",
+    "tabs": [
+      {
+        "tab_id": "w2:t2",
+        "label": "fm-pj1",
+        "panes": [
+          {
+            "pane_id": "w2:p3",
+            "label": null,
+            "agent": null,
+            "agent_status": "unknown"
+          },
+          {
+            "pane_id": "w2:p4",
+            "label": "Sidebar",
+            "agent": null,
+            "agent_status": "unknown"
+          }
+        ]
+      }
+    ]
+  }
+]

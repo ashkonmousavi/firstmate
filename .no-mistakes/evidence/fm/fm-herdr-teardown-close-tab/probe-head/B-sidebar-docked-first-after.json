@@ -1,0 +1,22 @@
+{
+  "tabs": [
+    {
+      "tab_id": "w2:t2",
+      "label": "fm-B-sidebar-docked-first"
+    }
+  ],
+  "panes": [
+    {
+      "pane_id": "w2:p3",
+      "tab_id": "w2:t2",
+      "label": null,
+      "agent_status": "unknown"
+    },
+    {
+      "pane_id": "w2:p4",
+      "tab_id": "w2:t2",
+      "label": "Sidebar",
+      "agent_status": "unknown"
+    }
+  ]
+}

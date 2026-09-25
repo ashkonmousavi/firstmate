@@ -1,0 +1,9 @@
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown: reaping leaked worktree process(es) for pj1: 590167 590420 590777 592352 592354 593467
+teardown: force-killing leaked worktree process(es) for pj1: 590167 590420
+A new version of treehouse is available: v2.3.0 → v3.0.0
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown pj1 complete (window fm-lab-live-sidebar-561569-25755:w2:p3, worktree /home/tegris/.treehouse/project-53fc57/1/project)
+Backlog: pj1 just finished (this home keeps no markdown backlog at /tmp/fm-live-sidebar.kDsJDc/home/data/backlog.md). Update /tmp/fm-live-sidebar.kDsJDc/home/data/backlog.md - move pj1 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.

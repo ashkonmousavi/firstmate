@@ -1,0 +1,15 @@
+lab session: fm-lab-live-sidebar-3856468-4766
+real plugin docked a Sidebar pane in fa's tab
+CHECK FAIL: flat spawn fa: per-home workspace keeps no seeded tab "1" (tabs=["1","fm-fa"])
+CHECK PASS: real plugin Sidebar pane matches the cleanup predicate (label Sidebar, no agent, status unknown/absent)
+CHECK PASS: flat teardown fa: fa's task tab is closed, not left holding only the Sidebar pane
+CHECK PASS: flat teardown fa: fb's tab and pane survive
+real plugin docked a Sidebar pane in pj1's projected tab
+CHECK PASS: projected spawn pj1: has a presentation journal and its own workspace
+CHECK PASS: projected teardown pj1: its per-task workspace is removed, not left sidebar-only
+CHECK PASS: projected teardown pj1: flat fb survives
+CHECK FAIL: flat teardown fb (last task tab): the per-home workspace is removed, not left with a sidebar-only tab
+CHECK FAIL: respawn fc: recreated per-home workspace holds only fc's tab (tabs=["1","fm-fc"])
+CHECK FAIL: teardown fc: workspace removed again
+CHECK PASS: no task-labelled tab lingers anywhere in the lab session
+lab teardown ok (fm-lab-live-sidebar-3856468-4766)

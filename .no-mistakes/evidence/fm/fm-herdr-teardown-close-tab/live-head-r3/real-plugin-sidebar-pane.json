@@ -1,0 +1,25 @@
+[
+  {
+    "agent_status": "unknown",
+    "cwd": "/home/tegris/.treehouse/project-df4ce8/1/project",
+    "focused": false,
+    "foreground_cwd": "/home/tegris/.treehouse/project-df4ce8/1/project",
+    "label": "Sidebar",
+    "pane_id": "w1:p4",
+    "revision": 3,
+    "scroll": {
+      "max_offset_from_bottom": 0,
+      "offset_from_bottom": 0,
+      "viewport_rows": 40
+    },
+    "tab_id": "w1:t2",
+    "terminal_id": "term_65c54be3c50df4",
+    "terminal_title": "tegris@Pulse: ~/.treehouse/project-df4ce8/1/project",
+    "terminal_title_stripped": "tegris@Pulse: ~/.treehouse/project-df4ce8/1/project",
+    "tokens": {
+      "herdr-sidebar-explorer": "1790368899",
+      "herdr-sidebar-git": "1790368899"
+    },
+    "workspace_id": "w1"
+  }
+]

@@ -1,0 +1,6 @@
+target HEAD: b0e107d84136e71333d9a524ee93a86de9950eba
+before kill: {"tab_present":true,"panes_in_tab":[{"pane_id":"w1:p2","label":null,"agent_status":"unknown"},{"pane_id":"w1:p4","label":"Sidebar","agent_status":"unknown"}]}
+right after kill: {"tab_present":false,"panes_in_tab":[]}
+4s after kill: {"tab_present":false,"panes_in_tab":[]}
+lab teardown ok
+exit=0

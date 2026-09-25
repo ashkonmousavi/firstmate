@@ -1,0 +1,6 @@
+target HEAD: 2a1f253754807ec7dfe07ef7f97e06d445696d05
+ok - cleanup closes the task tab once only a sidebar pane remains in it
+ok - cleanup leaves a tab holding any non-sidebar pane open
+ok - cleanup removes a workspace once its last tab holds only a sidebar pane
+ok - projected cleanup removes its task workspace once only a sidebar pane remains
+exit=0

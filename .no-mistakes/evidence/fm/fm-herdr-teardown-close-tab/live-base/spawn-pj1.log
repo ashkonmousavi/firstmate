@@ -1,0 +1,5 @@
+warning: /tmp/fm-live-sidebar.rMH6SH/home/data/pj1/launch-brief.md records no ship branch; defaulting to legacy branch fm/pj1
+warning: /tmp/fm-live-sidebar.rMH6SH/home/data/pj1/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: pj1 ships mode=local-only while the standing posture for project is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error: disposable herdr presentation workspace did not converge to exactly one task pane
+warning: herdr presentation cleanup could not verify the exact pane; refusing focus-unsafe pane close

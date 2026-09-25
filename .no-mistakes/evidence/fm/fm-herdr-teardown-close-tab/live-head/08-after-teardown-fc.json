@@ -1,0 +1,20 @@
+[
+  {
+    "workspace_id": "w1",
+    "label": "firstmate",
+    "tabs": [
+      {
+        "tab_id": "w1:t1",
+        "label": "1",
+        "panes": [
+          {
+            "pane_id": "w1:p2",
+            "label": "Sidebar",
+            "agent": null,
+            "agent_status": "unknown"
+          }
+        ]
+      }
+    ]
+  }
+]

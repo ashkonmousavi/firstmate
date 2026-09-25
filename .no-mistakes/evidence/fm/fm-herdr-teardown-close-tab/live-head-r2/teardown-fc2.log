@@ -1,0 +1,9 @@
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown: reaping leaked worktree process(es) for fc2: 627366 635113 635114 641893
+teardown: force-killing leaked worktree process(es) for fc2: 627366
+A new version of treehouse is available: v2.3.0 → v3.0.0
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown fc2 complete (window fm-lab-live-sidebar-561569-25755:w1:p9, worktree /home/tegris/.treehouse/project-53fc57/1/project)
+Backlog: fc2 just finished (this home keeps no markdown backlog at /tmp/fm-live-sidebar.kDsJDc/home/data/backlog.md). Update /tmp/fm-live-sidebar.kDsJDc/home/data/backlog.md - move fc2 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.

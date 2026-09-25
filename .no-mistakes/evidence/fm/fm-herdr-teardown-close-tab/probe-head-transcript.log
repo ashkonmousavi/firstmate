@@ -1,0 +1,4 @@
+PROBE A-spawn-timing: seeded tab w1:t1 STILL PRESENT after prune: {"tabs":[{"tab_id":"w1:t1","label":"1"},{"tab_id":"w1:t2","label":"fm-A-spawn-timing"}],"panes":[{"pane_id":"w1:p3","tab_id":"w1:t1","label":"Sidebar","agent_status":"unknown"},{"pane_id":"w1:p2","tab_id":"w1:t2","label":null,"agent_status":"unknown"},{"pane_id":"w1:p4","tab_id":"w1:t2","label":"Sidebar","agent_status":"unknown"}]}
+PROBE B-sidebar-docked-first: seeded tab w2:t1 removed
+PROBE C-spawn-timing-repeat: seeded tab w3:t1 STILL PRESENT after prune: {"tabs":[{"tab_id":"w3:t1","label":"1"},{"tab_id":"w3:t2","label":"fm-C-spawn-timing-repeat"}],"panes":[{"pane_id":"w3:p2","tab_id":"w3:t1","label":"Sidebar","agent_status":"unknown"},{"pane_id":"w3:p3","tab_id":"w3:t2","label":null,"agent_status":"unknown"},{"pane_id":"w3:p4","tab_id":"w3:t2","label":"Sidebar","agent_status":"unknown"}]}
+lab teardown ok (fm-lab-live-prune-3977900-18729)

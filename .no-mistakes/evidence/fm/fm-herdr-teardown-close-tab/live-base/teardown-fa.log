@@ -1,0 +1,15 @@
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  2 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+teardown: reaping leaked worktree process(es) for fa: 4027896 4028403 4028944 4034351 4034353 4043831
+teardown: force-killing leaked worktree process(es) for fa: 4027896 4028403
+A new version of treehouse is available: v2.3.0 → v3.0.0
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown fa complete (window fm-lab-live-sidebar-4024543-12805:w1:p3, worktree /home/tegris/.treehouse/project-83c52d/1/project)
+Backlog: fa just finished (this home keeps no markdown backlog at /tmp/fm-live-sidebar.rMH6SH/home/data/backlog.md). Update /tmp/fm-live-sidebar.rMH6SH/home/data/backlog.md - move fa to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
