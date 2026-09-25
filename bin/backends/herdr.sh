@@ -3440,16 +3440,17 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
 # close. [guard-tab-id] re-checks the projection focus guard right before the
 # close. Best-effort and conservative: any read failure, any other pane, a tab
 # that is already gone, or a refused guard leaves everything untouched.
+# FM_BACKEND_HERDR_SIDEBAR_PANE_JQ: the one jq definition of such a plugin
+# sidebar pane record, shared with the restart-cleanup husk gates.
+FM_BACKEND_HERDR_SIDEBAR_PANE_JQ='def fm_sidebar_pane: .label == "Sidebar" and (.agent // null) == null and ((.agent_status // "unknown") == "unknown");'
 fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id> [guard-tab-id]
   local session=$1 ws_id=$2 tab_id=$3 guard_tab=${4:-} panes
   [ -n "$ws_id" ] && [ -n "$tab_id" ] || return 0
   panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$ws_id" 2>/dev/null) || return 0
-  printf '%s' "$panes" | jq -e --arg tab "$tab_id" '
+  printf '%s' "$panes" | jq -e --arg tab "$tab_id" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
     select((.result.panes | type) == "array")
     | [.result.panes[] | select(.tab_id == $tab)] as $p
-    | ($p | length) > 0
-      and all($p[]; .label == "Sidebar" and (.agent // null) == null
-        and ((.agent_status // "unknown") == "unknown"))
+    | ($p | length) > 0 and all($p[]; fm_sidebar_pane)
   ' >/dev/null 2>&1 || return 0
   [ -z "$guard_tab" ] || fm_backend_herdr_projection_target_tab_mutation_allowed "$session" "$guard_tab" || return 0
   fm_backend_herdr_cli "$session" tab close "$tab_id" >/dev/null 2>&1 \

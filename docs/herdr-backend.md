@@ -161,7 +161,9 @@ Locked session start has one narrower cleanup for a restored projected child tha
 It runs only when the current home has at least one ordinary presentation journal and considers only that home; a primary never recursively sweeps a secondmate home.
 Discovery starts from the exact current `└ <concise-task> · p:<22-character-token>` grammar, but a title or token alone is never mutation authority.
 The title must contain exactly one token occurrence across the named-session snapshot and must equal the title derived from exactly one valid presentation journal in this home's own `state/`; a version 2 journal additionally must bind this exact physical home, named session, workspace, tab, and pane.
-The task's ordinary metadata must be absent, and the candidate must have exactly one tab and exactly one pane.
+The task's ordinary metadata must be absent, and the candidate must have exactly one tab and exactly one pane besides any plugin sidebar panes docked in that tab.
+A sidebar pane here is exactly what task cleanup closes a sidebar-only tab for: labelled `Sidebar`, with no agent and an unknown or absent agent status.
+Any other extra pane, including an agent pane labelled `Sidebar`, still preserves the candidate.
 Before cleanup, Firstmate acquires the existing task-id spawn lock and then the shared named-session presentation lock.
 Inside both locks it takes one exact snapshot, requires one unambiguous non-target focus and the exact title, token, tab, and pane shape, positively confirms no registered agent, and reads Herdr's process information for the exact named-session pane.
 The process proof requires one recognized idle shell as both the shell process and the sole foreground process-group member, an operating-system process-table row for that shell, no child process, and a sleeping or idle shell state.

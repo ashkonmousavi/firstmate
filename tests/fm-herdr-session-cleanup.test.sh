@@ -114,9 +114,12 @@ fixture_tabs() {
   printf ']'
 }
 
+# An extra-pane fixture file holds one more pane record docked in the task's
+# tab; it counts toward the panes total.
 fixture_panes() {
   local count i
   count=$(cat "$FIXTURE_DIR/panes")
+  [ ! -e "$FIXTURE_DIR/extra-pane" ] || count=$((count - 1))
   printf '['
   i=1
   while [ "$i" -le "$count" ]; do
@@ -125,7 +128,14 @@ fixture_panes() {
       "$WS" "$i" "$WS" "$i" "$WS"
     i=$((i + 1))
   done
+  [ ! -e "$FIXTURE_DIR/extra-pane" ] || printf ',%s' "$(cat "$FIXTURE_DIR/extra-pane")"
   printf ']'
+}
+
+extra_pane() { # <label> [agent-status]
+  printf '2\n' > "$FIXTURE_DIR/panes"
+  printf '{"pane_id":"%s:p9","tab_id":"%s","workspace_id":"%s","label":"%s","agent_status":"%s"}\n' \
+    "$WS" "$TAB" "$WS" "$1" "${2:-unknown}" > "$FIXTURE_DIR/extra-pane"
 }
 
 fm_backend_herdr_cli() {
@@ -274,6 +284,13 @@ reset_fixture; printf 'live\n' > "$FIXTURE_DIR/agent"; assert_preserved "registe
 reset_fixture; printf 'unknown\n' > "$FIXTURE_DIR/agent"; assert_preserved "unknown agent"
 reset_fixture; printf '2\n' > "$FIXTURE_DIR/tabs"; printf '2\n' > "$FIXTURE_DIR/panes"; assert_preserved "multiple tabs"
 reset_fixture; printf '2\n' > "$FIXTURE_DIR/panes"; assert_preserved "multiple panes"
+reset_fixture; extra_pane Sidebar
+fm_herdr_session_cleanup >/dev/null 2>&1
+[ ! -e "$FM_STATE_OVERRIDE/$ID.herdr-presentation" ] || fail "sidebar-docked cleanup kept the journal"
+[ "$(cat "$CLOSE_LOG")" = "test $PANE no-agent" ] || fail "sidebar-docked cleanup did not close exactly the task pane: $(cat "$CLOSE_LOG")"
+pass "a husk whose tab also holds a plugin sidebar pane is retired through its task pane"
+reset_fixture; extra_pane notes; assert_preserved "extra non-sidebar pane"
+reset_fixture; extra_pane Sidebar idle; assert_preserved "extra agent pane labelled Sidebar"
 reset_fixture; : > "$FIXTURE_DIR/process-unsafe"; assert_preserved "non-idle shell"
 reset_fixture; : > "$FIXTURE_DIR/process-unsafe"; assert_preserved "child process or shell job"
 reset_fixture; : > "$FIXTURE_DIR/error-api-snapshot"; assert_preserved "unreadable snapshot"
