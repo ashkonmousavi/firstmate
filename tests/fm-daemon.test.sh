@@ -1452,6 +1452,19 @@ test_escalate_refreshes_one_buffered_item_per_wake_key() {
   pass "away escalation buffer keeps and refreshes one item per durable wake key"
 }
 
+test_escalate_keyed_refresh_keeps_backslashes_literal() {
+  local dir state
+  dir=$(make_supercase keyed-escalation-backslash)
+  state="$dir/state"
+  escalate_add "$state" 'first' 'check:C:\tmp'
+  escalate_add "$state" 'path C:\new\tmp and \n literal' 'check:C:\tmp'
+  [ "$(wc -l < "$state/.subsuper-escalations" | tr -d ' ')" = 1 ] \
+    || fail "a backslash in a refreshed wake split or duplicated the buffered item"
+  [ "$(cat "$state/.subsuper-escalations")" = '{check:C:\tmp} path C:\new\tmp and \n literal' ] \
+    || fail "refreshing a keyed wake altered backslashes in the buffered item"
+  pass "keyed escalation refresh keeps backslashes in the item and key literal"
+}
+
 test_escalate_batch_age_uses_first_append() {
   local dir state fakebin sent capture
   dir=$(make_supercase batch-age)
@@ -3006,6 +3019,7 @@ test_housekeeping_herdr_resumed_stale_cleared
 test_housekeeping_orca_persistent_stale_resolves_terminal
 test_escalate_batches_into_one_digest
 test_escalate_refreshes_one_buffered_item_per_wake_key
+test_escalate_keyed_refresh_keeps_backslashes_literal
 test_escalate_batch_age_uses_first_append
 test_heartbeat_scan_dedup
 test_handle_wake_routes_self_and_escalate

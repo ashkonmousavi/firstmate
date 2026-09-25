@@ -700,10 +700,10 @@ escalate_add() {  # <state> <distilled-item> [<wake-key>]
   if [ -n "$key" ]; then
     prefix="{$key} "
     item="$prefix$item"
-    if awk -v prefix="$prefix" 'index($0, prefix) == 1 { found = 1; exit } END { exit !found }' "$buf" 2>/dev/null; then
+    if FM_ESC_PREFIX=$prefix awk 'index($0, ENVIRON["FM_ESC_PREFIX"]) == 1 { found = 1; exit } END { exit !found }' "$buf" 2>/dev/null; then
       replacement=$(mktemp "$state/.subsuper-escalations.XXXXXX") || return 1
-      awk -v prefix="$prefix" -v item="$item" '
-        index($0, prefix) == 1 { if (!seen++) print item; next }
+      FM_ESC_PREFIX=$prefix FM_ESC_ITEM=$item awk '
+        index($0, ENVIRON["FM_ESC_PREFIX"]) == 1 { if (!seen++) print ENVIRON["FM_ESC_ITEM"]; next }
         { print }
       ' "$buf" > "$replacement" && mv "$replacement" "$buf" && return 0
       rm -f "$replacement"
