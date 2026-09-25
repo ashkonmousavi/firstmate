@@ -5377,6 +5377,34 @@ EOF
   pass "fm_backend_herdr_workspace_prune_seeded_default_tab: refuses to close the seeded default tab when its pane reports a working agent (defense in depth)"
 }
 
+test_prune_closes_seeded_shell_and_sidebar_only_seeded_tab() {
+  local dir events
+  dir="$TMP_ROOT/prune-seeded-sidebar"; mkdir -p "$dir"
+  events="$dir/events"; : > "$events"
+  EVENTS="$events" bash -c '
+    . "$0/bin/backends/herdr.sh"
+    fm_backend_herdr_cli() {
+      shift
+      case "$1 $2" in
+        "tab list") printf "%s\n" "{\"result\":{\"tabs\":[{\"tab_id\":\"w1:t1\",\"label\":\"1\"},{\"tab_id\":\"w1:t2\",\"label\":\"fm-task\"}]}}" ;;
+        "pane list")
+          if grep -q "^pane close" "$EVENTS"; then
+            printf "%s\n" "{\"result\":{\"panes\":[{\"pane_id\":\"w1:p9\",\"tab_id\":\"w1:t1\",\"label\":\"Sidebar\",\"agent_status\":\"unknown\"},{\"pane_id\":\"w1:p2\",\"tab_id\":\"w1:t2\"}]}}"
+          else
+            printf "%s\n" "{\"result\":{\"panes\":[{\"pane_id\":\"w1:p9\",\"tab_id\":\"w1:t1\",\"label\":\"Sidebar\",\"agent_status\":\"unknown\"},{\"pane_id\":\"w1:p1\",\"tab_id\":\"w1:t1\"},{\"pane_id\":\"w1:p2\",\"tab_id\":\"w1:t2\"}]}}"
+          fi
+          ;;
+        "agent get") printf "%s\n" "{\"error\":{\"code\":\"agent_not_found\"}}" ;;
+        "pane close"|"tab close") printf "%s %s %s\n" "$1" "$2" "$3" >> "$EVENTS" ;;
+      esac
+    }
+    fm_backend_herdr_workspace_prune_seeded_default_tab fmtest w1 w1:t1
+  ' "$ROOT" || fail "direct seeded-tab prune must stay best-effort"
+  [ "$(cat "$events")" = $'pane close w1:p1\ntab close w1:t1' ] \
+    || fail "direct seeded-tab prune did not close the seeded shell and then its sidebar-only tab: $(cat "$events")"
+  pass "fm_backend_herdr_workspace_prune_seeded_default_tab: closes the seeded shell, never the sidebar pane, then the sidebar-only seeded tab"
+}
+
 # --- native event push: normalize / policy-routing / dedupe / wait ----------
 #
 # These exercise the herdr subscriber (fm_backend_herdr_wait_transition and its
@@ -5737,6 +5765,7 @@ test_repeated_cycles_reuse_one_workspace_no_orphans
 test_adopted_workspace_never_prunes_default_tab
 test_label_collision_startup_workspace_leaves_live_tab_alone
 test_prune_refuses_a_working_agent_pane_defense_in_depth
+test_prune_closes_seeded_shell_and_sidebar_only_seeded_tab
 test_create_task_refuses_duplicate_label
 test_create_task_refuses_duplicate_label_when_agent_live
 test_create_task_refuses_when_any_duplicate_label_is_live

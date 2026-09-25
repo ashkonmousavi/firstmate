@@ -1885,14 +1885,17 @@ fm_backend_herdr_launcher_identity() {  # <session>
 # exists alongside it, never right after workspace creation - and this
 # function independently re-checks the tab count as a second layer.
 fm_backend_herdr_workspace_prune_seeded_default_tab() {  # <session> <workspace_id> <seeded_tab_id> [focus-preserving]
-  local session=$1 wsid=$2 tab_id=$3 close_mode=${4:-direct} tabs tab_count current_label pane_id agent_out agent_status
+  local session=$1 wsid=$2 tab_id=$3 close_mode=${4:-direct} tabs tab_count current_label panes pane_id agent_out agent_status
   [ -n "$tab_id" ] || return 0
   tabs=$(fm_backend_herdr_cli "$session" tab list --workspace "$wsid" 2>/dev/null) || return 0
   tab_count=$(printf '%s' "$tabs" | jq -r '.result.tabs? // [] | length' 2>/dev/null)
   case "$tab_count" in ''|*[!0-9]*|0|1) return 0 ;; esac
   current_label=$(printf '%s' "$tabs" | jq -r --arg t "$tab_id" '.result.tabs[]? | select(.tab_id == $t) | .label' 2>/dev/null)
   [ "$current_label" = "1" ] || return 0
-  pane_id=$(fm_backend_herdr_pane_for_tab "$session" "$wsid" "$tab_id") || return 0
+  panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$wsid" 2>/dev/null) || return 0
+  pane_id=$(printf '%s' "$panes" | jq -r --arg tab "$tab_id" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
+    [.result.panes[]? | select(.tab_id == $tab and (fm_sidebar_pane | not)) | .pane_id][0] // empty
+  ' 2>/dev/null)
   [ -n "$pane_id" ] || return 0
   agent_out=$(fm_backend_herdr_cli "$session" agent get "$pane_id" 2>/dev/null)
   agent_status=$(printf '%s' "$agent_out" | jq -r '.result.agent.agent_status // empty' 2>/dev/null)
@@ -1901,6 +1904,7 @@ fm_backend_herdr_workspace_prune_seeded_default_tab() {  # <session> <workspace_
     fm_backend_herdr_projection_close_pane_focus_preserving "$session" "$pane_id"
   else
     fm_backend_herdr_cli "$session" pane close "$pane_id" >/dev/null 2>&1 || true
+    fm_backend_herdr_close_sidebar_only_tab "$session" "$wsid" "$tab_id"
   fi
 }
 
