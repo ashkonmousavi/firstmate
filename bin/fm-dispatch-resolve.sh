@@ -158,15 +158,21 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
         then (provider_id($f.provider) | not)
         else ($f | has("provider"))
         end);
+  def bot($p): ($p | type) == "object" and ($p | has("grok_bot"));
   def profile_bad($p):
+    if bot($p) then
+      (($p.grok_bot | type) != "string") or (($p.grok_bot | test("\\S")) | not)
+      or ($p | has("harness") or has("model") or has("effort") or has("provider") or has("floor"))
+    else
     ($p | type) != "object"
     or (($p.harness | type) != "string") or (($p.harness | length) == 0)
     or ($p | has("model") and ((.model | type) != "string" or (.model | length) == 0))
     or ($p | has("effort") and ((.effort | type) != "string" or (.effort | length) == 0))
     or ($p | has("provider") and (provider_id(.provider) | not))
-    or ($p | has("floor") and floor_bad(.floor; false));
+    or ($p | has("floor") and floor_bad(.floor; false))
+    end;
   def duplicate_profiles($items):
-    ($items | map([.harness, (.model // null), (.effort // null)] | @json)) as $keys
+    ($items | map([(.harness // null), (.model // null), (.effort // null), (.grok_bot // null)] | @json)) as $keys
     | ($keys | length) != ($keys | unique | length);
   if type != "object" then "top-level value must be an object"
   elif has("rules") and (.rules | type) != "array" then "rules must be an array"
@@ -179,14 +185,14 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
   elif any((.rules // [])[]; has("select") and .select != "ordered" and .select != "quota-balanced") then
     "unknown select: " + ([.rules[] | select(has("select") and .select != "ordered" and .select != "quota-balanced") | .select] | unique | join(", "))
   elif any((.rules // [])[]; has("floor") and floor_bad(.floor; true)) then "rule floor needs scope, min_percent 0..100, and provider matching ^[a-z0-9]+(-[a-z0-9]+)*\\z"
-  elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
+  elif any((.rules // [])[] | profiles(.use)[]; profile_bad(.)) then "each use profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif any((.rules // [])[]; duplicate_profiles(profiles(.use))) then "each rule use must not contain duplicate harness, model, and effort profiles"
-  elif any((.rules // [])[] | profiles(.use)[]; (verified(.harness) | not)) then "each use profile must name a verified harness"
+  elif any((.rules // [])[] | profiles(.use)[]; (bot(.) | not) and (verified(.harness) | not)) then "each use profile must name a verified harness"
   elif any((.rules // [])[] | profiles(.use)[]; (effort_ok(.harness; .model; .effort) | not)) then "each use profile effort must be supported by its harness and model"
   elif has("default") and (profiles(.default) | length) == 0 then "default must be a profile object or non-empty profile array"
-  elif has("default") and any(profiles(.default)[]; profile_bad(.)) then "each default profile needs harness; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
+  elif has("default") and any(profiles(.default)[]; profile_bad(.)) then "each default profile needs harness or a grok_bot name alone; model, effort, and floor must be well formed, and provider must match ^[a-z0-9]+(-[a-z0-9]+)*\\z when present"
   elif has("default") and duplicate_profiles(profiles(.default)) then "default must not contain duplicate harness, model, and effort profiles"
-  elif has("default") and any(profiles(.default)[]; (verified(.harness) | not)) then "each default profile must name a verified harness"
+  elif has("default") and any(profiles(.default)[]; (bot(.) | not) and (verified(.harness) | not)) then "each default profile must name a verified harness"
   elif has("default") and any(profiles(.default)[]; (effort_ok(.harness; .model; .effort) | not)) then "each default profile effort must be supported by its harness and model"
   else empty end
 ' "$RULES" 2>/dev/null) || die "malformed rules file: $RULES_PATH (not JSON)"
@@ -194,8 +200,8 @@ rules_err=$(jq -r --argjson verified_harnesses "$VERIFIED_HARNESSES" --arg provi
 
 missing_provider=$(jq -r '
   def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
-  ((.rules // [])[] | profiles(.use)[] | select(has("provider") | not) | "use\t\(.harness)"),
-  (profiles(.default // null)[] | select(has("provider") | not) | "default\t\(.harness)")
+  ((.rules // [])[] | profiles(.use)[] | select((has("provider") or has("grok_bot")) | not) | "use\t\(.harness)"),
+  (profiles(.default // null)[] | select((has("provider") or has("grok_bot")) | not) | "default\t\(.harness)")
 ' "$RULES" | while IFS=$'\t' read -r location harness; do
   if ! fm_quota_single_provider_for_harness "$harness" >/dev/null; then
     printf '%s\t%s\n' "$location" "$harness"
@@ -216,7 +222,7 @@ while IFS= read -r h; do
 done < <(jq -r '
   def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
   ([((.rules // [])[]) | profiles(.use)[]] + profiles(.default // null))
-  | map(.harness) | unique | .[]' "$RULES")
+  | map(.harness | select(. != null)) | unique | .[]' "$RULES")
 
 RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
 
@@ -334,6 +340,8 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
   def evidence($rows):
     $rows | map({scope, status, pct: (.effectivePercentRemaining // null), runway: (.runway.status // null), spendPriority: (.selection.spendPriority // null)});
   def evaluate($c):
+    if $c | has("grok_bot") then {profile: $c, eligible: true, unranked: true, reason: "Grok Bot target has no quota evidence and is dispatched through bin/fm-grok-bot-dispatch.sh, never fm-spawn.sh"}
+    else
     (provider_of($c)) as $p | (lane_of($c)) as $lane |
     if $p == null then {profile: $c, eligible: false, reason: "no provider family for harness \($c.harness); declare provider on the profile"}
     elif prov($p; $lane) == null then
@@ -376,6 +384,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
         {profile: $c, provider: $p, bounds: $bounds, scope: $limiting.scope, pct: $limiting.effectivePercentRemaining,
          spendPriority: $limiting.selection.spendPriority, runway: $limiting.runway.status, eligible: true, reason: "ok"}
       end
+    end
     end;
   def rule_at($c):
     if ($c | test("^rule_[1-9][0-9]*$")) then
@@ -462,7 +471,7 @@ TEXT=$(jq -r '
   (if .reason then "  reason: \(.reason | flat)" else empty end),
   (if .note then "  note: \(.note | flat)" else empty end),
   (if .unranked_note then "  note: \(.unranked_note | flat)" else empty end),
-  (.candidates[]? | "  candidate: \(.profile.harness | flat):\(show(.profile.model))"
+  (.candidates[]? | "  candidate: " + (if .profile.grok_bot then "grok-bot:\(.profile.grok_bot | flat)" else "\(.profile.harness | flat):\(show(.profile.model))" end)
       + (if .provider then "  provider=\(.provider | flat)" else "" end)
       + (if .scope then "  scope=\(.scope | flat)  remaining=\(show(.pct))%  spendPriority=\(show(.spendPriority))  runway=\(show(.runway))" else "" end)
       + (if (.bounds // [] | length) > 1 then "  bounds=" + ([.bounds[] | "\(.scope | flat):\(show(.pct))%/\((.runway // .status) | flat)"] | join(",")) else "" end)

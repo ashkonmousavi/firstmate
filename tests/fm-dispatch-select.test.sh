@@ -89,6 +89,15 @@ if out=$("$RESOLVER" "$LAB/off.json" default 2>&1); then fail 'off singleton sel
 assert_contains "$out" 'all candidates unavailable' 'off singleton failure'
 pass 'single profiles obey availability'
 
+printf '%s\n' '{"rules":[{"when":"web research","use":[{"grok_bot":"fm-researcher"},{"harness":"claude"}]}]}' > "$LAB/bot.json"
+out=$("$RESOLVER" "$LAB/bot.json" 0) || fail 'grok bot target'
+assert_contains "$out" 'selected[0]: {"grok_bot":"fm-researcher"}' 'grok bot target is selectable'
+printf '%s\n' '[{"candidate":0,"kind":"blocked","detail":"Grok Bot weekly usage spent"}]' > "$LAB/bot-facts.json"
+out=$("$RESOLVER" "$LAB/bot.json" 0 --facts "$LAB/bot-facts.json") || fail 'grok bot fallback'
+assert_contains "$out" 'skipped[0]: blocked: Grok Bot weekly usage spent' 'grok bot block reason'
+assert_contains "$out" 'selected[1]: {"harness":"claude"}' 'grok bot falls back in order'
+pass 'grok bot targets select in order and obey facts'
+
 while IFS='^' read -r body reason; do
   printf '%s\n' "$body" > "$LAB/invalid.json"
   if out=$("$RESOLVER" "$LAB/invalid.json" default 2>&1); then fail "accepted $body"; fi
@@ -103,6 +112,8 @@ done <<'ROWS'
 {"default":{"harness":"codex","off":"yes"}}^off must be a boolean
 {"default":{"harness":"codex","off":null}}^off must be a boolean
 {"default":{"harness":"spaceship"}}^unverified harness
+{"default":{"grok_bot":"fm-researcher","harness":"claude"}}^grok_bot default profile needs a non-empty Bot name
+{"rules":[{"when":"work","use":{"grok_bot":""}}]}^grok_bot use profile needs a non-empty Bot name
 {"default":{"harness":"codex","effort":"max"}}^invalid effort
 {"rules":[{"when":"work","select":false,"use":{"harness":"codex"}}],"default":{"harness":"claude"}}^select must be a non-empty string
 {"rules":[{"when":"work","select":"fastest","use":{"harness":"codex"}}],"default":{"harness":"claude"}}^unknown select
