@@ -369,6 +369,7 @@ Tests use thin compatibility wrappers in `tests/herdr-test-safety.sh` and never 
 - Ghost and placeholder recognition uses ANSI de-emphasis when available; an unstyled glyph row carrying trailing non-idle text fails safely to `unknown`.
 - Only tmux and Herdr can host the away-mode supervisor terminal.
 - The away-mode daemon terminal's dedicated workspace is still retired by a single pane close, so with a sidebar plugin such as herdr-sidebar installed its sidebar-only workspace can linger until closed manually (tracked as follow-up).
+- With a sidebar plugin installed, a flat workspace can keep at most one sidebar-only seeded default tab, because the plugin labels its pane `Sidebar` only after the seeded-tab prune runs; the next spawn reuses that workspace and tab, and this is not a regression from base (tracked as follow-up).
 
 ## Regression entry points
 
