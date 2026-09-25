@@ -2223,11 +2223,11 @@ age_of() {  # seconds since file mtime; "due immediately" if missing
 
 # A configured writing-lane cap turns dispatchable backlog work into one
 # actionable capacity wake. The backlog tool owns dependency, hold, and date
-# eligibility; the shared current-state proof counts only ship crews in an
-# active run step or busy pane. Status events alone cannot fill a lane because
-# they may remain stale after a worker stops. The marker resets when full or empty.
+# eligibility. Every live ship crew occupies a lane, whether working, parked at a
+# gate, or paused; the shared current-state proof only reports how many of those
+# crews are provably working. The marker resets when full or empty.
 idle_lane_tick() {
-  local cap ready ids count active=0 meta task signature marker previous reason
+  local cap ready ids count occupied=0 working=0 meta task signature marker previous reason
   marker="$STATE/.last-idle-lane-wake"
   [ -f "$CONFIG/writing-lane-cap" ] || return 0
   cap=$(cat "$CONFIG/writing-lane-cap" 2>/dev/null) || return 1
@@ -2235,11 +2235,10 @@ idle_lane_tick() {
   for meta in "$STATE"/*.meta; do
     [ -f "$meta" ] || continue
     grep -qx 'kind=ship' "$meta" 2>/dev/null || continue
-    task=${meta##*/}; task=${task%.meta}
-    crew_is_provably_working "$task" && active=$((active + 1))
-    [ "$active" -lt "$cap" ] || break
+    occupied=$((occupied + 1))
+    [ "$occupied" -lt "$cap" ] || break
   done
-  if [ "$active" -ge "$cap" ]; then rm -f "$marker"; return 0; fi
+  if [ "$occupied" -ge "$cap" ]; then rm -f "$marker"; return 0; fi
   ready=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-tasks-axi.sh" ready 2>/dev/null) || {
     triage_log "idle-lane ready read unavailable"
     return 1
@@ -2250,12 +2249,18 @@ idle_lane_tick() {
   ')
   [ -n "$ids" ] || { rm -f "$marker"; return 0; }
   count=$(printf '%s\n' "$ids" | wc -l | tr -d ' ')
-  signature=$(printf '%s|%s|%s\n' "$cap" "$active" "$ids" | cksum)
+  signature=$(printf '%s|%s|%s\n' "$cap" "$occupied" "$ids" | cksum)
   previous=$(cat "$marker" 2>/dev/null || true)
   if [ "$signature" = "$previous" ] && [ "$(age_of "$marker")" -lt "$IDLE_LANE_REPEAT_SECS" ]; then
     return 0
   fi
-  reason="check: idle writing lanes: $active/$cap active, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] || continue
+    grep -qx 'kind=ship' "$meta" 2>/dev/null || continue
+    task=${meta##*/}; task=${task%.meta}
+    crew_is_provably_working "$task" && working=$((working + 1))
+  done
+  reason="check: idle writing lanes: $occupied/$cap occupied, $working working, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"
   fm_wake_append check idle-writing-lanes "$reason" || return 1
   printf '%s\n' "$signature" > "$marker" || return 1
   wake "$reason"
