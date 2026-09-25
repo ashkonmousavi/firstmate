@@ -12,7 +12,7 @@ run_watch() {  # <home> <output>
   local home=$1 output=$2
   PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
-    FM_IDLE_LANE_CHECK_INTERVAL=0 FM_IDLE_LANE_REPEAT_SECS=3600 FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_IDLE_LANE_CHECK_INTERVAL=0 FM_WATCH_HANDLING_SUCCESSOR=1 \
     FM_CREW_STATE_BIN="$home/fakebin/crew-state" \
     "$WATCH" > "$output" 2> "$home/watch.err" &
   WATCH_PID=$!

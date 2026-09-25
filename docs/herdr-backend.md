@@ -330,7 +330,7 @@ The away daemon supports tmux and Herdr supervisor panes only.
 It refuses Zellij, Orca, and cmux as supervisor backends rather than applying the wrong transport.
 For Herdr, target existence, native state, capture, composer state, and verified submit all route through the shared backend dispatcher and the explicit named-session CLI owner.
 The pane-independent max-defer alert is configured in [`wedge-alarm.md`](wedge-alarm.md).
-An undeliverable max-defer escalation exits the tracked daemon and leaves its durable buffer and wake queue for the ordinary turn-end path.
+An undeliverable max-defer escalation, a watcher that cannot start, or a supervisor pane that disappears before the watcher starts sends the active alert, requeues the escalation buffer as a durable wake row, and exits the tracked daemon so the ordinary turn-end path delivers it.
 
 Harnesses with native tracked background execution can run the daemon in their terminal.
 Pi, pi-signed, and Codex no longer launch the away daemon; their ordinary supervision session continues under the posture record.
