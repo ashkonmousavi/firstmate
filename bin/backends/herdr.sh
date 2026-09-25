@@ -3437,9 +3437,11 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
 # close that task's own <tab-id> when every pane still in it is a plugin
 # sidebar pane (label "Sidebar", no agent). Closing a tab's only pane closes
 # the tab, but a sidebar plugin (herdr-sidebar) docks its own pane into every
-# new tab, which otherwise keeps each finished task's tab open forever. When
-# that tab is its workspace's last one, the close removes the workspace, which
-# then holds nothing but sidebar panes; the next spawn recreates it. Callers
+# new tab, which otherwise keeps each finished task's tab open forever. It
+# closes those exact sidebar panes rather than the tab, because Herdr 0.7.4
+# refuses `tab close` on a workspace's last tab while closing that tab's last
+# pane removes the workspace, which then holds nothing but sidebar panes; the
+# next spawn recreates it. Callers
 # run it before their exact-tab focus restore, which backstops the explicit
 # close. [guard-tab-id] re-checks the projection focus guard right before the
 # close. Best-effort and conservative: any read failure, any other pane, a tab
@@ -3448,17 +3450,21 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
 # sidebar pane record, shared with the restart-cleanup husk gates.
 FM_BACKEND_HERDR_SIDEBAR_PANE_JQ='def fm_sidebar_pane: .label == "Sidebar" and (.agent // null) == null and ((.agent_status // "unknown") == "unknown");'
 fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id> [guard-tab-id]
-  local session=$1 ws_id=$2 tab_id=$3 guard_tab=${4:-} panes
+  local session=$1 ws_id=$2 tab_id=$3 guard_tab=${4:-} panes sidebar_panes pane
   [ -n "$ws_id" ] && [ -n "$tab_id" ] || return 0
   panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$ws_id" 2>/dev/null) || return 0
-  printf '%s' "$panes" | jq -e --arg tab "$tab_id" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
+  sidebar_panes=$(printf '%s' "$panes" | jq -r --arg tab "$tab_id" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
     select((.result.panes | type) == "array")
     | [.result.panes[] | select(.tab_id == $tab)] as $p
-    | ($p | length) > 0 and all($p[]; fm_sidebar_pane)
-  ' >/dev/null 2>&1 || return 0
+    | select(($p | length) > 0 and all($p[]; fm_sidebar_pane))
+    | $p[].pane_id // empty
+  ' 2>/dev/null) || return 0
+  [ -n "$sidebar_panes" ] || return 0
   [ -z "$guard_tab" ] || fm_backend_herdr_projection_target_tab_mutation_allowed "$session" "$guard_tab" || return 0
-  fm_backend_herdr_cli "$session" tab close "$tab_id" >/dev/null 2>&1 \
-    || echo "warning: herdr cleanup could not close the task's sidebar-only tab $tab_id" >&2
+  while IFS= read -r pane; do
+    fm_backend_herdr_cli "$session" pane close "$pane" >/dev/null 2>&1 \
+      || echo "warning: herdr cleanup could not close the task's sidebar-only tab $tab_id" >&2
+  done <<< "$sidebar_panes"
   return 0
 }
 

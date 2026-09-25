@@ -3741,23 +3741,24 @@ test_kill_closes_sidebar_only_task_tab() {
   dir="$TMP_ROOT/kill-sidebar-tab"
   run_sidebar_tab_kill "$dir" "$sidebar"
   expect_code 0 $? "sidebar-only tab kill must stay best-effort"
-  assert_contains "$(cat "$dir/log")" $'tab\x1fclose\x1fw1:t2' "a task tab left holding only a plugin sidebar pane was not closed"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a task tab left holding only a plugin sidebar pane was not closed"
 
   dir="$TMP_ROOT/kill-sidebar-last-tab"
   run_sidebar_tab_kill "$dir" "$last_tab"
-  assert_contains "$(cat "$dir/log")" $'tab\x1fclose\x1fw1:t2' "a workspace's sidebar-only last task tab was not closed"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a workspace's sidebar-only last task tab was not closed"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a workspace's last tab was closed with tab close, which Herdr 0.7.4 refuses"
 
   dir="$TMP_ROOT/kill-sidebar-mixed"
   run_sidebar_tab_kill "$dir" "$mixed"
-  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a tab still holding a non-sidebar pane was closed"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a tab still holding a non-sidebar pane was closed"
 
   dir="$TMP_ROOT/kill-sidebar-agent"
   run_sidebar_tab_kill "$dir" "$agent_sidebar"
-  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a tab holding an agent pane labelled Sidebar was closed"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a tab holding an agent pane labelled Sidebar was closed"
 
   dir="$TMP_ROOT/kill-sidebar-unconfirmed"
   run_sidebar_tab_kill "$dir" "$sidebar" 1
-  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "a tab was closed after an unconfirmed task pane close"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw1:p3' "a tab was closed after an unconfirmed task pane close"
   assert_not_contains "$(cat "$dir/log")" $'workspace\x1fclose' "sidebar-only tab cleanup introduced workspace-close authority"
   pass "fm_backend_herdr_kill: closes the task's own tab, even a workspace's last, only when plugin sidebar panes alone remain"
 }
@@ -3789,14 +3790,15 @@ test_projection_close_removes_sidebar_only_task_workspace() {
   status=$?
   [ "$status" -eq 0 ] || fail "a projected close leaving only a sidebar pane should succeed: $out"
   assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw9:p2' "projected cleanup did not close the exact task pane"
-  assert_contains "$(cat "$dir/log")" $'tab\x1fclose\x1fw9:t2' "projected cleanup left its task workspace open with only a sidebar pane in it"
+  assert_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw9:p3' "projected cleanup left its task workspace open with only a sidebar pane in it"
+  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "projected cleanup closed its single-tab workspace's last tab with tab close, which Herdr 0.7.4 refuses"
   assert_not_contains "$(cat "$dir/log")" $'workspace\x1fclose' "projected sidebar cleanup introduced workspace-close authority"
 
   dir="$TMP_ROOT/projection-sidebar-mixed"
   out=$(run_sidebar_projection_close "$dir" '{"result":{"panes":[{"pane_id":"w9:p3","tab_id":"w9:t2","label":"Sidebar","agent_status":"unknown"},{"pane_id":"w9:p4","tab_id":"w9:t2","label":"notes"}]}}' 9)
   status=$?
   [ "$status" -eq 0 ] || fail "a projected close leaving a non-sidebar pane should still succeed: $out"
-  assert_not_contains "$(cat "$dir/log")" $'tab\x1fclose' "projected cleanup closed a tab still holding a non-sidebar pane"
+  assert_not_contains "$(cat "$dir/log")" $'pane\x1fclose\x1fw9:p3' "projected cleanup closed a tab still holding a non-sidebar pane"
   pass "herdr presentation cleanup: removes a projected task workspace once only plugin sidebar panes remain"
 }
 
@@ -5400,7 +5402,7 @@ test_prune_closes_seeded_shell_and_sidebar_only_seeded_tab() {
     }
     fm_backend_herdr_workspace_prune_seeded_default_tab fmtest w1 w1:t1
   ' "$ROOT" || fail "direct seeded-tab prune must stay best-effort"
-  [ "$(cat "$events")" = $'pane close w1:p1\ntab close w1:t1' ] \
+  [ "$(cat "$events")" = $'pane close w1:p1\npane close w1:p9' ] \
     || fail "direct seeded-tab prune did not close the seeded shell and then its sidebar-only tab: $(cat "$events")"
   pass "fm_backend_herdr_workspace_prune_seeded_default_tab: closes the seeded shell, never the sidebar pane, then the sidebar-only seeded tab"
 }
