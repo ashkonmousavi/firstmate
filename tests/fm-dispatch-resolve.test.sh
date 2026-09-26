@@ -857,13 +857,25 @@ AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_FAIL=1 FAKE_CURL
 assert_contains "$out" '  provider: vercel' "network failure also retries through Vercel"
 assert_equals $'0\n1' "$(cat "$LOG/calls")" "network failure makes one retry"
 
+PRIMARY_ERROR="$TMP_ROOT/primary-error.json"
+GATEWAY_ERROR="$TMP_ROOT/gateway-error.json"
+printf '%s\n' '{"error":"typesafe insufficient credits"}' > "$PRIMARY_ERROR"
+printf '%s\n' '{"error":"vercel balance exhausted"}' > "$GATEWAY_ERROR"
 reset_log
-AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 FAKE_CURL_GATEWAY_HTTP=503 run code out err "$BRIEF"
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 FAKE_CURL_RESPONSE="$PRIMARY_ERROR" FAKE_CURL_GATEWAY_HTTP=503 FAKE_CURL_GATEWAY_RESPONSE="$GATEWAY_ERROR" run code out err "$BRIEF"
 expect_code 0 "$code" "double failure exits 0"
 assert_contains "$out" '  status: error' "double failure is a structured error"
 assert_contains "$out" 'typesafe http 429 after' "double failure names the primary reason"
+assert_contains "$out" 'typesafe insufficient credits' "double failure keeps the primary response excerpt"
 assert_contains "$out" 'vercel http 503 after' "double failure names the fallback reason"
+assert_contains "$out" 'vercel balance exhausted' "double failure keeps the fallback response excerpt"
+assert_not_contains "$out$err" "$KEY" "double failure reason omits the primary key"
+assert_not_contains "$out$err" "$GATEWAY_KEY" "double failure reason omits the gateway key"
 assert_equals $'0\n1' "$(cat "$LOG/calls")" "double failure makes only one retry"
+reset_log
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=402 FAKE_CURL_RESPONSE="$PRIMARY_ERROR" FAKE_CURL_GATEWAY_FAIL=1 run code out err "$BRIEF"
+assert_contains "$out" 'vercel http 000 after' "gateway transport failure reads as http 000"
+assert_equals '1' "$(grep -o 'typesafe insufficient credits' <<<"$out" | wc -l | tr -d ' ')" "gateway transport failure does not repeat the primary excerpt"
 
 printf '%s\n' "AI_GATEWAY_API_KEY=env-file-gateway-key" > "$HOME_DIR/.env"
 reset_log
@@ -883,10 +895,12 @@ assert_contains "$out" '  status: error' "missing curl is a structured error out
 assert_contains "$out" '  reason: curl not installed' "missing curl is named in the TOON block"
 assert_contains "$err" 'dispatch-resolve: error (curl not installed)' "missing curl is also reported on stderr"
 reset_log
-TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 run code out err "$BRIEF"
+printf '%s\n' '{"error":"rate limited upstream"}' > "$TMP_ROOT/rate-limited.json"
+TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 FAKE_CURL_RESPONSE="$TMP_ROOT/rate-limited.json" run code out err "$BRIEF"
 expect_code 0 "$code" "http 429 exits 0"
 assert_contains "$out" '  status: error' "http 429 is an error outcome"
 assert_contains "$out" '  reason: http 429 after' "http status is reported"
+assert_contains "$out" 'rate limited upstream' "direct-only error keeps the response excerpt"
 assert_contains "$err" 'dispatch-resolve: error (http 429' "error also goes to stderr"
 reset_log
 TYPESAFE_API_KEY=$KEY FAKE_CURL_FAIL=1 run code out err "$BRIEF"

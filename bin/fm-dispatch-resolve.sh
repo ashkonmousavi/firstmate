@@ -302,18 +302,19 @@ command -v curl >/dev/null 2>&1 || emit_error "curl not installed"
   T1=$(fm_timing_now_ms)
   LAT_MS=$(( T1 - T0 ))
   if [ "$HTTP" != 200 ]; then
-    primary_reason="http $HTTP after ${LAT_MS} ms"
+    primary_reason="http $HTTP after ${LAT_MS} ms: $(head -c 200 "$RESP_FILE" 2>/dev/null | tr '\n' ' ')"
     if [ -z "$AI_GATEWAY_API_KEY_PRIVATE" ]; then
       AI_GATEWAY_API_KEY_PRIVATE=$(fmx_env_get AI_GATEWAY_API_KEY "$FM_HOME/.env")
     fi
     [ -n "$AI_GATEWAY_API_KEY_PRIVATE" ] || emit_error "$primary_reason"
+    : > "$RESP_FILE"
     HTTP=$(printf '%s' "$REQUEST" | jq -c --arg model "$VERCEL_MODEL" '.model = $model' | curl -sS --max-time "$TS_TIMEOUT" -o "$RESP_FILE" -w '%{http_code}' \
       -X POST "$VERCEL_BASE/v1/systemone" -H 'Content-Type: application/json' \
       -H @/dev/fd/3 3< <(printf 'Authorization: Bearer %s\n' "$AI_GATEWAY_API_KEY_PRIVATE") \
       --data-binary @- 2>/dev/null) || HTTP=000
     T2=$(fm_timing_now_ms)
     LAT_MS=$(( T2 - T0 ))
-    [ "$HTTP" = 200 ] || emit_error "typesafe $primary_reason; vercel http $HTTP after $(( T2 - T1 )) ms"
+    [ "$HTTP" = 200 ] || emit_error "typesafe $primary_reason; vercel http $HTTP after $(( T2 - T1 )) ms: $(head -c 200 "$RESP_FILE" 2>/dev/null | tr '\n' ' ')"
     ANSWER_PROVIDER=vercel
   else
     ANSWER_PROVIDER=typesafe

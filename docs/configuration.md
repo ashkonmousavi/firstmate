@@ -625,7 +625,7 @@ Secondmate homes inherit this file from the primary, so a secondmate's own crewm
 It is off unless `TYPESAFE_API_KEY` is non-empty in the calling environment or the home's gitignored `.env` holds a `TYPESAFE_API_KEY=` line; the environment wins, matching the Relay and mail-plane contracts, and the Relay accessor in `bin/fm-env-lib.sh` reads the line.
 When TypeSafe returns a non-200 response or a request times out or fails, the resolver retries once through Vercel AI Gateway if `AI_GATEWAY_API_KEY` is present in the environment or the home's `.env`; the environment wins.
 Both requests send the same Jev Choice state and question, with the gateway's `typesafe-ai/jev` model identifier in place of the direct call's `jev-latest`; the result's `provider:` line names `typesafe` or `vercel` according to the answer used.
-If both requests fail, `error` names both HTTP or transport outcomes; without a fallback key, the TypeSafe error is returned directly.
+If both requests fail, `error` names both HTTP or transport outcomes, each followed by up to 200 bytes of that provider's response body; without a fallback key, the TypeSafe error and its response excerpt are returned directly.
 Off means one `dispatch-resolve: off` line on stderr, nothing on stdout, exit 0, and no network call, so firstmate dispatches exactly as it does without the tool.
 This section is the single owner of the tool's operator contract; the script header owns its exact flags and output lines, and "Crew dispatch profiles" above owns the declared rule and profile fields it applies.
 Rules come only from the effective home's `config/crew-dispatch.json`; `FM_CONFIG_OVERRIDE` selects the config directory for tests and specialized setup like the other scripts.
