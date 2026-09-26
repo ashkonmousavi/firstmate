@@ -178,11 +178,12 @@
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch
-#   profile consultation, and that harness/model must match a candidate profile
-#   of --dispatch-rule (omitted means default), such as the one
-#   bin/fm-dispatch-select.sh selects.
+#   profile consultation, and that harness/model/effort must match a candidate
+#   profile of --dispatch-rule (omitted means default), such as the one
+#   bin/fm-dispatch-select.sh selects; with no configured default, the default
+#   tier accepts the static crew harness from bin/fm-harness.sh crew.
 #   data/<id>/dispatch-override, a non-empty regular file, is the recorded
-#   captain override that allows any other harness/model. Relaunch does not
+#   captain override that allows any other harness/model/effort. Relaunch does not
 #   re-apply the match. A --secondmate spawn is exempt and resolves the SECONDMATE
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
@@ -2327,12 +2328,14 @@ case "$ARG3" in
 esac
 
 # Ship and scout intake must launch one of the dispatch rule's candidate
-# profiles, so a fallback the selector chose from intake facts still launches.
+# profiles (harness, model, and effort), so a fallback the selector chose from
+# intake facts still launches. With no configured default, the default tier is
+# the static crew harness (bin/fm-harness.sh crew, a bare adapter name).
 # docs/configuration.md "Crew dispatch profiles" owns the rule file.
 # data/<id>/dispatch-override records an explicit captain override.
 # Relaunch keeps the harness intake already accepted.
 spawn_enforce_dispatch_table() {
-  local override rule out rc
+  local override rule out rc crew
   [ "$KIND" = secondmate ] && return 0
   [ "$RELAUNCH" -eq 1 ] && return 0
   [ -f "$CONFIG/crew-dispatch.json" ] || return 0
@@ -2343,17 +2346,25 @@ spawn_enforce_dispatch_table() {
   rule=$DISPATCH_RULE
   rc=0
   out=$("$FM_ROOT/bin/fm-dispatch-select.sh" "$CONFIG/crew-dispatch.json" "$rule" 2>&1) || rc=$?
+  if [ "$rc" -eq 2 ] && [ "$rule" = default ] && [ "$out" = "error: selector default names no rule" ]; then
+    crew=$("$FM_ROOT/bin/fm-harness.sh" crew 2>/dev/null) || crew=
+    if [ -n "$crew" ] && [ "$HARNESS" = "$crew" ]; then
+      return 0
+    fi
+    echo "error: spawn refused - crew-dispatch.json has no default, and $HARNESS is not the static crew harness ${crew:-<unresolved>}; record the captain's explicit override at $override or pass that harness" >&2
+    return 1
+  fi
   if [ "$rc" -ne 0 ]; then
     echo "error: spawn refused - crew-dispatch rule '$rule' did not resolve through bin/fm-dispatch-select.sh: $out" >&2
     return 1
   fi
-  if ! jq -e --arg s "$rule" --arg h "$HARNESS" --arg m "$MODEL" '
+  if ! jq -e --arg s "$rule" --arg h "$HARNESS" --arg m "$MODEL" --arg e "$EFFORT" '
+    def field($k): if (.[$k] | type) == "string" then .[$k] else "" end;
     (if $s == "default" then .default else .rules[$s | tonumber].use end)
     | (if type == "array" then . else [.] end)
-    | any(.[]; .off != true and .harness == $h
-        and (if (.model | type) == "string" then .model else "" end) == $m)
+    | any(.[]; .off != true and .harness == $h and field("model") == $m and field("effort") == $e)
   ' "$CONFIG/crew-dispatch.json" >/dev/null 2>&1; then
-    echo "error: spawn refused - $HARNESS/${MODEL:-<none>} does not match crew-dispatch rule $rule: no candidate profile of that rule has this harness/model; record the captain's explicit override at $override or pass one of its profiles" >&2
+    echo "error: spawn refused - $HARNESS/${MODEL:-<none>}/${EFFORT:-<none>} does not match crew-dispatch rule $rule: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at $override or pass one of its profiles" >&2
     return 1
   fi
 }

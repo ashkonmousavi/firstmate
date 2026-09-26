@@ -73,7 +73,7 @@ make_spawn_case() {
 
 enable_dispatch_profile() {
   local home=$1
-  printf '%s\n' '{"rules":[{"when":"current events","use":{"harness":"grok","model":"grok-4","effort":"high"}}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
+  printf '%s\n' '{"rules":[{"when":"current events","use":{"harness":"grok","model":"grok-4","effort":"high"}}],"default":{"harness":"codex","model":"gpt-5","effort":"high"}}' \
     > "$home/config/crew-dispatch.json"
 }
 
@@ -1268,11 +1268,41 @@ test_any_live_candidate_of_the_rule_spawns() {
   printf '%s\n' '{"rules":[{"when":"big refactors","select":"quota-balanced","use":[{"harness":"codex","model":"gpt-5.5","effort":"high","provider":"openai"},{"harness":"grok","model":"grok-4.5","effort":"high","provider":"xai"}]}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
     > "$HOME_DIR/config/crew-dispatch.json"
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4.5 --effort low)
+  status=$?
+  expect_code 1 "$status" "a candidate's harness and model with another effort should refuse: $out"
+  assert_contains "$out" "does not match crew-dispatch rule 0" "the effort refusal should name the rule"
+  assert_absent "$HOME_DIR/state/$id.meta" "an effort refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4.5 --effort high)
   status=$?
   expect_code 0 "$status" "a quota-balanced rule's candidate should spawn: $out"
   assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4.5 high
-  pass "fm-spawn accepts any live candidate of the named rule and refuses an off candidate"
+  pass "fm-spawn accepts any live candidate of the named rule and refuses an off candidate or another effort"
+}
+
+test_rules_only_dispatch_accepts_the_static_crew_harness_for_default() {
+  local rec id out status
+  id=rules-only-z21
+  rec=$(make_spawn_case rules-only codex "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"current events","use":{"harness":"grok","model":"grok-4","effort":"high"}}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 1 "$status" "with no default, a harness other than the static crew harness should refuse: $out"
+  assert_contains "$out" "is not the static crew harness codex" "the refusal should name the static crew harness"
+  assert_absent "$HOME_DIR/state/$id.meta" "a static-tier refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+  status=$?
+  expect_code 0 "$status" "with no default, the static crew harness should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  pass "fm-spawn accepts the static crew harness for default when the dispatch file has no default"
 }
 
 # Execute the actual emitted command in a synthetic pane environment: the
@@ -1926,5 +1956,6 @@ test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
 test_off_table_harness_refuses_unless_captain_override_is_recorded
 test_any_live_candidate_of_the_rule_spawns
+test_rules_only_dispatch_accepts_the_static_crew_harness_for_default
 
 echo "# all fm-spawn-dispatch-profile tests passed"
