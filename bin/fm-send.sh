@@ -729,8 +729,8 @@ if [ -n "$RESOLVE_KEYS" ]; then
     fi
     case " $RESOLVE_SETTLE_KEYS " in
     *" $k "*)
-      if ! fm_pending_reply_text_has_corr "$FM_LINE_CAP_LINE" "${k#pending-reply-}"; then
-        echo "error: --resolve-key '$k' cannot settle its pending-reply expectation: the ${#probe_line}-character close record exceeds the $FM_LINE_CAP_DEFAULT-character status-line cap, and truncation would remove its correlation token. Refusing rather than writing an ineffective close; nothing was sent." >&2
+      if ! fm_pending_reply_line_resolves "$FM_LINE_CAP_LINE" "${k#pending-reply-}"; then
+        echo "error: --resolve-key '$k' cannot settle its pending-reply expectation: its close record either loses its correlation token to the $FM_LINE_CAP_DEFAULT-character status-line cap or names pending-reply-missed, and neither can resolve it. Refusing rather than writing an ineffective close; nothing was sent." >&2
         exit 1
       fi
       ;;

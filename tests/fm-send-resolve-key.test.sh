@@ -1045,6 +1045,42 @@ EOF
   pass "fm-send --resolve-key on a recovery-delivery pending-reply key keeps guarding the resent directive"
 }
 
+# A close whose text names pending-reply-missed can never resolve that
+# expectation, so the send refuses before anything is delivered or closed.
+test_secondmate_pending_reply_close_naming_missed_refuses_before_send() {
+  local dir fb log home rc key corr rec phase
+  dir="$TMP_ROOT/pr-close-names-missed"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-close-names-missed)
+  corr=1234567890abcdef
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-missed: task=guide pending-reply-id=%s request=ship it\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=ship it
+delivered_epoch=1
+phase=escalated
+escalated_epoch=1
+EOF
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Re your pending-reply-missed: false alarm, report landed, carry on"; rc=$?
+  expect_code 1 "$rc" "a close that names pending-reply-missed should refuse"
+  [ ! -e "$home/state/guide.inbox/001.msg" ] || fail "the refused close was delivered anyway"
+  if grep -q '^resolved ' "$home/state/guide.status"; then
+    fail "the refused close still closed the key: $(cat "$home/state/guide.status")"
+  fi
+  phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+  [ "$phase" = escalated ] || fail "the refused close changed the expectation to phase=$phase"
+  pass "fm-send --resolve-key refuses before send when its close text names pending-reply-missed"
+}
+
 test_answer_send_closes_open_decision
 test_answer_close_is_self_announced
 test_separate_resolve_key_answers_do_not_rewake
@@ -1072,3 +1108,4 @@ test_decision_answer_partition_relocates_under_the_record
 test_secondmate_pending_reply_close_leaves_no_open_expectation
 test_secondmate_delivery_unknown_close_keeps_guarding
 test_secondmate_recovery_delivery_close_keeps_guarding
+test_secondmate_pending_reply_close_naming_missed_refuses_before_send
