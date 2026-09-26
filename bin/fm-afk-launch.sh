@@ -268,7 +268,8 @@ fm_afk_launch_host_engine_note() {
 
 # 0 when every blocker row in the gate is a routine no-reply pending-reply
 # notice and the gate records nothing else that would hold return.
-# An empty gate, a lifecycle or evidence row, or any real blocker stays pending.
+# The health snapshot every gate carries does not hold it. An empty gate, any
+# other evidence row, or any real blocker stays pending.
 fm_afk_launch_gate_only_routine_notices() {  # <gate-file>
   local file=$1 tag id key summary saw=0
   [ -f "$file" ] && [ ! -L "$file" ] || return 1
@@ -276,6 +277,9 @@ fm_afk_launch_gate_only_routine_notices() {  # <gate-file>
     [ -n "$tag" ] || continue
     case "$tag" in
       schema|started|phase|window|contract) continue ;;
+      evidence)
+        [ "$id" = health ] || return 1
+        ;;
       blocker)
         saw=1
         _fm_pending_reply_routine_noreply_notice "$key" "$summary" || return 1

@@ -1240,6 +1240,41 @@ test_off_table_harness_refuses_unless_captain_override_is_recorded() {
   pass "fm-spawn refuses an off-table model and accepts it with the recorded override"
 }
 
+test_any_live_candidate_of_the_rule_spawns() {
+  local rec id out status
+  id=rule-candidate-z19
+  rec=$(make_spawn_case rule-candidate claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"current events","use":[{"harness":"grok","model":"grok-4","effort":"high"},{"harness":"codex","model":"gpt-5","effort":"medium"},{"harness":"claude","model":"sonnet","effort":"high","off":true},{"grok_bot":"scout-bot"}]},{"when":"big refactors","select":"quota-balanced","use":[{"harness":"codex","model":"gpt-5.5","effort":"high","provider":"openai"},{"harness":"grok","model":"grok-4.5","effort":"high","provider":"xai"}]}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness claude --model sonnet --effort high)
+  status=$?
+  expect_code 1 "$status" "an off candidate should refuse without an override: $out"
+  assert_contains "$out" "does not match crew-dispatch rule 0" "the off-candidate refusal should name the rule"
+  assert_absent "$HOME_DIR/state/$id.meta" "an off-candidate refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness codex --model gpt-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "the rule's fallback candidate should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
+  rm -f "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.busy-gen" "$HOME_DIR/state/$id.busy-state"
+
+  id=rule-quota-z20
+  rec=$(make_spawn_case rule-quota claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"big refactors","select":"quota-balanced","use":[{"harness":"codex","model":"gpt-5.5","effort":"high","provider":"openai"},{"harness":"grok","model":"grok-4.5","effort":"high","provider":"xai"}]}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4.5 --effort high)
+  status=$?
+  expect_code 0 "$status" "a quota-balanced rule's candidate should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4.5 high
+  pass "fm-spawn accepts any live candidate of the named rule and refuses an off candidate"
+}
+
 # Execute the actual emitted command in a synthetic pane environment: the
 # fake backend records delivery, while real shells exercise the env boundary.
 # No developer environment or credential values are inspected by these probes.
@@ -1890,5 +1925,6 @@ test_claude_crewmate_launch_carries_the_attribution_policy
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
 test_off_table_harness_refuses_unless_captain_override_is_recorded
+test_any_live_candidate_of_the_rule_spawns
 
 echo "# all fm-spawn-dispatch-profile tests passed"

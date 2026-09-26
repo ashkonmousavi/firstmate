@@ -178,8 +178,9 @@
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch
-#   profile consultation, and that harness/model must match the profile
-#   bin/fm-dispatch-select.sh returns for --dispatch-rule (omitted means default).
+#   profile consultation, and that harness/model must match a candidate profile
+#   of --dispatch-rule (omitted means default), such as the one
+#   bin/fm-dispatch-select.sh selects.
 #   data/<id>/dispatch-override, a non-empty regular file, is the recorded
 #   captain override that allows any other harness/model. Relaunch does not
 #   re-apply the match. A --secondmate spawn is exempt and resolves the SECONDMATE
@@ -2325,12 +2326,13 @@ case "$ARG3" in
   ;;
 esac
 
-# Ship and scout intake must launch the profile the dispatch table selected.
+# Ship and scout intake must launch one of the dispatch rule's candidate
+# profiles, so a fallback the selector chose from intake facts still launches.
 # docs/configuration.md "Crew dispatch profiles" owns the rule file.
 # data/<id>/dispatch-override records an explicit captain override.
 # Relaunch keeps the harness intake already accepted.
 spawn_enforce_dispatch_table() {
-  local override rule out rc selected want_h want_m
+  local override rule out rc
   [ "$KIND" = secondmate ] && return 0
   [ "$RELAUNCH" -eq 1 ] && return 0
   [ -f "$CONFIG/crew-dispatch.json" ] || return 0
@@ -2345,27 +2347,13 @@ spawn_enforce_dispatch_table() {
     echo "error: spawn refused - crew-dispatch rule '$rule' did not resolve through bin/fm-dispatch-select.sh: $out" >&2
     return 1
   fi
-  case "$out" in
-    *"selection: quota-balanced"*)
-      echo "error: spawn refused - crew-dispatch rule '$rule' is quota-balanced and names no ordered profile; record an explicit captain override at $override or choose an ordered rule" >&2
-      return 1
-      ;;
-  esac
-  selected=$(printf '%s\n' "$out" | sed -n 's/^selected\[[0-9][0-9]*]: //p' | head -1)
-  if [ -z "$selected" ]; then
-    echo "error: spawn refused - crew-dispatch rule '$rule' produced no selected profile: $out" >&2
-    return 1
-  fi
-  want_h=$(printf '%s' "$selected" | jq -er '.harness // empty') || {
-    echo "error: spawn refused - crew-dispatch rule '$rule' selected a profile spawn cannot launch: $selected" >&2
-    return 1
-  }
-  want_m=$(printf '%s' "$selected" | jq -r 'if has("model") and (.model | type) == "string" then .model else "" end') || {
-    echo "error: spawn refused - crew-dispatch rule '$rule' selected an unreadable profile: $selected" >&2
-    return 1
-  }
-  if [ "$HARNESS" != "$want_h" ] || [ "$MODEL" != "$want_m" ]; then
-    echo "error: spawn refused - $HARNESS/${MODEL:-<none>} does not match crew-dispatch rule $rule selected profile $want_h/${want_m:-<none>}; record the captain's explicit override at $override or pass that profile" >&2
+  if ! jq -e --arg s "$rule" --arg h "$HARNESS" --arg m "$MODEL" '
+    (if $s == "default" then .default else .rules[$s | tonumber].use end)
+    | (if type == "array" then . else [.] end)
+    | any(.[]; .off != true and .harness == $h
+        and (if (.model | type) == "string" then .model else "" end) == $m)
+  ' "$CONFIG/crew-dispatch.json" >/dev/null 2>&1; then
+    echo "error: spawn refused - $HARNESS/${MODEL:-<none>} does not match crew-dispatch rule $rule: no candidate profile of that rule has this harness/model; record the captain's explicit override at $override or pass one of its profiles" >&2
     return 1
   fi
 }
