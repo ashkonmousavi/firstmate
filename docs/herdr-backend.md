@@ -338,8 +338,7 @@ There is still one watcher process; the event reader is a bounded child of that 
 The away daemon supports tmux and Herdr supervisor panes only.
 It refuses Zellij, Orca, and cmux as supervisor backends rather than applying the wrong transport.
 For Herdr, target existence, native state, capture, composer state, and verified submit all route through the shared backend dispatcher and the explicit named-session CLI owner.
-The pane-independent max-defer alert is configured in [`wedge-alarm.md`](wedge-alarm.md).
-For a daemon launched with `bin/fm-afk-launch.sh start-native`, an undeliverable max-defer escalation or a watcher that cannot start sends the active alert, requeues the escalation buffer as a durable wake row, and exits the tracked daemon so the ordinary turn-end path delivers it; a daemon launched in its own terminal alerts and keeps running.
+The pane-independent max-defer alert, and when the daemon hands supervision back to the ordinary turn-end path or keeps running, are owned by [`wedge-alarm.md`](wedge-alarm.md).
 
 Harnesses with native tracked background execution can run the daemon in their terminal.
 Pi, pi-signed, and Codex no longer launch the away daemon; their ordinary supervision session continues under the posture record.
