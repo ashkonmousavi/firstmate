@@ -1702,7 +1702,7 @@ test_claude_worker_settings_absent_keeps_launch() {
   status=$?
   expect_code 0 "$status" "claude spawn without config/claude-worker-settings.json should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
-  expected=$(claude_expected_launch "$HOME_DIR" "$id" --dangerously-skip-permissions)
+  expected=$(claude_expected_launch "$launch" "$HOME_DIR" "$id" --dangerously-skip-permissions)
   [ "$launch" = "$expected" ] || fail "an absent worker settings file changed the launch"$'\n'"expected: $expected"$'\n'"actual:   $launch"
   pass "an absent config/claude-worker-settings.json leaves the claude launch byte-identical"
 }
