@@ -221,7 +221,7 @@ See [`wedge-alarm.md`](wedge-alarm.md) for the current channel reference, [`veri
 ## Idle writing-lane wake (config/writing-lane-cap)
 
 `config/writing-lane-cap` is a local, gitignored file containing one positive integer; absence disables the idle-capacity check.
-The watcher counts every live ship task as an occupied lane, whether it is working, parked at a gate, or paused, and reads `fm-tasks-axi.sh ready` for dependency, date, and hold eligibility.
+The watcher counts every live ship task as an occupied lane, whether it is working, parked at a gate, or paused, and reads the `ready` rows of `fm-tasks-axi.sh ready` for dependency, date, and hold eligibility; public follow-up obligations listed beside them are not dispatchable work and never count.
 When the occupied count is below the cap and at least one item is ready, it queues an actionable `check: idle writing lanes` wake with the occupied count, cap, how many occupied lanes show current-state evidence of an active run step or busy pane, ready count, and ready ids.
 It repeats when the ready set or occupied count changes, or after one hour, and stays quiet when the cap is full or no item is ready.
 `FM_IDLE_LANE_CHECK_INTERVAL` sets the check cadence; `state/.last-idle-lane-check` and `state/.last-idle-lane-wake` are watcher-owned cadence and deduplication markers.
