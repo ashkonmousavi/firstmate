@@ -1,0 +1,13 @@
+$ fm-dispatch-select.sh qb.json 0   # quota-balanced rule with a Grok Bot target
+error: config: a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+exit=2
+
+$ FM_HOME=<lab home without bridge> fm-grok-bot-dispatch.sh brief.md --bot fm-researcher   # secondmate-style home
+error: Grok Bot bridge not found: /tmp/fm-grokdoc.soc8F1/home/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+exit=2
+
+$ fm-dispatch-select.sh ord.json 0 --facts facts.json   # firstmate supplies launch_failed for the Bot candidate
+selection: ordered
+skipped[0]: launch_failed: fm-grok-bot-dispatch.sh exit 2: bridge absent in secondmate home; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet","effort":"high"}
+exit=0

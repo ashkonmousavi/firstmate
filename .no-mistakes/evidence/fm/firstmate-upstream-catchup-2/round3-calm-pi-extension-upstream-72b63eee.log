@@ -1,0 +1,51 @@
+FM_TEST_BEGIN 2026-09-26T12:14:03Z tests/fm-calm-pi-extension.test.sh family=pure-contract-unit expected_gate_skip=none
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - Pi calm compatibility evidence never rejects a Pi version for being newer than 0.82.0, and still fails closed on a missing or malformed version
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - missing Pi presentation class exports reach the independent adapter degradation path
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - Pi operational follow-up E2E processes exact user-role notifications once while Calm hides current and adjacent rows, Calm off and absent render them, and restart preserves semantics
+not ok - Pi Calm restarted a turn silently after Escape (missing: 'Firstmate supervision continues in a new turn.')
+--- output ---
+
+ pi v0.85.1
+ escape interrupt · ctrl+c/ctrl+d clear/exit · / commands · ! bash · ctrl+o more
+ Press ctrl+o to show full startup help and loaded resources.
+
+ Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.
+
+[Extensions]
+  fm-calm.ts, queued-escape-e2e.ts
+
+
+ Warning: fd not found. Offline mode enabled, skipping download.
+
+
+ CAPTAIN_PROMPT_queued_on
+
+
+
+ hold_turn
+ released
+
+
+ Warning: tmux extended-keys is off. Modified Enter keys may not work. Add `set -g extended-keys on` to ~/.tmux.conf and restart tmux.
+
+ Error: This operation was aborted
+
+ MONITOR_HANDLED_queued_on
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+/tmp/fm-calm-pi-extension.RJ8shC/queued-escape-project (main)
+↑3.2k ↓10 R701 W3.2k CH21.5% 79.9%/4.1k (auto)                                                                                 (queued-escape-e2e) deterministic
+FM_TEST_END 2026-09-26T12:14:13Z tests/fm-calm-pi-extension.test.sh exit=1 duration_ms=10064 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=10102
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=10064 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-calm-pi-extension.test.sh duration_ms=10064
+exit=1

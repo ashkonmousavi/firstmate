@@ -1,0 +1,22 @@
+# HEAD fec95ee2; lab dir /tmp/fm-grok6.mwlv9Z
+$ fm-dispatch-select.sh qb.json 0   # doc: fm-dispatch-select refuses a quota-balanced Grok Bot rule
+{"rules":[{"when":"Web research.","select":"quota-balanced","use":[{"grok_bot":"fm-researcher"},{"harness":"claude","model":"sonnet"}]}]}
+error: config: a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+exit=2
+
+$ FM_HOME=<lab home without bridge> fm-grok-bot-dispatch.sh brief.md --bot fm-researcher   # doc: secondmate home refuses exit 2 and names it
+error: Grok Bot bridge not found: /tmp/fm-grok6.mwlv9Z/home/data/grok-bot-bridge/grokbot.mjs; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates
+exit=2
+
+$ fm-dispatch-select.sh ord.json 0 --facts facts.json   # doc: firstmate supplies launch_failed, rule falls to next candidate
+[{"candidate":0,"kind":"launch_failed","detail":"fm-grok-bot-dispatch.sh exit 2: bridge absent in secondmate home"}]
+selection: ordered
+skipped[0]: launch_failed: fm-grok-bot-dispatch.sh exit 2: bridge absent in secondmate home; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet","effort":"high"}
+exit=0
+
+$ fm-dispatch-select.sh ord.json 0 --facts blocked.json   # doc: usage spent -> blocked fact moves ordered selection
+selection: ordered
+skipped[0]: blocked: Grok Bot usage spent; profile={"grok_bot":"fm-researcher"}
+selected[1]: {"harness":"claude","model":"sonnet","effort":"high"}
+exit=0

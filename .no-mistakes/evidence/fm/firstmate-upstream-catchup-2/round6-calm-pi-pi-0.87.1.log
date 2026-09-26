@@ -1,0 +1,54 @@
+# pi --version: 0.87.1
+# resolved pi package: /home/linuxbrew/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist (node:internal/modules/cjs/loader:1386
+  throw err;
+  ^
+
+Error: Cannot find module '/home/linuxbrew/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/package.json'
+Require stack:
+- /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3EMCMBKQC27KJDYRS6HBK68/[eval]
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1383:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1025:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1030:22)
+    at Function._load (node:internal/modules/cjs/loader:1192:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Module.require (node:internal/modules/cjs/loader:1463:12)
+    at require (node:internal/modules/helpers:147:16)
+    at [eval]:1:1
+    at runScriptInThisContext (node:internal/vm:209:10) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3EMCMBKQC27KJDYRS6HBK68/[eval]'
+  ]
+}
+
+Node.js v22.22.0)
+# test file blob HEAD 5fde98777da0ced96b4af76094222f706519148a / upstream 72b63eee 5fde98777da0ced96b4af76094222f706519148a
+# HEAD fec95ee2
+FM_TEST_BEGIN 2026-09-26T12:47:44Z tests/fm-calm-pi-extension.test.sh family=pure-contract-unit expected_gate_skip=none
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - Pi calm compatibility evidence never rejects a Pi version for being newer than 0.82.0, and still fails closed on a missing or malformed version
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - missing Pi presentation class exports reach the independent adapter degradation path
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - Pi operational follow-up E2E processes exact user-role notifications once while Calm hides current and adjacent rows, Calm off and absent render them, and restart preserves semantics
+ok - Pi 0.87.1 with Calm on keeps a queued Firstmate notification unlisted, out of the editor on Escape, and delivers it once in a new announced turn, while Calm off stays stock
+ok - Pi Calm native /skill:ahoy geometry keeps every collapsed thinking and tool block at zero height while preserving expansion, history, restart, and Calm-off rendering
+skip: installed @earendil-works/pi-coding-agent package not found
+ok - the rendered-export-DOM guard renders in one pass, retries a bounded number of Chrome start-up failures, and reports the Chrome binary, Chrome version, Pi version, exit status, and Chrome diagnostic when every attempt fails
+ok - Pi calm native E2E replaces the stock working row with a moving, resize-clamped working ship that freezes and resumes across two working periods in one Pi session, clears on abort, keeps captain turns visible, hides exact operational user rows without changing persistence, restores stock rendering Calm-off, survives restart, and preserves export plus Ctrl+O behavior
+fm-test-run: gate skip: tests/fm-calm-pi-extension.test.sh: installed @earendil-works/pi-coding-agent package not found
+FM_TEST_END 2026-09-26T12:48:11Z tests/fm-calm-pi-extension.test.sh exit=0 duration_ms=26286 gate_skip=true
+FM_TEST_BEGIN 2026-09-26T12:48:11Z tests/fm-calm-pi-queue-retention-live-e2e.test.sh family=live-harness-optin expected_gate_skip=live-capability
+ok - Pi 0.87.1 exposes every queue-retention member Calm preflights before hiding queued Firstmate rows
+FM_TEST_END 2026-09-26T12:48:12Z tests/fm-calm-pi-queue-retention-live-e2e.test.sh exit=0 duration_ms=904 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=1 duration_ms=27266
+FM_TEST_SUMMARY_FAMILY family=live-harness-optin count=1 duration_ms=904 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=26286 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-calm-pi-extension.test.sh duration_ms=26286
+FM_TEST_SLOWEST rank=2 script=tests/fm-calm-pi-queue-retention-live-e2e.test.sh duration_ms=904
+runner exit=0

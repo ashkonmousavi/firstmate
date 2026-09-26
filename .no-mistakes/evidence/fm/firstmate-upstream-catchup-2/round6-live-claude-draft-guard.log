@@ -1,0 +1,49 @@
+# HEAD fec95ee2 claude 2.1.283 (Claude Code)
+composer before draft: empty
+composer with draft: pending
+----- pane: draft typed, before fm-send
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3EMCMBKQC27KJDYRS6HBK68 · /rc
+                                                                                                                                                                                                        ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ CAPTAIN_DRAFT_do_not_send_yet
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M3EMCMBKQC27KJDYRS... · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-draft-live.7D3TCG/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-send: doorbell skipped (composer visibly holds pending text); the steer is durably recorded at /tmp/fm-draft-live.7D3TCG/home/state/live-draft.inbox/001.msg and the watcher will re-ring
+fm-send exit=0
+durable record: present
+----- pane: after fm-send with draft present
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3EMCMBKQC27KJDYRS6HBK68 · /rc
+                                                                                                                                                      Advisor Tool (experimental) is on and may use more tokens · /advisor
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ CAPTAIN_DRAFT_do_not_send_yet
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M3EMCMBKQC27KJDYRS... · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+draft still in composer: yes
+doorbell text visible in pane: no
+worker acted while draft present: no
+composer after clearing: empty
+re-ring rc=0
+----- pane: after re-ring
+  ⎿  $ D='/tmp/fm-draft-live.7D3TCG/home/state/live-draft.inbox'; touch /tmp/fm-draft-live.7D3TCG/acted && mv "$D/001.msg" "$D/handled/" && ls "$D" "$D/handled"
+* Ideating… (6s · ↓ 365 tokens · thought for 1s)
+                                                                                                                                                      Advisor Tool (experimental) is on and may use more tokens · /advisor
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Firstmate instruction queue... · WORKTREE:01M3EMCMBKQC27KJDYRS... · opus/medium · default · 8% · 5h36%/7d23% · $0.53
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents
+after re-ring: acted=yes acked=yes (6s)
+RESULT: PASS
+script exit=0

@@ -1,0 +1,4 @@
+$ bin/fm-dispatch-select.sh qb.json 0   # quota-balanced rule with a Grok Bot target (HEAD fec95ee2)
+{"rules":[{"when":"Web research.","select":"quota-balanced","use":[{"grok_bot":"fm-researcher"},{"harness":"claude","model":"sonnet"}]}]}
+error: config: a quota-balanced rule cannot use a grok_bot profile; Grok Bot targets have no quota evidence
+exit=2

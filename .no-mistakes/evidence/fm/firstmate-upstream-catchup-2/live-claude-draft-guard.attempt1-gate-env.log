@@ -1,0 +1,40 @@
+composer before draft: empty
+composer with draft: pending
+----- pane: draft typed, before fm-send
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3EMCMBKQC27KJDYRS6HBK68 · /rc
+                                                                                                                                                                                                        ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ CAPTAIN_DRAFT_do_not_send_yet
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M3EMCMBKQC27KJDYRS... · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+error: no-mistakes gate agent must not drive the fleet (NO_MISTAKES_GATE set)
+fm-send exit=3
+durable record: MISSING
+----- pane: after fm-send with draft present
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3EMCMBKQC27KJDYRS6HBK68 · /rc
+                                                                                                                                                      Advisor Tool (experimental) is on and may use more tokens · /advisor
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ CAPTAIN_DRAFT_do_not_send_yet
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M3EMCMBKQC27KJDYRS... · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+draft still in composer: yes
+doorbell text visible in pane: no
+worker acted while draft present: no
+composer after clearing: empty
+re-ring rc=0
+----- pane: after re-ring
+  inbox or change any files.
+  If a real instruction was meant to be here, it needs to be sent again through the normal steering path.
+✻ Churned for 9s · done 3:51 AM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Firstmate inbox message pro... · WORKTREE:01M3EMCMBKQC27KJDYRS... · opus/medium · default · 8% · 5h6%/7d16% · $0.57
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents
+after re-ring: acted=no acked=no
+RESULT: FAIL
+exit=1
