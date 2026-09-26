@@ -1,0 +1,14 @@
+--- before: .afk=present buffer=needs-decision: lab held choice
+--- daemon exited rc=1 after 2s (124 would mean it kept holding supervision)
+--- daemon stdout/stderr:
+error: away-mode supervision unavailable: watcher: already running pid 790407; ordinary turn-end supervision must resume
+--- after: .afk cleared
+--- after: escalation buffer: ''
+--- durable wake queue:
+1790404839	1	signal	away-daemon-handback	needs-decision: lab held choice
+--- real herdr notification calls (lab session):
+notification show firstmate: away-mode escalations WEDGED --body away-mode supervision handed back: watcher: already running pid 790407 - see /tmp/fm-idlelane-home2/state/.supervise-daemon.log --sound request
+--- daemon log:
+[2026-09-25T23:40:37-0700] daemon starting (pid 790428); target=fm-lab-idlelane-681929-14215:w1:p1; target_source=FM_SUPERVISOR_TARGET; backend=herdr; backend_source=FM_SUPERVISOR_BACKEND; afk=on; inject_skip='heartbeat'; stale_escalate=999999s; batch=99999s
+[2026-09-25T23:40:38-0700] watcher non-wake stdout with no live peer watcher, retrying start once: watcher: already running pid 790407
+[2026-09-25T23:40:39-0700] ERROR: away-mode supervision unavailable: watcher: already running pid 790407

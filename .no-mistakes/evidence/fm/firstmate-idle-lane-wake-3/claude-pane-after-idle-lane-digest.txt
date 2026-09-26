@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with high effort · Claude Max
+ ▝▝   ▝▝   /tmp/fm-idlelane-proj · /rc
+
+
+❯ FIRSTMATE_OP: v1 away-supervisor: Supervisor escalate (1 event(s)): {check:idle-writing-lanes} check: idle writing
+  lanes: 0/2 occupied, 0 working, 1 ready: lab-ready-one (pre-read; re-arm not needed — watcher daemon-managed)
+
+  Finding firstmate supervisor docs · 6s
+  ⎿  $ ls ~/.claude/skills 2>/dev/null | head -50; ls ~/.claude/skills/push 2>/dev/null; grep -rl
+     "away-supervisor\|FIRSTMATE_OP" ~/.claude/skills ~/.claude/hooks ~/.claude/rules 2>/dev/null | head (5s · 52
+     lines)
+     (ctrl+b to run in background)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+· Transmuting… (16s · ↓ 807 tokens)
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_P…
+  Idle writing lanes supervis... · NO-GIT · opus/high · default · 4% · 5h20%/7d5% · $0.28
+  ⏵⏵ auto mode on (shift+tab to cycle)

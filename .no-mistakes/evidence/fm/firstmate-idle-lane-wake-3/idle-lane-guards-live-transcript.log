@@ -1,0 +1,9 @@
+[1 free lanes + 1 ready item] WAKE: check: idle writing lanes: 0/2 occupied, 0 working, 1 ready: lab-ready-one
+[2 same state again (repeat guard)] QUIET (no wake in 8s)
+[3 ready set changed] WAKE: check: idle writing lanes: 0/2 occupied, 0 working, 2 ready: lab-ready-one,lab-ready-two
+[4 both lanes occupied by ship crews] QUIET (no wake in 8s)
+    marker after full cap: removed
+[5 free lanes but empty backlog] QUIET (no wake in 8s)
+--- durable wake queue rows:
+1790404885	1	check	idle-writing-lanes	check: idle writing lanes: 0/2 occupied, 0 working, 1 ready: lab-ready-one
+1790404892	2	check	idle-writing-lanes	check: idle writing lanes: 0/2 occupied, 0 working, 2 ready: lab-ready-one,lab-ready-two

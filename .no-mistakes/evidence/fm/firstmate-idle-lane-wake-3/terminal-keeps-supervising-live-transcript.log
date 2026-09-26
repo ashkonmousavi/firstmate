@@ -1,0 +1,17 @@
+--- before: .afk=present buffer=needs-decision: lab held choice
+--- daemon exited rc=124 after 14s (124 would mean it kept holding supervision)
+--- daemon stdout/stderr:
+Terminated
+--- after: .afk STILL PRESENT
+--- after: escalation buffer: ''
+--- durable wake queue:
+--- real herdr notification calls (lab session):
+--- daemon log:
+[2026-09-25T23:40:50-0700] daemon starting (pid 805520); target=fm-lab-idlelane-681929-14215:w1:p1; target_source=FM_SUPERVISOR_TARGET; backend=herdr; backend_source=FM_SUPERVISOR_BACKEND; afk=on; inject_skip='heartbeat'; stale_escalate=999999s; batch=99999s
+[2026-09-25T23:40:51-0700] watcher non-wake stdout with no live peer watcher, retrying start once: watcher: already running pid 805502
+[2026-09-25T23:40:52-0700] watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: watcher: already running pid 805502
+[2026-09-25T23:40:54-0700] watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: watcher: already running pid 805502
+[2026-09-25T23:40:56-0700] watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: watcher: already running pid 805502
+[2026-09-25T23:40:58-0700] watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: watcher: already running pid 805502
+[2026-09-25T23:41:00-0700] watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: watcher: already running pid 805502
+[2026-09-25T23:41:04-0700] daemon shutting down

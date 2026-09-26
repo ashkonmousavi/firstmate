@@ -1,0 +1,3 @@
+ok - watcher wakes once for configured free writing lanes and a changed ready set, not for empty capacity or a cap filled by parked crews
+ok - watcher names only dispatchable ready rows, not public follow-up obligations
+rc=0

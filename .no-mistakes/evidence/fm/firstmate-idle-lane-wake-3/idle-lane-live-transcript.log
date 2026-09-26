@@ -1,0 +1,8 @@
+--- tasks-axi ready (the backlog the watcher reads) ---
+count: 1
+ready[1]{id,state,kind,repo,title}:
+  lab-ready-one,queued,ship,"-",Lab dispatchable item
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+daemon pid 732679

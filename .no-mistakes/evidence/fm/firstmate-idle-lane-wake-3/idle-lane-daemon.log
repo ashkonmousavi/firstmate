@@ -1,0 +1,3 @@
+[2026-09-25T23:39:48-0700] daemon starting (pid 732679); target=fm-lab-idlelane-681929-14215:w1:p1; target_source=FM_SUPERVISOR_TARGET; backend=herdr; backend_source=FM_SUPERVISOR_BACKEND; afk=on; inject_skip='heartbeat'; stale_escalate=999999s; batch=0s
+[2026-09-25T23:39:49-0700] wake: check: idle writing lanes: 0/2 occupied, 0 working, 1 ready: lab-ready-one
+[2026-09-25T23:39:50-0700] escalate: check: idle writing lanes: 0/2 occupied, 0 working, 1 ready: lab-ready-one -> check: idle writing lanes: 0/2 occupied, 0 working, 1 ready: lab-ready-one
