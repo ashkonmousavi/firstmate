@@ -223,17 +223,7 @@ None of these becomes a refusal to open the session.
 
 ## Harness transports
 
-| Harness | Tier | Tracked transport | Current compatibility |
-| --- | --- | --- | --- |
-| Claude | Run | `.claude/settings.json` registers one unmatched `SessionStart` hook, invoked through `CLAUDE_PROJECT_DIR` with a 180s timeout; the wrapper reads `source` from the hook payload. | Native stdout context injection is supported. |
-| Codex exec | Run | `.codex/hooks.json` anchors to the hook process working directory, verifies a Firstmate-shaped hook-bearing root, and pipes the hook payload into the wrapper with `--codex-hook` and a 180s timeout. | Native stdout context injection is supported under `codex exec`. |
-| Codex interactive TUI startup | Run on 0.154.0 | The same trusted tracked hook injects the digest before the first turn. | The prior 0.146.0 negative observation is superseded for startup on 0.154.0; interactive compaction and re-emit remain unverified. |
-| Pi / pi-signed | Run | `.pi/extensions/fm-primary-turnend-guard.ts` maps `session_start` reasons `startup`, `new`, `resume`, and `fork` onto wrapper sources, refines a Pi-reported `startup` to `resume` only when a continuation, resume-selection, or explicit-session flag accompanies a session header older than the current process, maps a fork flag to `fork`, and handles `session_compact` as the compaction equivalent; setup-created entries such as `--name` are not restoration evidence. | Each mapped session generation starts one native prerequisite, and `before_agent_start` awaits its matching result and returns one persistent context message before the first provider call; Pi's `reload` reason is deliberately unmapped, as it always was. |
-| OpenCode | Nudge | `.opencode/plugins/fm-primary-sessionstart-nudge.js` listens for `session.created`, runs once per session id, and calls `client.session.promptAsync` only when the wrapper prints a nudge. | Interactive TUI delivery is supported; headless `opencode run` is intentionally fail-open because the process can exit before the queued turn. That early exit is also why OpenCode cannot use the run tier. |
-| Grok | Nudge | `.grok/hooks/fm-primary-sessionstart-nudge.json` registers a project `SessionStart` hook and invokes the wrapper through inline-defaulted `${GROK_WORKSPACE_ROOT:-}`. | The project hook runs when the checkout is trusted, but Grok currently discards hook stdout from model context, so this path is intentionally fail-open and cannot use the run tier. |
-| Cursor | Run | `.cursor/hooks.json` registers `sessionStart`, anchored through `$CURSOR_PROJECT_DIR` with a 180s timeout, invoking `bin/fm-sessionstart-cursor.sh`. | Cursor's payload has no `source` field, so the registration supplies `--source` itself, and the adapter returns the digest as `additional_context`. Project hooks load only when the workspace is launched with `--trust`. |
-| omp | Run | `.omp/extensions/fm-primary-turnend-guard.ts`, auto-discovered from the home with no trust gate, starts the wrapper at `session_start` and has `before_agent_start` await it and return one persistent context message before the first provider call, exactly as Pi's does; `session_compact` is the compaction equivalent. | omp's `session_start` carries no reason field (verified 18.1.11), so the source is derived following the Cursor precedent: the first start of the process is `startup`, or `resume` when the launch line carried `--continue`/`-c` or `--resume`/`-r`; a later in-process start (`/new`, `/resume`, `/fork`) is `clear`, which re-emits only when this lock owner completed a full startup. `before_agent_start` message delivery was verified to reach model context on 18.1.11. |
-| Cursor compaction | Uncovered | None. | Cursor's `preCompact` response can return only `user_message` and is absent from Cursor's `additional_context` step set, so it cannot inject a re-emit digest. Delivering one needs its own design and is deliberately deferred to a follow-up; a Cursor primary does not re-emit its digest after a compaction. |
+Each subsection below gives one harness surface's tier, its tracked transport, and its current compatibility.
 
 ### Claude
 
@@ -249,7 +239,7 @@ The `.codex/hooks.json` transport does three things:
 
 1. It anchors to the hook process working directory.
 2. It verifies a Firstmate-shaped hook-bearing root.
-3. It pipes the hook payload into the wrapper with a 180s timeout.
+3. It pipes the hook payload into the wrapper with `--codex-hook` and a 180s timeout.
 
 Native stdout context injection is supported under `codex exec`.
 
@@ -375,7 +365,7 @@ So it cannot inject a re-emit digest.
 Delivering one needs its own design and is deliberately deferred to a follow-up.
 A Cursor primary does not re-emit its digest after a compaction.
 
-Cursor's compaction surface is uncovered in the same sense as [Codex's interactive TUI](#codex-interactive-tui).
+Cursor's compaction surface is uncovered in the same sense as [Codex's interactive TUI](#codex-interactive-tui) compaction.
 Firstmate registers nothing for `preCompact`.
 So a compacted Cursor session keeps whatever context survived rather than receiving a fresh digest.
 

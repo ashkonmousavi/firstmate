@@ -400,6 +400,7 @@ These cases fall back flat without mutating the old projection when duplicate-ag
 A live or unknown recorded or token-matched endpoint refuses duplicate launch.
 
 ### Startup cleanup of restored projections
+
 Locked session start has one narrower cleanup for a restored projected child that is no longer current task state.
 It runs only when the current home has at least one ordinary presentation journal, and it considers only that home.
 A primary never recursively sweeps a secondmate home.
@@ -641,7 +642,12 @@ ANSI capture preserves de-emphasized placeholder style.
 `bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
 Claude's Herdr transcript can end in a titled rule, a bare `❯` composer, and one closing rule; with native Claude idle or done identity, that adjacent shape is an empty composer, while typed text remains pending.
 Rows wrapped between that `❯` row and the closing rule are draft text and read pending, and the Claude pre-send and post-send payload proofs extract the same identity-gated shape so away-mode alerts can be delivered into it.
-If the ANSI capture ever fails, the plain fallback declares itself unstyled and the classifier degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input, which safely defers injection and eventually raises the wedge alarm.
+
+If the ANSI capture ever fails, the plain fallback declares itself unstyled.
+The classifier then degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input.
+That safely defers injection and eventually raises the wedge alarm.
+
+### Away-mode injection
 
 A bare shell prompt is never an empty agent composer.
 Away-mode injection proceeds only on an affirmative `empty` result, never on unknown.
