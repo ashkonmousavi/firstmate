@@ -163,9 +163,10 @@
 # closed with the owning library's vocabulary note
 # (fm_pending_reply_close_note_for_key / fm_pending_reply_resolved_note), so
 # the fold actually drops it; a bare answered: note is not a reserved-key
-# transition and is never written for those keys. When every --resolve-key is
-# a pending-reply key, the close carries that correlation token so the existing
-# expectation resolves, and the send does not mint a new one. If this send cannot produce
+# transition and is never written for those keys. Each pending-reply close
+# carries that key's correlation token so the existing expectation resolves,
+# and a send whose every --resolve-key is a pending-reply key does not mint a
+# new one. If this send cannot produce
 # a note the guard will accept, or the structural key would be lost to the
 # status-line cap, it refuses before sending and names the cause rather than
 # exiting 0 on a silent no-op. After a delivered close it also
