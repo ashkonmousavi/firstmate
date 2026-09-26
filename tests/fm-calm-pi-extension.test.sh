@@ -564,7 +564,6 @@ function makeSession({ missing = [], rejectPrompt = false } = {}) {
     },
     get isIdle() { return this.idle; },
   };
-  session.agent = { abort: () => session.abort() };
   for (const name of missing) delete session[name];
   return session;
 }
@@ -2481,7 +2480,7 @@ JS
 # The real-Pi counterpart of test_queued_operational_rows: a watcher notification queued
 # while a tool holds the turn, then Escape, exactly as a captain would press it.
 test_queued_operational_escape_e2e() {
-  local project home config sessions version pane pane_history session_file i
+  local project home config sessions version pane session_file i
   if ! command -v pi >/dev/null 2>&1 || ! command -v tmux >/dev/null 2>&1; then
     echo "skip: pi or tmux not found for Pi Calm queued-row Escape E2E"
     return 0
@@ -2505,7 +2504,6 @@ test_queued_operational_escape_e2e() {
   cp "$WORKING_SHIP_SPRITE" "$project/.pi/extensions/lib/fm-calm-working-ship-sprite.ts"
   cp "$PI_OPERATIONAL_INPUT" "$project/.pi/extensions/lib/fm-operational-input.ts"
   printf '%s\n' '{"followUpMode":"all"}' >"$config/settings.json"
-  printf '%s\n' '{"app.message.followUp":"ctrl+q"}' >"$config/keybindings.json"
 
   cat >"$project/queued-escape-e2e.ts" <<'TS'
 import { writeFileSync } from "node:fs";
@@ -2604,9 +2602,7 @@ TS
     [ -e "$held" ] || fail "Pi queued-row $label case never queued the monitoring notification"
     if [ "$captain_queued" = yes ]; then
       tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" -l "CAPTAIN_QUEUED_$label"
-      # The isolated Pi config binds follow-up to Ctrl+Q, which tmux can send
-      # without extended-key negotiation on every host.
-      tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" C-q
+      tmux -L "$TMUX_SOCKET" send-keys -t "$TMUX_SESSION" M-Enter
       wait_for_text "$TMP_ROOT/queued-escape-pane" "Follow-up: CAPTAIN_QUEUED_$label" \
         || fail "Pi queued-row $label case did not list the captain's queued follow-up"
     elif [ "$calm_state" = on ]; then
@@ -2638,12 +2634,7 @@ TS
       pane=$(cat "$TMP_ROOT/queued-escape-pane")
       assert_not_contains "$pane" "MONITOR_${label}_ONE" "Pi Calm exposed a hidden notification after Escape"
       assert_not_contains "$pane" "FIRSTMATE_OP" "Pi Calm exposed operational text after Escape"
-      # Pi 0.85.1 drains the retained follow-up itself after Escape. Pi 0.87.1
-      # stops its run loop and needs the adapter to announce the new turn.
-      if node -e 'const [major, minor, patch] = process.argv[1].split(".").map(Number); process.exit(major > 0 || minor > 87 || (minor === 87 && patch >= 1) ? 0 : 1)' "$version"; then
-        pane_history=$(tmux -L "$TMUX_SOCKET" capture-pane -p -S -200 -t "$TMUX_SESSION")
-        assert_contains "$pane_history" "Firstmate supervision continues in a new turn." "Pi Calm restarted a turn silently after Escape"
-      fi
+      assert_contains "$pane" "Firstmate supervision continues in a new turn." "Pi Calm restarted a turn silently after Escape"
       if [ "$captain_queued" = yes ]; then
         [ "$(tmux -L "$TMUX_SOCKET" capture-pane -p -t "$TMUX_SESSION" | grep -c "^CAPTAIN_QUEUED_$label *\$")" -eq 1 ] \
           || fail "Pi Calm did not return the captain's queued text to the editor on Escape"
@@ -2679,7 +2670,7 @@ JS
   run_queued_escape_case on queued_on no
   run_queued_escape_case on queued_mixed yes
   run_queued_escape_case off queued_off no
-  pass "Pi $version with Calm on keeps a queued Firstmate notification unlisted, out of the editor on Escape, and delivers it once, with a continuation notice when Calm starts a new turn; Calm off stays stock"
+  pass "Pi $version with Calm on keeps a queued Firstmate notification unlisted, out of the editor on Escape, and delivers it once in a new announced turn, while Calm off stays stock"
 }
 
 test_hidden_block_geometry_e2e() {
