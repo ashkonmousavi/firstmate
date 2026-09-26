@@ -163,7 +163,9 @@
 # closed with the owning library's vocabulary note
 # (fm_pending_reply_close_note_for_key / fm_pending_reply_resolved_note), so
 # the fold actually drops it; a bare answered: note is not a reserved-key
-# transition and is never written for those keys. If this send cannot produce
+# transition and is never written for those keys. When every --resolve-key is
+# a pending-reply key, the close carries that correlation token so the existing
+# expectation resolves, and the send does not mint a new one. If this send cannot produce
 # a note the guard will accept, or the structural key would be lost to the
 # status-line cap, it refuses before sending and names the cause rather than
 # exiting 0 on a silent no-op. After a delivered close it also
@@ -585,14 +587,30 @@ fm_send_hold_resolved_id() { # <task-id> <decision-key>
 
 # Close-note body for --resolve-key. Ordinary keys keep answered: <excerpt>.
 # A pending-reply-* key uses the owning library's vocabulary so the reserved-key
-# fold actually closes it (fm_pending_reply_close_note_for_key).
+# fold actually closes it (fm_pending_reply_close_note_for_key), and appends
+# the correlation token the existing resolver accepts.
 fm_send_resolve_close_note() { # <key> <excerpt>
-  local k=$1 excerpt=$2 owned
+  local k=$1 excerpt=$2 owned corr
   if owned=$(fm_pending_reply_close_note_for_key "$k" "$RESOLVE_TASK_ID" operator-resolve-key "$excerpt"); then
-    printf '%s' "$owned"
+    corr=${k#pending-reply-}
+    printf '%s %s' "$owned" "$(fm_pending_reply_corr_token "$corr")"
     return 0
   fi
   printf 'answered: %s' "$excerpt"
+}
+
+# 0 when this send only closes pending-reply keys, so it must not mint a new
+# reply expectation for the acknowledgement itself.
+fm_send_pending_reply_close_only() {
+  local k
+  [ -n "$RESOLVE_KEYS" ] || return 1
+  for k in $RESOLVE_KEYS; do
+    case "$k" in
+      pending-reply-*) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
 }
 
 if [ -n "$FIRE_AND_FORGET_ID" ]; then
@@ -726,6 +744,29 @@ fm_send_close_resolved_keys() { # <answer-text>
     esac
     i=$((i + 1))
   done
+  fm_send_settle_closed_pending_replies
+}
+
+# Resolve an existing pending-reply record whose key this send just closed.
+# A missing record is not an open expectation. A record that stays unresolved
+# is reported; the answer was already delivered, so it must not be resent.
+fm_send_settle_closed_pending_replies() {
+  local k corr rec phase
+  for k in $RESOLVE_STATUS_KEYS; do
+    case "$k" in
+      pending-reply-*) ;;
+      *) continue ;;
+    esac
+    corr=${k#pending-reply-}
+    rec=$(fm_pending_reply_path "$STATE" "$corr")
+    [ -f "$rec" ] || continue
+    phase=$(fm_pending_reply_get "$rec" phase)
+    [ "$phase" != resolved ] || continue
+    if ! fm_pending_reply_try_resolve "$STATE" "$corr" "$RESOLVE_STATUS_FILE"; then
+      echo "error: the answer was delivered and decision key '$k' was closed, but pending-reply expectation $corr is still open. Do not resend the answer." >&2
+      return 1
+    fi
+  done
 }
 
 # Feed the answered captain-held tasks to the ONE keyed-answer intake, as keyed
@@ -813,6 +854,10 @@ else
     fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
     MESSAGE="${FM_FROMFIRST_MARK}delivery=${FIRE_AND_FORGET_ID} ${MESSAGE#"$FM_FROMFIRST_MARK"}"
     FM_SEND_IDEMPOTENT=1
+  elif [ "$MARK_FROM_FIRSTMATE" = 1 ] && fm_send_pending_reply_close_only; then
+    # The acknowledgement closes the expectation. Mark it so the mate reads it
+    # as a parent message, and do not mint a replacement expectation.
+    fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
   elif [ "$MARK_FROM_FIRSTMATE" = 1 ]; then
     # Reuse an existing correlation id for recovery resends; otherwise create a
     # durable parent expectation before delivery. Transport success never

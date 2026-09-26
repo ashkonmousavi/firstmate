@@ -905,6 +905,61 @@ test_decision_answer_partition_relocates_under_the_record() {
   pass "fm-send --resolve-key: a decision answer refuses the attended branch before sending, a blocked: key stays steering, and the away-posture record relocates the answer"
 }
 
+# Closing a secondmate pending-reply key must settle that expectation and must
+# not mint another one for the acknowledgement.
+test_secondmate_pending_reply_close_leaves_no_open_expectation() {
+  local dir fb log home rc out key corr rec phase open got
+  dir="$TMP_ROOT/pr-close"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-close)
+  corr=abcdef0123456789
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-missed: task=guide pending-reply-id=%s request=ship it\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=ship it
+delivered_epoch=1
+phase=escalated
+escalated_epoch=1
+EOF
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "ack, false escalation"; rc=$?
+  expect_code 0 "$rc" "closing a secondmate pending-reply key should succeed"
+  open=0
+  for rec in "$home/state/pending-replies"/*; do
+    [ -f "$rec" ] || continue
+    case "$(basename "$rec")" in .*) continue ;; esac
+    phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+    [ "$phase" = resolved ] || open=$((open + 1))
+  done
+  [ "$open" -eq 0 ] || fail "the close left $open open pending-reply expectation(s): $(ls -1 "$home/state/pending-replies")"
+  phase=$(grep '^phase=' "$home/state/pending-replies/$corr" | tail -1 | cut -d= -f2-)
+  [ "$phase" = resolved ] || fail "the closed expectation stayed at phase=$phase"
+  [ "$(find "$home/state/pending-replies" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d ' ')" = 1 ] \
+    || fail "the close minted another pending-reply record"
+  got=$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$home/state/guide.inbox/001.msg")
+  case "$got" in
+    "$FM_FROMFIRST_MARK"*) : ;;
+    *) fail "the close acknowledgement lost its from-firstmate marker: $got" ;;
+  esac
+  case "$got" in
+    *corr=*) fail "the close acknowledgement minted a correlation token: $got" ;;
+  esac
+  out=$(drain_out "$home")
+  if printf '%s' "$out" | grep -F 'OPEN DECISIONS' >/dev/null; then
+    fail "the pending-reply decision stayed open: $out"
+  fi
+  pass "fm-send --resolve-key on a secondmate pending-reply key leaves no open expectation"
+}
+
 test_answer_send_closes_open_decision
 test_answer_close_is_self_announced
 test_separate_resolve_key_answers_do_not_rewake
@@ -929,3 +984,4 @@ test_stamped_close_line_stays_within_the_status_line_cap
 test_failed_close_recovery_command_is_shell_safe
 test_remote_reserved_pending_reply_key_closes_locally
 test_decision_answer_partition_relocates_under_the_record
+test_secondmate_pending_reply_close_leaves_no_open_expectation

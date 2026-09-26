@@ -464,6 +464,8 @@ test_active_dispatch_profile_allows_raw_launch_command() {
   rec=$(make_spawn_case profile-raw claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data/$id"
+  printf '%s\n' 'captain chose custom-agent for this task' > "$HOME_DIR/data/$id/dispatch-override"
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" "custom-agent --flag")
@@ -812,6 +814,9 @@ test_batch_preserves_native_ultra() {
   rec=$(make_spawn_case ultra-batch pi "$id1" "$id2")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data/$id1" "$HOME_DIR/data/$id2"
+  printf '%s\n' 'captain chose native ultra for this batch' > "$HOME_DIR/data/$id1/dispatch-override"
+  printf '%s\n' 'captain chose native ultra for this batch' > "$HOME_DIR/data/$id2/dispatch-override"
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness pi --model codex-native/gpt-6-astra --effort ultra)
   expect_code 0 "$?" "native Ultra batch failed: $out"
@@ -1198,6 +1203,41 @@ test_active_dispatch_profile_does_not_block_secondmate_launch() {
   assert_grep "kind=secondmate" "$HOME_DIR/state/$id.meta" "secondmate meta missing kind=secondmate"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex default default
   pass "active crew-dispatch profile does not block secondmate launches"
+}
+
+test_off_table_harness_refuses_unless_captain_override_is_recorded() {
+  local rec id out status
+  id=off-table-refuse-z17
+  rec=$(make_spawn_case off-table-refuse claude "$id")
+  read_case_record "$rec"
+  enable_dispatch_profile "$HOME_DIR"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 1 "$status" "an off-table model should refuse when no override is recorded: $out"
+  assert_contains "$out" "does not match crew-dispatch rule default" "the refusal should name the selected rule"
+  assert_absent "$HOME_DIR/state/$id.meta" "an off-table refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 0 "$status" "rule 0's selected profile should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4 high
+  rm -f "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.busy-gen" "$HOME_DIR/state/$id.busy-state"
+
+  id=off-table-override-z18
+  rec=$(make_spawn_case off-table-override claude "$id")
+  read_case_record "$rec"
+  enable_dispatch_profile "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data/$id"
+  printf '%s\n' 'captain chose grok-4.5 for this task' > "$HOME_DIR/data/$id/dispatch-override"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4.5 --effort high)
+  status=$?
+  expect_code 0 "$status" "a recorded captain override should accept an off-table model: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4.5 high
+  pass "fm-spawn refuses an off-table model and accepts it with the recorded override"
 }
 
 # Execute the actual emitted command in a synthetic pane environment: the
@@ -1849,5 +1889,6 @@ test_claude_long_launch_is_delivered_intact
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
+test_off_table_harness_refuses_unless_captain_override_is_recorded
 
 echo "# all fm-spawn-dispatch-profile tests passed"

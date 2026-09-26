@@ -1016,7 +1016,10 @@ A selected Grok Bot target instead goes through `bin/fm-grok-bot-dispatch.sh` as
 **Spawn requirements**
 
 - When the file exists, `fm-spawn.sh` enforces that contract by refusing crewmate and scout spawns that lack an explicit harness (`--harness`, a positional adapter, or a raw launch command).
-- Batch spawns satisfy the same requirement with a shared `--harness`.
+- The same spawn refuses a harness/model that does not match the profile `bin/fm-dispatch-select.sh` prints for `--dispatch-rule` (omitted means `default`).
+- `data/<id>/dispatch-override`, a non-empty regular file and not a symlink, records an explicit captain override and is the only way past that match.
+- Relaunch does not re-apply the match; it keeps the harness intake already accepted.
+- Batch spawns satisfy the same requirement with a shared `--harness` and, when set, a shared `--dispatch-rule`.
 - Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
 
 **Contract owners**

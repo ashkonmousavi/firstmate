@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>]
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
@@ -178,7 +178,11 @@
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch
-#   profile consultation. A --secondmate spawn is exempt and resolves the SECONDMATE
+#   profile consultation, and that harness/model must match the profile
+#   bin/fm-dispatch-select.sh returns for --dispatch-rule (omitted means default).
+#   data/<id>/dispatch-override, a non-empty regular file, is the recorded
+#   captain override that allows any other harness/model. Relaunch does not
+#   re-apply the match. A --secondmate spawn is exempt and resolves the SECONDMATE
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin)
@@ -672,6 +676,8 @@ KIND=ship
 KIND_SET=0
 HARNESS_ARG=
 MODEL=
+DISPATCH_RULE=default
+DISPATCH_RULE_SET=0
 EFFORT=
 BACKEND_ARG=
 MODE=
@@ -705,6 +711,10 @@ for a in "$@"; do
     model)
       MODEL=$a
       MODEL_SET=1
+      ;;
+    dispatch-rule)
+      DISPATCH_RULE=$a
+      DISPATCH_RULE_SET=1
       ;;
     effort)
       EFFORT=$a
@@ -757,6 +767,11 @@ for a in "$@"; do
   --model=*)
     MODEL=${a#--model=}
     MODEL_SET=1
+    ;;
+  --dispatch-rule) want_value=dispatch-rule ;;
+  --dispatch-rule=*)
+    DISPATCH_RULE=${a#--dispatch-rule=}
+    DISPATCH_RULE_SET=1
     ;;
   --effort) want_value=effort ;;
   --effort=*)
@@ -840,6 +855,13 @@ case "$EFFORT" in
 '' | low | medium | high | xhigh | max | ultra) ;;
 *)
   echo "error: --effort must be one of low, medium, high, xhigh, max, ultra" >&2
+  exit 1
+  ;;
+esac
+case "$DISPATCH_RULE" in
+default | 0 | [1-9] | [1-9][0-9]*) ;;
+*)
+  echo "error: --dispatch-rule must be default or a zero-based rule index" >&2
   exit 1
   ;;
 esac
@@ -1513,6 +1535,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
+  [ "$DISPATCH_RULE_SET" -eq 0 ] || shared_args+=(--dispatch-rule "$DISPATCH_RULE")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
@@ -2301,6 +2324,52 @@ case "$ARG3" in
   }
   ;;
 esac
+
+# Ship and scout intake must launch the profile the dispatch table selected.
+# docs/configuration.md "Crew dispatch profiles" owns the rule file.
+# data/<id>/dispatch-override records an explicit captain override.
+# Relaunch keeps the harness intake already accepted.
+spawn_enforce_dispatch_table() {
+  local override rule out rc selected want_h want_m
+  [ "$KIND" = secondmate ] && return 0
+  [ "$RELAUNCH" -eq 1 ] && return 0
+  [ -f "$CONFIG/crew-dispatch.json" ] || return 0
+  override="$DATA/$ID/dispatch-override"
+  if [ -f "$override" ] && [ ! -L "$override" ] && [ -s "$override" ]; then
+    return 0
+  fi
+  rule=$DISPATCH_RULE
+  rc=0
+  out=$("$FM_ROOT/bin/fm-dispatch-select.sh" "$CONFIG/crew-dispatch.json" "$rule" 2>&1) || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "error: spawn refused - crew-dispatch rule '$rule' did not resolve through bin/fm-dispatch-select.sh: $out" >&2
+    return 1
+  fi
+  case "$out" in
+    *"selection: quota-balanced"*)
+      echo "error: spawn refused - crew-dispatch rule '$rule' is quota-balanced and names no ordered profile; record an explicit captain override at $override or choose an ordered rule" >&2
+      return 1
+      ;;
+  esac
+  selected=$(printf '%s\n' "$out" | sed -n 's/^selected\[[0-9][0-9]*]: //p' | head -1)
+  if [ -z "$selected" ]; then
+    echo "error: spawn refused - crew-dispatch rule '$rule' produced no selected profile: $out" >&2
+    return 1
+  fi
+  want_h=$(printf '%s' "$selected" | jq -er '.harness // empty') || {
+    echo "error: spawn refused - crew-dispatch rule '$rule' selected a profile spawn cannot launch: $selected" >&2
+    return 1
+  }
+  want_m=$(printf '%s' "$selected" | jq -r 'if has("model") and (.model | type) == "string" then .model else "" end') || {
+    echo "error: spawn refused - crew-dispatch rule '$rule' selected an unreadable profile: $selected" >&2
+    return 1
+  }
+  if [ "$HARNESS" != "$want_h" ] || [ "$MODEL" != "$want_m" ]; then
+    echo "error: spawn refused - $HARNESS/${MODEL:-<none>} does not match crew-dispatch rule $rule selected profile $want_h/${want_m:-<none>}; record the captain's explicit override at $override or pass that profile" >&2
+    return 1
+  fi
+}
+spawn_enforce_dispatch_table || exit 1
 
 # muse, gemini, agy, and devin are verified as CREWMATE/SCOUT adapters only. A secondmate is
 # a firstmate instance, so it needs a primary supervision protocol.

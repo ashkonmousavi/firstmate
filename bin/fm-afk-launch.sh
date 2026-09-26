@@ -266,8 +266,33 @@ fm_afk_launch_host_engine_note() {
     "$FM_SUPERVISION_ENGINE_PROBLEM"
 }
 
+# 0 when every blocker row in the gate is a routine no-reply pending-reply
+# notice and the gate records nothing else that would hold return.
+# An empty gate, a lifecycle or evidence row, or any real blocker stays pending.
+fm_afk_launch_gate_only_routine_notices() {  # <gate-file>
+  local file=$1 tag id key summary saw=0
+  [ -f "$file" ] && [ ! -L "$file" ] || return 1
+  while IFS="$(printf '\t')" read -r tag id key summary; do
+    [ -n "$tag" ] || continue
+    case "$tag" in
+      schema|started|phase|window|contract) continue ;;
+      blocker)
+        saw=1
+        _fm_pending_reply_routine_noreply_notice "$key" "$summary" || return 1
+        ;;
+      *) return 1 ;;
+    esac
+  done < "$file"
+  [ "$saw" -eq 1 ]
+}
+
 fm_afk_launch_catchup_pending() {
-  if [ -e "$FM_AFK_LAUNCH_STATE/.afk-return-catchup" ]; then
+  local gate="$FM_AFK_LAUNCH_STATE/.afk-return-catchup"
+  if [ -e "$gate" ]; then
+    if fm_afk_launch_gate_only_routine_notices "$gate"; then
+      rm -f -- "$gate" || return 0
+      return 1
+    fi
     fm_afk_launch_log "return catch-up is still pending; run bin/fm-afk-return.sh check before re-entering away mode"
     return 0
   fi
