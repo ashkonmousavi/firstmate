@@ -168,7 +168,10 @@
 # open escalation is a missed reply carries that key's correlation token so
 # the existing expectation resolves, and a send whose every --resolve-key is
 # such a close does not mint a new one. A delivery-unknown or
-# recovery-delivery close mints and guards as before.
+# recovery-delivery close mints and guards as before. A settling close whose
+# capped record would lose that token or names pending-reply-missed refuses
+# before sending, and an expectation still open after a delivered settling
+# close fails loudly without asking for a resend.
 # If this send cannot produce
 # a note the guard will accept, or the structural key would be lost to the
 # status-line cap, it refuses before sending and names the cause rather than
