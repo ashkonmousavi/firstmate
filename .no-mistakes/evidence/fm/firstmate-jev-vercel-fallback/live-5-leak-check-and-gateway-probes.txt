@@ -1,0 +1,10 @@
+# Leak check: grep for fake key strings in every live transcript
+fake-ts-ZZZ123: absent from all stdout/stderr
+fake-gw-QQQ789: absent from all stdout/stderr
+fake-gw-DOTENV456: absent from all stdout/stderr
+
+# Control probes (raw curl, same fake gateway key via fd header)
+POST /typesafe/v1/systemone with fake key -> 400 {"message":"state: Invalid input","error_type":"invalid_request"}
+POST /typesafe/v1/does-not-exist-xyz with fake key -> 404 <!DOCTYPE html><html data-dpl-id="dpl_DzURojwZmHRYafCD4NhBhoBEZ4DN"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="script" fe
+POST /nonsense-route-xyz with fake key -> 404 <!DOCTYPE html><html data-dpl-id="dpl_DzURojwZmHRYafCD4NhBhoBEZ4DN"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="script" fe
+POST /typesafe/v1/systemone with NO auth header -> 400 {"message":"state: Invalid input","error_type":"invalid_request"}

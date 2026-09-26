@@ -1,0 +1,5 @@
+$ env -i PATH=... FM_HOME=$LAB/home  bin/fm-dispatch-resolve.sh brief.md --project live-lab
+exit=0
+--- stdout
+--- stderr
+dispatch-resolve: off (TYPESAFE_API_KEY absent from the environment and /tmp/fm-dr-live.V021HN/home/.env)

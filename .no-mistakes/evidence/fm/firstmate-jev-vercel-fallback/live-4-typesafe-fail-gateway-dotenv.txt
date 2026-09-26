@@ -1,0 +1,8 @@
+$ env -i PATH=... FM_HOME=$LAB/home TYPESAFE_API_KEY=fake-ts-ZZZ123 bin/fm-dispatch-resolve.sh brief.md --project live-lab
+exit=0
+--- stdout
+dispatch-resolve:
+  status: error
+  reason: typesafe http 401 after 72 ms: {"detail":{"error_type":"authentication_error","message":"Cannot authenticate with the server. Please check your API key and try again."}}; vercel http 401 after 293 ms: {"message":"Authentication failed","error_type":"authentication_error"}
+--- stderr
+dispatch-resolve: error (typesafe http 401 after 72 ms: {"detail":{"error_type":"authentication_error","message":"Cannot authenticate with the server. Please check your API key and try again."}}; vercel http 401 after 293 ms: {"message":"Authentication failed","error_type":"authentication_error"})

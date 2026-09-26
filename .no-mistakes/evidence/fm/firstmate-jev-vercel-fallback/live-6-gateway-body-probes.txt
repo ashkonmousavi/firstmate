@@ -1,0 +1,4 @@
+# Gateway probes with the exact Choice body the resolver builds (model typesafe-ai/jev)
+no Authorization header -> 401 {"message":"Authentication failed","error_type":"authentication_error"}
+fake bearer via fd 3 -> 401 {"message":"Authentication failed","error_type":"authentication_error"}
+fake bearer, bogus model id -> 401 {"message":"Authentication failed","error_type":"authentication_error"}
