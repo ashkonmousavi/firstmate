@@ -623,6 +623,9 @@ Secondmate homes inherit this file from the primary, so a secondmate's own crewm
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.
 It is off unless `TYPESAFE_API_KEY` is non-empty in the calling environment or the home's gitignored `.env` holds a `TYPESAFE_API_KEY=` line; the environment wins, matching the Relay and mail-plane contracts, and the Relay accessor in `bin/fm-env-lib.sh` reads the line.
+When TypeSafe returns a non-200 response or a request times out or fails, the resolver retries once through Vercel AI Gateway if `AI_GATEWAY_API_KEY` is present in the environment or the home's `.env`; the environment wins.
+Both requests send the same Jev Choice state and question, with the gateway's `typesafe-ai/jev` model identifier in place of the direct call's `jev-latest`; the result's `provider:` line names `typesafe` or `vercel` according to the answer used.
+If both requests fail, `error` names both HTTP or transport outcomes; without a fallback key, the TypeSafe error is returned directly.
 Off means one `dispatch-resolve: off` line on stderr, nothing on stdout, exit 0, and no network call, so firstmate dispatches exactly as it does without the tool.
 This section is the single owner of the tool's operator contract; the script header owns its exact flags and output lines, and "Crew dispatch profiles" above owns the declared rule and profile fields it applies.
 Rules come only from the effective home's `config/crew-dispatch.json`; `FM_CONFIG_OVERRIDE` selects the config directory for tests and specialized setup like the other scripts.
@@ -658,9 +661,9 @@ On `clear`, firstmate takes the tool's answer as the matched rule, where `rule_<
 Firstmate then resolves that rule's profile under its `select` mode above: `bin/fm-dispatch-select.sh` for an ordered rule, while the tool's own `profile:` line serves only an explicit `quota-balanced` rule and is passed unless firstmate states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note.
 The tool's floor, approval, and quota evidence therefore bind an ordered rule only through the rule it names; every non-clear result returns to the full existing intake.
 
-The resolver and bootstrap copy an environment-provided key into a non-exported private variable and unset `TYPESAFE_API_KEY` before launching child processes, so the secret is absent from child environments.
-The resolver sends the key to `curl` only as a header read from a file descriptor, never on argv, and nothing prints, logs, or writes it.
-The resolver fixes the endpoint at `https://api.typesafe.ai`, model at `jev-latest`, default confidence floor at 0.6, and request timeout at 5 seconds; `TYPESAFE_API_KEY` is its only resolver-specific environment setting.
+The resolver copies both environment-provided keys into non-exported private variables and unsets `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` before launching child processes, so the secrets are absent from child environments.
+It sends each key to `curl` only as a header read from a file descriptor, never on argv, and nothing prints, logs, or writes either key.
+The resolver fixes the direct endpoint at `https://api.typesafe.ai/v1/systemone`, the fallback endpoint at `https://ai-gateway.vercel.sh/typesafe/v1/systemone`, default confidence floor at 0.6, and each request timeout at 5 seconds.
 The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`](verification/dispatch-resolve.md).
 
 ## Toolchain

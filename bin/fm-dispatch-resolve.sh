@@ -10,11 +10,12 @@
 #   accessor as FMX_PAIRING_TOKEN (bin/fm-env-lib.sh). The environment wins.
 #   Absent in both: one "dispatch-resolve: off" line on stderr, nothing on
 #   stdout, exit 0, no network call, so firstmate dispatches exactly as today.
-#   The key lives in one shell variable and reaches curl as a header read from
-#   a file descriptor, never on argv; nothing logs or writes it.
+#   Both provider keys reach curl as headers read from a file descriptor,
+#   never on argv; nothing logs or writes them.
 #
-# What it does when on with at least one rule: one POST to
-#   https://api.typesafe.ai/v1/systemone with the project name and the brief's
+# What it does when on with at least one rule: POST to TypeSafe first, then
+#   retry once through Vercel AI Gateway when TypeSafe fails and
+#   AI_GATEWAY_API_KEY is available, with the project name and the brief's
 #   `## Captain's intent` and `## Firstmate spec` sections, tagged when it is a
 #   scout brief (the whole brief when it has neither section), as state and
 #   ONE Choice question whose options are every rule's `when` from
@@ -38,7 +39,7 @@
 # Output (stdout, TOON-style block):
 #   dispatch-resolve:
 #     status: clear | ambiguous | escalate | error
-#     model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
+#     provider, model/latency_ms/tokens, rule (when excerpt) and confidence, probabilities
 #     fallback: <runner-up rule taken when the picked rule missed its own floor>
 #     reason: <why the status is not clear>
 #     candidate: <harness>:<model> provider=.. scope=.. remaining=..% spendPriority=.. runway=.. -> eligible | eligible, unranked: <reason> | not eligible: <reason>
@@ -56,7 +57,7 @@
 #   actionable, never selected around.
 #
 # Environment:
-#   TYPESAFE_API_KEY is the only resolver-specific environment setting.
+#   TYPESAFE_API_KEY enables resolution; AI_GATEWAY_API_KEY enables fallback.
 #
 # Authority: this tool never replaces firstmate's judgment, quota-array-dispatch,
 #   the captain-approval gate, or fm-spawn.sh validation; it publishes one
@@ -66,6 +67,9 @@ set -u
 TYPESAFE_API_KEY_PRIVATE=${TYPESAFE_API_KEY:-}
 export -n TYPESAFE_API_KEY_PRIVATE 2>/dev/null || true
 unset TYPESAFE_API_KEY
+AI_GATEWAY_API_KEY_PRIVATE=${AI_GATEWAY_API_KEY:-}
+export -n AI_GATEWAY_API_KEY_PRIVATE 2>/dev/null || true
+unset AI_GATEWAY_API_KEY
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
@@ -85,7 +89,9 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 
 CONFIDENCE_FLOOR=0.6
 TS_MODEL=jev-latest
+VERCEL_MODEL=typesafe-ai/jev
 TS_BASE=https://api.typesafe.ai
+VERCEL_BASE=https://ai-gateway.vercel.sh/typesafe
 TS_TIMEOUT=5
 DEFAULT_WHEN="No listed rule applies to this task."
 
@@ -230,7 +236,11 @@ RULE_COUNT=$(jq -r '(.rules // []) | length' "$RULES")
 emit_error() {
   local reason=$1
   echo "dispatch-resolve: error ($reason)" >&2
-  printf 'dispatch-resolve:\n  status: error\n  reason: %s\n' "$reason"
+  printf 'dispatch-resolve:\n  status: error\n'
+  if [ -n "${ANSWER_PROVIDER:-}" ]; then
+    printf '  provider: %s\n' "$ANSWER_PROVIDER"
+  fi
+  printf '  reason: %s\n' "$reason"
   exit 0
 }
 
@@ -267,6 +277,7 @@ else
   cp "$BRIEF" "$TASK_TEXT" || die "could not read brief: $BRIEF"
 fi
 LAT_MS=null
+ANSWER_PROVIDER=''
 command -v curl >/dev/null 2>&1 || emit_error "curl not installed"
   REQUEST=$(jq -n --rawfile brief "$TASK_TEXT" --arg project "$PROJECT" --arg model "$TS_MODEL" \
     --arg none_criterion "$DEFAULT_WHEN" --slurpfile rules "$RULES" '
@@ -290,7 +301,23 @@ command -v curl >/dev/null 2>&1 || emit_error "curl not installed"
     --data-binary @- 2>/dev/null) || HTTP=000
   T1=$(fm_timing_now_ms)
   LAT_MS=$(( T1 - T0 ))
-  [ "$HTTP" = 200 ] || emit_error "http $HTTP after ${LAT_MS} ms: $(head -c 200 "$RESP_FILE" 2>/dev/null | tr '\n' ' ')"
+  if [ "$HTTP" != 200 ]; then
+    primary_reason="http $HTTP after ${LAT_MS} ms"
+    if [ -z "$AI_GATEWAY_API_KEY_PRIVATE" ]; then
+      AI_GATEWAY_API_KEY_PRIVATE=$(fmx_env_get AI_GATEWAY_API_KEY "$FM_HOME/.env")
+    fi
+    [ -n "$AI_GATEWAY_API_KEY_PRIVATE" ] || emit_error "$primary_reason"
+    HTTP=$(printf '%s' "$REQUEST" | jq -c --arg model "$VERCEL_MODEL" '.model = $model' | curl -sS --max-time "$TS_TIMEOUT" -o "$RESP_FILE" -w '%{http_code}' \
+      -X POST "$VERCEL_BASE/v1/systemone" -H 'Content-Type: application/json' \
+      -H @/dev/fd/3 3< <(printf 'Authorization: Bearer %s\n' "$AI_GATEWAY_API_KEY_PRIVATE") \
+      --data-binary @- 2>/dev/null) || HTTP=000
+    T2=$(fm_timing_now_ms)
+    LAT_MS=$(( T2 - T0 ))
+    [ "$HTTP" = 200 ] || emit_error "typesafe $primary_reason; vercel http $HTTP after $(( T2 - T1 )) ms"
+    ANSWER_PROVIDER=vercel
+  else
+    ANSWER_PROVIDER=typesafe
+  fi
 jq -e --slurpfile rules "$RULES" '
     (($rules[0].rules | to_entries | map("rule_" + ((.key + 1) | tostring))) + ["default"] | sort) as $choices |
     (.answers.rule.choice | type) == "string" and
@@ -312,7 +339,7 @@ quota-axi --json > "$QUOTA" 2>/dev/null || emit_error "quota-axi --json failed"
 fm_quota_json_valid < "$QUOTA" || emit_error "quota-axi --json returned an invalid snapshot"
 
 # ---- resolution: declared gates + quota evidence + argmax, all in jq ------------
-RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" \
+RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg provider "$ANSWER_PROVIDER" --arg none_criterion "$DEFAULT_WHEN" --argjson pmap "$PMAP" \
   --slurpfile resp "$RESP_FILE" --slurpfile rules "$RULES" --slurpfile quota "$QUOTA" "$FM_QUOTA_ROW_JQ"'
   ($resp[0]) as $r | ($rules[0]) as $cfg | ($quota[0]) as $q | ($r.answers.rule) as $a |
   def profiles($v): if ($v | type) == "array" then $v elif ($v | type) == "object" then [$v] else [] end;
@@ -427,7 +454,7 @@ RESULT=$(jq -n --arg floor "$CONFIDENCE_FLOOR" --argjson lat "$LAT_MS" --arg non
    else {source: $choice, use: profiles($rule.use), note: "rule matched"} end) as $sel |
   def when_of($c): (if rule_at($c) == null then $none_criterion else rule_at($c).when end | .[0:60]);
   {
-    model: $r.model, latency_ms: $lat, tokens: ($r.usage // null),
+    provider: $provider, model: $r.model, latency_ms: $lat, tokens: ($r.usage // null),
     rule: $picked,
     rule_when: when_of($picked),
     confidence: $a.confidence, probabilities: $a.probabilities
@@ -465,6 +492,7 @@ TEXT=$(jq -r '
   def shell_arg: flat | @sh;
   "dispatch-resolve:",
   "  status: \(.status | flat)",
+  "  provider: \(.provider | flat)",
   "  model: \(show(.model))   latency_ms: \(show(.latency_ms))   tokens: \(show(.tokens.input_tokens))/\(show(.tokens.output_tokens))",
   "  rule: \(.rule | flat) (\(.rule_when | flat))   confidence: \(.confidence | flat)",
   "  probabilities: \([.probabilities | to_entries[] | "\(.key | flat)=\(.value | flat)"] | join(" "))",
