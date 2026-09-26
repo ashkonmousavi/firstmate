@@ -185,7 +185,9 @@
 #   data/<id>/dispatch-override, a non-empty regular file, is the recorded
 #   captain override that allows any other harness/model/effort. A relaunch on
 #   the recorded harness/model/effort skips the match; a relaunch that changes
-#   any of them must pass it. A --secondmate spawn is exempt and resolves the SECONDMATE
+#   any of them must pass it against the rule recorded as dispatch_rule= in the
+#   task meta at spawn (default when none is recorded), and refuses
+#   --dispatch-rule. A --secondmate spawn is exempt and resolves the SECONDMATE
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin)
@@ -892,6 +894,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
   }
   [ "$BRANCH_PREFIX_SET" -eq 0 ] || {
     echo "error: --relaunch reuses the task's recorded ship branch; --branch-prefix cannot override it" >&2
+    exit 1
+  }
+  [ "$DISPATCH_RULE_SET" -eq 0 ] || {
+    echo "error: --relaunch reuses the task's recorded dispatch rule; --dispatch-rule cannot override it" >&2
     exit 1
   }
 else
@@ -2331,13 +2337,16 @@ esac
 # Ship and scout intake must pass the crew-dispatch table check owned by
 # bin/fm-dispatch-guard-lib.sh. A relaunch on the recorded harness/model/effort
 # keeps the profile intake already accepted; a relaunch that changes any of
-# them is checked again (bin/fm-control.sh runs the same check before it stops
+# them is checked again against the task's recorded dispatch_rule, or default
+# when none is recorded (bin/fm-control.sh runs the same check before it stops
 # the running agent).
 spawn_enforce_dispatch_table() {
-  local prior_m prior_e
+  local prior_m prior_e rule=$DISPATCH_RULE
   [ "$KIND" = secondmate ] && return 0
   [ -f "$CONFIG/crew-dispatch.json" ] || return 0
   if [ "$RELAUNCH" -eq 1 ]; then
+    rule=$(fm_meta_get "$RELAUNCH_META" dispatch_rule)
+    [ -n "$rule" ] || rule=default
     prior_m=$(fm_meta_get "$RELAUNCH_META" model)
     prior_e=$(fm_meta_get "$RELAUNCH_META" effort)
     [ "$prior_m" != default ] || prior_m=
@@ -2349,7 +2358,7 @@ spawn_enforce_dispatch_table() {
   # shellcheck source=bin/fm-dispatch-guard-lib.sh
   . "$SCRIPT_DIR/fm-dispatch-guard-lib.sh"
   fm_dispatch_table_admits "$FM_ROOT/bin" "$CONFIG/crew-dispatch.json" "$DATA/$ID/dispatch-override" \
-    "$DISPATCH_RULE" "$HARNESS" "$MODEL" "$EFFORT"
+    "$rule" "$HARNESS" "$MODEL" "$EFFORT"
 }
 spawn_enforce_dispatch_table || exit 1
 
@@ -4903,6 +4912,11 @@ preserve_relaunch_meta() {
   # task record stays byte-identical.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
+  # The dispatch rule a ship or scout was checked against, only while the
+  # table is active; a relaunch carries it forward as an unowned key.
+  if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ -f "$CONFIG/crew-dispatch.json" ]; then
+    echo "dispatch_rule=$DISPATCH_RULE"
+  fi
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
   # Default-off writes no traceparent= line.

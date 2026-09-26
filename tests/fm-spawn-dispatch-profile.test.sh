@@ -1260,6 +1260,7 @@ test_any_live_candidate_of_the_rule_spawns() {
   status=$?
   expect_code 0 "$status" "the rule's fallback candidate should spawn: $out"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
+  assert_grep "dispatch_rule=0" "$HOME_DIR/state/$id.meta" "meta missing the dispatch rule the spawn was checked against"
   rm -f "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.busy-gen" "$HOME_DIR/state/$id.busy-state"
 
   id=rule-quota-z20

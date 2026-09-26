@@ -1019,7 +1019,8 @@ A selected Grok Bot target instead goes through `bin/fm-grok-bot-dispatch.sh` as
 - The same spawn refuses a harness, model, and effort that match none of the candidate profiles of the `--dispatch-rule` rule (omitted means `default`), so the profile `bin/fm-dispatch-select.sh` prints, including a later candidate it chose from intake facts or one quota-array-dispatch picked, always passes; a candidate with `"off": true` or a Grok Bot target does not.
 - When the file has no `default`, the `default` rule instead accepts the static crew harness `bin/fm-harness.sh crew` resolves, a bare adapter name with no model.
 - `data/<id>/dispatch-override`, a non-empty regular file and not a symlink, records an explicit captain override and is the only way past that match.
-- A relaunch on the recorded harness, model, and effort skips the match; a relaunch that changes any of them must pass it, or carry the override.
+- A spawn records the rule it was checked against as `dispatch_rule=` in the task record.
+- A relaunch on the recorded harness, model, and effort skips the match; a relaunch that changes any of them must match a candidate of that recorded rule (`default` when none is recorded), or carry the override.
 - Batch spawns satisfy the same requirement with a shared `--harness` and, when set, a shared `--dispatch-rule`.
 - Secondmate spawns are exempt and still resolve through `config/secondmate-harness` and its optional model and effort tokens.
 

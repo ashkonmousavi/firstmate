@@ -1123,6 +1123,28 @@ test_spawn_relaunch_rechecks_the_dispatch_table_only_on_a_profile_change() {
   pass "fm-spawn --relaunch: the dispatch table is re-checked only when the profile changes"
 }
 
+# A relaunch profile change is checked against the rule the task was spawned
+# under, recorded as dispatch_rule= in its meta, so another candidate of that
+# rule relaunches without an override and the record keeps the rule.
+test_relaunch_checks_the_recorded_dispatch_rule() {
+  local dir out rc
+  dir=$(new_case dispatchrule rl73)
+  add_ship_task "$dir" rl73 claude
+  printf 'dispatch_rule=0\n' >> "$dir/home/state/rl73.meta"
+  mkdir -p "$dir/home/config"
+  printf '%s\n' '{"rules":[{"when":"refactors","use":[{"harness":"claude"},{"harness":"codex","model":"gpt-5","effort":"high"}]}],"default":{"harness":"grok","model":"grok-4","effort":"high"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  out=$(run_spawn "$dir" rl73 --relaunch --dispatch-rule default)
+  assert_contains "$out" "--dispatch-rule cannot override it" \
+    "fm-spawn --relaunch accepted a dispatch rule that contradicts the recorded one"
+  printf 'codex' > "$dir/fake/becomes"
+  out=$(run_control "$dir" rl73 relaunch --harness codex --model gpt-5 --effort high --note "rule fallback"); rc=$?
+  expect_code 0 "$rc" "a relaunch onto another candidate of the recorded rule should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl73 harness)" = codex ] || fail "the record should follow the relaunch"
+  [ "$(meta_field "$dir" rl73 dispatch_rule)" = 0 ] || fail "the relaunch dropped the recorded dispatch rule"
+  pass "fm-control relaunch: a profile change is checked against the task's recorded dispatch rule"
+}
+
 # fm-control stops the running agent before fm-spawn launches the
 # replacement, so a profile switch the dispatch table refuses must be refused
 # first, leaving the agent running and the record untouched.
@@ -2482,6 +2504,7 @@ test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
 test_spawn_relaunch_rechecks_the_dispatch_table_only_on_a_profile_change
 test_relaunch_refuses_an_off_table_profile_before_stopping
+test_relaunch_checks_the_recorded_dispatch_rule
 test_relaunch_is_exempt_from_the_task_preparation_gate
 test_spawn_relaunch_of_promoted_scout_uses_the_recorded_branch
 test_promoted_scout_relaunch_receives_the_current_delivery_contract
