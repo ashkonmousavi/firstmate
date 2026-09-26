@@ -1565,8 +1565,43 @@ _fm_composer_select_cursorless() {
   [ -n "$FM_COMPOSER_SELECTED_KIND" ]
 }
 
-fm_composer_extract_selected_content() {  # <caps> <screen>
-  local caps=$1 screen=$2 styled=0 kv plain row raw content glyph joined='' footer_re prompt_row=-1
+# _fm_composer_titled_rule_shape: 0 when the scanned screen is current
+# Claude's Herdr composer: a titled transcript rule directly above the bare
+# agent-glyph row, any wrapped continuation rows, then one solid closing rule
+# and status footer. The single closing rule looks like the start of an
+# unfinished Pi composer to the generic selector, so callers also require
+# native Claude identity. Sets FM_COMPOSER_TITLED_CLOSE to the closing rule.
+_fm_composer_titled_rule_shape() {  # <plain>
+  local plain=$1 top lower title lower_extra row trimmed
+  FM_COMPOSER_TITLED_CLOSE=-1
+  [ "$FM_COMPOSER_SCAN_PI_PAIR_FOUND" = 0 ] \
+    && [ "$FM_COMPOSER_SCAN_BARE_ROW" -ge 1 ] \
+    && [ "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" -gt "$FM_COMPOSER_SCAN_BARE_ROW" ] \
+    && [ "$FM_COMPOSER_SCAN_INCOMPLETE_BOX_FROM" -lt 0 ] \
+    && [ "$FM_COMPOSER_SCAN_SHELL_ROW" -lt "$FM_COMPOSER_SCAN_BARE_ROW" ] \
+    || return 1
+  top=$(_fm_composer_screen_row "$((FM_COMPOSER_SCAN_BARE_ROW - 1))" "$plain")
+  lower=$(_fm_composer_screen_row "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" "$plain")
+  fm_composer_normalize_trim_var top
+  fm_composer_normalize_trim_var lower
+  title=${top//─/}
+  fm_composer_normalize_trim_var title
+  lower_extra=${lower//─/}
+  fm_composer_normalize_trim_var lower_extra
+  case "$top:$lower" in '─'*'─:─'*) ;; *) return 1 ;; esac
+  [ -n "$title" ] && [ -z "$lower_extra" ] || return 1
+  row=$((FM_COMPOSER_SCAN_BARE_ROW + 1))
+  while [ "$row" -lt "$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR" ]; do
+    trimmed=$(_fm_composer_screen_row "$row" "$plain")
+    fm_composer_normalize_trim_var trimmed
+    [ -n "$trimmed" ] && ! fm_composer_row_has_edge "$trimmed" || return 1
+    row=$((row + 1))
+  done
+  FM_COMPOSER_TITLED_CLOSE=$FM_COMPOSER_SCAN_PI_LAST_SEPARATOR
+}
+
+fm_composer_extract_selected_content() {  # <caps> <screen> [identity]
+  local caps=$1 screen=$2 identity=${3:-} styled=0 kv plain row raw content glyph joined='' footer_re prompt_row=-1
   local leading_blank=1 placeholder_position=0 prompt_is_shell=0
   footer_re=${FM_COMPOSER_LEFTBAR_FOOTER_RE:-$FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT}
   while IFS= read -r kv; do
@@ -1576,7 +1611,16 @@ $caps
 EOF
   plain=$(printf '%s\n' "$screen" | fm_composer_strip_ansi)
   _fm_composer_scan_screen "$plain" '' 1
-  _fm_composer_select_cursorless "$plain" || return 1
+  if ! _fm_composer_select_cursorless "$plain"; then
+    # The titled-rule Claude shape, including a payload wrapped down to the
+    # closing rule, so the pre-send and post-send proofs read the same
+    # composer the classifier reports.
+    case "$identity" in $'claude\tidle'|$'claude\tdone') ;; *) return 1 ;; esac
+    _fm_composer_titled_rule_shape "$plain" || return 1
+    FM_COMPOSER_SELECTED_KIND=bare
+    FM_COMPOSER_SELECTED_FIRST=$FM_COMPOSER_SCAN_BARE_ROW
+    FM_COMPOSER_SELECTED_LAST=$((FM_COMPOSER_TITLED_CLOSE - 1))
+  fi
   row=$FM_COMPOSER_SELECTED_FIRST
   while [ "$row" -le "$FM_COMPOSER_SELECTED_LAST" ]; do
     raw=$(_fm_composer_screen_row "$row" "$screen")
@@ -1717,6 +1761,20 @@ EOF
   # rules layered on (a live pi composer pair below the generic candidate
   # proves that candidate stale).
   if ! _fm_composer_select_cursorless "$plain"; then
+    # The titled-rule Claude shape, gated on native Claude identity. Rows
+    # wrapped below the glyph row are draft text even when the glyph row is
+    # blank (a draft that opens with a newline), so they always read pending.
+    if [ "$has_identity" = 1 ] && _fm_composer_titled_rule_shape "$plain"; then
+      if [ -z "$identity" ]; then printf 'need-identity'; return 0; fi
+      case "$identity" in $'claude\tidle'|$'claude\tdone')
+        if [ "$FM_COMPOSER_TITLED_CLOSE" -gt "$((FM_COMPOSER_SCAN_BARE_ROW + 1))" ]; then
+          printf 'pending'
+        else
+          _fm_composer_classify_bare_row "$screen" "$styled" "$FM_COMPOSER_SCAN_BARE_ROW"
+        fi
+        return 0 ;;
+      esac
+    fi
     printf 'unknown'
     return 0
   fi

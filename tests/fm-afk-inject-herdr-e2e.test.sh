@@ -314,6 +314,7 @@ reset_state() {
          "$STATE_DIR"/.seen-* \
          "$STATE_DIR"/.heartbeat-streak \
          "$STATE_DIR"/.swallow-enter \
+         "$STATE_DIR"/.afk-daemon-terminal \
          2>/dev/null || true
   : > "$LOG_FILE"
 }
@@ -469,14 +470,16 @@ test_scenario_c() {
 
 # --- Scenario D: max-defer alarm on a persistently non-clearing composer -----
 # A pending composer that NEVER clears (every Enter attempt leaves real text
-# behind) must never be silently swallowed: the daemon must alarm (write
-# state/.subsuper-inject-wedged) while preserving the buffered escalation, and
-# must never crash or hot-loop. Exercises fm_backend_composer_state(herdr, ...)
+# behind) must never be silently swallowed: a natively launched daemon must alarm (write
+# state/.subsuper-inject-wedged), requeue the buffered escalation as a durable
+# wake row, clear state/.afk, and hand supervision back by exiting rather than
+# holding it while undeliverable. Exercises fm_backend_composer_state(herdr, ...)
 # reporting "pending" indefinitely through the REAL structural border reader.
 
 test_scenario_d_max_defer() {
   reset_state
   afk_enter "$STATE_DIR"
+  printf 'none\t-\tnative\n' > "$STATE_DIR/.afk-daemon-terminal"
   local log_start=0
   [ ! -f "$STATE_DIR/.supervise-daemon.log" ] || log_start=$(wc -l < "$STATE_DIR/.supervise-daemon.log")
   # Persistent-pending composer: type real text and never submit it, so every
@@ -509,18 +512,23 @@ test_scenario_d_max_defer() {
 
   [ -s "$STATE_DIR/.subsuper-inject-wedged" ] \
     || fail "Scenario D: a persistently pending real herdr composer never raised the max-defer wedge alarm"
-  [ -s "$STATE_DIR/.subsuper-escalations" ] \
-    || fail "Scenario D: the buffered escalation was lost instead of preserved during the wedge"
+  grep -F 'needs-decision: pick A or B' "$STATE_DIR/.wake-queue" >/dev/null 2>&1 \
+    || fail "Scenario D: the buffered escalation was lost instead of requeued as a durable wake during the wedge"
+  [ ! -s "$STATE_DIR/.subsuper-escalations" ] \
+    || fail "Scenario D: the requeued escalation was left behind in the daemon buffer"
   if grep -q 'Supervisor escalate' "$LOG_FILE" 2>/dev/null; then
     fail "Scenario D: a digest was somehow logged as submitted despite the composer never clearing"
   fi
-  kill -0 "$DAEMON_PID" 2>/dev/null || fail "Scenario D: the daemon process died instead of alarming and continuing"
+  [ ! -e "$STATE_DIR/.afk" ] || fail "Scenario D: the daemon kept the away flag instead of handing supervision back"
+  if kill -0 "$DAEMON_PID" 2>/dev/null; then
+    fail "Scenario D: the daemon kept holding supervision instead of handing back after max-defer"
+  fi
   grep -F 'stuck-in-the-box' "$STATE_DIR/daemon.err" >/dev/null 2>&1 && : # not fatal either way
 
   stop_daemon
   # Clean up the stuck composer text for a tidy teardown (best-effort).
   fm_backend_herdr_send_key "$SUPERVISOR_TARGET" C-c >/dev/null 2>&1 || true
-  pass "real herdr Scenario D: a persistently pending composer raises the max-defer wedge alarm, preserves the buffer, and never crashes the daemon"
+  pass "real herdr Scenario D: a persistently pending composer raises the max-defer wedge alarm, requeues the escalation durably, and hands supervision back"
 }
 
 test_scenario_a
