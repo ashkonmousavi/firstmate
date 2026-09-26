@@ -1,0 +1,40 @@
+## BEFORE (fixture: missed-reply escalation)
+# original record d4e5f60718293a4b: phase=escalated  delivered_epoch=1
+# status lines for key pending-reply-d4e5f60718293a4b:
+blocked [key=pending-reply-d4e5f60718293a4b]: pending-reply-missed: task=guide pending-reply-id=d4e5f60718293a4b request=merge PR 12 and report back
+# other pending-reply records (minted by this send):
+7364611805ae68de: request_summary=Resending: merge PR 12 and report back phase=awaiting_report
+a1b2c3d4e5f60718: request_summary=merge PR 12 and report back phase=resolved
+b2c3d4e5f6071829: request_summary=merge PR 12 and report back phase=escalated
+c3d4e5f607182930: request_summary=merge PR 12 and report back phase=escalated
+dc17c407baa9802e: request_summary=Resending: merge PR 12 and report back phase=awaiting_report
+# inbox .msg count: 3
+# newest inbox body (003.msg):
+schema=fm-task-inbox.v1
+at=2026-09-26T17:00:17Z
+--
+[fm-from-firstmate]M-bM-^AM-#corr=dc17c407baa9802e Resending: merge PR 12 and report back
+
+## SEND (close text names pending-reply-missed, so its close line can never resolve the record)
+$ bin/fm-send.sh guide --resolve-key pending-reply-d4e5f60718293a4b 'Re your pending-reply-missed: false alarm, report landed, carry on'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --resolve-key 'pending-reply-d4e5f60718293a4b' cannot settle its pending-reply expectation: its close record either loses its correlation token to the 220-character status-line cap or names pending-reply-missed, and neither can resolve it. Refusing rather than writing an ineffective close; nothing was sent.
+rc=1
+
+## AFTER
+# original record d4e5f60718293a4b: phase=escalated  delivered_epoch=1
+# status lines for key pending-reply-d4e5f60718293a4b:
+blocked [key=pending-reply-d4e5f60718293a4b]: pending-reply-missed: task=guide pending-reply-id=d4e5f60718293a4b request=merge PR 12 and report back
+# other pending-reply records (minted by this send):
+# inbox .msg count: 3
+# newest inbox body (003.msg):
+schema=fm-task-inbox.v1
+at=2026-09-26T17:00:17Z
+--
+[fm-from-firstmate]M-bM-^AM-#corr=dc17c407baa9802e Resending: merge PR 12 and report back
+# inbox count before send: 3
+# wake-drain OPEN DECISIONS:
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+guide [key=pending-reply-d4e5f60718293a4b] blocked: pending-reply-missed: task=guide pending-reply-id=d4e5f60718293a4b request=merge PR 12 and report back
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'

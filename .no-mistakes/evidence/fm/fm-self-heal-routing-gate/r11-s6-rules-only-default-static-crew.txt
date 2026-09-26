@@ -1,0 +1,40 @@
+# config/crew-dispatch.json = rules only, no "default" key (/home/tegris/.no-mistakes/evidence/01M3EZVBXX335RTA5YJZ79M47Q/live-crew-dispatch-rules-only.json)
+$ bin/fm-harness.sh crew
+claude
+
+$ bin/fm-spawn.sh r11b $LAB/projects/demo --mode local-only --yolo off --harness codex --model gpt-6-sol --effort high   # no --dispatch-rule => default tier, non-crew harness
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: spawn refused - crew-dispatch.json has no default, and codex is not the static crew harness claude; record the captain's explicit override at /tmp/fm-lab.ioX014/data/r11b/dispatch-override or pass that harness
+rc=1
+
+$ bin/fm-spawn.sh r11b $LAB/projects/demo --mode local-only --yolo off --harness claude   # default tier, static crew harness
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: /tmp/fm-lab.ioX014/data/r11b/launch-brief.md records no ship branch; defaulting to legacy branch fm/r11b
+warning: /tmp/fm-lab.ioX014/data/r11b/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: r11b ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned r11b harness=claude kind=ship mode=local-only yolo=off window=primary:fm-r11b worktree=/home/tegris/.treehouse/demo-37f03a/2/demo
+rc=0
+
+## state/r11b.meta
+window=primary:fm-r11b
+endpoint_task_id=r11b
+worktree=/home/tegris/.treehouse/demo-37f03a/2/demo
+project=/tmp/fm-lab.ioX014/projects/demo
+harness=claude
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/r11b
+tasktmp=/tmp/fm-r11b
+model=default
+effort=default
+dispatch_rule=default
+busy_gen=g1790441968.2902719.16645
+spawn_gen=s1790441968.2901162.14075
+
+## lab windows
+bash pane_pid=2781700 cmd=bash
+fm-r11a pane_pid=2820161 cmd=node
+fm-r11b pane_pid=2901693 cmd=claude

@@ -1,0 +1,4 @@
+$ bin/fm-spawn.sh s2-bot /tmp/fm-lab.n6RWe6/projects/demo --mode local-only --yolo off --dispatch-rule 0 --harness scout-bot 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.n6RWe6
+error: unknown harness 'scout-bot'; pass a raw launch command to use an unverified adapter
+rc=1

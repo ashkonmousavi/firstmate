@@ -1,0 +1,44 @@
+## BEFORE
+harness=codex
+model=gpt-6-sol
+effort=low
+dispatch_rule=0
+pane_pid=2258465
+brief.md
+launch-brief.md
+prep.md
+
+$ bin/fm-control.sh r10a relaunch --harness grok --model grok-4 --effort high --note "rule 0 fallback: codex quota out"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+error: task r10a's composer state is 'unknown', not proven empty; refusing to type the /quit exit command because it could concatenate onto existing text. Clear the composer, then retry 'relaunch'
+error: relaunch of r10a failed while stopping the old agent, which is still running; its original instructions were restored
+rc=1
+
+## AFTER
+window=primary:fm-r10a
+endpoint_task_id=r10a
+worktree=/home/tegris/.treehouse/demo-e619a1/1/demo
+project=/tmp/fm-lab.INNNGi/projects/demo
+harness=codex
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/r10a
+tasktmp=/tmp/fm-r10a
+model=gpt-6-sol
+effort=low
+dispatch_rule=0
+spawn_gen=s1790441112.2255542.391
+
+bash pane_pid=2245112 cmd=bash
+fm-r10a pane_pid=2258465 cmd=node
+## pane
+  Folder access
+  /home/tegris/.treehouse/demo-e619a1/1/demo
+  Note: You’re in a subdirectory of a Git project. Trusting will apply to the repository root:
+  /tmp/fm-lab.INNNGi/projects/demo
+  Trust this folder? Codex can read, edit, and run files here, subject to your permission settings. Folder settings can run code automatically, even without a model request. Continue only if you
+  trust these files. Your trust decision will be saved.
+› 1. Trust and continue
+  2. Quit
+  enter continue · esc quit

@@ -1,0 +1,51 @@
+{
+  "rules": [
+    {
+      "when": "current events",
+      "use": [
+        {
+          "harness": "grok",
+          "model": "grok-4",
+          "effort": "high"
+        },
+        {
+          "harness": "codex",
+          "model": "gpt-6-sol",
+          "effort": "low"
+        },
+        {
+          "harness": "claude",
+          "model": "sonnet",
+          "effort": "high",
+          "off": true
+        },
+        {
+          "grok_bot": "scout-bot"
+        }
+      ]
+    },
+    {
+      "when": "big refactors",
+      "select": "quota-balanced",
+      "use": [
+        {
+          "harness": "codex",
+          "model": "gpt-6-sol",
+          "effort": "medium",
+          "provider": "openai"
+        },
+        {
+          "harness": "grok",
+          "model": "grok-4.5",
+          "effort": "high",
+          "provider": "xai"
+        }
+      ]
+    }
+  ],
+  "default": {
+    "harness": "codex",
+    "model": "gpt-6-sol",
+    "effort": "high"
+  }
+}

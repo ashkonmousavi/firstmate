@@ -1,0 +1,15 @@
+# HEAD 4fa4af9b; config: /home/tegris/.no-mistakes/evidence/01M3EZVBXX335RTA5YJZ79M47Q/r10-crew-dispatch.json (rule 0 = grok/grok-4/high, codex/gpt-6-sol/low, claude/sonnet/high off, grok bot)
+$ bin/fm-spawn.sh r11a $LAB/projects/demo --mode local-only --yolo off --dispatch-rule 0 --harness codex --model gpt-6-sol --effort high
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+error: spawn refused - codex/gpt-6-sol/high does not match crew-dispatch rule 0: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at /tmp/fm-lab.ioX014/data/r11a/dispatch-override or pass one of its profiles
+rc=1
+
+$ (off candidate) bin/fm-spawn.sh r11a ... --dispatch-rule 0 --harness claude --model sonnet --effort high
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+error: spawn refused - claude/sonnet/high does not match crew-dispatch rule 0: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at /tmp/fm-lab.ioX014/data/r11a/dispatch-override or pass one of its profiles
+rc=1
+
+# state after: meta files:
+(none)
+# lab windows:
+bash

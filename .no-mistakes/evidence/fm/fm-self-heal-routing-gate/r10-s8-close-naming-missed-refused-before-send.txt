@@ -1,0 +1,34 @@
+## BEFORE
+# open status line:
+blocked [key=pending-reply-1234567890abcdef]: pending-reply-missed: task=guide pending-reply-id=1234567890abcdef request=merge PR 12 and report back
+# record 1234567890abcdef:
+schema=fm-pending-reply.v1
+corr_id=1234567890abcdef
+task_id=guide
+parent_status=/tmp/fm-lab.INNNGi/state/guide.status
+request_summary=merge PR 12 and report back
+delivered_epoch=1
+phase=escalated
+escalated_epoch=1
+# inbox .msg count: 3
+
+## SEND
+$ bin/fm-send.sh guide --resolve-key pending-reply-1234567890abcdef Re\ your\ pending-reply-missed:\ false\ alarm\,\ report\ landed\,\ carry\ on
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --resolve-key 'pending-reply-1234567890abcdef' cannot settle its pending-reply expectation: its close record either loses its correlation token to the 220-character status-line cap or names pending-reply-missed, and neither can resolve it. Refusing rather than writing an ineffective close; nothing was sent.
+rc=1
+
+## AFTER
+# phase of original record 1234567890abcdef: phase=escalated
+# delivered_epoch on original: delivered_epoch=1
+# status lines for key:
+blocked [key=pending-reply-1234567890abcdef]: pending-reply-missed: task=guide pending-reply-id=1234567890abcdef request=merge PR 12 and report back
+# pending-reply records minted by this send:
+# inbox .msg count: 3
+# guide pane (as the mate sees it):
+guide$
+# wake-drain OPEN DECISIONS block:
+OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+guide [key=pending-reply-1234567890abcdef] blocked: pending-reply-missed: task=guide pending-reply-id=1234567890abcdef request=merge PR 12 and report back
+OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'

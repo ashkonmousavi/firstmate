@@ -1,0 +1,7 @@
+$ bin/fm-dispatch-select.sh crew-dispatch.json 0 --facts facts.json
+selection: ordered
+skipped[0]: launch_failed: grok CLI login expired in lab; profile={"harness":"grok","model":"grok-4","effort":"high"}
+selected[1]: {"harness":"codex","model":"gpt-6-sol","effort":"low"}
+
+$ bin/fm-dispatch-select.sh crew-dispatch.json 1
+selection: quota-balanced; use quota-array-dispatch

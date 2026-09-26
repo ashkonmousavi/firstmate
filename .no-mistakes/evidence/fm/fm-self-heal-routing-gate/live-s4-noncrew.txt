@@ -1,0 +1,4 @@
+$ bin/fm-spawn.sh s4-noncrew /tmp/fm-lab.n6RWe6/projects/demo --mode local-only --yolo off --harness grok --model grok-4 --effort high 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.n6RWe6
+error: spawn refused - crew-dispatch.json has no default, and grok is not the static crew harness codex; record the captain's explicit override at /tmp/fm-lab.n6RWe6/data/s4-noncrew/dispatch-override or pass that harness
+rc=1

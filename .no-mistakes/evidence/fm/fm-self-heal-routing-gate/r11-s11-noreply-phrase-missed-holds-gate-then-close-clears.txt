@@ -1,0 +1,80 @@
+# fresh lab home /tmp/fm-lab.ioX014/afk-home; fixture: missed-reply escalation whose request text says 'no reply needed' (the removed phrase exemption would have dropped it)
+blocked [key=pending-reply-e5f60718293a4b5c]: pending-reply-missed: task=guide pending-reply-id=e5f60718293a4b5c request=heads-up: navigator books refreshed, no reply needed
+
+$ bin/fm-afk-launch.sh enter --words "away for a bit"
+Away posture recorded at 2026-09-26T17:00:38Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return. Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-09-26T17:00:38Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    away for a bit
+rc=0
+
+$ bin/fm-afk-return.sh begin
+fm-afk-launch: away-posture record archived at /tmp/fm-lab.ioX014/afk-home/state/afk-contracts/1790442038.afk-contract
+fm-afk-launch: away mode stopped; no daemon terminal was running, .afk cleared, and the posture record archived
+=== Return brief (away 2026-09-26T17:00:38Z -> 2026-09-26T17:00:39Z, 1s) ===
+Supervisor health:
+  - supervision ran through the away window with no detected gap (watcher beat 0s old at return)
+Your instructions:
+  your words at entry:
+    away for a bit
+  the away session took no action under them.
+Waiting on you:
+  (nothing)
+Tried and failed, or could not be fixed:
+  - guide [key=pending-reply-e5f60718293a4b5c] still blocked, firstmate remediates before ordinary work: pending-reply-missed: task=guide pending-reply-id=e5f60718293a4b5c request=heads-up: navigator books refreshed, no reply needed
+Landed, cleanup due:
+  (nothing)
+Handled while away:
+  0 outcome(s) handled by the away session (0 routine, 0 escalated above)
+  (no routine outcomes recorded in the store for this window)
+Cost: 0 supervision outcome(s) recorded (0 routine, 0 captain); 1 task(s) live at return.
+fm-afk-return: catch-up must finish before the captain request
+catch-up health: supervision ran through the away window with no detected gap (watcher beat 0s old at return)
+catch-up wake: OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+catch-up wake: guide [key=pending-reply-e5f60718293a4b5c] blocked: pending-reply-missed: task=guide pending-reply-id=e5f60718293a4b5c request=heads-up: navigator books refreshed, no reply needed
+catch-up wake: OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+firstmate-actionable blocker: guide [key=pending-reply-e5f60718293a4b5c] pending-reply-missed: task=guide pending-reply-id=e5f60718293a4b5c request=heads-up: navigator books refreshed, no reply needed
+fm-afk-return: handle each blocker now, or close it with resolved [key=...] and append a durable reclassification reason, then run bin/fm-afk-return.sh check
+rc=3
+
+# gate files in state:
+(none)
+
+## close the missed reply
+$ bin/fm-send.sh guide --resolve-key pending-reply-e5f60718293a4b5c 'Noted, that was a routine heads-up; nothing further needed'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014/afk-home
+fm-send: doorbell not typed because the agent in primary:fm-guide has exited; the steer is durably recorded at /tmp/fm-lab.ioX014/afk-home/state/guide.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+rc=0
+# records:
+e5f60718293a4b5c phase=resolved
+
+$ bin/fm-afk-return.sh check
+=== Return brief (away 2026-09-26T17:00:38Z -> 2026-09-26T17:00:41Z, 3s) ===
+Supervisor health:
+  - supervision ran through the away window with no detected gap (watcher beat 0s old at return)
+Your instructions:
+  your words at entry:
+    away for a bit
+  the away session took no action under them.
+Waiting on you:
+  (nothing)
+Tried and failed, or could not be fixed:
+  (nothing)
+Landed, cleanup due:
+  (nothing)
+Handled while away:
+  0 outcome(s) handled by the away session (0 routine, 0 escalated above)
+  (no routine outcomes recorded in the store for this window)
+Cost: 0 supervision outcome(s) recorded (0 routine, 0 captain); 1 task(s) live at return.
+catch-up health: supervision ran through the away window with no detected gap (watcher beat 0s old at return)
+catch-up wake: OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+catch-up wake: guide [key=pending-reply-e5f60718293a4b5c] blocked: pending-reply-missed: task=guide pending-reply-id=e5f60718293a4b5c request=heads-up: navigator books refreshed, no reply needed
+catch-up wake: OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+catch-up wake: UNREAD STATUS (new since last drain, not re-printed after this presentation):
+catch-up wake: guide resolved [key=pending-reply-e5f60718293a4b5c] [at=1790442040]: pending-reply-resolved: task=guide pending-reply-id=e5f60718293a4b5c via=operator-resolve-key corr=e5f60718293a4b5c Noted, that was a routine hea [truncated]
+fm-afk-return: catch-up clear; ordinary captain work may proceed
+rc=0

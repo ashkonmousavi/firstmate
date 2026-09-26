@@ -1,0 +1,10 @@
+$ bin/fm-spawn.sh s3-quota /tmp/fm-lab.n6RWe6/projects/demo --mode local-only --yolo off --dispatch-rule 1 --harness codex --model gpt-6-sol --effort medium 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.n6RWe6
+warning: /tmp/fm-lab.n6RWe6/data/s3-quota/launch-brief.md records no ship branch; defaulting to legacy branch fm/s3-quota
+warning: /tmp/fm-lab.n6RWe6/data/s3-quota/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: s3-quota ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned s3-quota harness=codex kind=ship mode=local-only yolo=off window=primary:fm-s3-quota worktree=/tmp/fm-lab.n6RWe6/treehouse-pool/.treehouse/demo-8e60ff/1/demo
+rc=0
+harness=codex
+model=gpt-6-sol
+effort=medium

@@ -1,0 +1,52 @@
+## BEFORE (codex quit at its trust prompt; pane back at shell)
+harness=codex
+model=gpt-6-sol
+effort=low
+dispatch_rule=0
+brief.md
+launch-brief.md
+prep.md
+
+$ bin/fm-control.sh r10a relaunch --harness grok --model grok-4 --effort high --note "rule 0 fallback: codex quota out"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+notice: r10a ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+relaunched r10a harness=grok from=codex model=grok-4 effort=high backend=tmux endpoint=primary:fm-r10a worktree=/home/tegris/.treehouse/demo-e619a1/1/demo
+rc=0
+
+## AFTER
+window=primary:fm-r10a
+endpoint_task_id=r10a
+worktree=/home/tegris/.treehouse/demo-e619a1/1/demo
+project=/tmp/fm-lab.INNNGi/projects/demo
+harness=grok
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/r10a
+tasktmp=/tmp/fm-r10a
+model=grok-4
+effort=high
+spawn_gen=s1790441179.2312710.6601
+dispatch_rule=0
+control_relaunch_tx=2312469.20260926T164618Z.25066
+brief.md
+launch-brief.md
+prep.md
+
+bash pane_pid=2245112 cmd=bash
+fm-r10a pane_pid=2258465 cmd=grok
+## pane
+                                                                                                                                                                                                       █
+                                                                                                                                                                                                       █
+                                                                                                                                                                                                       █
+                                                                                                                                                                                                       █
+                                                                                                                                                                                                       █
+                                                                                                                                                                                                       █
+                                                                                                                                                                                                       █
+    ⠹ Thinking… 3.2s                                                                                                                                                                6.5s ⇣5.87k [stop]
+  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ ❯                                                                                                                                                                                                │
+  ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Grok 4.7 (high) · always-approve ─╯
+  Shift+Tab:mode  │  Ctrl+c:cancel  │  Ctrl+x:shortcuts

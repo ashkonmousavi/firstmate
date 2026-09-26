@@ -1,0 +1,35 @@
+## BEFORE
+# open status line:
+blocked [key=pending-reply-abcdef0123456789]: pending-reply-missed: task=guide pending-reply-id=abcdef0123456789 request=merge PR 12 and report back
+# record abcdef0123456789:
+schema=fm-pending-reply.v1
+corr_id=abcdef0123456789
+task_id=guide
+parent_status=/tmp/fm-lab.INNNGi/state/guide.status
+request_summary=merge PR 12 and report back
+delivered_epoch=1
+phase=escalated
+escalated_epoch=1
+# inbox .msg count: 0
+
+## SEND
+$ bin/fm-send.sh guide --resolve-key pending-reply-abcdef0123456789 Thanks\,\ that\ escalation\ was\ a\ false\ alarm\;\ your\ report\ landed\ fine\,\ carry\ on
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-guide has exited; the steer is durably recorded at /tmp/fm-lab.INNNGi/state/guide.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+rc=0
+
+## AFTER
+# phase of original record abcdef0123456789: phase=resolved
+# delivered_epoch on original: delivered_epoch=1
+# status lines for key:
+blocked [key=pending-reply-abcdef0123456789]: pending-reply-missed: task=guide pending-reply-id=abcdef0123456789 request=merge PR 12 and report back
+resolved [key=pending-reply-abcdef0123456789] [at=1790441227]: pending-reply-resolved: task=guide pending-reply-id=abcdef0123456789 via=operator-resolve-key corr=abcdef0123456789 Thanks, that escalation was a [truncated]
+# pending-reply records minted by this send:
+# inbox .msg count: 1
+# newest inbox body (001.msg):
+[fm-from-firstmate]M-bM-^AM-#Thanks, that escalation was a false alarm; your report landed fine, carry on
+# guide pane (as the mate sees it):
+guide$
+# wake-drain OPEN DECISIONS for this key:
+guide resolved [key=pending-reply-abcdef0123456789] [at=1790441227]: pending-reply-resolved: task=guide pending-reply-id=abcdef0123456789 via=operator-resolve-key corr=abcdef0123456789 Thanks, that escalation was a [truncated]

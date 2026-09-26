@@ -1,0 +1,31 @@
+## BEFORE
+fm-r11a pane_pid=2820161 cmd=node
+agent_children=2820927 
+meta_md5=8cb22ca9a181656444b42ca11cc9d754  -
+harness=codex
+model=gpt-6-sol
+effort=low
+dispatch_rule=0
+  trust these files. Your trust decision will be saved.
+› 1. Trust and continue
+  2. Quit
+  enter continue · esc quit
+
+## RELAUNCH (effort bump codex/gpt-6-sol/low -> high; not a rule-0 candidate)
+$ bin/fm-control.sh r11a relaunch --harness codex --model gpt-6-sol --effort high --note "bump effort"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+error: spawn refused - codex/gpt-6-sol/high does not match crew-dispatch rule 0: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at /tmp/fm-lab.ioX014/data/r11a/dispatch-override or pass one of its profiles
+rc=1
+
+## AFTER
+fm-r11a pane_pid=2820161 cmd=node
+agent_children=2820927 
+meta_md5=8cb22ca9a181656444b42ca11cc9d754  -
+harness=codex
+model=gpt-6-sol
+effort=low
+dispatch_rule=0
+  trust these files. Your trust decision will be saved.
+› 1. Trust and continue
+  2. Quit
+  enter continue · esc quit

@@ -1,0 +1,41 @@
+## prior attempt: first relaunch passed the dispatch check but the stop step refused (codex sat at its trust prompt, composer state unknown); codex quit with Esc, pane back at shell
+## BEFORE
+harness=codex
+model=gpt-6-sol
+effort=low
+dispatch_rule=0
+fm-r11a pane_pid=2820161 cmd=bash
+
+$ bin/fm-control.sh r11a relaunch --harness grok --model grok-4 --effort high --note "rule 0 fallback: codex quota out"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warning: /tmp/fm-lab.ioX014/data/r11a/launch-brief.md records no ship branch; defaulting to legacy branch fm/r11a
+warning: /tmp/fm-lab.ioX014/data/r11a/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: r11a ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+relaunched r11a harness=grok from=codex model=grok-4 effort=high backend=tmux endpoint=primary:fm-r11a worktree=/home/tegris/.treehouse/demo-37f03a/1/demo
+rc=0
+
+## AFTER
+window=primary:fm-r11a
+endpoint_task_id=r11a
+worktree=/home/tegris/.treehouse/demo-37f03a/1/demo
+project=/tmp/fm-lab.ioX014/projects/demo
+harness=grok
+kind=ship
+mode=local-only
+yolo=off
+branch=fm/r11a
+tasktmp=/tmp/fm-r11a
+model=grok-4
+effort=high
+spawn_gen=s1790441878.2845038.14762
+dispatch_rule=0
+control_relaunch_tx=2844476.20260926T165756Z.21024
+fm-r11a pane_pid=2820161 cmd=grok

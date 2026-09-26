@@ -1,0 +1,26 @@
+## prior attempt: override present, relaunch passed the dispatch check and reached the stop step, which refused on grok's unknown composer state (lab TUI detection); grok quit with /exit, pane back at shell
+$ cat data/r11a/dispatch-override
+captain: allow codex/gpt-6-sol/high for r11a (lab)
+## BEFORE
+harness=grok
+model=grok-4
+effort=high
+dispatch_rule=0
+fm-r11a cmd=bash
+
+$ bin/fm-control.sh r11a relaunch --harness codex --model gpt-6-sol --effort high --note "captain override: effort bump"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: /tmp/fm-lab.ioX014/data/r11a/launch-brief.md records no ship branch; defaulting to legacy branch fm/r11a
+warning: /tmp/fm-lab.ioX014/data/r11a/launch-brief.md records no delivery contract line (scaffolded before ship briefs recorded one); launching on the explicit --mode local-only - confirm its definition of done matches
+notice: r11a ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+relaunched r11a harness=codex from=grok model=gpt-6-sol effort=high backend=tmux endpoint=primary:fm-r11a worktree=/home/tegris/.treehouse/demo-37f03a/1/demo
+rc=0
+
+## AFTER
+harness=codex
+model=gpt-6-sol
+effort=high
+dispatch_rule=0
+fm-r11a pane_pid=2820161 cmd=node

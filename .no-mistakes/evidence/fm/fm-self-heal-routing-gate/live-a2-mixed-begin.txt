@@ -1,0 +1,27 @@
+$ env FM_HOME=/tmp/fm-lab.n6RWe6/afk-mixed bin/fm-afk-return.sh begin 
+=== Return brief ===
+Supervisor health:
+  - supervision ran through the away window with no detected gap (watcher beat 0s old at return)
+Your instructions:
+  (no away-posture record for this window; legacy away flag only)
+Waiting on you:
+  (nothing)
+Tried and failed, or could not be fixed:
+  - repair [key=creds] still blocked, firstmate remediates before ordinary work: the deploy token is missing
+Landed, cleanup due:
+  (nothing)
+Handled while away:
+  0 outcome(s) handled by the away session (0 routine, 0 escalated above)
+  (no routine outcomes recorded in the store for this window)
+Cost: 0 supervision outcome(s) recorded (0 routine, 0 captain); 2 task(s) live at return.
+fm-afk-return: catch-up must finish before the captain request
+catch-up health: supervision ran through the away window with no detected gap (watcher beat 0s old at return)
+catch-up wake: OPEN DECISIONS (still open, folded from the durable status logs - not just the latest line):
+catch-up wake: guide [key=pending-reply-abcdef0123456789] blocked: pending-reply-missed: task=guide pending-reply-id=abcdef0123456789 request=check the books and no reply is expected
+catch-up wake: repair [key=creds] blocked: the deploy token is missing
+catch-up wake: OPEN DECISIONS: close one by answering it: bin/fm-send.sh <task> --resolve-key <key> '<answer>'
+firstmate-actionable blocker: repair [key=creds] the deploy token is missing
+fm-afk-return: handle each blocker now, or close it with resolved [key=...] and append a durable reclassification reason, then run bin/fm-afk-return.sh check
+rc=3
+gate present? yes
+blocker	repair	creds	the deploy token is missing

@@ -1,0 +1,4 @@
+$ env FM_HOME=/tmp/fm-lab.n6RWe6/afk-legacy bin/fm-afk-launch.sh stop 
+fm-afk-launch: away-posture record archived at /tmp/fm-lab.n6RWe6/afk-legacy/state/afk-contracts/1790434291.afk-contract
+fm-afk-launch: away mode stopped; no daemon terminal was running, .afk cleared, and the posture record archived
+rc=0

@@ -1,0 +1,35 @@
+## BEFORE (fixture: recovery-delivery-failed escalation; original delivered, recovery repost failed)
+# original record c3d4e5f607182930: phase=escalated  delivered_epoch=1
+# status lines for key pending-reply-c3d4e5f607182930:
+blocked [key=pending-reply-c3d4e5f607182930]: pending-reply-recovery-delivery-failed: task=guide pending-reply-id=c3d4e5f607182930 request=merge PR 12 and report back
+# other pending-reply records (minted by this send):
+7364611805ae68de: request_summary=Resending: merge PR 12 and report back phase=awaiting_report
+a1b2c3d4e5f60718: request_summary=merge PR 12 and report back phase=resolved
+b2c3d4e5f6071829: request_summary=merge PR 12 and report back phase=escalated
+# inbox .msg count: 2
+# newest inbox body (002.msg):
+schema=fm-task-inbox.v1
+at=2026-09-26T17:00:16Z
+--
+[fm-from-firstmate]M-bM-^AM-#corr=7364611805ae68de Resending: merge PR 12 and report back
+
+## SEND
+$ bin/fm-send.sh guide --resolve-key pending-reply-c3d4e5f607182930 'Resending: merge PR 12 and report back'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-guide has exited; the steer is durably recorded at /tmp/fm-lab.ioX014/state/guide.inbox/003.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+rc=0
+
+## AFTER
+# original record c3d4e5f607182930: phase=escalated  delivered_epoch=1
+# status lines for key pending-reply-c3d4e5f607182930:
+blocked [key=pending-reply-c3d4e5f607182930]: pending-reply-recovery-delivery-failed: task=guide pending-reply-id=c3d4e5f607182930 request=merge PR 12 and report back
+resolved [key=pending-reply-c3d4e5f607182930] [at=1790442017]: pending-reply-resolved: task=guide pending-reply-id=c3d4e5f607182930 via=operator-resolve-key Resending: merge PR 12 and report back
+# other pending-reply records (minted by this send):
+dc17c407baa9802e: request_summary=Resending: merge PR 12 and report back phase=awaiting_report
+# inbox .msg count: 3
+# newest inbox body (003.msg):
+schema=fm-task-inbox.v1
+at=2026-09-26T17:00:17Z
+--
+[fm-from-firstmate]M-bM-^AM-#corr=dc17c407baa9802e Resending: merge PR 12 and report back

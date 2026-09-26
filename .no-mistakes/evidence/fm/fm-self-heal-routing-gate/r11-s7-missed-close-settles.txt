@@ -1,0 +1,28 @@
+## BEFORE (fixture: watcher-shaped missed-reply escalation for a delivered request)
+# original record a1b2c3d4e5f60718: phase=escalated  delivered_epoch=1
+# status lines for key pending-reply-a1b2c3d4e5f60718:
+blocked [key=pending-reply-a1b2c3d4e5f60718]: pending-reply-missed: task=guide pending-reply-id=a1b2c3d4e5f60718 request=merge PR 12 and report back
+# other pending-reply records (minted by this send):
+# inbox .msg count: 0
+
+## SEND
+$ bin/fm-send.sh guide --resolve-key pending-reply-a1b2c3d4e5f60718 'Thanks, that escalation was a false alarm; your report landed fine, carry on'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.ioX014
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-guide has exited; the steer is durably recorded at /tmp/fm-lab.ioX014/state/guide.inbox/001.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+rc=0
+
+## AFTER
+# original record a1b2c3d4e5f60718: phase=resolved  delivered_epoch=1
+# status lines for key pending-reply-a1b2c3d4e5f60718:
+blocked [key=pending-reply-a1b2c3d4e5f60718]: pending-reply-missed: task=guide pending-reply-id=a1b2c3d4e5f60718 request=merge PR 12 and report back
+resolved [key=pending-reply-a1b2c3d4e5f60718] [at=1790442002]: pending-reply-resolved: task=guide pending-reply-id=a1b2c3d4e5f60718 via=operator-resolve-key corr=a1b2c3d4e5f60718 Thanks, that escalation was a [truncated]
+# other pending-reply records (minted by this send):
+# inbox .msg count: 1
+# newest inbox body (001.msg):
+schema=fm-task-inbox.v1
+at=2026-09-26T17:00:02Z
+--
+[fm-from-firstmate]M-bM-^AM-#Thanks, that escalation was a false alarm; your report landed fine, carry on
+# wake-drain OPEN DECISIONS for this key:
+guide resolved [key=pending-reply-a1b2c3d4e5f60718] [at=1790442002]: pending-reply-resolved: task=guide pending-reply-id=a1b2c3d4e5f60718 via=operator-resolve-key corr=a1b2c3d4e5f60718 Thanks, that escalation was a [truncated]

@@ -1,0 +1,4 @@
+$ env FM_HOME=/tmp/fm-lab.n6RWe6/afk-legacyheld bin/fm-afk-launch.sh enter --words away\ for\ a\ bit 
+fm-afk-launch: return catch-up is still pending; run bin/fm-afk-return.sh check before re-entering away mode
+rc=1
+gate present? yes

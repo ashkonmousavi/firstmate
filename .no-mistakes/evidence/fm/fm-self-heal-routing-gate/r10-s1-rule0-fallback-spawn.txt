@@ -1,0 +1,5 @@
+$ bin/fm-spawn.sh r10a /tmp/fm-lab.INNNGi/projects/demo --mode local-only --yolo off --dispatch-rule 0 --harness codex --model gpt-6-sol --effort low 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+notice: r10a ships mode=local-only while the standing posture for demo is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned r10a harness=codex kind=ship mode=local-only yolo=off window=primary:fm-r10a worktree=/home/tegris/.treehouse/demo-e619a1/1/demo
+rc=0

@@ -1,0 +1,10 @@
+$ env FM_HOME=/tmp/fm-lab.n6RWe6/send-home bin/fm-send.sh guide --resolve-key pending-reply-abcdef0123456789 Thanks\,\ that\ escalation\ was\ a\ false\ alarm\;\ your\ report\ landed\ fine\,\ carry\ on 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.n6RWe6/send-home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the requested message WILL still be sent.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+rc=0

@@ -1,0 +1,17 @@
+## after fm-send --resolve-key
+# pending-replies records (non-dot):
+abcdef0123456789
+# phase of abcdef0123456789:
+phase=resolved
+# guide.status:
+blocked [key=pending-reply-abcdef0123456789]: pending-reply-missed: task=guide pending-reply-id=abcdef0123456789 request=ship it
+resolved [key=pending-reply-abcdef0123456789] [at=1790434313]: pending-reply-resolved: task=guide pending-reply-id=abcdef0123456789 via=operator-resolve-key corr=abcdef0123456789 Thanks, that escalation was a [truncated]
+# inbox message body:
+[fm-from-firstmate]M-bM-^AM-#Thanks, that escalation was a false alarm; your report landed fine, carry on
+# guide pane (doorbell as the mate sees it):
+: Firstmate instruction waiting: list '/tmp/fm-lab.n6RWe6/send-home/state/guide.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-lab.n6RWe6/send-home/sta
+te/guide.inbox'/handled/.
+: Firstmate instruction waiting: list '/tmp/fm-lab.n6RWe6/send-home/state/guide.inbox'/*.msg and, in numeric order, read and act on each, then mv each handled file to '/tmp/fm-lab.n6RWe6/send-home/sta
+te/guide.inbox'/handled/.
+# wake drain open decisions:
+(no OPEN DECISIONS)

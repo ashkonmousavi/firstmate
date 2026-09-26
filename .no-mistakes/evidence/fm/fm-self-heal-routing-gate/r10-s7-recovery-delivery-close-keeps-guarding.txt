@@ -1,0 +1,37 @@
+## BEFORE
+# open status line:
+blocked [key=pending-reply-fedcba9876543210]: pending-reply-recovery-delivery-failed: task=guide pending-reply-id=fedcba9876543210 request=merge PR 12 and report back
+# record fedcba9876543210:
+schema=fm-pending-reply.v1
+corr_id=fedcba9876543210
+task_id=guide
+parent_status=/tmp/fm-lab.INNNGi/state/guide.status
+request_summary=merge PR 12 and report back
+delivered_epoch=1
+recovery_delivery_outcome=failed
+phase=escalated
+escalated_epoch=1
+# inbox .msg count: 2
+
+## SEND
+$ bin/fm-send.sh guide --resolve-key pending-reply-fedcba9876543210 Resending:\ merge\ PR\ 12\ and\ report\ back
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+fm-send: doorbell not typed because the agent in primary:fm-guide has exited; the steer is durably recorded at /tmp/fm-lab.INNNGi/state/guide.inbox/003.msg for recovery (stuck-crewmate-recovery), and the watcher will not re-ring a dead pane
+rc=0
+
+## AFTER
+# phase of original record fedcba9876543210: phase=escalated
+# delivered_epoch on original: delivered_epoch=1
+# status lines for key:
+blocked [key=pending-reply-fedcba9876543210]: pending-reply-recovery-delivery-failed: task=guide pending-reply-id=fedcba9876543210 request=merge PR 12 and report back
+resolved [key=pending-reply-fedcba9876543210] [at=1790441255]: pending-reply-resolved: task=guide pending-reply-id=fedcba9876543210 via=operator-resolve-key Resending: merge PR 12 and report back
+# pending-reply records minted by this send:
+90f19c8d6c3db321: request_summary=Resending: merge PR 12 and report back phase=awaiting_report 
+# inbox .msg count: 3
+# newest inbox body (003.msg):
+[fm-from-firstmate]M-bM-^AM-#corr=90f19c8d6c3db321 Resending: merge PR 12 and report back
+# guide pane (as the mate sees it):
+guide$
+# wake-drain OPEN DECISIONS block:
+(no OPEN DECISIONS section: nothing open)

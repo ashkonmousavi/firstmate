@@ -1,0 +1,5 @@
+schema	fm-afk-return.v1
+started	1
+phase	blocked
+evidence	health	supervision ran through the away window with no detected gap
+blocker	guide	pending-reply-abcdef0123456789	pending-reply-missed: task=guide pending-reply-id=abcdef0123456789 request=check the books and no reply is expected

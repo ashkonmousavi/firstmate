@@ -1,0 +1,4 @@
+$ bin/fm-spawn.sh r10a /tmp/fm-lab.INNNGi/projects/demo --mode local-only --yolo off --dispatch-rule 0 --harness codex --model gpt-6-sol --effort high 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.INNNGi
+error: spawn refused - codex/gpt-6-sol/high does not match crew-dispatch rule 0: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at /tmp/fm-lab.INNNGi/data/r10a/dispatch-override or pass one of its profiles
+rc=1

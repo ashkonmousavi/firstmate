@@ -1,0 +1,5 @@
+$ bin/fm-harness.sh crew
+codex
+$ bin/fm-dispatch-select.sh crew-dispatch.json default
+error: selector default names no rule
+rc=2
