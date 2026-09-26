@@ -1057,12 +1057,15 @@ This section is the single owner of the canonical schema and its per-field seman
 | Profile `model` and `effort`; rule `why` | Optional. |
 
 A Grok Bot target carries `grok_bot`, the name of one standing Bot, and optionally `off`.
-It takes no `harness`, `model`, `effort`, `provider`, or `floor`, because the Bot runs on its own cloud computer without a worktree, hooks, or local files.
-Route only file-free work to it through `bin/fm-grok-bot-dispatch.sh`; its header owns the bridge and outcomes.
-Its reply is unverified until checked by a candidate from a vendor other than xAI.
-When the Bot's usage is spent, supply a `blocked` fact so ordered selection moves to the next candidate.
-Secondmate homes inherit the rules but not the primary's bridge; a Bot dispatch there refuses and supplies a `launch_failed` fact for fallback selection.
-Quota-balanced selection refuses a Grok Bot target because it has no quota evidence.
+It takes no `harness`, `model`, `effort`, `provider`, or `floor`, because Grok Bot is not a launchable harness and runs on its own cloud computer without a worktree, hooks, or local files.
+Route only file-free work to it, such as web research and public-repository reading.
+When selection lands on it, firstmate sends the brief through `bin/fm-grok-bot-dispatch.sh` rather than `fm-spawn.sh`; that script's header owns its arguments, the home-private bridge it drives, and its outcomes.
+The reply comes back marked unverified, and firstmate has it checked under the independent-verification rule by a candidate from a vendor other than xAI before relaying or acting on it.
+When the Bot's usage is spent, firstmate supplies a `blocked` fact for that candidate so ordered selection moves to the next one.
+Grok Bot targets run only in the home that holds the bridge, which is the primary.
+Secondmate homes inherit the rules but not the primary's bridge, so there `bin/fm-grok-bot-dispatch.sh` refuses with exit 2 and names this; firstmate then supplies a `launch_failed` fact for that candidate so the rule falls to its other candidates.
+A `"select": "quota-balanced"` rule cannot use a Grok Bot target because a Bot has no quota evidence; bootstrap, `fm-dispatch-select.sh`, and typed resolution all refuse that configuration.
+Typed resolution reports a Grok Bot target as eligible but unranked and never emits it as a `profile:` line.
 
 **Fields applied only by typed resolution**
 
@@ -1107,13 +1110,17 @@ This single-provider table is separate from the frozen legacy mapping used by `f
 - Codex `max` is valid when the profile selects `gpt-5.6-luna`, whose installed catalog entry supports that reasoning level.
 - An omitted model or effort means the selected harness uses its own default for that axis.
 - Rule `select` accepts `ordered` or `quota-balanced`; absent means `ordered`.
-- `off: true` excludes a profile in either mode.
+- Profile `off` must be a boolean and defaults to false; `off: true` excludes that profile in either mode.
 - Ordered selection takes the first available candidate, retaining its harness, model, and effort.
-- A candidate is unavailable when disabled or when firstmate supplies concrete launch failure, known block, or established `exhausted_now` quota evidence; lower headroom or projected exhaustion does not skip it.
+- A candidate is unavailable only when disabled or when firstmate supplies concrete evidence of a launch failure, a known block, or quota-axi reporting its applicable provider `exhausted_now` with `established` confidence.
+- Lower headroom, `projected_exhaustion`, or `early` confidence never skips an ordered candidate.
+- Firstmate establishes which provider and account evidence applies; the selector neither discovers credentials nor infers provider mappings.
 - `quota-array-dispatch` owns explicit `quota-balanced` selection.
-- `bin/fm-dispatch-select.sh` implements stateless ordered selection for a selected rule or default and prints the choice and prior skip reasons.
+- `bin/fm-dispatch-select.sh` implements stateless ordered selection for an already-selected rule index or `default`; its header and `--help` own arguments, availability-fact format, output, and exit codes.
+- It prints the chosen profile and each prior skip reason, or an explicit quota-balanced handoff without choosing by order.
+- `tests/fm-dispatch-select.test.sh` verifies these paths through its public command interface.
 - If no dispatch rule fits, firstmate resolves `default` through the same object-or-array path before falling back to `config/crew-harness`.
-- If every candidate in the selected rule or default is unavailable, report each skip instead of silently trying another rule or the static harness.
+- If every candidate in the selected rule or default is unavailable, stop and report each skip instead of silently trying another rule or the static harness.
 - Except for `ultra`, which refuses unsupported profiles under the native-effort contract above, an effort value the chosen harness does not accept is recorded as `effort=` in task meta for traceability but omitted from the launch flags.
 - Bootstrap reports unsupported harness/model/effort combinations as a `CREW_DISPATCH` diagnostic when they are visible in the file.
 
@@ -1217,17 +1224,19 @@ The tool never replaces firstmate's judgment, `quota-array-dispatch`, the captai
 By accepted design, a `clear` result does not enforce catalog/authentication, reasoning-class, or completion-runway gates.
 
 On `clear`, firstmate takes the named `rule_<n>` or `fallback:` rule and resolves its profile under that rule's `select` mode.
+Here `rule_<n>` is rules index `n-1`, a `fallback:` line names the rule actually resolved, and a below-floor note means `default`.
 It uses `bin/fm-dispatch-select.sh` for an ordered rule; the resolver's `profile:` line serves only explicit `quota-balanced` selection.
-Firstmate passes that line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note; every non-clear result returns to the full existing intake.
+Firstmate passes that line unless it states a reason to override, such as the brief's reasoning class or an eligible-unranked-candidate note.
+The tool's floor, approval, and quota evidence therefore bind an ordered rule only through the rule it names; every non-clear result returns to the full existing intake.
 
 **Key handling and fixed settings**
 
-- The resolver copies both environment-provided keys into non-exported private variables and unsets `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` before launching child processes; bootstrap does the same for `TYPESAFE_API_KEY`.
+- The resolver copies both environment-provided keys into non-exported private variables and unsets `TYPESAFE_API_KEY` and `AI_GATEWAY_API_KEY` before launching child processes; bootstrap does the same for `TYPESAFE_API_KEY`, so the secrets are absent from their child environments.
 - It sends each key to `curl` only as a header read from a file descriptor, never on argv, and nothing prints, logs, or writes either key.
 - The direct endpoint is `https://api.typesafe.ai/v1/systemone` with model `jev-latest`; the fallback is `https://ai-gateway.vercel.sh/typesafe/v1/systemone` with model `typesafe-ai/jev`.
-- When the direct request fails or times out, the resolver retries once through the Vercel AI Gateway if `AI_GATEWAY_API_KEY` is present in the environment or home `.env`; the environment wins.
+- When the direct request returns a non-200 response, fails, or times out, the resolver retries once through the Vercel AI Gateway if `AI_GATEWAY_API_KEY` is present in the environment or home `.env`; the environment wins.
 - Both requests send the same Choice state and question, and the returned `provider:` line identifies `typesafe` or `vercel`.
-- If both requests fail, `error` names both outcomes with bounded response excerpts; without a fallback key, the direct error is returned.
+- If both requests fail, `error` names both HTTP or transport outcomes, each followed by up to 200 bytes of that provider's response body; without a fallback key, the TypeSafe error and its response excerpt are returned directly.
 - The default confidence floor is 0.6 and each request timeout is 5 seconds.
 
 The live rule-match evidence is recorded in [`verification/dispatch-resolve.md`](verification/dispatch-resolve.md).

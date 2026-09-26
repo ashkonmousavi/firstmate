@@ -183,7 +183,7 @@ Only `answer` with the captain's words or evidence-backed `reconcile close` reso
 It reads `<task-id>\t<answer>\t<label>[\t<mode>]` lines and resolves each named task through the same `answer` path.
 Every guard therefore applies identically no matter which channel the answer arrived on.
 
-The optional mode column carries a card-declared close:
+The optional mode column carries the selected choice's close:
 
 | Mode | Effect |
 | --- | --- |
@@ -192,8 +192,8 @@ The optional mode column carries a card-declared close:
 | `defer:YYYY-MM-DD` | Re-holds an open captain call until that future date under its existing hold reason and reports `deferred:` without a resolution record. |
 | Any other value | Skipped. |
 
-A dated deferral is accepted only for the exact answer `later`, and `later` requires a dated deferral.
-The body records the source, date, and selected label as provenance.
+A dated deferral is accepted only for the exact answer `later`, and `later` requires a dated deferral, so neither can close a call by accident.
+The deferral appends a `Captain deferred this call until <date> through <source>: later (answer as shown to the captain: <label>)` provenance line to the body, omitting the parenthetical when the choice carries no label.
 
 Each key is reported as follows:
 
@@ -524,7 +524,8 @@ The suite does not test the accepted merge-to-cleanup re-hold window or asynchro
 ### Answers, stamps, and deferral
 
 - Answer-time resolution works through a bound channel with task-id keys.
-  This includes the `release` mode, mode-matched replay idempotence, and the refusal of drifted, mode-mismatched, absent, unheld, and already-closed keys.
+  This includes the `release` mode, a board `later` choice dating the open hold under its unchanged reason while `done` and `release` keep their modes, and mode-matched replay idempotence.
+  It also includes the refusal of drifted, mode-mismatched, absent, unheld, and already-closed keys and of undated, invalid, past, or non-`later` deferrals.
 - The chat channel reaches the same intake.
 - Hold-set stamping precedes visible hold state, preserves an active lifecycle's timestamp, and resets after release.
 - Interrupted answer closure retains the stamp until close and restores resolution-first ordering on retry.
@@ -593,7 +594,7 @@ The captured-source coverage proves:
 - Bare and annotated Reconcile choices never reach keyed answers.
 - Genuine current and legacy choices still close normally.
 - Legacy bare and separator-annotated reconcile values feed neither intake.
-- Legacy bare and separator-annotated later values feed neither intake; a later selection replacing an earlier answer leaves the call held.
+- Legacy bare and separator-annotated later values feed neither intake; a legacy `later` that replaces an earlier answer to the same card leaves that call held.
 - Mixed repeated selections preserve every other card's final value.
 - The generic runner creates a request only through a verified bound source.
 - Chat reconcile text creates none.
