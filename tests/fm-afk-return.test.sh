@@ -842,117 +842,6 @@ test_statusful_leftover_record_lets_catchup_clear() {
   pass "a leftover record with a readable status file lets return catch-up clear"
 }
 
-test_routine_noreply_pending_reply_does_not_hold_return_or_entry() {
-  local dir out rc gate corr key
-  dir="$TMP_ROOT/routine-noreply"
-  install_runner "$dir"
-  gate="$dir/home/state/.afk-return-catchup"
-  corr=abcdef0123456789
-  key="pending-reply-$corr"
-  printf 'kind=secondmate\nwindow=sess:fm-guide\n' > "$dir/home/state/guide.meta"
-  printf 'blocked [key=%s]: pending-reply-missed: task=guide pending-reply-id=%s request=check the books and no reply is expected\n' \
-    "$key" "$corr" > "$dir/home/state/guide.status"
-  touch "$dir/home/state/.last-watcher-beat"
-  : > "$dir/home/state/.fake-drain"
-  out=$(run_return "$dir" begin) || fail "a routine no-reply notice gated return: $out"
-  assert_contains "$out" 'catch-up clear' "a routine no-reply notice did not let return proceed"
-  [ ! -e "$gate" ] || fail "a routine no-reply notice left the return gate behind"
-
-  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" \
-    "$ROOT/bin/fm-afk-launch.sh" enter --words 'away for a bit' 2>&1) || fail "away entry stalled after a routine notice: $out"
-  assert_not_contains "$out" 'return catch-up is still pending' "away entry treated a cleared routine notice as pending"
-
-  dir="$TMP_ROOT/routine-plus-blocker"
-  install_runner "$dir"
-  gate="$dir/home/state/.afk-return-catchup"
-  printf 'kind=secondmate\nwindow=sess:fm-guide\n' > "$dir/home/state/guide.meta"
-  printf 'blocked [key=%s]: pending-reply-missed: task=guide pending-reply-id=%s request=check the books and no reply is expected\n' \
-    "$key" "$corr" > "$dir/home/state/guide.status"
-  printf 'kind=ship\nwindow=sess:fm-repair\n' > "$dir/home/state/repair.meta"
-  printf 'blocked [key=creds]: the token is missing\n' > "$dir/home/state/repair.status"
-  touch "$dir/home/state/.last-watcher-beat"
-  : > "$dir/home/state/.fake-drain"
-  set +e
-  out=$(run_return "$dir" begin)
-  rc=$?
-  set -e
-  [ "$rc" -eq 3 ] || fail "a real blocker should keep return gated beside a routine notice (rc=$rc): $out"
-  [ -f "$gate" ] || fail "a real blocker did not retain the return gate"
-  assert_contains "$out" 'creds' "the real blocker was not listed"
-  assert_not_contains "$out" 'no reply is expected' "the routine notice was listed as a blocker"
-  set +e
-  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" \
-    "$ROOT/bin/fm-afk-launch.sh" enter --words 'away for a bit' 2>&1)
-  rc=$?
-  set -e
-  [ "$rc" -ne 0 ] || fail "away entry succeeded while a real blocker holds return"
-  assert_contains "$out" 'return catch-up is still pending' "away entry did not name the pending return"
-  pass "routine no-reply notices do not block return or away entry, and a real blocker still does"
-}
-
-# A gate written before return learned to skip routine notices carries the
-# notice as a blocker row beside the health snapshot every gate records. Away
-# entry heals that gate; a delivery-unknown escalation on the same request, or
-# any other evidence row, keeps it pending.
-test_away_entry_heals_a_gate_holding_only_routine_notices() {
-  local dir out rc gate corr key tab held
-  tab=$(printf '\t')
-  corr=abcdef0123456789
-  key="pending-reply-$corr"
-  dir="$TMP_ROOT/legacy-routine-gate"
-  install_runner "$dir"
-  gate="$dir/home/state/.afk-return-catchup"
-  {
-    printf 'schema%sfm-afk-return.v1\n' "$tab"
-    printf 'started%s1\n' "$tab"
-    printf 'phase%sblocked\n' "$tab"
-    printf 'evidence%shealth%ssupervision ran through the away window with no detected gap\n' "$tab" "$tab"
-    printf 'blocker%sguide%s%s%spending-reply-missed: task=guide pending-reply-id=%s request=check the books and no reply is expected\n' \
-      "$tab" "$tab" "$key" "$tab" "$corr"
-  } > "$gate"
-  out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" \
-    "$ROOT/bin/fm-afk-launch.sh" enter --words 'away for a bit' 2>&1) || fail "away entry stalled on a gate holding only a routine notice: $out"
-  assert_not_contains "$out" 'return catch-up is still pending' "away entry kept a gate holding only a routine notice"
-  [ ! -e "$gate" ] || fail "away entry left a gate holding only a routine notice"
-
-  for held in \
-    "blocker${tab}guide${tab}${key}${tab}pending-reply-delivery-unknown: task=guide pending-reply-id=${corr} request=check the books and no reply is expected" \
-    "evidence${tab}lifecycle${tab}outcome store unreadable, catch-up stays gated"; do
-    dir="$TMP_ROOT/legacy-held-gate-$RANDOM"
-    install_runner "$dir"
-    gate="$dir/home/state/.afk-return-catchup"
-    {
-      printf 'schema%sfm-afk-return.v1\n' "$tab"
-      printf 'evidence%shealth%ssupervision ran through the away window with no detected gap\n' "$tab" "$tab"
-      printf 'blocker%sguide%s%s%spending-reply-missed: task=guide pending-reply-id=%s request=check the books and no reply is expected\n' \
-        "$tab" "$tab" "$key" "$tab" "$corr"
-      printf '%s\n' "$held"
-    } > "$gate"
-    set +e
-    out=$(FM_HOME="$dir/home" FM_STATE_OVERRIDE="$dir/home/state" \
-      "$ROOT/bin/fm-afk-launch.sh" enter --words 'away for a bit' 2>&1)
-    rc=$?
-    set -e
-    [ "$rc" -ne 0 ] || fail "away entry succeeded past a held gate row: $held"
-    assert_contains "$out" 'return catch-up is still pending' "away entry did not name the pending return for: $held"
-    [ -f "$gate" ] || fail "away entry removed a gate that still holds: $held"
-  done
-  dir="$TMP_ROOT/delivery-unknown-noreply"
-  install_runner "$dir"
-  printf 'kind=secondmate\nwindow=sess:fm-guide\n' > "$dir/home/state/guide.meta"
-  printf 'blocked [key=%s]: pending-reply-delivery-unknown: task=guide pending-reply-id=%s request=check the books and no reply is expected\n' \
-    "$key" "$corr" > "$dir/home/state/guide.status"
-  touch "$dir/home/state/.last-watcher-beat"
-  : > "$dir/home/state/.fake-drain"
-  set +e
-  out=$(run_return "$dir" begin)
-  rc=$?
-  set -e
-  [ "$rc" -eq 3 ] || fail "a delivery-unknown escalation should keep return gated even when no reply was expected (rc=$rc): $out"
-  assert_contains "$out" 'pending-reply-delivery-unknown' "the delivery-unknown escalation was not listed as a blocker"
-  pass "away entry heals a gate holding only routine notices and keeps any other hold"
-}
-
 test_return_guard_refuses_while_the_record_exists() {
   local dir out rc
   dir="$TMP_ROOT/guard-record"
@@ -1110,8 +999,6 @@ test_failed_held_listing_keeps_catchup_gated
 test_unreadable_status_file_keeps_catchup_gated
 test_statusless_leftover_record_keeps_catchup_gated_until_cleanup
 test_statusful_leftover_record_lets_catchup_clear
-test_routine_noreply_pending_reply_does_not_hold_return_or_entry
-test_away_entry_heals_a_gate_holding_only_routine_notices
 test_return_guard_refuses_while_the_record_exists
 test_return_brief_health_leads_with_a_gap
 test_return_brief_does_not_report_an_acked_watcher_down_marker_as_a_gap

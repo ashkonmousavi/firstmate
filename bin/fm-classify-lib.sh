@@ -805,18 +805,6 @@ _fm_is_pending_reply_escalation() {  # <key> <note>
   esac
 }
 
-# 0 when this open pending-reply escalation is a missed reply to a request that
-# said no reply was expected. The return gate and away entry ignore that notice.
-# Every other escalation kind, and a missed reply on any other request, stays a
-# real blocker.
-_fm_pending_reply_routine_noreply_notice() {  # <key> <note>
-  case "$1" in pending-reply-*) ;; *) return 1 ;; esac
-  case "$2" in
-    pending-reply-missed:*"no reply is expected"*|pending-reply-missed:*"no reply needed"*) return 0 ;;
-  esac
-  return 1
-}
-
 _fm_status_kind() {
   local meta=${1%.status}.meta kind=${2:-} line
   if [ -z "$kind" ]; then

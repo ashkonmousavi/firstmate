@@ -122,6 +122,7 @@
 # sent with --fire-and-forget <16-hex-delivery-id> uses the same inbox transport
 # without creating a reply expectation; its delivery id makes uncertain retries
 # idempotent while allowing a later identical instruction to be distinct.
+# A routine notice that expects no reply is sent with --fire-and-forget.
 #
 # Remote secondmate delivery: the send crosses fm-on.sh to a host-local leg
 # (bin/fm-remote-secondmate-control.sh cmd_send) that writes the message as a

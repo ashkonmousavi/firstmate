@@ -32,11 +32,6 @@
 # live task's open blocked event must be remediated and closed with
 # `resolved [key=...]`, or explicitly reclassified in the status stream with a
 # durable reason, before an ordinary captain request may proceed.
-# A missed-reply pending-reply escalation whose request said no reply was
-# expected is a routine notice, not a blocker; every other pending-reply kind
-# still holds. `_fm_pending_reply_routine_noreply_notice` in
-# bin/fm-classify-lib.sh is that test, and away entry uses the same test to
-# clear a gate whose only blockers are such notices.
 # `needs-decision:` is deliberately not part of this blocker gate. The gate
 # keeps every open blocker until that blocker's own resolution is proven.
 # Captain-verdict outcomes are listed under "waiting on you", but cannot exempt
@@ -199,7 +194,6 @@ scan_open_blockers() {  # -> tab-separated blocker rows
     while IFS="$(printf '\t')" read -r key verb summary; do
       [ "$verb" = blocked ] || continue
       clean_summary=$(printf '%s' "$summary" | clean_field)
-      _fm_pending_reply_routine_noreply_notice "$key" "$clean_summary" && continue
       printf 'blocker\t%s\t%s\t%s\n' "$id" "$key" "$clean_summary"
     done <<EOF
 $open
