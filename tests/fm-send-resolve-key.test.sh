@@ -960,6 +960,49 @@ EOF
   pass "fm-send --resolve-key on a secondmate pending-reply key leaves no open expectation"
 }
 
+# A delivery-unknown escalation means the original request may never have
+# arrived, so closing it neither settles that record nor skips a new guard.
+test_secondmate_delivery_unknown_close_keeps_guarding() {
+  local dir fb log home rc key corr rec phase count got
+  dir="$TMP_ROOT/pr-delivery-unknown"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-delivery-unknown)
+  corr=0123456789abcdef
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-delivery-unknown: task=guide pending-reply-id=%s request=merge PR 12\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=merge PR 12
+phase=escalated
+escalated_epoch=1
+EOF
+  printf 'attempted=1\n' > "$home/state/pending-replies/.delivery-confirmed-$corr"
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Resending: merge PR 12 and report back"; rc=$?
+  expect_code 0 "$rc" "closing a delivery-unknown pending-reply key should succeed"
+  phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+  [ "$phase" != resolved ] || fail "the delivery-unknown close resolved a record whose delivery was never confirmed"
+  if grep -q '^delivered_epoch=' "$rec"; then
+    fail "the delivery-unknown close marked the original request delivered"
+  fi
+  count=$(find "$home/state/pending-replies" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d ' ')
+  [ "$count" = 2 ] || fail "the resent directive did not mint its own reply expectation (records=$count)"
+  got=$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$home/state/guide.inbox/001.msg")
+  case "$got" in
+    *corr=*) : ;;
+    *) fail "the resent directive carries no correlation token: $got" ;;
+  esac
+  pass "fm-send --resolve-key on a delivery-unknown pending-reply key keeps guarding the resent directive"
+}
+
 test_answer_send_closes_open_decision
 test_answer_close_is_self_announced
 test_separate_resolve_key_answers_do_not_rewake
@@ -985,3 +1028,4 @@ test_failed_close_recovery_command_is_shell_safe
 test_remote_reserved_pending_reply_key_closes_locally
 test_decision_answer_partition_relocates_under_the_record
 test_secondmate_pending_reply_close_leaves_no_open_expectation
+test_secondmate_delivery_unknown_close_keeps_guarding

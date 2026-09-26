@@ -183,8 +183,9 @@
 #   bin/fm-dispatch-select.sh selects; with no configured default, the default
 #   tier accepts the static crew harness from bin/fm-harness.sh crew.
 #   data/<id>/dispatch-override, a non-empty regular file, is the recorded
-#   captain override that allows any other harness/model/effort. Relaunch does not
-#   re-apply the match. A --secondmate spawn is exempt and resolves the SECONDMATE
+#   captain override that allows any other harness/model/effort. A relaunch on
+#   the recorded harness/model/effort skips the match; a relaunch that changes
+#   any of them must pass it. A --secondmate spawn is exempt and resolves the SECONDMATE
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin)
@@ -2333,12 +2334,21 @@ esac
 # the static crew harness (bin/fm-harness.sh crew, a bare adapter name).
 # docs/configuration.md "Crew dispatch profiles" owns the rule file.
 # data/<id>/dispatch-override records an explicit captain override.
-# Relaunch keeps the harness intake already accepted.
+# A relaunch on the recorded harness/model/effort keeps the profile intake
+# already accepted; a relaunch that changes any of them is checked again.
 spawn_enforce_dispatch_table() {
-  local override rule out rc crew
+  local override rule out rc crew prior_m prior_e
   [ "$KIND" = secondmate ] && return 0
-  [ "$RELAUNCH" -eq 1 ] && return 0
   [ -f "$CONFIG/crew-dispatch.json" ] || return 0
+  if [ "$RELAUNCH" -eq 1 ]; then
+    prior_m=$(fm_meta_get "$RELAUNCH_META" model)
+    prior_e=$(fm_meta_get "$RELAUNCH_META" effort)
+    [ "$prior_m" != default ] || prior_m=
+    [ "$prior_e" != default ] || prior_e=
+    if [ "$HARNESS" = "$RELAUNCH_PRIOR_HARNESS" ] && [ "$MODEL" = "$prior_m" ] && [ "$EFFORT" = "$prior_e" ]; then
+      return 0
+    fi
+  fi
   override="$DATA/$ID/dispatch-override"
   if [ -f "$override" ] && [ ! -L "$override" ] && [ -s "$override" ]; then
     return 0
