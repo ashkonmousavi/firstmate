@@ -56,9 +56,11 @@
 #     healthy crewmate's own progress.
 #     Buffered escalation delivery also has a max-defer alarm: if a digest stays
 #     undelivered past FM_MAX_DEFER_SECS, the daemon retries a normal flush and
-#     writes state/.subsuper-inject-wedged, attempts a configurable active
-#     alert, requeues the buffer as a durable wake row, and exits loudly to hand
-#     supervision back to the Stop-hook path if submit still cannot be confirmed.
+#     writes state/.subsuper-inject-wedged and attempts a configurable active
+#     alert if submit still cannot be confirmed. A harness-native launch then
+#     requeues the buffer as a durable wake row and exits loudly to hand
+#     supervision back to the Stop-hook path; a terminal-launched daemon keeps
+#     running with the buffer preserved.
 #   - Cheap heartbeat catch-all: every HEARTBEAT_SCAN_SECS the daemon greps all
 #     state/*.status for a captain-relevant line the per-wake classifier might
 #     have missed (e.g. a status verb outside CAPTAIN_RE) and escalates it.
@@ -965,8 +967,8 @@ wedge_alarm_notify() {  # <summary> <marker>
 # an ERROR, drops a durable marker firstmate/recovery can surface, flashes
 # the tmux supervisor client's status line when applicable, and attempts a
 # configurable backend-independent active alert (wedge_alarm_notify). Nothing
-# is lost - the main loop requeues the buffer as a durable wake row before it
-# hands supervision back - and the stall stops being invisible.
+# is lost - the buffer is preserved, or requeued as a durable wake row when a
+# native launch hands supervision back - and the stall stops being invisible.
 inject_wedge_alarm() {  # <state> <age-seconds>
   local state=$1 age=$2 marker target backend max_defer now notify=1
   marker="$state/.subsuper-inject-wedged"
@@ -1004,11 +1006,19 @@ inject_wedge_alarm() {  # <state> <age-seconds>
   if [ "$notify" -eq 1 ]; then
     wedge_alarm_notify "away-mode escalations WEDGED ${age}s undelivered - see $marker" "$marker"
   fi
-  # The daemon cannot keep claiming supervision after its only route to the
-  # primary has remained blocked through the max-defer window. The main loop
-  # requeues the buffer as a durable wake row and exits its tracked background
-  # job, which makes the ordinary Stop-hook path eligible again.
+  # A native daemon cannot keep claiming supervision after its only route to
+  # the primary has remained blocked through the max-defer window. The main
+  # loop requeues the buffer as a durable wake row and exits its tracked
+  # background job, which makes the ordinary Stop-hook path eligible again.
   FM_DAEMON_HANDOFF=1
+}
+
+# Only a harness-native launch (bin/fm-afk-launch.sh start-native records this
+# exact line) runs the daemon as the primary's tracked background job, whose
+# exit wakes the primary. A terminal-launched daemon's exit wakes nothing, so it
+# must keep supervising instead of handing back.
+daemon_launched_natively() {  # <state>
+  [ "$(cat "$1/.afk-daemon-terminal" 2>/dev/null)" = $'none\t-\tnative' ]
 }
 
 _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first arrived (sidecar epoch)
@@ -1337,8 +1347,9 @@ should_force_self() {  # <reason>
 # still holds the #29 singleton lock) is a STATUS line, not a wake: handling it
 # as an unknown wake would flood the escalation buffer and restart the child with
 # no crash backoff. The main loop idles a non-wake line (log + sleep + continue)
-# while a live peer watcher holds the lock with a fresh beacon, and otherwise
-# hands supervision back, so a singleton collision cannot hot-loop escalations.
+# while a live peer watcher holds the lock with a fresh beacon, and otherwise a
+# native launch hands supervision back, so a singleton collision cannot hot-loop
+# escalations.
 is_wake_reason() {  # <reason>
   local reason=$1
   case "$reason" in
@@ -1733,7 +1744,7 @@ fm_super_main() {
   }
 
   # --- crash-loop guard -----------------------------------------------------
-  local crash_times=() backoff_secs=$CRASH_NORMAL_SLEEP
+  local crash_times=() backoff_secs=$CRASH_NORMAL_SLEEP crash_alerted=0
   record_crash() {
     local now t
     now=$(_now)
@@ -1747,9 +1758,9 @@ fm_super_main() {
       log "ERROR: watcher crashed ${#crash_times[@]} times within ${CRASH_WINDOW}s; backing off ${CRASH_BACKOFF}s"
       crash_times=()
       backoff_secs=$CRASH_BACKOFF
-    else
-      backoff_secs=$CRASH_NORMAL_SLEEP
+      return 1
     fi
+    backoff_secs=$CRASH_NORMAL_SLEEP
   }
 
   start_watcher() {
@@ -1788,9 +1799,18 @@ fm_super_main() {
         fi
         CUR_TMP=""
         if [ "$rc" -ne 0 ] || [ -z "$reason" ]; then
-          record_crash
-          log "watcher exited rc=$rc reason='$reason'; restarting after ${backoff_secs}s"
           WATCHER_PID=""
+          if ! record_crash; then
+            if daemon_launched_natively "$STATE"; then
+              fail_watcher_start "watcher crash loop (last rc=$rc)"
+              return 1
+            fi
+            if [ "$crash_alerted" = 0 ]; then
+              crash_alerted=1
+              wedge_alarm_notify "away-mode watcher crash-looping; daemon keeps retrying - see $LOG" "$LOG"
+            fi
+          fi
+          log "watcher exited rc=$rc reason='$reason'; restarting after ${backoff_secs}s"
           sleep "$backoff_secs"
           continue
         fi
@@ -1798,9 +1818,9 @@ fm_super_main() {
         # daemon does not own a watcher. A live peer watcher with a fresh beacon
         # is still supervising, so idle and retry until it exits. With no live
         # peer, retry the start once at once, because the peer may have released
-        # the lock after the collision; release supervision only if that retry
-        # also fails instead of holding the Stop-hook path while queued rows
-        # cannot be handled.
+        # the lock after the collision. If that retry also fails, a native launch
+        # releases supervision instead of holding the Stop-hook path while queued
+        # rows cannot be handled; a terminal-launched daemon keeps idling.
         if ! is_wake_reason "$reason"; then
           if fm_watcher_healthy "$STATE" "$WATCH" "${FM_GUARD_GRACE:-$(fm_poll_derived_grace)}" "$FM_HOME"; then
             log "watcher non-wake stdout while live peer pid $FM_WATCHER_HEALTHY_PID holds the watcher lock, idling: $reason"
@@ -1815,10 +1835,17 @@ fm_super_main() {
             WATCHER_PID=""
             continue
           fi
+          if ! daemon_launched_natively "$STATE"; then
+            log "watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: $reason"
+            WATCHER_PID=""
+            sleep "${FM_HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}"
+            continue
+          fi
           fail_watcher_start "$reason"
           return 1
         fi
         start_retried=0
+        crash_alerted=0
         log "wake: $reason"
         if ! handle_durable_wakes "$reason" "$STATE"; then
           log "durable wake handling was not acknowledged; restarting for recovery"
@@ -1837,7 +1864,7 @@ fm_super_main() {
     if [ "$(_file_age "$STATE/.subsuper-last-housekeep")" -ge "${FM_HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}" ]; then
       _now > "$STATE/.subsuper-last-housekeep"
       housekeeping "$STATE"
-      if [ "${FM_DAEMON_HANDOFF:-0}" = 1 ]; then
+      if [ "${FM_DAEMON_HANDOFF:-0}" = 1 ] && daemon_launched_natively "$STATE"; then
         fail_watcher_start "escalation undeliverable past FM_MAX_DEFER_SECS"
         return 1
       fi

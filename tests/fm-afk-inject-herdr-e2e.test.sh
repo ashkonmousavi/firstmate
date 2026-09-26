@@ -314,6 +314,7 @@ reset_state() {
          "$STATE_DIR"/.seen-* \
          "$STATE_DIR"/.heartbeat-streak \
          "$STATE_DIR"/.swallow-enter \
+         "$STATE_DIR"/.afk-daemon-terminal \
          2>/dev/null || true
   : > "$LOG_FILE"
 }
@@ -469,7 +470,7 @@ test_scenario_c() {
 
 # --- Scenario D: max-defer alarm on a persistently non-clearing composer -----
 # A pending composer that NEVER clears (every Enter attempt leaves real text
-# behind) must never be silently swallowed: the daemon must alarm (write
+# behind) must never be silently swallowed: a natively launched daemon must alarm (write
 # state/.subsuper-inject-wedged), requeue the buffered escalation as a durable
 # wake row, clear state/.afk, and hand supervision back by exiting rather than
 # holding it while undeliverable. Exercises fm_backend_composer_state(herdr, ...)
@@ -478,6 +479,7 @@ test_scenario_c() {
 test_scenario_d_max_defer() {
   reset_state
   afk_enter "$STATE_DIR"
+  printf 'none\t-\tnative\n' > "$STATE_DIR/.afk-daemon-terminal"
   local log_start=0
   [ ! -f "$STATE_DIR/.supervise-daemon.log" ] || log_start=$(wc -l < "$STATE_DIR/.supervise-daemon.log")
   # Persistent-pending composer: type real text and never submit it, so every

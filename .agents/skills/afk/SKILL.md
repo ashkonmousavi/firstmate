@@ -141,9 +141,10 @@ The alarm is defense in depth rather than a substitute for keeping every genuine
 If that submit cannot be confirmed, it raises a wedge alarm:
 an ERROR in the daemon log, a durable
 `state/.subsuper-inject-wedged` marker (the return brief's health line carries it), a tmux status-line flash when applicable, and a configurable backend-independent active alert.
-It then requeues the buffer as one durable wake row, clears `state/.afk`, and exits, handing supervision back to the ordinary turn-end path; a watcher start that fails with no live peer watcher takes the same handback.
+A daemon launched with `start-native` then requeues the buffer as one durable wake row, clears `state/.afk`, and exits, handing supervision back to the ordinary turn-end path; a watcher start that fails with no live peer watcher, or a watcher crash loop, takes the same handback.
+A daemon launched with `start` keeps running, because its exit would wake nothing.
 `docs/wedge-alarm.md` owns the alert channels and handback triggers, and `docs/verification/supervision.md` "Wedge-alarm channels" owns active evidence.
-So a guard false-positive becomes a visible handback, never an unbounded silent no-op.
+So a guard false-positive becomes a visible handback or alarm, never an unbounded silent no-op.
 
 ### Submit model
 

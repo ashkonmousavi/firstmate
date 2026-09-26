@@ -2168,6 +2168,7 @@ test_prepared_daemon_hands_back_after_undeliverable_wake() {
   capture="$dir/pane.txt"; out="$dir/daemon.out"
   printf '╭─────────────────╮\n│ > human draft   │\n╰─────────────────╯\n' > "$capture"
   printf 'prepared\n' > "$state/.afk"
+  printf 'none\t-\tnative\n' > "$state/.afk-daemon-terminal"
   printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
   echo $(( $(date +%s) - 60 )) > "$state/.subsuper-escalations.since"
   append_wake "$state" check held-choice 'check: held choice'
@@ -2200,11 +2201,46 @@ test_prepared_daemon_hands_back_after_undeliverable_wake() {
   pass "prepared native daemon exits loudly at max-defer and requeues its buffer for Stop-hook recovery"
 }
 
+test_terminal_daemon_keeps_supervising_after_max_defer() {
+  local dir state capture out pid i
+  dir=$(make_supercase terminal-max-defer)
+  state="$dir/state"; capture="$dir/pane.txt"; out="$dir/daemon.out"
+  printf '╭─────────────────╮\n│ > human draft   │\n╰─────────────────╯\n' > "$capture"
+  printf 'prepared\n' > "$state/.afk"
+  printf 'tmux\tfm-afk-daemon-x\t\n' > "$state/.afk-daemon-terminal"
+  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
+  echo $(( $(date +%s) - 60 )) > "$state/.subsuper-escalations.since"
+  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
+    FM_FAKE_TMUX_CAPTURE="$capture" FM_POLL=1 FM_HOUSEKEEPING_TICK=1 \
+    FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=1 FM_WEDGE_ALARM_CHANNEL=herdr \
+    "$AFK_START" > "$out" 2>&1 &
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ ! -s "$state/.subsuper-inject-wedged" ] && [ "$i" -lt 100 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  sleep 2
+  if ! is_live_non_zombie "$pid"; then
+    fail "terminal-launched daemon exited at max-defer although its exit wakes no primary: $(cat "$out")"
+  fi
+  [ -s "$state/.subsuper-inject-wedged" ] || fail "terminal-launched daemon raised no wedge alarm at max-defer"
+  [ -e "$state/.afk" ] || fail "terminal-launched daemon cleared its flag at max-defer"
+  grep -F 'needs-decision: held choice' "$state/.subsuper-escalations" >/dev/null \
+    || fail "terminal-launched daemon did not preserve its buffer at max-defer"
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  pass "terminal-launched daemon alarms at max-defer and keeps supervising with its buffer preserved"
+}
+
 # run_prepared_daemon_with_peer_lock <dir> <peer-pid> <out> <alerts>: start the
-# prepared native daemon while <peer-pid> holds the watcher lock with a fresh
-# beacon, so its watcher child reports a singleton collision instead of a wake.
+# prepared daemon while <peer-pid> holds the watcher lock with a fresh beacon,
+# so its watcher child reports a singleton collision instead of a wake. The
+# daemon counts as natively launched unless the caller wrote another record.
 run_prepared_daemon_with_peer_lock() {
   local dir=$1 peer=$2 out=$3 alerts=$4 state="$1/state"
+  [ -e "$state/.afk-daemon-terminal" ] || printf 'none\t-\tnative\n' > "$state/.afk-daemon-terminal"
   mkdir -p "$state/.watch.lock"
   printf '%s\n' "$peer" > "$state/.watch.lock/pid"
   touch "$state/.last-watcher-beat"
@@ -2248,6 +2284,108 @@ test_prepared_daemon_hands_back_when_watcher_cannot_start() {
     || fail "failed watcher start did not requeue the buffered escalation"
   [ ! -s "$state/.subsuper-escalations" ] || fail "failed watcher start left the requeued buffer behind"
   pass "a watcher that cannot start without a live peer alerts, requeues, and hands back"
+}
+
+test_terminal_daemon_idles_when_watcher_cannot_start() {
+  local dir state out alerts peer pid i
+  dir=$(make_supercase terminal-watcher-start)
+  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
+  : > "$dir/pane.txt"
+  printf 'tmux\tfm-afk-daemon-x\t\n' > "$state/.afk-daemon-terminal"
+  sleep 60 & peer=$!
+  run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ] \
+    && ! grep -F 'terminal-launched daemon keeps supervising' "$state/.supervise-daemon.log" >/dev/null 2>&1; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if ! is_live_non_zombie "$pid"; then
+    kill "$peer" 2>/dev/null || true
+    fail "terminal-launched daemon handed back when its watcher could not start: $(cat "$out")"
+  fi
+  grep -F 'terminal-launched daemon keeps supervising' "$state/.supervise-daemon.log" >/dev/null \
+    || fail "terminal-launched daemon never reached the failed-start idle path"
+  [ -e "$state/.afk" ] || fail "terminal-launched daemon cleared its flag on a failed watcher start"
+  [ -s "$state/.subsuper-escalations" ] || fail "terminal-launched daemon dropped its buffer on a failed watcher start"
+  [ ! -s "$alerts" ] || fail "terminal-launched daemon alerted a handback it did not take"
+  kill "$pid" "$peer" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  wait "$peer" 2>/dev/null || true
+  pass "terminal-launched daemon keeps supervising and idles when its watcher cannot start"
+}
+
+# run_crash_looping_daemon <dir> <record> <out> <alerts>: start a prepared
+# daemon from a copy of bin/ whose watcher exits non-zero on every start.
+run_crash_looping_daemon() {
+  local dir=$1 record=$2 out=$3 alerts=$4 state="$1/state"
+  cp -R "$ROOT/bin" "$dir/bin"
+  printf '#!/usr/bin/env bash\nexit 3\n' > "$dir/bin/fm-watch.sh"
+  : > "$dir/pane.txt"; : > "$alerts"; : > "$state/.supervise-daemon.log"
+  printf 'prepared\n' > "$state/.afk"
+  printf '%s\n' "$record" > "$state/.afk-daemon-terminal"
+  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
+  _now > "$state/.subsuper-escalations.since"
+  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
+    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
+    FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" FM_HOUSEKEEPING_TICK=1 FM_ESCALATE_BATCH_SECS=99999 \
+    FM_CRASH_THRESHOLD=1 FM_CRASH_NORMAL_SLEEP=0 FM_CRASH_BACKOFF=1 \
+    FM_WEDGE_ALARM_CHANNEL=herdr FM_WEDGE_ALARM_LOG="$alerts" \
+    "$dir/bin/fm-afk-start.sh" > "$out" 2>&1 &
+}
+
+test_native_daemon_hands_back_on_watcher_crash_loop() {
+  local dir state out alerts pid rc i
+  dir=$(make_supercase native-crash-loop)
+  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
+  run_crash_looping_daemon "$dir" $'none\t-\tnative' "$out" "$alerts"
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if is_live_non_zombie "$pid"; then
+    kill "$pid" 2>/dev/null || true
+    fail "native daemon kept backing off silently through a watcher crash loop"
+  fi
+  wait "$pid"; rc=$?
+  [ "$rc" -ne 0 ] || fail "crash-looping native daemon reported success"
+  grep -F 'ordinary turn-end supervision must resume' "$out" >/dev/null \
+    || fail "crash-looping native daemon did not announce handback"
+  grep -F 'handed back' "$alerts" >/dev/null || fail "crash-looping native daemon sent no active alert"
+  [ ! -e "$state/.afk" ] || fail "crash-looping native daemon left its flag blocking Claude Stop auto-arm"
+  grep -F 'needs-decision: held choice' "$state/.wake-queue" >/dev/null \
+    || fail "crash-looping native daemon did not requeue the buffered escalation"
+  [ ! -s "$state/.subsuper-escalations" ] || fail "crash-looping native daemon left the requeued buffer behind"
+  pass "native daemon alerts, requeues, and hands back when its watcher crash-loops"
+}
+
+test_terminal_daemon_alerts_once_on_watcher_crash_loop() {
+  local dir state out alerts pid i
+  dir=$(make_supercase terminal-crash-loop)
+  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
+  run_crash_looping_daemon "$dir" $'tmux\tfm-afk-daemon-x\t' "$out" "$alerts"
+  pid=$!
+  i=0
+  while is_live_non_zombie "$pid" && [ "$i" -lt 300 ] \
+    && [ "$(grep -c 'crashed' "$state/.supervise-daemon.log")" -lt 2 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if ! is_live_non_zombie "$pid"; then
+    fail "terminal-launched daemon exited on a watcher crash loop: $(cat "$out")"
+  fi
+  [ "$(grep -c 'crashed' "$state/.supervise-daemon.log")" -ge 2 ] \
+    || fail "fixture error: the watcher crash threshold did not trip repeatedly"
+  [ "$(grep -c 'crash-looping' "$alerts")" = 1 ] \
+    || fail "terminal-launched daemon did not alert exactly once for a crash-loop episode: $(cat "$alerts" 2>/dev/null)"
+  [ -e "$state/.afk" ] || fail "terminal-launched daemon cleared its flag on a watcher crash loop"
+  [ -s "$state/.subsuper-escalations" ] || fail "terminal-launched daemon dropped its buffer on a watcher crash loop"
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  pass "terminal-launched daemon alerts once and keeps retrying through a watcher crash loop"
 }
 
 test_prepared_daemon_retries_start_after_peer_releases_lock() {
@@ -3075,6 +3213,10 @@ test_prepared_daemon_hands_back_after_undeliverable_wake
 test_prepared_daemon_hands_back_when_watcher_cannot_start
 test_prepared_daemon_idles_while_live_peer_watcher_holds_lock
 test_prepared_daemon_retries_start_after_peer_releases_lock
+test_terminal_daemon_keeps_supervising_after_max_defer
+test_terminal_daemon_idles_when_watcher_cannot_start
+test_native_daemon_hands_back_on_watcher_crash_loop
+test_terminal_daemon_alerts_once_on_watcher_crash_loop
 test_normal_flush_clears_stale_wedge_marker
 test_below_max_defer_does_nothing
 test_max_defer_afk_inactive_does_not_flush_or_alarm
