@@ -1100,6 +1100,74 @@ test_spawn_relaunch_without_a_harness_reuses_the_recorded_one() {
   pass "fm-spawn --relaunch: with no explicit harness it reuses the task's recorded one, never the crew default"
 }
 
+# An active dispatch table lets a relaunch keep the recorded profile, but a
+# relaunch that switches harness, model, or effort must pass the same check a
+# fresh spawn does.
+test_spawn_relaunch_rechecks_the_dispatch_table_only_on_a_profile_change() {
+  local dir out
+  dir=$(new_case dispatchrelaunch rl71)
+  add_ship_task "$dir" rl71 claude
+  mkdir -p "$dir/home/config"
+  printf '%s\n' '{"rules":[],"default":{"harness":"codex","model":"gpt-5","effort":"high"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  printf 'zsh' > "$dir/fake/command"
+  out=$(run_spawn "$dir" rl71 --relaunch --harness grok --model grok-4 --effort high)
+  assert_contains "$out" "does not match crew-dispatch rule default" \
+    "a relaunch onto an off-table profile was not refused"
+  [ "$(meta_field "$dir" rl71 harness)" = claude ] \
+    || fail "a refused relaunch rewrote the task's recorded harness"
+  out=$(run_spawn "$dir" rl71 --relaunch)
+  assert_not_contains "$out" "does not match crew-dispatch rule" \
+    "a relaunch on the recorded profile was checked against the dispatch table"
+  assert_contains "$out" "spawned rl71 harness=claude" "the unchanged-profile relaunch did not launch"
+  pass "fm-spawn --relaunch: the dispatch table is re-checked only when the profile changes"
+}
+
+# A relaunch profile change is checked against the rule the task was spawned
+# under, recorded as dispatch_rule= in its meta, so another candidate of that
+# rule relaunches without an override and the record keeps the rule.
+test_relaunch_checks_the_recorded_dispatch_rule() {
+  local dir out rc
+  dir=$(new_case dispatchrule rl73)
+  add_ship_task "$dir" rl73 claude
+  printf 'dispatch_rule=0\n' >> "$dir/home/state/rl73.meta"
+  mkdir -p "$dir/home/config"
+  printf '%s\n' '{"rules":[{"when":"refactors","use":[{"harness":"claude"},{"harness":"codex","model":"gpt-5","effort":"high"}]}],"default":{"harness":"grok","model":"grok-4","effort":"high"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  out=$(run_spawn "$dir" rl73 --relaunch --dispatch-rule default)
+  assert_contains "$out" "--dispatch-rule cannot override it" \
+    "fm-spawn --relaunch accepted a dispatch rule that contradicts the recorded one"
+  printf 'codex' > "$dir/fake/becomes"
+  out=$(run_control "$dir" rl73 relaunch --harness codex --model gpt-5 --effort high --note "rule fallback"); rc=$?
+  expect_code 0 "$rc" "a relaunch onto another candidate of the recorded rule should succeed"$'\n'"$out"
+  [ "$(meta_field "$dir" rl73 harness)" = codex ] || fail "the record should follow the relaunch"
+  [ "$(meta_field "$dir" rl73 dispatch_rule)" = 0 ] || fail "the relaunch dropped the recorded dispatch rule"
+  pass "fm-control relaunch: a profile change is checked against the task's recorded dispatch rule"
+}
+
+# fm-control stops the running agent before fm-spawn launches the
+# replacement, so a profile switch the dispatch table refuses must be refused
+# first, leaving the agent running and the record untouched.
+test_relaunch_refuses_an_off_table_profile_before_stopping() {
+  local dir out rc
+  dir=$(new_case dispatchprestop rl72)
+  add_ship_task "$dir" rl72 claude
+  mkdir -p "$dir/home/config"
+  printf '%s\n' '{"rules":[],"default":{"harness":"codex","model":"gpt-5","effort":"high"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_control "$dir" rl72 relaunch --harness grok --model grok-4 --effort high --note "switch runtime"); rc=$?
+  expect_code 1 "$rc" "an off-table relaunch should refuse"
+  assert_contains "$out" "does not match crew-dispatch rule default" \
+    "the refusal should name the dispatch rule"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "the dispatch-table refusal must land before the running agent is stopped"
+  [ ! -s "$dir/fake/literal" ] || fail "the dispatch-table refusal sent lifecycle input"
+  [ "$(meta_field "$dir" rl72 harness)" = claude ] \
+    || fail "a refused relaunch must leave the durable record on the recorded harness"
+  pass "fm-control relaunch: a profile switch the dispatch table refuses is refused before the agent is stopped"
+}
+
 # A promoted scout records kind=ship and a custom ship branch in its meta, but
 # its brief is the scout scaffold: it never gained a Ship branch line, and a
 # relaunch cannot regenerate the brief (--branch-prefix is refused there). The
@@ -2434,6 +2502,9 @@ test_secondmate_relaunch_onto_a_crewmate_only_adapter_refuses_before_stop
 test_explicit_secondmate_harness_ignores_configured_profile_axes
 test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
+test_spawn_relaunch_rechecks_the_dispatch_table_only_on_a_profile_change
+test_relaunch_refuses_an_off_table_profile_before_stopping
+test_relaunch_checks_the_recorded_dispatch_rule
 test_relaunch_is_exempt_from_the_task_preparation_gate
 test_spawn_relaunch_of_promoted_scout_uses_the_recorded_branch
 test_promoted_scout_relaunch_receives_the_current_delivery_contract

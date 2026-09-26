@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>]
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
@@ -178,7 +178,16 @@
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch
-#   profile consultation. A --secondmate spawn is exempt and resolves the SECONDMATE
+#   profile consultation, and that harness/model/effort must match a candidate
+#   profile of --dispatch-rule (omitted means default), such as the one
+#   bin/fm-dispatch-select.sh selects; with no configured default, the default
+#   tier accepts the static crew harness from bin/fm-harness.sh crew.
+#   data/<id>/dispatch-override, a non-empty regular file, is the recorded
+#   captain override that allows any other harness/model/effort. A relaunch on
+#   the recorded harness/model/effort skips the match; a relaunch that changes
+#   any of them must pass it against the rule recorded as dispatch_rule= in the
+#   task meta at spawn (default when none is recorded), and refuses
+#   --dispatch-rule. A --secondmate spawn is exempt and resolves the SECONDMATE
 #   harness (config/secondmate-harness -> config/crew-harness -> own), so the
 #   secondmate-vs-crewmate split is DURABLE across every respawn (recovery,
 #   /updatefirstmate, restart). A bare adapter name (claude|codex|opencode|pi|pi-signed|grok|kimi|cursor|gemini|muse|rovo|omp|agy|devin)
@@ -672,6 +681,8 @@ KIND=ship
 KIND_SET=0
 HARNESS_ARG=
 MODEL=
+DISPATCH_RULE=default
+DISPATCH_RULE_SET=0
 EFFORT=
 BACKEND_ARG=
 MODE=
@@ -705,6 +716,10 @@ for a in "$@"; do
     model)
       MODEL=$a
       MODEL_SET=1
+      ;;
+    dispatch-rule)
+      DISPATCH_RULE=$a
+      DISPATCH_RULE_SET=1
       ;;
     effort)
       EFFORT=$a
@@ -757,6 +772,11 @@ for a in "$@"; do
   --model=*)
     MODEL=${a#--model=}
     MODEL_SET=1
+    ;;
+  --dispatch-rule) want_value=dispatch-rule ;;
+  --dispatch-rule=*)
+    DISPATCH_RULE=${a#--dispatch-rule=}
+    DISPATCH_RULE_SET=1
     ;;
   --effort) want_value=effort ;;
   --effort=*)
@@ -843,6 +863,13 @@ case "$EFFORT" in
   exit 1
   ;;
 esac
+case "$DISPATCH_RULE" in
+default | 0 | [1-9] | [1-9][0-9]*) ;;
+*)
+  echo "error: --dispatch-rule must be default or a zero-based rule index" >&2
+  exit 1
+  ;;
+esac
 
 # --relaunch reuses an existing task's endpoint, worktree, project, and kind,
 # so every axis this block resolves for a fresh spawn instead comes from that
@@ -867,6 +894,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
   }
   [ "$BRANCH_PREFIX_SET" -eq 0 ] || {
     echo "error: --relaunch reuses the task's recorded ship branch; --branch-prefix cannot override it" >&2
+    exit 1
+  }
+  [ "$DISPATCH_RULE_SET" -eq 0 ] || {
+    echo "error: --relaunch reuses the task's recorded dispatch rule; --dispatch-rule cannot override it" >&2
     exit 1
   }
 else
@@ -1513,6 +1544,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
+  [ "$DISPATCH_RULE_SET" -eq 0 ] || shared_args+=(--dispatch-rule "$DISPATCH_RULE")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
   [ -z "$BACKEND_ARG" ] || shared_args+=(--backend "$BACKEND_ARG")
@@ -2301,6 +2333,34 @@ case "$ARG3" in
   }
   ;;
 esac
+
+# Ship and scout intake must pass the crew-dispatch table check owned by
+# bin/fm-dispatch-guard-lib.sh. A relaunch on the recorded harness/model/effort
+# keeps the profile intake already accepted; a relaunch that changes any of
+# them is checked again against the task's recorded dispatch_rule, or default
+# when none is recorded (bin/fm-control.sh runs the same check before it stops
+# the running agent).
+spawn_enforce_dispatch_table() {
+  local prior_m prior_e rule=$DISPATCH_RULE
+  [ "$KIND" = secondmate ] && return 0
+  [ -f "$CONFIG/crew-dispatch.json" ] || return 0
+  if [ "$RELAUNCH" -eq 1 ]; then
+    rule=$(fm_meta_get "$RELAUNCH_META" dispatch_rule)
+    [ -n "$rule" ] || rule=default
+    prior_m=$(fm_meta_get "$RELAUNCH_META" model)
+    prior_e=$(fm_meta_get "$RELAUNCH_META" effort)
+    [ "$prior_m" != default ] || prior_m=
+    [ "$prior_e" != default ] || prior_e=
+    if [ "$HARNESS" = "$RELAUNCH_PRIOR_HARNESS" ] && [ "$MODEL" = "$prior_m" ] && [ "$EFFORT" = "$prior_e" ]; then
+      return 0
+    fi
+  fi
+  # shellcheck source=bin/fm-dispatch-guard-lib.sh
+  . "$SCRIPT_DIR/fm-dispatch-guard-lib.sh"
+  fm_dispatch_table_admits "$FM_ROOT/bin" "$CONFIG/crew-dispatch.json" "$DATA/$ID/dispatch-override" \
+    "$rule" "$HARNESS" "$MODEL" "$EFFORT"
+}
+spawn_enforce_dispatch_table || exit 1
 
 # muse, gemini, agy, and devin are verified as CREWMATE/SCOUT adapters only. A secondmate is
 # a firstmate instance, so it needs a primary supervision protocol.
@@ -4852,6 +4912,11 @@ preserve_relaunch_meta() {
   # task record stays byte-identical.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
+  # The dispatch rule a ship or scout was checked against, only while the
+  # table is active; a relaunch carries it forward as an unowned key.
+  if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ -f "$CONFIG/crew-dispatch.json" ]; then
+    echo "dispatch_rule=$DISPATCH_RULE"
+  fi
   [ -z "${BUSY_GEN:-}" ] || echo "busy_gen=$BUSY_GEN"
   echo "spawn_gen=$SPAWN_GEN"
   # Default-off writes no traceparent= line.

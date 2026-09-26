@@ -122,6 +122,7 @@
 # sent with --fire-and-forget <16-hex-delivery-id> uses the same inbox transport
 # without creating a reply expectation; its delivery id makes uncertain retries
 # idempotent while allowing a later identical instruction to be distinct.
+# A routine notice that expects no reply is sent with --fire-and-forget.
 #
 # Remote secondmate delivery: the send crosses fm-on.sh to a host-local leg
 # (bin/fm-remote-secondmate-control.sh cmd_send) that writes the message as a
@@ -163,7 +164,15 @@
 # closed with the owning library's vocabulary note
 # (fm_pending_reply_close_note_for_key / fm_pending_reply_resolved_note), so
 # the fold actually drops it; a bare answered: note is not a reserved-key
-# transition and is never written for those keys. If this send cannot produce
+# transition and is never written for those keys. A pending-reply close whose
+# open escalation is a missed reply carries that key's correlation token so
+# the existing expectation resolves, and a send whose every --resolve-key is
+# such a close does not mint a new one. A delivery-unknown or
+# recovery-delivery close mints and guards as before. A settling close whose
+# capped record would lose that token or names pending-reply-missed refuses
+# before sending, and an expectation still open after a delivered settling
+# close fails loudly without asking for a resend.
+# If this send cannot produce
 # a note the guard will accept, or the structural key would be lost to the
 # status-line cap, it refuses before sending and names the cause rather than
 # exiting 0 on a silent no-op. After a delivered close it also
@@ -560,6 +569,7 @@ RESOLVE_STATUS_FILE=
 # longer owns also keeps the common path free of any backlog read.
 RESOLVE_STATUS_KEYS=
 RESOLVE_HOLD_KEYS=
+RESOLVE_SETTLE_KEYS=
 RESOLVE_CLOSE_MAX=$FM_LINE_CAP_DEFAULT
 
 # Resolve a --resolve-key key that the status log no longer owns to the
@@ -585,14 +595,48 @@ fm_send_hold_resolved_id() { # <task-id> <decision-key>
 
 # Close-note body for --resolve-key. Ordinary keys keep answered: <excerpt>.
 # A pending-reply-* key uses the owning library's vocabulary so the reserved-key
-# fold actually closes it (fm_pending_reply_close_note_for_key).
+# fold actually closes it (fm_pending_reply_close_note_for_key). A settling
+# close also carries the correlation token the existing resolver accepts,
+# ahead of the excerpt.
 fm_send_resolve_close_note() { # <key> <excerpt>
-  local k=$1 excerpt=$2 owned
-  if owned=$(fm_pending_reply_close_note_for_key "$k" "$RESOLVE_TASK_ID" operator-resolve-key "$excerpt"); then
-    printf '%s' "$owned"
+  local k=$1 excerpt=$2
+  case " $RESOLVE_SETTLE_KEYS " in
+    *" $k "*) excerpt="$(fm_pending_reply_corr_token "${k#pending-reply-}") $excerpt" ;;
+  esac
+  if fm_pending_reply_close_note_for_key "$k" "$RESOLVE_TASK_ID" operator-resolve-key "$excerpt"; then
     return 0
   fi
   printf 'answered: %s' "$excerpt"
+}
+
+# 0 when closing pending-reply <key> settles its expectation: its open
+# escalation is a missed reply. A delivery-unknown or recovery-delivery close
+# settles nothing.
+fm_send_pending_reply_settles() { # <key> <open-set>
+  local line
+  case "$1" in pending-reply-*) ;; *) return 1 ;; esac
+  while IFS= read -r line; do
+    case "$line" in
+      "$1"$'\t'*$'\t'pending-reply-missed:*) return 0 ;;
+    esac
+  done <<EOF
+$2
+EOF
+  return 1
+}
+
+# 0 when every key this send closes is a settling pending-reply close, so it
+# must not mint a new reply expectation for the acknowledgement itself.
+fm_send_pending_reply_close_only() {
+  local k
+  [ -n "$RESOLVE_KEYS" ] || return 1
+  for k in $RESOLVE_KEYS; do
+    case " $RESOLVE_SETTLE_KEYS " in
+      *" $k "*) ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
 }
 
 if [ -n "$FIRE_AND_FORGET_ID" ]; then
@@ -633,6 +677,9 @@ if [ -n "$RESOLVE_KEYS" ]; then
     case "$resolve_open_set" in
     "$k"$'\t'* | *$'\n'"$k"$'\t'*)
       RESOLVE_STATUS_KEYS="${RESOLVE_STATUS_KEYS}${RESOLVE_STATUS_KEYS:+ }$k"
+      if fm_send_pending_reply_settles "$k" "$resolve_open_set"; then
+        RESOLVE_SETTLE_KEYS="${RESOLVE_SETTLE_KEYS}${RESOLVE_SETTLE_KEYS:+ }$k"
+      fi
       continue
       ;;
     esac
@@ -683,6 +730,14 @@ if [ -n "$RESOLVE_KEYS" ]; then
       echo "error: --resolve-key cannot close a decision key of length ${#k}: its ${#probe_line}-character close record exceeds the $FM_LINE_CAP_DEFAULT-character status-line cap, and truncation would remove the structural key delimiter. Refusing rather than writing an ineffective close; nothing was sent." >&2
       exit 1
     fi
+    case " $RESOLVE_SETTLE_KEYS " in
+    *" $k "*)
+      if ! fm_pending_reply_line_resolves "$FM_LINE_CAP_LINE" "${k#pending-reply-}"; then
+        echo "error: --resolve-key '$k' cannot settle its pending-reply expectation: its close record either loses its correlation token to the $FM_LINE_CAP_DEFAULT-character status-line cap or names pending-reply-missed, and neither can resolve it. Refusing rather than writing an ineffective close; nothing was sent." >&2
+        exit 1
+      fi
+      ;;
+    esac
   done
 fi
 
@@ -725,6 +780,26 @@ fm_send_close_resolved_keys() { # <answer-text>
       ;;
     esac
     i=$((i + 1))
+  done
+  fm_send_settle_closed_pending_replies
+}
+
+# Resolve an existing pending-reply record whose settling key this send just
+# closed. A missing record is not an open expectation. A record that stays
+# unresolved is reported; the answer was already delivered, so it must not be
+# resent.
+fm_send_settle_closed_pending_replies() {
+  local k corr rec phase
+  for k in $RESOLVE_SETTLE_KEYS; do
+    corr=${k#pending-reply-}
+    rec=$(fm_pending_reply_path "$STATE" "$corr")
+    [ -f "$rec" ] || continue
+    phase=$(fm_pending_reply_get "$rec" phase)
+    [ "$phase" != resolved ] || continue
+    if ! fm_pending_reply_try_resolve "$STATE" "$corr" "$RESOLVE_STATUS_FILE"; then
+      echo "error: the answer was delivered and decision key '$k' was closed, but pending-reply expectation $corr is still open. Do not resend the answer." >&2
+      return 1
+    fi
   done
 }
 
@@ -813,6 +888,10 @@ else
     fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
     MESSAGE="${FM_FROMFIRST_MARK}delivery=${FIRE_AND_FORGET_ID} ${MESSAGE#"$FM_FROMFIRST_MARK"}"
     FM_SEND_IDEMPOTENT=1
+  elif [ "$MARK_FROM_FIRSTMATE" = 1 ] && fm_send_pending_reply_close_only; then
+    # The acknowledgement closes the expectation. Mark it so the mate reads it
+    # as a parent message, and do not mint a replacement expectation.
+    fm_message_mark_from_firstmate "$MESSAGE" MESSAGE
   elif [ "$MARK_FROM_FIRSTMATE" = 1 ]; then
     # Reuse an existing correlation id for recovery resends; otherwise create a
     # durable parent expectation before delivery. Transport success never

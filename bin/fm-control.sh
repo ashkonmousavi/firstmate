@@ -75,7 +75,9 @@
 #              A replacement Claude or Pi profile must also pass this home's
 #              worker account pin (bin/fm-worker-account-lib.sh) here, so a pin
 #              that no longer resolves or is signed out refuses before the old
-#              agent stops.
+#              agent stops. A ship or scout profile change must also pass the
+#              crew-dispatch table check (bin/fm-dispatch-guard-lib.sh) here,
+#              against the task's recorded dispatch_rule (default when none).
 #              --note is required for a ship or scout, whose replacement
 #              inherits the local copy but none of the conversation; a
 #              secondmate reconciles its own home's records at startup, so its
@@ -858,6 +860,20 @@ resolve_relaunch_profile() {
   [ "$account_model" != default ] || account_model=
   fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
     "$account_model" "$TARGET_HARNESS" >/dev/null || return 1
+  # The launch owner re-checks a changed ship or scout profile against the
+  # crew-dispatch table only after the old agent has stopped, so the same check
+  # refuses here first.
+  local dispatch_config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/crew-dispatch.json" target_effort=$TARGET_EFFORT dispatch_rule
+  [ "$target_effort" != default ] || target_effort=
+  dispatch_rule=$(fm_meta_get "$META" dispatch_rule)
+  [ -n "$dispatch_rule" ] || dispatch_rule=default
+  if [ "$KIND" != secondmate ] && [ -f "$dispatch_config" ] \
+    && { [ "$TARGET_HARNESS" != "$PRIOR_RECORDED_HARNESS" ] || [ "$TARGET_MODEL" != "$PRIOR_MODEL" ] || [ "$TARGET_EFFORT" != "$PRIOR_EFFORT" ]; }; then
+    # shellcheck source=bin/fm-dispatch-guard-lib.sh
+    . "$SCRIPT_DIR/fm-dispatch-guard-lib.sh"
+    fm_dispatch_table_admits "$FM_ROOT/bin" "$dispatch_config" "$DATA/$ID/dispatch-override" \
+      "$dispatch_rule" "$TARGET_HARNESS" "$account_model" "$target_effort" || return 1
+  fi
 }
 
 # safe_checkpoint: prove, before anything is stopped, that the work a relaunch

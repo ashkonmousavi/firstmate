@@ -905,6 +905,182 @@ test_decision_answer_partition_relocates_under_the_record() {
   pass "fm-send --resolve-key: a decision answer refuses the attended branch before sending, a blocked: key stays steering, and the away-posture record relocates the answer"
 }
 
+# Closing a secondmate pending-reply key must settle that expectation and must
+# not mint another one for the acknowledgement.
+test_secondmate_pending_reply_close_leaves_no_open_expectation() {
+  local dir fb log home rc out key corr rec phase open got
+  dir="$TMP_ROOT/pr-close"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-close)
+  corr=abcdef0123456789
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-missed: task=guide pending-reply-id=%s request=ship it\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=ship it
+delivered_epoch=1
+phase=escalated
+escalated_epoch=1
+EOF
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Thanks, that escalation was a false alarm; your report landed fine, carry on with the plan you already have"; rc=$?
+  expect_code 0 "$rc" "closing a secondmate pending-reply key should succeed"
+  open=0
+  for rec in "$home/state/pending-replies"/*; do
+    [ -f "$rec" ] || continue
+    case "$(basename "$rec")" in .*) continue ;; esac
+    phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+    [ "$phase" = resolved ] || open=$((open + 1))
+  done
+  [ "$open" -eq 0 ] || fail "the close left $open open pending-reply expectation(s): $(ls -1 "$home/state/pending-replies")"
+  phase=$(grep '^phase=' "$home/state/pending-replies/$corr" | tail -1 | cut -d= -f2-)
+  [ "$phase" = resolved ] || fail "the closed expectation stayed at phase=$phase"
+  [ "$(find "$home/state/pending-replies" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d ' ')" = 1 ] \
+    || fail "the close minted another pending-reply record"
+  got=$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$home/state/guide.inbox/001.msg")
+  case "$got" in
+    "$FM_FROMFIRST_MARK"*) : ;;
+    *) fail "the close acknowledgement lost its from-firstmate marker: $got" ;;
+  esac
+  case "$got" in
+    *corr=*) fail "the close acknowledgement minted a correlation token: $got" ;;
+  esac
+  out=$(drain_out "$home")
+  if printf '%s' "$out" | grep -F 'OPEN DECISIONS' >/dev/null; then
+    fail "the pending-reply decision stayed open: $out"
+  fi
+  pass "fm-send --resolve-key on a secondmate pending-reply key leaves no open expectation"
+}
+
+# A delivery-unknown escalation means the original request may never have
+# arrived, so closing it neither settles that record nor skips a new guard.
+test_secondmate_delivery_unknown_close_keeps_guarding() {
+  local dir fb log home rc key corr rec phase count got
+  dir="$TMP_ROOT/pr-delivery-unknown"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-delivery-unknown)
+  corr=0123456789abcdef
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-delivery-unknown: task=guide pending-reply-id=%s request=merge PR 12\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=merge PR 12
+phase=escalated
+escalated_epoch=1
+EOF
+  printf 'attempted=1\n' > "$home/state/pending-replies/.delivery-confirmed-$corr"
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Resending: merge PR 12 and report back"; rc=$?
+  expect_code 0 "$rc" "closing a delivery-unknown pending-reply key should succeed"
+  phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+  [ "$phase" != resolved ] || fail "the delivery-unknown close resolved a record whose delivery was never confirmed"
+  if grep -q '^delivered_epoch=' "$rec"; then
+    fail "the delivery-unknown close marked the original request delivered"
+  fi
+  count=$(find "$home/state/pending-replies" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d ' ')
+  [ "$count" = 2 ] || fail "the resent directive did not mint its own reply expectation (records=$count)"
+  got=$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$home/state/guide.inbox/001.msg")
+  case "$got" in
+    *corr=*) : ;;
+    *) fail "the resent directive carries no correlation token: $got" ;;
+  esac
+  pass "fm-send --resolve-key on a delivery-unknown pending-reply key keeps guarding the resent directive"
+}
+
+# A recovery-delivery escalation means the recovery repost may never have
+# arrived, even though the original request was delivered, so closing it
+# neither settles that record nor skips a new guard.
+test_secondmate_recovery_delivery_close_keeps_guarding() {
+  local dir fb log home rc key corr rec phase count got
+  dir="$TMP_ROOT/pr-recovery-delivery"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-recovery-delivery)
+  corr=fedcba9876543210
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-recovery-delivery-failed: task=guide pending-reply-id=%s request=merge PR 12\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=merge PR 12
+delivered_epoch=1
+recovery_delivery_outcome=failed
+phase=escalated
+escalated_epoch=1
+EOF
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Resending: merge PR 12 and report back"; rc=$?
+  expect_code 0 "$rc" "closing a recovery-delivery pending-reply key should succeed"
+  phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+  [ "$phase" != resolved ] || fail "the recovery-delivery close resolved a record whose recovery never arrived"
+  count=$(find "$home/state/pending-replies" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d ' ')
+  [ "$count" = 2 ] || fail "the resent directive did not mint its own reply expectation (records=$count)"
+  got=$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$home/state/guide.inbox/001.msg")
+  case "$got" in
+    *corr=*) : ;;
+    *) fail "the resent directive carries no correlation token: $got" ;;
+  esac
+  pass "fm-send --resolve-key on a recovery-delivery pending-reply key keeps guarding the resent directive"
+}
+
+# A close whose text names pending-reply-missed can never resolve that
+# expectation, so the send refuses before anything is delivered or closed.
+test_secondmate_pending_reply_close_naming_missed_refuses_before_send() {
+  local dir fb log home rc key corr rec phase
+  dir="$TMP_ROOT/pr-close-names-missed"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-close-names-missed)
+  corr=1234567890abcdef
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-missed: task=guide pending-reply-id=%s request=ship it\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=ship it
+delivered_epoch=1
+phase=escalated
+escalated_epoch=1
+EOF
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Re your pending-reply-missed: false alarm, report landed, carry on"; rc=$?
+  expect_code 1 "$rc" "a close that names pending-reply-missed should refuse"
+  [ ! -e "$home/state/guide.inbox/001.msg" ] || fail "the refused close was delivered anyway"
+  if grep -q '^resolved ' "$home/state/guide.status"; then
+    fail "the refused close still closed the key: $(cat "$home/state/guide.status")"
+  fi
+  phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+  [ "$phase" = escalated ] || fail "the refused close changed the expectation to phase=$phase"
+  pass "fm-send --resolve-key refuses before send when its close text names pending-reply-missed"
+}
+
 test_answer_send_closes_open_decision
 test_answer_close_is_self_announced
 test_separate_resolve_key_answers_do_not_rewake
@@ -929,3 +1105,7 @@ test_stamped_close_line_stays_within_the_status_line_cap
 test_failed_close_recovery_command_is_shell_safe
 test_remote_reserved_pending_reply_key_closes_locally
 test_decision_answer_partition_relocates_under_the_record
+test_secondmate_pending_reply_close_leaves_no_open_expectation
+test_secondmate_delivery_unknown_close_keeps_guarding
+test_secondmate_recovery_delivery_close_keeps_guarding
+test_secondmate_pending_reply_close_naming_missed_refuses_before_send

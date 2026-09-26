@@ -73,7 +73,7 @@ make_spawn_case() {
 
 enable_dispatch_profile() {
   local home=$1
-  printf '%s\n' '{"rules":[{"when":"current events","use":{"harness":"grok","model":"grok-4","effort":"high"}}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
+  printf '%s\n' '{"rules":[{"when":"current events","use":{"harness":"grok","model":"grok-4","effort":"high"}}],"default":{"harness":"codex","model":"gpt-5","effort":"high"}}' \
     > "$home/config/crew-dispatch.json"
 }
 
@@ -464,6 +464,8 @@ test_active_dispatch_profile_allows_raw_launch_command() {
   rec=$(make_spawn_case profile-raw claude "$id")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data/$id"
+  printf '%s\n' 'captain chose custom-agent for this task' > "$HOME_DIR/data/$id/dispatch-override"
 
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id" "$PROJ_DIR" "custom-agent --flag")
@@ -812,6 +814,9 @@ test_batch_preserves_native_ultra() {
   rec=$(make_spawn_case ultra-batch pi "$id1" "$id2")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data/$id1" "$HOME_DIR/data/$id2"
+  printf '%s\n' 'captain chose native ultra for this batch' > "$HOME_DIR/data/$id1/dispatch-override"
+  printf '%s\n' 'captain chose native ultra for this batch' > "$HOME_DIR/data/$id2/dispatch-override"
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness pi --model codex-native/gpt-6-astra --effort ultra)
   expect_code 0 "$?" "native Ultra batch failed: $out"
@@ -1198,6 +1203,107 @@ test_active_dispatch_profile_does_not_block_secondmate_launch() {
   assert_grep "kind=secondmate" "$HOME_DIR/state/$id.meta" "secondmate meta missing kind=secondmate"
   assert_meta_profile "$HOME_DIR/state/$id.meta" codex default default
   pass "active crew-dispatch profile does not block secondmate launches"
+}
+
+test_off_table_harness_refuses_unless_captain_override_is_recorded() {
+  local rec id out status
+  id=off-table-refuse-z17
+  rec=$(make_spawn_case off-table-refuse claude "$id")
+  read_case_record "$rec"
+  enable_dispatch_profile "$HOME_DIR"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 1 "$status" "an off-table model should refuse when no override is recorded: $out"
+  assert_contains "$out" "does not match crew-dispatch rule default" "the refusal should name the selected rule"
+  assert_absent "$HOME_DIR/state/$id.meta" "an off-table refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 0 "$status" "rule 0's selected profile should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4 high
+  rm -f "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.busy-gen" "$HOME_DIR/state/$id.busy-state"
+
+  id=off-table-override-z18
+  rec=$(make_spawn_case off-table-override claude "$id")
+  read_case_record "$rec"
+  enable_dispatch_profile "$HOME_DIR"
+  mkdir -p "$HOME_DIR/data/$id"
+  printf '%s\n' 'captain chose grok-4.5 for this task' > "$HOME_DIR/data/$id/dispatch-override"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4.5 --effort high)
+  status=$?
+  expect_code 0 "$status" "a recorded captain override should accept an off-table model: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4.5 high
+  pass "fm-spawn refuses an off-table model and accepts it with the recorded override"
+}
+
+test_any_live_candidate_of_the_rule_spawns() {
+  local rec id out status
+  id=rule-candidate-z19
+  rec=$(make_spawn_case rule-candidate claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"current events","use":[{"harness":"grok","model":"grok-4","effort":"high"},{"harness":"codex","model":"gpt-5","effort":"medium"},{"harness":"claude","model":"sonnet","effort":"high","off":true},{"grok_bot":"scout-bot"}]},{"when":"big refactors","select":"quota-balanced","use":[{"harness":"codex","model":"gpt-5.5","effort":"high","provider":"openai"},{"harness":"grok","model":"grok-4.5","effort":"high","provider":"xai"}]}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness claude --model sonnet --effort high)
+  status=$?
+  expect_code 1 "$status" "an off candidate should refuse without an override: $out"
+  assert_contains "$out" "does not match crew-dispatch rule 0" "the off-candidate refusal should name the rule"
+  assert_absent "$HOME_DIR/state/$id.meta" "an off-candidate refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness codex --model gpt-5 --effort medium)
+  status=$?
+  expect_code 0 "$status" "the rule's fallback candidate should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 medium
+  assert_grep "dispatch_rule=0" "$HOME_DIR/state/$id.meta" "meta missing the dispatch rule the spawn was checked against"
+  rm -f "$HOME_DIR/state/$id.meta" "$HOME_DIR/state/$id.busy-gen" "$HOME_DIR/state/$id.busy-state"
+
+  id=rule-quota-z20
+  rec=$(make_spawn_case rule-quota claude "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"big refactors","select":"quota-balanced","use":[{"harness":"codex","model":"gpt-5.5","effort":"high","provider":"openai"},{"harness":"grok","model":"grok-4.5","effort":"high","provider":"xai"}]}],"default":{"harness":"codex","model":"gpt-5","effort":"medium"}}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4.5 --effort low)
+  status=$?
+  expect_code 1 "$status" "a candidate's harness and model with another effort should refuse: $out"
+  assert_contains "$out" "does not match crew-dispatch rule 0" "the effort refusal should name the rule"
+  assert_absent "$HOME_DIR/state/$id.meta" "an effort refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --dispatch-rule 0 --harness grok --model grok-4.5 --effort high)
+  status=$?
+  expect_code 0 "$status" "a quota-balanced rule's candidate should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" grok grok-4.5 high
+  pass "fm-spawn accepts any live candidate of the named rule and refuses an off candidate or another effort"
+}
+
+test_rules_only_dispatch_accepts_the_static_crew_harness_for_default() {
+  local rec id out status
+  id=rules-only-z21
+  rec=$(make_spawn_case rules-only codex "$id")
+  read_case_record "$rec"
+  printf '%s\n' '{"rules":[{"when":"current events","use":{"harness":"grok","model":"grok-4","effort":"high"}}]}' \
+    > "$HOME_DIR/config/crew-dispatch.json"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness grok --model grok-4 --effort high)
+  status=$?
+  expect_code 1 "$status" "with no default, a harness other than the static crew harness should refuse: $out"
+  assert_contains "$out" "is not the static crew harness codex" "the refusal should name the static crew harness"
+  assert_absent "$HOME_DIR/state/$id.meta" "a static-tier refusal should happen before meta is written"
+
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+    "$id" "$PROJ_DIR" --harness codex --model gpt-5 --effort high)
+  status=$?
+  expect_code 0 "$status" "with no default, the static crew harness should spawn: $out"
+  assert_meta_profile "$HOME_DIR/state/$id.meta" codex gpt-5 high
+  pass "fm-spawn accepts the static crew harness for default when the dispatch file has no default"
 }
 
 # Execute the actual emitted command in a synthetic pane environment: the
@@ -1849,5 +1955,8 @@ test_claude_long_launch_is_delivered_intact
 test_claude_crewmate_launch_carries_the_attribution_policy
 test_claude_secondmate_launch_carries_the_attribution_policy
 test_active_dispatch_profile_does_not_block_secondmate_launch
+test_off_table_harness_refuses_unless_captain_override_is_recorded
+test_any_live_candidate_of_the_rule_spawns
+test_rules_only_dispatch_accepts_the_static_crew_harness_for_default
 
 echo "# all fm-spawn-dispatch-profile tests passed"
