@@ -102,6 +102,9 @@ install_remote_herdr_fixture "$REMOTE_ROOT" "$HERDR_STATE" "$HERDR_LOG" \
 git -C "$REMOTE_ROOT" init -q -b main
 git -C "$REMOTE_ROOT" config user.email test@example.com
 git -C "$REMOTE_ROOT" config user.name Test
+# The seed clones this repo by local path, which copies its loose objects;
+# auto-maintenance started by the commit below could pack and prune them mid-copy.
+git -C "$REMOTE_ROOT" config maintenance.auto false
 git -C "$REMOTE_ROOT" add .
 git -C "$REMOTE_ROOT" commit -qm 'remote fixture root'
 REMOTE_ORIGIN="$TMP_ROOT/firstmate-origin.git"
