@@ -2245,6 +2245,7 @@ idle_lane_tick() {
   }
   ids=$(printf '%s\n' "$ready" | awk '
     /^ready\[[0-9]+\]/ { rows = 1; next }
+    /^[^ ]/ { rows = 0 }
     rows && /^  [a-zA-Z0-9][a-zA-Z0-9_-]*,/ { sub(/^  /, ""); sub(/,.*/, ""); print; next }
   ')
   [ -n "$ids" ] || { rm -f "$marker"; return 0; }

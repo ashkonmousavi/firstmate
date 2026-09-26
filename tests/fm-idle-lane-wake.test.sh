@@ -84,4 +84,32 @@ SH
   pass "watcher wakes once for configured free writing lanes and a changed ready set, not for empty capacity or a cap filled by parked crews"
 }
 
+test_public_followups_are_not_ready_work() {
+  local home out real
+  home=$(make_case public-followups)
+  out="$home/watch.out"
+  real=$(command -v tasks-axi) || fail "tasks-axi is not on PATH"
+  mkdir -p "$home/config" "$home/data"
+  printf '1\n' > "$home/config/writing-lane-cap"
+  printf '# Backlog\n\n## Queued\n' > "$home/data/backlog.md"
+  cat > "$home/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+[ "\$1" = ready ] || exec "$real" "\$@"
+printf '%s\\n' 'count: 1' \\
+  'ready[1]{id,state,kind,repo,title}:' \\
+  '  ready-one,queued,ship,"-",One' \\
+  'ready_public_followups[1]{id,state,kind,repo,title,delivery_state}:' \\
+  '  public-final-ab,queued,public-followup,"-",Promised final,ready' \\
+  'help[1]:' \\
+  '  - Run \`tasks-axi start <id>\` to dispatch one of these'
+SH
+  chmod +x "$home/fakebin/tasks-axi"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "idle capacity did not wake with ready work beside a public follow-up"
+  grep -F '0/1 occupied, 0 working, 1 ready: ready-one' "$out" >/dev/null \
+    || fail "a public follow-up obligation was reported as dispatchable work: $(cat "$out")"
+  pass "watcher names only dispatchable ready rows, not public follow-up obligations"
+}
+
 test_idle_capacity_wake
+test_public_followups_are_not_ready_work
