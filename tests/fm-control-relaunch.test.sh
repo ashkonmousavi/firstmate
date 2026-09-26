@@ -1123,6 +1123,29 @@ test_spawn_relaunch_rechecks_the_dispatch_table_only_on_a_profile_change() {
   pass "fm-spawn --relaunch: the dispatch table is re-checked only when the profile changes"
 }
 
+# fm-control stops the running agent before fm-spawn launches the
+# replacement, so a profile switch the dispatch table refuses must be refused
+# first, leaving the agent running and the record untouched.
+test_relaunch_refuses_an_off_table_profile_before_stopping() {
+  local dir out rc
+  dir=$(new_case dispatchprestop rl72)
+  add_ship_task "$dir" rl72 claude
+  mkdir -p "$dir/home/config"
+  printf '%s\n' '{"rules":[],"default":{"harness":"codex","model":"gpt-5","effort":"high"}}' \
+    > "$dir/home/config/crew-dispatch.json"
+  printf 'claude' > "$dir/fake/command"
+  out=$(run_control "$dir" rl72 relaunch --harness grok --model grok-4 --effort high --note "switch runtime"); rc=$?
+  expect_code 1 "$rc" "an off-table relaunch should refuse"
+  assert_contains "$out" "does not match crew-dispatch rule default" \
+    "the refusal should name the dispatch rule"
+  [ "$(cat "$dir/fake/command")" = claude ] \
+    || fail "the dispatch-table refusal must land before the running agent is stopped"
+  [ ! -s "$dir/fake/literal" ] || fail "the dispatch-table refusal sent lifecycle input"
+  [ "$(meta_field "$dir" rl72 harness)" = claude ] \
+    || fail "a refused relaunch must leave the durable record on the recorded harness"
+  pass "fm-control relaunch: a profile switch the dispatch table refuses is refused before the agent is stopped"
+}
+
 # A promoted scout records kind=ship and a custom ship branch in its meta, but
 # its brief is the scout scaffold: it never gained a Ship branch line, and a
 # relaunch cannot regenerate the brief (--branch-prefix is refused there). The
@@ -2458,6 +2481,7 @@ test_explicit_secondmate_harness_ignores_configured_profile_axes
 test_ship_relaunch_ignores_the_crew_harness_config
 test_spawn_relaunch_without_a_harness_reuses_the_recorded_one
 test_spawn_relaunch_rechecks_the_dispatch_table_only_on_a_profile_change
+test_relaunch_refuses_an_off_table_profile_before_stopping
 test_relaunch_is_exempt_from_the_task_preparation_gate
 test_spawn_relaunch_of_promoted_scout_uses_the_recorded_branch
 test_promoted_scout_relaunch_receives_the_current_delivery_contract

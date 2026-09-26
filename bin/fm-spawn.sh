@@ -2328,16 +2328,13 @@ case "$ARG3" in
   ;;
 esac
 
-# Ship and scout intake must launch one of the dispatch rule's candidate
-# profiles (harness, model, and effort), so a fallback the selector chose from
-# intake facts still launches. With no configured default, the default tier is
-# the static crew harness (bin/fm-harness.sh crew, a bare adapter name).
-# docs/configuration.md "Crew dispatch profiles" owns the rule file.
-# data/<id>/dispatch-override records an explicit captain override.
-# A relaunch on the recorded harness/model/effort keeps the profile intake
-# already accepted; a relaunch that changes any of them is checked again.
+# Ship and scout intake must pass the crew-dispatch table check owned by
+# bin/fm-dispatch-guard-lib.sh. A relaunch on the recorded harness/model/effort
+# keeps the profile intake already accepted; a relaunch that changes any of
+# them is checked again (bin/fm-control.sh runs the same check before it stops
+# the running agent).
 spawn_enforce_dispatch_table() {
-  local override rule out rc crew prior_m prior_e
+  local prior_m prior_e
   [ "$KIND" = secondmate ] && return 0
   [ -f "$CONFIG/crew-dispatch.json" ] || return 0
   if [ "$RELAUNCH" -eq 1 ]; then
@@ -2349,34 +2346,10 @@ spawn_enforce_dispatch_table() {
       return 0
     fi
   fi
-  override="$DATA/$ID/dispatch-override"
-  if [ -f "$override" ] && [ ! -L "$override" ] && [ -s "$override" ]; then
-    return 0
-  fi
-  rule=$DISPATCH_RULE
-  rc=0
-  out=$("$FM_ROOT/bin/fm-dispatch-select.sh" "$CONFIG/crew-dispatch.json" "$rule" 2>&1) || rc=$?
-  if [ "$rc" -eq 2 ] && [ "$rule" = default ] && [ "$out" = "error: selector default names no rule" ]; then
-    crew=$("$FM_ROOT/bin/fm-harness.sh" crew 2>/dev/null) || crew=
-    if [ -n "$crew" ] && [ "$HARNESS" = "$crew" ]; then
-      return 0
-    fi
-    echo "error: spawn refused - crew-dispatch.json has no default, and $HARNESS is not the static crew harness ${crew:-<unresolved>}; record the captain's explicit override at $override or pass that harness" >&2
-    return 1
-  fi
-  if [ "$rc" -ne 0 ]; then
-    echo "error: spawn refused - crew-dispatch rule '$rule' did not resolve through bin/fm-dispatch-select.sh: $out" >&2
-    return 1
-  fi
-  if ! jq -e --arg s "$rule" --arg h "$HARNESS" --arg m "$MODEL" --arg e "$EFFORT" '
-    def field($k): if (.[$k] | type) == "string" then .[$k] else "" end;
-    (if $s == "default" then .default else .rules[$s | tonumber].use end)
-    | (if type == "array" then . else [.] end)
-    | any(.[]; .off != true and .harness == $h and field("model") == $m and field("effort") == $e)
-  ' "$CONFIG/crew-dispatch.json" >/dev/null 2>&1; then
-    echo "error: spawn refused - $HARNESS/${MODEL:-<none>}/${EFFORT:-<none>} does not match crew-dispatch rule $rule: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at $override or pass one of its profiles" >&2
-    return 1
-  fi
+  # shellcheck source=bin/fm-dispatch-guard-lib.sh
+  . "$SCRIPT_DIR/fm-dispatch-guard-lib.sh"
+  fm_dispatch_table_admits "$FM_ROOT/bin" "$CONFIG/crew-dispatch.json" "$DATA/$ID/dispatch-override" \
+    "$DISPATCH_RULE" "$HARNESS" "$MODEL" "$EFFORT"
 }
 spawn_enforce_dispatch_table || exit 1
 

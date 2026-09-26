@@ -1003,6 +1003,48 @@ EOF
   pass "fm-send --resolve-key on a delivery-unknown pending-reply key keeps guarding the resent directive"
 }
 
+# A recovery-delivery escalation means the recovery repost may never have
+# arrived, even though the original request was delivered, so closing it
+# neither settles that record nor skips a new guard.
+test_secondmate_recovery_delivery_close_keeps_guarding() {
+  local dir fb log home rc key corr rec phase count got
+  dir="$TMP_ROOT/pr-recovery-delivery"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); log="$dir/send.log"
+  home=$(setup_home pr-recovery-delivery)
+  corr=fedcba9876543210
+  key="pending-reply-$corr"
+  fm_write_secondmate_meta "$home/state/guide.meta" "$home" "sess:fm-guide"
+  printf 'blocked [key=%s]: pending-reply-recovery-delivery-failed: task=guide pending-reply-id=%s request=merge PR 12\n' \
+    "$key" "$corr" > "$home/state/guide.status"
+  mkdir -p "$home/state/pending-replies"
+  rec="$home/state/pending-replies/$corr"
+  cat > "$rec" <<EOF
+schema=fm-pending-reply.v1
+corr_id=$corr
+task_id=guide
+parent_status=$home/state/guide.status
+request_summary=merge PR 12
+delivered_epoch=1
+recovery_delivery_outcome=failed
+phase=escalated
+escalated_epoch=1
+EOF
+
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Resending: merge PR 12 and report back"; rc=$?
+  expect_code 0 "$rc" "closing a recovery-delivery pending-reply key should succeed"
+  phase=$(grep '^phase=' "$rec" | tail -1 | cut -d= -f2-)
+  [ "$phase" != resolved ] || fail "the recovery-delivery close resolved a record whose recovery never arrived"
+  count=$(find "$home/state/pending-replies" -maxdepth 1 -type f ! -name '.*' | wc -l | tr -d ' ')
+  [ "$count" = 2 ] || fail "the resent directive did not mint its own reply expectation (records=$count)"
+  got=$(bash -c '. "$1"; fm_task_inbox_body "$2"' _ "$ROOT/bin/fm-task-inbox-lib.sh" \
+    "$home/state/guide.inbox/001.msg")
+  case "$got" in
+    *corr=*) : ;;
+    *) fail "the resent directive carries no correlation token: $got" ;;
+  esac
+  pass "fm-send --resolve-key on a recovery-delivery pending-reply key keeps guarding the resent directive"
+}
+
 test_answer_send_closes_open_decision
 test_answer_close_is_self_announced
 test_separate_resolve_key_answers_do_not_rewake
@@ -1029,3 +1071,4 @@ test_remote_reserved_pending_reply_key_closes_locally
 test_decision_answer_partition_relocates_under_the_record
 test_secondmate_pending_reply_close_leaves_no_open_expectation
 test_secondmate_delivery_unknown_close_keeps_guarding
+test_secondmate_recovery_delivery_close_keeps_guarding

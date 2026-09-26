@@ -165,10 +165,10 @@
 # (fm_pending_reply_close_note_for_key / fm_pending_reply_resolved_note), so
 # the fold actually drops it; a bare answered: note is not a reserved-key
 # transition and is never written for those keys. A pending-reply close whose
-# open escalation is a missed reply, or whose record shows delivery, carries
-# that key's correlation token so the existing expectation resolves, and a send
-# whose every --resolve-key is such a close does not mint a new one. A
-# delivery-unknown or recovery-delivery close mints and guards as before.
+# open escalation is a missed reply carries that key's correlation token so
+# the existing expectation resolves, and a send whose every --resolve-key is
+# such a close does not mint a new one. A delivery-unknown or
+# recovery-delivery close mints and guards as before.
 # If this send cannot produce
 # a note the guard will accept, or the structural key would be lost to the
 # status-line cap, it refuses before sending and names the cause rather than
@@ -607,10 +607,10 @@ fm_send_resolve_close_note() { # <key> <excerpt>
 }
 
 # 0 when closing pending-reply <key> settles its expectation: its open
-# escalation is a missed reply, or its record shows the request was delivered.
-# A delivery-unknown or recovery-delivery close settles nothing.
+# escalation is a missed reply. A delivery-unknown or recovery-delivery close
+# settles nothing.
 fm_send_pending_reply_settles() { # <key> <open-set>
-  local line rec
+  local line
   case "$1" in pending-reply-*) ;; *) return 1 ;; esac
   while IFS= read -r line; do
     case "$line" in
@@ -619,8 +619,7 @@ fm_send_pending_reply_settles() { # <key> <open-set>
   done <<EOF
 $2
 EOF
-  rec=$(fm_pending_reply_path "$STATE" "${1#pending-reply-}")
-  [ -n "$(fm_pending_reply_get "$rec" delivered_epoch)" ]
+  return 1
 }
 
 # 0 when every key this send closes is a settling pending-reply close, so it
