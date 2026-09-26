@@ -930,7 +930,7 @@ phase=escalated
 escalated_epoch=1
 EOF
 
-  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "ack, false escalation"; rc=$?
+  run_send "$fb" "$home" "$log" guide --resolve-key "$key" "Thanks, that escalation was a false alarm; your report landed fine, carry on with the plan you already have"; rc=$?
   expect_code 0 "$rc" "closing a secondmate pending-reply key should succeed"
   open=0
   for rec in "$home/state/pending-replies"/*; do
