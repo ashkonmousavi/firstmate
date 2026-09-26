@@ -8,6 +8,7 @@
 # network, and the absent-key case proves the tool makes no call
 # at all.
 set -u
+unset AI_GATEWAY_API_KEY
 
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -110,22 +111,38 @@ cat > "$FAKEBIN/curl" <<'SH'
 # Fake curl: records argv (minus the -o target), the stdin body, and the header
 # read from fd 3, then answers with FAKE_CURL_RESPONSE and FAKE_CURL_HTTP.
 set -u
-if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ]; then
+if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ] ||
+   [ -n "${AI_GATEWAY_API_KEY+x}" ] || [ -n "${AI_GATEWAY_API_KEY_PRIVATE+x}" ]; then
   printf 'curl:secret-present\n' >> "${CHILD_ENV_LOG:?}"
 else
   printf 'curl:clean\n' >> "${CHILD_ENV_LOG:?}"
 fi
-out=''
+out='' gateway=0
+for arg in "$@"; do
+  [ "$arg" != 'https://ai-gateway.vercel.sh/typesafe/v1/systemone' ] || gateway=1
+done
+log_dir=$FAKE_CURL_LOG
+if [ "$gateway" = 1 ]; then
+  log_dir=$FAKE_CURL_LOG/gateway
+  mkdir -p "$log_dir"
+fi
+printf '%s\n' "$gateway" >> "$FAKE_CURL_LOG/calls"
 while [ $# -gt 0 ]; do
   case "$1" in
     -o) out=$2; shift 2 ;;
-    *) printf '%s\n' "$1" >> "${FAKE_CURL_LOG:?}/argv"; shift ;;
+    *) printf '%s\n' "$1" >> "$log_dir/argv"; shift ;;
   esac
 done
-cat > "$FAKE_CURL_LOG/body"
-cat /dev/fd/3 > "$FAKE_CURL_LOG/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$FAKE_CURL_LOG/header"
+cat > "$log_dir/body"
+cat /dev/fd/3 > "$log_dir/header" 2>/dev/null || printf 'fd3 unreadable\n' > "$log_dir/header"
 if [ -n "${FAKE_CURL_MUTATE_SOURCE:-}" ]; then
   cp "$FAKE_CURL_MUTATE_SOURCE" "${FAKE_CURL_MUTATE_TARGET:?}"
+fi
+if [ "$gateway" = 1 ]; then
+  [ "${FAKE_CURL_GATEWAY_FAIL:-0}" != 1 ] || exit 7
+  cp "${FAKE_CURL_GATEWAY_RESPONSE:-$FAKE_CURL_RESPONSE}" "$out"
+  printf '%s' "${FAKE_CURL_GATEWAY_HTTP:-200}"
+  exit 0
 fi
 if [ "${FAKE_CURL_FAIL:-0}" = 1 ]; then
   exit 7
@@ -138,7 +155,8 @@ chmod +x "$FAKEBIN/curl"
 cat > "$FAKEBIN/quota-axi" <<'SH'
 #!/usr/bin/env bash
 set -u
-if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ]; then
+if [ -n "${TYPESAFE_API_KEY+x}" ] || [ -n "${TYPESAFE_API_KEY_PRIVATE+x}" ] ||
+   [ -n "${AI_GATEWAY_API_KEY+x}" ] || [ -n "${AI_GATEWAY_API_KEY_PRIVATE+x}" ]; then
   printf 'quota-axi:secret-present\n' >> "${CHILD_ENV_LOG:?}"
 else
   printf 'quota-axi:clean\n' >> "${CHILD_ENV_LOG:?}"
@@ -200,6 +218,7 @@ reset_log
 run code out err "$BRIEF" --project pager
 expect_code 0 "$code" ".env key resolves"
 assert_contains "$out" '  status: clear' ".env key produces a clear result"
+assert_contains "$out" '  provider: typesafe' ".env key names TypeSafe"
 assert_contains "$(cat "$LOG/header")" "Authorization: Bearer $KEY" ".env key reaches curl on the fd header"
 reset_log
 TYPESAFE_API_KEY=env-wins run code out err "$BRIEF" --project pager
@@ -807,6 +826,68 @@ assert_contains "$out" '  status: error' "quota-axi failure is an error outcome"
 assert_contains "$out" '  reason: quota-axi --json failed' "quota-axi failure is named"
 pass "quota evidence comes from one quota-axi --json read, and its failure is an error outcome"
 
+# --- TypeSafe first, Vercel only after a transport or HTTP failure -----------
+GATEWAY_KEY='gateway-key-never-on-argv'
+GATEWAY_RESPONSE="$TMP_ROOT/gateway-response.json"
+write_response "$GATEWAY_RESPONSE" rule_4 0.9
+jq '. + {providerMetadata: {gateway: "vercel"}}' "$GATEWAY_RESPONSE" > "$TMP_ROOT/gateway-with-metadata.json"
+mv "$TMP_ROOT/gateway-with-metadata.json" "$GATEWAY_RESPONSE"
+reset_log
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY run code out err "$BRIEF"
+assert_contains "$out" '  provider: typesafe' "primary success names TypeSafe"
+assert_equals '0' "$(cat "$LOG/calls")" "primary success makes no gateway call"
+assert_absent "$LOG/gateway" "primary success never sends the fallback key"
+
+reset_log
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=402 FAKE_CURL_GATEWAY_RESPONSE="$GATEWAY_RESPONSE" run code out err "$BRIEF"
+expect_code 0 "$code" "billing fallback exits 0"
+assert_contains "$out" '  status: clear' "gateway response resolves"
+assert_contains "$out" '  provider: vercel' "gateway answer names Vercel"
+assert_equals $'0\n1' "$(cat "$LOG/calls")" "one retry follows the primary"
+assert_equals "$(jq -c 'del(.model)' "$LOG/body")" "$(jq -c 'del(.model)' "$LOG/gateway/body")" "fallback keeps the Choice request body"
+assert_equals 'jev-latest' "$(jq -r .model "$LOG/body")" "primary keeps the direct model"
+assert_equals 'typesafe-ai/jev' "$(jq -r .model "$LOG/gateway/body")" "gateway uses its verified model"
+assert_contains "$(cat "$LOG/gateway/argv")" 'https://ai-gateway.vercel.sh/typesafe/v1/systemone' "fallback uses the verified gateway endpoint"
+assert_equals "Authorization: Bearer $GATEWAY_KEY" "$(cat "$LOG/gateway/header")" "gateway key reaches curl through fd 3"
+assert_not_contains "$(cat "$LOG/gateway/argv")" "$GATEWAY_KEY" "gateway key is absent from argv"
+assert_not_contains "$out$err" "$GATEWAY_KEY" "gateway key is absent from output"
+assert_equals $'curl:clean\ncurl:clean\nquota-axi:clean' "$(cat "$LOG/child-env")" "both keys stay out of child environments"
+
+reset_log
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_FAIL=1 FAKE_CURL_GATEWAY_RESPONSE="$GATEWAY_RESPONSE" run code out err "$BRIEF"
+assert_contains "$out" '  provider: vercel' "network failure also retries through Vercel"
+assert_equals $'0\n1' "$(cat "$LOG/calls")" "network failure makes one retry"
+
+PRIMARY_ERROR="$TMP_ROOT/primary-error.json"
+GATEWAY_ERROR="$TMP_ROOT/gateway-error.json"
+printf '%s\n' '{"error":"typesafe insufficient credits"}' > "$PRIMARY_ERROR"
+printf '%s\n' '{"error":"vercel balance exhausted"}' > "$GATEWAY_ERROR"
+reset_log
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 FAKE_CURL_RESPONSE="$PRIMARY_ERROR" FAKE_CURL_GATEWAY_HTTP=503 FAKE_CURL_GATEWAY_RESPONSE="$GATEWAY_ERROR" run code out err "$BRIEF"
+expect_code 0 "$code" "double failure exits 0"
+assert_contains "$out" '  status: error' "double failure is a structured error"
+assert_contains "$out" 'typesafe http 429 after' "double failure names the primary reason"
+assert_contains "$out" 'typesafe insufficient credits' "double failure keeps the primary response excerpt"
+assert_contains "$out" 'vercel http 503 after' "double failure names the fallback reason"
+assert_contains "$out" 'vercel balance exhausted' "double failure keeps the fallback response excerpt"
+assert_not_contains "$out$err" "$KEY" "double failure reason omits the primary key"
+assert_not_contains "$out$err" "$GATEWAY_KEY" "double failure reason omits the gateway key"
+assert_equals $'0\n1' "$(cat "$LOG/calls")" "double failure makes only one retry"
+reset_log
+AI_GATEWAY_API_KEY=$GATEWAY_KEY TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=402 FAKE_CURL_RESPONSE="$PRIMARY_ERROR" FAKE_CURL_GATEWAY_FAIL=1 run code out err "$BRIEF"
+assert_contains "$out" 'vercel http 000 after' "gateway transport failure reads as http 000"
+assert_equals '1' "$(grep -o 'typesafe insufficient credits' <<<"$out" | wc -l | tr -d ' ')" "gateway transport failure does not repeat the primary excerpt"
+
+printf '%s\n' "AI_GATEWAY_API_KEY=env-file-gateway-key" > "$HOME_DIR/.env"
+reset_log
+TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=402 FAKE_CURL_GATEWAY_RESPONSE="$GATEWAY_RESPONSE" run code out err "$BRIEF"
+assert_equals 'Authorization: Bearer env-file-gateway-key' "$(cat "$LOG/gateway/header")" ".env fallback key is used"
+reset_log
+AI_GATEWAY_API_KEY=environment-gateway-key TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=402 FAKE_CURL_GATEWAY_RESPONSE="$GATEWAY_RESPONSE" run code out err "$BRIEF"
+assert_equals 'Authorization: Bearer environment-gateway-key' "$(cat "$LOG/gateway/header")" "environment fallback key wins over .env"
+rm -f "$HOME_DIR/.env"
+pass "TypeSafe answers first; Vercel retries once with a private fallback key"
+
 # --- API and response failures are error outcomes, exit 0 ----------------------
 reset_log
 run_without_curl code out err "$BRIEF"
@@ -815,10 +896,12 @@ assert_contains "$out" '  status: error' "missing curl is a structured error out
 assert_contains "$out" '  reason: curl not installed' "missing curl is named in the TOON block"
 assert_contains "$err" 'dispatch-resolve: error (curl not installed)' "missing curl is also reported on stderr"
 reset_log
-TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 run code out err "$BRIEF"
+printf '%s\n' '{"error":"rate limited upstream"}' > "$TMP_ROOT/rate-limited.json"
+TYPESAFE_API_KEY=$KEY FAKE_CURL_HTTP=429 FAKE_CURL_RESPONSE="$TMP_ROOT/rate-limited.json" run code out err "$BRIEF"
 expect_code 0 "$code" "http 429 exits 0"
 assert_contains "$out" '  status: error' "http 429 is an error outcome"
 assert_contains "$out" '  reason: http 429 after' "http status is reported"
+assert_contains "$out" 'rate limited upstream' "direct-only error keeps the response excerpt"
 assert_contains "$err" 'dispatch-resolve: error (http 429' "error also goes to stderr"
 reset_log
 TYPESAFE_API_KEY=$KEY FAKE_CURL_FAIL=1 run code out err "$BRIEF"
