@@ -230,11 +230,10 @@ Two channels feed that one intake today, and both are ordinary callers rather th
 - The runner names no adapter, parses no result, and carries no decision rule.
 
 `bin/fm-procevent-lavish.sh answers` is one such built-in adapter command.
-It reads only rows tagged `choice` and relays a card's declared close mode.
+It reads only rows tagged `choice` and relays the selected option's close mode.
 It can never let freeform captain prose forge a task id or a mode.
 
 Trusted external process-event adapters intentionally expose no answer operation and cannot feed this authority-bearing intake; [`extension-bindings.md`](extension-bindings.md#trust-boundary) owns that boundary.
-`bin/fm-procevent-lavish.sh answers` is one such adapter command; it reads only rows tagged `choice`, relays the selected option's close mode, and can never let freeform captain prose forge a task id or a mode.
 
 ## Reconcile: re-check reality, never a blind close
 
