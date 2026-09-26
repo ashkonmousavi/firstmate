@@ -369,8 +369,11 @@ leave_dead_link_locks() {  # <state> <lock>...
     exec sleep 30
   ' _ "$LIB" "$@" >/dev/null 2>&1 &
   holder=$!
+  # Wait on the holder itself, not a short clock: a loaded runner can take
+  # well over a second to start bash and claim, and a holder that fails its
+  # claim exits instead of publishing. The bound only stops a wedged claim.
   i=0
-  while [ "$i" -lt 50 ] && [ ! -s "$last/pid" ]; do
+  while [ "$i" -lt 1500 ] && [ ! -s "$last/pid" ] && kill -0 "$holder" 2>/dev/null; do
     sleep 0.02
     i=$((i + 1))
   done
