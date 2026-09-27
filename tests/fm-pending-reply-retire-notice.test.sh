@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Exact historical notice retirement closes only its own pending-reply blocker.
 set -u
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=bin/fm-pending-reply-lib.sh
 . "$ROOT/bin/fm-pending-reply-lib.sh"
 
 RETIRE="$ROOT/bin/fm-pending-reply-retire-notice.sh"
