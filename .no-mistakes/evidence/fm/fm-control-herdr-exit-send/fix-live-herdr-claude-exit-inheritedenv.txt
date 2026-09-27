@@ -1,0 +1,23 @@
+--- herdr herdr 0.9.1, 2.1.283 (Claude Code)
+--- native identity before: claude idle
+--- agent state before: alive
+--- composer verdict before: empty
+--- pane before (tail) ---
+ ▝▝   ▝▝   /tmp/fm-lab.CbMOHz/wt · /rc
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "edit <filepath> to..."
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PE…
+  session · WORKTREE:wt · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle)
+--- $ fm-control.sh t1 exit   (fm-control from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3H8YG65STNXGDGX3WZF00SS)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.CbMOHz/home
+stopped t1 harness=claude backend=herdr endpoint=fm-lab-cexit-1790595:w1:p2 worktree=/tmp/fm-lab.CbMOHz/wt
+--- rc=0
+--- native identity after: 
+--- agent state after: dead
+--- pane process state after: shell
+--- pane after (tail) ---
+tegris@Pulse:/tmp/fm-lab.CbMOHz/wt$ cd -- /tmp/fm-lab.CbMOHz/wt && env  claude
+tegris@Pulse:/tmp/fm-lab.CbMOHz/wt$

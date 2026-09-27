@@ -1,0 +1,29 @@
+--- herdr herdr 0.9.1, 2.1.283 (Claude Code)
+--- native identity before: 
+--- agent state before: dead
+--- composer verdict before: unknown
+--- pane before (tail) ---
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+--- $ fm-control.sh t1 exit   (fm-control from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3H8YG65STNXGDGX3WZF00SS)
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7FQITM/home
+already-stopped t1 harness=claude backend=herdr endpoint=fm-lab-cexit-594659:w1:p2 worktree=/tmp/fm-lab.7FQITM/wt
+--- rc=0
+--- native identity after: 
+--- agent state after: dead
+--- pane process state after: shell
+--- pane after (tail) ---
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$
+tegris@Pulse:/tmp/fm-lab.7FQITM/wt$

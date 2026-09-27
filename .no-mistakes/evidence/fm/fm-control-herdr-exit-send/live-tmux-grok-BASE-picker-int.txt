@@ -1,0 +1,38 @@
+--- pane before (tmux capture-pane on lab socket) ---
+  ┃
+  ┃  You hit your weekly limit.
+  ┃
+  ┃
+  ┃  1 (○) Upgrade tier      Upgrade to a higher tier for more usage
+  ┃  2 (○) Buy more credits  Purchase credits to keep using Grok Build
+  ┃  3 (○) Try Again         Resubmit the last prompt once you have usage again
+  ┃
+  ┃  ↑/↓ navigate · y copy
+                                                                                                      Enter:submit
+  ┃
+
+  Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss
+
+--- pane_current_command: grok
+--- composer verdict: unknown
+--- agent state: alive
+--- $ fm-control.sh t1 relaunch --harness codex --note grok-is-out-of-usage
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.4wlt6W/home
+error: task t1's composer state is 'unknown', not proven empty; refusing to type the /exit exit command because it could concatenate onto existing text. Clear the composer, then retry 'relaunch'
+error: relaunch of t1 failed while stopping the old agent, which is still running; its original instructions were restored
+--- rc=1
+/home/tegris/.no-mistakes/evidence/01M3H8YG65STNXGDGX3WZF00SS/grok-quota-tmux-lab.sh: line 106: /tmp/fm-lab.4wlt6W/signals: No such file or directory
+--- signals received by grok stand-in: 
+--- bytes typed into grok stand-in: ''
+--- pane_current_command after: grok
+--- replacement codex launched: no
+--- recorded harness: harness=grok
+--- pane after ---
+  ┃  3 (○) Try Again         Resubmit the last prompt once you have usage again
+  ┃
+  ┃  ↑/↓ navigate · y copy
+                                                                                                      Enter:submit
+  ┃
+
+  Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss
+

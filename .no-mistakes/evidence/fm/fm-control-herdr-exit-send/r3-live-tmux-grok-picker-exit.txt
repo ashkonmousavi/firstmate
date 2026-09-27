@@ -1,0 +1,36 @@
+--- pane before (tmux capture-pane on lab socket) ---
+  ┃
+  ┃  You hit your weekly limit.
+  ┃
+  ┃
+  ┃  1 (○) Upgrade tier      Upgrade to a higher tier for more usage
+  ┃  2 (○) Buy more credits  Purchase credits to keep using Grok Build
+  ┃  3 (○) Try Again         Resubmit the last prompt once you have usage again
+  ┃
+  ┃  ↑/↓ navigate · y copy
+                                                                                                      Enter:submit
+  ┃
+
+  Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss
+
+--- pane_current_command: grok
+--- composer verdict: unknown
+--- agent state: alive
+--- $ fm-control.sh t1 exit
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.khYac5/home
+stopped t1 harness=grok backend=tmux endpoint=fmses:fm-t1 worktree=/tmp/fm-lab.khYac5/wt
+--- rc=0
+--- signals received by grok stand-in: INT-exit 
+--- bytes typed into grok stand-in: ''
+--- pane_current_command after: bash
+--- replacement codex launched: no
+--- recorded harness: harness=grok
+--- pane after ---
+  ┃  3 (○) Try Again         Resubmit the last prompt once you have usage again
+  ┃
+  ┃  ↑/↓ navigate · y copy
+                                                                                                      Enter:submit
+  ┃
+
+  Tab:next answer  │  Esc:scrollback  │  Shift+x:dismisslab$
+

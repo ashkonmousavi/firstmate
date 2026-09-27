@@ -1,0 +1,43 @@
+--- herdr herdr 0.9.1, 2.1.283 (Claude Code)
+--- native identity before: claude idle
+--- agent state before: alive
+--- composer verdict before: empty
+--- pane before (tail) ---
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   /tmp/fm-lab.v3IVtr/wt
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "fix lint errors"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:wt · opus/medium · default · -- · 5h--/7d-- · $0.00                            ◐ medium · /effort
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents                                                                /rc
+--- send trace: the Claude pre/post-send composer proof steps of fm_backend_herdr_send_text_submit
+identity=[claude	idle]
+proof_lines=40
+pre-send content rc=0 []
+send_literal rc=0
+post-send content rc=0 [/exit]
+payload_shown rc=0
+composer_state after typing: unknown
+--- pane after typing /exit (not submitted) ---
+  /pptx                                           Use this skill any time a .pptx or .potx file is involved in any way
+                                                  — as input, output, or both. This includes: creating slide decks, p…
+  /usage-credits                                  Configure usage credits or request them from your admin when you hit
+                                                  a limit
+  /skill-creator:skill-creator                    (skill-creator) Create new skills, modify and improve existing
+                                                  skills, and measure skill performance. Use when users want to creat…
+  /pdf                                            Use this skill whenever the user wants to do anything with PDF
+                                                  files. This includes reading or extracting text/tables from PDFs, c…
+  /anthropic-skills:skill-creator                 Create new skills, modify and improve existing skills, and measure
+                                                  skill performance. Use when users want to create a skill from scrat…
+  /anthropic-skills:pdf                           Use this skill whenever the user wants to do anything with PDF
+                                                  files. This includes reading or extracting text/tables from PDFs, c…
+  /docs                                           docs (living docs people share, comment on and edit; use only when
+                                                  the user asks for one: names a doc, document, page, memo, spec, PRD…
+--- ansi capture of composer rows ---
+17:M-bM-^]M-/M-BM- ^[[0m^[[38;2;29;78;216m/exit^[[0m^M
+19:  ^[[0m^[[38;2;29;78;216m/^[[0m^[[1m^[[38;2;29;78;216mexit^[[0m^[[38;2;29;78;216m                                           ^[[0m^[[1m^[[38;2;29;78;216mExit^[[0m^[[38;2;29;78;216m the CLI^[[0m^M
+composer_state after clearing: empty
+plain text 'hello' typed: content rc=0 [hello]
+composer_state with 'hello' typed: pending
+17:❯ hello

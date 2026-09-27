@@ -1,0 +1,38 @@
+--- herdr herdr 0.9.1, 2.1.283 (Claude Code)
+--- native identity before: claude idle
+--- agent state before: alive
+--- composer verdict before: empty
+--- pane before (tail) ---
+ ▝▝   ▝▝   /tmp/fm-lab.ujyCC5/wt · /rc
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "fix lint errors"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PE…
+  session · WORKTREE:wt · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle)
+--- send trace: the Claude pre/post-send composer proof steps of fm_backend_herdr_send_text_submit
+identity=[claude	idle]
+proof_lines=20
+pre-send content rc=0 []
+send_literal rc=0
+post-send content rc=0 []
+payload_shown rc=1
+composer_state after typing: empty
+--- pane after typing /exit (not submitted) ---
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   /tmp/fm-lab.ujyCC5/wt · /rc
+  /exit                                           Exit the CLI
+  /data:data-context-extractor                    (data) Generate or improve a company-specific data analysis skill by
+                                                  extracting tribal knowledge from analysts. BOOTSTRAP MODE - Trigger…
+  /context                                        Visualize current context usage as a colored grid
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /exit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⚠ Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker · restart with CLAUDE_CODE_FORCE_SESSION_PE…
+  session · WORKTREE:wt · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle)
+--- ansi capture of composer rows ---
+31:  ^[[0m^[[38;2;29;78;216m/^[[0m^[[1m^[[38;2;29;78;216mexit^[[0m^[[38;2;29;78;216m                                           ^[[0m^[[1m^[[38;2;29;78;216mExit^[[0m^[[38;2;29;78;216m the CLI^[[0m^M
+36:M-bM-^]M-/M-BM- ^[[0m^[[38;2;29;78;216m/exit^[[0m^M

@@ -1,0 +1,28 @@
+--- pane before (tmux capture-pane on lab socket) ---
+  You hit your weekly limit.
+
+╭────╮
+│ i  │
+╰────╯
+
+--- pane_current_command: grok
+--- composer verdict: pending
+--- agent state: alive
+--- $ fm-control.sh t1 relaunch --harness codex --note grok-is-out-of-usage
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.wluMB2/home
+error: task t1's composer visibly holds pending text; refusing to type the /exit exit command because it would concatenate onto that text. Clear or submit the pending text, then retry 'relaunch'
+error: relaunch of t1 failed while stopping the old agent, which is still running; its original instructions were restored
+--- rc=1
+/home/tegris/.no-mistakes/evidence/01M3H8YG65STNXGDGX3WZF00SS/grok-quota-tmux-lab.sh: line 106: /tmp/fm-lab.wluMB2/signals: No such file or directory
+--- signals received by grok stand-in: 
+--- bytes typed into grok stand-in: ''
+--- pane_current_command after: grok
+--- replacement codex launched: no
+--- recorded harness: harness=grok
+--- pane after ---
+  You hit your weekly limit.
+
+╭────╮
+│ i  │
+╰────╯
+

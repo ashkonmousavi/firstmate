@@ -1,0 +1,15 @@
+   detached worktree ~/.n/w/befb827bbae4/01M3H8YG65STNXGDGX3WZF00SS
+                                                                         ⠀⠀⠀⠀⠀⠀⣀⣀⡀⠀⠀⠀⢀⠄
+                                                                         ⠀⠀⠀⣠⣾⠿⠛⠛⠛⠛⢀⡴⠁⠀
+                                                                         ⠀⠀⣼⡟⠁⠀⠀⠀⢀⡴⠻⣿⡀⠀
+                                                                         ⠀⠀⣿⡇⠀⠀⠀⠔⠁⠀⠀⣿⡇⠀
+                                                                         ⠀⠀⢹⣷⠀⠀⠀⠀⠀⢀⣴⡿⠀⠀
+                                                                         ⠀⢀⠞⠁⠠⢶⣶⣶⣶⠿⠋⠀⠀⠀
+                                                                         ⠐⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+                                                          Do you trust the contents of this directory?
+                                           /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3H8YG65STNXGDGX3WZF00SS
+                                                    Grok Build may run or modify contents in this directory,
+                                                                     posing security risks.
+                                                                 Yes, proceed                 y
+                                                                 No, quit                     n
+                                                                                                                                   Grok Build  1.0.41 [stable]

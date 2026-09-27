@@ -1,0 +1,41 @@
+--- herdr herdr 0.9.1, 2.1.283 (Claude Code)
+--- native identity before: claude idle
+--- agent state before: alive
+--- composer verdict before: empty
+--- pane before (tail) ---
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   /tmp/fm-lab.0FCGpE/wt · /rc
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "write a test for <filepath>"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:wt · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
+--- send trace: the Claude pre/post-send composer proof steps of fm_backend_herdr_send_text_submit
+identity=[claude	idle]
+proof_lines=20
+pre-send content rc=0 []
+send_literal rc=0
+post-send content rc=0 []
+payload_shown rc=1
+composer_state after typing: empty
+--- pane after typing /exit (not submitted) ---
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   /tmp/fm-lab.0FCGpE/wt · /rc
+  /exit                                           Exit the CLI
+  /data:data-context-extractor                    (data) Generate or improve a company-specific data analysis skill by
+                                                  extracting tribal knowledge from analysts. BOOTSTRAP MODE - Trigger…
+  /context                                        Visualize current context usage as a colored grid
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /exit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:wt · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle)
+--- ansi capture of composer rows ---
+32:  ^[[0m^[[38;2;29;78;216m/^[[0m^[[1m^[[38;2;29;78;216mexit^[[0m^[[38;2;29;78;216m                                           ^[[0m^[[1m^[[38;2;29;78;216mExit^[[0m^[[38;2;29;78;216m the CLI^[[0m^M
+37:M-bM-^]M-/M-BM- ^[[0m^[[38;2;29;78;216m/exit^[[0m^M
+composer_state after clearing: empty
+plain text 'hello' typed: content rc=0 [hello]
+composer_state with 'hello' typed: pending
+37:❯ hello
