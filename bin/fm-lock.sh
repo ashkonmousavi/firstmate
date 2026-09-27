@@ -58,7 +58,14 @@ if [ "${1:-}" = "status" ]; then
   exit 0
 fi
 
-me=$(fm_session_lock_anchor_pid) || { echo "error: cannot locate harness process in ancestry" >&2; exit 1; }
+me=$(fm_session_lock_anchor_pid) || {
+  if pids=$(fm_harness_ancestry_pids) && fm_codex_ancestry_pid "$pids" >/dev/null; then
+    echo "error: Codex tool command has no live foreground-client binding; launch the primary with bin/fm-codex-primary.sh" >&2
+  else
+    echo "error: cannot locate harness process in ancestry" >&2
+  fi
+  exit 1
+}
 probe=$(mktemp "$STATE/.lock-write.XXXXXX" 2>/dev/null) || {
   echo "error: cannot write session lock; operate read-only until resolved" >&2
   exit 1

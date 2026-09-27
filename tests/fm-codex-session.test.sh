@@ -35,9 +35,10 @@ pass 'Codex launcher: per-thread settings carry the live client and launch termi
 sleep 90 & client1=$!
 sleep 90 & client2=$!
 sleep 90 & daemon=$!
+sleep 90 & client3=$!
 cleanup_clients() {
-  kill "$client1" "$client2" "$daemon" 2>/dev/null || true
-  wait "$client1" "$client2" "$daemon" 2>/dev/null || true
+  kill "$client1" "$client2" "$daemon" "$client3" 2>/dev/null || true
+  wait "$client1" "$client2" "$daemon" "$client3" 2>/dev/null || true
 }
 trap 'cleanup_clients; fm_test_cleanup' EXIT
 
@@ -57,6 +58,8 @@ case "$pid:$field" in
   "$TEST_CODEX_CLIENT1":comm=|"$TEST_CODEX_CLIENT2":comm=|"$TEST_CODEX_DAEMON":comm=) echo codex ;;
   "$TEST_CODEX_CLIENT1":args=|"$TEST_CODEX_CLIENT2":args=) echo 'codex --remote unix://' ;;
   "$TEST_CODEX_DAEMON":args=) echo 'codex app-server --managed-daemon' ;;
+  "$TEST_CODEX_CLIENT3":comm=) echo node-MainThread ;;
+  "$TEST_CODEX_CLIENT3":args=) echo 'node /opt/node/lib/node_modules/@openai/codex/bin/codex.js --yolo' ;;
   "$TEST_CODEX_DAEMON":ppid=) echo 1 ;;
   1:comm=) echo init ;;
   1:args=) echo init ;;
@@ -72,14 +75,44 @@ chmod +x "$fakebin/ps"
 . "$ROOT/bin/fm-session-lock-lib.sh"
 birth1=$(fm_codex_pid_birth "$client1") || fail 'could not read first client birth'
 birth2=$(fm_codex_pid_birth "$client2") || fail 'could not read second client birth'
-export TEST_CODEX_CLIENT1="$client1" TEST_CODEX_CLIENT2="$client2" TEST_CODEX_DAEMON="$daemon"
+birth3=$(fm_codex_pid_birth "$client3") || fail 'could not read node-launched client birth'
+export TEST_CODEX_CLIENT1="$client1" TEST_CODEX_CLIENT2="$client2" TEST_CODEX_DAEMON="$daemon" TEST_CODEX_CLIENT3="$client3"
 
-run_lock() {  # <session> <client-pid> <birth>
+run_lock() {  # <session> <client-pid> <birth> [<home>]
+  local lock_home=${4:-$home}
   env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID \
-    PATH="$fakebin:$PATH" FM_HOME="$home" CODEX_SESSION_ID="$1" \
-    FM_CODEX_CLIENT_PID="$2" FM_CODEX_CLIENT_BIRTH="$3" FM_CODEX_CLIENT_HOME="$home" \
+    PATH="$fakebin:$PATH" FM_HOME="$lock_home" CODEX_SESSION_ID="$1" \
+    FM_CODEX_CLIENT_PID="$2" FM_CODEX_CLIENT_BIRTH="$3" FM_CODEX_CLIENT_HOME="$lock_home" \
     "$ROOT/bin/fm-lock.sh"
 }
+
+# The npm CLI is a node script, so the launcher's exec leaves the bound pid
+# running as node rather than as the native codex binary.
+node_home="$TMP_ROOT/node-home"
+mkdir -p "$node_home/state"
+out=$(run_lock S3 "$client3" "$birth3" "$node_home") || fail "a node-launched Codex client could not acquire: $out"
+[ "$(cat "$node_home/state/.lock")" = "$client3" ] || fail 'the lock did not anchor on the node-launched client'
+[ "$(cat "$node_home/state/.lock-session")" = "codex:$client3:$birth3:S3" ] \
+  || fail 'the node-launched client did not bind its session sidecar'
+pass 'Codex lock: a client launched through the node CLI script owns its lock'
+
+# An older release anchored the lock on the shared daemon with no sidecar.
+legacy_home="$TMP_ROOT/legacy-home"
+mkdir -p "$legacy_home/state"
+printf '%s\n' "$daemon" > "$legacy_home/state/.lock"
+status_out=$(PATH="$fakebin:$PATH" FM_HOME="$legacy_home" "$ROOT/bin/fm-lock.sh" status)
+assert_not_contains "$status_out" 'held by live harness' 'the shared daemon was reported as a live lock holder'
+out=$(run_lock S3 "$client3" "$birth3" "$legacy_home") || fail "a daemon-anchored lock was not reclaimable: $out"
+[ "$(cat "$legacy_home/state/.lock")" = "$client3" ] || fail 'the reclaimed lock did not name the live client'
+pass 'Codex lock: a lock anchored on the shared daemon is reclaimed by a live client'
+
+if out=$(env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID -u FM_CODEX_CLIENT_PID -u FM_CODEX_CLIENT_BIRTH -u FM_CODEX_CLIENT_HOME \
+  PATH="$fakebin:$PATH" FM_HOME="$TMP_ROOT/unbound-home" \
+  CODEX_SESSION_ID=S4 "$ROOT/bin/fm-lock.sh" 2>&1); then
+  fail "a Codex tool command without a client binding acquired the lock: $out"
+fi
+assert_contains "$out" 'bin/fm-codex-primary.sh' 'an unbound Codex primary was not told how to relaunch'
+pass 'Codex lock: an unbound daemon tool command names the launcher remedy'
 
 out=$(run_lock S1 "$client1" "$birth1") || fail "first client could not acquire: $out"
 [ "$(cat "$home/state/.lock")" = "$client1" ] || fail 'lock anchored on the daemon instead of the first client'

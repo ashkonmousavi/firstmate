@@ -133,6 +133,30 @@ test_existing_singleton_watcher_is_not_success() {
   pass "checkpoint rejects an existing watcher singleton as unowned"
 }
 
+# A watcher that already surfaced its wake has consumed it, so a checkpoint
+# that then fails to settle must still show that wake before failing.
+test_unsettled_checkpoint_still_shows_its_wake() {
+  local home status
+  home=$(make_home unsettled-wake)
+  mkdir -p "$home/root/bin"
+  cp "$CHECKPOINT" "$ROOT/bin/fm-wake-lib.sh" "$ROOT/bin/fm-session-lock-lib.sh" "$ROOT/bin/fm-cursor-lib.sh" "$home/root/bin/"
+  cat > "$home/root/bin/fm-watch.sh" <<'SH'
+#!/usr/bin/env bash
+mkdir "$FM_HOME/state/.watch.lock"
+printf '%s\n' "$FM_TEST_LIVE_OWNER" > "$FM_HOME/state/.watch.lock/pid"
+printf 'signal: demo.status\n'
+SH
+  chmod +x "$home/root/bin/fm-watch-checkpoint.sh" "$home/root/bin/fm-watch.sh"
+  status=0
+  FM_HOME="$home" FM_TEST_LIVE_OWNER=$$ "$home/root/bin/fm-watch-checkpoint.sh" --seconds 5 \
+    >"$home/out.txt" 2>"$home/err.txt" || status=$?
+  expect_code 1 "$status" "a checkpoint that cannot settle the watcher lock fails"
+  assert_contains "$(cat "$home/out.txt")" "signal: demo.status" "the surfaced wake was dropped"
+  assert_contains "$(cat "$home/err.txt")" "watcher lock still has a live or unverified owner" \
+    "the unsettled watcher lock was not reported"
+  pass "checkpoint: a surfaced wake still passes through when the checkpoint cannot settle"
+}
+
 # A home opted into the supervision host whose checkpoint runs a stub host in
 # a fixture code root: the stub records the bound it was given, then closes
 # the way $FM_HOME/host-kind says.
@@ -231,6 +255,7 @@ test_killed_watcher_is_reclaimed_by_checkpoint
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment
 test_existing_singleton_watcher_is_not_success
+test_unsettled_checkpoint_still_shows_its_wake
 test_host_checkpoint_bounds_the_park_by_posture
 test_host_checkpoint_passes_a_handback_and_reports_a_stand_down
 test_real_host_checkpoint_ends_quietly_at_its_bound

@@ -167,9 +167,9 @@ if [ -f "$CONFIG/supervision-host" ]; then
   set -e
   if grep -E '^(signal:|stale:|check:|heartbeat($|:)|supervision-host:)' "$OUT" 2>/dev/null \
     | grep -Ev '^supervision-host: cycle boundary' >/dev/null; then
-    checkpoint_finish_handling || exit 1
     grep -Ev '^watcher: (started|attached) ' "$OUT"
     [ ! -s "$ERR" ] || cat "$ERR" >&2
+    checkpoint_finish_handling || exit 1
     exit 0
   fi
   if grep -E '^supervision-host: cycle boundary' "$OUT" >/dev/null 2>&1; then
@@ -199,14 +199,15 @@ if grep -E '^watcher: already running' "$OUT" "$ERR" >/dev/null 2>&1; then
   exit 1
 fi
 
-checkpoint_finish_watcher_lock || exit 1
-
 if grep -E '^(signal:|stale:|check:|heartbeat($|:))' "$OUT" >/dev/null 2>&1; then
-  checkpoint_finish_handling || exit 1
   cat "$OUT"
   [ ! -s "$ERR" ] || cat "$ERR" >&2
+  checkpoint_finish_watcher_lock || exit 1
+  checkpoint_finish_handling || exit 1
   exit 0
 fi
+
+checkpoint_finish_watcher_lock || exit 1
 
 if [ "$RC" -eq 124 ]; then
   checkpoint_finish_handling || exit 1

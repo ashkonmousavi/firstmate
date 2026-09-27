@@ -200,7 +200,7 @@ fm_codex_ancestry_pid() {  # [<ancestry-pids>]
 }
 
 fm_codex_client_pid() {  # [<ancestry-pids>]
-  local pids=${1:-} ancestor pid birth comm args home
+  local pids=${1:-} ancestor pid birth args home
   ancestor=$(fm_codex_ancestry_pid "$pids") || return 1
   if [ -n "${FM_CODEX_CLIENT_PID:-}${FM_CODEX_CLIENT_BIRTH:-}${FM_CODEX_CLIENT_HOME:-}" ]; then
     pid=${FM_CODEX_CLIENT_PID:-}
@@ -214,8 +214,6 @@ fm_codex_client_pid() {  # [<ancestry-pids>]
     pid=$ancestor
   fi
   fm_harness_pid_alive "$pid" || return 1
-  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
-  [ "$(basename -- "$comm")" = codex ] || return 1
   args=$(ps -o args= -p "$pid" 2>/dev/null) || return 1
   case " $args " in *' app-server '*|*' exec-server '*) return 1 ;; esac
   printf '%s\n' "$pid"
@@ -277,9 +275,15 @@ EOF
 
 # A Codex sidecar pins both the session and the foreground client's birth.
 # This makes a recycled pid stale even when its command is again `codex`.
+# A shared Codex app-server or exec-server outlives every client, so it never
+# holds a lock even when an older release recorded it on line 1.
 fm_session_lock_holder_alive() {  # <state> <pid>
-  local state=$1 pid=$2 recorded prefix birth
+  local state=$1 pid=$2 recorded prefix birth comm
   fm_harness_pid_alive "$pid" || return 1
+  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
+  if [ "$(basename -- "$comm")" = codex ]; then
+    case " $(ps -o args= -p "$pid" 2>/dev/null) " in *' app-server '*|*' exec-server '*) return 1 ;; esac
+  fi
   recorded=$(fm_session_lock_recorded_session_id "$state") || return 0
   case "$recorded" in
     codex:"$pid":*)
