@@ -122,12 +122,13 @@
 #     classified state acts.
 #   - A composer that visibly holds pending text refuses before an exit command
 #     is typed, so existing text is preserved instead of being concatenated.
-#   - An unproven composer beside a recognised usage or quota exhaustion report
-#     (bin/fm-control-lib.sh's fm_control_quota_exhausted_signal), whether its
-#     picker is open or dismissed, is stopped without typing: the interrupt
-#     key, then a SIGTERM to the agent process in that exact endpoint, so a
-#     runtime out of credits can be switched. Any other unproven composer
-#     still refuses.
+#   - A composer that reads `unknown` beside a recognised usage or quota
+#     exhaustion report (bin/fm-control-lib.sh's
+#     fm_control_quota_exhausted_signal), whether its picker is open or
+#     dismissed, is stopped without typing: the interrupt key, then a SIGTERM
+#     to the agent process in that exact endpoint, so a runtime out of credits
+#     can be switched. `pending` and `pending-unproven` still refuse beside
+#     that report, and so does any other unproven composer.
 #
 # Environment knobs (all bounded waits, seconds):
 #   FM_CONTROL_POLL              poll interval for postcondition waits (0.5)
@@ -660,7 +661,7 @@ do_exit() {
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
     *)
-      quota_exhausted_shown \
+      { [ "$composer_state" = unknown ] && quota_exhausted_shown; } \
         || die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
       stop_quota_exhausted
       retire_busy_incarnation
