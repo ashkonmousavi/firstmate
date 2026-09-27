@@ -93,9 +93,6 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       case "$payload" in
-        C-c)
-          [ -z "${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" ] || printf 'zsh' > "$D/command"
-          ;;
         'export GOTMPDIR='*)
           if [ -n "${FM_FAKE_TRACE_PREPARE:-}" ]; then
             : > "$FM_FAKE_TRACE_PREPARE"
@@ -134,9 +131,7 @@ case "${1:-}" in
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
     [ -z "${FM_FAKE_COMPOSER_READ_FAIL:-}" ] || exit 1
-    if [ -s "$D/screen" ]; then
-      cat "$D/screen"
-    elif [ -s "$D/composer" ]; then
+    if [ -s "$D/composer" ]; then
       printf '╭────╮\n│ %s  │\n╰────╯\n' "$(cat "$D/composer")"
     else
       printf '╭────╮\n│    │\n╰────╯\n'
@@ -268,7 +263,6 @@ run_control() {  # <case-dir> <args...>
     FM_FAKE_META_WRITER_READY="${FM_FAKE_META_WRITER_READY:-}" \
     FM_FAKE_TRACE_EXPORTED="${FM_FAKE_TRACE_EXPORTED:-}" \
     FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS="${FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS:-}" \
-    FM_FAKE_INTERRUPT_STOPS_AGENT="${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" \
     "$CONTROL" "$@" 2>&1
 }
 
@@ -1495,75 +1489,6 @@ test_stop_transport_failure_waits_for_a_slow_exit() {
   pass "fm-control relaunch: lost stop acknowledgement waits for an agent still shutting down"
 }
 
-test_grok_usage_picker_relaunches_without_typing() {
-  local dir out rc
-  dir=$(new_case grokpicker rl74)
-  add_ship_task "$dir" rl74 grok
-  printf 'grok' > "$dir/fake/command"
-  cp "$ROOT/tests/captures/grok-weekly-limit-picker.txt" "$dir/fake/screen"
-  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 \
-    run_control "$dir" rl74 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  expect_code 0 "$rc" "a grok usage picker should not block switching runtime"$'\n'"$out"
-  assert_contains "$out" "relaunched rl74" "the stopped grok agent should be replaced"
-  [ "$(meta_field "$dir" rl74 harness)" = claude ] || fail "the record should follow the runtime switch"
-  grep -Fqx C-c "$dir/fake/keys" || fail "grok should be stopped with its interrupt key"
-  if grep -Fqx /exit "$dir/fake/literal"; then
-    fail "no exit command may be typed into the usage picker"
-  fi
-  pass "fm-control relaunch: a grok usage picker is stopped without typing and the runtime switches"
-}
-
-test_grok_unrecognised_unknown_still_refuses_relaunch() {
-  local dir out rc
-  dir=$(new_case grokunknown rl76)
-  add_ship_task "$dir" rl76 grok
-  printf 'grok' > "$dir/fake/command"
-  sed '/Buy more credits/d' "$ROOT/tests/captures/grok-weekly-limit-picker.txt" > "$dir/fake/screen"
-  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 \
-    run_control "$dir" rl76 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  expect_code 1 "$rc" "a grok composer without the whole recognised picker must still refuse"$'\n'"$out"
-  assert_contains "$out" "not proven empty" "the refusal should name the unproven composer"
-  [ "$(cat "$dir/fake/command")" = grok ] || fail "an unrecognised unknown composer must leave grok running"
-  if grep -Fqx C-c "$dir/fake/keys" || grep -Fqx /exit "$dir/fake/literal"; then
-    fail "nothing may be sent to an unrecognised unknown grok composer"
-  fi
-  pass "fm-control relaunch: an unrecognised unknown grok composer still refuses"
-}
-
-test_grok_usage_picker_refuses_when_the_agent_cannot_be_stopped() {
-  local dir out rc
-  dir=$(new_case grokstuck rl77)
-  add_ship_task "$dir" rl77 grok
-  printf 'grok' > "$dir/fake/command"
-  cp "$ROOT/tests/captures/grok-weekly-limit-picker.txt" "$dir/fake/screen"
-  out=$(FM_CONTROL_SETTLE_WAIT=0.05 \
-    run_control "$dir" rl77 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  expect_code 1 "$rc" "a picker agent that survives every stop must refuse"$'\n'"$out"
-  assert_contains "$out" "survived its interrupt key" "the refusal should name the failed stop"
-  [ "$(meta_field "$dir" rl77 harness)" = grok ] || fail "the prior record must be kept when the old agent did not stop"
-  if grep -Fqx /exit "$dir/fake/literal"; then
-    fail "no exit command may be typed into the usage picker"
-  fi
-  pass "fm-control relaunch: a grok usage picker agent that cannot be stopped keeps the prior record"
-}
-
-test_grok_pending_text_still_refuses_relaunch() {
-  local dir out rc
-  dir=$(new_case grokpending rl75)
-  add_ship_task "$dir" rl75 grok
-  printf 'grok' > "$dir/fake/command"
-  printf 'i' > "$dir/fake/composer"
-  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 \
-    run_control "$dir" rl75 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  expect_code 1 "$rc" "grok pending composer text must still refuse"$'\n'"$out"
-  assert_contains "$out" "composer visibly holds pending text" "the refusal should name the pending text"
-  [ "$(cat "$dir/fake/command")" = grok ] || fail "a pending composer refusal must leave grok running"
-  if grep -Fqx C-c "$dir/fake/keys" || grep -Fqx /exit "$dir/fake/literal"; then
-    fail "nothing may be sent to a grok composer holding pending text"
-  fi
-  pass "fm-control relaunch: grok pending composer text still refuses the runtime switch"
-}
-
 test_complete_journal_failure_rolls_back_from_durable_phase() {
   local dir out rc real_mv
   dir=$(new_case completejournal rl27)
@@ -2618,10 +2543,6 @@ test_prepublication_failure_keeps_concurrent_durable_metadata
 test_post_publication_launch_failure_keeps_the_new_record
 test_stop_transport_failure_reconciles_a_dead_agent
 test_stop_transport_failure_waits_for_a_slow_exit
-test_grok_usage_picker_relaunches_without_typing
-test_grok_pending_text_still_refuses_relaunch
-test_grok_unrecognised_unknown_still_refuses_relaunch
-test_grok_usage_picker_refuses_when_the_agent_cannot_be_stopped
 test_complete_journal_failure_rolls_back_from_durable_phase
 test_prepublication_abort_retires_replacement_wiring_and_busy_state
 test_journal_records_the_checkpoint_it_proved

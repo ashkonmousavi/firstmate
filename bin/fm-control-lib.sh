@@ -190,16 +190,19 @@ fm_control_interrupt_hazard_signal() {  # <harness>
   esac
 }
 
-# The rendered rows that together recognise a harness's usage or quota modal,
-# one ERE per line; every row must be visible. Such a modal replaces the
-# composer, so no exit command can be typed, and the runtime is being replaced
-# anyway once its credits are gone. Grok's weekly-limit picker is recognised by
-# its title and its buy-credits option (tests/captures/grok-weekly-limit-picker.txt).
-# Two independent rows keep a transcript line that merely quotes the limit from
-# qualifying. Prints nothing for a harness with no recorded quota modal.
-fm_control_quota_modal_signals() {  # <harness>
+# The rendered row, as one ERE, by which a harness reports that its usage or
+# quota is exhausted. While that report is visible the runtime is out of
+# credits and is being replaced anyway, and its composer cannot be proven
+# empty: an open usage picker replaces it, and a dismissed one leaves it
+# reading unknown. Grok's weekly-limit notice
+# (tests/captures/grok-weekly-limit-picker.txt) heads its picker, so it is
+# recognised while the picker is open and, while the notice is still visible,
+# after the picker is dismissed. The notice must open its row,
+# after nothing but decoration, so prose that merely quotes the limit does not
+# qualify. Prints nothing for a harness with no recorded quota report.
+fm_control_quota_exhausted_signal() {  # <harness>
   case "${1-}" in
-    grok) printf '%s\n' 'You hit your [[:alpha:]]+ limit' '\([^)]*\) Buy more credits' ;;
+    grok) printf '%s' '^[^[:alnum:]]*You hit your [[:alpha:]]+ limit' ;;
     claude|codex|opencode|pi|pi-signed|omp|kimi|cursor|gemini|muse|rovo|agy|devin) ;;
     *) return 1 ;;
   esac

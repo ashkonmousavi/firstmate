@@ -122,11 +122,12 @@
 #     classified state acts.
 #   - A composer that visibly holds pending text refuses before an exit command
 #     is typed, so existing text is preserved instead of being concatenated.
-#   - A composer replaced by a recognised usage or quota modal
-#     (bin/fm-control-lib.sh's fm_control_quota_modal_signals) is stopped
-#     without typing: the interrupt key, then a SIGTERM to the agent process
-#     in that exact endpoint, so a runtime out of credits can be switched.
-#     Any other unproven composer still refuses.
+#   - An unproven composer beside a recognised usage or quota exhaustion report
+#     (bin/fm-control-lib.sh's fm_control_quota_exhausted_signal), whether its
+#     picker is open or dismissed, is stopped without typing: the interrupt
+#     key, then a SIGTERM to the agent process in that exact endpoint, so a
+#     runtime out of credits can be switched. Any other unproven composer
+#     still refuses.
 #
 # Environment knobs (all bounded waits, seconds):
 #   FM_CONTROL_POLL              poll interval for postcondition waits (0.5)
@@ -555,29 +556,24 @@ do_interrupt() {
   printf '%s cancel=%s' "$proof" "$cancel"
 }
 
-# quota_modal_shown: whether every rendered row of the harness's recognised
-# usage or quota modal is visible.
-quota_modal_shown() {
-  local signals signal
-  signals=$(fm_control_quota_modal_signals "$HARNESS") || return 1
-  [ -n "$signals" ] || return 1
-  while IFS= read -r signal; do
-    rendered_matches "$signal" || return 1
-  done <<EOF
-$signals
-EOF
+# quota_exhausted_shown: whether the harness's usage or quota exhaustion
+# report is visible.
+quota_exhausted_shown() {
+  local signal
+  signal=$(fm_control_quota_exhausted_signal "$HARNESS") || return 1
+  [ -n "$signal" ] && rendered_matches "$signal"
 }
 
-# stop_quota_modal: stop an agent whose composer a quota modal replaced, without
+# stop_quota_exhausted: stop an agent that reported its quota exhausted without
 # typing into it: the interrupt key first, then SIGTERM to the agent process.
-stop_quota_modal() {
+stop_quota_exhausted() {
   local state
   send_interrupt_keys
   state=$(wait_agent_state "$SETTLE_WAIT" dead) && return 0
   fm_backend_stop_agent "$BACKEND" "$T" \
-    || die "task $ID shows the $HARNESS usage picker and survived its interrupt key (agent state '$state'), and no agent process in its endpoint could be signalled"
+    || die "task $ID shows the $HARNESS usage-limit report and survived its interrupt key (agent state '$state'), and no agent process in its endpoint could be signalled"
   state=$(wait_agent_state "$EXIT_WAIT" dead) \
-    || die "task $ID shows the $HARNESS usage picker and its agent process did not stop within ${EXIT_WAIT}s of SIGTERM; agent state is '$state'"
+    || die "task $ID shows the $HARNESS usage-limit report and its agent process did not stop within ${EXIT_WAIT}s of SIGTERM; agent state is '$state'"
 }
 
 retire_busy_incarnation() {
@@ -664,9 +660,9 @@ do_exit() {
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
     *)
-      quota_modal_shown \
+      quota_exhausted_shown \
         || die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
-      stop_quota_modal
+      stop_quota_exhausted
       retire_busy_incarnation
       printf 'stopped'
       return 0
