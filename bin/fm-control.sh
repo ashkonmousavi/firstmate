@@ -648,9 +648,8 @@ do_exit() {
   if [ "$verdict" = send-failed ]; then
     # A send can lose its acknowledgement as the agent exits. The requested
     # postcondition is already met only when the backend positively sees dead.
-    state=$(agent_state)
-    [ "$state" = dead ] \
-      || die "the exit command could not be sent to task $ID on $BACKEND; agent state is '$state'"
+    state=$(wait_agent_state "$EXIT_WAIT" dead) \
+      || die "the exit command could not be sent to task $ID on $BACKEND; agent state is '$state' after ${EXIT_WAIT}s"
     retire_busy_incarnation
     printf 'stopped'
     return 0

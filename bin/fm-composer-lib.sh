@@ -1342,7 +1342,7 @@ _fm_composer_classify_bare_wrap() {  # <screen> <styled> <glyph-row> <cursor-row
 _fm_composer_classify_leftbar() {  # <screen> <styled> <first-row> <last-row>
   local screen=$1 styled=$2 first=$3 last=$4
   local row raw content pending_seen=0 footer_re leading_blank=1 placeholder_position=0
-  if ! _fm_composer_leftbar_proven "$screen" "$first" "$last"; then
+  if ! _fm_composer_leftbar_proven "$(printf '%s\n' "$screen" | fm_composer_strip_ansi)" "$first" "$last"; then
     printf 'unknown'
     return 0
   fi

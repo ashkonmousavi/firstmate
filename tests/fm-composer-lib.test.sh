@@ -736,7 +736,7 @@ test_matrix_opencode_leftbar_signals() {
   # blanks, and a Build-mode footer. Two independent idle signals: the shared
   # idle-placeholder pattern (works on plain captures) and the ghost strip
   # (works on styled captures even if the pattern is overridden away).
-  local screen typed dim_screen captured_idle captured_pending floor_only out
+  local screen typed dim_screen captured_idle captured_pending floor_only rail colored out
   screen=$'  ┃\n  ┃  Ask anything... "What is the tech stack?"\n  ┃\n  ┃  Build · GPT-5.5 Fast OpenAI · high\n  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀'
   dim_screen=$'  ┃\n  ┃  '"${ESC}[2mAsk anything...${ESC}[0m"$'\n  ┃\n  ┃  Build · GPT-5.5 Fast OpenAI · high\n  ╹▀▀▀▀'
   assert_screen "opencode idle on tmux (cursor on hint)" empty "$CAPS_TMUX" "$dim_screen" 1
@@ -765,6 +765,10 @@ test_matrix_opencode_leftbar_signals() {
   assert_screen "opencode multiline draft above blank cursor row" pending "$CAPS_TMUX" "$typed" 1
   floor_only=$'┃\n┃  refactor the parser please\n┃\n╹▀▀▀▀▀▀▀▀'
   assert_screen "opencode draft with floor but no mode footer" pending "$CAPS_STYLED" "$floor_only"
+  rail="${ESC}[38;2;92;156;245m┃${ESC}[0m"
+  colored=$rail$'\n'$rail"  ${ESC}[2mAsk anything...${ESC}[0m"$'\n'$rail$'\n'$rail"  ${ESC}[38;2;92;156;245mBuild${ESC}[0m · GPT-5.5 Fast OpenAI · high"$'\n'"${ESC}[38;2;92;156;245m╹▀▀▀▀${ESC}[0m"
+  assert_screen "opencode idle with a coloured rail, footer and floor on herdr" empty "$CAPS_STYLED" "$colored"
+  assert_screen "opencode idle with a coloured rail, footer and floor on tmux" empty "$CAPS_TMUX" "$colored" 1
   pass "matrix: opencode's left-bar composer reads empty everywhere and scans the full active run"
 }
 
