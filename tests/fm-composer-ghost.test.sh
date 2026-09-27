@@ -154,6 +154,18 @@ test_strip_ghost_drops_dark_truecolor_ghost() {
   pass "fm_tmux_strip_ghost drops a dark/muted truecolor foreground (grok placeholder)"
 }
 
+test_strip_ghost_keeps_saturated_dark_truecolor() {
+  local out
+  # claude's light palette draws a typed slash command in dark but saturated
+  # blue (verified live through Herdr on claude 2.1.283). That is highlight,
+  # not de-emphasis, so it stays typed text.
+  out=$(printf '\xe2\x9d\xaf\xc2\xa0\033[0m\033[38;2;29;78;216m/exit\033[0m\n' | fm_tmux_strip_ghost)
+  [ "$out" = "$(printf '\xe2\x9d\xaf\xc2\xa0/exit')" ] || fail "saturated dark typed text was stripped: '$out'"
+  out=$(printf '\033[38:2::29:78:216m/exit\033[0m\n' | fm_tmux_strip_ghost)
+  [ "$out" = /exit ] || fail "saturated dark colon-truecolor text was stripped: '$out'"
+  pass "fm_tmux_strip_ghost keeps a saturated dark truecolor foreground (claude light palette)"
+}
+
 # --- muse's composer sits closest to the ghost threshold ---------------------
 
 # These are muse 0.1.0-R708.1's real captured composer rows. Its prompt glyph
@@ -685,6 +697,7 @@ test_strip_ghost_drops_dim_keeps_normal
 test_strip_ghost_handles_combined_and_boundary_codes
 test_strip_ghost_keeps_colored_text_with_2_payloads
 test_strip_ghost_drops_dark_truecolor_ghost
+test_strip_ghost_keeps_saturated_dark_truecolor
 test_strip_ghost_keeps_muse_composer_colors
 test_dim_ghost_only_composer_is_not_pending
 test_dim_ghost_inside_bordered_composer_is_not_pending

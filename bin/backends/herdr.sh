@@ -3356,11 +3356,16 @@ fm_backend_herdr_queued_enter_busy() {  # <target> <allow-rendered>
 # captures. A literal payload wraps, and a tail-only capture of a complete
 # wrap would look like the truncation this proof exists to refuse. The bound
 # stays inside the selected composer extraction; it is not a whole-pane search.
+# The floor is at least 40 rows: Claude's inline renderer draws a `/`
+# command's completion popup (about 20 rows) BELOW the composer, which pushed
+# a typed `/exit` out of a 20-row tail (verified live through Herdr on claude
+# 2.1.283).
 fm_backend_herdr_proof_lines() {  # <text>
-  local text=$1 lines
+  local text=$1 lines floor=40
   lines=$(( (${#text} / 40) + 8 ))
-  if [ "$lines" -lt "$FM_COMPOSER_CAPTURE_LINES" ]; then
-    lines=$FM_COMPOSER_CAPTURE_LINES
+  [ "$FM_COMPOSER_CAPTURE_LINES" -le "$floor" ] || floor=$FM_COMPOSER_CAPTURE_LINES
+  if [ "$lines" -lt "$floor" ]; then
+    lines=$floor
   fi
   if [ "$lines" -gt 200 ]; then
     lines=200

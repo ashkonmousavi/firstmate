@@ -811,6 +811,25 @@ test_grok_usage_picker_is_not_a_composer() {
   pass "grok usage picker stays unproven instead of masquerading as pending text"
 }
 
+test_claude_light_palette_slash_command_is_typed_text() {
+  # Real Herdr captures of claude 2.1.283 in its light palette: the idle
+  # placeholder is dim, but a typed `/exit` is saturated dark blue
+  # 38;2;29;78;216. Reading that as ghost text made the send proof see an
+  # empty composer and refuse to submit `/exit`.
+  local idle typed out caps=$'styled=1\ncursor=0\nidentity=0\nrows=40'
+  idle=$(cat "$ROOT/tests/captures/claude-light-idle-herdr.txt")
+  typed=$(cat "$ROOT/tests/captures/claude-light-slash-exit-herdr.txt")
+  assert_screen "claude light idle on herdr" empty "$CAPS_STYLED" "$idle" "" $'claude\tidle'
+  assert_screen "claude light typed /exit on herdr" pending "$CAPS_STYLED" "$typed" "" $'claude\tidle'
+  out=$(fm_composer_extract_selected_content "$caps" "$idle" $'claude\tidle') \
+    || fail "claude light idle composer was not selected"
+  [ -z "$out" ] || fail "claude light idle placeholder read as content: '$out'"
+  out=$(fm_composer_extract_selected_content "$caps" "$typed" $'claude\tidle') \
+    || fail "claude light typed composer was not selected"
+  [ "$out" = /exit ] || fail "claude light typed /exit read as '$out'"
+  pass "claude's saturated typed slash command is content while its dim placeholder stays empty"
+}
+
 test_matrix_kimi_bordered_shell_glyph_box() {
   # Kimi's bordered `│ > │` composer - the shape fm-spawn.sh's retired
   # spawn-local regex used to own. Now the shared owner proves it everywhere,
@@ -1066,6 +1085,7 @@ test_matrix_pi_dollar_status_footer_is_empty
 test_matrix_opencode_leftbar_signals
 test_matrix_grok_titled_bottom_border
 test_grok_usage_picker_is_not_a_composer
+test_claude_light_palette_slash_command_is_typed_text
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump
 test_strict_blank_row_divergence

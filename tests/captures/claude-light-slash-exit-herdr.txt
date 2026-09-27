@@ -1,0 +1,28 @@
+[0m[38;2;215;119;87m ▐[0m[38;2;215;119;87m[48;2;0;0;0m▛███▛█   [0m[1mClaude Code [0m[38;2;75;85;99mv2.1.283[0m
+[0m[38;2;215;119;87m▝▜[0m[38;2;215;119;87m[48;2;0;0;0m█████[0m[38;2;215;119;87m█▀  [0m[38;2;75;85;99mOpus 5.5 with medium effort · Claude Max[0m
+[0m[38;2;215;119;87m ▝▝   ▝▝   [0m[38;2;75;85;99m/tmp/fm-lab.XXXXXX/wt[0m
+
+
+[0m[38;2;37;99;235m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+❯ [0m[38;2;29;78;216m/exit[0m
+[0m[38;2;37;99;235m────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[0m
+  [0m[38;2;29;78;216m/[0m[1m[38;2;29;78;216mexit[0m[38;2;29;78;216m                                           [0m[1m[38;2;29;78;216mExit[0m[38;2;29;78;216m the CLI[0m
+  [0m[38;2;75;85;99m/data:data-context-extractor                    (data) Generate or improve a company-specific data analysis skill by[0m
+                                                  [0m[38;2;75;85;99mextracting tribal knowledge from analysts. BOOTSTRAP MODE - Trigger…[0m
+  [0m[38;2;75;85;99m/context                                        Visualize current context usage as a colored grid[0m
+  [0m[38;2;75;85;99m/product-management:competitive-brief           (product-management) Create a competitive analysis brief for one or[0m
+                                                  [0m[38;2;75;85;99mmore competitors or a feature area. Use when informing product stra…[0m
+  [0m[38;2;75;85;99m/pptx                                           Use this skill any time a .pptx or .potx file is involved in any way[0m
+                                                  [0m[38;2;75;85;99m— as input, output, or both. This includes: creating slide decks, p…[0m
+  [0m[38;2;75;85;99m/usage-credits                                  Configure usage credits or request them from your admin when you hit[0m
+                                                  [0m[38;2;75;85;99ma limit[0m
+  [0m[38;2;75;85;99m/skill-creator:skill-creator                    (skill-creator) Create new skills, modify and improve existing[0m
+                                                  [0m[38;2;75;85;99mskills, and measure skill performance. Use when users want to creat…[0m
+  [0m[38;2;75;85;99m/pdf                                            Use this skill whenever the user wants to do anything with PDF[0m
+                                                  [0m[38;2;75;85;99mfiles. This includes reading or extracting text/tables from PDFs, c…[0m
+  [0m[38;2;75;85;99m/anthropic-skills:skill-creator                 Create new skills, modify and improve existing skills, and measure[0m
+                                                  [0m[38;2;75;85;99mskill performance. Use when users want to create a skill from scrat…[0m
+  [0m[38;2;75;85;99m/anthropic-skills:pdf                           Use this skill whenever the user wants to do anything with PDF[0m
+                                                  [0m[38;2;75;85;99mfiles. This includes reading or extracting text/tables from PDFs, c…[0m
+  [0m[38;2;75;85;99m/docs                                           docs (living docs people share, comment on and edit; use only when[0m
+                                                  [0m[38;2;75;85;99mthe user asks for one: names a doc, document, page, memo, spec, PRD…[0m
