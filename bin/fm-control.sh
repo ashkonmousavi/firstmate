@@ -122,13 +122,24 @@
 #     classified state acts.
 #   - A composer that visibly holds pending text refuses before an exit command
 #     is typed, so existing text is preserved instead of being concatenated.
+#   - A composer that reads `unknown` beside a recognised usage or quota
+#     exhaustion report (bin/fm-control-lib.sh's
+#     fm_control_quota_exhausted_signal), whether its picker is open or
+#     dismissed, is stopped without typing: the interrupt key, then a SIGTERM
+#     to the agent process in that exact endpoint, so a runtime out of credits
+#     can be switched. `pending` and `pending-unproven` still refuse beside
+#     that report, and so does any other unproven composer.
 #
 # Environment knobs (all bounded waits, seconds):
 #   FM_CONTROL_POLL              poll interval for postcondition waits (0.5)
-#   FM_CONTROL_SETTLE_WAIT       adapter acknowledgement wait after interrupt (5)
+#   FM_CONTROL_SETTLE_WAIT       adapter acknowledgement wait after interrupt,
+#                                and the quota stop's wait after its interrupt
+#                                key (5)
 #   FM_CONTROL_ARM_WAIT          wait for an armed interrupt's rendered proof
 #                                after the press gap (1.5)
-#   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command (30)
+#   FM_CONTROL_EXIT_WAIT         alive->dead wait after the exit command, a
+#                                send that lost its acknowledgement, or the
+#                                quota stop's SIGTERM (30)
 #   FM_CONTROL_LAUNCH_WAIT       dead->alive wait after a relaunch (90)
 #   FM_CONTROL_EXIT_RETRIES      Enter retries for the exit command (3)
 set -eu
@@ -550,6 +561,26 @@ do_interrupt() {
   printf '%s cancel=%s' "$proof" "$cancel"
 }
 
+# quota_exhausted_shown: whether the harness's usage or quota exhaustion
+# report is visible.
+quota_exhausted_shown() {
+  local signal
+  signal=$(fm_control_quota_exhausted_signal "$HARNESS") || return 1
+  [ -n "$signal" ] && rendered_matches "$signal"
+}
+
+# stop_quota_exhausted: stop an agent that reported its quota exhausted without
+# typing into it: the interrupt key first, then SIGTERM to the agent process.
+stop_quota_exhausted() {
+  local state
+  send_interrupt_keys
+  state=$(wait_agent_state "$SETTLE_WAIT" dead) && return 0
+  fm_backend_stop_agent "$BACKEND" "$T" \
+    || die "task $ID shows the $HARNESS usage-limit report and survived its interrupt key (agent state '$state'), and no agent process in its endpoint could be signalled"
+  state=$(wait_agent_state "$EXIT_WAIT" dead) \
+    || die "task $ID shows the $HARNESS usage-limit report and its agent process did not stop within ${EXIT_WAIT}s of SIGTERM; agent state is '$state'"
+}
+
 retire_busy_incarnation() {
   if [ -f "$STATE/$ID.busy-gen" ]; then
     "$SCRIPT_DIR/fm-busy-event.sh" retire "$STATE" "$ID" --current-gen >/dev/null 2>&1 || true
@@ -634,7 +665,12 @@ do_exit() {
       die "task $ID's composer visibly holds pending text; refusing to type the $cmd exit command because it would concatenate onto that text. Clear or submit the pending text, then retry '$VERB'"
       ;;
     *)
-      die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
+      { [ "$composer_state" = unknown ] && quota_exhausted_shown; } \
+        || die "task $ID's composer state is '$composer_state', not proven empty; refusing to type the $cmd exit command because it could concatenate onto existing text. Clear the composer, then retry '$VERB'"
+      stop_quota_exhausted
+      retire_busy_incarnation
+      printf 'stopped'
+      return 0
       ;;
   esac
   # The submit verdict is NOT the postcondition here: a successful exit command
@@ -644,9 +680,16 @@ do_exit() {
   # matters, because a slash command opens a completion popup on some TUIs that
   # swallows the first Enter.
   verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
-  [ "$verdict" != send-failed ] \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
+    || verdict=send-failed
+  if [ "$verdict" = send-failed ]; then
+    # A send can lose its acknowledgement as the agent exits. The requested
+    # postcondition is already met only when the backend positively sees dead.
+    state=$(wait_agent_state "$EXIT_WAIT" dead) \
+      || die "the exit command could not be sent to task $ID on $BACKEND; agent state is '$state' after ${EXIT_WAIT}s"
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
+  fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
     die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
   }

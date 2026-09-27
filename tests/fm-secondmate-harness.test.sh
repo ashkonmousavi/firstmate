@@ -1835,6 +1835,9 @@ test_config_reread_per_home_changed_sets_and_exact_bytes() {
   out=$(run_config_push "$w" "$log" 2>"$err"); status=$?
   expect_code 0 "$status" "per-home reread config push should succeed"
   [ ! -s "$err" ] || fail "unexpected stderr: $(cat "$err")"
+  [ ! -d "$w/home/state/pending-replies" ] ||
+    [ -z "$(find "$w/home/state/pending-replies" -type f -print -quit)" ] ||
+    fail "routine config rereads must not create reply expectations"
 
   # Destination bytes converged per home.
   cmp -s "$w/home/config/crew-dispatch.json" "$w/alpha/config/crew-dispatch.json" \

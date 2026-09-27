@@ -1111,6 +1111,9 @@ fm_lock_try_acquire() {
 fm_lock_acquire_wait() {
   local lockdir=$1
   while ! fm_lock_try_acquire "$lockdir"; do
+    # Nothing on this path recreates a removed lock directory, so waiting on
+    # one (a torn-down state tree) could only spin forever. Refuse instead.
+    [ -d "$(dirname "$lockdir")" ] || return 1
     sleep 0.1
   done
 }

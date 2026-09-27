@@ -286,6 +286,23 @@ fm_backend_tmux_foreground_pids() {  # <target>
       done
 }
 
+# SIGTERM each foreground process of <target> that classifies as an agent.
+fm_backend_tmux_stop_agent() {  # <target>
+  local target=$1 pid comm args argv0 sent=1
+  while IFS= read -r pid; do
+    [ -n "$pid" ] || continue
+    comm=$(LC_ALL=C ps -p "$pid" -o comm= 2>/dev/null) || continue
+    args=$(LC_ALL=C ps -p "$pid" -o args= 2>/dev/null) || args=
+    args=${args#"${args%%[![:space:]]*}"}
+    argv0=${args%%[[:space:]]*}
+    [ "$(fm_agent_process_classify "$comm" "$argv0" "$args" "$pid")" = agent ] || continue
+    kill -TERM "$pid" 2>/dev/null && sent=0
+  done <<EOF
+$(fm_backend_tmux_foreground_pids "$target")
+EOF
+  return "$sent"
+}
+
 fm_backend_tmux_foreground_argv0s() {  # <target>
   local target=$1 tty pid pgid tpgid comm args argv0
   tty=$(tmux display-message -p -t "$target" '#{pane_tty}' 2>/dev/null) || return 0

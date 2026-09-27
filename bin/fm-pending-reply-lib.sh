@@ -59,7 +59,10 @@
 #                           escalation was closed again (see the escalation
 #                           lifecycle note below); empty until then
 #   resolved_epoch=
-#   resolved_via=           status | document | helper | empty
+#   resolved_via=           status | document | helper | empty | notice
+#                           notice is an operator retirement of a record
+#                           whose request was a one-way notice
+#                           (fm_pending_reply_retire_notice)
 #   wrong_home_hits=        count of corr sightings under the secondmate home
 #   wrong_home_first_sighting= encoded path:line identity of the first sighting
 #   wrong_home_sightings=   comma-separated encoded path:line identities
@@ -95,8 +98,8 @@
 # (bin/fm-backlog-handoff.sh's receiver wake) stayed refused forever once the
 # watcher escalated between the lost transport and the next resume.
 #
-# Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh, and
-# tests. No side effects on source. set -u / set -e safe.
+# Sourced by bin/fm-send.sh, bin/fm-watch.sh, bin/fm-secondmate-report.sh,
+# bin/fm-pending-reply-retire-notice.sh, and tests. No side effects on source. set -u / set -e safe.
 #
 # Tunables (env):
 #   FM_PENDING_REPLY_GRACE_SECS   default 120
@@ -1145,6 +1148,52 @@ fm_pending_reply_close_escalation() {  # <state-dir> <corr_id>
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
   fm_lock_acquire_wait "$lock" || return 1
   _fm_pending_reply_close_escalation_locked "$@" || rc=$?
+  fm_lock_release "$lock"
+  return "$rc"
+}
+
+# Retire one exact record whose original message was a one-way notice rather
+# than a reply request, and close the escalation it opened. The operator names
+# the correlation; nothing here infers it from text. Idempotent for a record
+# already retired this way; refuses a record resolved through any other path.
+fm_pending_reply_retire_notice() {  # <parent-home> <task-id> <corr_id>
+  local home=$1 task_id=$2 corr=$3 state rec status lock rc=0 now
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK
+  state="$home/state"
+  STATE=$state
+  rec=$(fm_pending_reply_path "$state" "$corr")
+  status="$state/$task_id.status"
+  if [ ! -f "$rec" ] || [ -L "$rec" ] || [ ! -f "$status" ] || [ -L "$status" ]; then
+    echo "error: exact pending record or parent status missing" >&2
+    return 1
+  fi
+  lock="$state/.pending-reply-$corr.lock"
+  # Deliberately undirected: bin/fm-wake-lib.sh is expanded once at the
+  # fm_pending_reply_try_resolve site; each directed site would re-expand its
+  # whole transitive graph under ShellCheck's external-source traversal.
+  . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
+  fm_lock_acquire_wait "$lock" || return 1
+  if [ "$(fm_pending_reply_get "$rec" schema)" != "$FM_PENDING_REPLY_SCHEMA" ] ||
+     [ "$(fm_pending_reply_get "$rec" corr_id)" != "$corr" ] ||
+     [ "$(fm_pending_reply_get "$rec" task_id)" != "$task_id" ] ||
+     [ "$(fm_pending_reply_get "$rec" parent_home)" != "$home" ] ||
+     [ "$(fm_pending_reply_get "$rec" parent_status)" != "$status" ]; then
+    echo "error: pending record identity mismatch" >&2
+    rc=1
+  elif [ "$(fm_pending_reply_get "$rec" phase)" = resolved ]; then
+    if [ "$(fm_pending_reply_get "$rec" resolved_via)" != notice ]; then
+      echo "error: correlation already resolved through another path" >&2
+      rc=1
+    fi
+  else
+    now=$(fm_pending_reply_now)
+    fm_pending_reply_set "$rec" resolved_via notice &&
+      fm_pending_reply_set "$rec" resolved_epoch "$now" &&
+      fm_pending_reply_set "$rec" phase resolved || rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || rc=1
+  fi
   fm_lock_release "$lock"
   return "$rc"
 }

@@ -14,6 +14,11 @@
 #   4. Verb allowlist: no arbitrary text, no raw keys, no resume.
 #   5. Lifecycle states: busy interrupts first, idle does not, already-stopped
 #      is idempotent success, and an agent that does not stop fails closed.
+#   5b. Out-of-credits runtime switch: a Grok usage-limit notice, with its
+#      picker open or dismissed, lets relaunch stop the agent without typing
+#      (interrupt key, then SIGTERM) and switch runtime; pending and
+#      pending-unproven text and an unknown composer with no notice still
+#      refuse.
 #   6. Marker non-regression: a control command to a kind=secondmate task
 #      carries NO from-firstmate marker and opens no pending-reply expectation,
 #      while fm-send's marking of the same task is untouched.
@@ -68,7 +73,8 @@ verified_adapter_contract() {  # <harness> -> exit command, interrupt key, repea
 #            typed into the composer.
 #   keys     every named key send, one per line.
 #   pane     optional capture-pane override, for an adapter whose busy verdict
-#            is read from the rendered tail.
+#            or composer is read from the rendered screen.
+#   cursor   optional cursor row for that screen (default 1).
 #   key-times  every named key with its wall-clock send time.
 #   devin    optional Devin screen model, which capture-pane renders as the
 #            rows devin 3000.11.1 draws: `running`, `armed`, `cancelled`,
@@ -126,6 +132,9 @@ case "${1:-}" in
     done
     payload=${1:-}
     if [ "$literal" = 1 ]; then
+      case "$payload" in
+        ". '"*"'") staged=${payload#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || payload=$(cat "$staged") ;;
+      esac
       printf '%s\n' "$payload" >> "$D/literal"
       if [ -z "${FM_FAKE_NEVER_DIES:-}" ] \
          && { [ "$payload" = /exit ] || [ "$payload" = /quit ]; }; then
@@ -165,6 +174,8 @@ case "${1:-}" in
           # A modelled Devin screen parks the cursor on its composer row.
           if [ -f "$D/devin" ]; then
             devin_screen "$(cat "$D/devin")" | awk '/^❭ /{ print NR - 1; exit }'
+          elif [ -f "$D/cursor" ]; then
+            cat "$D/cursor"
           else
             printf '1\n'
           fi
@@ -985,6 +996,188 @@ test_grok_idle_footer_does_not_confirm_cancellation() {
   pass "fm-control interrupt: grok's idle footer does not confirm cancellation"
 }
 
+# --- 5b. out-of-credits runtime switch --------------------------------------
+#
+# A Grok worker that ran out of usage shows its weekly-limit notice, either
+# heading the usage picker or left in the transcript once the picker is
+# dismissed, and its composer reads unknown. No exit command can be typed, so
+# relaunch stops the agent without typing - interrupt key, then SIGTERM to
+# the agent process in that exact pane - and continues to the new runtime.
+# Only an unknown composer qualifies: pending and pending-unproven text, and
+# an unknown composer with no limit notice, still refuse.
+
+GROK_DISMISSED_PICKER=$'  You hit your weekly limit.\n\n  Tab:next answer  │  Esc:scrollback\n'
+
+# run_relaunch <case-dir> <args...>: run_control for a relaunch that reaches
+# bin/fm-spawn.sh, against a throwaway HOME so a claude replacement's trust
+# registration never writes the developer's real ~/.claude.json.
+run_relaunch() {
+  local dir=$1; shift
+  mkdir -p "$dir/user-home"
+  env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
+    -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
+    PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
+    HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
+    FM_CONTROL_POLL=0.01 FM_CONTROL_SETTLE_WAIT=0.05 \
+    FM_CONTROL_EXIT_WAIT=5 FM_CONTROL_LAUNCH_WAIT=0.05 \
+    FM_FAKE_INTERRUPT_STOPS_AGENT="${FM_FAKE_INTERRUPT_STOPS_AGENT:-}" \
+    "$CONTROL" "$@" 2>&1
+}
+
+# The composer verdict fm-control reads for the case's pane.
+composer_state_of() {  # <case-dir>
+  # shellcheck disable=SC2016
+  env PATH="$1/fakebin:$PATH" FM_FAKE_DIR="$1/fake" bash -c \
+    '. "$1/bin/fm-backend.sh" && fm_backend_composer_state tmux fmses:fm-t1' _ "$ROOT"
+}
+
+# grok_case <name> <screen>: a live grok ship task showing <screen>.
+grok_case() {  # -> echoes the case dir
+  local dir
+  dir=$(new_case "$1")
+  add_task "$dir" t1 grok
+  alive_as "$dir" grok
+  printf '# Task\n## Captain'"'"'s intent\nFinish t1.\n\n## Firstmate spec\nKeep the task while its runtime changes.\n' \
+    > "$dir/home/data/t1/brief.md"
+  printf '%s' "$2" > "$dir/fake/pane"
+  printf '%s\n' "$dir"
+}
+
+# start_grok_process <case-dir>: a real process standing in for the Grok agent
+# in the pane. A fake ps reports it as the pane's foreground `grok` while the
+# pane's command is grok, and it leaves the pane to its shell only on SIGTERM,
+# so a relaunch succeeds only if the SIGTERM path finds and signals it.
+start_grok_process() {
+  local dir=$1 real_ps
+  real_ps=$(command -v ps)
+  bash -c 'trap '"'"'printf zsh > "$1/command"; : > "$1/terminated"; exit 0'"'"' TERM
+    while :; do /bin/sleep 0.05; done' _ "$dir/fake" &
+  printf '%s' "$!" > "$dir/fake/agent-pid"
+  cat > "$dir/fakebin/ps" <<SH
+#!/usr/bin/env bash
+D=\$FM_FAKE_DIR
+pid=\$(cat "\$D/agent-pid")
+if [ "\$(cat "\$D/command")" = grok ]; then
+  case " \$* " in
+    *" -t "*) printf '%s %s %s grok\\n' "\$pid" "\$pid" "\$pid"; exit 0 ;;
+    *" -p \$pid "*) printf 'grok\\n'; exit 0 ;;
+  esac
+fi
+case " \$* " in *" -t "*) exit 0 ;; esac
+exec "$real_ps" "\$@"
+SH
+  chmod +x "$dir/fakebin/ps"
+}
+
+stop_grok_process() {  # <case-dir>
+  kill "$(cat "$1/fake/agent-pid")" 2>/dev/null || true
+}
+
+assert_switched_to_claude_without_typing() {  # <case-dir> <out> <label>
+  local dir=$1 out=$2 label=$3
+  assert_contains "$out" "relaunched t1 harness=claude from=grok" "$label: the replacement runtime should launch"
+  [ "$(grep '^harness=' "$dir/home/state/t1.meta" | tail -1)" = harness=claude ] \
+    || fail "$label: the record should follow the runtime switch"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "$label: the pane should now run claude"
+  [ "$(keys_sent "$dir" | head -1)" = C-c ] || fail "$label: grok should get its interrupt key first, got: $(keys_sent "$dir")"
+  if grep -Fqx /exit "$dir/fake/literal"; then
+    fail "$label: no exit command may be typed into the grok pane"
+  fi
+}
+
+test_grok_usage_picker_relaunch_stops_on_interrupt_key() {
+  local dir out rc
+  dir=$(grok_case picker-interrupt "$(cat "$ROOT/tests/captures/grok-weekly-limit-picker.txt")")
+  [ "$(composer_state_of "$dir")" = unknown ] || fail "fixture: the open picker should read unknown"
+  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
+  expect_code 0 "$rc" "relaunch on the grok usage picker should switch runtime"$'\n'"$out"
+  assert_switched_to_claude_without_typing "$dir" "$out" "open picker, interrupt key"
+  pass "fm-control relaunch: grok's open usage picker stops on its interrupt key and switches runtime without typing"
+}
+
+test_grok_usage_picker_relaunch_falls_back_to_sigterm() {
+  local dir out rc
+  dir=$(grok_case picker-sigterm "$(cat "$ROOT/tests/captures/grok-weekly-limit-picker.txt")")
+  start_grok_process "$dir"
+  out=$(run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
+  stop_grok_process "$dir"
+  expect_code 0 "$rc" "relaunch should SIGTERM a grok agent that survives its interrupt key"$'\n'"$out"
+  [ -e "$dir/fake/terminated" ] || fail "the grok agent process should have received SIGTERM"
+  assert_switched_to_claude_without_typing "$dir" "$out" "open picker, SIGTERM"
+  pass "fm-control relaunch: a grok usage picker that survives C-c is stopped by SIGTERM to its pane's agent and the runtime switches"
+}
+
+test_grok_dismissed_usage_picker_relaunch_with_unknown_composer() {
+  local dir out rc
+  dir=$(grok_case picker-dismissed "$GROK_DISMISSED_PICKER")
+  [ "$(composer_state_of "$dir")" = unknown ] || fail "fixture: the dismissed picker's composer should read unknown"
+  start_grok_process "$dir"
+  out=$(run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
+  stop_grok_process "$dir"
+  expect_code 0 "$rc" "relaunch after the grok usage picker is dismissed should switch runtime"$'\n'"$out"
+  [ -e "$dir/fake/terminated" ] || fail "the grok agent process should have received SIGTERM"
+  assert_switched_to_claude_without_typing "$dir" "$out" "dismissed picker"
+  pass "fm-control relaunch: after grok's usage picker is dismissed, an unknown composer beside the limit notice still switches runtime without typing"
+}
+
+test_grok_pending_text_refuses_relaunch_beside_usage_limit() {
+  local dir out rc
+  dir=$(grok_case pending $'  You hit your weekly limit.\n\n╭────╮\n│ i  │\n╰────╯\n')
+  printf '3\n' > "$dir/fake/cursor"
+  [ "$(composer_state_of "$dir")" = pending ] || fail "fixture: the typed composer should read pending"
+  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
+  expect_code 1 "$rc" "genuine pending text must refuse even beside the limit notice"$'\n'"$out"
+  assert_contains "$out" "composer visibly holds pending text" "the refusal should name the pending text"
+  [ "$(cat "$dir/fake/command")" = grok ] || fail "a pending-text refusal must leave grok running"
+  [ -z "$(keys_sent "$dir")" ] && [ -z "$(literals "$dir")" ] \
+    || fail "nothing may be sent to a grok composer holding pending text"
+  pass "fm-control relaunch: genuine grok pending text refuses even with the usage-limit notice visible"
+}
+
+test_grok_pending_unproven_refuses_relaunch_beside_usage_limit() {
+  local dir out rc
+  dir=$(grok_case pending-unproven $'  You hit your weekly limit.\n\n╭─ grok ─╮\n│ hello  │\n╰────────╯\n')
+  printf '3\n' > "$dir/fake/cursor"
+  [ "$(composer_state_of "$dir")" = pending-unproven ] || fail "fixture: the titled typed composer should read pending-unproven"
+  start_grok_process "$dir"
+  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
+  stop_grok_process "$dir"
+  expect_code 1 "$rc" "typed text whose composer reads pending-unproven must refuse even beside the limit notice"$'\n'"$out"
+  assert_contains "$out" "composer state is 'pending-unproven', not proven empty" "the refusal should name the unproven typed composer"
+  [ "$(cat "$dir/fake/command")" = grok ] || fail "a pending-unproven refusal must leave grok running"
+  [ ! -e "$dir/fake/terminated" ] || fail "a pending-unproven composer's agent must never receive SIGTERM"
+  [ -z "$(keys_sent "$dir")" ] && [ -z "$(literals "$dir")" ] \
+    || fail "nothing may be sent to a grok composer that may hold typed text"
+  pass "fm-control relaunch: grok typed text reading pending-unproven refuses even with the usage-limit notice visible"
+}
+
+test_grok_unknown_composer_without_usage_limit_refuses_relaunch() {
+  local dir out rc
+  dir=$(grok_case no-limit "$(printf '%s' "$GROK_DISMISSED_PICKER" | grep -v 'weekly limit')")
+  [ "$(composer_state_of "$dir")" = unknown ] || fail "fixture: the composer should read unknown"
+  out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 run_relaunch "$dir" t1 relaunch --harness claude --note "switch"); rc=$?
+  expect_code 1 "$rc" "an unknown composer with no usage-limit notice must still refuse"$'\n'"$out"
+  assert_contains "$out" "not proven empty" "the refusal should name the unproven composer"
+  [ "$(cat "$dir/fake/command")" = grok ] || fail "the refusal must leave grok running"
+  [ -z "$(keys_sent "$dir")" ] && [ -z "$(literals "$dir")" ] \
+    || fail "nothing may be sent to an unrecognised unknown composer"
+  pass "fm-control relaunch: an unknown grok composer without the usage-limit notice still refuses"
+}
+
+test_grok_usage_picker_refuses_when_agent_cannot_be_stopped() {
+  local dir out rc
+  dir=$(grok_case picker-stuck "$(cat "$ROOT/tests/captures/grok-weekly-limit-picker.txt")")
+  out=$(run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
+  expect_code 1 "$rc" "a picker agent that survives every stop must refuse"$'\n'"$out"
+  assert_contains "$out" "survived its interrupt key" "the refusal should name the failed stop"
+  [ "$(grep '^harness=' "$dir/home/state/t1.meta" | tail -1)" = harness=grok ] \
+    || fail "the prior record must be kept when the old agent did not stop"
+  if grep -Fqx /exit "$dir/fake/literal"; then
+    fail "no exit command may be typed into the usage picker"
+  fi
+  pass "fm-control relaunch: a grok usage picker agent with nothing to signal refuses and keeps the prior record"
+}
+
 # --- 6. marker non-regression -----------------------------------------------
 
 test_secondmate_control_command_carries_no_marker() {
@@ -1107,5 +1300,12 @@ test_exit_accepts_agent_stopped_by_busy_interrupt
 test_agent_that_does_not_stop_fails_closed
 test_grok_interrupt_without_acknowledgement_reports_unconfirmed
 test_grok_idle_footer_does_not_confirm_cancellation
+test_grok_usage_picker_relaunch_stops_on_interrupt_key
+test_grok_usage_picker_relaunch_falls_back_to_sigterm
+test_grok_dismissed_usage_picker_relaunch_with_unknown_composer
+test_grok_pending_text_refuses_relaunch_beside_usage_limit
+test_grok_pending_unproven_refuses_relaunch_beside_usage_limit
+test_grok_unknown_composer_without_usage_limit_refuses_relaunch
+test_grok_usage_picker_refuses_when_agent_cannot_be_stopped
 test_secondmate_control_command_carries_no_marker
 test_fm_send_still_marks_the_same_secondmate_task

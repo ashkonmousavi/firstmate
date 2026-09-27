@@ -37,6 +37,7 @@ A recorded `harness=` is not always an exact adapter name: a task launched from 
 | `relaunch` | Replace the running agent with a new one in the same worktree - and the same endpoint whenever that endpoint still exists - on the exact recorded adapter or an explicitly chosen harness, model, and effort. | The new agent is alive on the endpoint the task's record now names, and that record names the harness that is actually running. |
 
 An exit that delivers lifecycle input but cannot prove the agent stopped fails with `exit=unconfirmed`, reports the observed agent state and any interrupt cancellation claim, and never claims that nothing changed.
+A send can lose its acknowledgement as the agent exits, so an exit command whose send reports failure still succeeds when the backend then proves the agent dead within `FM_CONTROL_EXIT_WAIT`, and otherwise refuses with the observed agent state.
 Interrupt never rewrites busy state as proof of its own success.
 Claude exposes no lifecycle acknowledgement for a manual interrupt, so delivery succeeds with `cancel=unconfirmed` and its adapter-owned busy state remains as observed.
 Devin emits no lifecycle hook for cancellation either, so after an armed interrupt the control plane invalidates the interrupted turn's busy record to `unknown` with `cancel=unconfirmed`; that invalidation is a conservative loss of knowledge, never a fabricated idle.
@@ -50,6 +51,11 @@ muse is the one verified adapter that restores the cancelled prompt back into it
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
 `exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict; a `pending` verdict refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
+The one exception is a composer that reads `unknown` beside a recognised usage or quota exhaustion report, such as Grok's weekly-limit notice, which `fm_control_quota_exhausted_signal` in [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh) records.
+That notice heads Grok's usage picker, so it qualifies while the picker is open and, as long as the notice is still visible, after the picker is dismissed.
+No exit command can be typed into the open picker, the composer left behind reads `unknown`, and a runtime out of credits is being replaced anyway, so `exit` and `relaunch` stop that agent without typing.
+They send the harness's interrupt key first, then send SIGTERM to the agent process in that exact endpoint, leaving the endpoint and its shell in place for the replacement, and they still require the backend to prove the agent dead.
+A `pending` or `pending-unproven` composer refuses exactly as above even beside that report, because it may hold genuine typed text, and so does an `unknown` one with no recognised exhaustion report visible.
 
 **Teardown and discard are not verbs and will not become verbs.**
 `exit` stops an agent and preserves everything else.

@@ -91,6 +91,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-notice-id-lib.sh
+. "$SCRIPT_DIR/fm-notice-id-lib.sh"
 
 # One nudge per home per four hours.
 FM_RECONCILE_COOLDOWN_SECONDS=${FM_RECONCILE_COOLDOWN_SECONDS:-14400}
@@ -195,20 +197,6 @@ cmd_nudged() {
   path=$(nudge_path "$id")
   [ -f "$path" ] && [ ! -L "$path" ] || return 1
   cat "$path"
-}
-
-delivery_id() {
-  local seed=$1 digest
-  if command -v shasum >/dev/null 2>&1; then
-    digest=$(printf '%s' "$seed" | shasum -a 256 | awk '{print $1}') || return 1
-  elif command -v sha256sum >/dev/null 2>&1; then
-    digest=$(printf '%s' "$seed" | sha256sum | awk '{print $1}') || return 1
-  elif command -v openssl >/dev/null 2>&1; then
-    digest=$(printf '%s' "$seed" | openssl dgst -sha256 2>/dev/null | awk '{print $NF}') || return 1
-  else
-    return 1
-  fi
-  printf '%s' "$digest" | cut -c1-16
 }
 
 # The instruction is deliberately independent of the sampled mismatch details.
@@ -512,7 +500,7 @@ cmd_notify() {
       release_active_locks
       continue
     fi
-    did=$(delivery_id "$id:$sampled_spawn_gen:${last:-none}") || {
+    did=$(fm_notice_delivery_id "$id:$sampled_spawn_gen:${last:-none}") || {
       printf 'failed: %s %s\n' "$id" "$kind"
       rc=1
       release_active_locks

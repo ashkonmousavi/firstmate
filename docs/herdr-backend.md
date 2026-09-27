@@ -639,7 +639,7 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 ### Placeholder and ghost text
 
 ANSI capture preserves de-emphasized placeholder style.
-`bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
+`bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and muted (near-grey) dark truecolor placeholders while retaining bright typed input and saturated highlights such as the blue of a typed Claude slash command.
 Claude's Herdr transcript can end in a titled rule, a bare `❯` composer, and one closing rule; with native Claude idle or done identity, that adjacent shape is an empty composer, while typed text remains pending.
 Rows wrapped between that `❯` row and the closing rule are draft text and read pending, and the Claude pre-send and post-send payload proofs extract the same identity-gated shape so away-mode alerts can be delivered into it.
 

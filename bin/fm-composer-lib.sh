@@ -250,6 +250,13 @@ fm_composer_normalize_trim_var() {  # <varname>
 #     no fleet harness uses it for ghost text, so it is kept (real text wins:
 #     under-stripping merely defers, which the max-defer alarm surfaces, while
 #     over-stripping would inject over real input).
+#     Only a MUTED (near-grey) truecolor counts: every recorded ghost colour has
+#     a max-minus-min channel spread of 28 or less (grok 50;47;70 .. 110;106;134,
+#     devin 124;124;124). A saturated dark colour is highlight, not de-emphasis:
+#     Claude's light palette draws a typed `/exit` in 38;2;29;78;216 (luminance
+#     ~79, spread 187; verified live through Herdr on claude 2.1.283), and
+#     stripping it read typed input as an empty composer. A spread of 64 or more
+#     is therefore kept.
 # Raising FM_COMPOSER_GHOST_LUMA_MAX is not free: muse draws its `⟩` prompt glyph
 # in truecolor 38;2;90;160;255, luminance ~149.9 (verified, muse 0.1.0-R708.1),
 # the tightest margin over the 128 default in the fleet. Above ~150 that glyph is
@@ -277,20 +284,24 @@ fm_composer_strip_ghost() {
       if (code == "2") return p + 4
       return p + 1
     }
+    # muted_dark: 1 when r;g;b is below lumamax and near-grey (spread < 64).
+    function muted_dark(r, g, b, lumamax,   hi, lo) {
+      hi = r; if (g > hi) hi = g; if (b > hi) hi = b
+      lo = r; if (g < lo) lo = g; if (b < lo) lo = b
+      return ((299*r + 587*g + 114*b) / 1000 < lumamax && hi - lo < 64) ? 1 : 0
+    }
     # fg38_is_dark: 1 when the SGR 38 foreground starting at param p is a
-    # TRUECOLOR (38;2 / 38:2) whose luminance is below lumamax; 0 otherwise
-    # (a 38;5 palette colour, a bright truecolor, or a malformed run).
-    function fg38_is_dark(a, p, k, lumamax,   spec, nf, f, r, g, b) {
+    # muted dark TRUECOLOR (38;2 / 38:2); 0 otherwise (a 38;5 palette colour,
+    # a bright or saturated truecolor, or a malformed run).
+    function fg38_is_dark(a, p, k, lumamax,   spec, nf, f) {
       spec = a[p]
       if (index(spec, ":") > 0) {           # colon form: whole colour in a[p]
         nf = split(spec, f, ":")
         if (f[2] != "2" || nf < 5) return 0
-        r = f[nf - 2] + 0; g = f[nf - 1] + 0; b = f[nf] + 0
-        return ((299*r + 587*g + 114*b) / 1000 < lumamax) ? 1 : 0
+        return muted_dark(f[nf - 2] + 0, f[nf - 1] + 0, f[nf] + 0, lumamax)
       }
       if (p + 1 > k || a[p + 1] != "2" || p + 4 > k) return 0
-      r = a[p + 2] + 0; g = a[p + 3] + 0; b = a[p + 4] + 0
-      return ((299*r + 587*g + 114*b) / 1000 < lumamax) ? 1 : 0
+      return muted_dark(a[p + 2] + 0, a[p + 3] + 0, a[p + 4] + 0, lumamax)
     }
     {
       line = $0; out = ""; dim = 0; darkfg = 0; n = length(line); i = 1
@@ -1342,6 +1353,10 @@ _fm_composer_classify_bare_wrap() {  # <screen> <styled> <glyph-row> <cursor-row
 _fm_composer_classify_leftbar() {  # <screen> <styled> <first-row> <last-row>
   local screen=$1 styled=$2 first=$3 last=$4
   local row raw content pending_seen=0 footer_re leading_blank=1 placeholder_position=0
+  if ! _fm_composer_leftbar_proven "$(printf '%s\n' "$screen" | fm_composer_strip_ansi)" "$first" "$last"; then
+    printf 'unknown'
+    return 0
+  fi
   footer_re=${FM_COMPOSER_LEFTBAR_FOOTER_RE:-$FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT}
   row=$first
   while [ "$row" -le "$last" ]; do
@@ -1383,6 +1398,30 @@ _fm_composer_leftbar_floor_row() {  # <trimmed-row>
     *) return 1 ;;
   esac
   [ -z "${blocks//▀/}" ]
+}
+
+# A left rail alone is also used by menus such as Grok's usage picker. OpenCode
+# proves its composer with a mode footer inside the rail or its half-block floor
+# immediately below it. Without either signal, the rail is not an input field.
+_fm_composer_leftbar_proven() {  # <plain-screen> <first-row> <last-row>
+  local screen=$1 first=$2 last=$3 row content next footer_re
+  [ "$last" -gt "$first" ] || return 1
+  footer_re=${FM_COMPOSER_LEFTBAR_FOOTER_RE:-$FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT}
+  row=$last
+  while [ "$row" -ge "$first" ]; do
+    content=$(_fm_composer_screen_row "$row" "$screen")
+    fm_composer_normalize_trim_var content
+    content=${content#┃}
+    fm_composer_normalize_trim_var content
+    [ -z "$content" ] || break
+    row=$((row - 1))
+  done
+  if [ "$row" -ge "$first" ] && fm_composer_idle_matches "$content" "$footer_re" sensitive; then
+    return 0
+  fi
+  next=$(_fm_composer_screen_row "$((last + 1))" "$screen")
+  fm_composer_normalize_trim_var next
+  _fm_composer_leftbar_floor_row "$next"
 }
 
 # _fm_composer_row_is_composer_furniture: 0 when <trimmed-row> is DEMONSTRABLY
@@ -1579,6 +1618,11 @@ _fm_composer_select_cursorless() {
       FM_COMPOSER_SELECTED_KIND=
       return 1
     fi
+  fi
+  if [ "$FM_COMPOSER_SELECTED_KIND" = leftbar ] \
+     && ! _fm_composer_leftbar_proven "$plain" "$FM_COMPOSER_SELECTED_FIRST" "$FM_COMPOSER_SELECTED_LAST"; then
+    FM_COMPOSER_SELECTED_KIND=
+    return 1
   fi
   [ -n "$FM_COMPOSER_SELECTED_KIND" ]
 }

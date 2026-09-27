@@ -78,6 +78,10 @@ case "${1:-}" in
       printf '%s\n' "$payload" >> "$D/literal"
       case "$payload" in
         /exit|/quit)
+          if [ -n "${FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS:-}" ]; then
+            printf '%s' "$FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS" > "$D/stop-countdown"
+            exit 1
+          fi
           printf 'zsh' > "$D/command"
           [ -z "${FM_FAKE_EXIT_TRANSPORT_FAIL_AFTER_STOP:-}" ] || exit 1
           ;;
@@ -105,7 +109,17 @@ case "${1:-}" in
     for a in "$@"; do
       case "$a" in
         *cursor_y*) printf '1\n'; exit 0 ;;
-        *pane_current_command*) cat "$D/command"; printf '\n'; exit 0 ;;
+        *pane_current_command*)
+          if [ -f "$D/stop-countdown" ]; then
+            left=$(( $(cat "$D/stop-countdown") - 1 ))
+            if [ "$left" -le 0 ]; then
+              rm -f "$D/stop-countdown"
+              printf 'zsh' > "$D/command"
+            else
+              printf '%s' "$left" > "$D/stop-countdown"
+            fi
+          fi
+          cat "$D/command"; printf '\n'; exit 0 ;;
         *pane_current_path*)
           if [ -n "${FM_FAKE_CWD_RACE_READY:-}" ]; then
             : > "$FM_FAKE_CWD_RACE_READY"
@@ -248,6 +262,7 @@ run_control() {  # <case-dir> <args...>
     FM_FAKE_TRACE_RELEASE="${FM_FAKE_TRACE_RELEASE:-}" \
     FM_FAKE_META_WRITER_READY="${FM_FAKE_META_WRITER_READY:-}" \
     FM_FAKE_TRACE_EXPORTED="${FM_FAKE_TRACE_EXPORTED:-}" \
+    FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS="${FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS:-}" \
     "$CONTROL" "$@" 2>&1
 }
 
@@ -1454,16 +1469,24 @@ test_stop_transport_failure_reconciles_a_dead_agent() {
   add_ship_task "$dir" rl25 claude
   out=$(FM_FAKE_EXIT_TRANSPORT_FAIL_AFTER_STOP=1 \
     run_control "$dir" rl25 relaunch --note "preserve this after stop"); rc=$?
-  expect_code 1 "$rc" "a stop transport failure should fail closed"$'\n'"$out"
-  [ "$(cat "$dir/fake/command")" = zsh ] || fail "the fixture should stop the old agent before reporting transport failure"
-  [ "$(journal_field "$dir" rl25 phase)" = failed:stopping ] \
-    || fail "the journal should retain the pre-stop phase on a partial stop"
-  [ "$(journal_field "$dir" rl25 rollback)" = prior-record-kept-agent-dead ] \
-    || fail "rollback should reconcile the observed dead agent"
-  assert_contains "$out" "no agent is running" "the failure should report the reconciled dead state"
+  expect_code 0 "$rc" "a stopped agent should permit relaunch despite a lost send acknowledgement"$'\n'"$out"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "replacement agent should launch after the proven stop"
+  assert_contains "$out" "relaunched rl25" "the proven stop should continue to replacement launch"
   assert_grep "preserve this after stop" "$dir/home/data/rl25/brief.md" \
-    "the progress note should survive once the old agent has stopped"
-  pass "fm-control relaunch: partial stop reconciles actual agent state"
+    "the progress note should survive replacement launch"
+  pass "fm-control relaunch: lost stop acknowledgement reconciles a provably dead agent"
+}
+
+test_stop_transport_failure_waits_for_a_slow_exit() {
+  local dir out rc
+  dir=$(new_case stopslow rl29)
+  add_ship_task "$dir" rl29 claude
+  out=$(FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS=3 \
+    run_control "$dir" rl29 relaunch --note "retry after slow stop"); rc=$?
+  expect_code 0 "$rc" "an agent still shutting down after a lost send acknowledgement should permit relaunch"$'\n'"$out"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "replacement agent should launch once the old agent stops"
+  assert_contains "$out" "relaunched rl29" "the delayed stop should continue to replacement launch"
+  pass "fm-control relaunch: lost stop acknowledgement waits for an agent still shutting down"
 }
 
 test_complete_journal_failure_rolls_back_from_durable_phase() {
@@ -2519,6 +2542,7 @@ test_launch_failure_keeps_the_prior_record_and_reports_it
 test_prepublication_failure_keeps_concurrent_durable_metadata
 test_post_publication_launch_failure_keeps_the_new_record
 test_stop_transport_failure_reconciles_a_dead_agent
+test_stop_transport_failure_waits_for_a_slow_exit
 test_complete_journal_failure_rolls_back_from_durable_phase
 test_prepublication_abort_retires_replacement_wiring_and_busy_state
 test_journal_records_the_checkpoint_it_proved

@@ -5116,6 +5116,28 @@ test_send_text_submit_accepts_marked_payloads_whose_read_back_drops_u2063() {
   pass "fm_backend_herdr_send_text_submit: an away-mode digest and a marked steer are submitted when Claude's read-back only drops U+2063"
 }
 
+# Real Herdr captures of claude 2.1.283 in its light palette with the inline
+# renderer: a typed `/exit` is saturated dark blue, and its completion popup
+# draws about 20 rows BELOW the composer. Before the fix the proof read that
+# composer as empty and never pressed Enter, so fm-control exit failed.
+test_send_text_submit_proves_claude_slash_exit_under_its_popup() {
+  local dir log resp fb out enter_count
+  dir="$TMP_ROOT/submit-claude-slash-exit"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/2.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/4.out"
+  herdr_submit_claude_prefix "$resp" /exit
+  cp "$ROOT/tests/captures/claude-light-idle-herdr.txt" "$resp/2.out"
+  cp "$ROOT/tests/captures/claude-light-slash-exit-herdr.txt" "$resp/4.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 /exit 3 0.01 0.01' "$ROOT" )
+  [ "$out" = empty ] || fail "Claude's styled /exit under its popup should be submitted, got '$out'"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 1 ] || fail "Claude's proven /exit should be submitted once, sent $enter_count Enter(s)"
+  [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a proven /exit must not be cleared"
+  pass "fm_backend_herdr_send_text_submit: Claude's styled /exit is proven under its completion popup"
+}
+
 test_send_text_submit_refuses_marked_digest_missing_its_head() {
   local dir log resp fb out enter_count text shown
   dir="$TMP_ROOT/submit-u2063-suffix"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -6070,6 +6092,7 @@ test_send_text_submit_claude_refuses_to_type_into_a_nonempty_composer
 test_send_text_submit_refuses_suffix_when_transcript_still_shows_the_head
 test_send_text_submit_accepts_marked_payloads_whose_read_back_drops_u2063
 test_send_text_submit_refuses_marked_digest_missing_its_head
+test_send_text_submit_proves_claude_slash_exit_under_its_popup
 test_send_text_submit_lone_paste_placeholder_submits_the_long_payload
 test_send_text_submit_multiline_paste_placeholder_submits_the_long_payload
 test_send_text_submit_refuses_placeholder_followed_by_a_literal_remainder

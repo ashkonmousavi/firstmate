@@ -78,6 +78,8 @@ SECONDMATES_MD="$DATA/secondmates.md"
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
+# shellcheck source=bin/fm-notice-id-lib.sh
+. "$SCRIPT_DIR/fm-notice-id-lib.sh"
 
 print_item_report() {
   local report=$1 item status reason
@@ -138,8 +140,13 @@ while IFS='|' read -r id home _window meta; do
     remote_marker=$(fm_secondmate_nudge_marker_path "$STATE" "$id" 2>/dev/null || true)
     remote_pending=0
     if [ -f "$remote_marker" ] && [ "$(fm_meta_get "$remote_marker" remote)" = 1 ]; then remote_pending=1; fi
+    delivery_id=
+    [ "$remote_pending" -eq 0 ] || delivery_id=$(fm_meta_get "$remote_marker" delivery_id)
+    if [ -z "$delivery_id" ]; then
+      delivery_id=$(fm_notice_delivery_id "remote-config:$id:$remote_generation") || { errors=1; fm_lock_release "$remote_lock" || true; continue; }
+    fi
     if ! fm_secondmate_nudge_write "$STATE" "$id" "$home" "" remote \
-      "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE" 1; then
+      "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE" 1 "$delivery_id"; then
       echo "  config-reread: retry marker failed"
       errors=1
       fm_lock_release "$remote_lock" || true
@@ -153,7 +160,7 @@ while IFS='|' read -r id home _window meta; do
       [ "$remote_pending" -eq 0 ] || remote_nudge=1
       if [ "$remote_nudge" -eq 1 ]; then
         if FM_HOME="$FM_HOME" FM_ROOT_OVERRIDE="$FM_ROOT" FM_STATE_OVERRIDE="$STATE" \
-          "$SCRIPT_DIR/fm-send.sh" "fm-$id" "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE" >/dev/null 2>&1; then
+          "$SCRIPT_DIR/fm-send.sh" "fm-$id" --fire-and-forget "$delivery_id" "$FM_REMOTE_SECOND_MATE_NUDGE_MESSAGE" >/dev/null 2>&1; then
           rm -f -- "$remote_marker"
           echo "  config-reread: sent"
         else
