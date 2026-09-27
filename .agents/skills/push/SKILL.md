@@ -43,4 +43,4 @@ Use Captain Signal v2's five status emoji only: 👉 for a captain action, ❌ f
 Address the captain once early and bold one key phrase on each status line.
 Put captain actions first, with short lettered choices and a marked recommendation when a decision is needed; ask at most two decisions in one reply.
 Keep the reply scannable, normally three to eight short lines, with each full `https://` link on its own line.
-If the pass changed nothing and nothing needs the captain, reply exactly `Captain, shipshape.`
+If the pass changed nothing, found no current failure or wait to report, and nothing needs the captain, reply exactly `Captain, shipshape.`
