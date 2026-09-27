@@ -3,12 +3,15 @@
 #
 # Line 1 of state/.lock is the owning session's anchor pid, resolved by
 # fm_session_lock_anchor_pid in bin/fm-session-lock-lib.sh: the harness (agent)
-# process found by walking the shell's ancestry, which lives as long as the
+# process found by walking the shell's ancestry or the verified Codex foreground
+# client passed through per-thread CLI settings. It lives as long as the
 # firstmate session - unlike the transient subshell PID of any one tool call,
 # which is dead moments after it is written. For a Claude session that proves a
 # trusted session id the anchor is CLAUDE_PID, the model-loop process, so a
 # shared transient daemon or a front-end that outlives the session never keeps
-# a dead session's lock alive. Line 1 keeps its whole-line pid format because
+# a dead session's lock alive. Codex records its client birth and session id in
+# the sidecar, so a shared managed daemon cannot own several sessions' locks.
+# Line 1 keeps its whole-line pid format because
 # every other reader takes the first line as the pid.
 #
 # The trusted id itself is recorded beside the lock in state/.lock-session, a
@@ -166,7 +169,7 @@ confirm_own_lock() {  # <recorded-pid>
     waited=1
   fi
   recorded=$(cat "$LOCK" 2>/dev/null || true)
-  if [ "$recorded" = "$me" ] || fm_session_lock_owned_by_self "$STATE"; then
+  if fm_session_lock_owned_by_self "$STATE"; then
     publish_lock_session_or_die
     commit_lock_session
     release_claim_lock
@@ -191,11 +194,11 @@ refuse_live_owner() {  # <recorded-pid>
 
 if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
   old=$(cat "$LOCK" 2>/dev/null || true)
-  if [ "$old" = "$me" ] || fm_session_lock_owned_by_self "$STATE"; then
+  if fm_session_lock_owned_by_self "$STATE"; then
     confirm_own_lock "$old"
     old=$(cat "$LOCK" 2>/dev/null || true)
   fi
-  if fm_harness_pid_alive "$old"; then
+  if fm_session_lock_holder_alive "$STATE" "$old"; then
     refuse_live_owner "$old"
   fi
 fi
@@ -219,10 +222,10 @@ if [ -e "$LOCK" ] || [ -L "$LOCK" ]; then
     echo "error: session lock is unreadable; operate read-only until resolved" >&2
     exit 1
   }
-  if [ "$old" != "$me" ] && fm_harness_pid_alive "$old"; then
+  if fm_session_lock_holder_alive "$STATE" "$old"; then
     fm_session_lock_owned_by_self "$STATE" && confirm_own_lock "$old"
     old=$(cat "$LOCK" 2>/dev/null || true)
-    if [ "$old" != "$me" ] && fm_harness_pid_alive "$old"; then
+    if fm_session_lock_holder_alive "$STATE" "$old"; then
       refuse_live_owner "$old"
     fi
   fi

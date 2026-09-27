@@ -16,7 +16,7 @@ make_home() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly() {
-  local home out err status
+  local home out err status i owner
   home=$(make_home quiet)
   out="$home/out.txt"
   err="$home/err.txt"
@@ -24,8 +24,60 @@ test_quiet_checkpoint_exits_124_cleanly() {
   FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 "$CHECKPOINT" --seconds 1 >"$out" 2>"$err" || status=$?
   expect_code 124 "$status" "quiet checkpoint exit"
   assert_contains "$(cat "$out")" "checkpoint: no actionable wake within 1s" "quiet checkpoint line missing"
-  assert_absent "$home/state/.watch.lock/pid" "watch lock pid survived quiet checkpoint timeout"
+  i=0
+  while [ -e "$home/state/.watch.lock/pid" ] && [ "$i" -lt 30 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if [ -e "$home/state/.watch.lock/pid" ]; then
+    owner=$(cat "$home/state/.watch.lock/pid")
+    printf 'quiet timeout lock owner: %s; stderr: %s\n' "$owner" "$(cat "$err")" >&2
+    ps -o pid=,ppid=,pgid=,stat=,comm=,args= -p "$owner" >&2 || true
+    fail 'watch lock pid survived quiet checkpoint timeout'
+  fi
   pass "quiet checkpoint exits 124 with a clean checkpoint line and no live lock"
+}
+
+test_timeout_after_lock_acquisition_releases_it() {
+  local home out err status owner
+  home=$(make_home post-lock-timeout)
+  out="$home/out.txt"
+  err="$home/err.txt"
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
+    FM_TEST_WATCHER_POST_LOCK_DELAY=5 "$CHECKPOINT" --seconds 1 >"$out" 2>"$err" || status=$?
+  expect_code 124 "$status" "post-lock timeout checkpoint exit"
+  if [ -e "$home/state/.watch.lock/pid" ]; then
+    owner=$(cat "$home/state/.watch.lock/pid")
+    printf 'lock owner after timeout: %s\n' "$owner" >&2
+    ps -o pid=,ppid=,pgid=,stat=,comm=,args= -p "$owner" >&2 || true
+    fail 'timeout left the acquired watcher lock behind'
+  fi
+  pass "checkpoint releases its exact watcher lock when timed out after acquisition"
+}
+
+test_killed_watcher_is_reclaimed_by_checkpoint() {
+  local home out err status checkpoint owner i
+  home=$(make_home killed-watcher)
+  out="$home/out.txt"
+  err="$home/err.txt"
+  fm_test_track_watcher_state "$home/state"
+  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
+    FM_TEST_WATCHER_POST_LOCK_DELAY=5 "$CHECKPOINT" --seconds 8 >"$out" 2>"$err" &
+  checkpoint=$!
+  i=0
+  while [ ! -s "$home/state/.watch.lock/pid" ] && [ "$i" -lt 30 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  [ -s "$home/state/.watch.lock/pid" ] || fail 'fixture watcher never acquired its lock'
+  owner=$(cat "$home/state/.watch.lock/pid")
+  kill -KILL "$owner" || fail 'could not kill the exact fixture watcher'
+  status=0
+  wait "$checkpoint" || status=$?
+  [ "$status" -ne 0 ] || fail 'a killed watcher returned a successful checkpoint'
+  assert_absent "$home/state/.watch.lock/pid" 'killed watcher left a stale lock after checkpoint returned'
+  pass 'checkpoint reclaims a dead fixture watcher without claiming supervision'
 }
 
 test_signal_passes_through_and_exits_zero() {
@@ -89,6 +141,7 @@ make_host_home() {  # <name>
   home=$(make_home "$1")
   mkdir -p "$home/root/bin"
   cp "$CHECKPOINT" "$home/root/bin/fm-watch-checkpoint.sh"
+  cp "$ROOT/bin/fm-wake-lib.sh" "$ROOT/bin/fm-session-lock-lib.sh" "$ROOT/bin/fm-cursor-lib.sh" "$home/root/bin/"
   cat > "$home/root/bin/fm-supervision-host.sh" <<'SH'
 #!/usr/bin/env bash
 printf 'args=%s\nprimary=%s\npark=%s\nlimit=%s\n' "$*" "${FM_SUPERVISION_HOST_PRIMARY:-}" \
@@ -159,10 +212,10 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
   mkdir -p "$fakebin"
   ln -s /bin/bash "$fakebin/codex"
   status=0
-  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$fakebin/codex" -c '
-    printf "%s\n" "$$" > "$FM_HOME/state/.lock"
+  CODEX_SESSION_ID=fixture-checkpoint FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$fakebin/codex" -c '
+    "$1/bin/fm-lock.sh" >/dev/null || exit 1
     "$0" --seconds 4
-  ' "$CHECKPOINT" >"$home/out.txt" 2>"$home/err.txt" || status=$?
+  ' "$CHECKPOINT" "$ROOT" >"$home/out.txt" 2>"$home/err.txt" || status=$?
   expect_code 124 "$status" "a quiet host checkpoint: $(cat "$home/out.txt" "$home/err.txt")"
   assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 4s" "the real host's boundary must read as the quiet line"
   assert_grep '	boundary	' "$home/state/.supervision-host.log" "the host must have ended its own park"
@@ -173,6 +226,8 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
+test_timeout_after_lock_acquisition_releases_it
+test_killed_watcher_is_reclaimed_by_checkpoint
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment
 test_existing_singleton_watcher_is_not_success

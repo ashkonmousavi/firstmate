@@ -756,6 +756,10 @@ Kimi remains outside the primary turn-end guard integrations; [`docs/turnend-gua
 Primary-session watcher wake protocols are rendered at session start by [`bin/fm-supervision-instructions.sh`](../bin/fm-supervision-instructions.sh) from [`docs/supervision-protocols/`](supervision-protocols/).
 
 Claude's Stop `asyncRewake` hook owns tokenless re-arm cycles, Cursor's stop hook parks on the watcher, Grok uses background-notify cycles, Codex uses bounded foreground checkpoints, Pi and pi-signed use the same two tracked primary extensions, omp uses its own two tracked `.omp/extensions/` files with a blocking `session_stop` turn-end hook, and OpenCode uses its TUI plugin.
+Start a Codex primary with [`bin/fm-codex-primary.sh`](../bin/fm-codex-primary.sh), which passes its live client process and terminal identity into each thread's tool environment.
+The home lock then records that client process, its birth, and the Codex session id; after a successful foreground checkpoint, the guard accepts a fresh, session-owned handling interval until the next checkpoint begins or its watcher beacon expires.
+A new independent Codex conversation in the same still-running client has a different session id and cannot take over its prior conversation's live home lock.
+Exit that client before starting a new Firstmate primary conversation; the lock becomes reclaimable when the client process ends.
 
 ### Choose the worker harness
 

@@ -6,6 +6,23 @@ This record supports current session-start, turn-end, watcher-continuity, superv
 Operator behavior and active limits remain in the linked current guides.
 Task-specific chronology, temporary paths, run identifiers, and delivery transcripts remain in private reports or PR evidence.
 
+## Codex client binding and foreground checkpoints, 2026-09-27
+
+The supported Codex mechanism for tool commands is the per-thread `shell_environment_policy.set` CLI configuration.
+The official [advanced configuration guide](https://learn.chatgpt.com/docs/config-file/config-advanced) documents explicit variables for tool shells, and the [basic configuration guide](https://learn.chatgpt.com/docs/config-file/config-basic) documents `-c` overrides.
+The [App Server API](https://learn.chatgpt.com/docs/app-server) identifies threads separately from transport sessions, so the shared managed process is not a valid foreground-client lifetime anchor.
+Firstmate's Codex primary launcher binds the live foreground client pid, birth, home, and terminal snapshot to each thread; `CODEX_SESSION_ID` comes from that thread's tool environment.
+Installed `codex-cli 0.157.1` accepted a one-off `shell_environment_policy.set` override with `features list`, without starting a model turn.
+
+The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise two distinct sessions under one simulated managed daemon, two threads under one client, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
+The marker is cleared before each new checkpoint and published only after a successful watcher wake or quiet boundary.
+The guard requires a fresh beacon and a live, matching Codex session lock for the handling interval; a missed checkpoint still alarms after grace.
+The bounded checkpoint also reclaims a dead watcher lock through the shared stale-owner protocol after its child exits, because a fatal signal can skip the child's EXIT cleanup even when the timeout command has finished waiting.
+The regression kills only a watcher started for its temporary home and confirms that the checkpoint returns failure, publishes no handling success, and leaves no dead lock.
+
+The current running primary was not relaunched with this checkout's wrapper, so these results do not claim that its lock or checkpoint behavior has changed.
+The next primary launch must use `bin/fm-codex-primary.sh` for the new binding.
+
 ## Native session-start delivery
 
 The cross-harness transport pass ran on 2026-07-17 with Codex 0.144.4, Grok 0.2.103, OpenCode 1.17.18, Pi 0.80.10, and the tracked Claude hook wiring.

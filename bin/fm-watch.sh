@@ -2713,6 +2713,11 @@ evict_stalled_holder() {
 EVICTED_PID=
 EVICTED_BEAT_AGE=
 BEAT="$STATE/.last-watcher-beat"
+# A bounded foreground checkpoint may time out immediately after this watcher
+# claims its singleton lock. Arm a minimal owner-checked release before the
+# claim, then replace it with the full recovery cleanup once that code is ready.
+# A signal before the full trap is installed must not strand a dead pid lock.
+trap 'fm_lock_release "$WATCH_LOCK"' EXIT
 while ! fm_lock_try_acquire "$WATCH_LOCK"; do
   if [ -n "${FM_LOCK_HELD_PID:-}" ]; then
     if [ -e "$BEAT" ]; then
@@ -2740,6 +2745,12 @@ while ! fm_lock_try_acquire "$WATCH_LOCK"; do
   fi
   exit 0
 done
+# Test-only pause at the post-acquisition, pre-cleanup boundary. It makes a
+# timeout in this otherwise narrow interval deterministic without touching a
+# real home or depending on host load.
+if [ "${FM_TEST_SEAM:-}" = 1 ] && [ -n "${FM_TEST_WATCHER_POST_LOCK_DELAY:-}" ]; then
+  sleep "$FM_TEST_WATCHER_POST_LOCK_DELAY"
+fi
 if [ -n "$EVICTED_PID" ]; then
   echo "watcher: replaced stalled pid $EVICTED_PID (beacon ${EVICTED_BEAT_AGE}s past hard bound ${WATCHER_STALL_BOUND}s)"
 fi
