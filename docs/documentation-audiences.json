@@ -549,6 +549,14 @@
       "audience": "public-product"
     },
     {
+      "path": "tests/captures/claude-light-idle-herdr.txt",
+      "audience": "maintainer-verification"
+    },
+    {
+      "path": "tests/captures/claude-light-slash-exit-herdr.txt",
+      "audience": "maintainer-verification"
+    },
+    {
       "path": "tests/captures/grok-weekly-limit-picker.txt",
       "audience": "maintainer-verification"
     },
