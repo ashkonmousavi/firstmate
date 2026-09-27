@@ -38,11 +38,13 @@ A walk that cannot hold the installed version does not start acceptance evidence
 Walk only when the version carrying the needed fixes is live.
 Do not send a re-walk against a build that does not yet include the fix.
 
-When a blocker is posted, start a class-fix lane for that blocker at once.
+A posted blocker is evidence, not authorization to change code, under `AGENTS.md` section 7.
+When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start a class-fix lane for a posted blocker at once.
+Otherwise raise the blocker to the captain under section 7 before any lane starts.
 Group by the earliest confirmed cause named in the project's SOP.
-Do not wait for the whole walk to finish before filing the fix.
+Do not wait for the whole walk to finish before filing the fix or raising the blocker.
 
-After each fix is installed, send the focused re-walk of that repaired stage and its dependents.
+After each fix is installed, send the focused re-walk of that repaired stage and its dependents; that re-walk is verification, not a code change, and needs no extra authority.
 Do not restart the walk from step 1.
 The project's SOP owns how that re-walk is executed.
 
