@@ -1,0 +1,33 @@
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3GVN57X0MGE0W9DK979CSCD · /rc
+❯ Test drill, answer only, take no actions and spawn nothing. The captain says: "commission a live end-to-end journey walk of project Q". Following your AGENTS.md skill index, load whatever skill applies first, then
+  list in at most 6 short bullets the supervisor duties it gives you. Name the skill you loaded.
+● Skill(journey-walk)
+  ⎿  Successfully loaded skill
+● Captain, I loaded the journey-walk skill. Your request matches its trigger, "before commissioning ... a live end-to-end journey walk."
+  Nothing was spawned or changed.
+  Before any of these duties apply, it has me read project Q's Journey/SOP.md. If that file doesn't exist, I stop and report the gap rather than make up a walk method. I don't run the walk myself; it's commissioned as
+  ordinary project work.
+  The supervisor duties it gives me:
+  - One walk owner: a single owner holds the run, the version reservation, the stage ledger, defect grouping and the final verdict, with none of that split across workers.
+  - Install freeze: no installs during the walk and its cleanup. I record the freeze in the same turn it starts and its release in the same turn it ends.
+  - Live-version gate: the walk only runs once the version carrying the needed fixes is live, and never against a build that lacks the fix.
+  - Blocker fixes: a reported blocker is evidence, not permission to change code. If the commissioning or a standing instruction from you authorizes fixes, a fix worker starts at once, grouped by the earliest confirmed
+    cause. Otherwise I bring the blocker to you first. Either way I don't wait for the walk to finish.
+  - Focused re-walk: after each fix is installed, only the repaired stage and the stages that depend on it are walked again, never a restart from step 1. The project gets called healthy only after one signed-in pass
+    through every dependent stage on the same frozen live version. Seeded passes or fixes alone don't count.
+  - Health file and reporting: the walk owner updates HEALTH.md after every run or re-walk. I report to you in plain terms: the stage, the blocker, the live version and the next re-walk needed.
+✻ Cogitated for 11s · done 7:07 AM
+❯ Drill continues, answer only, take no actions. The Q walk was commissioned with no instruction either way about fixing blockers, and there is no standing captain instruction about it. The walk owner just posted
+  blocker B1: stage 4 "checkout" fails because the session cookie is dropped. In at most 3 sentences: what exactly do you do next, and do you start a class-fix lane now?
+● Captain, no, I don't start a fix worker now, because the walk's commissioning and your standing instructions say nothing about fixing blockers, and a reported blocker is evidence rather than permission to change code.
+  I bring B1 to you right away, without waiting for the walk to finish: stage 4, checkout, fails because the session cookie is dropped, grouped under the earliest confirmed cause the project's SOP names, plus the live
+  version it happened on. I ask whether to fix it, keep the install freeze in place, and once you say yes, start the fix, then re-walk only checkout and the stages that depend on it on the live version that carries the
+  fix.
+✻ Churned for 3s · done 7:08 AM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Project Q end-to-end journe... · WORKTREE:01M3GVN57X0MGE0W9DK9... · opus/medium · default · 8% · 5h19%/7d80% · $0.67
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents

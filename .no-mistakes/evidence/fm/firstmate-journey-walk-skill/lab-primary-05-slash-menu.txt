@@ -1,0 +1,41 @@
+=== typed /journey ===
+  I stop and tell you project R has no walk contract, rather than commissioning a walk or making up a method for one.
+  The skill says the project's own SOP owns how a walk is done, so no walk starts until that file exists.
+  (b) Walk of Q at stage 5 on live 1.8.3, and a worker wants 1.8.4 installed now
+  I refuse: installs stay frozen for the whole walk and its cleanup, whether or not the fix is related, so 1.8.4 waits until the walk ends and the freeze is released and recorded.
+  Swapping the build mid-walk would break the same-version pass that a healthy verdict needs, and it's one of the three failures that stalled the last walk.
+✻ Worked for 7s · done 7:09 AM
+  No commands match "/journey"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /journey
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Journey walk procedures for... · WORKTREE:01M3GVN57X0MGE0W9DK9... · opus/medium · default · 8% · 5h19%/7d80% · $0.53
+  ⏵⏵ auto mode on (shift+tab to cycle)
+
+=== control: typed /firstmate-coding (sibling internal skill) ===
+  I stop and tell you project R has no walk contract, rather than commissioning a walk or making up a method for one.
+  The skill says the project's own SOP owns how a walk is done, so no walk starts until that file exists.
+  (b) Walk of Q at stage 5 on live 1.8.3, and a worker wants 1.8.4 installed now
+  I refuse: installs stay frozen for the whole walk and its cleanup, whether or not the fix is related, so 1.8.4 waits until the walk ends and the freeze is released and recorded.
+  Swapping the build mid-walk would break the same-version pass that a healthy verdict needs, and it's one of the three failures that stalled the last walk.
+✻ Worked for 7s · done 7:09 AM
+  No commands match "/firstmate-coding"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /firstmate-coding
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Journey walk procedures for... · WORKTREE:01M3GVN57X0MGE0W9DK9... · opus/medium · default · 8% · 5h19%/7d80% · $0.53
+  ⏵⏵ auto mode on (shift+tab to cycle)
+
+=== control: typed /stow (user-invocable skill) ===
+  Swapping the build mid-walk would break the same-version pass that a healthy verdict needs, and it's one of the three failures that stalled the last walk.
+✻ Worked for 7s · done 7:09 AM
+  /stow                                                    Sweep the current session for uncaptured durable knowledge, file it to disk, persist the open work records this session knows are unfiled or now wrong, and
+                                                           curate the home's tiered, decaying startup memory before a context reset. Use when the captain invokes /stow (e.g. "/stow", "stow what you've learned"), befor…
+  /stop-slop                                               Remove AI writing patterns from prose. Use when drafting, editing, or reviewing text to eliminate predictable AI tells. (user)
+  /eodhd-api:stock-screener                                (EODHD Claude Skills) Screen stocks by fundamental and technical criteria using EODHD screener — filter by market cap, P/E, dividend yield, sector, signals,
+                                                           and more. Use when the user wants to find stocks matching specific criteria.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /stow
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Journey walk procedures for... · WORKTREE:01M3GVN57X0MGE0W9DK9... · opus/medium · default · 8% · 5h19%/7d80% · $0.53
+  ⏵⏵ auto mode on (shift+tab to cycle)

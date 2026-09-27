@@ -1,0 +1,22 @@
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3GVN57X0MGE0W9DK979CSCD · /rc
+❯ /clear
+❯ Drill, answer only, take no actions and spawn nothing. Two separate situations, load the skill your AGENTS.md index names for journey walks first. (a) The captain asks you to commission a live journey walk of project
+  R, and project R has no Journey/SOP.md at all. (b) A journey walk of project Q is at stage 5 on live 1.8.3, and a crewmate asks to install 1.8.4 now because it has an unrelated fix. In at most 2 sentences each, what
+  do you do?
+● Skill(journey-walk)
+  ⎿  Successfully loaded skill
+● Captain, here are both answers from the journey-walk skill.
+  (a) Project R has no Journey/SOP.md
+  I stop and tell you project R has no walk contract, rather than commissioning a walk or making up a method for one.
+  The skill says the project's own SOP owns how a walk is done, so no walk starts until that file exists.
+  (b) Walk of Q at stage 5 on live 1.8.3, and a worker wants 1.8.4 installed now
+  I refuse: installs stay frozen for the whole walk and its cleanup, whether or not the fix is related, so 1.8.4 waits until the walk ends and the freeze is released and recorded.
+  Swapping the build mid-walk would break the same-version pass that a healthy verdict needs, and it's one of the three failures that stalled the last walk.
+✻ Worked for 7s · done 7:09 AM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Journey walk procedures for... · WORKTREE:01M3GVN57X0MGE0W9DK9... · opus/medium · default · 8% · 5h19%/7d80% · $0.53
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
