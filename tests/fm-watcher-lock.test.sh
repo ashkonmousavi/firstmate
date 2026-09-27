@@ -647,6 +647,26 @@ test_lock_does_not_steal_live_lock() {
   pass "live-held lock is not stolen"
 }
 
+# A lock whose directory was torn down can never be taken. The wait must refuse
+# promptly instead of spinning until an outer deadline, which is what held a
+# watcher's poll cycle past the removal of its state directory.
+test_lock_wait_refuses_a_removed_lock_directory() {
+  local dir state pid rc
+  dir=$(make_case lock-removed-dir)
+  state="$dir/state"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_acquire_wait "$2"
+  ' _ "$LIB" "$dir/removed/.contend.lock" &
+  pid=$!
+  rc=0
+  wait_for_exit "$pid" 50 || rc=$?
+  [ "$rc" -ne 124 ] || fail "lock wait spun on a removed lock directory"
+  [ "$rc" -ne 0 ] || fail "lock wait reported success for a removed lock directory"
+  [ ! -e "$dir/removed" ] || fail "lock wait recreated the removed lock directory"
+  pass "lock wait refuses a removed lock directory instead of spinning"
+}
+
 test_lock_empty_pid_uses_minimum_grace() {
   local dir state lockdir out
   dir=$(make_case lock-empty-grace)
@@ -1554,6 +1574,7 @@ test_lock_resumes_own_interrupted_steal_reap
 test_lock_live_steal_mutex_is_not_reclaimed
 test_lock_does_not_steal_live_lock
 test_lock_empty_pid_uses_minimum_grace
+test_lock_wait_refuses_a_removed_lock_directory
 test_lock_late_claim_loses_after_recreate
 test_lock_paused_mid_acquire_claim_fails_during_steal
 test_watch_restart_rejects_reused_pid
