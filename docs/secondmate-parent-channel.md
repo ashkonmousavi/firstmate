@@ -39,6 +39,9 @@ For marked replies, the report helper accepts no caller-selected destination and
 The pending-reply guard may restate only the correlated line from a local mate's `state/<mate-id>.status` onto the parent channel, which repairs the common parent-home versus mate-home mixup without accepting arbitrary mate-home sightings as acknowledgement.
 Other correlated mate-home status lines remain wrong-home evidence, while a remote home's routed `state/parent-replies.status` is already the parent channel and is not classified as wrong-home.
 A missed-reply escalation includes the complete first sighting path and line number in readable shell-escaped form.
+Routine one-way notices are sent fire-and-forget and never create a pending-reply record.
+A record left by a notice that was mistakenly sent as a reply request is retired with `FM_HOME=<parent-home> bin/fm-pending-reply-retire-notice.sh <task-id> <corr-id>`, after the operator has confirmed that the original message was a one-way notice.
+It resolves that exact record with `resolved_via=notice` and closes only its own escalation, and it refuses a record that was already resolved through another path.
 
 ## What is deliberately not built
 
@@ -54,6 +57,7 @@ A missed-reply escalation includes the complete first sighting path and line num
 `tests/fm-pr-merge.test.sh` covers the PR-ready line at registration and the merge outcome's upward report.
 `tests/fm-teardown.test.sh` covers teardown delivering a child's final line and refusing when the channel cannot be written.
 `tests/fm-brief.test.sh` pins the charter's channel rule.
+`tests/fm-pending-reply-retire-notice.test.sh` covers retiring one exact notice record while an unrelated reply blocker stays open.
 `tests/fm-pending-reply.test.sh` covers helper-selected local routing, remote-channel classification, same-basename restatement before false escalation, readable wrong-home diagnostics, and the rule that arbitrary mate-home sightings never acknowledge a reply.
 
 ## Live verification

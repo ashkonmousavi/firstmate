@@ -851,6 +851,23 @@ fm_backend_kill() {  # <backend> <target>
   esac
 }
 
+# fm_backend_stop_agent: send SIGTERM to the agent process running in
+# <target>'s endpoint, leaving the endpoint and its shell in place so a
+# replacement can launch there. Only tmux and herdr classify an endpoint's
+# processes; every other backend refuses. Returns 0 only when an agent process
+# was signalled.
+fm_backend_stop_agent() {  # <backend> <target>
+  local backend=$1
+  shift
+  [ -n "${1:-}" ] || { echo "error: refusing empty backend stop target" >&2; return 1; }
+  fm_backend_source "$backend" || return 1
+  case "$backend" in
+    tmux) fm_backend_tmux_stop_agent "$@" ;;
+    herdr) fm_backend_herdr_stop_agent "$@" ;;
+    *) echo "error: no agent process stop for backend '$backend'" >&2; return 1 ;;
+  esac
+}
+
 fm_backend_remove_worktree() {  # <backend> <worktree-id>
   local backend=$1
   shift

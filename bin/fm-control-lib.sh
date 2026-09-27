@@ -190,6 +190,21 @@ fm_control_interrupt_hazard_signal() {  # <harness>
   esac
 }
 
+# The rendered rows that together recognise a harness's usage or quota modal,
+# one ERE per line; every row must be visible. Such a modal replaces the
+# composer, so no exit command can be typed, and the runtime is being replaced
+# anyway once its credits are gone. Grok's weekly-limit picker is recognised by
+# its title and its buy-credits option (tests/captures/grok-weekly-limit-picker.txt).
+# Two independent rows keep a transcript line that merely quotes the limit from
+# qualifying. Prints nothing for a harness with no recorded quota modal.
+fm_control_quota_modal_signals() {  # <harness>
+  case "${1-}" in
+    grok) printf '%s\n' 'You hit your [[:alpha:]]+ limit' '\([^)]*\) Buy more credits' ;;
+    claude|codex|opencode|pi|pi-signed|omp|kimi|cursor|gemini|muse|rovo|agy|devin) ;;
+    *) return 1 ;;
+  esac
+}
+
 # The key that must follow the interrupt key to leave the composer empty, or
 # nothing when the adapter needs none. muse is the one verified adapter that
 # RESTORES the cancelled prompt into its composer as real bright text, so an

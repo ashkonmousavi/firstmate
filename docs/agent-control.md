@@ -50,6 +50,10 @@ muse is the one verified adapter that restores the cancelled prompt back into it
 The clear is refused before anything is sent when the recorded backend cannot deliver it.
 
 `exit` reads the composer's state before typing the exit command and requires the exact `empty` verdict; a `pending` verdict refuses by naming the pending text, and any other verdict (`unknown`, `pending-unproven`, or an unreadable read) refuses as not proven empty, matching the fail-safe contract every other consumer that can overwrite composer input follows.
+The one exception is a composer replaced by a recognised usage or quota modal, such as Grok's weekly-limit picker, whose rows `fm_control_quota_modal_signals` in [`bin/fm-control-lib.sh`](../bin/fm-control-lib.sh) records.
+No exit command can be typed into that modal, and a runtime out of credits is being replaced anyway, so `exit` and `relaunch` stop that agent without typing.
+They send the harness's interrupt key first, then send SIGTERM to the agent process in that exact endpoint, leaving the endpoint and its shell in place for the replacement, and they still require the backend to prove the agent dead.
+A `pending` composer, or an `unknown` one that shows no recognised modal, refuses exactly as above.
 
 **Teardown and discard are not verbs and will not become verbs.**
 `exit` stops an agent and preserves everything else.
