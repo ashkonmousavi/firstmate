@@ -736,7 +736,7 @@ test_matrix_opencode_leftbar_signals() {
   # blanks, and a Build-mode footer. Two independent idle signals: the shared
   # idle-placeholder pattern (works on plain captures) and the ghost strip
   # (works on styled captures even if the pattern is overridden away).
-  local screen typed dim_screen captured_idle captured_pending out
+  local screen typed dim_screen captured_idle captured_pending floor_only out
   screen=$'  ┃\n  ┃  Ask anything... "What is the tech stack?"\n  ┃\n  ┃  Build · GPT-5.5 Fast OpenAI · high\n  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀'
   dim_screen=$'  ┃\n  ┃  '"${ESC}[2mAsk anything...${ESC}[0m"$'\n  ┃\n  ┃  Build · GPT-5.5 Fast OpenAI · high\n  ╹▀▀▀▀'
   assert_screen "opencode idle on tmux (cursor on hint)" empty "$CAPS_TMUX" "$dim_screen" 1
@@ -763,6 +763,8 @@ test_matrix_opencode_leftbar_signals() {
   assert_screen "opencode placeholder-like input on plain backends" unknown "$CAPS_PLAIN" "$typed"
   typed=$'┃  refactor the parser please\n┃\n┃  Build · GPT-5.5 Fast OpenAI · high'
   assert_screen "opencode multiline draft above blank cursor row" pending "$CAPS_TMUX" "$typed" 1
+  floor_only=$'┃\n┃  refactor the parser please\n┃\n╹▀▀▀▀▀▀▀▀'
+  assert_screen "opencode draft with floor but no mode footer" pending "$CAPS_STYLED" "$floor_only"
   pass "matrix: opencode's left-bar composer reads empty everywhere and scans the full active run"
 }
 
@@ -790,6 +792,19 @@ test_matrix_grok_titled_bottom_border() {
   malformed=$'  ╭──────────────────────────────────────────────────────────────────────────╮\n  │ ❯                                                                        │\n  ╰────────────────────────────────────────────────────────── unknown surface ─╯'
   assert_screen "oversized unknown title on herdr" unknown "$CAPS_STYLED" "$malformed"
   pass "matrix: grok's real oversized titled bottom is empty while typed and unproved panes stay safe"
+}
+
+test_grok_usage_picker_is_not_a_composer() {
+  # A weekly-limit picker is a menu, even though its left rail resembles an
+  # OpenCode composer. It has no prompt glyph or text entry field.
+  local screen
+  screen=$(cat "$ROOT/tests/captures/grok-weekly-limit-picker.txt")
+  assert_screen "grok weekly-limit picker on herdr" unknown "$CAPS_STYLED" "$screen"
+  assert_screen "grok weekly-limit picker on tmux" unknown "$CAPS_TMUX" "$screen" 4
+  if fm_composer_extract_selected_content "$CAPS_STYLED" "$screen" >/dev/null; then
+    fail "grok usage picker was selected as an input composer"
+  fi
+  pass "grok usage picker stays unproven instead of masquerading as pending text"
 }
 
 test_matrix_kimi_bordered_shell_glyph_box() {
@@ -1046,6 +1061,7 @@ test_matrix_pi_separated_needs_identity
 test_matrix_pi_dollar_status_footer_is_empty
 test_matrix_opencode_leftbar_signals
 test_matrix_grok_titled_bottom_border
+test_grok_usage_picker_is_not_a_composer
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump
 test_strict_blank_row_divergence

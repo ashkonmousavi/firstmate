@@ -1454,16 +1454,12 @@ test_stop_transport_failure_reconciles_a_dead_agent() {
   add_ship_task "$dir" rl25 claude
   out=$(FM_FAKE_EXIT_TRANSPORT_FAIL_AFTER_STOP=1 \
     run_control "$dir" rl25 relaunch --note "preserve this after stop"); rc=$?
-  expect_code 1 "$rc" "a stop transport failure should fail closed"$'\n'"$out"
-  [ "$(cat "$dir/fake/command")" = zsh ] || fail "the fixture should stop the old agent before reporting transport failure"
-  [ "$(journal_field "$dir" rl25 phase)" = failed:stopping ] \
-    || fail "the journal should retain the pre-stop phase on a partial stop"
-  [ "$(journal_field "$dir" rl25 rollback)" = prior-record-kept-agent-dead ] \
-    || fail "rollback should reconcile the observed dead agent"
-  assert_contains "$out" "no agent is running" "the failure should report the reconciled dead state"
+  expect_code 0 "$rc" "a stopped agent should permit relaunch despite a lost send acknowledgement"$'\n'"$out"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "replacement agent should launch after the proven stop"
+  assert_contains "$out" "relaunched rl25" "the proven stop should continue to replacement launch"
   assert_grep "preserve this after stop" "$dir/home/data/rl25/brief.md" \
-    "the progress note should survive once the old agent has stopped"
-  pass "fm-control relaunch: partial stop reconciles actual agent state"
+    "the progress note should survive replacement launch"
+  pass "fm-control relaunch: lost stop acknowledgement reconciles a provably dead agent"
 }
 
 test_complete_journal_failure_rolls_back_from_durable_phase() {

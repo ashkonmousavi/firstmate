@@ -644,9 +644,17 @@ do_exit() {
   # matters, because a slash command opens a completion popup on some TUIs that
   # swallows the first Enter.
   verdict=$(fm_backend_send_text_submit "$BACKEND" "$T" "$cmd" "$EXIT_RETRIES" "$POLL" 1.2 "$LABEL") \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
-  [ "$verdict" != send-failed ] \
-    || die "the exit command could not be sent to task $ID on $BACKEND"
+    || verdict=send-failed
+  if [ "$verdict" = send-failed ]; then
+    # A send can lose its acknowledgement as the agent exits. The requested
+    # postcondition is already met only when the backend positively sees dead.
+    state=$(agent_state)
+    [ "$state" = dead ] \
+      || die "the exit command could not be sent to task $ID on $BACKEND; agent state is '$state'"
+    retire_busy_incarnation
+    printf 'stopped'
+    return 0
+  fi
   state=$(wait_agent_state "$EXIT_WAIT" dead) || {
     die "exit-delivered $ID interrupt=$interrupt_result exit-command=delivered agent-state=$state exit=unconfirmed; the agent did not stop within ${EXIT_WAIT}s"
   }

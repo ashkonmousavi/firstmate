@@ -40,10 +40,13 @@ fm_remote_inherit_generation_next() { # <state-dir> <id>
   printf '%s\n' "$next"
 }
 
-fm_secondmate_nudge_write() { # <state> <id> <home> <commit> <instructions> <message> <remote:0|1>
-  local state=$1 id=$2 home=$3 commit=$4 instructions=$5 message=$6 remote=$7
+fm_secondmate_nudge_write() { # <state> <id> <home> <commit> <instructions> <message> <remote:0|1> [delivery-id]
+  local state=$1 id=$2 home=$3 commit=$4 instructions=$5 message=$6 remote=$7 delivery_id=${8-}
   local marker parent tmp
   case "$remote" in 0|1) ;; *) return 1 ;; esac
+  if [ -n "$delivery_id" ]; then
+    [[ $delivery_id =~ ^[a-f0-9]{16}$ ]] || return 1
+  fi
   case "$home$commit$instructions$message" in *$'\n'*|*$'\r'*) return 1 ;; esac
   marker=$(fm_secondmate_nudge_marker_path "$state" "$id") || return 1
   parent=${marker%/*}
@@ -62,6 +65,7 @@ fm_secondmate_nudge_write() { # <state> <id> <home> <commit> <instructions> <mes
     printf 'instructions=%s\n' "$instructions"
     printf 'message=%s\n' "$message"
     printf 'remote=%s\n' "$remote"
+    [ -z "$delivery_id" ] || printf 'delivery_id=%s\n' "$delivery_id"
   } > "$tmp" || { rm -f -- "$tmp"; return 1; }
   chmod 600 "$tmp" || { rm -f -- "$tmp"; return 1; }
   mv -f -- "$tmp" "$marker" || { rm -f -- "$tmp"; return 1; }

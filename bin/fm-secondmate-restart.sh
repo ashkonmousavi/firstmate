@@ -92,6 +92,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 . "$SCRIPT_DIR/fm-secondmate-restart-lib.sh"
 # shellcheck source=bin/fm-secondmate-nudge-lib.sh
 . "$SCRIPT_DIR/fm-secondmate-nudge-lib.sh"
+# shellcheck source=bin/fm-notice-id-lib.sh
+. "$SCRIPT_DIR/fm-notice-id-lib.sh"
 # shellcheck source=bin/fm-pending-reply-lib.sh
 . "$SCRIPT_DIR/fm-pending-reply-lib.sh"
 
@@ -145,9 +147,10 @@ first_reported_line() {  # <text>
 # Send the ordinary re-read steer to a mate this pass will not restart, and say
 # plainly which it was. A nudge is a partial reload and is never reported as more.
 fall_back_to_nudge() {  # <id> <reason>
-  local id=$1 reason=$2 out
+  local id=$1 reason=$2 out delivery_id
+  delivery_id=$(fm_notice_delivery_id "restart-fallback:$id:$reason:$(date +%s%N):$RANDOM") || return 1
   if out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-    "$SCRIPT_DIR/fm-send.sh" "$id" "$FM_SECOND_MATE_NUDGE_MESSAGE" 2>&1); then
+    "$SCRIPT_DIR/fm-send.sh" "$id" --fire-and-forget "$delivery_id" "$FM_SECOND_MATE_NUDGE_MESSAGE" 2>&1); then
     nudged_count=$((nudged_count + 1))
     printf 'nudged: %s: %s\n' "$id" "$reason"
   else

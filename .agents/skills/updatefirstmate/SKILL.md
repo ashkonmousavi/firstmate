@@ -80,8 +80,9 @@ This touches only the firstmate repo and its own worktrees, never anything under
 4. **Send the re-read message to the rest.**
    For every target on the `nudge-secondmates:` line (do nothing when it says `none`), send the one-line re-read steer:
    ```sh
-   FM_HOME=<this-firstmate-home> bin/fm-send.sh <id> 'firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.'
+   FM_HOME=<this-firstmate-home> bin/fm-send.sh <id> --fire-and-forget <fresh-16-hex-delivery-id> 'firstmate was updated to the latest - please re-read your AGENTS.md to pick up the new instructions.'
    ```
+   Keep the same delivery ID if retrying an uncertain send.
    These are the mates that are on the latest bytes but could not be restarted provably, so the steer is the most this pass can honestly do for them.
    It is a gentle steer, not an interruption: the mate already got a safe tracked-files fast-forward, and the steer never forces, tears down, or discards its work.
    Never describe one of these as reloaded; its agent is still running the wiring it launched with.

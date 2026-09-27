@@ -80,6 +80,9 @@ FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json crew-harness 
 FM_SESSION_SCOPED_INHERITABLE_CONFIG="trace-context"
 
 # True when <item> is session-scoped in the sense above.
+# shellcheck source=bin/fm-notice-id-lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fm-notice-id-lib.sh"
+
 fm_config_inherit_item_session_scoped() {  # <item>
   local item=$1 candidate
   for candidate in $FM_SESSION_SCOPED_INHERITABLE_CONFIG; do
@@ -888,7 +891,7 @@ fm_config_reread_send_failure() {
 
 # fm_config_reread_send_pointer <id> <instruction-path>
 fm_config_reread_send_pointer() {
-  local id=$1 instruction_path=$2 pending_path selector out rc send_bin message pending_pointer
+  local id=$1 instruction_path=$2 pending_path selector out rc send_bin message pending_pointer delivery_id
   pending_path="$instruction_path.pending"
   if [ ! -f "$instruction_path" ] || [ -L "$instruction_path" ]; then
     printf 'CONFIG_REREAD: secondmate %s: send failed: pending instruction file is missing\n' "$id"
@@ -910,11 +913,12 @@ fm_config_reread_send_pointer() {
     return 1
   fi
   message="CONFIG_REREAD: $instruction_path"
+  delivery_id=$(fm_notice_delivery_id "config-reread:$id:$instruction_path") || return 1
   out=$(FM_HOME="$FM_HOME" \
     FM_ROOT_OVERRIDE="${FM_ROOT_OVERRIDE:-}" \
     FM_STATE_OVERRIDE="${FM_STATE_OVERRIDE:-}" \
     FM_SEND_SETTLE="${FM_SEND_SETTLE:-0}" \
-    "$send_bin" "$selector" "$message" 2>&1) && rc=0 || rc=$?
+    "$send_bin" "$selector" --fire-and-forget "$delivery_id" "$message" 2>&1) && rc=0 || rc=$?
   if [ "$rc" -eq 0 ]; then
     rm -f "$pending_path"
     return 0

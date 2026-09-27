@@ -1342,6 +1342,10 @@ _fm_composer_classify_bare_wrap() {  # <screen> <styled> <glyph-row> <cursor-row
 _fm_composer_classify_leftbar() {  # <screen> <styled> <first-row> <last-row>
   local screen=$1 styled=$2 first=$3 last=$4
   local row raw content pending_seen=0 footer_re leading_blank=1 placeholder_position=0
+  if ! _fm_composer_leftbar_proven "$screen" "$first" "$last"; then
+    printf 'unknown'
+    return 0
+  fi
   footer_re=${FM_COMPOSER_LEFTBAR_FOOTER_RE:-$FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT}
   row=$first
   while [ "$row" -le "$last" ]; do
@@ -1383,6 +1387,30 @@ _fm_composer_leftbar_floor_row() {  # <trimmed-row>
     *) return 1 ;;
   esac
   [ -z "${blocks//▀/}" ]
+}
+
+# A left rail alone is also used by menus such as Grok's usage picker. OpenCode
+# proves its composer with a mode footer inside the rail or its half-block floor
+# immediately below it. Without either signal, the rail is not an input field.
+_fm_composer_leftbar_proven() {  # <plain-screen> <first-row> <last-row>
+  local screen=$1 first=$2 last=$3 row content next footer_re
+  [ "$last" -gt "$first" ] || return 1
+  footer_re=${FM_COMPOSER_LEFTBAR_FOOTER_RE:-$FM_COMPOSER_LEFTBAR_FOOTER_RE_DEFAULT}
+  row=$last
+  while [ "$row" -ge "$first" ]; do
+    content=$(_fm_composer_screen_row "$row" "$screen")
+    fm_composer_normalize_trim_var content
+    content=${content#┃}
+    fm_composer_normalize_trim_var content
+    [ -z "$content" ] || break
+    row=$((row - 1))
+  done
+  if [ "$row" -ge "$first" ] && fm_composer_idle_matches "$content" "$footer_re" sensitive; then
+    return 0
+  fi
+  next=$(_fm_composer_screen_row "$((last + 1))" "$screen")
+  fm_composer_normalize_trim_var next
+  _fm_composer_leftbar_floor_row "$next"
 }
 
 # _fm_composer_row_is_composer_furniture: 0 when <trimmed-row> is DEMONSTRABLY
@@ -1579,6 +1607,11 @@ _fm_composer_select_cursorless() {
       FM_COMPOSER_SELECTED_KIND=
       return 1
     fi
+  fi
+  if [ "$FM_COMPOSER_SELECTED_KIND" = leftbar ] \
+     && ! _fm_composer_leftbar_proven "$plain" "$FM_COMPOSER_SELECTED_FIRST" "$FM_COMPOSER_SELECTED_LAST"; then
+    FM_COMPOSER_SELECTED_KIND=
+    return 1
   fi
   [ -n "$FM_COMPOSER_SELECTED_KIND" ]
 }
