@@ -66,6 +66,8 @@ SECONDS_ARG=$((10#$SECONDS_ARG))
 # checkpoint callers without that lock keep their existing watch-only path.
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$SCRIPT_DIR/fm-session-lock-lib.sh"
 CODEX_HANDLING=0
 if recorded_session=$(fm_session_lock_recorded_session_id "$STATE"); then
   case "$recorded_session" in

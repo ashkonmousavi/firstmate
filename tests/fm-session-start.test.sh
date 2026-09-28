@@ -2443,7 +2443,9 @@ EOF
   make_fake_ps_harness "$fakebin" codex
   : > "$home/state/.afk-contract"
 
-  out=$(run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
+  # A Codex tool shell carries its session id, which the Codex lock requires.
+  out=$(CODEX_SESSION_ID=fixture-record-only-away \
+    run_named_harness_session_start codex "$home" "$root" "$fakebin:$BASE_PATH")
 
   assert_contains "$out" "- Away mode: active; Codex foreground checkpoint continues to own the watcher" \
     "record-only Codex away posture was reported inactive or daemon-owned"
