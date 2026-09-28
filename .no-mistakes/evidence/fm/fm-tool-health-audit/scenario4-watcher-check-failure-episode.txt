@@ -1,0 +1,31 @@
+##### BASE 85228cab watcher: check exits 3 every run
+== BASE: failing check (exit code file=3)
+   watcher: still running after 6s (no wake), stopped
+   check runs this leg: 5
+   watcher stdout (wake line):
+   check stderr leaked to wake/record: no
+   record:
+     (none)
+   queued wakes drained:
+
+##### TARGET 9a8f85bb watcher
+== 1. first failure opens an episode -> one wake (exit code file=3)
+   watcher: exited rc=0 (woke)
+   check runs this leg: 1
+   watcher stdout (wake line):
+     check: /tmp/fm-lab.o4V2Cz/state/probe.check.sh: failed with exit 3
+   check stderr leaked to wake/record: no
+   record:
+     check=/tmp/fm-lab.o4V2Cz/state/probe.check.sh
+     identity=sha256:d6d803d61992759f273ceadcd298bd75b2fd41cb3cb198aef3d5dd4b8fba5268
+     last_run=1790615364
+     exit=3
+     result=failed
+     last_ok=
+     failing_since=1790615364
+   queued wakes drained:
+     [check] key=/tmp/fm-lab.o4V2Cz/state/probe.check.sh:failed reason=check: /tmp/fm-lab.o4V2Cz/state/probe.check.sh: failed with exit 3
+== 2. repeat failure inside the episode -> no new wake, record updated (exit code file=5)
+   watcher: still running after 6s (no wake), stopped
+   check runs this leg: 5
+   watcher stdout (wake line):

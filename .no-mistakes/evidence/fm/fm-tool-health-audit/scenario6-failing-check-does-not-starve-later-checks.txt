@@ -1,0 +1,11 @@
+unregistered: state/slow.check.sh
+registered: state/aa-broken.check.sh
+registered: state/zz-witness.check.sh
+== TARGET watcher: aa-broken (exit 7) sorts before zz-witness (prints a line)
+   watcher rc=0; stdout:
+     check: /tmp/fm-lab.o4V2Cz/state/zz-witness.check.sh: witness says hello
+   queued: [check] key=/tmp/fm-lab.o4V2Cz/state/aa-broken.check.sh:failed reason=check: /tmp/fm-lab.o4V2Cz/state/aa-broken.check.sh: failed with exit 7
+   queued: [check] key=/tmp/fm-lab.o4V2Cz/state/zz-witness.check.sh reason=check: /tmp/fm-lab.o4V2Cz/state/zz-witness.check.sh: witness says hello
+   records:
+     .check-run-aa-broken: failed exit=7
+     .check-run-zz-witness: ok exit=0

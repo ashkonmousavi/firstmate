@@ -1,0 +1,33 @@
+== snapshot input: ''
+   BASE:   exit=0 stdout={   "known": 1,   "checked": 1,   "counts": {     "captain": 0,     "fleet": 0,     "maintainer": 1,     "nobody": 0   } stderr=
+   TARGET: exit=1 stdout= stderr=fm-contributions: contribution input is missing or malformed; ownership is unconfirmed
+== snapshot input: 'not json'
+   BASE:   exit=2 stdout= stderr=jq: Bad JSON in --slurpfile input /tmp/fm-inp.31fh0y/in.json: Invalid numeric literal at line 1, column 4
+   TARGET: exit=1 stdout= stderr=fm-contributions: contribution input is missing or malformed; ownership is unconfirmed
+== snapshot input: '{"backlog":{"present":true}}'
+   BASE:   exit=0 stdout={   "known": 1,   "checked": 1,   "counts": {     "captain": 0,     "fleet": 0,     "maintainer": 1,     "nobody": 0   } stderr=
+   TARGET: exit=1 stdout= stderr=fm-contributions: contribution input is missing or malformed; ownership is unconfirmed
+== snapshot input: '{"backlog":{"present":true,"records":[]},"tasks":[]}{"tasks":[]}'
+   BASE:   exit=0 stdout={   "known": 1,   "checked": 1,   "counts": {     "captain": 0,     "fleet": 0,     "maintainer": 1,     "nobody": 0   } stderr=
+   TARGET: exit=1 stdout= stderr=fm-contributions: contribution input is missing or malformed; ownership is unconfirmed
+== valid canonical input still projects (TARGET):
+{
+  "known": 1,
+  "checked": 1,
+  "counts": {
+    "captain": 0,
+    "fleet": 0,
+    "maintainer": 1,
+    "nobody": 0
+  },
+  "unmeasured": 0,
+  "complete": true,
+  "proven_clear": true,
+  "stale_verdicts": 0,
+  "missing_verdicts": 0,
+  "unreadable_records": 0,
+  "valid_until": 1790616200,
+  "captain"
+== poll with unreadable backlog (canonical input cannot be built)
+   BASE:   exit=1 stderr=/tmp/fm-base.t3KeTE/bin/fm-fleet-snapshot.sh: line 392: /tmp/fm-lab.o4V2Cz/data/backlog.md: Permission denied fm-fleet-snapshot: backlog read failed 
+   TARGET: exit=1 stderr=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3MF347Z8NA258JRZS2V3DFK/bin/fm-fleet-snapshot.sh: line 393: /tmp/fm-lab.o4V2Cz/data/backlog.md: Permission denied fm-fleet-snapshot: backlog read failed fm-contributions: canonical contribution inpu

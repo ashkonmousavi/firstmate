@@ -1,0 +1,11 @@
+== BASE (85228cab) bin/fm-fleet-snapshot.sh --contribution-input on a 198202-byte backlog
+exit=0
+stdout bytes: 0
+stderr:
+/tmp/fm-base.t3KeTE/bin/fm-fleet-snapshot.sh: line 1994: /usr/bin/jq: Argument list too long
+
+== TARGET (9a8f85bb) bin/fm-fleet-snapshot.sh --contribution-input
+exit=0
+stdout bytes: 581593
+stderr:
+{"backlog_present":true,"records":301,"tasks":0,"backlog_json_bytes":459027,"linked":["delivery"]}

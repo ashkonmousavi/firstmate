@@ -1,0 +1,12 @@
+== BASE fm-contributions.sh poll (large backlog, PR https://github.com/o/r/pull/8 linked from backlog item 'delivery')
+exit=0
+stdout: 
+stderr: /tmp/fm-base.t3KeTE/bin/fm-fleet-snapshot.sh: line 1994: /usr/bin/jq: Argument list too long
+data/delivery/contributions.json exists? no   <- nothing observed, silently
+
+== TARGET fm-contributions.sh poll
+exit=0
+stdout: 
+stderr: 
+persisted observation:
+{"url":"https://github.com/o/r/pull/8","state":"open","head":"1111111111111111111111111111111111111111","checked_at":"2026-09-28T17:08:20Z"}

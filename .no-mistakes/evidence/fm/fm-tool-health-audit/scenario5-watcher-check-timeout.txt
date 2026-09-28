@@ -1,0 +1,33 @@
+unregistered: state/probe.check.sh
+registered: state/slow.check.sh
+== BASE 85228cab watcher, slow check killed at FM_CHECK_TIMEOUT=2 (10s window)
+   watcher: no wake in 10s; stdout: 
+   slow check started 3x, finished 0x
+== TARGET watcher, FM_CHECK_FORCE_FALLBACK=0 (coreutils timeout)
+   watcher: woke rc=0; stdout:
+     check: /tmp/fm-lab.o4V2Cz/state/slow.check.sh: timed out after 2s
+   record:
+     check=/tmp/fm-lab.o4V2Cz/state/slow.check.sh
+     identity=sha256:f2cc15ae1c7b39ce94f5a609637cb2502323769a08640b92b918f32df34c8044
+     last_run=1790615402
+     exit=124
+     result=timed-out
+     last_ok=
+     failing_since=1790615402
+   queued: [check] key=/tmp/fm-lab.o4V2Cz/state/slow.check.sh:failed reason=check: /tmp/fm-lab.o4V2Cz/state/slow.check.sh: timed out after 2s
+   leftover slow-check processes: 0
+== TARGET watcher, FM_CHECK_FORCE_FALLBACK=1 (perl fallback)
+   watcher: woke rc=0; stdout:
+     check: /tmp/fm-lab.o4V2Cz/state/slow.check.sh: timed out after 2s
+   record:
+     check=/tmp/fm-lab.o4V2Cz/state/slow.check.sh
+     identity=sha256:f2cc15ae1c7b39ce94f5a609637cb2502323769a08640b92b918f32df34c8044
+     last_run=1790615405
+     exit=124
+     result=timed-out
+     last_ok=
+     failing_since=1790615405
+   queued: [check] key=/tmp/fm-lab.o4V2Cz/state/slow.check.sh:failed reason=check: /tmp/fm-lab.o4V2Cz/state/slow.check.sh: timed out after 2s
+   leftover slow-check processes: 0
+== record cleanup: probe was unregistered earlier
+   .check-run-probe exists: no
