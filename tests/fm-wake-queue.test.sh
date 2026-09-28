@@ -178,6 +178,144 @@ SH
   pass "registered custom check output is queued before cadence suppression"
 }
 
+# check_leg <dir> <tag> [env...]: one watcher over <dir>'s state checks, sweeping
+# them every cycle; the caller waits for its wake or ends it.
+check_leg() {
+  local dir=$1 tag=$2
+  shift 2
+  env PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$dir/state" FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 "$@" "$WATCH" > "$dir/watch-$tag.out" 2> "$dir/watch-$tag.err" &
+  CHECK_LEG_PID=$!
+}
+
+# wait_for_runs <log> <count>: wait until a check has logged <count> runs. The
+# watcher records a run before it starts the next one, so waiting for one run
+# past the one under test proves that run's record is written.
+wait_for_runs() {
+  local log=$1 want=$2 i=0
+  while [ "$(awk 'END { print NR }' "$log" 2>/dev/null || echo 0)" -lt "$want" ] && [ "$i" -lt 150 ]; do
+    sleep 0.1
+    i=$((i + 1))
+  done
+  [ "$(awk 'END { print NR }' "$log" 2>/dev/null || echo 0)" -ge "$want" ]
+}
+
+record_field() {  # <record> <field>
+  sed -n "s/^$2=//p" "$1"
+}
+
+# A state check that fails is reported once per failure episode and never by
+# its stderr; a clean run ends the episode and is kept apart from the last run.
+test_check_failure_is_one_wake_per_failure_episode() {
+  local dir state check record code runs since last_ok
+  dir=$(make_case check-failure)
+  state="$dir/state"
+  check="$state/probe.check.sh"
+  record="$state/.check-run-probe"
+  code="$dir/exit-code"
+  runs="$dir/runs"
+  cat > "$check" <<SH
+#!/usr/bin/env bash
+printf 'run\n' >> '$runs'
+printf 'sentinel-stderr-secret\n' >&2
+exit "\$(cat '$code')"
+SH
+  chmod 0700 "$check"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" probe >/dev/null \
+    || fail "could not register the probe check"
+
+  printf '3\n' > "$code"
+  check_leg "$dir" first
+  wait_for_exit "$CHECK_LEG_PID" 100 || fail "watcher did not wake for a failing check"
+  grep -qxF "check: $check: failed with exit 3" "$dir/watch-first.out" \
+    || fail "watcher did not report the failing check: $(cat "$dir/watch-first.out")"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$dir/drain-first.out" 2>/dev/null || fail "drain after a check failure failed"
+  grep -F "$(printf '\tcheck\t%s:failed\t' "$check")" "$dir/drain-first.out" | grep -F 'failed with exit 3' >/dev/null \
+    || fail "the check failure was not queued under its own key: $(cat "$dir/drain-first.out")"
+  [ "$(record_field "$record" result)" = failed ] && [ "$(record_field "$record" exit)" = 3 ] \
+    && [ "$(record_field "$record" check)" = "$check" ] \
+    || fail "the run record does not show the failed run: $(cat "$record")"
+  since=$(record_field "$record" failing_since)
+  [ -n "$since" ] && [ -n "$(record_field "$record" last_run)" ] && [ -z "$(record_field "$record" last_ok)" ] \
+    || fail "the run record did not open a failure episode: $(cat "$record")"
+  ! grep -qF sentinel-stderr-secret "$record" "$state/.wake-queue" "$dir/drain-first.out" "$dir/watch-first.out" \
+    || fail "check stderr reached the run record or the wake queue"
+  drain_liveness_wakes "$dir"
+
+  # A failure inside the open episode updates the record without a wake.
+  printf '5\n' > "$code"
+  check_leg "$dir" repeat
+  wait_for_runs "$runs" 3 || fail "the repeat leg did not run the check twice"
+  kill_liveness_leg "$CHECK_LEG_PID"
+  ! grep -qF "$check:failed" "$state/.wake-queue" 2>/dev/null || fail "a repeat failure queued another wake"
+  ! grep -qF 'failed with exit' "$dir/watch-repeat.out" || fail "a repeat failure woke firstmate"
+  [ "$(record_field "$record" exit)" = 5 ] && [ "$(record_field "$record" failing_since)" = "$since" ] \
+    || fail "a repeat failure did not update the open episode: $(cat "$record")"
+  drain_liveness_wakes "$dir"
+
+  # A clean run closes the episode and records its time as the last success.
+  printf '0\n' > "$code"
+  check_leg "$dir" healthy
+  wait_for_runs "$runs" 5 || fail "the healthy leg did not run the check twice"
+  kill_liveness_leg "$CHECK_LEG_PID"
+  last_ok=$(record_field "$record" last_ok)
+  [ "$(record_field "$record" result)" = ok ] && [ -n "$last_ok" ] \
+    && [ -z "$(record_field "$record" failing_since)" ] \
+    || fail "a clean run did not close the episode: $(cat "$record")"
+  ! grep -qF "$check:failed" "$state/.wake-queue" 2>/dev/null || fail "a clean run queued a failure wake"
+  drain_liveness_wakes "$dir"
+
+  # The next failure opens a new episode and keeps the last success apart.
+  printf '4\n' > "$code"
+  check_leg "$dir" again
+  wait_for_exit "$CHECK_LEG_PID" 100 || fail "watcher did not wake for a new failure episode"
+  grep -qxF "check: $check: failed with exit 4" "$dir/watch-again.out" \
+    || fail "a new failure episode was not reported: $(cat "$dir/watch-again.out")"
+  [ "$(record_field "$record" result)" = failed ] && [ "$(record_field "$record" last_ok)" = "$last_ok" ] \
+    && [ -n "$(record_field "$record" failing_since)" ] \
+    || fail "a new failure episode lost the last success: $(cat "$record")"
+  drain_liveness_wakes "$dir"
+
+  # A record whose check is gone is removed by the next sweep.
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-unregister.sh" probe >/dev/null \
+    || fail "could not unregister the probe check"
+  cat > "$state/witness.check.sh" <<SH
+#!/usr/bin/env bash
+printf 'run\n' >> '$dir/witness-runs'
+SH
+  chmod 0700 "$state/witness.check.sh"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" witness >/dev/null \
+    || fail "could not register the witness check"
+  check_leg "$dir" cleanup
+  wait_for_runs "$dir/witness-runs" 2 || fail "the cleanup leg did not run the witness check twice"
+  kill_liveness_leg "$CHECK_LEG_PID"
+  [ ! -e "$record" ] || fail "the run record outlived its check"
+  [ "$(record_field "$state/.check-run-witness" result)" = ok ] || fail "a live check lost its run record"
+  pass "a failing state check wakes once per failure episode, without its stderr, and a clean run ends it"
+}
+
+# Exit 124 means the watcher's own bound killed the check, on either timeout path.
+test_check_timeout_is_reported_on_both_timeout_paths() {
+  local fallback dir state check record
+  for fallback in 0 1; do
+    dir=$(make_case "check-timeout-$fallback")
+    state="$dir/state"
+    check="$state/slow.check.sh"
+    record="$state/.check-run-slow"
+    printf '#!/usr/bin/env bash\nsleep 5\n' > "$check"
+    chmod 0700 "$check"
+    FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" slow >/dev/null \
+      || fail "could not register the slow check"
+    check_leg "$dir" timeout FM_CHECK_TIMEOUT=1 FM_CHECK_FORCE_FALLBACK="$fallback"
+    wait_for_exit "$CHECK_LEG_PID" 100 || fail "watcher did not wake for a timed-out check (fallback=$fallback)"
+    grep -qxF "check: $check: timed out after 1s" "$dir/watch-timeout.out" \
+      || fail "a timed-out check was not reported (fallback=$fallback): $(cat "$dir/watch-timeout.out")"
+    [ "$(record_field "$record" result)" = timed-out ] && [ "$(record_field "$record" exit)" = 124 ] \
+      || fail "the run record does not show the timeout (fallback=$fallback): $(cat "$record")"
+  done
+  pass "a state check killed at its bound is reported as a timeout on the installed and fallback paths"
+}
+
 test_atomic_double_drain() {
   local dir state out1 out2 count1 count2 sequence generation leftover
   dir=$(make_case double-drain)
@@ -2829,9 +2967,11 @@ test_wake_queue_prune_task() {
   append_wake "$state" signal "task-a.status" "signal: $state/task-a.status"
   append_wake "$state" signal "task-a.turn-ended" "signal: $state/task-a.turn-ended"
   append_wake "$state" check "$state/task-a.check.sh" "check: $state/task-a.check.sh: merged: https://example.test/pr/1"
+  append_wake "$state" check "$state/task-a.check.sh:failed" "check: $state/task-a.check.sh: failed with exit 1"
   append_wake "$state" stale "test:window-b" "stale: test:window-b"
   append_wake "$state" signal "task-b.status" "signal: $state/task-b.status"
   append_wake "$state" check "$state/task-b.check.sh" "check: $state/task-b.check.sh: merged: https://example.test/pr/2"
+  append_wake "$state" check "$state/task-b.check.sh:failed" "check: $state/task-b.check.sh: failed with exit 1"
 
   FM_STATE_OVERRIDE="$state" bash -c '. "$0/bin/fm-wake-lib.sh"; fm_wake_queue_prune_task "$1" "$2" "$3"' "$ROOT" "$state" "task-a" "test:window-a" \
     || fail "fm_wake_queue_prune_task returned non-zero"
@@ -2843,6 +2983,7 @@ test_wake_queue_prune_task() {
   grep -F 'test:window-b' "$queue" >/dev/null || fail "prune removed stale wake for task-b"
   grep -F 'task-b.status' "$queue" >/dev/null || fail "prune removed status wake for task-b"
   grep -F 'task-b.check.sh' "$queue" >/dev/null || fail "prune removed check wake for task-b"
+  grep -F "$state/task-b.check.sh:failed" "$queue" >/dev/null || fail "prune removed check failure wake for task-b"
 
   pass "fm_wake_queue_prune_task: prunes wakes for target task without touching other tasks"
 }
@@ -3377,6 +3518,8 @@ test_signal_catchup_without_running_watcher
 test_stale_enqueue_before_suppressor
 test_not_working_stale_enqueue_before_suppressor
 test_check_output_is_queued
+test_check_failure_is_one_wake_per_failure_episode
+test_check_timeout_is_reported_on_both_timeout_paths
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
 test_drain_asserts_watcher_liveness

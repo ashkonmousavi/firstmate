@@ -89,6 +89,11 @@
 #                          successful attempts never wake firstmate
 #                          (bin/fm-task-inbox-lib.sh owns the ladder policy)
 #   check: <script>: <out> authenticated check output, always actionable
+#   check: <script>: failed with exit <n>
+#   check: <script>: timed out after <seconds>s
+#                          a state check exited non-zero or was killed at
+#                          FM_CHECK_TIMEOUT; queued once per failure episode
+#                          (check_run_record owns the episode and its record)
 #   check: process-event result captured: <keys>
 #                          a durably captured process-to-event result is queued
 #                          and has not been surfaced yet; reported once per
@@ -2423,6 +2428,10 @@ procevent_surface_queued() {
   wake "$reason"
 }
 
+# Exit 124 means the check was stopped at CHECK_TIMEOUT, on every path. In an
+# owned group (run_check_capture) the caller stops the whole group itself, so
+# the perl fallback exits right after its TERM: killing its own group would end
+# it with a KILL status instead.
 run_check_process() {
   local c=$1
   shift
@@ -2432,7 +2441,7 @@ run_check_process() {
     exec gtimeout "$CHECK_TIMEOUT" bash "$c" "$@"
   else
     # shellcheck disable=SC2016  # single quotes are deliberate: Perl expands its own variables.
-    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
+    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; exit 124 if $owned; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
   fi
 }
 
@@ -2444,6 +2453,7 @@ FM_ACTIVE_CHECK_PID=
 FM_ACTIVE_CHECK_PGID=
 FM_CHECK_OUTPUT=
 FM_CHECK_RESULT=
+FM_CHECK_EXIT=
 FM_CHECK_SIGNAL_PENDING=
 
 fm_check_output_cleanup() {
@@ -2494,6 +2504,7 @@ run_check_capture() {
   local pgid
   fm_check_output_cleanup
   FM_CHECK_RESULT=
+  FM_CHECK_EXIT=
   FM_CHECK_OUTPUT=$(mktemp "$STATE/.fm-check-output.XXXXXX") || return 1
   chmod 0600 "$FM_CHECK_OUTPUT" || { fm_check_output_cleanup; return 1; }
   FM_CHECK_SIGNAL_PENDING=
@@ -2514,11 +2525,65 @@ run_check_capture() {
     fm_check_output_cleanup
     return 1
   fi
-  wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || true
+  FM_CHECK_EXIT=0
+  wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || FM_CHECK_EXIT=$?
   FM_ACTIVE_CHECK_PID=
   fm_active_check_stop || return 1
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
   fm_check_output_cleanup
+}
+
+# check_run_record <check> <identity>
+# Records the run the sweep just made of <check> in state/.check-run-<name>,
+# <name> being the check's basename without .check.sh, replaced whole with:
+#   check=<path>          identity=<what ran: sha256:<hash>, a PR URL, relay-poll>
+#   last_run=<epoch>      exit=<status>   result=ok|failed|timed-out
+#   last_ok=<epoch>       the last run that exited 0 within FM_CHECK_TIMEOUT
+#   failing_since=<epoch> the first failed run of the open failure episode
+# ok means only that the check exited 0 inside its bound, not that its work
+# succeeded: a check that reports its own trouble on stdout, such as the PR
+# poll, still exits 0. Exit 124 is the timeout. A failed or timed-out run with
+# no open episode for the same identity opens one and queues exactly one
+# `check` wake keyed "<check>:failed"; later failures only update the record,
+# and the next ok run closes the episode. The check's stderr is never read, so
+# nothing it prints there reaches the record or the queue. The sweep removes a
+# record once its check is gone.
+check_run_record() {
+  local c=$1 identity=$2 record result last_ok='' since='' prior='' reason tmp now
+  record="$STATE/.check-run-$(basename "$c" .check.sh)"
+  now=$(date +%s)
+  case "$FM_CHECK_EXIT" in
+    0) result=ok ;;
+    124) result=timed-out ;;
+    *) result=failed ;;
+  esac
+  if [ -f "$record" ] && [ ! -L "$record" ] \
+    && [ "$(sed -n 's/^identity=//p' "$record")" = "$identity" ]; then
+    prior=$(sed -n 's/^result=//p' "$record")
+    last_ok=$(sed -n 's/^last_ok=//p' "$record")
+    since=$(sed -n 's/^failing_since=//p' "$record")
+  fi
+  if [ "$result" = ok ]; then
+    last_ok=$now
+    since=
+  elif [ -z "$since" ] || { [ "$prior" != failed ] && [ "$prior" != timed-out ]; }; then
+    since=$now
+    if [ "$result" = timed-out ]; then
+      reason="check: $c: timed out after ${CHECK_TIMEOUT}s"
+    else
+      reason="check: $c: failed with exit $FM_CHECK_EXIT"
+    fi
+    fm_wake_append check "$c:failed" "$reason" || exit 1
+    CHECK_FAILURE_REASON=$reason
+  fi
+  tmp=$(mktemp "$record.tmp.XXXXXX") || tmp=
+  if [ -z "$tmp" ] \
+    || ! printf 'check=%s\nidentity=%s\nlast_run=%s\nexit=%s\nresult=%s\nlast_ok=%s\nfailing_since=%s\n' \
+      "$c" "$identity" "$now" "$FM_CHECK_EXIT" "$result" "$last_ok" "$since" > "$tmp" \
+    || ! mv -f -- "$tmp" "$record"; then
+    [ -z "$tmp" ] || rm -f -- "$tmp"
+    triage_log "check run record for $c could not be written"
+  fi
 }
 
 # 0 when any signaled status file carries a captain-relevant event in the bytes
@@ -3115,6 +3180,11 @@ while :; do
   if [ "$(age_of "$STATE/.last-check")" -ge "$CHECK_INTERVAL" ]; then
     rejected_checks=
     contribution_check_output=
+    CHECK_FAILURE_REASON=
+    for check_record in "$STATE"/.check-run-*; do
+      [ -e "$check_record" ] || [ -L "$check_record" ] || continue
+      [ -e "$STATE/${check_record##*/.check-run-}.check.sh" ] || rm -f -- "$check_record"
+    done
     check_sweep_deferred=0
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
@@ -3130,6 +3200,7 @@ while :; do
           && [ -f "$FM_ROOT/bin/fm-x-poll.sh" ] && [ ! -L "$FM_ROOT/bin/fm-x-poll.sh" ]; then
           FM_HOME="$FM_HOME" run_check_capture "$FM_ROOT/bin/fm-x-poll.sh" || exit 1
           out=$FM_CHECK_RESULT
+          check_identity=relay-poll
         else
           rejected_checks="$rejected_checks $c"
           continue
@@ -3155,10 +3226,12 @@ while :; do
           run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
           out=$FM_CHECK_RESULT
+          check_identity=$url
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           run_check_capture "$custom_snapshot" || exit 1
           out=$FM_CHECK_RESULT
+          check_identity="sha256:$FM_CUSTOM_CHECK_HASH"
           fm_custom_check_snapshot_cleanup
         else
           fm_custom_check_snapshot_cleanup
@@ -3166,6 +3239,8 @@ while :; do
           continue
         fi
       fi
+      # Before the output below, whose wake ends the cycle.
+      check_run_record "$c" "$check_identity"
       if [ -n "$out" ]; then
         if [ "$(basename "$c")" = contributions.check.sh ]; then
           contribution_check_output=
@@ -3242,6 +3317,9 @@ EOF
       wake "$reason"
     fi
     [ "$check_sweep_deferred" -eq 1 ] || touch "$STATE/.last-check"
+    # Each new failure episode was queued as its check ran, so a failing check
+    # never stops the checks after it from running.
+    [ -z "$CHECK_FAILURE_REASON" ] || wake "$CHECK_FAILURE_REASON"
     if [ -n "$contribution_check_output" ]; then
       wake "$contribution_check_output"
     fi

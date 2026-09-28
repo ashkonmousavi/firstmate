@@ -11,6 +11,8 @@
 #
 # snapshot is read-only and never contacts a forge. Its input is the canonical
 # fleet snapshot's backlog/tasks pair; --all adds rows for supervisor inspection.
+# Every command that reads that pair refuses an empty or malformed one instead of
+# reading it as "nothing owned".
 # Every URL explicitly linked by a structured backlog row or a task's pr= is
 # owned. Previously observed URLs remain in data/<task>/contributions.json after
 # endpoint teardown. Repository-wide PR discovery never establishes ownership.
@@ -148,8 +150,15 @@ read_saved() {
   jq -s . "$TMP/saved.jsonl" > "$TMP/saved.json"
 }
 
+require_input() { # input.json
+  jq_lib -ne --slurpfile input "$1" '($input | length) == 1 and ($input[0] | valid_input)' >/dev/null 2>&1 \
+    || fail 'contribution input is missing or malformed; ownership is unconfirmed'
+}
+
 get_input() {
-  "$SCRIPT_DIR/fm-fleet-snapshot.sh" --contribution-input > "$TMP/input.json"
+  "$SCRIPT_DIR/fm-fleet-snapshot.sh" --contribution-input > "$TMP/input.json" \
+    || fail 'canonical contribution input unavailable; ownership is unconfirmed'
+  require_input "$TMP/input.json"
 }
 
 project() {
@@ -445,6 +454,7 @@ arm() {
 case "${1:-}" in
   snapshot)
     [ "$#" -ge 2 ] && [ "$#" -le 3 ] || fail 'snapshot needs canonical input'
+    require_input "$2"
     read_saved
     project "$2" "${3:-}"
     ;;

@@ -1032,8 +1032,61 @@ test_late_owner_keeps_failure_episode_suppressed() {
   pass 'a late owner does not restart a shared forge failure episode'
 }
 
+# Linux caps one command-line argument at 131072 bytes, so a backlog rendered
+# past it must still reach the poll: ownership comes from the backlog link alone.
+test_large_backlog_keeps_contribution_ownership() {
+  local home out filler i
+  home=$(new_home large-backlog)
+  forge_home "$home"
+  rm -f "$home/data/delivery/contributions.json"
+  filler=$(printf '%0600d' 0)
+  for i in $(seq 1 300); do
+    printf -- '- [ ] filler-%s - Filler %s (repo: sample) (kind: ship)\n  %s\n' "$i" "$i" "$filler" >> "$home/data/backlog.md"
+  done
+  out=$(with_home "$home" "$ROOT/bin/fm-fleet-snapshot.sh" --contribution-input) \
+    || fail 'the contribution input failed for a large backlog'
+  printf '%s' "$out" | jq -e '(.backlog.records | type == "array") and (.tasks | type == "array")' >/dev/null 2>&1 \
+    || fail 'the contribution input for a large backlog was empty or invalid'
+  [ "$(printf '%s' "$out" | jq -c .backlog | wc -c)" -gt 131072 ] \
+    || fail 'the large-backlog fixture no longer exceeds the single-argument limit'
+  out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) || fail 'the large-backlog poll failed'
+  [ -z "$out" ] || fail "the large-backlog poll printed: $out"
+  jq -e '.records[0].url == "https://github.com/o/r/pull/8" and .records[0].observation.state == "open"' \
+    "$home/data/delivery/contributions.json" >/dev/null \
+    || fail 'the backlog-linked contribution was not observed through a large backlog'
+  pass 'a backlog larger than one command-line argument keeps its contribution ownership'
+}
+
+# An empty or malformed input is refused, never projected as nothing owned.
+test_missing_or_malformed_input_is_refused() {
+  local home input err
+  home=$(new_home malformed-input)
+  for input in '' '{"backlog":{"present":true}}' '{"backlog":{"present":true,"records":[]},"tasks":[]}{"tasks":[]}'; do
+    printf '%s' "$input" > "$home/input.json"
+    if with_home "$home" "$ROOT/bin/fm-contributions.sh" snapshot "$home/input.json" > "$home/out.json" 2> "$home/err"; then
+      fail "a malformed contribution input was projected: $input"
+    fi
+    err=$(cat "$home/err")
+    case "$err" in
+      *'contribution input is missing or malformed'*) ;;
+      *) fail "the refusal did not name the malformed input: $err" ;;
+    esac
+  done
+  [ "$(id -u)" -ne 0 ] || { pass 'malformed contribution input is refused (unreadable-backlog case skipped as root)'; return 0; }
+  forge_home "$home"
+  chmod 000 "$home/data/backlog.md"
+  if with_home "$home" "$ROOT/bin/fm-contributions.sh" poll > "$home/out" 2> "$home/err"; then
+    chmod 600 "$home/data/backlog.md"
+    fail 'a poll without its canonical input succeeded'
+  fi
+  chmod 600 "$home/data/backlog.md"
+  grep -q 'canonical contribution input unavailable' "$home/err" \
+    || fail "the poll refusal did not name the unavailable input: $(cat "$home/err")"
+  pass 'malformed or unavailable contribution input is refused instead of read as nothing owned'
+}
+
 failures=0
-for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed; do
+for test_name in test_large_backlog_keeps_contribution_ownership test_missing_or_malformed_input_is_refused test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"

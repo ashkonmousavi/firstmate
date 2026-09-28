@@ -24,6 +24,11 @@ def valid_record:
         and (.mergeable | IN("mergeable","conflicting","unknown")) and (.can_merge | type == "boolean")
         and (.review_decision | IN("","APPROVED","CHANGES_REQUESTED","REVIEW_REQUIRED"))
         else (.ready | type == "boolean") end))))) catch false;
+# The canonical fm-fleet-snapshot.sh --contribution-input ownership pair.
+def valid_input:
+  type == "object" and (.backlog | type == "object")
+  and (.backlog.present | type == "boolean") and (.backlog.records | type == "array")
+  and (.tasks | type == "array");
 def known($input; $saved):
   ([($input.tasks // [])[] | select(.kind != "secondmate")
      | select(.pr.url | canonical_url) | {task:.id,url:.pr.url}]
