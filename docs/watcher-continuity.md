@@ -217,10 +217,10 @@ It mints a fresh generation so buried decisions still resurface once.
 
 ### Generation reuse
 
-An unexpected watcher close and every durable queue append publishes downtime.
-A bounded foreground checkpoint that reaches its quiet boundary releases its watcher lock without publishing downtime.
+An unexpected watcher close and every durable queue append publish downtime.
 So a downtime republication of any pending episode reuses its generation instead of minting a new one, and an already-announced generation stays announced.
 That reuse keeps a watcher close inside the handling window from orphaning the acknowledgement already presented and from trapping later arms in repeated recovery presentation.
+A bounded foreground checkpoint that reaches its quiet boundary releases its watcher lock without publishing downtime.
 
 ### What an acknowledgement retires
 
