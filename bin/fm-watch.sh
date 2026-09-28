@@ -282,6 +282,19 @@ if [ -n "${FM_WATCH_CHECKPOINT_SECONDS:-}" ]; then
   [ "$checkpoint_seconds" -gt 0 ] || { echo 'watcher: invalid checkpoint bound' >&2; exit 1; }
   WATCHER_CHECKPOINT_DEADLINE=$((SECONDS + checkpoint_seconds))
 fi
+checkpoint_deadline_passed() {
+  [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && [ "$SECONDS" -ge "$WATCHER_CHECKPOINT_DEADLINE" ]
+}
+# Print <seconds> cut to what remains of a checkpoint bound (0 once it passed).
+checkpoint_wait_budget() {  # <seconds>
+  local wait=$1 remaining
+  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+    remaining=$((WATCHER_CHECKPOINT_DEADLINE - SECONDS))
+    [ "$remaining" -gt 0 ] || remaining=0
+    [ "$wait" -le "$remaining" ] || wait=$remaining
+  fi
+  printf '%s\n' "$wait"
+}
 # The liveness beacon is touched once per cycle, immediately before the
 # terminal wait below (event_wait_or_sleep) as well as at the top of the next
 # one, so a healthy cycle's beacon can legitimately age up to POLL seconds
@@ -2612,12 +2625,9 @@ heartbeat_scan_finds_actionable() {
 # supervision cycle: the reader is a short-lived subprocess of THIS watcher, not
 # a second watcher, so every guard/beacon/arm/turn-end mechanism is unchanged.
 event_wait_or_sleep() {
-  local w b session first_backend="" first_session="" rec rc wait_seconds=$POLL remaining
-  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
-    remaining=$((WATCHER_CHECKPOINT_DEADLINE - SECONDS))
-    [ "$remaining" -gt 0 ] || return 0
-    [ "$wait_seconds" -le "$remaining" ] || wait_seconds=$remaining
-  fi
+  local w b session first_backend="" first_session="" rec rc wait_seconds
+  wait_seconds=$(checkpoint_wait_budget "$POLL")
+  [ "$wait_seconds" -gt 0 ] || return 0
   local windows=()
   while IFS= read -r w; do
     b=$(window_backend "$w")
@@ -2672,11 +2682,8 @@ event_wait_or_sleep() {
       # pure polling for the rest of this watcher process.
       _event_cap_fails=$((_event_cap_fails + 1))
       [ "$_event_cap_fails" -ge "$EVENT_CAP_FAIL_MAX" ] && _event_cap_ok=0
-      if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
-        remaining=$((WATCHER_CHECKPOINT_DEADLINE - SECONDS))
-        [ "$remaining" -gt 0 ] || return 0
-        [ "$wait_seconds" -le "$remaining" ] || wait_seconds=$remaining
-      fi
+      wait_seconds=$(checkpoint_wait_budget "$wait_seconds")
+      [ "$wait_seconds" -gt 0 ] || return 0
       sleep "$wait_seconds"
       ;;
     *)
@@ -2972,7 +2979,7 @@ resurface_after_downtime() {
 }
 
 while :; do
-  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && [ "$SECONDS" -ge "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+  if checkpoint_deadline_passed; then
     WATCHER_QUIET_EXIT=1
     exit 75
   fi
@@ -3096,8 +3103,15 @@ while :; do
   if [ "$(age_of "$STATE/.last-check")" -ge "$CHECK_INTERVAL" ]; then
     rejected_checks=
     contribution_check_output=
+    check_sweep_deferred=0
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
+      # A bounded checkpoint starts no check past its bound; the unrun checks
+      # stay due for the next checkpoint.
+      if checkpoint_deadline_passed; then
+        check_sweep_deferred=1
+        break
+      fi
       is_pr_poll=0
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
@@ -3215,7 +3229,7 @@ EOF
       touch "$STATE/.last-check"
       wake "$reason"
     fi
-    touch "$STATE/.last-check"
+    [ "$check_sweep_deferred" -eq 1 ] || touch "$STATE/.last-check"
     if [ -n "$contribution_check_output" ]; then
       wake "$contribution_check_output"
     fi
@@ -3228,7 +3242,8 @@ EOF
   # signature for an already-pending file (last write wins below).
   pending=$(scan_signals)
   if [ -n "$pending" ]; then
-    sleep "$SIGNAL_GRACE"
+    grace=$(checkpoint_wait_budget "$SIGNAL_GRACE")
+    [ "$grace" = 0 ] || sleep "$grace"
     pending=$(printf '%s\n%s' "$pending" "$(scan_signals)")
     # The final coalesced signal set is the watcher-carried status-change
     # trigger for this home's published summary. Start it before either

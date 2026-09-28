@@ -61,7 +61,7 @@ test_outer_timeout_after_lock_acquisition_is_failure() {
   out="$home/out.txt"
   err="$home/err.txt"
   status=0
-  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
+  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_CHECK_TIMEOUT=1 \
     FM_TEST_WATCHER_POST_LOCK_DELAY=20 "$CHECKPOINT" --seconds 1 >"$out" 2>"$err" || status=$?
   expect_code 1 "$status" "post-lock outer timeout checkpoint exit"
   assert_contains "$(cat "$err")" 'watcher exceeded the quiet bound without a clean close' \
@@ -122,6 +122,56 @@ test_signal_passes_through_and_exits_zero() {
   drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh")
   assert_contains "$drained" $'\tsignal\tdemo.status\t' "signal wake was not queued durably"
   pass "checkpoint passes through a real watcher wake and leaves the queue for drain"
+}
+
+# A crew signal just before the bound must not hold the watcher in its default
+# 30-second coalescing linger past the outer backstop.
+test_signal_near_bound_closes_before_backstop() {
+  local home out err status
+  home=$(make_home signal-near-bound)
+  out="$home/out.txt"
+  err="$home/err.txt"
+  (
+    sleep 2
+    printf 'done: synthetic wake\n' > "$home/state/demo.status"
+  ) &
+  status=0
+  env -u FM_SIGNAL_GRACE FM_HOME="$home" FM_POLL=1 FM_CHECK_INTERVAL=999999 FM_CHECK_TIMEOUT=1 \
+    "$CHECKPOINT" --seconds 4 >"$out" 2>"$err" || status=$?
+  wait
+  case "$status" in
+    0) assert_contains "$(cat "$out")" 'signal:' 'the near-bound signal was not passed through' ;;
+    124) assert_absent "$home/state/.watcher-down" 'a quiet close near the bound manufactured downtime' ;;
+    *) fail "signal near the bound failed the checkpoint ($status): $(cat "$out" "$err")" ;;
+  esac
+  pass 'a signal near the checkpoint bound lingers only until the bound'
+}
+
+# A check sweep that reaches the bound defers its unrun checks instead of
+# running every check past the outer backstop.
+test_check_sweep_stops_at_bound() {
+  local home out err status i ran
+  home=$(make_home check-sweep-bound)
+  out="$home/out.txt"
+  err="$home/err.txt"
+  for i in 01 02 03 04 05 06 07 08 09 10; do
+    cat > "$home/state/slow-$i.check.sh" <<SH
+#!/usr/bin/env bash
+printf '%s\\n' "$i" >> "$home/checks-ran"
+sleep 2
+SH
+    chmod 0700 "$home/state/slow-$i.check.sh"
+    FM_HOME="$home" "$ROOT/bin/fm-check-register.sh" "slow-$i" >/dev/null \
+      || fail "could not register slow check $i"
+  done
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=1 FM_CHECK_TIMEOUT=3 \
+    "$CHECKPOINT" --seconds 3 >"$out" 2>"$err" || status=$?
+  expect_code 124 "$status" "check sweep at the bound: $(cat "$out" "$err")"
+  assert_absent "$home/state/.watcher-down" 'a check sweep at the bound manufactured downtime'
+  ran=$(wc -l < "$home/checks-ran" 2>/dev/null || echo 0)
+  [ "$ran" -ge 1 ] && [ "$ran" -lt 10 ] || fail "expected a partial sweep, ran $ran checks"
+  pass 'a check sweep stops starting checks at the checkpoint bound'
 }
 
 test_registered_check_uses_preserved_watcher_environment() {
@@ -280,6 +330,8 @@ test_consecutive_quiet_checkpoints_stay_quiet
 test_outer_timeout_after_lock_acquisition_is_failure
 test_killed_watcher_is_reclaimed_by_checkpoint
 test_signal_passes_through_and_exits_zero
+test_signal_near_bound_closes_before_backstop
+test_check_sweep_stops_at_bound
 test_registered_check_uses_preserved_watcher_environment
 test_existing_singleton_watcher_is_not_success
 test_unsettled_checkpoint_still_shows_its_wake

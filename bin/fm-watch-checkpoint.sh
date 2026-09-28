@@ -190,9 +190,10 @@ fi
 
 set +e
 # The watcher closes its own quiet boundary. The outer timeout is only a
-# failure backstop for a watcher that cannot reach that boundary.
+# failure backstop for a watcher that cannot reach that boundary, so it also
+# covers one registered check the watcher started just before the bound.
 FM_WATCH_CHECKPOINT_SECONDS=$SECONDS_ARG \
-  run_bounded "$((SECONDS_ARG + 10))" "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+  run_bounded "$((SECONDS_ARG + $(positive_or "${FM_CHECK_TIMEOUT:-}" 30) + 10))" "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
 RC=$?
 set -e
 
