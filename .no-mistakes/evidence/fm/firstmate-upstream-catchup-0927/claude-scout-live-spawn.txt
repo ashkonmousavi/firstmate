@@ -1,0 +1,18 @@
+# config/claude-permission-mode = auto, claude-worker-settings.json = valid object
+$ bin/fm-spawn.sh scout-z1 <lab>/projects/demo --scout --harness claude --model sonnet
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+spawned scout-z1 harness=claude kind=scout window=firstmate:fm-scout-z1 worktree=/home/tegris/.treehouse/demo-90cd3c/1/demo
+exit=0
+
+## state/scout-z1.meta
+window=firstmate:fm-scout-z1
+endpoint_task_id=scout-z1
+worktree=/home/tegris/.treehouse/demo-90cd3c/1/demo
+project=<lab>/projects/demo
+harness=claude
+kind=scout
+tasktmp=/tmp/fm-scout-z1
+model=sonnet
+effort=default
+busy_gen=g1790590672.1341173.2156
+spawn_gen=s1790590672.1334790.26988

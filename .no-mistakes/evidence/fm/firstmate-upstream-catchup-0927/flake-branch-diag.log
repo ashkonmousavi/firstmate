@@ -1,0 +1,26 @@
+not ok - hook write failure: the Stop hook did not finish
+--- host.log:
+1790592068	start	gen=host-231755-1790592067	primary=claude
+1790592070	pass-through	attended	main-only	signal: /tmp/fm-supervision-host.ZlxSpV/iter1/hook-turns-main-only-write-fails/state/demo.status
+1790592070	pass-through	downtime-unrestored	signal: /tmp/fm-supervision-host.ZlxSpV/iter1/hook-turns-main-only-write-fails/state/demo.status
+1790592070	start	gen=host-236862-1790592070	primary=claude
+--- hook.err:
+
+--- offer-count: 2
+--- watcher-down: announced:handling:232268.1790592068.zLJlW0
+--- epoch: epoch=1 owner_pid=231395 outcome=arming updated_at=1790592067
+linux-starttime=24992507 cmdline-hex=62617368002f746d702f666d2d7375706572766973696f6e2d686f73742e5a6c785370562f69746572312f686f6f6b2d7475726e732d6d61696e2d6f6e6c792d77726974652d6661696c732f62696e2f666d2d636c617564652d73746f702d6175746f61726d2e736800
+iter 1 FAIL
+not ok - hook write failure: the Stop hook did not finish
+--- host.log:
+1790592091	start	gen=host-254555-1790592091	primary=claude
+1790592093	pass-through	attended	main-only	signal: /tmp/fm-supervision-host.ZlxSpV/iter2/hook-turns-main-only-write-fails/state/demo.status
+1790592093	pass-through	downtime-unrestored	signal: /tmp/fm-supervision-host.ZlxSpV/iter2/hook-turns-main-only-write-fails/state/demo.status
+1790592094	start	gen=host-257284-1790592093	primary=claude
+--- hook.err:
+
+--- offer-count: 2
+--- watcher-down: announced:handling:254801.1790592092.TIjBPR
+--- epoch: epoch=1 owner_pid=254445 outcome=arming updated_at=1790592091
+linux-starttime=24995154 cmdline-hex=62617368002f746d702f666d2d7375706572766973696f6e2d686f73742e5a6c785370562f69746572322f686f6f6b2d7475726e732d6d61696e2d6f6e6c792d77726974652d6661696c732f62696e2f666d2d636c617564652d73746f702d6175746f61726d2e736800
+iter 2 FAIL

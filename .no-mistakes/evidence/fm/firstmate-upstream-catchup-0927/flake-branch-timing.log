@@ -1,0 +1,24 @@
+hook exit wait: 34s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 1 OK
+hook exit wait: 3s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 2 OK
+hook exit wait: 0s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 3 OK
+hook exit wait: 34s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 4 OK
+hook exit wait: 34s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 5 OK
+hook exit wait: 37s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 6 OK
+hook exit wait: 0s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 7 OK
+hook exit wait: 3s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+iter 8 OK

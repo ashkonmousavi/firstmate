@@ -1,0 +1,110 @@
+$ bin/fm-jev-mem-guard.sh --help
+usage: fm-jev-mem-guard.py [-h] [--warn-mem-pct WARN_MEM_PCT]
+                           [--crit-mem-pct CRIT_MEM_PCT]
+                           [--warn-swap-pct WARN_SWAP_PCT]
+                           [--crit-swap-pct CRIT_SWAP_PCT] [--json] [--check]
+
+Jev Multi-Agent Memory RSS & Swap Thrashing Guard (Pattern 46)
+
+options:
+  -h, --help            show this help message and exit
+  --warn-mem-pct WARN_MEM_PCT
+                        Warning threshold for memory utilization % (default:
+                        90.0)
+  --crit-mem-pct CRIT_MEM_PCT
+                        Critical threshold for memory utilization % (default:
+                        95.0)
+  --warn-swap-pct WARN_SWAP_PCT
+                        Warning threshold for swap utilization % (default:
+                        85.0)
+  --crit-swap-pct CRIT_SWAP_PCT
+                        Critical threshold for swap utilization % (default:
+                        95.0)
+  --json                Emit structured JSON telemetry to stdout
+  --check               Exit 0 for OK or unknown (fail-open), exit 1 for
+                        WARNING or CRITICAL
+exit=0
+
+$ bin/fm-jev-mem-guard.sh 
+fm-jev-mem-guard — 2026-09-28T10:13:02Z
+  • RAM: 44.7% used (12.98 GB available / 23.47 GB total)
+  • Swap: 79.7% used (6.38 GB used / 8.0 GB total)
+  • Status: OK
+  • Recommendation: Memory and swap utilization are within thresholds; the caller should continue unchanged.
+
+  Top 10 RSS Processes:
+    - PID 3905090 (node-MainThread): 1339.0 MB
+    - PID 674056 (claude): 808.8 MB
+    - PID 3921247 (node-MainThread): 785.3 MB
+    - PID 3228765 (claude): 446.3 MB
+    - PID 1025963 (node-MainThread): 436.4 MB
+    - PID 2955422 (openclaw-gatewa): 390.1 MB
+    - PID 1141678 (node-MainThread): 383.8 MB
+    - PID 3068994 (codex): 341.4 MB
+    - PID 1623155 (claude): 331.7 MB
+    - PID 1671344 (codex): 322.8 MB
+exit=0
+
+$ bin/fm-jev-mem-guard.sh --json
+{
+  "name": "fm-jev-mem-guard",
+  "checked_at": "2026-09-28T10:13:02Z",
+  "status": "OK",
+  "recommendation": "Memory and swap utilization are within thresholds; the caller should continue unchanged.",
+  "reason": null,
+  "summary": {
+    "mem_total_gb": 23.47,
+    "mem_available_gb": 12.98,
+    "mem_used_pct": 44.7,
+    "swap_total_gb": 8.0,
+    "swap_used_gb": 6.38,
+    "swap_used_pct": 79.7
+  },
+  "top_processes": [
+    {
+      "pid": 3905090,
+      "comm": "node-MainThread",
+      "rss_mb": 1339.0
+    },
+    {
+      "pid": 674056,
+      "comm": "claude",
+      "rss_mb": 808.8
+    },
+    {
+      "pid": 3921247,
+      "comm": "node-MainThread",
+      "rss_mb": 785.3
+    },
+    {
+      "pid": 3228765,
+      "comm": "claude",
+      "rss_mb": 446.3
+    },
+    {
+      "pid": 1025963,
+      "comm": "node-MainThread",
+      "rss_mb": 436.4
+    },
+exit=0
+
+$ bin/fm-jev-mem-guard.sh --check --warn-mem-pct 1 --crit-mem-pct 2
+fm-jev-mem-guard — 2026-09-28T10:13:02Z
+  • RAM: 44.7% used (12.98 GB available / 23.47 GB total)
+  • Swap: 79.7% used (6.38 GB used / 8.0 GB total)
+  • Status: CRITICAL
+  • Recommendation: Memory or swap utilization is at or above a critical threshold; this host condition can explain worker silence while it holds.
+
+  Top 10 RSS Processes:
+    - PID 3905090 (node-MainThread): 1339.0 MB
+    - PID 674056 (claude): 808.8 MB
+    - PID 3921247 (node-MainThread): 785.3 MB
+    - PID 3228765 (claude): 446.3 MB
+    - PID 1025963 (node-MainThread): 436.4 MB
+    - PID 2955422 (openclaw-gatewa): 390.1 MB
+    - PID 1141678 (node-MainThread): 383.8 MB
+    - PID 3068994 (codex): 341.4 MB
+    - PID 1623155 (claude): 331.7 MB
+    - PID 1671344 (codex): 322.8 MB
+exit=1
+

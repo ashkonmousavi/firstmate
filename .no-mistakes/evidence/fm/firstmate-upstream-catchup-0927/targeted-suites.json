@@ -1,0 +1,253 @@
+{
+  "families": [
+    {
+      "count": 2,
+      "duration_ms": 95938,
+      "failed": 1,
+      "name": "afk"
+    },
+    {
+      "count": 5,
+      "duration_ms": 411380,
+      "failed": 0,
+      "name": "backend-dispatch"
+    },
+    {
+      "count": 5,
+      "duration_ms": 262992,
+      "failed": 0,
+      "name": "pure-contract-unit"
+    },
+    {
+      "count": 1,
+      "duration_ms": 43176,
+      "failed": 0,
+      "name": "real-herdr-gated"
+    },
+    {
+      "count": 1,
+      "duration_ms": 285236,
+      "failed": 0,
+      "name": "session-bootstrap"
+    },
+    {
+      "count": 3,
+      "duration_ms": 56686,
+      "failed": 0,
+      "name": "standalone"
+    },
+    {
+      "count": 3,
+      "duration_ms": 6006,
+      "failed": 0,
+      "name": "unclassified"
+    },
+    {
+      "count": 1,
+      "duration_ms": 53745,
+      "failed": 0,
+      "name": "watcher-wake-lock"
+    }
+  ],
+  "finished_at": "2026-09-28T10:33:07Z",
+  "run_id": "fm-test-run-1790590406279-922089",
+  "scripts": [
+    {
+      "duration_ms": 994,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-supervision-instructions.test.sh"
+    },
+    {
+      "duration_ms": 7278,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-brief.test.sh"
+    },
+    {
+      "duration_ms": 218395,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-captain-hold-lifecycle.test.sh"
+    },
+    {
+      "duration_ms": 53745,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "watcher-wake-lock",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-watcher-lock.test.sh"
+    },
+    {
+      "duration_ms": 2651,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-prep-install.test.sh"
+    },
+    {
+      "duration_ms": 33674,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "pure-contract-unit",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-bearings-board.test.sh"
+    },
+    {
+      "duration_ms": 285236,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "session-bootstrap",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-session-start.test.sh"
+    },
+    {
+      "duration_ms": 8620,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "standalone",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-dispatch-resolve.test.sh"
+    },
+    {
+      "duration_ms": 14957,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "standalone",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-branch-supervision.test.sh"
+    },
+    {
+      "duration_ms": 33109,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "standalone",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-claude-stop-autoarm.test.sh"
+    },
+    {
+      "duration_ms": 246,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-jev-mem-guard.test.sh"
+    },
+    {
+      "duration_ms": 78461,
+      "exit": 1,
+      "expected_gate_skip": "none",
+      "family": "afk",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-supervision-host.test.sh"
+    },
+    {
+      "duration_ms": 17477,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "afk",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-afk-return.test.sh"
+    },
+    {
+      "duration_ms": 77596,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-control-relaunch.test.sh"
+    },
+    {
+      "duration_ms": 58811,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-control.test.sh"
+    },
+    {
+      "duration_ms": 207423,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-spawn-dispatch-profile.test.sh"
+    },
+    {
+      "duration_ms": 18169,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-spawn-compact-adviser-disable.test.sh"
+    },
+    {
+      "duration_ms": 49381,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "backend-dispatch",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-send-resolve-key.test.sh"
+    },
+    {
+      "duration_ms": 792,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-pending-reply-retire-notice.test.sh"
+    },
+    {
+      "duration_ms": 4968,
+      "exit": 0,
+      "expected_gate_skip": "none",
+      "family": "unclassified",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-codex-session.test.sh"
+    },
+    {
+      "duration_ms": 43176,
+      "exit": 0,
+      "expected_gate_skip": "herdr",
+      "family": "real-herdr-gated",
+      "gate_skip": false,
+      "gate_skip_reason": "",
+      "path": "tests/fm-afk-launch.test.sh"
+    }
+  ],
+  "selection": "scripts;jobs=4",
+  "started_at": "2026-09-28T10:13:26Z",
+  "summary": {
+    "duration_ms": 1181335,
+    "failed": 1,
+    "skipped_gate": 0,
+    "total": 21
+  }
+}

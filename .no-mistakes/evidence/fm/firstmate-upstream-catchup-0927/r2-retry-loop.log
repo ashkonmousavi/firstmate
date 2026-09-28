@@ -1,0 +1,11 @@
+== HEAD 4a3542e9: new retry test + original write-fails test, HOOK_RETRY_POLLS=670
+-- iter 1
+ok - host+hook: failed at-turn downtime write notifies main after the Stop hook's retry
+elapsed test_claude_stop_hook_retry_notifies_when_at_turn_downtime_write_fails: 36s
+ok - host+hook: failed at-turn downtime write notifies main despite a healthy successor
+elapsed test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails: 4s
+exit=0
+-- iter 2
+ok - host+hook: failed at-turn downtime write notifies main after the Stop hook's retry
+elapsed test_claude_stop_hook_retry_notifies_when_at_turn_downtime_write_fails: 35s
+(loop stopped early by the tester after the results above; later iterations and the r2-stop-hook-cases batch were not run)

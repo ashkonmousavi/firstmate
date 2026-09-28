@@ -1,0 +1,19 @@
+# commit 4a3542e9: real Claude primary on lab tmux socket, FM_HOME=<lab>
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3KPWBK1K6340ZCX5T29093S · /rc
+❯ This is a disposable lab home. Run bin/fm-session-start.sh, then reply with just its LOCK line, whether BOOTSTRAP was silent, and the WAKE QUEUE line. Do not start any other work.
+  Ran 1 shell command
+● Captain, here's what the session start reported:
+  - LOCK: lock acquired: harness pid 3528046
+  - BOOTSTRAP: silent. It printed "(silent - all good)".
+  - WAKE QUEUE: (no queued wakes)
+✻ Worked for 9s · done 4:25 AM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Lab home setup verification · WORKTREE:01M3KPWBK1K6340ZCX5T... · opus/medium · default · 6% · 5h8%/7d99% · $0.41
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
+## <lab>/state after the turn:
+. .. .inactive-outcome-reconcile .lock .lock-session .session-start-complete .startup-network.report .startup-network.status .startup-network.timings .trace-context-effective .wake-queue home-summary.json terminal-outcomes 
+## state/.lock pid: 3528046

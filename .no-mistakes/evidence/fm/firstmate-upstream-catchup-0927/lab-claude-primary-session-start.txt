@@ -1,0 +1,16 @@
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3KPWBK1K6340ZCX5T29093S · /rc
+❯ This is a disposable lab home. Run bin/fm-session-start.sh, then reply with just its LOCK line, whether BOOTSTRAP was silent, and the WAKE QUEUE line. Do not start any other work.
+  Ran 1 shell command
+● Captain, here are the three lines you asked for:
+  - LOCK: lock acquired: harness pid 950976
+  - BOOTSTRAP: it was silent ((silent - all good)).
+  - WAKE QUEUE: (no queued wakes)
+  I haven't started any other work.
+✻ Baked for 10s · done 3:14 AM
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Lab home session setup · WORKTREE:01M3KPWBK1K6340ZCX5T... · opus/medium · default · 6% · 5h4%/7d98% · $0.52
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents

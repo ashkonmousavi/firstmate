@@ -1,0 +1,18 @@
+$ bin/fm-control.sh scout-z1 exit   # call 1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+stopped scout-z1 harness=claude backend=tmux endpoint=firstmate:fm-scout-z1 worktree=/home/tegris/.treehouse/demo-90cd3c/1/demo
+exit=0
+$ bin/fm-control.sh scout-z1 exit   # call 2
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+already-stopped scout-z1 harness=claude backend=tmux endpoint=firstmate:fm-scout-z1 worktree=/home/tegris/.treehouse/demo-90cd3c/1/demo
+exit=0
+## pane after exit (endpoint preserved):
+window=fm-scout-z1 cmd=bash
+tegris@Pulse:~/.treehouse/demo-90cd3c/1/demo$ export COMPACT_ADVISER_DISABLE=1
+tegris@Pulse:~/.treehouse/demo-90cd3c/1/demo$ export FM_TASK_ID=scout-z1
+tegris@Pulse:~/.treehouse/demo-90cd3c/1/demo$ . '/tmp/fm-scout-z1+9c4116cf734752
+52b5d20b69cdbdc556ff788bc1949861357667d5864b42fea7/launch.s1790590711.1411782.29
+504.sh'
+Resume this session with:
+claude --resume 9e55e115-9bb8-4b16-8243-a0e9e5dfc72b
+tegris@Pulse:~/.treehouse/demo-90cd3c/1/demo$

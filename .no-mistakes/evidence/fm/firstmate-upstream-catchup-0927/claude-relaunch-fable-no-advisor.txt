@@ -1,0 +1,21 @@
+## Before relaunch (sonnet): launch-brief advisor section
+17:# Advisor tool
+18-Call your built-in Opus advisor tool at every design fork, before each commit, and before answering a validation gate or writing `needs-decision`.
+
+$ bin/fm-control.sh scout-z1 relaunch --model claude-fable-5-1 --note 'lab probe: model switch; reply READY and stop'
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+relaunched scout-z1 harness=claude from=claude model=claude-fable-5-1 effort=default backend=tmux endpoint=firstmate:fm-scout-z1 worktree=/home/tegris/.treehouse/demo-90cd3c/1/demo
+exit=0
+
+## state/scout-z1.meta model line
+model=claude-fable-5-1
+## advisor mentions in data/scout-z1/launch-brief.md after relaunch:
+0

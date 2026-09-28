@@ -1,0 +1,11 @@
+# config/claude-permission-mode = 'yolo' (invalid)
+$ bin/fm-spawn.sh scout-z1 <lab>/projects/demo --scout --harness claude
+error: config/claude-permission-mode holds 'yolo'; accepted values are: bypass (--dangerously-skip-permissions, the default when the file is absent), auto (--permission-mode auto)
+exit=1
+(no state/scout-z1.* written)
+
+# config/claude-permission-mode = auto, config/claude-worker-settings.json = '[1,2]' (not an object)
+$ bin/fm-spawn.sh scout-z1 <lab>/projects/demo --scout --harness claude
+error: config/claude-worker-settings.json must be a readable regular file holding one JSON object of Claude Code settings
+exit=1
+(no state/scout-z1.* written)

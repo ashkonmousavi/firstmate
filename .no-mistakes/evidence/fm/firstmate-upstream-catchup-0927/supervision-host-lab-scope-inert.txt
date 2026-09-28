@@ -1,0 +1,6 @@
+# Lab primary (Claude) in the gate worktree with config/supervision-host and a live scout in flight
+state/ after the primary's turn end:
+. .. .inactive-outcome-reconcile .lock .lock-session .session-start-complete .startup-network.report .startup-network.status .startup-network.timings .trace-context-effective .wake-queue home-summary.json operational-inbox scout-z3.busy-gen scout-z3.busy-state scout-z3.git-hooks scout-z3.inbox scout-z3.meta scout-z3.turn-ended terminal-outcomes 
+
+$ bin/fm-primary-scope-lib.sh fm_primary_scope_matches <gate-worktree> <lab>/state
+rc=1 (git-dir=.../worktrees/01M3KPWBK1K6340ZCX5T29093S common=.../repos/befb827bbae4.git)

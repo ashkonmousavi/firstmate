@@ -1,0 +1,3 @@
+== HEAD 4a3542e9: pre-fix wait (HOOK_RETRY_POLLS=250, the old 25s) on the new retry regression
+not ok - hook retry write failure: the Stop hook did not finish
+exit=1

@@ -1,0 +1,12 @@
+$ git log --format='%h %p %s' -1 df2e83a5
+df2e83a5 parents=a3f9be78 1b82b77a Merge upstream Firstmate through 1b82b77a
+1b82b77a ancestor-of-HEAD: yes (fix: restore primary rewakes after attended main-only closes (#5961))
+ade71339 ancestor-of-HEAD: yes (fix: silence routine no-change supervision outcomes (#5808))
+6839202a ancestor-of-HEAD: yes (feat(jev): add the guard framework contract and the memory RSS/swap th)
+e599911e ancestor-of-HEAD: yes (fix(bin): bind Codex supervision and home lock to the live primary cli)
+c9a45c02 ancestor-of-HEAD: yes (fix(bin): refuse off-table crew spawns and settle missed-reply closes )
+9a3aacc5 ancestor-of-HEAD: yes (fix(bin): let exit/relaunch stop quota-exhausted and just-exited agent)
+cdb1b34f ancestor-of-HEAD: yes (feat(skills): add agent-only journey-walk supervisor skill (#34))
+a3f9be78 ancestor-of-HEAD: yes (feat(skills): add cross-harness push skill for one bounded fleet pass )
+fork skills unchanged vs fork main e599911e:
+  journey-walk, push: identical

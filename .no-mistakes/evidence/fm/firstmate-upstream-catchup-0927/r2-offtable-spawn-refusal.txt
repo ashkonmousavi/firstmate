@@ -1,0 +1,11 @@
+# commit 4a3542e9; config/crew-dispatch.json: rules[0]=grok/grok-4/high, default=codex/gpt-5/high
+$ bin/fm-spawn.sh offtable-z1 <lab>/projects/demo --scout --harness claude --model opus --effort high
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+error: spawn refused - claude/opus/high does not match crew-dispatch rule default: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at <lab>/data/offtable-z1/dispatch-override or pass one of its profiles
+exit=1
+$ bin/fm-spawn.sh offtable-z1 <lab>/projects/demo --scout --dispatch-rule 0 --harness codex --model gpt-5 --effort low
+fm-gate-refuse: gate agent lifecycle permitted only against lab home <lab>
+error: spawn refused - codex/gpt-5/low does not match crew-dispatch rule 0: no candidate profile of that rule has this harness, model, and effort; record the captain's explicit override at <lab>/data/offtable-z1/dispatch-override or pass one of its profiles
+exit=1
+## state/ entries for offtable-z1:
+(none written)
