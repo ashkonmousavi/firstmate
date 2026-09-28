@@ -34,6 +34,15 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-herdr-tests)
 mkdir -p "$TMP_ROOT/ambient-home"
 export FM_HOME="$TMP_ROOT/ambient-home"
 export FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0
+HERDR_TEST_CODEX_CLIENT=
+cleanup_herdr_codex_client() {
+  [ -z "$HERDR_TEST_CODEX_CLIENT" ] || {
+    kill "$HERDR_TEST_CODEX_CLIENT" 2>/dev/null || true
+    wait "$HERDR_TEST_CODEX_CLIENT" 2>/dev/null || true
+  }
+  fm_test_cleanup
+}
+trap cleanup_herdr_codex_client EXIT
 
 # make_herdr_fakebin: a `herdr` stub that logs every invocation (one line,
 # unit-separated args, to $FM_HERDR_LOG) and returns the canned response for
@@ -1099,6 +1108,100 @@ test_launcher_identity_refuses_a_workspace_missing_from_the_session() {
   expect_code 1 "$status" "a launcher workspace absent from the session listing must refuse"
   assert_contains "$out" "stale parent identity" "the stale-workspace refusal did not explain itself"
   pass "fm_backend_herdr_launcher_identity: refuses when the launcher's workspace is gone from its own session"
+}
+
+test_codex_client_resolves_current_pane_instead_of_daemon_snapshot() {
+  local dir log resp fb out status client birth real_ps
+  dir="$TMP_ROOT/launcher-codex-client"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  fb=$(make_herdr_fakebin "$dir")
+  cp /bin/sleep "$dir/codex"
+  "$dir/codex" 60 & client=$!
+  HERDR_TEST_CODEX_CLIENT=$client
+  birth=$(bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_pid_birth "$2"' _ "$ROOT" "$client") || fail 'could not read Codex fixture birth'
+  real_ps=$(command -v ps)
+  cat > "$fb/ps" <<'SH'
+#!/usr/bin/env bash
+field= pid=
+for arg in "$@"; do
+  case "$arg" in comm=|args=|ppid=) field=$arg ;; esac
+done
+while [ "$#" -gt 0 ]; do
+  case "$1" in -p) pid=$2; shift 2 ;; *) shift ;; esac
+done
+if [ "$pid" = "$TEST_CODEX_CLIENT" ]; then exec "$TEST_REAL_PS" -o "$field" -p "$pid"; fi
+case "$pid:$field" in
+  900:comm=) echo codex ;;
+  900:args=) echo 'codex app-server --managed-daemon' ;;
+  900:ppid=) echo 1 ;;
+  *:comm=) echo bash ;;
+  *:args=) echo 'bash bin/fm-spawn.sh' ;;
+  *:ppid=) echo 900 ;;
+esac
+SH
+  chmod +x "$fb/ps"
+  printf '{"sessions":[{"name":"fmtest","running":true,"socket_path":"/tmp/fm-herdr-unit/fmtest.sock"}]}\n' > "$resp/1.out"
+  printf '{"result":{"panes":[{"pane_id":"w1:p1"},{"pane_id":"w7:p3"}]}}\n' > "$resp/2.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":10}]}}}\n' > "$resp/3.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":%s}]}}}\n' "$client" > "$resp/4.out"
+  printf '{"result":{"pane":{"pane_id":"w7:p3","tab_id":"w7:t3","workspace_id":"w7"}}}\n' > "$resp/5.out"
+  printf '{"result":{"tab":{"tab_id":"w7:t3","workspace_id":"w7"}}}\n' > "$resp/6.out"
+  printf '{"result":{"workspaces":[{"workspace_id":"w1"},{"workspace_id":"w7"}]}}\n' > "$resp/7.out"
+  out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wOLD:p0 HERDR_SESSION=fmtest HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/fmtest.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity fmtest || exit 1
+      printf "%s|%s" "$FM_BACKEND_HERDR_LAUNCHER_PANE_ID" "$FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID"' "$ROOT") || fail 'live Codex client pane did not resolve'
+  [ "$out" = 'w7:p3|w7' ] || fail "Codex placement chose '$out' instead of the live client pane"
+  assert_not_contains "$(cat "$log")" $'pane\x1fget\x1fwOLD:p0' 'the daemon snapshot reached the pane read'
+
+  printf '0\n' > "$resp/.count"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":11}]}}}\n' > "$resp/4.out"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wOLD:p0 HERDR_SESSION=fmtest HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/fmtest.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity fmtest' "$ROOT" 2>&1); then
+    fail "a pane list without the client was accepted: $out"
+  fi
+  assert_contains "$out" 'appears in 0 Herdr panes' 'missing-client refusal did not explain the identity gap'
+  printf '0\n' > "$resp/.count"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":%s}]}}}\n' "$client" > "$resp/3.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":%s}]}}}\n' "$client" > "$resp/4.out"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wOLD:p0 HERDR_SESSION=fmtest HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/fmtest.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity fmtest' "$ROOT" 2>&1); then
+    fail "a client found in two panes was accepted: $out"
+  fi
+  assert_contains "$out" 'appears in 2 Herdr panes' 'ambiguous-client refusal did not explain the duplicate'
+
+  # The default session's stale inherited pane id refused spawns before any
+  # publication; the verified client relocates, and a wrong birth refuses.
+  printf '0\n' > "$resp/.count"; : > "$log"
+  printf '{"sessions":[{"name":"default","running":true,"socket_path":"/tmp/fm-herdr-unit/default.sock"}]}\n' > "$resp/1.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":10}]}}}\n' > "$resp/3.out"
+  out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wJP:pVV HERDR_SESSION=default HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/default.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity default || exit 1
+      printf "%s|%s" "$FM_BACKEND_HERDR_LAUNCHER_PANE_ID" "$FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID"' "$ROOT" 2>&1) \
+    || fail "the verified client did not relocate past the stale default-session pane: $out"
+  [ "$out" = 'w7:p3|w7' ] || fail "default-session placement chose '$out' instead of the live client pane"
+  assert_not_contains "$(cat "$log")" $'pane\x1fget\x1fwJP:pVV' 'the stale default-session pane reached the pane read'
+  printf '0\n' > "$resp/.count"; : > "$log"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH=proc:1 FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wJP:pVV HERDR_SESSION=default HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/default.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity default' "$ROOT" 2>&1); then
+    fail "a wrong client birth was accepted for placement: $out"
+  fi
+  assert_contains "$out" 'not live and verified' 'the wrong client identity refusal did not name the identity'
+  [ ! -s "$log" ] || fail "a wrong client identity still queried Herdr: $(cat "$log")"
+  pass 'Herdr Codex placement: live client wins after pane move; absent, ambiguous, or wrong client refuses'
 }
 
 # --- workspace_ensure placement ---------------------------------------------
@@ -4889,6 +4992,31 @@ herdr_wrapped_composer() {  # <text> <width> <drop>
   done
 }
 
+# herdr_popup_composer_screen: a Claude Code 2.1.283-shaped screen after a
+# typed slash command, with the command popup rendered BETWEEN the composer
+# and the pane bottom. Verified live: the popup is ~19 menu rows, so the
+# composer row lands outside a 20-row tail window - a bounded tail read
+# reports the composer as empty while it holds typed text, which broke
+# fm-control exit (the typed /exit was judged unsent and cleared). The
+# composer reads capture the full visible viewport instead. The composer
+# sits inside a solid-rule pair (rule above, rule below), exactly as live
+# Claude draws it, with the menu rows below the closing rule; the rules are
+# structural edge rows, so the composer's content block ends there and the
+# menu rows never read as typed text.
+herdr_popup_composer_screen() {  # <typed-text>
+  local i typed=$1 rule
+  rule=$(printf '%0.s\xe2\x94\x80' $(seq 1 60))
+  printf ' \xe2\x95\xad\xe2\x94\x80\xe2\x94\x80 Claude Code v2.1.283 \xe2\x94\x80\xe2\x94\x80\xe2\x95\xae\n'
+  printf '  %s\n' "$rule"
+  printf '  \xe2\x9d\xaf %s\n' "$typed"
+  printf '  %s\n' "$rule"
+  printf '  %s    Exit the CLI\n' "$typed"
+  for ((i = 0; i < 21; i++)); do
+    printf '  /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
+  done
+  printf '  \xe2\x8f\xb5\xe2\x8f\xb5 bypass permissions on\n'
+}
+
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte() {
   local dir log resp fb out enter_count text
   dir="$TMP_ROOT/submit-long-exact"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -5155,6 +5283,46 @@ test_send_text_submit_refuses_marked_digest_missing_its_head() {
   [ "$enter_count" -eq 0 ] || fail "a marked digest tail must not be submitted, sent $enter_count Enter(s)"
   [ "$(herdr_ctrl_u_count "$log")" -eq 1 ] || fail "the refused marked digest tail should be cleared"
   pass "fm_backend_herdr_send_text_submit: dropping U+2063 does not let a marked digest missing its head be submitted"
+}
+
+# Claude Code 2.1.283 renders a slash-command popup between the composer and
+# the pane bottom, pushing the composer row outside a 20-row tail window. The
+# composer reads must capture the full visible viewport: the old bounded read
+# reported the composer empty, so the typed /exit was judged unsent, cleared,
+# and never submitted (fm-control exit never exited).
+test_composer_state_claude_slash_popup_pushes_composer_above_tail_window() {
+  local dir log resp fb out
+  dir="$TMP_ROOT/composer-claude-slash-popup"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  herdr_popup_composer_screen '/exit' > "$resp/1.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+  [ "$out" = pending ] || fail "a composer above a slash-command popup must read pending, got '$out'"
+  grep -F $'\x1f''pane'$'\x1f''read'$'\x1f''w1:p2'$'\x1f''--source'$'\x1f''visible' "$log" >/dev/null \
+    || fail "the composer state read must use the visible viewport"
+  [ "$(grep -c $'\x1f''--lines' "$log")" -eq 0 ] || fail "the composer state read must not be a bounded --lines tail"
+  pass "fm_backend_herdr_composer_state: a slash-command popup cannot hide a typed composer"
+}
+
+test_send_text_submit_claude_slash_popup_composer_is_still_proven_and_submitted() {
+  local dir log resp fb out enter_count text
+  dir="$TMP_ROOT/submit-claude-slash-popup"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  text='/exit'
+  herdr_submit_claude_prefix "$resp" "$text"
+  printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/5.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/7.out"
+  herdr_popup_composer_screen "$text" > "$resp/4.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+  [ "$out" = empty ] || fail "a composer proven above a slash-command popup must be submitted, got '$out'"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 1 ] || fail "the proven typed command should be submitted once, sent $enter_count Enter(s)"
+  [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a proven composer must not be cleared"
+  grep -F $'\x1f''pane'$'\x1f''read'$'\x1f''w1:p2'$'\x1f''--source'$'\x1f''visible' "$log" >/dev/null \
+    || fail "the payload proof must use the visible viewport"
+  [ "$(grep -c $'\x1f''--lines' "$log")" -eq 0 ] || fail "no composer read may be a bounded --lines tail"
+  pass "fm_backend_herdr_send_text_submit: a typed slash command hidden behind its popup is still proven and submitted"
 }
 
 test_send_text_submit_lone_paste_placeholder_submits_the_long_payload() {
@@ -5926,6 +6094,7 @@ test_launcher_identity_refuses_a_pane_from_another_server_socket
 test_launcher_identity_refuses_an_unreadable_pane
 test_launcher_identity_refuses_a_pane_and_tab_that_disagree
 test_launcher_identity_refuses_a_workspace_missing_from_the_session
+test_codex_client_resolves_current_pane_instead_of_daemon_snapshot
 test_workspace_ensure_prefers_the_launcher_over_the_first_label_match
 test_workspace_ensure_refuses_an_ambiguous_label_with_no_launcher
 test_workspace_ensure_other_home_ignores_the_launcher_identity
@@ -6092,7 +6261,8 @@ test_send_text_submit_claude_refuses_to_type_into_a_nonempty_composer
 test_send_text_submit_refuses_suffix_when_transcript_still_shows_the_head
 test_send_text_submit_accepts_marked_payloads_whose_read_back_drops_u2063
 test_send_text_submit_refuses_marked_digest_missing_its_head
-test_send_text_submit_proves_claude_slash_exit_under_its_popup
+test_composer_state_claude_slash_popup_pushes_composer_above_tail_window
+test_send_text_submit_claude_slash_popup_composer_is_still_proven_and_submitted
 test_send_text_submit_lone_paste_placeholder_submits_the_long_payload
 test_send_text_submit_multiline_paste_placeholder_submits_the_long_payload
 test_send_text_submit_refuses_placeholder_followed_by_a_literal_remainder

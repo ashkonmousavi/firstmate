@@ -15,8 +15,8 @@
 # the upward write, so the mate can handle its own poll observation.
 # No new state file and no new transport are involved.
 # The local actionable row, and a self merge's stdout, also carry a one-line
-# reminder that a confirmed merge is not yet a landed task; AGENTS.md section 7
-# owns that post-merge verification, and the parent-channel line keeps its
+# reminder that a confirmed merge is not yet a landed task; the ship-landing
+# skill owns that post-merge verification, and the parent-channel line keeps its
 # fixed shape without the reminder.
 #
 # Normal operation deduplicates the task's latest canonical PR identity through

@@ -327,6 +327,7 @@ for _teardown_source in \
   fm-cursor-lib.sh \
   fm-nm-run-lib.sh \
   fm-wake-lib.sh \
+  fm-path-lib.sh \
   fm-lease-lib.sh
 do
   teardown_require_source "$SCRIPT_DIR/$_teardown_source"
@@ -499,6 +500,9 @@ fm_backlog_record_present "$META" "task record" "$STATE" || {
 }
 TEARDOWN_META_KIND=$(fm_meta_get "$META" kind)
 [ -n "$TEARDOWN_META_KIND" ] || TEARDOWN_META_KIND=ship
+# Retiring a persistent secondmate is main's alone in both postures; the kind
+# is read under the metadata lock (role partition: bin/fm-lease-lib.sh).
+[ "$TEARDOWN_META_KIND" != secondmate ] || fm_lease_forbid_branch "secondmate retirement (fm-teardown)"
 # A secondmate's endpoint-liveness episodes (bin/fm-secondmate-liveness-lib.sh)
 # serialize on this lock; retirement holds it to the end so no probe or relaunch
 # can act on the route mid-teardown, and its relaunch ledger and park marker are
@@ -3038,10 +3042,6 @@ teardown_herdr_require_prerequisites() {  # <task-id>
       return 1
     fi
   done
-  if ! declare -F fm_lock_try_acquire >/dev/null 2>&1; then
-    # shellcheck source=bin/fm-wake-lib.sh
-    . "$SCRIPT_DIR/fm-wake-lib.sh"
-  fi
   if ! declare -F fm_lock_try_acquire >/dev/null 2>&1 \
     || ! declare -F fm_lock_release >/dev/null 2>&1; then
     echo "error: herdr teardown lock machinery is unavailable for $task_id; nothing was changed - restore the lock support and rerun teardown" >&2

@@ -176,7 +176,7 @@
 # to this process alone and never signals another watcher.
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
@@ -192,7 +192,7 @@ WATCH_HOME_EXISTED=0
 # without sourcing the entire watcher graph.
 # The shared transition owner is a canonical lint root itself. Stop duplicate
 # source-graph expansion here: following its backend graph from this large
-# runtime can exceed the bounded CI lint worker while adding no uncovered file.
+# runtime needlessly spends per-root CI lint memory while adding no uncovered file.
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/fm-push-transition-lib.sh"
 # shellcheck source=bin/fm-pr-lib.sh
@@ -211,8 +211,8 @@ WATCH_HOME_EXISTED=0
 # This library is a canonical lint root in its own right, and it reaches the
 # wake queue, PR identity, and secondmate parent libraries. Keep it an analysis
 # boundary here for the same reason as the transition and inbox owners above and
-# below: following its graph from this large runtime exceeds the bounded CI lint
-# worker while adding no uncovered file.
+# below: following its graph from this large runtime needlessly spends per-root
+# CI lint memory while adding no uncovered file.
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/fm-merge-outcome-lib.sh"
 # The durable merge-authority owner is shared with bin/fm-pr-merge.sh. The
@@ -278,6 +278,31 @@ fi
 # turn-ended signature, annotation staleness checks, and guarded bookkeeping writes.
 
 POLL=${FM_POLL:-15}                   # seconds between cycles
+WATCHER_CHECKPOINT_DEADLINE=
+if [ -n "${FM_WATCH_CHECKPOINT_SECONDS:-}" ]; then
+  case "$FM_WATCH_CHECKPOINT_SECONDS" in
+    *[!0-9]*) echo 'watcher: invalid checkpoint bound' >&2; exit 1 ;;
+  esac
+  checkpoint_seconds=$((10#$FM_WATCH_CHECKPOINT_SECONDS))
+  [ "$checkpoint_seconds" -gt 0 ] || { echo 'watcher: invalid checkpoint bound' >&2; exit 1; }
+  WATCHER_CHECKPOINT_DEADLINE=$((SECONDS + checkpoint_seconds))
+fi
+checkpoint_deadline_passed() {
+  [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && [ "$SECONDS" -ge "$WATCHER_CHECKPOINT_DEADLINE" ]
+}
+# Print <seconds> cut to what remains of a checkpoint bound; fail once it
+# passed. <seconds> may be fractional (FM_POLL, FM_SIGNAL_GRACE), so only its
+# whole part meets integer arithmetic.
+checkpoint_wait_budget() {  # <seconds>
+  local wait=$1 whole remaining
+  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+    remaining=$((WATCHER_CHECKPOINT_DEADLINE - SECONDS))
+    [ "$remaining" -gt 0 ] || return 1
+    whole=${wait%%.*}
+    [ "${whole:-0}" -lt "$remaining" ] || wait=$remaining
+  fi
+  printf '%s\n' "$wait"
+}
 # The liveness beacon is touched once per cycle, immediately before the
 # terminal wait below (event_wait_or_sleep) as well as at the top of the next
 # one, so a healthy cycle's beacon can legitimately age up to POLL seconds
@@ -306,6 +331,15 @@ esac
 SIGNAL_GRACE=${FM_SIGNAL_GRACE:-30}   # seconds to linger after a signal so trailing
                                       # signals (a status write, then the same turn's
                                       # turn-end hook) coalesce into one wake
+CLEANUP_LOCK_BOUND=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}  # seconds EXIT cleanup may
+                                      # wait on the downtime-marker lock; a live
+                                      # foreign holder must not strand a TERM'd
+                                      # watcher inside its own trap
+case "$CLEANUP_LOCK_BOUND" in
+  ''|*[!0-9]*) CLEANUP_LOCK_BOUND=2 ;;
+  *) CLEANUP_LOCK_BOUND=$((10#$CLEANUP_LOCK_BOUND)) ;;
+esac
+[ "$CLEANUP_LOCK_BOUND" -gt 0 ] || CLEANUP_LOCK_BOUND=2
 TURNEND_CHURN_ABSORB_SECS=${FM_TURNEND_CHURN_ABSORB_SECS:-900}  # longest a task's
                                       # bare turn-ends may be deferred on pane-churn
                                       # evidence alone (signal_turnend_panes_churned)
@@ -1523,7 +1557,8 @@ wedge_timer_check() {  # <window> <since-file> <triage-label> <escalation-count-
       triage_log "absorbed $label timer reset: $win"
       ;;
     *)
-      age=$(( $(date +%s) - since ))
+      fm_epoch_seconds_to age
+      age=$(( age - since ))
       if [ "$age" -ge "$STALE_ESCALATE_SECS" ]; then
         if evidence=$(wedge_wait_evidence "$task") &&
            wedge_defer_wait "$win" "$since_file" "$label" "$age" "$evidence"; then
@@ -1854,8 +1889,8 @@ busy_turn_over_age() {  # <task>
 # above, throttled by this window's own .paused-resurfaced-<key> marker. Advances
 # the stale suppressor to <hash> and flags the key paused.
 #
-# The recheck names WHICH human the declared wait is on, because that is the whole
-# point of a recheck the captain reads: an external dependency for paused:, and the
+# The recheck distinguishes the declared dependency from a captain decision:
+# the legacy external-wait wording for paused: (bin/fm-classify-lib.sh), and the
 # captain themself for a verified hold. Only the captain-held verb takes the second
 # wording; a caller that reached the bounded cadence off pause tracking alone, with
 # no declaring verb left on the log, keeps the external-wait wording it always had.
@@ -2242,7 +2277,7 @@ surface_nonterminal_stale() {  # <window> <hash>
 age_of() {  # seconds since file mtime; "due immediately" if missing
   local f=$1 m now
   m=$(stat_mtime "$f") || { echo 999999; return; }
-  now=$(date +%s)
+  fm_epoch_seconds_to now
   [ "$m" -le "$now" ] || { echo 999999; return; }
   echo $(( now - m ))
 }
@@ -2668,7 +2703,8 @@ heartbeat_scan_finds_actionable() {
 # supervision cycle: the reader is a short-lived subprocess of THIS watcher, not
 # a second watcher, so every guard/beacon/arm/turn-end mechanism is unchanged.
 event_wait_or_sleep() {
-  local w b session first_backend="" first_session="" rec rc
+  local w b session first_backend="" first_session="" rec rc wait_seconds
+  wait_seconds=$(checkpoint_wait_budget "$POLL") || return 0
   local windows=()
   while IFS= read -r w; do
     b=$(window_backend "$w")
@@ -2690,7 +2726,7 @@ event_wait_or_sleep() {
   done < <(recorded_windows)
 
   if [ "${#windows[@]}" -eq 0 ]; then
-    sleep "$POLL"
+    sleep "$wait_seconds"
     return
   fi
 
@@ -2706,11 +2742,11 @@ event_wait_or_sleep() {
     _event_cap_fails=0
   fi
   if [ "$_event_cap_ok" != 1 ]; then
-    sleep "$POLL"
+    sleep "$wait_seconds"
     return
   fi
 
-  rec=$(FM_BACKEND_EVENTS_CAPABILITY_CONFIRMED=1 fm_backend_wait_transition "$first_backend" "$first_session" "$POLL" "$STATE" "${windows[@]}")
+  rec=$(FM_BACKEND_EVENTS_CAPABILITY_CONFIRMED=1 fm_backend_wait_transition "$first_backend" "$first_session" "$wait_seconds" "$STATE" "${windows[@]}")
   rc=$?
   case "$rc" in
     0)
@@ -2723,7 +2759,8 @@ event_wait_or_sleep() {
       # pure polling for the rest of this watcher process.
       _event_cap_fails=$((_event_cap_fails + 1))
       [ "$_event_cap_fails" -ge "$EVENT_CAP_FAIL_MAX" ] && _event_cap_ok=0
-      sleep "$POLL"
+      wait_seconds=$(checkpoint_wait_budget "$wait_seconds") || return 0
+      sleep "$wait_seconds"
       ;;
     *)
       # 1: a clean full-budget wait with no actionable edge - the reader already
@@ -2778,6 +2815,15 @@ evict_stalled_holder() {
 EVICTED_PID=
 EVICTED_BEAT_AGE=
 BEAT="$STATE/.last-watcher-beat"
+# A bounded foreground checkpoint may time out immediately after this watcher
+# claims its singleton lock. Arm owner-checked recovery before the claim, then
+# replace it with the full cleanup once that code is ready. A signal in this
+# narrow interval is a real watcher loss, not a planned quiet close.
+watcher_early_cleanup() {
+  [ "$(cat "$WATCH_LOCK/pid" 2>/dev/null || true)" = "${BASHPID:-$$}" ] || return 0
+  fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" release-lock "$WATCH_LOCK" downtime
+}
+trap watcher_early_cleanup EXIT
 while ! fm_lock_try_acquire "$WATCH_LOCK"; do
   if [ -n "${FM_LOCK_HELD_PID:-}" ]; then
     if [ -e "$BEAT" ]; then
@@ -2805,6 +2851,12 @@ while ! fm_lock_try_acquire "$WATCH_LOCK"; do
   fi
   exit 0
 done
+# Test-only pause at the post-acquisition, pre-cleanup boundary. It makes a
+# timeout in this otherwise narrow interval deterministic without touching a
+# real home or depending on host load.
+if [ "${FM_TEST_SEAM:-}" = 1 ] && [ -n "${FM_TEST_WATCHER_POST_LOCK_DELAY:-}" ]; then
+  sleep "$FM_TEST_WATCHER_POST_LOCK_DELAY"
+fi
 if [ -n "$EVICTED_PID" ]; then
   echo "watcher: replaced stalled pid $EVICTED_PID (beacon ${EVICTED_BEAT_AGE}s past hard bound ${WATCHER_STALL_BOUND}s)"
 fi
@@ -2911,10 +2963,18 @@ watcher_cleanup() {
   fm_active_check_stop || cleanup_status=1
   fm_check_output_cleanup
   fm_custom_check_snapshot_cleanup
-  if [ "$owns_lock" -eq 1 ] \
-    && ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" downtime; then
-    echo "watcher: recovery state could not be persisted; retaining stale lock evidence" >&2
-    cleanup_status=1
+  if [ "$owns_lock" -eq 1 ]; then
+    if [ "${WATCHER_QUIET_EXIT:-0}" -eq 1 ] && [ "$cleanup_status" -eq 0 ]; then
+      if fm_lock_release "$WATCH_LOCK"; then
+        printf 'watcher: quiet checkpoint\n'
+      else
+        cleanup_status=1
+      fi
+    elif ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" \
+      downtime "$CLEANUP_LOCK_BOUND"; then
+      echo "watcher: recovery state could not be persisted; retaining stale lock evidence" >&2
+      cleanup_status=1
+    fi
   fi
   return "$cleanup_status"
 }
@@ -2996,6 +3056,10 @@ resurface_after_downtime() {
 }
 
 while :; do
+  if checkpoint_deadline_passed; then
+    WATCHER_QUIET_EXIT=1
+    exit 75
+  fi
   # Home-gone exit: a deleted home, state directory, or code root means this
   # watcher's world is gone (a torn-down temporary home or a discarded
   # disposable checkout). Exit with a logged reason rather than writing state
@@ -3121,8 +3185,15 @@ while :; do
       [ -e "$check_record" ] || [ -L "$check_record" ] || continue
       [ -e "$STATE/${check_record##*/.check-run-}.check.sh" ] || rm -f -- "$check_record"
     done
+    check_sweep_deferred=0
     for c in "$STATE"/*.check.sh; do
       [ -e "$c" ] || continue
+      # A bounded checkpoint starts no check past its bound; the unrun checks
+      # stay due for the next checkpoint.
+      if checkpoint_deadline_passed; then
+        check_sweep_deferred=1
+        break
+      fi
       is_pr_poll=0
       if [ "$(basename "$c")" = x-watch.check.sh ]; then
         if fmx_poll_shim_valid "$c" "$FM_HOME" "$FM_ROOT" \
@@ -3245,7 +3316,7 @@ EOF
       touch "$STATE/.last-check"
       wake "$reason"
     fi
-    touch "$STATE/.last-check"
+    [ "$check_sweep_deferred" -eq 1 ] || touch "$STATE/.last-check"
     # Each new failure episode was queued as its check ran, so a failing check
     # never stops the checks after it from running.
     [ -z "$CHECK_FAILURE_REASON" ] || wake "$CHECK_FAILURE_REASON"
@@ -3261,7 +3332,9 @@ EOF
   # signature for an already-pending file (last write wins below).
   pending=$(scan_signals)
   if [ -n "$pending" ]; then
-    sleep "$SIGNAL_GRACE"
+    if grace=$(checkpoint_wait_budget "$SIGNAL_GRACE"); then
+      sleep "$grace"
+    fi
     pending=$(printf '%s\n%s' "$pending" "$(scan_signals)")
     # The final coalesced signal set is the watcher-carried status-change
     # trigger for this home's published summary. Start it before either

@@ -30,6 +30,7 @@ install_autoarm_scripts() {
   cp "$ROOT/bin/fm-primary-scope-lib.sh" "$dir/bin/fm-primary-scope-lib.sh"
   cp "$ROOT/bin/fm-supervision-lib.sh" "$dir/bin/fm-supervision-lib.sh"
   cp "$ROOT/bin/fm-wake-lib.sh" "$dir/bin/fm-wake-lib.sh"
+  cp "$ROOT/bin/fm-path-lib.sh" "$dir/bin/fm-path-lib.sh"
   cp "$ROOT/bin/fm-session-lock-lib.sh" "$dir/bin/fm-session-lock-lib.sh"
   cp "$ROOT/bin/fm-cursor-lib.sh" "$dir/bin/fm-cursor-lib.sh"
   cp "$ROOT/bin/fm-hook-host-lib.sh" "$dir/bin/fm-hook-host-lib.sh"
@@ -909,17 +910,22 @@ test_abandoned_claim_reclaim_reaps_dead_steal_without_nesting() {
   pid=$!
   record_autoarm_owner "$dir" "$pid"
   record_autoarm_epoch "$dir" 464 "$pid" rewake
+  # Kill the holder only after its acquisition returns: the pid file already
+  # exists mid-acquire, and a kill inside the claim's pid rewrite would leave an
+  # empty pid that the mid-acquire guard rightly treats as a live acquirer.
   FM_STATE_OVERRIDE="$dir/state" bash -c '
     . "$1"
     fm_lock_try_create "$2" || exit 7
+    : > "$3"
     exec sleep 30
-  ' _ "$dir/bin/fm-wake-lib.sh" "$dir/state/.claude-autoarm.lock.steal" >/dev/null 2>&1 &
+  ' _ "$dir/bin/fm-wake-lib.sh" "$dir/state/.claude-autoarm.lock.steal" "$dir/steal-held" >/dev/null 2>&1 &
   holder=$!
   i=0
-  while [ "$i" -lt 50 ] && [ ! -s "$dir/state/.claude-autoarm.lock.steal/pid" ]; do
+  while [ "$i" -lt 1500 ] && [ ! -e "$dir/steal-held" ] && kill -0 "$holder" 2>/dev/null; do
     sleep 0.02
     i=$((i + 1))
   done
+  [ -e "$dir/steal-held" ] || fail "fixture holder never acquired the steal mutex"
   kill -KILL "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
   assert_present "$dir/state/.claude-autoarm.lock.steal" "fixture did not leave a dead-owner steal mutex"
