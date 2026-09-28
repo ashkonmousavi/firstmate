@@ -169,3 +169,84 @@ run_marker finish || fail 'the owner could not republish its marker'
 printf 'codex:%s:%s:OTHER\n' "$client2" "$birth2" > "$home/state/.codex-checkpoint-handling"
 [ "$(run_verdict 300)" = 'false no-watcher' ] || fail 'a foreign session marker suppressed the alarm'
 pass 'Codex checkpoint: only a fresh, live, session-owned gap is healthy'
+
+# A real wrapped launch: hooks and tools both run under the native binary,
+# whose parent is the node launcher the wrapper bound. Codex gives the hook no
+# binding and no CODEX_SESSION_ID, only its payload.
+sleep 90 & shim=$!
+sleep 90 & native=$!
+sleep 90 & other_shim=$!
+trap 'cleanup_clients; kill "$shim" "$native" "$other_shim" 2>/dev/null || true; wait "$shim" "$native" "$other_shim" 2>/dev/null || true; fm_test_cleanup' EXIT
+hookbin="$TMP_ROOT/hookbin"
+mkdir -p "$hookbin"
+cat > "$hookbin/ps" <<'SH'
+#!/usr/bin/env bash
+field= pid=
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o) field=$2; shift 2 ;;
+    -p) pid=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+case "$pid:$field" in
+  "$TEST_CODEX_NATIVE":comm=) echo codex ;;
+  "$TEST_CODEX_NATIVE":args=) echo '/opt/codex/vendor/x86_64-unknown-linux-musl/bin/codex --yolo' ;;
+  "$TEST_CODEX_NATIVE":ppid=) echo "$TEST_CODEX_SHIM" ;;
+  "$TEST_CODEX_SHIM":comm=|"$TEST_CODEX_OTHER_SHIM":comm=) echo node-MainThread ;;
+  "$TEST_CODEX_SHIM":args=|"$TEST_CODEX_OTHER_SHIM":args=) echo 'node /opt/node/bin/codex --yolo' ;;
+  "$TEST_CODEX_SHIM":ppid=|"$TEST_CODEX_OTHER_SHIM":ppid=) echo 1 ;;
+  1:comm=|1:args=) echo init ;;
+  1:ppid=) echo 0 ;;
+  *:comm=) echo bash ;;
+  *:args=) echo 'bash hook' ;;
+  *:ppid=) echo "$TEST_CODEX_NATIVE" ;;
+esac
+SH
+chmod +x "$hookbin/ps"
+export TEST_CODEX_SHIM="$shim" TEST_CODEX_NATIVE="$native" TEST_CODEX_OTHER_SHIM="$other_shim"
+shim_birth=$(fm_codex_pid_birth "$shim") || fail 'could not read launcher birth'
+other_birth=$(fm_codex_pid_birth "$other_shim") || fail 'could not read other launcher birth'
+
+hook_root="$TMP_ROOT/hook-root"
+hook_home="$TMP_ROOT/hook-home"
+mkdir -p "$hook_root/bin" "$hook_home/state"
+git -C "$hook_root" init -q
+: > "$hook_root/AGENTS.md"
+cp "$ROOT/bin/fm-sessionstart-run.sh" "$ROOT/bin/fm-gate-refuse-lib.sh" "$ROOT/bin/fm-primary-scope-lib.sh" \
+  "$ROOT/bin/fm-session-lock-lib.sh" "$ROOT/bin/fm-hook-host-lib.sh" "$ROOT/bin/fm-cursor-lib.sh" "$hook_root/bin/"
+cat > "$hook_root/bin/fm-session-start.sh" <<'SH'
+#!/usr/bin/env bash
+"$FM_TEST_REAL_ROOT/bin/fm-lock.sh" > "$FM_HOME/hook-lock.out" 2>&1
+SH
+chmod +x "$hook_root/bin/fm-session-start.sh"
+printf '{"session_id":"T1","hook_event_name":"SessionStart","source":"startup"}' \
+  | env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID -u FM_CODEX_CLIENT_PID -u FM_CODEX_CLIENT_BIRTH -u FM_CODEX_CLIENT_HOME \
+    PATH="$hookbin:$PATH" FM_HOME="$hook_home" FM_TEST_REAL_ROOT="$ROOT" CODEX_SESSION_ID=inherited-parent \
+    "$hook_root/bin/fm-sessionstart-run.sh" --codex-hook >/dev/null
+assert_contains "$(cat "$hook_home/hook-lock.out")" "lock acquired: harness pid $shim" \
+  "the SessionStart hook did not anchor the lock on the bound launcher: $(cat "$hook_home/hook-lock.out")"
+[ "$(cat "$hook_home/state/.lock-session")" = "codex:$shim:$shim_birth:T1" ] \
+  || fail "the hook did not bind its payload session: $(cat "$hook_home/state/.lock-session")"
+
+run_tool() {  # <session> <client-pid> <birth> <command...>
+  local session=$1 client=$2 birth=$3
+  shift 3
+  env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID \
+    PATH="$hookbin:$PATH" FM_HOME="$hook_home" CODEX_SESSION_ID="$session" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$hook_home" "$@"
+}
+out=$(run_tool T1 "$shim" "$shim_birth" "$ROOT/bin/fm-lock.sh" 2>&1) \
+  || fail "the tool shell could not confirm the lock its own hook took: $out"
+assert_contains "$out" "lock acquired: harness pid $shim" 'the tool shell did not confirm the hook-held lock'
+# shellcheck disable=SC2016 # Positional parameters expand in the child bash.
+run_tool T1 "$shim" "$shim_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home" \
+  || fail 'the tool shell could not begin a checkpoint under the hook-held lock'
+if out=$(run_tool T2 "$shim" "$shim_birth" "$ROOT/bin/fm-lock.sh" 2>&1); then
+  fail "another thread of the same client took the hook-held lock: $out"
+fi
+if out=$(run_tool T1 "$other_shim" "$other_birth" "$ROOT/bin/fm-lock.sh" 2>&1); then
+  fail "another live client took the hook-held lock: $out"
+fi
+[ "$(cat "$hook_home/state/.lock")" = "$shim" ] || fail 'a refused caller changed the hook-held lock'
+pass 'Codex hook: SessionStart and the same thread tool shell share one lock owner'

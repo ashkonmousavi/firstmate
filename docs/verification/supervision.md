@@ -12,9 +12,14 @@ The supported Codex mechanism for tool commands is the per-thread `shell_environ
 The official [advanced configuration guide](https://learn.chatgpt.com/docs/config-file/config-advanced) documents explicit variables for tool shells, and the [basic configuration guide](https://learn.chatgpt.com/docs/config-file/config-basic) documents `-c` overrides.
 The [App Server API](https://learn.chatgpt.com/docs/app-server) identifies threads separately from transport sessions, so the shared managed process is not a valid foreground-client lifetime anchor.
 Firstmate's Codex primary launcher binds the live foreground client pid, birth, home, and terminal snapshot to each thread; `CODEX_SESSION_ID` comes from that thread's tool environment.
+Codex runs hook commands without that per-thread setting.
+In a 2026-09-27 lab with `codex-cli 0.157.1`, an isolated `CODEX_HOME` and lab home, and `--dangerously-bypass-hook-trust`, the SessionStart hook ran directly under the native `codex` binary, whose parent was the wrapper's bound node launcher, with neither `CODEX_SESSION_ID` nor the `FM_CODEX_CLIENT_*` binding in its environment.
+Its payload `session_id` was byte-identical to the `CODEX_SESSION_ID` of the same thread's tool shell.
+An unbound Codex caller therefore resolves its client as that node launcher, and the tracked SessionStart hook exports its payload `session_id` as `CODEX_SESSION_ID`.
+In the same lab the tracked SessionStart hook took the lock on the launcher pid with the payload session, and the next tool shell confirmed that lock and completed a checkpoint.
 Installed `codex-cli 0.157.1` accepted a one-off `shell_environment_policy.set` override with `features list`, without starting a model turn.
 
-The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise two distinct sessions under one simulated managed daemon, two threads under one client, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
+The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise a SessionStart hook and its tool shell under one simulated launcher, two distinct sessions under one simulated managed daemon, two threads under one client, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
 The marker is cleared before each new checkpoint and published only after a successful watcher wake or quiet boundary.
 The mid-turn guard requires a fresh beacon and a live, matching Codex session lock for the handling interval; a missed checkpoint still alarms after grace.
 The Codex Stop guard does not accept the handling interval and still requires a live watcher, so `tests/fm-turnend-guard.test.sh` pins that a live, session-owned handling interval still blocks the turn end.

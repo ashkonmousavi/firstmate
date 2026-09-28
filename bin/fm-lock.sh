@@ -60,7 +60,7 @@ fi
 
 me=$(fm_session_lock_anchor_pid) || {
   if pids=$(fm_harness_ancestry_pids) && fm_codex_ancestry_pid "$pids" >/dev/null; then
-    echo "error: Codex tool command has no live foreground-client binding; launch the primary with bin/fm-codex-primary.sh" >&2
+    echo "error: cannot verify this Codex session's live foreground client and session id; launch the primary with bin/fm-codex-primary.sh" >&2
   else
     echo "error: cannot locate harness process in ancestry" >&2
   fi

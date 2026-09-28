@@ -171,8 +171,9 @@ fm_harness_pid_alive() {
 # Codex may run tool commands under a managed app-server shared by several
 # foreground clients. Its process ancestry is therefore not a session owner.
 # The primary launcher passes its own pid, birth, and home through Codex's
-# per-thread shell_environment_policy.set; a direct Codex run can use its
-# immediate Codex ancestor instead. Never accept the app-server as a client.
+# per-thread shell_environment_policy.set; a direct Codex run, and the hooks
+# Codex runs without that binding, use their Codex launcher instead. Never
+# accept the app-server as a client.
 fm_codex_pid_birth() {  # <pid>
   local pid=$1 stat_line out
   local -a fields
@@ -199,6 +200,25 @@ fm_codex_ancestry_pid() {  # [<ancestry-pids>]
   printf '%s\n' "$pid"
 }
 
+# An npm-installed Codex runs its native binary under a node launcher. That
+# launcher is the foreground client the primary wrapper binds, and both hook
+# and tool commands descend from it, so an unbound caller resolves to it too.
+fm_codex_launcher_pid() {  # <native-codex-pid>
+  local pid=$1 parent comm argv1
+  parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+  case "$parent" in ''|*[!0-9]*) printf '%s\n' "$pid"; return 0 ;; esac
+  comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+  case "$(basename -- "$comm")" in
+    node|node-MainThread)
+      read -r _ argv1 _ <<< "$(ps -o args= -p "$parent" 2>/dev/null)"
+      case "$(basename -- "${argv1:-}")" in
+        codex|codex.js) printf '%s\n' "$parent"; return 0 ;;
+      esac
+      ;;
+  esac
+  printf '%s\n' "$pid"
+}
+
 fm_codex_client_pid() {  # [<ancestry-pids>]
   local pids=${1:-} ancestor pid birth args home
   ancestor=$(fm_codex_ancestry_pid "$pids") || return 1
@@ -211,7 +231,9 @@ fm_codex_client_pid() {  # [<ancestry-pids>]
     birth=$(fm_codex_pid_birth "$pid") || return 1
     [ "$birth" = "$FM_CODEX_CLIENT_BIRTH" ] || return 1
   else
-    pid=$ancestor
+    args=$(ps -o args= -p "$ancestor" 2>/dev/null) || return 1
+    case " $args " in *' app-server '*|*' exec-server '*) return 1 ;; esac
+    pid=$(fm_codex_launcher_pid "$ancestor")
   fi
   fm_harness_pid_alive "$pid" || return 1
   args=$(ps -o args= -p "$pid" 2>/dev/null) || return 1
