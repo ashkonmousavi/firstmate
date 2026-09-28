@@ -55,6 +55,21 @@ test_consecutive_quiet_checkpoints_stay_quiet() {
   pass 'successive bounded quiet checkpoints do not manufacture downtime'
 }
 
+test_fractional_cadence_sees_signal_within_bound() {
+  local home status
+  home=$(make_home fractional-cadence)
+  (
+    sleep 1
+    printf 'done: synthetic wake\n' > "$home/state/demo.status"
+  ) &
+  status=0
+  FM_HOME="$home" FM_POLL=0.2 FM_SIGNAL_GRACE=0.2 FM_CHECK_INTERVAL=999999 \
+    "$CHECKPOINT" --seconds 4 >"$home/out.txt" 2>"$home/err.txt" || status=$?
+  expect_code 0 "$status" "fractional cadence checkpoint: $(cat "$home/out.txt" "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" "signal:" "fractional cadence checkpoint slept past a signal"
+  pass 'a fractional poll cadence keeps polling inside a checkpoint bound'
+}
+
 test_outer_timeout_after_lock_acquisition_is_failure() {
   local home out err status owner
   home=$(make_home post-lock-timeout)
@@ -333,6 +348,7 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 
 test_quiet_checkpoint_exits_124_cleanly
 test_consecutive_quiet_checkpoints_stay_quiet
+test_fractional_cadence_sees_signal_within_bound
 test_outer_timeout_after_lock_acquisition_is_failure
 test_killed_watcher_is_reclaimed_by_checkpoint
 test_signal_passes_through_and_exits_zero

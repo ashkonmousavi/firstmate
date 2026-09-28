@@ -285,13 +285,16 @@ fi
 checkpoint_deadline_passed() {
   [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] && [ "$SECONDS" -ge "$WATCHER_CHECKPOINT_DEADLINE" ]
 }
-# Print <seconds> cut to what remains of a checkpoint bound (0 once it passed).
+# Print <seconds> cut to what remains of a checkpoint bound; fail once it
+# passed. <seconds> may be fractional (FM_POLL, FM_SIGNAL_GRACE), so only its
+# whole part meets integer arithmetic.
 checkpoint_wait_budget() {  # <seconds>
-  local wait=$1 remaining
+  local wait=$1 whole remaining
   if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
     remaining=$((WATCHER_CHECKPOINT_DEADLINE - SECONDS))
-    [ "$remaining" -gt 0 ] || remaining=0
-    [ "$wait" -le "$remaining" ] || wait=$remaining
+    [ "$remaining" -gt 0 ] || return 1
+    whole=${wait%%.*}
+    [ "${whole:-0}" -lt "$remaining" ] || wait=$remaining
   fi
   printf '%s\n' "$wait"
 }
@@ -2626,8 +2629,7 @@ heartbeat_scan_finds_actionable() {
 # a second watcher, so every guard/beacon/arm/turn-end mechanism is unchanged.
 event_wait_or_sleep() {
   local w b session first_backend="" first_session="" rec rc wait_seconds
-  wait_seconds=$(checkpoint_wait_budget "$POLL")
-  [ "$wait_seconds" -gt 0 ] || return 0
+  wait_seconds=$(checkpoint_wait_budget "$POLL") || return 0
   local windows=()
   while IFS= read -r w; do
     b=$(window_backend "$w")
@@ -2682,8 +2684,7 @@ event_wait_or_sleep() {
       # pure polling for the rest of this watcher process.
       _event_cap_fails=$((_event_cap_fails + 1))
       [ "$_event_cap_fails" -ge "$EVENT_CAP_FAIL_MAX" ] && _event_cap_ok=0
-      wait_seconds=$(checkpoint_wait_budget "$wait_seconds")
-      [ "$wait_seconds" -gt 0 ] || return 0
+      wait_seconds=$(checkpoint_wait_budget "$wait_seconds") || return 0
       sleep "$wait_seconds"
       ;;
     *)
@@ -3242,8 +3243,9 @@ EOF
   # signature for an already-pending file (last write wins below).
   pending=$(scan_signals)
   if [ -n "$pending" ]; then
-    grace=$(checkpoint_wait_budget "$SIGNAL_GRACE")
-    [ "$grace" = 0 ] || sleep "$grace"
+    if grace=$(checkpoint_wait_budget "$SIGNAL_GRACE"); then
+      sleep "$grace"
+    fi
     pending=$(printf '%s\n%s' "$pending" "$(scan_signals)")
     # The final coalesced signal set is the watcher-carried status-change
     # trigger for this home's published summary. Start it before either
