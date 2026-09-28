@@ -550,7 +550,7 @@ EOF
   # 5. landed, cleanup due: finished work whose task record is still live.
   # Listing it keeps a landed task that remains live past the return from being
   # overlooked. The cleanup itself is ordinary fleet work and waits for the gate
-  # and for the post-merge verification AGENTS.md section 7 requires.
+  # and for the post-merge verification the ship-landing skill requires.
   printf 'Landed, cleanup due:\n'
   count=0
   while IFS="$(printf '\t')" read -r task url; do
