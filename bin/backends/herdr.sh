@@ -92,6 +92,8 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # same rule (fm_backend_herdr_pane_process_state).
 # shellcheck source=bin/fm-agent-process-lib.sh
 . "$FM_BACKEND_HERDR_ROOT/bin/fm-agent-process-lib.sh"
+# shellcheck source=bin/fm-session-lock-lib.sh
+. "$FM_BACKEND_HERDR_ROOT/bin/fm-session-lock-lib.sh"
 
 FM_BACKEND_HERDR_MIN_PROTOCOL=14
 # events.subscribe (the native pane.agent_status_changed push stream) and its
@@ -1754,10 +1756,23 @@ fm_backend_herdr_workspace_find() {  # <session>
 #       degrading to a label search.
 fm_backend_herdr_launcher_identity() {  # <session>
   local session=$1 pane=${HERDR_PANE_ID:-} claimed_session claimed_socket session_socket
-  local pane_out tab_out list tab workspace
+  local pane_out tab_out list tab workspace client_pid pane_ids candidate info matches=0
   FM_BACKEND_HERDR_LAUNCHER_PANE_ID=""
   FM_BACKEND_HERDR_LAUNCHER_TAB_ID=""
   FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID=""
+  if [ -n "${FM_CODEX_CLIENT_PID:-}" ]; then
+    client_pid=$(fm_codex_client_pid) || {
+      echo "error: Codex launcher client identity is not live and verified; refusing to place a Herdr worker" >&2
+      return 1
+    }
+  elif fm_codex_ancestry_pid >/dev/null; then
+    # A managed daemon without a foreground-client binding carries a pane
+    # snapshot from another lifetime. It cannot vouch for any placement.
+    client_pid=$(fm_codex_client_pid) || {
+      echo "error: Codex tool command has no live foreground-client binding; launch the primary with bin/fm-codex-primary.sh" >&2
+      return 1
+    }
+  fi
   [ -n "$pane" ] || return 2
 
   # Same-session proof, before the pane id is trusted at all: herdr pane ids
@@ -1786,6 +1801,41 @@ fm_backend_herdr_launcher_identity() {  # <session>
   if [ "$claimed_socket" != "$session_socket" ]; then
     echo "error: herdr launcher pane '$pane' belongs to the server at '$claimed_socket', not session '$session' at '$session_socket'; refusing to place a worker from a cross-session parent identity" >&2
     return 1
+  fi
+
+  if [ -n "${FM_CODEX_CLIENT_PID:-}" ]; then
+    list=$(fm_backend_herdr_cli "$session" pane list 2>/dev/null) || {
+      echo "error: could not list Herdr panes to locate Codex client pid $client_pid; refusing placement" >&2
+      return 1
+    }
+    if ! printf '%s' "$list" | jq -e '(.result.panes | type) == "array"' >/dev/null 2>&1; then
+      echo "error: Herdr pane list is malformed; refusing Codex client placement" >&2
+      return 1
+    fi
+    pane_ids=$(printf '%s' "$list" | jq -r '.result.panes[] | .pane_id // empty') || return 1
+    while IFS= read -r candidate; do
+      [ -n "$candidate" ] || continue
+      info=$(fm_backend_herdr_cli "$session" pane process-info --pane "$candidate" 2>/dev/null) || {
+        echo "error: could not inspect Herdr pane '$candidate' while locating Codex client; refusing placement" >&2
+        return 1
+      }
+      if ! printf '%s' "$info" | jq -e '(.result.process_info.foreground_processes | type) == "array"' >/dev/null 2>&1; then
+        echo "error: Herdr pane '$candidate' has no verifiable process list; refusing placement" >&2
+        return 1
+      fi
+      if printf '%s' "$info" | jq -e --argjson pid "$client_pid" '
+        [.result.process_info.foreground_processes[] | select(.pid == $pid)] | length == 1
+      ' >/dev/null 2>&1; then
+        pane=$candidate
+        matches=$((matches + 1))
+      fi
+    done <<EOF
+$pane_ids
+EOF
+    if [ "$matches" -ne 1 ]; then
+      echo "error: Codex client pid $client_pid appears in $matches Herdr panes in session '$session'; refusing to guess its workspace" >&2
+      return 1
+    fi
   fi
 
   pane_out=$(fm_backend_herdr_cli "$session" pane get "$pane" 2>/dev/null) || {

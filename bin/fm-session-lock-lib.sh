@@ -6,11 +6,10 @@
 # bin/fm-lock.sh uses it to acquire and inspect state/.lock and its
 # state/.lock-session sidecar; bin/fm-claude-stop-autoarm.sh uses it to prove a
 # Stop hook fires inside the lock-owning primary session before it may arm or
-# rewake. Two signals decide ownership, either one sufficient: the recorded pid
-# is a member of this process's contiguous harness ancestry, or the trusted
-# Claude session id below matches the id recorded beside a live lock. Neither
-# signal ever fails open: no id, no sidecar, an untrusted id, or a different
-# recorded id leaves the ancestry verdict exactly as it was.
+# rewake. Claude and the other direct harnesses use verified ancestry or a
+# trusted same-session id. Codex requires its exact live foreground client,
+# process birth, and session id, because tools may run under a shared daemon.
+# Missing or mismatched identity never grants ownership.
 # This file is sourced by scripts and has no side effects on source.
 
 # Cursor process identity is NOT expressible as a command-name pattern and is
@@ -169,6 +168,79 @@ fm_harness_pid_alive() {
   fm_harness_process_matches "$comm" "$args"
 }
 
+# Codex may run tool commands under a managed app-server shared by several
+# foreground clients. Its process ancestry is therefore not a session owner.
+# The primary launcher passes its own pid, birth, and home through Codex's
+# per-thread shell_environment_policy.set; a direct Codex run, and the hooks
+# Codex runs without that binding, use their Codex launcher instead. Never
+# accept the app-server as a client.
+fm_codex_pid_birth() {  # <pid>
+  local pid=$1 stat_line out
+  local -a fields
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  if [ -r "/proc/$pid/stat" ]; then
+    stat_line=$(cat "/proc/$pid/stat" 2>/dev/null) || return 1
+    read -r -a fields <<< "${stat_line##*)}"
+    [ "${#fields[@]}" -ge 20 ] || return 1
+    case "${fields[19]}" in ''|*[!0-9]*) return 1 ;; esac
+    printf 'proc:%s\n' "${fields[19]}"
+    return 0
+  fi
+  out=$(LC_ALL=C ps -p "$pid" -o lstart= 2>/dev/null) || return 1
+  [ -n "$out" ] || return 1
+  printf 'ps:%s\n' "${out#"${out%%[![:space:]]*}"}"
+}
+
+fm_codex_ancestry_pid() {  # [<ancestry-pids>]
+  local pids=${1:-} pid comm
+  [ -n "$pids" ] || pids=$(fm_harness_ancestry_pids) || return 1
+  pid=${pids%%$'\n'*}
+  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
+  [ "$(basename -- "$comm")" = codex ] || return 1
+  printf '%s\n' "$pid"
+}
+
+# An npm-installed Codex runs its native binary under a node launcher. That
+# launcher is the foreground client the primary wrapper binds, and both hook
+# and tool commands descend from it, so an unbound caller resolves to it too.
+fm_codex_launcher_pid() {  # <native-codex-pid>
+  local pid=$1 parent comm argv1
+  parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+  case "$parent" in ''|*[!0-9]*) printf '%s\n' "$pid"; return 0 ;; esac
+  comm=$(ps -o comm= -p "$parent" 2>/dev/null)
+  case "$(basename -- "$comm")" in
+    node|node-MainThread)
+      read -r _ argv1 _ <<< "$(ps -o args= -p "$parent" 2>/dev/null)"
+      case "$(basename -- "${argv1:-}")" in
+        codex|codex.js) printf '%s\n' "$parent"; return 0 ;;
+      esac
+      ;;
+  esac
+  printf '%s\n' "$pid"
+}
+
+fm_codex_client_pid() {  # [<ancestry-pids>]
+  local pids=${1:-} ancestor pid birth args home
+  ancestor=$(fm_codex_ancestry_pid "$pids") || return 1
+  if [ -n "${FM_CODEX_CLIENT_PID:-}${FM_CODEX_CLIENT_BIRTH:-}${FM_CODEX_CLIENT_HOME:-}" ]; then
+    pid=${FM_CODEX_CLIENT_PID:-}
+    case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+    [ -n "${FM_CODEX_CLIENT_BIRTH:-}" ] && [ -n "${FM_CODEX_CLIENT_HOME:-}" ] || return 1
+    home=$(cd -P -- "${FM_HOME:-.}" 2>/dev/null && pwd -P) || return 1
+    [ "$home" = "$FM_CODEX_CLIENT_HOME" ] || return 1
+    birth=$(fm_codex_pid_birth "$pid") || return 1
+    [ "$birth" = "$FM_CODEX_CLIENT_BIRTH" ] || return 1
+  else
+    args=$(ps -o args= -p "$ancestor" 2>/dev/null) || return 1
+    case " $args " in *' app-server '*|*' exec-server '*) return 1 ;; esac
+    pid=$(fm_codex_launcher_pid "$ancestor")
+  fi
+  fm_harness_pid_alive "$pid" || return 1
+  args=$(ps -o args= -p "$pid" 2>/dev/null) || return 1
+  case " $args " in *' app-server '*|*' exec-server '*) return 1 ;; esac
+  printf '%s\n' "$pid"
+}
+
 # --- trusted same-session identity -------------------------------------------
 # Claude Code hands every hook and tool shell CLAUDE_CODE_SESSION_ID (the
 # session's conversation id) and CLAUDE_PID (the pid of the process running the
@@ -192,29 +264,108 @@ fm_harness_pid_alive() {
 # non-goal. Two genuinely different live sessions sharing one id is not a
 # supported state (Claude refuses to resume a running session under its id).
 
-# Print the Claude session id this process may own with, or return 1. $1 is the
-# ancestry list an earlier walk already produced, so a caller that walked once
-# need not walk again.
+# Print a trusted Claude or Codex session identity, or return 1. $1 is an
+# ancestry list an earlier walk already produced.
 fm_session_lock_trusted_session_id() {  # [<ancestry-pids>]
-  local id=${CLAUDE_CODE_SESSION_ID:-} claude_pid=${CLAUDE_PID:-} pids=${1:-} pid comm args
-  [ -n "$id" ] || return 1
-  case "$id" in *$'\n'*|*$'\r'*) return 1 ;; esac
-  case "$claude_pid" in ''|*[!0-9]*) return 1 ;; esac
+  local id=${CLAUDE_CODE_SESSION_ID:-} claude_pid=${CLAUDE_PID:-} pids=${1:-} pid comm args birth
   if [ -z "$pids" ]; then
     pids=$(fm_harness_ancestry_pids) || return 1
   fi
-  while IFS= read -r pid; do
-    [ "$pid" = "$claude_pid" ] || continue
-    comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
-    args=$(ps -o args= -p "$pid" 2>/dev/null)
-    fm_harness_process_matches "$comm" "$args" || return 1
-    [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || return 1
-    printf '%s\n' "$id"
-    return 0
-  done <<EOF
+  # A Codex launched inside a Claude pane can inherit Claude's variables.
+  # An untrusted Claude claim must not prevent the Codex trust gate below.
+  if [ -n "$id" ] && [[ "$id" != *$'\n'* && "$id" != *$'\r'* ]] \
+    && [[ "$claude_pid" =~ ^[0-9]+$ ]]; then
+    while IFS= read -r pid; do
+      [ "$pid" = "$claude_pid" ] || continue
+      comm=$(ps -o comm= -p "$pid" 2>/dev/null) || break
+      args=$(ps -o args= -p "$pid" 2>/dev/null)
+      fm_harness_process_matches "$comm" "$args" || break
+      [ "$FM_HARNESS_IS_CLAUDE" -eq 1 ] || break
+      printf '%s\n' "$id"
+      return 0
+    done <<EOF
 $pids
 EOF
+  fi
+  id=${CODEX_SESSION_ID:-}
+  [ -n "$id" ] || return 1
+  case "$id" in *$'\n'*|*$'\r'*) return 1 ;; esac
+  pid=$(fm_codex_client_pid "$pids") || return 1
+  birth=$(fm_codex_pid_birth "$pid") || return 1
+  printf 'codex:%s:%s:%s\n' "$pid" "$birth" "$id"
+}
+
+# A Codex sidecar pins both the session and the foreground client's birth.
+# This makes a recycled pid stale even when its command is again `codex`.
+# A shared Codex app-server or exec-server outlives every client, so it never
+# holds a lock even when an older release recorded it on line 1.
+fm_session_lock_holder_alive() {  # <state> <pid>
+  local state=$1 pid=$2 recorded prefix birth comm
+  fm_harness_pid_alive "$pid" || return 1
+  comm=$(ps -o comm= -p "$pid" 2>/dev/null) || return 1
+  if [ "$(basename -- "$comm")" = codex ]; then
+    case " $(ps -o args= -p "$pid" 2>/dev/null) " in *' app-server '*|*' exec-server '*) return 1 ;; esac
+  fi
+  recorded=$(fm_session_lock_recorded_session_id "$state") || return 0
+  case "$recorded" in
+    codex:"$pid":*)
+      birth=$(fm_codex_pid_birth "$pid") || return 1
+      prefix="codex:$pid:$birth:"
+      case "$recorded" in "$prefix"*) return 0 ;; *) return 1 ;; esac
+      ;;
+    codex:*) return 1 ;;
+  esac
+  return 0
+}
+
+# A new conversation or thread in the same live client keeps that client's
+# ownership, and bin/fm-lock.sh then re-keys the sidecar to the new thread.
+# Another live client is never the owner.
+fm_session_lock_codex_same_client() {  # <state> <ancestry-pids>
+  local state=$1 pids=$2 lock_pid client recorded birth
+  client=$(fm_codex_client_pid "$pids") || return 1
+  lock_pid=$(cat "$state/.lock" 2>/dev/null) || return 1
+  [ "$lock_pid" = "$client" ] || return 1
+  fm_session_lock_trusted_session_id "$pids" >/dev/null || return 1
+  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
+  birth=$(fm_codex_pid_birth "$client") || return 1
+  case "$recorded" in "codex:$client:$birth:"*) return 0 ;; esac
   return 1
+}
+
+# The foreground checkpoint marks only the handling interval after a normal
+# return. Its one-line record is the exact Codex lock-session value, which pins
+# the session and live client's birth. Starting another checkpoint clears the
+# prior interval before it runs, so a failed cycle cannot inherit old proof.
+fm_codex_checkpoint_begin() {  # <state>
+  local state=$1 recorded
+  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
+  case "$recorded" in codex:*) : ;; *) return 1 ;; esac
+  fm_session_lock_owned_by_self "$state" || return 1
+  rm -f "$state/.codex-checkpoint-handling"
+}
+
+fm_codex_checkpoint_finish() {  # <state>
+  local state=$1 recorded tmp
+  fm_session_lock_owned_by_self "$state" || return 1
+  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
+  case "$recorded" in codex:*) : ;; *) return 1 ;; esac
+  tmp=$(mktemp "$state/.codex-checkpoint-handling.XXXXXX") || return 1
+  if ! { printf '%s\n' "$recorded" > "$tmp" && mv -f "$tmp" "$state/.codex-checkpoint-handling"; }; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+fm_codex_checkpoint_owns_supervision() {  # <state>
+  local state=$1 marker recorded pid
+  [ -f "$state/.codex-checkpoint-handling" ] && [ ! -L "$state/.codex-checkpoint-handling" ] || return 1
+  marker=$(cat "$state/.codex-checkpoint-handling" 2>/dev/null) || return 1
+  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
+  case "$recorded" in codex:*) : ;; *) return 1 ;; esac
+  [ "$marker" = "$recorded" ] || return 1
+  pid=$(cat "$state/.lock" 2>/dev/null) || return 1
+  fm_session_lock_holder_alive "$state" "$pid"
 }
 
 # Print the session id recorded beside the lock in state dir $1, or return 1.
@@ -251,6 +402,11 @@ fm_session_lock_same_session() {  # <state> [<ancestry-pids>]
 fm_session_lock_anchor_pid() {
   local pids
   pids=$(fm_harness_ancestry_pids) || return 1
+  if fm_codex_ancestry_pid "$pids" >/dev/null; then
+    fm_session_lock_trusted_session_id "$pids" >/dev/null || return 1
+    fm_codex_client_pid "$pids"
+    return $?
+  fi
   if fm_session_lock_trusted_session_id "$pids" >/dev/null; then
     printf '%s\n' "$CLAUDE_PID"
     return 0
@@ -258,10 +414,10 @@ fm_session_lock_anchor_pid() {
   _fm_harness_outermost_pid "$pids"
 }
 
-# True when state dir $1 holds a session lock that this process's session owns:
-# the recorded pid is ANY harness ancestor of the current process, or the lock
-# was recorded by this same trusted Claude session and its recorded pid is still
-# a live harness. Membership is the honest ancestry test, because the lock owner
+# True when state dir $1 holds a session lock that this process's session owns.
+# Codex requires the exact live client pid and birth and a trusted session id. Other
+# harnesses use ancestry membership or their trusted session id. Membership is
+# the honest ancestry test for Claude, because the lock owner
 # sits at an unknown depth in a contiguous Claude run - it is the outermost pid
 # when the hook fires inside the session's own nested worker chain, and an inner
 # pid when a harness-named daemon parents the session. The same-session path
@@ -277,6 +433,10 @@ fm_session_lock_owned_by_self() {
     ''|*[!0-9]*) return 1 ;;
   esac
   pids=$(fm_harness_ancestry_pids) || return 1
+  if fm_codex_ancestry_pid "$pids" >/dev/null; then
+    fm_session_lock_codex_same_client "$state" "$pids"
+    return $?
+  fi
   while IFS= read -r pid; do
     [ "$pid" = "$lock_pid" ] && return 0
   done <<EOF
@@ -287,8 +447,7 @@ EOF
 }
 
 # True when state dir $1 records a live verified harness outside this process's
-# contiguous harness ancestry that was not recorded by this same trusted Claude
-# session. Sets FM_SESSION_LOCK_FOREIGN_OWNER_PID for a diagnostic caller.
+# owned session. Sets FM_SESSION_LOCK_FOREIGN_OWNER_PID for a diagnostic caller.
 # Malformed, missing, dead, and ancestry-uncertain locks are not foreign-owner
 # evidence.
 # shellcheck disable=SC2034 # Output global, read by the sourcing guard caller.
@@ -301,8 +460,13 @@ fm_session_lock_foreign_owner_live() {
   case "$lock_pid" in
     ''|*[!0-9]*) return 1 ;;
   esac
-  fm_harness_pid_alive "$lock_pid" || return 1
+  fm_session_lock_holder_alive "$state" "$lock_pid" || return 1
   pids=$(fm_harness_ancestry_pids) || return 1
+  if fm_codex_ancestry_pid "$pids" >/dev/null; then
+    fm_session_lock_codex_same_client "$state" "$pids" && return 1
+    FM_SESSION_LOCK_FOREIGN_OWNER_PID=$lock_pid
+    return 0
+  fi
   while IFS= read -r pid; do
     [ "$pid" = "$lock_pid" ] && return 1
   done <<EOF
@@ -364,7 +528,7 @@ fm_session_lock_inspect() {  # <state>
       ;;
   esac
   if kill -0 "$pid" 2>/dev/null; then
-    if fm_harness_pid_alive "$pid"; then
+    if fm_session_lock_holder_alive "$state" "$pid"; then
       FM_LOCK_INSPECT_STATE=held
       FM_LOCK_INSPECT_LIVE_HARNESS=true
     else

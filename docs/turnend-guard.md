@@ -60,6 +60,8 @@ A daemon that cannot record its own identity at startup logs a warning and keeps
 The proof covers ownership only, never freshness: the guard still requires a fresh beacon, so a daemon that stops restarting its watcher still blocks once the beacon passes grace, and a home with no daemon and no watcher blocks exactly as it did before.
 That beacon check uses the poll-derived grace described below rather than the flat `FM_GUARD_GRACE` default, because the daemon starts a fresh one-shot watcher only after it finishes handling the previous wake, and that handling can legitimately outrun a fixed 300-second window under load (a slow registered check, a busy supervisor pane) with the daemon perfectly healthy throughout.
 For Codex, daemon identity never satisfies the Stop guard; the foreground checkpoint must own a live watcher with a fresh beacon, including while the away-posture record exists.
+A fresh handling interval bound to the live Codex session lock does not satisfy the Stop guard either; only the mid-turn `bin/fm-guard.sh` accepts it, so it does not warn during routine handling between checkpoints, while a turn still may not end to an idle prompt without a live watcher.
+Starting another checkpoint clears the prior handling interval, and a missed checkpoint alarms when the beacon expires.
 With `state/.afk` absent the daemon lock proves nothing and the strict watcher predicate is unchanged.
 
 `FM_STATE_OVERRIDE` wins over `FM_HOME/state`, and `FM_HOME` wins over repository-root `state/`.

@@ -893,6 +893,7 @@ cmd_ready() {
     harness=${anc#* }
     case "$harness" in
       claude|cursor) resolved_model=autoarm ;;
+      codex) resolved_model=checkpoint ;;
       pi|pi-signed|omp) resolved_model=extension ;;
       '') ;;
       unknown) ;;

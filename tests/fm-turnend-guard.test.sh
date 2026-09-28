@@ -1240,7 +1240,7 @@ EOF
 run_hook_claude() {
   local dir=$1 stop_active=$2 home
   home=$(cd "$dir" && pwd)
-  printf '{"stop_hook_active":%s,"session_id":"sess-claude-mode"}' "$stop_active" | CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" --claude 2>&1
+  printf '{"stop_hook_active":%s,"session_id":"sess-claude-mode"}' "$stop_active" | PATH="$BLIND_BIN:$PATH" CLAUDECODE=1 FM_HOME="$home" bash "$dir/bin/fm-turnend-guard.sh" --claude 2>&1
 }
 
 seed_claude_failure() {
@@ -2081,6 +2081,39 @@ test_hook_codex_away_daemon_never_proves_delivery() {
   pass "fm-turnend-guard --codex: process existence is not accepted as away notification delivery"
 }
 
+test_hook_codex_handling_interval_still_blocks_stop() {
+  local dir pid birth out status verdict
+  dir=$(make_primary_dir "$TMP_ROOT/hook-codex-handling-interval")
+  : > "$dir/state/task1.meta"
+  touch "$dir/state/.last-watcher-beat"
+  # The lock owner must look like a live Codex client to real ps.
+  mkdir -p "$TMP_ROOT/codex-client-bin"
+  cp "$(command -v sleep)" "$TMP_ROOT/codex-client-bin/codex"
+  "$TMP_ROOT/codex-client-bin/codex" 60 &
+  pid=$!
+  birth=$(bash -c '. "$1"; fm_codex_pid_birth "$2"' _ "$dir/bin/fm-session-lock-lib.sh" "$pid") || {
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    fail "could not read the simulated Codex client birth"
+  }
+  printf '%s\n' "$pid" > "$dir/state/.lock"
+  printf 'codex:%s:%s:S1\n' "$pid" "$birth" > "$dir/state/.lock-session"
+  cp "$dir/state/.lock-session" "$dir/state/.codex-checkpoint-handling"
+  # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
+  verdict=$(FM_HOME="$dir" FM_SUPERVISION_MODEL=checkpoint bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    fm_watcher_supervision_verdict "$1/state" "$1/bin/fm-watch.sh" 300 "$1" "$1"
+    printf "%s\n" "$FM_WATCHER_VERDICT_OK"
+  ' _ "$dir")
+  out=$(run_hook_codex "$dir" false); status=$?
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
+  [ "$verdict" = true ] || fail "the fixture's handling interval was not healthy for the mid-turn guard"
+  expect_code 2 "$status" "a Codex handling interval must not let the turn end without a live watcher"
+  assert_contains "$out" "TURN WOULD END BLIND" "Codex handling interval Stop did not show the block banner"
+  pass "fm-turnend-guard --codex: a session-owned handling interval still requires a live watcher at Stop"
+}
+
 test_hook_away_daemon_allows_over_dead_watcher_lock() {
   local dir pid dead out status
   dir=$(make_away_home_between_cycles "$TMP_ROOT/hook-afk-daemon-dead-watcher")
@@ -2346,6 +2379,7 @@ test_hook_claude_mode_waits_for_late_claim
 test_hook_claude_mode_secondmate_reblocks_like_primary
 test_hook_away_daemon_allows_between_watcher_cycles
 test_hook_codex_away_daemon_never_proves_delivery
+test_hook_codex_handling_interval_still_blocks_stop
 test_hook_away_daemon_allows_over_dead_watcher_lock
 test_hook_away_mode_blocks_without_any_supervisor
 test_hook_away_mode_blocks_on_dead_daemon
