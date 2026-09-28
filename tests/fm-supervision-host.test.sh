@@ -1066,6 +1066,12 @@ start_hook_session() {  # <home>
 }
 turn_end() { rm -f "$1/hook.rc"; : > "$1/stop.go"; }
 hook_exited() { [ -s "$1/hook.rc" ]; }
+# The slowest supported Stop hook here: its first host may spend its whole
+# successor-ready bound (FM_SUPERVISION_HOST_READY_TIMEOUT, default 25) before
+# the close, a first attempt that reads no close retries, and the retry's arm
+# can wait out its confirmation budget (FM_ARM_CONFIRM_TIMEOUT plus its rounding
+# second) before it reports. Ten more seconds cover a loaded runner.
+HOOK_RETRY_POLLS=$(( (${FM_SUPERVISION_HOST_READY_TIMEOUT:-25} + FM_ARM_CONFIRM_TIMEOUT + 2 + 10) * 10 ))
 
 # Main's rewoken turn drains; the caller runs the printed acknowledgement
 # (MAIN_ACK) when that turn's handling is done.
@@ -1117,27 +1123,42 @@ test_claude_stop_hook_delivers_a_close_that_turns_main_only_at_its_turn() {
   pass "host+hook: a close that turns main-only at its turn rewakes main and keeps its successor watcher"
 }
 
-# If the at-turn hand-back cannot publish downtime, the healthy successor
-# cannot turn that undelivered close into a silent Stop-hook success.
-test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails() {
-  local home real_mktemp
-  home=$(make_primary_home hook-turns-main-only-write-fails)
-  turn_main_only_at_second_offer "$home"
+# Fail the at-turn downtime publication (the close's second offer). With
+# lose-first-close, the Stop hook's first close capture fails too, so its first
+# attempt reads no close and it retries, as it does whenever the host exits
+# before streaming the first cycle's status line.
+fail_at_turn_downtime_write() {  # <home> [lose-first-close]
+  local real_mktemp lose=0
+  [ "${2:-}" != lose-first-close ] || lose=1
   real_mktemp=$(command -v mktemp)
-  cat > "$home/fakebin/mktemp" <<SH
+  cat > "$1/fakebin/mktemp" <<SH
 #!/usr/bin/env bash
 case "\$*" in
   *'/state/.watcher-down.tmp.'*)
     [ "\$(cat "\$FM_HOME/offer-count" 2>/dev/null)" != 2 ] || exit 1 ;;
+  *'/state/.claude-autoarm-output.'*)
+    if [ $lose = 1 ] && [ ! -e "\$FM_HOME/close-capture-lost" ]; then
+      : > "\$FM_HOME/close-capture-lost"
+      exit 1
+    fi ;;
 esac
 exec "$real_mktemp" "\$@"
 SH
-  chmod +x "$home/fakebin/mktemp"
+  chmod +x "$1/fakebin/mktemp"
+}
+
+# If the at-turn hand-back cannot publish downtime, the healthy successor
+# cannot turn that undelivered close into a silent Stop-hook success.
+test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails() {
+  local home
+  home=$(make_primary_home hook-turns-main-only-write-fails)
+  turn_main_only_at_second_offer "$home"
+  fail_at_turn_downtime_write "$home"
   start_hook_session "$home"
   turn_end "$home"
   wait_until 150 watcher_live "$home" || fail "hook write failure: no watcher started"
   append_status "$home" 'step one'
-  wait_until 250 hook_exited "$home" || fail "hook write failure: the Stop hook did not finish"
+  wait_until "$HOOK_RETRY_POLLS" hook_exited "$home" || fail "hook write failure: the Stop hook did not finish"
   [ "$(cat "$home/offer-count" 2>/dev/null)" -ge 2 ] || fail "fixture: the close did not turn main-only at its turn"
   assert_re 'pass-through[[:space:]]+downtime-unrestored' "$home/state/.supervision-host.log" "fixture: downtime publication did not fail"
   assert_re '^(pending|announced):handling:' "$home/state/.watcher-down" "fixture: the marker unexpectedly became downtime"
@@ -1145,6 +1166,27 @@ SH
   assert_grep 'firstmate watcher auto-arm FAILED' "$home/hook.err" "main must receive the failure notification"
   assert_re 'outcome=failed ' "$home/state/.claude-autoarm-epoch" "the failure must be committed"
   pass "host+hook: failed at-turn downtime write notifies main despite a healthy successor"
+}
+
+# The same failure when the Stop hook's first attempt reads no close: its retry
+# waits out the arm's confirmation budget and must still notify main.
+test_claude_stop_hook_retry_notifies_when_at_turn_downtime_write_fails() {
+  local home
+  home=$(make_primary_home hook-retry-write-fails)
+  turn_main_only_at_second_offer "$home"
+  fail_at_turn_downtime_write "$home" lose-first-close
+  start_hook_session "$home"
+  turn_end "$home"
+  wait_until 150 watcher_live "$home" || fail "hook retry write failure: no watcher started"
+  append_status "$home" 'step one'
+  wait_until "$HOOK_RETRY_POLLS" hook_exited "$home" || fail "hook retry write failure: the Stop hook did not finish"
+  [ -e "$home/close-capture-lost" ] || fail "fixture: the first close capture did not fail"
+  assert_re 'pass-through[[:space:]]+downtime-unrestored' "$home/state/.supervision-host.log" "fixture: downtime publication did not fail"
+  [ "$(grep -c '	start	gen=' "$home/state/.supervision-host.log")" -eq 2 ] || fail "fixture: the Stop hook did not retry with a second host"
+  expect_code 2 "$(cat "$home/hook.rc")" "the retrying Stop hook must notify main instead of dropping the close"
+  assert_grep 'firstmate watcher auto-arm FAILED - the Stop-owned automatic supervision mechanism is broken after 2 bounded attempts' "$home/hook.err" "main must receive the failure notification after the retry"
+  assert_re 'outcome=failed ' "$home/state/.claude-autoarm-epoch" "the failure must be committed"
+  pass "host+hook: failed at-turn downtime write notifies main after the Stop hook's retry"
 }
 
 # The successor a pass-through leaves closes while main's rewoken turn is still
@@ -2441,6 +2483,7 @@ test_attended_close_that_turns_main_only_before_its_turn_passes_to_main
 test_claude_stop_hook_delivers_a_main_only_pass_through
 test_claude_stop_hook_delivers_a_close_that_turns_main_only_at_its_turn
 test_claude_stop_hook_notifies_when_at_turn_downtime_write_fails
+test_claude_stop_hook_retry_notifies_when_at_turn_downtime_write_fails
 test_successor_close_during_main_turn_is_delivered_at_the_next_turn_end
 test_primary_without_a_verified_mirror_runs_away_only
 test_attended_wake_carries_the_dialog_mirror
