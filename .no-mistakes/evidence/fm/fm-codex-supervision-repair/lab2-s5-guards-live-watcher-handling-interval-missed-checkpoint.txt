@@ -1,0 +1,29 @@
+== date 2026-09-27T23:23:46-07:00 session=01a0e6aa-909e-7173-a9e6-e15ddbaec01a
+== A: Stop guard while a checkpoint watcher is live
+watch.lock -> /tmp/fm-lab.m7B8q0/state/.watch.lock.owner.hjl7fR
+stop_rc=0
+bg checkpoint rc=124 out=checkpoint: no actionable wake within 25s
+handling=codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a
+== B: handling interval after quiet return: mid-turn guard, then Stop guard
+guard_rc=0
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  TURN WOULD END BLIND - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher holds this home lock (last beat: 13s ago).
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+stop_rc=2
+== C: missed checkpoint past (shortened) grace FM_GUARD_GRACE=20; sleeping 35s
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no watcher has a fresh beacon (last beat: 46s ago, grace 20s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+guard_rc=0
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  TURN WOULD END BLIND - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher holds this home lock (last beat: 46s ago).
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+stop_rc=2

@@ -1,0 +1,2 @@
+# Lab 1 (run from gate worktree): Codex /hooks view + note
+SessionStart hook fired (codex log hook/started->completed in 21ms) but fm-sessionstart-run.sh stands down: fm_is_gate_agent(worktree)=0 (path under .no-mistakes/repos), fm_primary_scope_matches=1 (linked worktree).

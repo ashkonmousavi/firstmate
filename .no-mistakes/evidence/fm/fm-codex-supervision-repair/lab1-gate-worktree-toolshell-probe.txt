@@ -1,0 +1,36 @@
+== env
+CODEX_SESSION_ID=01a0e6a0-dc09-72a1-8bca-6fda2d83cc95
+CODEX_THREAD_ID=01a0e6a0-dc09-72a1-8bca-6fda2d83cc95
+FM_HOME=/tmp/fm-lab.Qe2mjP
+TMUX_PANE=%0
+== ancestry
+2552397 2427503 bash
+2427503 2427440 codex
+2427440 2427432 node-MainThread
+2427432    1115 tmux: server
+   1115       1 systemd
+== lock before
+. .. 
+== fm-lock
+lock acquired: harness pid 2427440
+lock_rc=0
+== checkpoint 1
+checkpoint: no actionable wake within 20s
+cp1_rc=124
+== checkpoint 2
+checkpoint: no actionable wake within 20s
+cp2_rc=124
+== state after
+total 32
+drwxrwxr-x 3 tegris tegris 4096 Sep 27 23:10 .
+drwxrwxr-x 8 tegris tegris 4096 Sep 27 23:09 ..
+-rw------- 1 tegris tegris   65 Sep 27 23:10 .codex-checkpoint-handling
+-rw------- 1 tegris tegris   25 Sep 27 23:09 .inactive-outcome-reconcile
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:09 .last-check
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:09 .last-heartbeat
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:10 .last-watcher-beat
+-rw-rw-r-- 1 tegris tegris    8 Sep 27 23:09 .lock
+-rw------- 1 tegris tegris   65 Sep 27 23:09 .lock-session
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:09 .secondmate-liveness-tick
+-rw------- 1 tegris tegris 1013 Sep 27 23:09 home-summary.json
+drwxrwxr-x 2 tegris tegris 4096 Sep 27 23:09 terminal-outcomes

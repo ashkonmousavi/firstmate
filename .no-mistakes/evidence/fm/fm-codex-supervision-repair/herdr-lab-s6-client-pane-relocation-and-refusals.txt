@@ -1,0 +1,30 @@
+# Herdr lab fm-lab-codexplace-3899293-1254: Codex client launched via bin/fm-codex-primary.sh in pane w1:p1 (workspace wsA=w1), then 'herdr pane move w1:p1 --tab w2:t1' -> pane re-keyed to w2:p2, workspace w1 closed.
+# Wrapper binding in client argv: FM_CODEX_CLIENT_PID=3911511 FM_CODEX_CLIENT_BIRTH=proc:23343502 HERDR_PANE_ID=w1:p1
+== date 2026-09-27T23:31:53-07:00
+HERDR_ENV=1
+HERDR_PANE_ID=w1:p1
+HERDR_SESSION=fm-lab-codexplace-3899293-1254
+== ancestry
+4001197 3911612 bash
+3911612 3911511 codex
+3911511 3906386 node-MainThread
+3906386 3899360 bash
+3899360 3899356 herdr
+3899356    1115 bash
+   1115       1 systemd
+== A: verified live client, stale inherited pane id
+identity_rc=0 pane=w2:p2 tab=w2:t1 workspace=w2
+== B: same tool shell without the wrapper binding (stale snapshot only)
+error: herdr launcher pane 'w1:p1' returned an ambiguous tab or workspace identity in session 'fm-lab-codexplace-3899293-1254'; refusing to place a worker without its exact parent workspace
+identity_rc=1 pane= tab= workspace=
+== C: wrong client birth (forged identity)
+error: Codex launcher client identity is not live and verified; refusing to place a Herdr worker
+identity_rc=1 pane= tab= workspace=
+== D: binding names a different live pid (this probe shell)
+error: Codex launcher client identity is not live and verified; refusing to place a Herdr worker
+identity_rc=1 pane= tab= workspace=
+== E: client exited; leftover binding from its tool env
+error: Codex launcher client identity is not live and verified; refusing to place a Herdr worker
+identity_rc=1 pane= workspace=
+herdr teardown rc=0
+[{"name":"default","default":true,"running":true},{"name":"fm-lab-afk-launch-e2e-1276315","default":false,"running":false},{"name":"fm-lab-fm-herdr-present-1472194-22004","default":false,"running":false},{"name":"fm-remote","default":false,"running":false},{"name":"probe","default":false,"running":false},{"name":"w5T","default":false,"running":false},{"name":"w6Y","default":false,"running":false}]

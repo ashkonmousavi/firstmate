@@ -1,0 +1,9 @@
+ok - Codex launcher: per-thread settings carry the live client and launch terminal
+ok - Codex lock: a client launched through the node CLI script owns its lock
+ok - Codex lock: a lock anchored on the shared daemon is reclaimed by a live client
+ok - Codex lock: an unbound daemon tool command names the launcher remedy
+ok - Codex lock: separate clients stay exclusive while one client re-keys across threads
+ok - Codex lock: a dead client releases ownership while the daemon survives
+ok - Codex checkpoint: only a fresh, live, session-owned gap is healthy
+ok - Codex hook: SessionStart and tool shells of one client share its lock across threads; another client is refused
+rc=0

@@ -1,0 +1,15 @@
+ok - quiet checkpoint exits 124 with a clean checkpoint line and no live lock
+ok - successive bounded quiet checkpoints do not manufacture downtime
+ok - an outer timeout after lock acquisition fails and preserves downtime
+ok - checkpoint reclaims a dead fixture watcher without claiming supervision
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 2296030.1790575592.X19eoj
+ok - checkpoint passes through a real watcher wake and leaves the queue for drain
+ok - a signal near the checkpoint bound lingers only until the bound
+ok - a check sweep stops starting checks at the checkpoint bound
+ok - checkpoint preserves watcher environment for registered custom checks
+ok - checkpoint rejects an existing watcher singleton as unowned
+ok - checkpoint: a surfaced wake still passes through when the checkpoint cannot settle
+ok - checkpoint: an opted-in home runs the host for the checkpoint's bound, raised while away
+ok - checkpoint: a handed-back wake passes through, and a host stand-down is a failure
+ok - checkpoint: the real host ends its park at the checkpoint bound as a quiet checkpoint
+rc=0

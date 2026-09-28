@@ -1,0 +1,49 @@
+== date 2026-09-27T23:12:59-07:00
+== env
+CODEX_SESSION_ID=01a0e6a4-9118-7760-8d2b-c25c37c277f2
+CODEX_THREAD_ID=01a0e6a4-9118-7760-8d2b-c25c37c277f2
+FM_HOME=/tmp/fm-lab.m7B8q0
+TMUX_PANE=%0
+== ancestry
+2726786 2685664 bash
+2685664 2685569 codex
+2685569 2685568 node-MainThread
+2685568    1115 tmux: server
+   1115       1 systemd
+== lock+sidecar before tool-shell fm-lock
+lock=2685569
+sidecar=codex:2685569:proc:23221554:01a0e6a4-9118-7760-8d2b-c25c37c277f2
+session-start-complete=2685569
+== fm-lock
+lock acquired: harness pid 2685569
+lock_rc=0
+lock=2685569 sidecar=codex:2685569:proc:23221554:01a0e6a4-9118-7760-8d2b-c25c37c277f2
+== checkpoint 1
+checkpoint: no actionable wake within 20s
+cp1_rc=124
+handling=codex:2685569:proc:23221554:01a0e6a4-9118-7760-8d2b-c25c37c277f2
+== checkpoint 2
+checkpoint: no actionable wake within 20s
+cp2_rc=124
+handling=codex:2685569:proc:23221554:01a0e6a4-9118-7760-8d2b-c25c37c277f2
+== state after
+total 52
+drwxrwxr-x 3 tegris tegris 4096 Sep 27 23:13 .
+drwxrwxr-x 9 tegris tegris 4096 Sep 27 23:12 ..
+-rw------- 1 tegris tegris   65 Sep 27 23:13 .codex-checkpoint-handling
+-rw------- 1 tegris tegris   25 Sep 27 23:12 .inactive-outcome-reconcile
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:13 .last-check
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:13 .last-heartbeat
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:13 .last-watcher-beat
+-rw-rw-r-- 1 tegris tegris    8 Sep 27 23:12 .lock
+-rw------- 1 tegris tegris   65 Sep 27 23:12 .lock-session
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:13 .secondmate-liveness-tick
+-rw------- 1 tegris tegris   80 Sep 27 23:12 .session-start-agents-baseline
+-rw------- 1 tegris tegris    8 Sep 27 23:12 .session-start-complete
+-rw------- 1 tegris tegris    0 Sep 27 23:12 .startup-network.report
+-rw------- 1 tegris tegris  170 Sep 27 23:12 .startup-network.status
+-rw------- 1 tegris tegris  203 Sep 27 23:12 .startup-network.timings
+-rw------- 1 tegris tegris   12 Sep 27 23:12 .trace-context-effective
+-rw-rw-r-- 1 tegris tegris    0 Sep 27 23:12 .wake-queue
+-rw------- 1 tegris tegris 1013 Sep 27 23:12 home-summary.json
+drwxrwxr-x 2 tegris tegris 4096 Sep 27 23:12 terminal-outcomes

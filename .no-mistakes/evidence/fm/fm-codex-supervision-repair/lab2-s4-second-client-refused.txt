@@ -1,0 +1,28 @@
+# second wrapped client pid=3217782 SessionStart hook digest LOCK section:
+SESSION START - /tmp/fm-lab.m7B8q0
+================================================================================
+
+LOCK
+--------------------------------------------------------------------------------
+error: another live firstmate session holds the lock (pid 2909874, session codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a); operate read-only until resolved
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  READ-ONLY SESSION - FLEET LOCK OWNERSHIP WAS NOT VERIFIED
+
+# before:
+.lock bdee7f29ac566cb3 2909874
+.lock-session 2f77ff50daa7ad16 codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a
+.codex-checkpoint-handling 2f77ff50daa7ad16 codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a
+# tool-shell probe:
+== date 2026-09-27T23:22:07-07:00
+CODEX_SESSION_ID=01a0e6ac-711f-7922-ac16-2e2b04d9e26b
+FM_CODEX_CLIENT_PID=3217782
+== fm-lock
+error: another live firstmate session holds the lock (pid 2909874, session codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a); operate read-only until resolved
+lock_rc=1
+== checkpoint
+checkpoint: Codex session does not own this home lock
+cp_rc=1
+# after:
+.lock bdee7f29ac566cb3 2909874
+.lock-session 2f77ff50daa7ad16 codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a
+.codex-checkpoint-handling 2f77ff50daa7ad16 codex:2909874:proc:23251023:01a0e6aa-909e-7173-a9e6-e15ddbaec01a

@@ -1,0 +1,18 @@
+• Captain, the watcher is still active with no new wake.
+• Failed (exit 137) bin/fm-watch-checkpoint.sh --seconds 180
+  └ bin/fm-watch-checkpoint.sh: line 139: 3699756 Killed                  timeout "$@"
+• Captain, the watcher was killed with exit code 137. I’ll check the failure and restore supervision.
+• Explored
+  └ Read fm-watch-checkpoint.sh
+    + Show details
+• Ran bin/fm-wake-drain.sh
+  └ ●  This is a supervision warning only; the guarded operation WILL still run.
+    ●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+    ●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    + Show details
+• Ran bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 3816853.1790576968.RMoRx4
+  └ (no output)
+◦ Working (6m 41s • esc to interrupt) · 1 background terminal running · /ps to view · /stop to close
+› Ask Codex to do anything
+  GPT-6-Astra default · /tmp/fm-lab.m7B8q0/root · Run lab probe
+  ? for shortcuts                                                                                                                                                              ⚠ 1 warning · f2 to view
