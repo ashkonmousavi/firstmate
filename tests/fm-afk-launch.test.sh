@@ -1124,6 +1124,12 @@ unit_supervision_host_quiet_fallback() {
   for bad in opencode omp grok codex; do
     unready "no verified dialog mirror for $bad" "$bad"
   done
+  quiet_expect 1 'Codex runs no quiet daemon, so quiet mode is unavailable here and /afk is the away posture' "codex: quiet-check must say quiet mode is unavailable"
+  out=$(FM_TEST_HARNESS=codex quiet_in "$st" env FM_AFK_MODE=quiet "$LAUNCH" enter --words "stay quiet"); rc=$?
+  [ "$rc" -eq 1 ] && [ ! -e "$st/state/.afk-contract" ] && [ ! -e "$st/state/.afk" ] \
+    || fail "codex: a quiet enter after quiet-check exits 1 must refuse and write nothing (rc=$rc): $out"
+  unready 'no verified dialog mirror for grok' grok
+  quiet_expect 1 'quiet mode enters through the quiet daemon instead' "grok: quiet-check must send quiet mode to the daemon"
   printf '999999999\n' > "$st/state/.lock"
   unready 'the main session could not be identified'
   printf '%s\n' "$$" > "$st/state/.lock"

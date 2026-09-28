@@ -45,7 +45,9 @@ exits it.
    this harness uses without the host; `start` and `start-native` take quiet
    mode from the record `enter` wrote.
    On Codex, exit 1 from `quiet-check` cannot enter quiet mode because Codex
-   runs no daemon; `enter` refuses before writing a record.
+   runs no daemon: `enter` under `FM_AFK_MODE=quiet` exits non-zero there and
+   writes no away-posture record; tell the captain quiet mode is unavailable
+   on Codex and that `/afk` is the away posture there, and stop.
    Leaving `FM_AFK_MODE` unset on a bare refresh of an already-running quiet
    daemon is also correct and does nothing wrong: `fm_afk_flag_write`
    preserves the on-disk mode when no explicit mode is given, so a plain
