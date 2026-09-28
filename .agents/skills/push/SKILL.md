@@ -17,9 +17,10 @@ Finish the pass with a short account of what changed and what genuinely needs th
 
 Confirm this home has completed the session-start digest and holds its required lock before any fleet mutation, as `AGENTS.md` section 3 requires.
 Start by draining the durable wake queue, unless the session-start digest already presented it, as `AGENTS.md` section 8 requires.
-Use `bin/fm-bearings-snapshot.sh --json` for a fresh fleet view, including registered projects, routed secondmate outcomes, queued work, and current decisions.
+Use `bin/fm-bearings-snapshot.sh --json --all-in-flight --all-decisions --all-secondmates --all-queued` for a fresh, uncapped fleet view, including registered projects, routed secondmate outcomes, queued work, and current decisions.
+If its `omitted[]` still names an actionable surface, rerun with that entry's reveal flag so no lane is skipped.
 Handle and acknowledge every presented wake under the emitted supervision protocol and `AGENTS.md` section 8.
-Use current-state readers before acting on an old status event, and refresh the snapshot as needed after material changes.
+Use current-state readers before acting on an old status event, and refresh the snapshot with the same flags as needed after material changes.
 Read current project registry, delivery posture, captain preferences, and task records where an action depends on them; do not infer today's projects or priorities from this skill or memory.
 
 ## Advance once
