@@ -1765,7 +1765,6 @@ fm_backend_herdr_launcher_identity() {  # <session>
       echo "error: Codex launcher client identity is not live and verified; refusing to place a Herdr worker" >&2
       return 1
     }
-    [ -n "$pane" ] || return 2
   elif fm_codex_ancestry_pid >/dev/null; then
     # A managed daemon without a foreground-client binding carries a pane
     # snapshot from another lifetime. It cannot vouch for any placement.

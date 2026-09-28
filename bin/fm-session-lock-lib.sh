@@ -318,14 +318,19 @@ fm_session_lock_holder_alive() {  # <state> <pid>
   return 0
 }
 
+# A new conversation or thread in the same live client keeps that client's
+# ownership, and bin/fm-lock.sh then re-keys the sidecar to the new thread.
+# Another live client is never the owner.
 fm_session_lock_codex_same_client() {  # <state> <ancestry-pids>
-  local state=$1 pids=$2 lock_pid client recorded trusted
+  local state=$1 pids=$2 lock_pid client recorded birth
   client=$(fm_codex_client_pid "$pids") || return 1
   lock_pid=$(cat "$state/.lock" 2>/dev/null) || return 1
   [ "$lock_pid" = "$client" ] || return 1
+  fm_session_lock_trusted_session_id "$pids" >/dev/null || return 1
   recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
-  trusted=$(fm_session_lock_trusted_session_id "$pids") || return 1
-  [ "$recorded" = "$trusted" ]
+  birth=$(fm_codex_pid_birth "$client") || return 1
+  case "$recorded" in "codex:$client:$birth:"*) return 0 ;; esac
+  return 1
 }
 
 # The foreground checkpoint marks only the handling interval after a normal
@@ -410,7 +415,7 @@ fm_session_lock_anchor_pid() {
 }
 
 # True when state dir $1 holds a session lock that this process's session owns.
-# Codex requires an exact live client pid, birth, and session id match. Other
+# Codex requires the exact live client pid and birth and a trusted session id. Other
 # harnesses use ancestry membership or their trusted session id. Membership is
 # the honest ancestry test for Claude, because the lock owner
 # sits at an unknown depth in a contiguous Claude run - it is the outermost pid

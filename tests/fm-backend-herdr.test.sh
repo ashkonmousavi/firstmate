@@ -1176,7 +1176,32 @@ SH
     fail "a client found in two panes was accepted: $out"
   fi
   assert_contains "$out" 'appears in 2 Herdr panes' 'ambiguous-client refusal did not explain the duplicate'
-  pass 'Herdr Codex placement: live client wins after pane move; absent or ambiguous client refuses'
+
+  # The default session's stale inherited pane id refused spawns before any
+  # publication; the verified client relocates, and a wrong birth refuses.
+  printf '0\n' > "$resp/.count"; : > "$log"
+  printf '{"sessions":[{"name":"default","running":true,"socket_path":"/tmp/fm-herdr-unit/default.sock"}]}\n' > "$resp/1.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":10}]}}}\n' > "$resp/3.out"
+  out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wJP:pVV HERDR_SESSION=default HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/default.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity default || exit 1
+      printf "%s|%s" "$FM_BACKEND_HERDR_LAUNCHER_PANE_ID" "$FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID"' "$ROOT" 2>&1) \
+    || fail "the verified client did not relocate past the stale default-session pane: $out"
+  [ "$out" = 'w7:p3|w7' ] || fail "default-session placement chose '$out' instead of the live client pane"
+  assert_not_contains "$(cat "$log")" $'pane\x1fget\x1fwJP:pVV' 'the stale default-session pane reached the pane read'
+  printf '0\n' > "$resp/.count"; : > "$log"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH=proc:1 FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wJP:pVV HERDR_SESSION=default HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/default.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity default' "$ROOT" 2>&1); then
+    fail "a wrong client birth was accepted for placement: $out"
+  fi
+  assert_contains "$out" 'not live and verified' 'the wrong client identity refusal did not name the identity'
+  [ ! -s "$log" ] || fail "a wrong client identity still queried Herdr: $(cat "$log")"
+  pass 'Herdr Codex placement: live client wins after pane move; absent, ambiguous, or wrong client refuses'
 }
 
 # --- workspace_ensure placement ---------------------------------------------

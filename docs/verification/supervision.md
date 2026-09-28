@@ -17,9 +17,13 @@ In a 2026-09-27 lab with `codex-cli 0.157.1`, an isolated `CODEX_HOME` and lab h
 Its payload `session_id` was byte-identical to the `CODEX_SESSION_ID` of the same thread's tool shell.
 An unbound Codex caller therefore resolves its client as that node launcher, and the tracked SessionStart hook exports its payload `session_id` as `CODEX_SESSION_ID`.
 In the same lab the tracked SessionStart hook took the lock on the launcher pid with the payload session, and the next tool shell confirmed that lock and completed a checkpoint.
+A new conversation or thread in the same live client keeps that client's ownership and re-keys the sidecar; a separate live client stays excluded.
+A second isolated lab on the same day confirmed this live: after `/new`, the new thread's SessionStart hook re-keyed the sidecar, and its tool shell acquired the lock and republished the handling marker.
+A second wrapped client in the same home was refused by `bin/fm-lock.sh` and by the checkpoint, with the lock, sidecar, and marker unchanged.
+With a registered custom check needing supervision, the Stop guard passed with the checkpoint's watcher live and blocked in the handling interval, and after a missed checkpoint past grace the mid-turn guard alarmed while the Stop guard still blocked.
 Installed `codex-cli 0.157.1` accepted a one-off `shell_environment_policy.set` override with `features list`, without starting a model turn.
 
-The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise a SessionStart hook and its tool shell under one simulated launcher, two distinct sessions under one simulated managed daemon, two threads under one client, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
+The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise a SessionStart hook and its tool shell under one simulated launcher, two distinct clients under one simulated managed daemon, a new thread in the same live client re-keying its lock, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
 The marker is cleared before each new checkpoint and published only after a successful watcher wake or quiet boundary.
 The mid-turn guard requires a fresh beacon and a live, matching Codex session lock for the handling interval; a missed checkpoint still alarms after grace.
 The Codex Stop guard does not accept the handling interval and still requires a live watcher, so `tests/fm-turnend-guard.test.sh` pins that a live, session-owned handling interval still blocks the turn end.
