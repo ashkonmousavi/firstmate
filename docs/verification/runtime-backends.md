@@ -6,6 +6,15 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Codex launcher placement in a named Herdr lab, 2026-09-27
+
+Herdr 0.7.3 exposed a pane's terminal id through `pane get` and its foreground process ids through `pane process-info`.
+In an isolated non-default Herdr session, a foreground fixture named `codex` began in one workspace while its tool environment claimed an older pane id.
+After the fixture pane moved to another workspace, the adapter located its live process id and selected the new workspace.
+After that fixture exited, the adapter refused placement because the client was no longer live.
+The lab helper tore down its named session and verified the default session's fleet state remained unchanged.
+This proves the Herdr identity lookup with a live process-shaped fixture; it does not prove that the running primary's current Codex TUI has adopted the new launcher.
+
 ## Harness detection precedence
 
 Firstmate's own harness comes from two kinds of evidence, and `bin/fm-harness.sh` owns how they combine: an environment marker names its harness, and the nearest harness process in the parent chain proves who owns the process tree.

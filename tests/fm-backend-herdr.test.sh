@@ -34,6 +34,15 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-herdr-tests)
 mkdir -p "$TMP_ROOT/ambient-home"
 export FM_HOME="$TMP_ROOT/ambient-home"
 export FM_BACKEND_HERDR_SUBMIT_MIN_SLEEP=0
+HERDR_TEST_CODEX_CLIENT=
+cleanup_herdr_codex_client() {
+  [ -z "$HERDR_TEST_CODEX_CLIENT" ] || {
+    kill "$HERDR_TEST_CODEX_CLIENT" 2>/dev/null || true
+    wait "$HERDR_TEST_CODEX_CLIENT" 2>/dev/null || true
+  }
+  fm_test_cleanup
+}
+trap cleanup_herdr_codex_client EXIT
 
 # make_herdr_fakebin: a `herdr` stub that logs every invocation (one line,
 # unit-separated args, to $FM_HERDR_LOG) and returns the canned response for
@@ -1099,6 +1108,100 @@ test_launcher_identity_refuses_a_workspace_missing_from_the_session() {
   expect_code 1 "$status" "a launcher workspace absent from the session listing must refuse"
   assert_contains "$out" "stale parent identity" "the stale-workspace refusal did not explain itself"
   pass "fm_backend_herdr_launcher_identity: refuses when the launcher's workspace is gone from its own session"
+}
+
+test_codex_client_resolves_current_pane_instead_of_daemon_snapshot() {
+  local dir log resp fb out status client birth real_ps
+  dir="$TMP_ROOT/launcher-codex-client"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  fb=$(make_herdr_fakebin "$dir")
+  cp /bin/sleep "$dir/codex"
+  "$dir/codex" 60 & client=$!
+  HERDR_TEST_CODEX_CLIENT=$client
+  birth=$(bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_pid_birth "$2"' _ "$ROOT" "$client") || fail 'could not read Codex fixture birth'
+  real_ps=$(command -v ps)
+  cat > "$fb/ps" <<'SH'
+#!/usr/bin/env bash
+field= pid=
+for arg in "$@"; do
+  case "$arg" in comm=|args=|ppid=) field=$arg ;; esac
+done
+while [ "$#" -gt 0 ]; do
+  case "$1" in -p) pid=$2; shift 2 ;; *) shift ;; esac
+done
+if [ "$pid" = "$TEST_CODEX_CLIENT" ]; then exec "$TEST_REAL_PS" -o "$field" -p "$pid"; fi
+case "$pid:$field" in
+  900:comm=) echo codex ;;
+  900:args=) echo 'codex app-server --managed-daemon' ;;
+  900:ppid=) echo 1 ;;
+  *:comm=) echo bash ;;
+  *:args=) echo 'bash bin/fm-spawn.sh' ;;
+  *:ppid=) echo 900 ;;
+esac
+SH
+  chmod +x "$fb/ps"
+  printf '{"sessions":[{"name":"fmtest","running":true,"socket_path":"/tmp/fm-herdr-unit/fmtest.sock"}]}\n' > "$resp/1.out"
+  printf '{"result":{"panes":[{"pane_id":"w1:p1"},{"pane_id":"w7:p3"}]}}\n' > "$resp/2.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":10}]}}}\n' > "$resp/3.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":%s}]}}}\n' "$client" > "$resp/4.out"
+  printf '{"result":{"pane":{"pane_id":"w7:p3","tab_id":"w7:t3","workspace_id":"w7"}}}\n' > "$resp/5.out"
+  printf '{"result":{"tab":{"tab_id":"w7:t3","workspace_id":"w7"}}}\n' > "$resp/6.out"
+  printf '{"result":{"workspaces":[{"workspace_id":"w1"},{"workspace_id":"w7"}]}}\n' > "$resp/7.out"
+  out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wOLD:p0 HERDR_SESSION=fmtest HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/fmtest.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity fmtest || exit 1
+      printf "%s|%s" "$FM_BACKEND_HERDR_LAUNCHER_PANE_ID" "$FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID"' "$ROOT") || fail 'live Codex client pane did not resolve'
+  [ "$out" = 'w7:p3|w7' ] || fail "Codex placement chose '$out' instead of the live client pane"
+  assert_not_contains "$(cat "$log")" $'pane\x1fget\x1fwOLD:p0' 'the daemon snapshot reached the pane read'
+
+  printf '0\n' > "$resp/.count"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":11}]}}}\n' > "$resp/4.out"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wOLD:p0 HERDR_SESSION=fmtest HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/fmtest.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity fmtest' "$ROOT" 2>&1); then
+    fail "a pane list without the client was accepted: $out"
+  fi
+  assert_contains "$out" 'appears in 0 Herdr panes' 'missing-client refusal did not explain the identity gap'
+  printf '0\n' > "$resp/.count"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":%s}]}}}\n' "$client" > "$resp/3.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":%s}]}}}\n' "$client" > "$resp/4.out"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wOLD:p0 HERDR_SESSION=fmtest HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/fmtest.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity fmtest' "$ROOT" 2>&1); then
+    fail "a client found in two panes was accepted: $out"
+  fi
+  assert_contains "$out" 'appears in 2 Herdr panes' 'ambiguous-client refusal did not explain the duplicate'
+
+  # The default session's stale inherited pane id refused spawns before any
+  # publication; the verified client relocates, and a wrong birth refuses.
+  printf '0\n' > "$resp/.count"; : > "$log"
+  printf '{"sessions":[{"name":"default","running":true,"socket_path":"/tmp/fm-herdr-unit/default.sock"}]}\n' > "$resp/1.out"
+  printf '{"result":{"process_info":{"foreground_processes":[{"pid":10}]}}}\n' > "$resp/3.out"
+  out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH="$birth" FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wJP:pVV HERDR_SESSION=default HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/default.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity default || exit 1
+      printf "%s|%s" "$FM_BACKEND_HERDR_LAUNCHER_PANE_ID" "$FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID"' "$ROOT" 2>&1) \
+    || fail "the verified client did not relocate past the stale default-session pane: $out"
+  [ "$out" = 'w7:p3|w7' ] || fail "default-session placement chose '$out' instead of the live client pane"
+  assert_not_contains "$(cat "$log")" $'pane\x1fget\x1fwJP:pVV' 'the stale default-session pane reached the pane read'
+  printf '0\n' > "$resp/.count"; : > "$log"
+  if out=$(PATH="$fb:$PATH" TEST_CODEX_CLIENT="$client" TEST_REAL_PS="$real_ps" \
+    FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    FM_CODEX_CLIENT_PID="$client" FM_CODEX_CLIENT_BIRTH=proc:1 FM_CODEX_CLIENT_HOME="$FM_HOME" \
+    HERDR_ENV=1 HERDR_PANE_ID=wJP:pVV HERDR_SESSION=default HERDR_SOCKET_PATH=/tmp/fm-herdr-unit/default.sock \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_launcher_identity default' "$ROOT" 2>&1); then
+    fail "a wrong client birth was accepted for placement: $out"
+  fi
+  assert_contains "$out" 'not live and verified' 'the wrong client identity refusal did not name the identity'
+  [ ! -s "$log" ] || fail "a wrong client identity still queried Herdr: $(cat "$log")"
+  pass 'Herdr Codex placement: live client wins after pane move; absent, ambiguous, or wrong client refuses'
 }
 
 # --- workspace_ensure placement ---------------------------------------------
@@ -5991,6 +6094,7 @@ test_launcher_identity_refuses_a_pane_from_another_server_socket
 test_launcher_identity_refuses_an_unreadable_pane
 test_launcher_identity_refuses_a_pane_and_tab_that_disagree
 test_launcher_identity_refuses_a_workspace_missing_from_the_session
+test_codex_client_resolves_current_pane_instead_of_daemon_snapshot
 test_workspace_ensure_prefers_the_launcher_over_the_first_label_match
 test_workspace_ensure_refuses_an_ambiguous_label_with_no_launcher
 test_workspace_ensure_other_home_ignores_the_launcher_identity

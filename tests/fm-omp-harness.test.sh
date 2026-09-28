@@ -85,6 +85,7 @@ test_detection_anchored_name_and_marker_precedence() {
   # shellcheck disable=SC2016 # the quoted body expands inside the named shell
   baseline=$(env -u PI_CODING_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS -u FM_OMP_HARNESS CLAUDECODE=1 \
     bash -c '"$1"; :' _ "$HARNESS")
+  # shellcheck disable=SC2016 # the quoted body expands inside the named shell
   out=$(env -u PI_CODING_AGENT -u CURSOR_AGENT -u CURSOR_INVOKED_AS CLAUDECODE=1 FM_OMP_HARNESS=omp \
     bash -c '"$1"; :' _ "$HARNESS")
   [ "$out" = "$baseline" ] && [ "$out" != omp ] \

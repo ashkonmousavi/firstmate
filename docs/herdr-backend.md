@@ -124,6 +124,9 @@ Herdr does not enforce workspace or tab label uniqueness, so a label can never d
 Herdr 0.7.5 exports `HERDR_ENV`, `HERDR_PANE_ID`, `HERDR_SESSION`, `HERDR_SOCKET_PATH`, `HERDR_TAB_ID`, and `HERDR_WORKSPACE_ID` into every process it manages a pane for.
 A Firstmate or secondmate agent's own commands inherit them.
 Older injection shapes are unverified, so a claimed launcher pane without the injected socket identity cannot be trusted.
+Launch a Codex primary with [`bin/fm-codex-primary.sh`](../bin/fm-codex-primary.sh).
+Its per-thread client binding lets the adapter locate the client's current pane by its live foreground process id after a pane move or restore, even when tool commands run under Codex's shared managed process.
+The inherited pane remains a required launch-session claim, and a dead client, missing process listing, cross-session claim, or ambiguous match stops placement.
 
 With presentation spaces disabled, a crewmate or scout is created in the exact workspace that identity currently resolves to.
 That workspace is read live from Herdr rather than from the injected snapshot, so the worker always appears beside the agent that launched it.
@@ -140,6 +143,7 @@ That covers:
 - A pane and tab that disagree about their workspace.
 - A workspace missing from the session.
 - A pane belonging to another named session or Herdr server.
+- A Codex client that is dead, absent from foreground process listings, or present in more than one pane.
 
 ### Firstmate running outside Herdr
 

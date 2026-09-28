@@ -117,6 +117,15 @@ FM_OMP_HARNESS=omp omp
 
 Start `omp` with this checkout as its working directory: it auto-discovers the tracked `.omp/extensions/*.ts` files with no trust dialog, and naming them with `-e` as well would load each twice.
 
+**Codex**
+
+```sh
+bin/fm-codex-primary.sh
+```
+
+Launch a Codex primary through this wrapper, including after a restart or when running in Herdr.
+It binds each Codex thread to its live foreground client and launch terminal, so a shared Codex background process cannot inherit an old pane identity or hold the home lock after that client exits.
+
 For Grok, `--trust` is needed once per clone so project hooks and the turn-end guard load; `/hooks-trust` inside Grok works too.
 For Pi, approve the project trust prompt once per clone on first launch so the tracked `.pi/extensions/*.ts` files auto-load.
 The `/calm` toggle on Pi, and on Claude Code behind its default-off early-access function-hooks flag, hides supported transcript chrome, including canonically classified Firstmate operational user rows, and uses a Calm-only animated working boat during active runs while preserving all model context and session data.

@@ -376,25 +376,30 @@ test_lock_steals_dead_pid_lock() {
 # Start a process that claims each given link lock, then SIGKILL it so every
 # claim is left behind with a dead owner - an acquirer TERMed mid-steal.
 leave_dead_link_locks() {  # <state> <lock>...
-  local state=$1 holder i last
+  local state=$1 holder i held
   shift
-  last=${!#}
-  FM_STATE_OVERRIDE="$state" bash -c '
+  held="$(dirname "$state")/link-locks-held"
+  rm -f "$held"
+  FM_TEST_HELD="$held" FM_STATE_OVERRIDE="$state" bash -c '
     . "$1"
     shift
     for lock do fm_lock_try_create "$lock" || exit 7; done
+    : > "$FM_TEST_HELD"
     exec sleep 30
   ' _ "$LIB" "$@" >/dev/null 2>&1 &
   holder=$!
   # Wait on the holder itself, not a short clock: a loaded runner can take
   # well over a second to start bash and claim, and a holder that fails its
   # claim exits instead of publishing. The bound only stops a wedged claim.
+  # Wait for the claims to return, not for a pid file: the pid exists
+  # mid-acquire, and a kill inside the claim's pid rewrite would leave an empty
+  # pid that the mid-acquire guard rightly treats as a live acquirer.
   i=0
-  while [ "$i" -lt 1500 ] && [ ! -s "$last/pid" ] && kill -0 "$holder" 2>/dev/null; do
+  while [ "$i" -lt 1500 ] && [ ! -e "$held" ] && kill -0 "$holder" 2>/dev/null; do
     sleep 0.02
     i=$((i + 1))
   done
-  [ -s "$last/pid" ] || fail "dead link-lock owner did not publish its pid"
+  [ -e "$held" ] || fail "dead link-lock owner did not publish its pid"
   kill -KILL "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
 }

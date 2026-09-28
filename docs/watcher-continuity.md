@@ -217,13 +217,14 @@ If a durable row arrived after the announcement, the arm opens a fresh pending d
 
 ### Generation reuse
 
-An ordinary watcher close attempts to publish downtime, and every durable queue append publishes it.
+A watcher close outside the quiet checkpoint attempts to publish downtime, and every durable queue append publishes it.
 A handling successor closing to resurface recovery preserves the existing marker instead.
 If EXIT cleanup cannot acquire the downtime-marker lock within its bound, it retains the stale singleton for the next arm to publish the missing downtime before clearing that lock (see [Grace, beacon, and stop signals](#grace-beacon-and-stop-signals)).
 A downtime republication of a pending episode reuses its generation.
 A watcher close leaves an announced downtime episode announced, while a successful durable append opens a fresh pending generation so a live watcher can recover the new work.
 An announced handling episode becomes pending downtime on the same generation because its handling turn may have been interrupted.
 That handling republication gives a successor exactly one recovery presentation without orphaning the acknowledgement already printed for that generation.
+A bounded foreground checkpoint that reaches its quiet boundary releases its watcher lock without publishing downtime.
 
 ### What an acknowledgement retires
 

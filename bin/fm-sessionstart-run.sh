@@ -18,7 +18,8 @@
 #             treated as `startup`, because taking the helm redundantly is
 #             cheap and idempotent while not taking it is the whole bug.
 #   --codex-hook
-#             Verified identity supplied only by the tracked Codex hook.
+#             Verified identity supplied only by the tracked Codex hook. Its
+#             payload session_id becomes this hook's CODEX_SESSION_ID.
 #   --pi-prerequisite
 #             Internal Pi extension mode. An intentional gate/scope stand-down
 #             exits 3 so provider preflight can distinguish it from an eligible
@@ -108,6 +109,17 @@ session_start_completed() {
   [ "$completion_pid" = "$lock_pid" ]
 }
 
+PAYLOAD=
+payload_string() {  # <key>
+  printf '%s' "$PAYLOAD" | awk -v key="$1" '
+    BEGIN { RS = "\"" }
+    seen == 2 { print; exit }
+    seen == 1 && $0 ~ /^[[:space:]]*:[[:space:]]*$/ { seen = 2; next }
+    seen == 1 { seen = 0 }
+    $0 == key { seen = 1 }
+  '
+}
+
 if [ -z "$SOURCE" ] && [ ! -t 0 ]; then
   # Claude and Codex both deliver a JSON SessionStart payload on stdin whose
   # `source` field carries startup|resume|clear|compact. Parsed without jq so a
@@ -126,13 +138,14 @@ if [ -z "$SOURCE" ] && [ ! -t 0 ]; then
   if fm_hook_payload_is_foreign_host "$PAYLOAD"; then
     exit 0
   fi
-  SOURCE=$(printf '%s' "$PAYLOAD" | awk '
-    BEGIN { RS = "\"" }
-    seen == 2 { print; exit }
-    seen == 1 && $0 ~ /^[[:space:]]*:[[:space:]]*$/ { seen = 2; next }
-    seen == 1 { seen = 0 }
-    $0 == "source" { seen = 1 }
-  ')
+  SOURCE=$(payload_string source)
+fi
+# Codex gives hook commands no CODEX_SESSION_ID. The payload Codex delivers to
+# this tracked hook carries that same thread id, and it replaces any inherited
+# value so the session lock names this hook's own thread.
+if [ "$CODEX_HOOK" -eq 1 ]; then
+  CODEX_SESSION_ID=$(payload_string session_id)
+  export CODEX_SESSION_ID
 fi
 
 case "$SOURCE" in
