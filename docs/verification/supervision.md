@@ -16,12 +16,14 @@ Installed `codex-cli 0.157.1` accepted a one-off `shell_environment_policy.set` 
 
 The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise two distinct sessions under one simulated managed daemon, two threads under one client, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
 The marker is cleared before each new checkpoint and published only after a successful watcher wake or quiet boundary.
-The guard requires a fresh beacon and a live, matching Codex session lock for the handling interval; a missed checkpoint still alarms after grace.
+The mid-turn guard requires a fresh beacon and a live, matching Codex session lock for the handling interval; a missed checkpoint still alarms after grace.
+The Codex Stop guard does not accept the handling interval and still requires a live watcher, so `tests/fm-turnend-guard.test.sh` pins that a live, session-owned handling interval still blocks the turn end.
 The bounded checkpoint also reclaims a dead watcher lock through the shared stale-owner protocol after its child exits, because a fatal signal can skip the child's EXIT cleanup even when the timeout command has finished waiting.
 The regression kills only a watcher started for its temporary home and confirms that the checkpoint returns failure, publishes no handling success, and leaves no dead lock.
 
 The current running primary was not relaunched with this checkout's wrapper, so these results do not claim that its lock or checkpoint behavior has changed.
 The next primary launch must use `bin/fm-codex-primary.sh` for the new binding.
+A wrapped client attached to a shared managed daemon with `--remote` has not been proven live against an isolated daemon and home; only the simulated shared daemon in `tests/fm-codex-session.test.sh` covers that path.
 
 ## Native session-start delivery
 
