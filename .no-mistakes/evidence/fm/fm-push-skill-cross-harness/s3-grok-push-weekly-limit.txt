@@ -1,0 +1,60 @@
+
+  detached worktree ~/.n/w/befb827bbae4/01M3JNAVHKWCRHTRHBRPR0E64W                                                                                                           4.8K / 500K │ [Dashboard]
+
+
+     ❯ /push                                                                                                                                                                                 5:09 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ┃
+  ┃  You hit your weekly limit.
+  ┃
+  ┃
+  ┃  1 (○) Upgrade tier      Upgrade to a higher tier for more usage
+  ┃  2 (○) Buy more credits  Purchase credits to keep using Grok Build
+  ┃  3 (○) Try Again         Resubmit the last prompt once you have usage again
+  ┃
+  ┃  ↑/↓ navigate · y copy                                                                                                                                                            Enter:submit
+  ┃
+
+  Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss
+

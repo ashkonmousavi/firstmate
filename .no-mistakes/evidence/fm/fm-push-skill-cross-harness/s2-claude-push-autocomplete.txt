@@ -1,0 +1,12 @@
+ ▐▛███▛█   Claude Code v2.1.283
+▝▜██████▀  Opus 5.5 with medium effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M3JNAVHKWCRHTRHBRPR0E64W · /rc
+  /push                                                    Take one bounded pass over the live Firstmate fleet when the captain invokes /push, $push, or explicitly asks to check and push the fleet
+                                                           forward. Advance work within current authority and report only changed outcomes, current failures or waits, and captain decisions in Capta…
+  /push                                                    Captain's "check and push things forward" command for the first mate. Use only when the captain types /push. Takes one full pass over the
+                                                           fleet, moves every piece of work as far as the first mate's own authority allows, and reports back in Captain Signal style. (user)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /push
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M3JNAVHKWCRHTRHBRP... · opus/medium · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle)

@@ -1,0 +1,60 @@
+
+  detached worktree ~/.n/w/befb827bbae4/01M3JNAVHKWCRHTRHBRPR0E64W                                                                                                           3.0K / 500K │ [Dashboard]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────1─
+    ❯ /push Take one bounded pass over the live Firstmate fleet when the captain invokes /push, $push, or explicitly asks to check and push the fleet forward. Advance work within current authority
+             and report only changed outcomes, current failures or waits, and captain decisions in Captain Signal v2 style.
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │ ❯ /push                                                                                                                                                                                          │
+  ╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Weekly limit left: 0% · Grok 4.6 (medium) · always-approve ─╯
+
+  Enter:send  │  Alt+Enter:newline  │  Shift+Tab:mode  │  Ctrl+x:shortcuts
+

@@ -1,0 +1,60 @@
+
+  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │                                                                                                                                                                                                  │
+  │  ⚠ Workspace Trust Required                                                                                                                                                                      │
+  │                                                                                                                                                                                                  │
+  │  Cursor Agent can execute code and access files in this directory.                                                                                                                               │
+  │                                                                                                                                                                                                  │
+  │  Do you trust the contents of this directory?                                                                                                                                                    │
+  │                                                                                                                                                                                                  │
+  │    /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3JNAVHKWCRHTRHBRPR0E64W                                                                                                                   │
+  │                                                                                                                                                                                                  │
+  │                                                                                                                                                                                                  │
+  │    [a] Trust this workspace                                                                                                                                                                      │
+  │    [q] Quit                                                                                                                                                                                      │
+  │                                                                                                                                                                                                  │
+  │  ⏳ Trusting workspace...                                                                                                                                                                        │
+  │                                                                                                                                                                                                  │
+  ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+
+  Cursor Agent
+  v2026.09.26-dd393fe
+  Tip: Use /config to customize Cursor settings and behavior.
+
+
+
+
+  → /push
+
+
+   → /push                     Captain's "check and push things forward" command for the first mate. Use only when the captain types /push. Takes one full pass over the fleet, moves every piece of…
+     /figma-generate-design    Use this skill alongside figma-use when the task involves translating an application page, view, or multi-section layout into Figma. Triggers: 'write to Figma',…
+     /figma-swiftui            SwiftUI ↔ Figma translation. Use whenever the user mentions Swift, SwiftUI, iOS, iPhone, or iPad — in EITHER direction — translating a Figma design into SwiftUI…
+     /new-repo                 Create a Cursor-hosted repo for the current project and push it. Use when a project has no git remote yet and the user asks to create a repo on Cursor, push the…
+     /origin                   Install, sign in, update, or repair the origin CLI for repos hosted on Cursor (origin.cursor.com). Use when the CLI is missing or outdated, git push/pull fails to…
+     /no-mistakes              Validate your code changes through the no-mistakes pipeline - automated code review, tests, lint, docs, push, PR, and CI - before they reach the configured push…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

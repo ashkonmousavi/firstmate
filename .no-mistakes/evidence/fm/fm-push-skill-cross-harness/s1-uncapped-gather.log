@@ -1,0 +1,89 @@
+### fleet: 24 ship lanes, each with a needs-decision status, a queued gate, and a captain hold
+
+### default: bin/fm-bearings-snapshot.sh --json
+{
+  "in_flight": 20,
+  "decisions_open": 20,
+  "gates": 20,
+  "omitted": [
+    {
+      "surface": "backlog item bodies",
+      "reveal": "--fields bodies"
+    },
+    {
+      "surface": "task paths",
+      "reveal": "--fields paths"
+    },
+    {
+      "surface": "watch/steer actions",
+      "reveal": "--fields actions"
+    },
+    {
+      "surface": "healthy endpoint detail",
+      "reveal": "--fields endpoints"
+    },
+    {
+      "surface": "full scout-report inventory",
+      "reveal": "--all-reports"
+    },
+    {
+      "surface": "in_flight showing 20 of 24",
+      "reveal": "--all-in-flight"
+    },
+    {
+      "surface": "decisions_open showing 20 of 24",
+      "reveal": "--all-decisions"
+    },
+    {
+      "surface": "gates showing 20 of 24",
+      "reveal": "--all-queued"
+    },
+    {
+      "surface": "unhealthy_endpoints showing 20 of 24",
+      "reveal": "--all-unhealthy"
+    },
+    {
+      "surface": "live PR discovery + checks",
+      "reveal": "--include-prs"
+    }
+  ]
+}
+
+### /push Gather: bin/fm-bearings-snapshot.sh --json --all-in-flight --all-decisions --all-secondmates --all-queued
+{
+  "in_flight": 24,
+  "decisions_open": 24,
+  "gates": 24,
+  "omitted": [
+    {
+      "surface": "backlog item bodies",
+      "reveal": "--fields bodies"
+    },
+    {
+      "surface": "task paths",
+      "reveal": "--fields paths"
+    },
+    {
+      "surface": "watch/steer actions",
+      "reveal": "--fields actions"
+    },
+    {
+      "surface": "healthy endpoint detail",
+      "reveal": "--fields endpoints"
+    },
+    {
+      "surface": "full scout-report inventory",
+      "reveal": "--all-reports"
+    },
+    {
+      "surface": "unhealthy_endpoints showing 20 of 24",
+      "reveal": "--all-unhealthy"
+    },
+    {
+      "surface": "live PR discovery + checks",
+      "reveal": "--include-prs"
+    }
+  ]
+}
+
+lab removed: yes

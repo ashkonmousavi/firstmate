@@ -1,0 +1,60 @@
+╭─────────────────────────────────────────────────╮
+│ ✨ Update available! 0.154.0 -> 0.157.1         │
+│ Run npm install -g @openai/codex to update.     │
+│                                                 │
+│ See full release notes:                         │
+│ https://github.com/openai/codex/releases/latest │
+╰─────────────────────────────────────────────────╯
+
+╭────────────────────────────────────────────────────────╮
+│ >_ OpenAI Codex (v0.154.0)                             │
+│                                                        │
+│ model:     gpt-6-sol xhigh   /model to change          │
+│ directory: ~/…/befb827bbae4/01M3JNAVHKWCRHTRHBRPR0E64W │
+╰────────────────────────────────────────────────────────╯
+
+  Tip: New Use /fast to enable our fastest inference with increased plan usage.
+
+• You have 1 usage limit reset available. Run /usage to use one.
+
+
+› $push
+
+  push                          [Skill] Take one bounded pass over the live Firstmate fleet when the captain invokes /push, $push, or explicitly asks to check and push the fleet forward. Advance work…
+  Paper Publisher               [Skill] Publish and manage research papers on Hugging Face Hub
+  Thesis Tracker                [Skill] PM-grade public-equity-investing thesis tracking across evidence, KPIs, catalysts, estimates, valuation, and thesis status
+  Three Statement Model Bui...  [Skill] Builds formula-first public-equity 3-statement operating model workbooks with IS/BS/CF, working capital, PP&E, debt, cash sweep, checks, scenarios, and QA logs.
+  Long Short Pitch              [Skill] Build PM-facing trade pitches with variant perception, expression, catalysts, sparse-context stance, and exit rules.
+  Company Tearsheet             [Skill] Create cited public-company, public-issuer, and public sector-peer profiles.
+
+  Press enter to insert or esc to close
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
