@@ -85,13 +85,19 @@ test_killed_watcher_is_reclaimed_by_checkpoint() {
   FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
     FM_TEST_WATCHER_POST_LOCK_DELAY=5 "$CHECKPOINT" --seconds 8 >"$out" 2>"$err" &
   checkpoint=$!
+  # Kill only once the watcher sits in its post-lock seam sleep: the pid file
+  # exists mid-acquire, and a kill inside the claim's pid rewrite would leave an
+  # empty pid that the mid-acquire guard rightly treats as a live acquirer.
   i=0
-  while [ ! -s "$home/state/.watch.lock/pid" ] && [ "$i" -lt 30 ]; do
+  owner=
+  while [ "$i" -lt 30 ]; do
+    owner=$(cat "$home/state/.watch.lock/pid" 2>/dev/null || true)
+    [ -n "$owner" ] && pgrep -x -P "$owner" sleep >/dev/null 2>&1 && break
+    owner=
     sleep 0.1
     i=$((i + 1))
   done
-  [ -s "$home/state/.watch.lock/pid" ] || fail 'fixture watcher never acquired its lock'
-  owner=$(cat "$home/state/.watch.lock/pid")
+  [ -n "$owner" ] || fail 'fixture watcher never acquired its lock'
   kill -KILL "$owner" || fail 'could not kill the exact fixture watcher'
   status=0
   wait "$checkpoint" || status=$?
