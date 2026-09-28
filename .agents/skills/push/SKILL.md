@@ -2,7 +2,7 @@
 name: push
 description: >-
   Take one bounded pass over the live Firstmate fleet when the captain invokes /push, $push, or explicitly asks to check and push the fleet forward.
-  Advance work within current authority and report only changed outcomes and decisions in Captain Signal v2 style.
+  Advance work within current authority and report only changed outcomes, current failures or waits, and captain decisions in Captain Signal v2 style.
 user-invocable: true
 metadata:
   internal: true
