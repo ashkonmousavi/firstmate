@@ -58,8 +58,9 @@ done
 
 case "$SECONDS_ARG" in
   ''|*[!0-9]*) echo "error: --seconds must be a positive integer" >&2; exit 2 ;;
-  0) echo "error: --seconds must be greater than zero" >&2; exit 2 ;;
 esac
+SECONDS_ARG=$((10#$SECONDS_ARG))
+[ "$SECONDS_ARG" -gt 0 ] || { echo "error: --seconds must be greater than zero" >&2; exit 2; }
 
 # A Codex session lock enables session-owned handling-gap evidence. Generic
 # checkpoint callers without that lock keep their existing watch-only path.
@@ -188,7 +189,10 @@ if [ -f "$CONFIG/supervision-host" ]; then
 fi
 
 set +e
-run_bounded "$SECONDS_ARG" "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+# The watcher closes its own quiet boundary. The outer timeout is only a
+# failure backstop for a watcher that cannot reach that boundary.
+FM_WATCH_CHECKPOINT_SECONDS=$SECONDS_ARG \
+  run_bounded "$((SECONDS_ARG + 10))" "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
 RC=$?
 set -e
 
@@ -209,10 +213,15 @@ fi
 
 checkpoint_finish_watcher_lock || exit 1
 
-if [ "$RC" -eq 124 ]; then
+if [ "$RC" -eq 75 ] && grep -Fxq 'watcher: quiet checkpoint' "$OUT"; then
   checkpoint_finish_handling || exit 1
   printf 'checkpoint: no actionable wake within %ss\n' "$SECONDS_ARG"
   exit 124
+fi
+
+if [ "$RC" -eq 124 ]; then
+  echo 'checkpoint: watcher exceeded the quiet bound without a clean close' >&2
+  exit 1
 fi
 
 [ ! -s "$OUT" ] || cat "$OUT"

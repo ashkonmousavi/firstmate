@@ -38,22 +38,42 @@ test_quiet_checkpoint_exits_124_cleanly() {
   pass "quiet checkpoint exits 124 with a clean checkpoint line and no live lock"
 }
 
-test_timeout_after_lock_acquisition_releases_it() {
+test_consecutive_quiet_checkpoints_stay_quiet() {
+  local home status round
+  home=$(make_home quiet-succession)
+  for round in 1 2; do
+    status=0
+    FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
+      "$CHECKPOINT" --seconds 2 >"$home/out-$round.txt" 2>"$home/err-$round.txt" || status=$?
+    expect_code 124 "$status" "quiet checkpoint $round: $(cat "$home/out-$round.txt" "$home/err-$round.txt")"
+    assert_contains "$(cat "$home/out-$round.txt")" 'checkpoint: no actionable wake within 2s' \
+      "quiet checkpoint $round did not reach its bound"
+    assert_not_contains "$(cat "$home/out-$round.txt")" 'check: rearm-resurface' \
+      "quiet checkpoint $round falsely reported watcher downtime"
+  done
+  assert_absent "$home/state/.watcher-down" 'normal quiet succession left a recovery marker'
+  pass 'successive bounded quiet checkpoints do not manufacture downtime'
+}
+
+test_outer_timeout_after_lock_acquisition_is_failure() {
   local home out err status owner
   home=$(make_home post-lock-timeout)
   out="$home/out.txt"
   err="$home/err.txt"
   status=0
   FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
-    FM_TEST_WATCHER_POST_LOCK_DELAY=5 "$CHECKPOINT" --seconds 1 >"$out" 2>"$err" || status=$?
-  expect_code 124 "$status" "post-lock timeout checkpoint exit"
+    FM_TEST_WATCHER_POST_LOCK_DELAY=20 "$CHECKPOINT" --seconds 1 >"$out" 2>"$err" || status=$?
+  expect_code 1 "$status" "post-lock outer timeout checkpoint exit"
+  assert_contains "$(cat "$err")" 'watcher exceeded the quiet bound without a clean close' \
+    'an interrupted watcher was misreported as a normal quiet checkpoint'
   if [ -e "$home/state/.watch.lock/pid" ]; then
     owner=$(cat "$home/state/.watch.lock/pid")
     printf 'lock owner after timeout: %s\n' "$owner" >&2
     ps -o pid=,ppid=,pgid=,stat=,comm=,args= -p "$owner" >&2 || true
     fail 'timeout left the acquired watcher lock behind'
   fi
-  pass "checkpoint releases its exact watcher lock when timed out after acquisition"
+  [ -f "$home/state/.watcher-down" ] || fail 'an interrupted watcher did not publish downtime'
+  pass "an outer timeout after lock acquisition fails and preserves downtime"
 }
 
 test_killed_watcher_is_reclaimed_by_checkpoint() {
@@ -77,6 +97,12 @@ test_killed_watcher_is_reclaimed_by_checkpoint() {
   wait "$checkpoint" || status=$?
   [ "$status" -ne 0 ] || fail 'a killed watcher returned a successful checkpoint'
   assert_absent "$home/state/.watch.lock/pid" 'killed watcher left a stale lock after checkpoint returned'
+  status=0
+  FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 \
+    "$CHECKPOINT" --seconds 3 >"$home/recovery-out.txt" 2>"$home/recovery-err.txt" || status=$?
+  expect_code 0 "$status" "genuine watcher loss recovery: $(cat "$home/recovery-out.txt" "$home/recovery-err.txt")"
+  assert_contains "$(cat "$home/recovery-out.txt")" 'check: rearm-resurface' \
+    'a killed watcher did not surface real downtime on the next checkpoint'
   pass 'checkpoint reclaims a dead fixture watcher without claiming supervision'
 }
 
@@ -250,7 +276,8 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
 }
 
 test_quiet_checkpoint_exits_124_cleanly
-test_timeout_after_lock_acquisition_releases_it
+test_consecutive_quiet_checkpoints_stay_quiet
+test_outer_timeout_after_lock_acquisition_is_failure
 test_killed_watcher_is_reclaimed_by_checkpoint
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment

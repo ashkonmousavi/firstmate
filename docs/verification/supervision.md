@@ -29,6 +29,9 @@ The mid-turn guard requires a fresh beacon and a live, matching Codex session lo
 The Codex Stop guard does not accept the handling interval and still requires a live watcher, so `tests/fm-turnend-guard.test.sh` pins that a live, session-owned handling interval still blocks the turn end.
 The bounded checkpoint also reclaims a dead watcher lock through the shared stale-owner protocol after its child exits, because a fatal signal can skip the child's EXIT cleanup even when the timeout command has finished waiting.
 The regression kills only a watcher started for its temporary home and confirms that the checkpoint returns failure, publishes no handling success, and leaves no dead lock.
+On 2026-09-28, `bash tests/fm-watch-checkpoint.test.sh` confirmed that two successive quiet checkpoints return 124 without `check: rearm-resurface`, an outer timeout after lock acquisition fails and records downtime, and a killed watcher makes the next checkpoint surface recovery.
+An isolated Codex CLI 0.157.1 client launched through `bin/fm-codex-primary.sh exec` with separate `FM_HOME` and `CODEX_HOME` produced `quiet_1_rc=124`, `quiet_2_rc=124`, `loss_checkpoint_rc=137`, and `recovery_rc=0 output=check: rearm-resurface`.
+The live client used no remote attach and the running primary was not changed.
 
 The current running primary was not relaunched with this checkout's wrapper, so these results do not claim that its lock or checkpoint behavior has changed.
 The next primary launch must use `bin/fm-codex-primary.sh` for the new binding.
