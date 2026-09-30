@@ -4391,7 +4391,30 @@ if (!messages || !tree) process.exit(1);
 if (!/<div class="user-message"[^>]*>[\s\S]*Show a deterministic tool example\./.test(messages)) process.exit(1);
 if (!/<div class="assistant-message"[^>]*>[\s\S]*The deterministic tool example is complete\./.test(messages)) process.exit(1);
 if (messages.includes('<div class="hook-message"')) process.exit(1);
-if (messages.includes("[firstmate-synthetic-input]")) process.exit(1);
+// Pi 0.99 includes display:false messages in exported DOM behind its hidden-message toggle.
+// They must remain hidden by default while the full session stays inspectable.
+const hiddenStart = '<div class="hook-message hook-message-hidden"';
+let visibleMessages = messages;
+for (let start = visibleMessages.indexOf(hiddenStart); start !== -1; start = visibleMessages.indexOf(hiddenStart, start)) {
+  const tags = /<div\b|<\/div>/g;
+  tags.lastIndex = start;
+  let depth = 0;
+  let end = -1;
+  for (let tag = tags.exec(visibleMessages); tag; tag = tags.exec(visibleMessages)) {
+    depth += tag[0] === "</div>" ? -1 : 1;
+    if (depth === 0) {
+      end = tags.lastIndex;
+      break;
+    }
+  }
+  if (end === -1) process.exit(1);
+  visibleMessages = visibleMessages.slice(0, start) + visibleMessages.slice(end);
+}
+if (visibleMessages.includes("[firstmate-synthetic-input]") || visibleMessages.includes("FIRSTMATE WATCHER WAKE: signal: /tmp/probe.status")) process.exit(1);
+if (visibleMessages !== messages) {
+  if (/<body[^>]*class="[^"]*show-hidden-messages/.test(dom)) process.exit(1);
+  if (!/body:not\(\.show-hidden-messages\) \.hook-message-hidden\s*\{\s*display:\s*none;\s*\}/.test(dom)) process.exit(1);
+}
 for (const current of ["CURRENT_WATCHER_E2E", "CURRENT_TURN_END_E2E", "CURRENT_AWAY_E2E", "CURRENT_FROM_FIRSTMATE_E2E", "CURRENT_LAUNCH_BRIEF_E2E"]) {
   if (!messages.includes(current)) process.exit(1);
 }

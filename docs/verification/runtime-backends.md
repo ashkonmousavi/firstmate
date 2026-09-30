@@ -2315,6 +2315,28 @@ ok - under the away-posture record the wake carries the verbatim read-back tail,
 
 The merge suite and the security suite dominate the wall time.
 
+### 2026-09-30 Pi 0.99.1 stock rendering
+
+On Linux with Node v26.5.0, the Pi extensions were checked against a task-local `@earendil-works/pi-coding-agent` 0.99.1 install selected through `PATH` and `FM_PI_PACKAGE_DIR`; the global Pi remained 0.87.1.
+The rendered HTML export check confirmed that Pi's new hidden-message DOM keeps `display:false` synthetic input hidden by default while preserving it in session data and the tree.
+The branch tool check compared `fm_branch_outcomes` and `fm_branch_processed` collapsed, expanded, and restored Calm-off rows byte for byte against Pi's stock `ToolExecutionComponent`, including its newly displayed call arguments, while Calm-on still hid both rows.
+
+```sh
+PATH="<task-local Pi prefix>/node_modules/.bin:$PATH" FM_PI_PACKAGE_DIR="<task-local Pi prefix>/node_modules/@earendil-works/pi-coding-agent" bash bin/fm-test-run.sh tests/fm-calm-pi-extension.test.sh
+PATH="<task-local Pi prefix>/node_modules/.bin:$PATH" FM_PI_PACKAGE_DIR="<task-local Pi prefix>/node_modules/@earendil-works/pi-coding-agent" bash bin/fm-test-run.sh tests/fm-pi-branch-extension.test.sh
+PATH="<task-local TypeScript prefix>/node_modules/.bin:$PATH" FM_PI_PACKAGE_DIR="<task-local Pi prefix>/node_modules/@earendil-works/pi-coding-agent" bash tests/fm-pi-primary-types.test.sh
+bash bin/fm-test-run.sh tests/fm-pi-branch-extension.test.sh
+```
+
+```text
+FM_TEST_END 2026-09-30T11:01:49Z tests/fm-calm-pi-extension.test.sh exit=0 duration_ms=41241 gate_skip=false
+FM_TEST_END 2026-09-30T10:59:24Z tests/fm-pi-branch-extension.test.sh exit=0 duration_ms=54484 gate_skip=false
+ok - tracked Pi extensions pass strict no-emit typecheck against Pi 0.99.1
+FM_TEST_END 2026-09-30T11:00:40Z tests/fm-pi-branch-extension.test.sh exit=0 duration_ms=55546 gate_skip=false
+```
+
+The last command used the unchanged globally installed Pi 0.87.1 to check the older stock call rendering.
+
 ## Native Codex through Pi
 
 Verified on 2026-09-08 with Pi 0.85.1 and the installed `pi-codex-native` 0.2.1 adapter.
