@@ -1,0 +1,60 @@
+
+
+● Skill(journey-walk)
+  ⎿  Successfully loaded skill
+
+● Skill(research-first-decisions)
+  ⎿  Successfully loaded skill
+
+● Captain, I loaded all three skills and am answering from their text. I ran nothing, dispatched nothing and edited nothing.
+
+  (1) wayfinding, Frontier reset
+
+  ▎ "When the ready frontier lists only umbrellas or nothing while holds still exist, expand the umbrella that same turn into concrete items filed from the project's own open records: its roadmap,
+  ▎ plan or task-list items, or decision records."
+
+  For acme I would use the unchecked items in the PLAN.md checklist and the open issues in the GitHub milestone.
+  I would check each hold against those same two records, plus this home's data/done-archive.md.
+  I would also confirm any named dependency against acme's main line (a merged PR or a landed commit), not against a commit id written next to a checklist box.
+
+  (2) journey-walk, the walk contract
+
+  ▎ "The project's own walk procedure is the walk contract."
+
+  acme's walk contract is docs/qa/walkthrough.md.
+  The skill says to read that procedure and the stage, health and run records it names.
+  If it names no health record, that gap is reported rather than invented.
+
+  (3) research-first-decisions, where a finding is filed
+
+  ▎ "The research that produced a finding files it in the project's own findings record as part of the packet, never as a later task, in whatever form that record's owner and the project's own
+  ▎ instructions prescribe."
+
+  The next sentence covers a project with no such record: "Where a project keeps no such record, the packet is the record; do not create a research log to hold it."
+
+  (4) Project-specific records
+
+  ┌──────────────────────────┬──────────────────────────────────────────────────────────────────────────────┐
+  │          Skill           │ ROADMAP rows / openspec tasks.md / Journey/SOP.md / HEALTH.md / XAUUSD path? │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ wayfinding               │ No                                                                           │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ journey-walk             │ No                                                                           │
+  ├──────────────────────────┼──────────────────────────────────────────────────────────────────────────────┤
+  │ research-first-decisions │ No                                                                           │
+  └──────────────────────────┴──────────────────────────────────────────────────────────────────────────────┘
+
+  One note on research-first-decisions: section 7 cites a personal provenance path, /mnt/c/Users/Tegri/Downloads/p_transfers/Check_FirstMates_Work/WORK_RECONCILIATION.md, and data/captain.md.
+  It is not an XAUUSD path, and it names no acme record.
+  Still, it is specific to this machine, sitting in a shared tracked skill.
+  You may want to remove it if the goal is fully project-neutral shared skills.
+
+  The references in wayfinding to data/done-archive.md and data/backlog.md are Firstmate home records, not project records.
+
+✻ Sautéed for 21s · done 5:54 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Skill tool hypothetical pro... · WORKTREE:01M3S5YGQP7K0AG5RHVZ... · opus/medium · default · 7% · 5h19%/7d10% · $0.52
+  ⏵⏵ auto mode on (shift+tab to cycle) · gh auth login for PR status · ← 2 agents
