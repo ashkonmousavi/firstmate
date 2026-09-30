@@ -1075,7 +1075,7 @@ test_worker_role_scope() {
 # sections the task owes; every section then arrives with a guide, the tier it
 # becomes required at, and one placeholder to replace.
 test_prep_scaffolds_the_preparation_record() {
-  local home prep out status
+  local home prep out status term
   home="$TMP_ROOT/prep-scaffold"
   mkdir -p "$home/data"
   prep="$home/data/prep-a1/prep.md"
@@ -1093,7 +1093,7 @@ test_prep_scaffolds_the_preparation_record() {
     "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
   assert_grep '- UI wiring: {UI_WIRING}' "$prep" \
     "prep record's tier header does not ask the UI wiring question with a placeholder to answer"
-  assert_grep 'yes, <the V4 step and control the user meets>' "$prep" \
+  assert_grep 'yes, <the step and control the user meets>' "$prep" \
     "prep record does not give the UI wiring answer its required yes format"
   assert_grep 'no, <why the user never meets this change>' "$prep" \
     "prep record does not give the UI wiring answer its required no format"
@@ -1123,29 +1123,19 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not offer the n/a answer that keeps a small change small"
   grep -c '^<!-- ' "$prep" | grep -qx 14 \
     || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
-  assert_grep 'unwired-export allowlist' "$prep" \
-    "prep record does not carry the unwired-export allowlist convention"
-  assert_grep 'the lane that wires it up removes it again' "$prep" \
-    "prep record names the allowlist convention without saying who clears the entry"
+  assert_grep "task item this work completes in the project's own record" "$prep" \
+    "prep record does not point at the project's own task record"
+  assert_grep 'record and clear the pending integration' "$prep" \
+    "prep record does not account for components that land before their consumer"
   assert_grep 'START WITH THE COMPONENT CHECK' "$prep" \
     "prep record does not open the UI/UX section with the component check"
-  assert_grep 'name the V4 component or kit piece with its path' "$prep" \
-    "prep record does not ask the UI/UX section to name each component and its path"
-  assert_grep 'present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id>' "$prep" \
-    "prep record does not give the traveling-layer check its three verdicts"
-  assert_grep 'exists, imported unchanged' "$prep" \
-    "prep record does not say the old exists verdict is not an answer"
-  assert_grep 'kit screen beside the shipped screen at the same viewport' "$prep" \
-    "prep record does not require the V4 destination kit side-by-side receipt"
-  assert_grep 'Explain on and Explain off' "$prep" \
-    "prep record does not require Explain on and off in the V4 destination receipt"
-  while IFS= read -r layer || [ -n "$layer" ]; do
-    [ -n "$layer" ] || continue
-    assert_grep "$layer" "$prep" \
-      "prep record traveling-layer guide does not name $layer"
-  done <<EOF
-$FM_PREP_TRAVELING_LAYERS
-EOF
+  assert_grep "matching component and its path in the project's design system or UI record" "$prep" \
+    "prep record does not ask the UI/UX section to name the matching component and its path"
+  assert_grep "project's required visual comparison and states" "$prep" \
+    "prep record does not ask for the project's own visual receipt"
+  for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit; do
+    assert_no_grep "$term" "$prep" "prep record still carries project-specific vocabulary: $term"
+  done
   assert_grep 'PASTE TOOL OUTPUT, not prose' "$prep" \
     "prep record does not tell the author the blast radius is tool output"
   assert_grep 'gitnexus impact' "$prep" \
@@ -1197,10 +1187,8 @@ EOF
     "--help does not say the blast radius owes tool output"
   assert_contains "$help_text" "names neither gitnexus nor serena is refused" \
     "--help does not say what the blast radius check refuses"
-  assert_contains "$help_text" "traveling-layer item" \
-    "--help does not say a V4 destination owes traveling-layer answers"
-  assert_contains "$help_text" "kit screen beside the shipped screen" \
-    "--help does not say a V4 destination owes a kit side-by-side receipt"
+  assert_not_contains "$help_text" "V4 destination" \
+    "--help still describes the removed project-specific gate"
   pass "fm-brief.sh: --help lists the tier rules and every section the record scaffolds"
 }
 
@@ -1229,160 +1217,6 @@ ROWS
   assert_contains "$out" "usage: fm-brief.sh <task-id> --prep" \
     "--prep arity refusal did not print its usage"
   pass "fm-brief.sh: --prep refuses brief flags and extra positionals"
-}
-
-kit_fill_section() {  # <prep-file> <heading> <text>
-  local prep=$1 heading=$2 text=$3
-  awk -v h="$heading" '$0 == h { print; blank = 1; next }
-    blank && /^$/ { next }
-    blank && !/^## / { next }
-    blank { print ""; blank = 0 }
-    { print }' "$prep" > "$prep.blank" && mv "$prep.blank" "$prep"
-  awk -v h="$heading" -v t="$text" '$0 == h { print; print t; next } { print }' "$prep" \
-    > "$prep.fill" && mv "$prep.fill" "$prep"
-}
-
-kit_ui_wiring() {  # <prep-file> <line>
-  sed -e "s/^- UI wiring: .*$/- UI wiring: $2/" "$1" > "$1.ui" && mv "$1.ui" "$1"
-}
-
-kit_traveling_body() {  # <explain-verdict> <deferred-id>
-  printf '%s\n' \
-    "- explain: $1" \
-    '- provenance: present' \
-    '- verdict: present' \
-    '- pills: present' \
-    '- gate-bar: present' \
-    '- readout: present' \
-    '- legend: not-applicable-because-profiles-earned-no-instrument' \
-    '- meter: present' \
-    "- switches: deferred-to-$2"
-}
-
-kit_demo_body() {
-  printf '%s\n' 'Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off.'
-}
-
-kit_v4_prep() {  # <home> <id>
-  local home=$1 id=$2 prep
-  mkdir -p "$home/data"
-  fm_test_prep_record "$home/data" "$id" no no yes \
-    || fail "prep record scaffold failed for $id"
-  prep="$home/data/$id/prep.md"
-  kit_ui_wiring "$prep" "yes, the V4 Profiles destination identity row."
-  printf '%s\n' "$prep"
-}
-
-kit_seed_backlog() {  # <home> <id>
-  local file="$1/data/backlog.md"
-  printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' > "$file"
-  tasks-axi add "$2" "kit fixture task" --kind ship --file "$file" >/dev/null
-}
-
-test_v4_destination_prep_refuses_exists_imported_unchanged() {
-  local home prep reason status
-  home="$TMP_ROOT/kit-exists"
-  prep=$(kit_v4_prep "$home" kit-exists)
-  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body 'exists, imported unchanged' missing-id)"
-  kit_fill_section "$prep" "## 10. Demo receipt plan" "$(kit_demo_body)"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 0 ] || fail "exists, imported unchanged should be refused (got: $reason)"
-  assert_contains "$reason" "explain" \
-    "the refusal did not name the traveling-layer item that used the old verdict"
-  assert_contains "$reason" "answers exists" \
-    "the refusal did not name the illegal exists verdict"
-  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body later missing-id)"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 0 ] || fail "a bare later traveling-layer answer should be refused (got: $reason)"
-  assert_contains "$reason" "later" \
-    "the refusal did not name the illegal later verdict"
-  pass "prep gate: a V4 destination component check of exists, imported unchanged is refused"
-}
-
-test_v4_destination_prep_accepts_schema_and_real_deferral() {
-  local home prep reason status
-  home="$TMP_ROOT/kit-ok"
-  mkdir -p "$home/data"
-  kit_seed_backlog "$home" xau-v4-kit-traveling-layer
-  prep=$(kit_v4_prep "$home" kit-ok)
-  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body 'present.' xau-v4-kit-traveling-layer)
-- accessibility: n/a: no new interactive element on this step."
-  kit_fill_section "$prep" "## 10. Demo receipt plan" "$(kit_demo_body)"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 1 ] || fail "a complete V4 destination prep should pass (got: $reason)"
-  [ -z "$reason" ] || fail "a complete V4 destination prep printed a reason: $reason"
-  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
-  [ "$status" -eq 1 ] || fail "a V4 destination deferred-to id should skip backlog proof when no data dir is passed (got: $reason)"
-  pass "prep gate: a V4 destination with present, not-applicable-because, and deferred-to a real id is accepted"
-}
-
-test_v4_destination_prep_keeps_deferred_id_case() {
-  local home prep reason status
-  home="$TMP_ROOT/kit-case"
-  mkdir -p "$home/data"
-  kit_seed_backlog "$home" XAU-12
-  prep=$(kit_v4_prep "$home" kit-case)
-  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body present XAU-12)"
-  kit_fill_section "$prep" "## 10. Demo receipt plan" "$(kit_demo_body)"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 1 ] || fail "a deferred-to id with uppercase letters present in the backlog should pass (got: $reason)"
-  pass "prep gate: a deferred-to id keeps its case for the backlog proof"
-}
-
-test_v4_destination_prep_refuses_absent_deferral() {
-  local home prep reason status
-  home="$TMP_ROOT/kit-missing"
-  mkdir -p "$home/data"
-  kit_seed_backlog "$home" some-other-task
-  prep=$(kit_v4_prep "$home" kit-missing)
-  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body present missing-deferral-id)"
-  kit_fill_section "$prep" "## 10. Demo receipt plan" "$(kit_demo_body)"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 0 ] || fail "a deferred-to id absent from the backlog should be refused"
-  assert_contains "$reason" "missing-deferral-id" \
-    "the refusal did not name the absent deferred-to id"
-  assert_contains "$reason" "absent" \
-    "the refusal did not say the deferred-to id is absent from the backlog"
-  pass "prep gate: deferred-to an id absent from the backlog is refused"
-}
-
-test_v4_destination_prep_requires_kit_side_by_side_receipt() {
-  local home prep reason status
-  home="$TMP_ROOT/kit-demo"
-  mkdir -p "$home/data"
-  kit_seed_backlog "$home" xau-v4-kit-traveling-layer
-  prep=$(kit_v4_prep "$home" kit-demo)
-  kit_fill_section "$prep" "## 3. UI/UX" "$(kit_traveling_body present xau-v4-kit-traveling-layer)"
-  kit_fill_section "$prep" "## 10. Demo receipt plan" "Walk Profiles at 1280px and capture a screenshot."
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 0 ] || fail "a V4 destination demo receipt without kit side-by-side should be refused"
-  assert_contains "$reason" "Demo receipt plan" \
-    "the refusal did not name the demo receipt section"
-  assert_contains "$reason" "same viewport" \
-    "the refusal did not name the missing same-viewport kit receipt"
-  kit_fill_section "$prep" "## 10. Demo receipt plan" "$(kit_demo_body)"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 1 ] || fail "a kit side-by-side demo receipt should pass (got: $reason)"
-  pass "prep gate: a V4 destination demo receipt must include kit side-by-side at the same viewport, Explain on and off"
-}
-
-test_non_v4_and_non_screen_preps_are_unchanged() {
-  local home prep reason status
-  home="$TMP_ROOT/kit-other"
-  mkdir -p "$home/data"
-  fm_test_prep_record "$home/data" non-screen no no no \
-    || fail "non-screen prep scaffold failed"
-  prep="$home/data/non-screen/prep.md"
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 1 ] || fail "a non-screen prep should still pass (got: $reason)"
-
-  fm_test_prep_record "$home/data" non-v4-screen no no yes \
-    || fail "non-V4 screen prep scaffold failed"
-  prep="$home/data/non-v4-screen/prep.md"
-  kit_ui_wiring "$prep" "yes, the settings form save button."
-  reason=$(fm_prep_unfilled_reason "$prep" "$home/data"); status=$?
-  [ "$status" -eq 1 ] || fail "a non-V4 screen prep should still pass without traveling-layer answers (got: $reason)"
-  pass "prep gate: non-V4 and non-screen preps spawn unchanged"
 }
 
 # A home can carry standing worker instructions in its gitignored
@@ -1692,12 +1526,6 @@ test_scout_lavish_line_follows_presentation_floor
 test_prep_scaffolds_the_preparation_record
 test_prep_help_lists_every_scaffolded_section
 test_prep_refuses_brief_flags
-test_v4_destination_prep_refuses_exists_imported_unchanged
-test_v4_destination_prep_accepts_schema_and_real_deferral
-test_v4_destination_prep_keeps_deferred_id_case
-test_v4_destination_prep_refuses_absent_deferral
-test_v4_destination_prep_requires_kit_side_by_side_receipt
-test_non_v4_and_non_screen_preps_are_unchanged
 test_home_brief_include_is_appended_last
 test_ship_branch_prefix_defaults_to_legacy_fm
 test_ship_branch_prefix_override_is_consistent_across_modes
