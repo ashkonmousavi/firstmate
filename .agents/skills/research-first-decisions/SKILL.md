@@ -78,7 +78,7 @@ It carries the frozen plan and its amendments, the evidence per candidate with p
   Without these the packet silently expires into a false claim.
 - **Consumption records** - which task consumed this packet, named explicitly.
   A selection nobody records consuming gets re-researched or, worse, quietly re-decided.
-  The research that produced a finding files it in the project's own findings record as part of the packet, never as a later task, in whatever form that record's owner prescribes: in XAUUSD that is that project's own `docs/ssot/research/README.md`, which routes the finding by provenance and owns the dated section, lookup heading, and last-reviewed line.
+  The research that produced a finding files it in the project's own findings record as part of the packet, never as a later task, in whatever form that record's owner and the project's own instructions prescribe.
   Where a project keeps no such record, the packet is the record; do not create a research log to hold it.
 
 Keep the packet's reasoning summary concise and material.
@@ -112,7 +112,7 @@ Open-source libraries, and the ways other good applications solve the same probl
 ## 7. Context7 version-documentation verification
 
 This duty is mandatory and applies independently of the selection procedure above.
-It is standing captain preference, recorded in `data/captain.md`, and originates in the captain's instruction of 2026-09-08 and the advisor reconciliation at `/mnt/c/Users/Tegri/Downloads/p_transfers/Check_FirstMates_Work/WORK_RECONCILIATION.md` section 13.2.2; `data/captain.md` is the in-home authority and that document is its provenance.
+It is standing captain preference, recorded in `data/captain.md`, and originates in the captain's instruction of 2026-09-08; `data/captain.md` is the in-home authority.
 It fires whenever an agent adopts, configures, upgrades, or integrates a library, SDK, API, CLI, framework, or service, or debugs version-sensitive usage, whether or not a candidate is being chosen.
 It is not required for unrelated business-logic edits or for every tool invocation.
 
