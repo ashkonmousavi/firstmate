@@ -1,0 +1,33 @@
+### S3 ship spawn of a filled tier-2 record whose UI wiring names V4, with no traveling-layer roll-call and a plain screenshot demo receipt
+--- record header and sections 3 and 10 ---
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->
+- Q1 does this change alter what a user sees or can do: yes
+- Q2 does this change touch a shared module, a contract, or more than about eight files: no
+- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the matching component and its path in the project's design system or UI record as its instructions name it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+- identity row: components/IdentityRow.tsx
+- Journey: open Profiles, see the row at the top.
+
+## 4. Blast radius
+## 10. Demo receipt plan
+<!-- tier 2+. What the worker walks and records before validation, including the project's required visual comparison and states as its instructions name them. -->
+Screenshot of Profiles at 1280px.
+
+## 11. Definition of done
+
+--- base commit 16185595: bin/fm-spawn.sh v4-generic <lab-proj> claude --mode direct-PR --yolo off ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.tDyQ9x
+error: task v4-generic cannot ship without its preparation record: a V4 destination requires traveling-layer item explain in ## 3. UI/UX answered present, not-applicable-because-<named kit rule>, or deferred-to-<existing task id> in /tmp/fm-lab.tDyQ9x/data/v4-generic/prep.md; scaffold it with bin/fm-brief.sh v4-generic --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1
+
+--- change a50941cf: same command, same lab home ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.tDyQ9x
+warning: /tmp/fm-lab.tDyQ9x/data/v4-generic/launch-brief.md records no ship branch; defaulting to legacy branch fm/v4-generic
+notice: v4-generic ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+spawned v4-generic harness=claude kind=ship mode=direct-PR yolo=off window=firstmate:fm-v4-generic worktree=/home/tegris/.treehouse/proj-73b785/1/proj
+exit=0
+
+--- launched worker pane (lab tmux, captured before teardown) ---
+window firstmate:fm-v4-generic ran claude in the lab worktree; state/v4-generic.meta recorded kind=ship mode=direct-PR; bin/fm-teardown.sh v4-generic --force then returned the worktree to the pool.

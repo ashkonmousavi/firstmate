@@ -1,0 +1,19 @@
+### S5 secondmate nav-prep: UI wiring names V4; ## 3 UI/UX and ## 10 Demo receipt answered n/a
+7:- UI wiring: yes, the V4 Profiles destination identity row.
+## 3. UI/UX
+n/a: the row reuses the existing header component unchanged.
+
+## 4. Blast radius
+## 10. Demo receipt plan
+n/a: the project keeps no visual comparison rule for this step.
+
+## 11. Definition of done
+
+--- base commit 16185595 bin/fm-prep-install.sh nav-v4 ---
+error: no filled nav-prep for nav-v4 (looked under each home= in /tmp/fm-lab.tDyQ9x/data/secondmates.md for data/nav-preps/nav-v4.md)
+exit=1 installed=no
+
+--- change a50941cf bin/fm-prep-install.sh nav-v4 ---
+installed: /tmp/fm-lab.tDyQ9x/data/nav-v4/prep.md (from /tmp/fm-lab.tDyQ9x/sm-home/data/nav-preps/nav-v4.md)
+exit=0 installed=yes
+installed record is byte-identical to the nav-prep

@@ -1,0 +1,80 @@
+$ FM_HOME=$LAB bin/fm-brief.sh neutral-a1 --prep
+scaffolded: /tmp/fm-lab.tDyQ9x/data/neutral-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+exit=0
+
+--- scaffolded /tmp/fm-lab.tDyQ9x/data/neutral-a1/prep.md ---
+# Task prep: neutral-a1
+
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->
+- Q1 does this change alter what a user sees or can do: {Q1}
+- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}
+- UI wiring: {UI_WIRING}
+<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->
+
+Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.
+This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+
+## 1. Intent and boxes
+<!-- tier 1+. The captain's words, and each task item this work completes in the project's own record, verified against the current base with the command used as its instructions require. -->
+{INTENT_AND_BOXES}
+
+## 2. Behaviour spec
+<!-- tier 2+. Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour. -->
+{BEHAVIOUR_SPEC}
+
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the matching component and its path in the project's design system or UI record as its instructions name it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+{UI_UX}
+
+## 4. Blast radius
+<!-- tier 1+. PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown. -->
+{BLAST_RADIUS}
+
+## 5. Data and contracts
+<!-- tier 2+. Request and response shapes, versions, migrations. -->
+{DATA_AND_CONTRACTS}
+
+## 6. Tests
+<!-- tier 1+. The red-first list, journey tests, mutation witnesses, existing tests that change and why. -->
+{TESTS}
+
+## 7. Records
+<!-- tier 2+. Project task items to complete, verification records, and other records its instructions require. If a component lands ahead of its consumer, record and clear the pending integration as the project's instructions specify. -->
+{RECORDS}
+
+## 8. Out of scope and follow-ups
+<!-- tier 1+. What this task deliberately leaves alone, and the follow-up work it creates. -->
+{OUT_OF_SCOPE}
+
+## 9. Risks, dependencies, merge order
+<!-- tier 2+. Risks, dependencies, sibling lanes touching the same files, and the order these must land in. -->
+{RISKS}
+
+## 10. Demo receipt plan
+<!-- tier 2+. What the worker walks and records before validation, including the project's required visual comparison and states as its instructions name them. -->
+{DEMO_RECEIPT}
+
+## 11. Definition of done
+<!-- tier 1+. The done criteria, checked line by line against the intent above. -->
+{DEFINITION_OF_DONE}
+
+## 12. Size
+<!-- tier 2+. Files expected to change; more than about eight files means split the slice. -->
+{SIZE}
+
+--- XAU-only vocabulary scan (case-insensitive word match) ---
+V4: 0 matches
+traveling: 0 matches
+Explain on: 0 matches
+Explain off: 0 matches
+Change box: 0 matches
+log-book: 0 matches
+unwired-export: 0 matches
+kit: 0 matches
+allowlist: 0 matches
+origin/main: 0 matches
+
+$ bin/fm-brief.sh neutral-a1 --prep   (second run, must refuse overwrite)
+error: /tmp/fm-lab.tDyQ9x/data/neutral-a1/prep.md already exists
+exit=1

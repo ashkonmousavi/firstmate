@@ -1,0 +1,80 @@
+$ bin/fm-brief.sh --help  (prep-record portion)
+exit=0
+       fm-brief.sh <task-id> --prep
+  --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
+  nothing else, so it is written and reviewed before the brief exists. The
+  record is the specification beneath the brief: what the change does, where it
+  lands, and what done means, decided before a worker starts rather than
+  discovered during review.
+  It is TIERED, never flat, so preparation costs what the change is worth. The
+  scaffold's `## Tier` header comes first and carries three mandatory answers:
+    Q1  does this change alter what a user sees or can do?  yes or no
+    Q2  does it touch a shared module, a contract, or more than about eight
+        files?  yes or no
+    UI wiring  `yes, <the step and control the user meets>` or
+        `no, <why the user never meets this change>`; a change that lets a user
+        configure or choose something is always yes, and the reason is
+        mandatory in both directions.
+  Those three answers alone decide what the record owes:
+    UI wiring yes     tier 2 - whatever Q1 and Q2 say
+    Q1 yes            tier 2 - every section below
+    Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
+    all three no      tier 0 - the header IS the record; delete every section
+  The sections are:
+    1. Intent and boxes        7. Records
+    2. Behaviour spec          8. Out of scope and follow-ups
+    3. UI/UX                   9. Risks, dependencies, merge order
+    4. Blast radius           10. Demo receipt plan
+    5. Data and contracts     11. Definition of done
+    6. Tests                  12. Size
+  Each carries a one-line guide, the tier it becomes required at, and one
+  `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
+  is answered `n/a: <one-line reason>`, so a tier-0 change costs three answers
+  and nothing else, a tier-1 change five sections, and only a tier-2 change
+  costs a page.
+  Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+  Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
+  result for every module touched and the Serena find_referencing_symbols
+  counts for every symbol whose signature changes, reaching for claude-context
+  semantic search only when a name is unknown. Where a tier requires it, a
+  filled Blast radius that names neither gitnexus nor serena is refused unless
+  it is answered `n/a: <reason>`; nothing checks whether the output is right.
+  bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
+  header is missing or leaves any of its three answers unanswered or outside
+  its format, or where a section the declared tier requires is missing, still
+  placeheld, or empty, naming that section.
+  The guide lines for sections 1, 3, 7, and 10 point at the project's own
+  task, design, UI, and verification records as its instructions name them.
+  --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
+  and refuses to overwrite an existing record.
+  --scout writes the scout contract instead: the deliverable is a report at
+  data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
+  It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
+  confirms the supported lavish-axi floor; otherwise it asks for a text report.
+  --secondmate writes a persistent secondmate charter. The project list
+  is cloned into the secondmate home, while the natural-language scope
+  tells the main firstmate when to route work there; routine churn stays in its own home;
+  captain-relevant escalations and marked from-firstmate replies append to this
+  home's status file.
+  --no-projects writes a project-less charter for a domain whose subject is the
+  firstmate repo itself (its home is a firstmate worktree, its crews take pooled
+  worktrees of the same repo). It is mutually exclusive with a project list, and
+  omitting both still fails loudly so an accidental omission is never silent.
+  Set FM_SECONDMATE_CHARTER='<charter>' to fill the charter text.
+  Set FM_SECONDMATE_SCOPE='<scope>' to write a routing scope distinct from the charter text.
+  --herdr-lab is mandatory when the task will issue Herdr lifecycle commands.
+  It adds the hard isolation contract backed by bin/fm-herdr-lab.sh.
+  The flag must be explicit because {TASK} and {FIRSTMATE_SPEC} are filled
+  after scaffolding and the caller-supplied repo string cannot reliably
+  identify this repo. Briefs made without it carry a loud declaration so an
+  omitted contract cannot be silent.
+For ship tasks, --mode is REQUIRED and shapes the definition of done. Firstmate
+resolves it per task at intake (AGENTS.md section 7); data/projects.md holds the
+
+--- vocabulary scan of full --help output ---
+V4: 0 lines
+V4 destination: 0 lines
+traveling: 0 lines
+Explain on: 0 lines
+kit screen: 0 lines
+deferred-to: 0 lines

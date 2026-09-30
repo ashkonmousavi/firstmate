@@ -1,0 +1,23 @@
+### G1 no preparation record at all
+error: task g1 cannot ship without its preparation record: no preparation record at /tmp/fm-lab.tDyQ9x/data/g1/prep.md; scaffold it with bin/fm-brief.sh g1 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1 meta_written=no
+
+### G2 freshly scaffolded, unanswered record
+error: task g2 cannot ship without its preparation record: its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /tmp/fm-lab.tDyQ9x/data/g2/prep.md; scaffold it with bin/fm-brief.sh g2 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1 meta_written=no
+
+### G3 UI wiring yes naming V4, every section answered except ## 10 Demo receipt plan left empty
+brief.md
+launch-brief.md
+prep.md
+
+### G3 UI wiring yes naming V4, every section answered except ## 10 Demo receipt plan left empty
+## 10. Demo receipt plan
+
+## 11. Definition of done
+error: task g3 cannot ship without its preparation record: tier 2 requires ## 10. Demo receipt plan, which is empty in /tmp/fm-lab.tDyQ9x/data/g3/prep.md; scaffold it with bin/fm-brief.sh g3 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1 meta_written=no
+
+### G4 same record, ## 4 Blast radius answered with prose that names neither gitnexus nor serena
+error: task g4 cannot ship without its preparation record: tier 2 requires ## 4. Blast radius to paste the tool output behind it, naming gitnexus or serena, or to answer `n/a: <reason>`, in /tmp/fm-lab.tDyQ9x/data/g4/prep.md; scaffold it with bin/fm-brief.sh g4 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+exit=1 meta_written=no
