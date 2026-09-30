@@ -1,0 +1,17 @@
+# sweep of all shared skills for project-specific record names at 7900f311
+$ grep -rniE "xau|openspec|roadmap|tasks\.md|Journey/|SOP\.md|HEALTH\.md|docs/ssot|pulsedesk" .agents/skills
+.agents/skills/wayfinding/SKILL.md:105:When the ready frontier lists only umbrellas or nothing while holds still exist, expand the umbrella that same turn into concrete items filed from the project's own open records: its roadmap, plan or task-list items, or decision records.
+.agents/skills/wayfinding/SKILL.md:106:Evaluate every hold against those same records - the project's own roadmap, plan or task list, and this home's `data/done-archive.md` - rather than against the hold's own remembered text.
+.agents/skills/wayfinding/SKILL.md:108:Resolve a dependency against this home's `data/done-archive.md` plus the project's own roadmap, plan or task list, never against whether an id is still visible in `data/backlog.md`, whose retention rule (section 10) prunes closed entries regardless of whether the dependency they named actually closed.
+
+# same sweep at base 16185595
+16185595:.agents/skills/journey-walk/SKILL.md:6:  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, class-fix lanes, focused re-walk after install, HEALTH.md currency, and captain-language outcomes.
+16185595:.agents/skills/journey-walk/SKILL.md:7:  The project's Journey/SOP.md owns the walk itself.
+16185595:.agents/skills/journey-walk/SKILL.md:17:The project's `Journey/SOP.md` is the walk contract.
+16185595:.agents/skills/journey-walk/SKILL.md:18:Read that file and the siblings it names (`STAGES.md`, `HEALTH.md`, `runs/`) rather than reconstructing the method here.
+16185595:.agents/skills/journey-walk/SKILL.md:54:Keep the project's `HEALTH.md` current by requiring the walk owner to update it after each run or focused re-walk, and treat a missing update as unfinished supervision.
+16185595:.agents/skills/research-first-decisions/SKILL.md:81:  The research that produced a finding files it in the project's own findings record as part of the packet, never as a later task, in whatever form that record's owner prescribes: in XAUUSD that is that project's own `docs/ssot/research/README.md`, which routes the finding by provenance and owns the dated section, lookup heading, and last-reviewed line.
+16185595:.agents/skills/wayfinding/SKILL.md:105:When the ready frontier lists only umbrellas or nothing while holds still exist, expand the umbrella that same turn into concrete items filed from the project's own open records: ROADMAP rows, openspec `tasks.md` boxes, or decision records.
+16185595:.agents/skills/wayfinding/SKILL.md:106:Evaluate every hold against those same records - the project's ROADMAP, its openspec `tasks.md`, and this home's `data/done-archive.md` - rather than against the hold's own remembered text.
+16185595:.agents/skills/wayfinding/SKILL.md:108:Resolve a dependency against this home's `data/done-archive.md` plus the project's ROADMAP and openspec `tasks.md`, never against whether an id is still visible in `data/backlog.md`, whose retention rule (section 10) prunes closed entries regardless of whether the dependency they named actually closed.
+16185595:.agents/skills/wayfinding/SKILL.md:135:A trailing commit id on an openspec `tasks.md` checkbox is that box's own evidence citation, never the Change's landing commit - check a Change's dependency against the project's main line itself, a merged PR or a landed sha there, not against an id quoted inside its task list.
