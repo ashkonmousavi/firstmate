@@ -1283,39 +1283,6 @@ EOF
   pass "fm-spawn: a ship launch requires an answered task preparation record, and a scout never is"
 }
 
-test_ship_spawn_refuses_v4_destination_exists_verdict() {
-  local rec home proj fakebin id prep out status
-  rec=$(make_home kit-parity-spawn)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
-  id="kit-spawn-exists"
-  write_brief "$home" "$id" no-mistakes
-  prep="$home/data/$id/prep.md"
-  sed -e 's/^- UI wiring: .*$/- UI wiring: yes, the V4 Profiles destination identity row./' \
-    "$prep" > "$prep.ui" && mv "$prep.ui" "$prep"
-  fill_section "$prep" "## 3. UI/UX" \
-    "- explain: exists, imported unchanged
-- provenance: present
-- verdict: present
-- pills: present
-- gate-bar: present
-- readout: present
-- legend: present
-- meter: present
-- switches: present"
-  fill_section "$prep" "## 10. Demo receipt plan" \
-    "Walk the kit screen beside the shipped screen at the same viewport, Explain on and Explain off."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off); status=$?
-  [ "$status" -ne 0 ] || fail "a V4 destination spawn with exists, imported unchanged should exit non-zero"
-  assert_contains "$out" "cannot ship without its preparation record" \
-    "the spawn refusal did not say the preparation record failed"
-  assert_contains "$out" "explain" \
-    "the spawn refusal did not name the traveling-layer item"
-  assert_absent "$home/state/$id.meta" "a refused V4 destination spawn wrote task metadata"
-  pass "fm-spawn: a V4 destination prep with exists, imported unchanged is refused"
-}
-
 # The forge binding is orthogonal to the mode and to +yolo, exactly as +yolo is
 # orthogonal to the mode: it is read from its own `forge=` token wherever that
 # token sits in the annotation, and it is never derived from the mode. It is
@@ -1957,6 +1924,5 @@ test_spawn_refuses_a_registry_forge_it_cannot_read
 test_promotion_carries_the_forge_binding
 test_spawn_and_promote_require_filled_task_subsections
 test_ship_spawn_requires_the_task_preparation_record
-test_ship_spawn_refuses_v4_destination_exists_verdict
 test_project_mode_resolves_branch_prefix
 echo "# all fm-task-delivery tests passed"

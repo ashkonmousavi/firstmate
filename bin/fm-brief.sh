@@ -28,11 +28,10 @@
 #     Q1  does this change alter what a user sees or can do?  yes or no
 #     Q2  does it touch a shared module, a contract, or more than about eight
 #         files?  yes or no
-#     UI wiring  `yes, <the V4 step and control the user meets>` or
+#     UI wiring  `yes, <the step and control the user meets>` or
 #         `no, <why the user never meets this change>`; a change that lets a user
 #         configure or choose something is always yes, and the reason is
-#         mandatory in both directions. A V4 destination answers yes and names
-#         that V4 step.
+#         mandatory in both directions.
 #   Those three answers alone decide what the record owes:
 #     UI wiring yes     tier 2 - whatever Q1 and Q2 say
 #     Q1 yes            tier 2 - every section below
@@ -61,13 +60,8 @@
 #   header is missing or leaves any of its three answers unanswered or outside
 #   its format, or where a section the declared tier requires is missing, still
 #   placeheld, or empty, naming that section.
-#   A V4 destination (UI wiring yes, reason names V4) must also answer every
-#   traveling-layer item in section 3 as present, not-applicable-because-<named
-#   kit rule>, or deferred-to-<existing task id>; exists, imported unchanged and
-#   a bare later are not answers. Its section 10 demo receipt must include the
-#   kit screen beside the shipped screen at the same viewport, with Explain on
-#   and Explain off. A deferred-to id is proven against this home's backlog at
-#   ship spawn. Non-V4 and non-screen records are unchanged.
+#   The guide lines for sections 1, 3, 7, and 10 point at the project's own
+#   task, design, UI, and verification records as its instructions name them.
 #   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
 #   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at
