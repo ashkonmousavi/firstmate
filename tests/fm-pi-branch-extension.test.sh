@@ -5143,6 +5143,16 @@ actualProcessed.setExpanded(true);
 if (JSON.stringify(actualProcessed.render(100)) !== JSON.stringify(stockProcessed.render(100))) {
   throw new Error("expanded Calm-off acknowledgement rendering differs from Pi stock");
 }
+const rawProcessedArgs = { through: "3", reason: `raw\tstreamed\nargument ${"x".repeat(100)}` };
+const stockRawProcessed = new ToolExecutionComponent("fm_branch_processed", "stock-raw-processed", rawProcessedArgs, { showImages: false }, stockProcessedDefinition, ui, process.cwd());
+const actualRawProcessed = new ToolExecutionComponent("fm_branch_processed", "actual-raw-processed", rawProcessedArgs, { showImages: false }, processedDefinition, ui, process.cwd());
+for (const expanded of [false, true]) {
+  stockRawProcessed.setExpanded(expanded);
+  actualRawProcessed.setExpanded(expanded);
+  if (JSON.stringify(actualRawProcessed.render(100)) !== JSON.stringify(stockRawProcessed.render(100))) {
+    throw new Error(`raw-args Calm-off acknowledgement call differs from Pi stock (expanded=${expanded})`);
+  }
+}
 pi.events.emit("firstmate:calm-presentation", { active: true, stockExportRendering: false });
 actualRow.invalidate();
 if (actualRow.render(100).length !== 0) {
