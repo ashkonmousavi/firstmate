@@ -102,10 +102,10 @@ An unclassified new request defaults to preempt in practice, because it is the t
 
 ### Frontier reset
 
-When the ready frontier lists only umbrellas or nothing while holds still exist, expand the umbrella that same turn into concrete items filed from the project's own open records: ROADMAP rows, openspec `tasks.md` boxes, or decision records.
-Evaluate every hold against those same records - the project's ROADMAP, its openspec `tasks.md`, and this home's `data/done-archive.md` - rather than against the hold's own remembered text.
+When the ready frontier lists only umbrellas or nothing while holds still exist, expand the umbrella that same turn into concrete items filed from the project's own open records: its roadmap, plan or task-list items, or decision records.
+Evaluate every hold against those same records - the project's own roadmap, plan or task list, and this home's `data/done-archive.md` - rather than against the hold's own remembered text.
 Release a hold that record shows has cleared, or re-hold it with a concrete event or date; never carry a hold's text forward unchanged past the condition it named.
-Resolve a dependency against this home's `data/done-archive.md` plus the project's ROADMAP and openspec `tasks.md`, never against whether an id is still visible in `data/backlog.md`, whose retention rule (section 10) prunes closed entries regardless of whether the dependency they named actually closed.
+Resolve a dependency against this home's `data/done-archive.md` plus the project's own roadmap, plan or task list, never against whether an id is still visible in `data/backlog.md`, whose retention rule (section 10) prunes closed entries regardless of whether the dependency they named actually closed.
 
 ## Pre-staging: a blocker gates its step, not the task
 
@@ -132,7 +132,7 @@ Start those pieces.
 
 A backlog dependency that names a stage, a release, or a final acceptance is a claim about another system's state, and claims go stale.
 Before dispatching such an item, reconcile it against the project's official main and its current completion authority: confirm from that project's own authority that the named thing actually closed there, not from a status line, a summary, a report, or the memory of it closing.
-A trailing commit id on an openspec `tasks.md` checkbox is that box's own evidence citation, never the Change's landing commit - check a Change's dependency against the project's main line itself, a merged PR or a landed sha there, not against an id quoted inside its task list.
+A trailing commit id on a task-list checkbox is that box's own evidence citation, never the named work's landing commit - check a named dependency against the project's main line itself, a merged PR or a landed sha there, not against an id quoted inside its task list.
 Dispatching on a stale named dependency puts a worker on a base that the thing it was waiting for has since moved.
 
 ## Proof at the right boundary

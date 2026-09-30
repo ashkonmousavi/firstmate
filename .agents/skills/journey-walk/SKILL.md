@@ -3,8 +3,8 @@ name: journey-walk
 description: >-
   Agent-only procedure for commissioning and supervising a live end-to-end journey walk.
   Load before commissioning, scheduling, or supervising a live end-to-end journey walk, and when a walk blocker's fix is installed.
-  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, class-fix lanes, focused re-walk after install, HEALTH.md currency, and captain-language outcomes.
-  The project's Journey/SOP.md owns the walk itself.
+  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, class-fix lanes, focused re-walk after install, the project's walk health record currency, and captain-language outcomes.
+  The project's own walk procedure owns the walk itself.
 user-invocable: false
 metadata:
   internal: true
@@ -14,9 +14,9 @@ metadata:
 
 Load this before commissioning, scheduling, or supervising a live end-to-end journey walk, and when a walk blocker's fix is installed.
 
-The project's `Journey/SOP.md` is the walk contract.
-Read that file and the siblings it names (`STAGES.md`, `HEALTH.md`, `runs/`) rather than reconstructing the method here.
-If that SOP is absent, stop and report the gap instead of inventing a walk method.
+The project's own walk procedure is the walk contract.
+Read that procedure and the stage, health, and run records it names rather than reconstructing the method here.
+If that procedure is absent, stop and report the gap instead of inventing a walk method.
 This skill owns only firstmate's supervisor duties around that contract.
 Commission the walk as ordinary project work under `AGENTS.md` section 7.
 Firstmate does not execute the walk itself.
@@ -41,15 +41,15 @@ Do not send a re-walk against a build that does not yet include the fix.
 A posted blocker is evidence, not authorization to change code, under `AGENTS.md` section 7.
 When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start a class-fix lane for a posted blocker at once.
 Otherwise raise the blocker to the captain under section 7 before any lane starts.
-Group by the earliest confirmed cause named in the project's SOP.
+Group by the earliest confirmed cause named in the project's walk procedure.
 Do not wait for the whole walk to finish before filing the fix or raising the blocker.
 
 After each fix is installed, send the focused re-walk of that repaired stage and its dependents; that re-walk is verification, not a code change, and needs no extra authority.
 Do not restart the walk from step 1.
-The project's SOP owns how that re-walk is executed.
+The project's walk procedure owns how that re-walk is executed.
 
 Never report the journey healthy from seeded passes or from fixes alone.
-A healthy verdict needs one coherent signed-in pass through the dependent spine with every planned stage passing on the same frozen live version, as the project's SOP requires.
+A healthy verdict needs one coherent signed-in pass through the dependent spine with every planned stage passing on the same frozen live version, as the project's walk procedure requires.
 
-Keep the project's `HEALTH.md` current by requiring the walk owner to update it after each run or focused re-walk, and treat a missing update as unfinished supervision.
+Keep the project's walk health record current by requiring the walk owner to update it after each run or focused re-walk, and treat a missing update as unfinished supervision.
 Relay outcomes in captain language under `AGENTS.md` section 9: the stage, the blocker, the live version, and the next required re-walk.
