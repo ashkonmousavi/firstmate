@@ -5120,15 +5120,46 @@ if (JSON.stringify(expandedActual) !== JSON.stringify(expandedStock)) {
 if (!expandedStock.join("\n").includes("OUTCOME_TWELVE") || JSON.stringify(expandedStock) === JSON.stringify(collapsedStock)) {
   throw new Error("stock rendering fixture did not exercise expanded output");
 }
+const processedDefinition = tools.find((tool) => tool.name === "fm_branch_processed");
+if (!processedDefinition) throw new Error("fm_branch_processed was not registered");
+const stockProcessedDefinition = { ...processedDefinition };
+delete stockProcessedDefinition.renderShell;
+delete stockProcessedDefinition.renderCall;
+delete stockProcessedDefinition.renderResult;
+const processedArgs = { through: 2 };
+const processedResult = { content: [{ type: "text", text: "ACKNOWLEDGED" }], details: undefined, isError: false };
+const stockProcessed = new ToolExecutionComponent("fm_branch_processed", "stock-processed", processedArgs, { showImages: false }, stockProcessedDefinition, ui, process.cwd());
+const actualProcessed = new ToolExecutionComponent("fm_branch_processed", "actual-processed", processedArgs, { showImages: false }, processedDefinition, ui, process.cwd());
+for (const row of [stockProcessed, actualProcessed]) {
+  row.markExecutionStarted();
+  row.setArgsComplete();
+  row.updateResult(processedResult);
+}
+if (JSON.stringify(actualProcessed.render(100)) !== JSON.stringify(stockProcessed.render(100))) {
+  throw new Error("Calm-off acknowledgement rendering differs from Pi stock");
+}
+stockProcessed.setExpanded(true);
+actualProcessed.setExpanded(true);
+if (JSON.stringify(actualProcessed.render(100)) !== JSON.stringify(stockProcessed.render(100))) {
+  throw new Error("expanded Calm-off acknowledgement rendering differs from Pi stock");
+}
 pi.events.emit("firstmate:calm-presentation", { active: true, stockExportRendering: false });
 actualRow.invalidate();
 if (actualRow.render(100).length !== 0) {
   throw new Error("Calm-on ToolExecutionComponent row remained visible");
 }
+actualProcessed.invalidate();
+if (actualProcessed.render(100).length !== 0) {
+  throw new Error("Calm-on acknowledgement row remained visible");
+}
 pi.events.emit("firstmate:calm-presentation", { active: false, stockExportRendering: false });
 actualRow.invalidate();
 if (JSON.stringify(actualRow.render(100)) !== JSON.stringify(stockRow.render(100))) {
   throw new Error("ToolExecutionComponent rendering did not restore after live toggle");
+}
+actualProcessed.invalidate();
+if (JSON.stringify(actualProcessed.render(100)) !== JSON.stringify(stockProcessed.render(100))) {
+  throw new Error("acknowledgement rendering did not restore after live toggle");
 }
 
 pi.events.emit("firstmate:calm-presentation", { active: true, stockExportRendering: true });

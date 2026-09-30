@@ -4391,7 +4391,13 @@ if (!messages || !tree) process.exit(1);
 if (!/<div class="user-message"[^>]*>[\s\S]*Show a deterministic tool example\./.test(messages)) process.exit(1);
 if (!/<div class="assistant-message"[^>]*>[\s\S]*The deterministic tool example is complete\./.test(messages)) process.exit(1);
 if (messages.includes('<div class="hook-message"')) process.exit(1);
-if (messages.includes("[firstmate-synthetic-input]")) process.exit(1);
+if (messages.includes("[firstmate-synthetic-input]")) {
+  // Pi 0.99 includes display:false messages in exported DOM behind its hidden-message toggle.
+  // They must remain hidden by default while the full session stays inspectable.
+  const hidden = messages.match(/<div class="hook-message hook-message-hidden"[^>]*>(?:(?!<div class="hook-message)[\s\S])*?<div class="hook-type">\[firstmate-synthetic-input\] · Hidden in terminal<\/div>/);
+  if (!hidden || /<body[^>]*class="[^"]*show-hidden-messages/.test(dom)) process.exit(1);
+  if (!/body:not\(\.show-hidden-messages\) \.hook-message-hidden\s*\{\s*display:\s*none;\s*\}/.test(dom)) process.exit(1);
+}
 for (const current of ["CURRENT_WATCHER_E2E", "CURRENT_TURN_END_E2E", "CURRENT_AWAY_E2E", "CURRENT_FROM_FIRSTMATE_E2E", "CURRENT_LAUNCH_BRIEF_E2E"]) {
   if (!messages.includes(current)) process.exit(1);
 }
