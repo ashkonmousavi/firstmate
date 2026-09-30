@@ -112,7 +112,7 @@ Open-source libraries, and the ways other good applications solve the same probl
 ## 7. Context7 version-documentation verification
 
 This duty is mandatory and applies independently of the selection procedure above.
-It is standing captain preference, recorded in `data/captain.md`, and originates in the captain's instruction of 2026-09-08 and the advisor reconciliation at `/mnt/c/Users/Tegri/Downloads/p_transfers/Check_FirstMates_Work/WORK_RECONCILIATION.md` section 13.2.2; `data/captain.md` is the in-home authority and that document is its provenance.
+It is standing captain preference, recorded in `data/captain.md`, and originates in the captain's instruction of 2026-09-08; `data/captain.md` is the in-home authority.
 It fires whenever an agent adopts, configures, upgrades, or integrates a library, SDK, API, CLI, framework, or service, or debugs version-sensitive usage, whether or not a candidate is being chosen.
 It is not required for unrelated business-logic edits or for every tool invocation.
 
