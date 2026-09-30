@@ -49,7 +49,7 @@ Do not restart the walk from step 1.
 The project's walk procedure owns how that re-walk is executed.
 
 Never report the journey healthy from seeded passes or from fixes alone.
-A healthy verdict needs one coherent signed-in pass through the dependent spine with every planned stage passing on the same frozen live version, as the project's walk procedure requires.
+A healthy verdict needs one coherent pass, signed in where the product has sign-in, through the dependent spine with every planned stage passing on the same frozen live version, as the project's walk procedure requires.
 
 Keep the project's walk health record current by requiring the walk owner to update it after each run or focused re-walk, and treat a missing update as unfinished supervision.
 Relay outcomes in captain language under `AGENTS.md` section 9: the stage, the blocker, the live version, and the next required re-walk.
