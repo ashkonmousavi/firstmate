@@ -1,0 +1,14 @@
+FM_TEST_BEGIN 2026-09-30T11:37:43Z tests/fm-pi-branch-extension.test.sh family=standalone expected_gate_skip=none
+not ok - Pi outcomes rendering consumers must preserve stock behavior: file:///tmp/fm-pi-branch-extension.ZkXinK/stock-render-consumers/[eval1]:71
+  throw new Error("Calm-off ToolExecutionComponent rendering differs from Pi stock");
+        ^
+
+Error: Calm-off ToolExecutionComponent rendering differs from Pi stock
+    at file:///tmp/fm-pi-branch-extension.ZkXinK/stock-render-consumers/[eval1]:71:9
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0: expected exit 0, got 1
+FM_TEST_END 2026-09-30T11:37:44Z tests/fm-pi-branch-extension.test.sh exit=1 duration_ms=872 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=928
+FM_TEST_SUMMARY_FAMILY family=standalone count=1 duration_ms=872 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-pi-branch-extension.test.sh duration_ms=872

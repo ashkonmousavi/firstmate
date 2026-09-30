@@ -1,0 +1,59 @@
+Pi 0.99.1 - branch tool rows rendered by real ToolExecutionComponent (ANSI stripped for display; equality is byte-exact on raw output)
+
+=== Calm=off fm_branch_outcomes expanded=false extension==stock(byte-exact): true ===
+  stock    | fm_branch_outcomes recent=2
+           | 1 OUTCOME_ONE
+           | 2 OUTCOME_TWO
+  extension| fm_branch_outcomes recent=2
+           | 1 OUTCOME_ONE
+           | 2 OUTCOME_TWO
+
+=== Calm=off fm_branch_outcomes expanded=true extension==stock(byte-exact): true ===
+  stock    | fm_branch_outcomes
+           |   recent: 2
+           | 1 OUTCOME_ONE
+           | 2 OUTCOME_TWO
+  extension| fm_branch_outcomes
+           |   recent: 2
+           | 1 OUTCOME_ONE
+           | 2 OUTCOME_TWO
+
+=== Calm=off fm_branch_processed expanded=false extension==stock(byte-exact): true ===
+  stock    | fm_branch_processed through=2
+           | ACKNOWLEDGED
+  extension| fm_branch_processed through=2
+           | ACKNOWLEDGED
+
+=== Calm=off fm_branch_processed expanded=true extension==stock(byte-exact): true ===
+  stock    | fm_branch_processed
+           |   through: 2
+           | ACKNOWLEDGED
+  extension| fm_branch_processed
+           |   through: 2
+           | ACKNOWLEDGED
+
+=== Calm=on  fm_branch_outcomes expanded=false extension==stock(byte-exact): false ===
+  stock    | fm_branch_outcomes recent=2
+           | 1 OUTCOME_ONE
+           | 2 OUTCOME_TWO
+  extension|(no rows: hidden)
+
+=== Calm=on  fm_branch_outcomes expanded=true extension==stock(byte-exact): false ===
+  stock    | fm_branch_outcomes
+           |   recent: 2
+           | 1 OUTCOME_ONE
+           | 2 OUTCOME_TWO
+  extension|(no rows: hidden)
+
+=== Calm=on  fm_branch_processed expanded=false extension==stock(byte-exact): false ===
+  stock    | fm_branch_processed through=2
+           | ACKNOWLEDGED
+  extension|(no rows: hidden)
+
+=== Calm=on  fm_branch_processed expanded=true extension==stock(byte-exact): false ===
+  stock    | fm_branch_processed
+           |   through: 2
+           | ACKNOWLEDGED
+  extension|(no rows: hidden)
+
+CALM_OFF_ALL_BYTE_EXACT=true

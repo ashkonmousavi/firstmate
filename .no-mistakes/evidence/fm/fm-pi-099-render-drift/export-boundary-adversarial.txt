@@ -1,0 +1,7 @@
+real Pi 0.99.1 export DOM: exit=0 accepted
+a-visible-user-copy: exit=1 rejected
+b-visible-custom-copy: exit=1 rejected
+c-unhidden-hook: exit=1 rejected
+d-body-shows-hidden: exit=1 rejected
+e-no-hide-css: exit=1 rejected
+f-watcher-text-visible: exit=1 rejected
