@@ -905,6 +905,19 @@ fm_backend_busy_state() {  # <backend> <target>
   esac
 }
 
+# fm_backend_blocked_is_question: 0 when a native `blocked` transition from
+# <backend> for a <harness> agent means it is waiting on a human. Backends
+# without a harness whose blocked state is illegible report 0.
+fm_backend_blocked_is_question() {  # <backend> <harness>
+  local backend=$1
+  shift
+  fm_backend_source "$backend" || return 0
+  case "$backend" in
+    herdr) fm_backend_herdr_blocked_is_question "$@" ;;
+    *) return 0 ;;
+  esac
+}
+
 # fm_backend_composer_state: classify the composer/input area of <target> as
 # empty|pending|pending-unproven|unknown for callers that need a pre-submit
 # input guard, a submit acknowledgement, or a launch-readiness check. It is

@@ -272,6 +272,42 @@ test_claude_hooks_semantic_lifecycle() {
   pass "claude hooks open on UserPromptSubmit and close on Stop, StopFailure, and SessionEnd"
 }
 
+# The PermissionRequest hook only records that a dialog is waiting
+# (state/<id>.prompt-waiting, read by the watcher). Claude reads that hook's
+# stdout as a permission decision, so it must print nothing and leave the
+# normal dialog in charge, and each prompt must write a distinct marker.
+test_claude_permission_request_marks_a_waiting_prompt() {
+  local rec id=busy-cl-3 out state settings marker first second
+  rec=$(make_spawn_case claude-prompt claude "$id")
+  read_case_record "$rec"
+  state="$HOME_DIR/state"
+  marker="$state/$id.prompt-waiting"
+  mkdir -p "$state"
+  printf '1 1\n' > "$marker"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "$PROJ_DIR")
+  expect_code 0 $? "claude spawn should succeed: $out"
+  assert_absent "$marker" "spawn must clear a previous incarnation's prompt marker"
+  settings="$WT_DIR/.claude/settings.local.json"
+  jq -e '.hooks.PermissionRequest' "$settings" >/dev/null || fail "claude hook settings lack PermissionRequest"
+
+  out=$(printf '{"hook_event_name":"PermissionRequest","tool_name":"Bash"}' | run_claude_hook "$settings" PermissionRequest) \
+    || fail "PermissionRequest hook command failed"
+  [ -z "$out" ] || fail "PermissionRequest hook must print nothing, or Claude reads it as a decision; got '$out'"
+  assert_present "$marker" "PermissionRequest did not write the prompt-waiting marker"
+  first=$(cat "$marker")
+  case "$first" in
+    [0-9]*' '[0-9]*) : ;;
+    *) fail "prompt-waiting marker is not '<epoch> <pid>': '$first'" ;;
+  esac
+  out=$(classify claude "$id" "$state")
+  [ "$out" = "busy fm-spawn" ] || fail "a waiting prompt must not change the busy record, got '$out'"
+
+  printf '{}' | run_claude_hook "$settings" PermissionRequest >/dev/null || fail "second PermissionRequest hook run failed"
+  second=$(cat "$marker")
+  [ "$first" != "$second" ] || fail "a second prompt must write a distinct marker, both read '$first'"
+  pass "claude PermissionRequest hook marks a waiting prompt silently, once per prompt"
+}
+
 test_claude_hooks_stale_incarnation_harmless() {
   local rec id=busy-cl-2 out state settings
   rec=$(make_spawn_case claude-stale claude "$id")
@@ -429,6 +465,7 @@ test_kimi_and_grok_install_no_unverified_wiring
 test_opencode_plugin_semantic_lifecycle
 test_claude_hooks_semantic_lifecycle
 test_claude_hooks_stale_incarnation_harmless
+test_claude_permission_request_marks_a_waiting_prompt
 test_gemini_hooks_semantic_lifecycle
 test_gemini_hooks_stale_incarnation_harmless
 test_raw_gemini_launch_has_no_semantic_wiring

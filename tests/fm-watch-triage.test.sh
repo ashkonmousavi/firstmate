@@ -6543,6 +6543,96 @@ test_paused_until_that_passed_is_rechecked_before_the_cadence() {
   pass "a declared wait whose until time has passed is rechecked at once, then held to the cadence"
 }
 
+# --- a waiting permission or question prompt outranks a declared pause -------
+# A live Claude worker that declared `paused: ... until <future>` is absorbed on
+# every stale sighting until that time. Its PermissionRequest hook (fm-spawn)
+# writes state/<id>.prompt-waiting when a dialog appears, and that marker must
+# wake firstmate on the next cycle anyway, once per marker.
+prompt_waiting_fixture() {  # <name>
+  local name=$1 dir state window key
+  dir=$(make_case "$name"); state="$dir/state"; window="test:fm-prompt"
+  cat > "$dir/pane.txt" <<'PANE'
+● Bash(S=$PWD/scr; cd $S; rm -f trees/*)
+
+ Bash command
+
+   S=$PWD/scr; cd $S; rm -f trees/*
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend
+PANE
+  printf 'window=%s\nkind=ship\nharness=claude\nbackend=tmux\n' "$window" > "$state/prompt.meta"
+  printf 'paused: 8 research agents running; resume when they report, until %s\n' \
+    "$(iso_utc_at "$(( $(date +%s) + 3600 ))")" > "$state/prompt.status"
+  printf '%s' "$(seen_sig "$state/prompt.status")" > "$state/.seen-prompt_status"
+  key=$(printf '%s' "$window" | tr '.:/' '___')
+  printf '%s' "$(hash_text "$(cat "$dir/pane.txt")")" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  printf '%s\n' "$dir"
+}
+
+# Armed as the successor a handled wake leaves behind, so each round stays in
+# the poll loop rather than re-announcing the previous round's downtime.
+prompt_watch() {  # <dir> -> pid in PROMPT_PID
+  local dir=$1
+  PATH="$dir/fakebin:$PATH" FM_FAKE_TMUX_WINDOW=test:fm-prompt FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" \
+    FM_FAKE_TMUX_CURRENT_COMMAND=claude \
+    FM_FAKE_CREW_STATE='state: unknown · source: none · no current-state source available' \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$dir/state" FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
+    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_SECONDMATE_LIVENESS_SECS=99999999 "$WATCH" > "$dir/watch.out" 2>&1 &
+  PROMPT_PID=$!
+}
+
+test_prompt_waiting_marker_wakes_through_a_declared_pause() {
+  local dir state reason='stale: test:fm-prompt (a permission or question prompt is waiting in the pane)'
+  dir=$(prompt_waiting_fixture prompt-waiting); state="$dir/state"
+
+  # The divergence this case exists for: with no marker the declared future
+  # time silences the visible dialog, exactly as it did live.
+  prompt_watch "$dir"
+  if ! wait_poll_cycle "$state" "$PROMPT_PID" || ! wait_poll_cycle "$state" "$PROMPT_PID"; then
+    reap "$PROMPT_PID"; fail "the fixture woke without a prompt marker, so it cannot prove the marker: $(cat "$dir/watch.out")"
+  fi
+  reap "$PROMPT_PID"
+  [ ! -s "$state/.wake-queue" ] || fail "the fixture queued a wake without a prompt marker"
+  grep -F 'declared time not reached' "$state/.watch-triage.log" >/dev/null \
+    || fail "the fixture did not reach the paused-until absorb it reproduces"
+
+  printf '%s 4242\n' "$(date +%s)" > "$state/prompt.prompt-waiting"
+  prompt_watch "$dir"
+  wait_for_exit "$PROMPT_PID" 100 \
+    || fail "a prompt marker under a future paused-until did not wake the watcher: $(cat "$dir/watch.out")"
+  grep -Fx "$reason" "$dir/watch.out" >/dev/null \
+    || fail "the prompt wake gave the wrong reason: $(cat "$dir/watch.out")"
+  grep -F 'a permission or question prompt is waiting' "$state/.wake-queue" >/dev/null \
+    || fail "the prompt wake was not durably queued: $(cat "$state/.wake-queue" 2>/dev/null)"
+
+  # Once per marker: the same marker does not wake again, and the ordinary
+  # declared-wait handling resumes underneath it.
+  ack_stopped_cycle "$state" || fail "could not acknowledge the prompt wake"
+  : > "$dir/watch.out"
+  prompt_watch "$dir"
+  if ! wait_poll_cycle "$state" "$PROMPT_PID" || ! wait_poll_cycle "$state" "$PROMPT_PID"; then
+    reap "$PROMPT_PID"; fail "an already-surfaced prompt marker woke the watcher again: $(cat "$dir/watch.out")"
+  fi
+  reap "$PROMPT_PID"
+
+  # A new prompt writes a new marker, which wakes again.
+  printf '%s 4343\n' "$(date +%s)" > "$state/prompt.prompt-waiting"
+  : > "$dir/watch.out"
+  prompt_watch "$dir"
+  wait_for_exit "$PROMPT_PID" 100 \
+    || fail "a second prompt marker did not wake the watcher: $(cat "$dir/watch.out")"
+  grep -Fx "$reason" "$dir/watch.out" >/dev/null \
+    || fail "the second prompt wake gave the wrong reason: $(cat "$dir/watch.out")"
+  pass "a waiting permission or question prompt wakes firstmate through a declared paused-until wait, once per prompt"
+}
+
 # CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
 # churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
 if [ -n "${FM_TEST_ONLY:-}" ]; then
@@ -6690,3 +6780,4 @@ test_afk_one_shot_never_hands_off_captain_held_under_away_record
 test_paused_until_near_future_is_quiet_before_the_cadence
 test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
+test_prompt_waiting_marker_wakes_through_a_declared_pause

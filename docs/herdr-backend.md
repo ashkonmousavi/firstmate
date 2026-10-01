@@ -757,14 +757,12 @@ The portable halves are pinned by `tests/fm-backend-herdr.test.sh` (the read, ag
 Protocol 16 can subscribe to `pane.agent_status_changed` over one bounded Unix-socket reader.
 `bin/fm-transition-lib.sh` owns the backend-neutral transition vocabulary and policy.
 The Herdr adapter subscribes before reconciling current levels, buffers edges during reconciliation, and returns fresh blocked transitions for this home's panes.
+Herdr rejects a whole subscription when any named pane is gone, and a task record can outlive its pane, so the reader drops each pane a `pane_not_found` rejection names and resubscribes the live ones (`bin/backends/herdr-eventwait.py` owns the wire shape).
 
-The watcher maps the pane back to the task and skips these:
-
-- Secondmate endpoints.
-- Declared `paused:` waits, because the worker's declared wait already accounts for its quiet.
-  It is left to the watcher's own bounded pause cadence.
-- Verified `captain-held` transfers.
-  A captain-held transfer remains silent without rechecks while the away-posture record exists.
+The watcher maps the pane back to the task and skips secondmate endpoints.
+A blocked transition escalates even under a declared `paused:` wait or a verified `captain-held` transfer, because a declaration accounts for quiet and nothing but an answer clears a question on screen.
+The away daemon escalates that wake under a declared wait too.
+A Cursor-family pane is the exception on the push path: Herdr reports it `blocked` in every state, so its `blocked` is not read as a question.
 
 ### Polling fallback
 
@@ -779,8 +777,11 @@ Polling runs every cycle and remains the permanent fallback when any of these is
 - Repeated reader execution.
 
 There is still one watcher process; the event reader is a bounded child of that watcher.
+A failed capability probe, or `FM_EVENT_CAP_FAIL_MAX` consecutive reader failures, leaves that watcher process polling only.
+Each such fallback writes one `push fast-path` line to `state/.watch-triage.log` and queues one `check: push fast-path lost` wake per episode.
+The episode marker, `state/.push-fallback-<backend>_<session>`, survives watcher relaunches and is cleared by the next working event wait.
 
-`tests/fm-backend-herdr-eventwait-smoke.test.sh`, `tests/fm-transition-lib.test.sh`, and `tests/fm-supervision-events.test.sh` cover capability, subscribe-then-reconcile ordering, dedupe, exemptions, and polling fallback.
+`tests/fm-backend-herdr-eventwait-smoke.test.sh`, `tests/fm-backend-herdr-eventwait.test.py`, `tests/fm-transition-lib.test.sh`, and `tests/fm-supervision-events.test.sh` cover capability, subscribe-then-reconcile ordering, gone-pane resubscription, dedupe, exemptions, and polling fallback.
 
 ## Away-mode supervisor support
 

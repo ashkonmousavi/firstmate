@@ -17,6 +17,14 @@ Wire protocol (verified: herdr 0.7.3, protocol 16, newline-delimited JSON):
   ack     : {"id",...,"result":{"type":"subscription_started"}}\n
   stream  : {"event":"pane.agent_status_changed",
              "data":{"pane_id","workspace_id","agent_status","agent",...}}\n
+  reject  : {"id",...,"error":{"code":"pane_not_found",
+             "message":"pane <pane_id> not found"}}\n
+            (captured from herdr 0.9.1, protocol 22: one gone pane rejects the
+            whole subscription). A task record can outlive its pane, so the
+            reader drops each requested pane a pane_not_found reply names and
+            resubscribes the rest on a fresh connection, at most once per pane.
+            A rejection naming none of the requested panes, or one that leaves
+            no pane, still exits 3.
 
 Usage: herdr-eventwait.py <socket_path> <timeout_seconds> <pane_id> [<pane_id> ...]
 
@@ -36,6 +44,7 @@ A non-zero exit tells the bash caller to fall back to plain polling for this
 cycle (the permanent fail-closed backstop), never to go silent.
 """
 import json
+import re
 import socket
 import sys
 import time
@@ -71,24 +80,31 @@ def _clean(value):
     return str(value).replace("\t", " ").replace("\r", " ").replace("\n", " ")
 
 
-def main(argv):
-    if len(argv) < 4:
-        return 2
-    sock_path = argv[1]
-    try:
-        timeout = float(argv[2])
-    except ValueError:
-        return 2
-    panes = argv[3:]
-    if not panes or timeout <= 0:
-        return 2
+def _gone_panes(reply, panes):
+    """The requested panes a pane_not_found rejection names, matched as whole
+    ids so a pane whose id is a prefix of the gone one is never dropped."""
+    error = reply.get("error") or {}
+    if error.get("code") != "pane_not_found":
+        return []
+    message = str(error.get("message") or "")
+    return [
+        pane
+        for pane in panes
+        if re.search(r"(?<![\w:])" + re.escape(pane) + r"(?![\w:])", message)
+    ]
 
+
+def _subscribe(sock_path, panes, deadline):
+    """Open one connection and subscribe <panes>. Returns (sock, buf, code,
+    gone): a started subscription has code None; a failure has its exit
+    status as code, except a rejection naming gone requested panes, which
+    closes the connection and returns code None with those panes in gone."""
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.settimeout(CONNECT_TIMEOUT)
         sock.connect(sock_path)
     except OSError:
-        return 2
+        return None, None, 2, []
 
     subscriptions = [
         {"type": "pane.agent_status_changed", "pane_id": pane} for pane in panes
@@ -101,24 +117,53 @@ def main(argv):
     try:
         sock.sendall((json.dumps(request) + "\n").encode("utf-8"))
     except OSError:
-        return 2
-
-    start = time.monotonic()
-    deadline = start + timeout
-    buf = b""
+        return None, None, 2, []
 
     # Bounded wait for the subscription_started ack (its own short budget, but
     # never past the overall deadline).
-    ack_deadline = min(deadline, start + ACK_TIMEOUT)
-    line, buf, outcome = _read_line(sock, buf, ack_deadline)
+    ack_deadline = min(deadline, time.monotonic() + ACK_TIMEOUT)
+    line, buf, _outcome = _read_line(sock, b"", ack_deadline)
     if line is None:
-        return 2
+        return None, None, 2, []
     try:
         ack = json.loads(line.decode("utf-8", "replace"))
     except ValueError:
-        return 3
+        return None, None, 3, []
     result = ack.get("result") or {}
     if result.get("type") != "subscription_started":
+        gone = _gone_panes(ack, panes)
+        if not gone:
+            return None, None, 3, []
+        sock.close()
+        return None, None, None, gone
+    return sock, buf, None, []
+
+
+def main(argv):
+    if len(argv) < 4:
+        return 2
+    sock_path = argv[1]
+    try:
+        timeout = float(argv[2])
+    except ValueError:
+        return 2
+    panes = argv[3:]
+    if not panes or timeout <= 0:
+        return 2
+
+    deadline = time.monotonic() + timeout
+    # Each retry drops at least one pane, so the loop is bounded by the count.
+    for _attempt in range(len(panes)):
+        sock, buf, code, gone = _subscribe(sock_path, panes, deadline)
+        if code is not None:
+            return code
+        if not gone:
+            break
+        sys.stderr.write("herdr-eventwait: dropped gone pane(s) %s\n" % " ".join(gone))
+        panes = [pane for pane in panes if pane not in gone]
+        if not panes:
+            return 3
+    else:
         return 3
 
     sys.stdout.write("@subscribed\n")
