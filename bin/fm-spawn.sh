@@ -3168,20 +3168,23 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fi
       exit 1
     fi
-    # A separate agent reviews every record, at every tier, before its ship
-    # starts; bin/fm-dod-lib.sh's header owns what proves that review.
-    if REVIEW_REASON=$(fm_prep_review_reason "$DATA" "$ID"); then
-      echo "error: task $ID cannot ship before a separate agent reviews its preparation record: $REVIEW_REASON; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as $PREP_FILE, then write $DATA/$ID/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>" >&2
-      exit 1
-    fi
   fi
+  # A separate agent reviews every record, at every tier, before its ship
+  # starts; bin/fm-dod-lib.sh's header owns what proves that review. Only a
+  # record whose review still holds is handed over as accepted specification,
+  # so a relaunched task with an unreviewed record gets none.
   REVIEWED_PREP=
-  if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
-    # Only a record whose review still holds is handed over as accepted
-    # specification, so a relaunched task with an unreviewed record gets none.
-    if ! fm_prep_review_reason "$DATA" "$ID" >/dev/null; then
+  if [ "$KIND" = ship ]; then
+    if REVIEW_REASON=$(fm_prep_review_reason "$DATA" "$ID"); then
+      if [ "$RELAUNCH" -eq 0 ]; then
+        echo "error: task $ID cannot ship before a separate agent reviews its preparation record: $REVIEW_REASON; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as $PREP_FILE, then write $DATA/$ID/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>" >&2
+        exit 1
+      fi
+    else
       REVIEWED_PREP=$PREP_FILE
     fi
+  fi
+  if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
     if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
       CAPTAIN_INTENT=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
     else
