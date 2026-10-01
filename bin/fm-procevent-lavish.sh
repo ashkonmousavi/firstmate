@@ -94,6 +94,7 @@
 # intake in bin/fm-captain-hold.sh, which the runner feeds. A Lavish review is
 # just an ephemeral discussion format that happens to carry answers.
 #
+# A versioned note-only choice emits no keyed answer and becomes a reconcile request carrying the note.
 # Only rows tagged `choice` are read. A freeform captain message is prose that may
 # contain anything, and must never be able to forge a decision key.
 #
@@ -615,7 +616,7 @@ cmd_choice_rows() {
         next unless $selected eq "" || $selected =~ /\A[A-Za-z0-9._-]{1,128}\z/;
         next unless length($note) <= 512;
         next unless length($selected) || length($note);
-        $answer = length($selected) ? $selected : $note;
+        $answer = $selected;
         $legacy = 0;
       # Time-limited compatibility for captures from pre-change boards; remove
       # once no board carrying the old question/answer context can remain armed.
@@ -654,14 +655,15 @@ cmd_choice_rows() {
     for my $choice (grep { defined } @choices) {
       if ($selection eq "reconciles") {
         next if $choice->{legacy};
-        if ($choice->{selection} eq "reconcile") {
+        if ($choice->{selection} eq "reconcile" || $choice->{selection} eq "") {
           print length($choice->{note})
             ? "$choice->{key}\t$choice->{note}\n"
             : "$choice->{key}\n";
         }
         next;
       }
-      next if $choice->{drop} || $choice->{selection} eq "reconcile";
+      next if $choice->{drop} || $choice->{selection} eq "reconcile"
+        || (!$choice->{legacy} && $choice->{selection} eq "");
       print length $choice->{mode}
         ? "$choice->{key}\t$choice->{answer}\t$choice->{label}\t$choice->{mode}\n"
         : "$choice->{key}\t$choice->{answer}\t$choice->{label}\n";

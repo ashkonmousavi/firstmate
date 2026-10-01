@@ -4183,6 +4183,51 @@ test_retained_body_keeps_its_utf8_bytes() {
   pass "cleanup preserves every byte of a retained body's non-ASCII characters"
 }
 
+test_note_only_board_capture_requests_recheck_without_answering() {
+  local home sid stub out show rows
+  home=$(make_home note-only-board)
+  sid=lavish-noteonly
+  fm_test_track_procevent_home "$home" "$home/procevent-claims"
+  run_captain "$home" hold sample-note-only --title "Choose scope" \
+    --reason "scope choice pending" --repo sample >/dev/null || fail "could not create note-only hold"
+  stub="$home/note-source.sh"
+  cat > "$stub" <<'SH'
+#!/usr/bin/env bash
+cat <<'OUT'
+session:
+  status: feedback
+  session_ended: false
+prompts[1]{tag,text,prompt}:
+  "choice","list all details wtf","Context data: {\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"\",\"note\":\"list all details wtf\",\"close\":\"release\"}"
+OUT
+SH
+  chmod +x "$stub"
+  "$stub" > "$home/note-result"
+  rows=$(run_lavish "$home" answers "$home/note-result")
+  [ -z "$rows" ] || fail "a note-only capture became a keyed answer: $rows"
+  rows=$(run_lavish "$home" reconciles "$home/note-result")
+  [ "$rows" = "$(printf 'sample-note-only\tlist all details wtf')" ] \
+    || fail "a note-only capture lost its re-check request or note: $rows"
+  run_procevent "$home" register lavish "$sid" -- "$stub" >/dev/null \
+    || fail "could not register note-only source"
+  run_captain "$home" bind "$sid" >/dev/null || fail "could not bind note-only source"
+  out=$(run_procevent "$home" start "$sid" 2>&1) || fail "note-only runner failed: $out"
+  show=$(tasks_in "$home" show sample-note-only --full)
+  assert_contains "$show" "held: yes" "a note-only capture released the hold"
+  assert_contains "$show" "state: queued" "a note-only capture closed the call"
+  assert_not_contains "$show" "Resolution mode:" "a note-only capture recorded an answer"
+  out=$(run_captain "$home" reconcile list)
+  assert_contains "$out" "reconcile-requests: 1" "note-only request was not durable"
+  assert_contains "$out" "sample-note-only" "note-only request lost the call identity"
+  assert_contains "$(cat "$home/state/reconcile-requests/sample-note-only.request")" \
+    "list all details wtf" "note-only request lost its provenance"
+  assert_contains "$(cat "$home/state/.wake-queue")" "check: procevent lavish $sid 1" \
+    "note-only capture did not wake firstmate"
+  pass "note-only captures leave holds open and request a durable re-check with the note"
+}
+
+test_note_only_board_capture_requests_recheck_without_answering
+
 test_uninventoried_report_decision_refuses_completion
 test_hold_decodes_a_bare_scalar_body_without_the_nonref_default
 test_retained_body_keeps_its_utf8_bytes
