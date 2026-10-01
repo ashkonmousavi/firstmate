@@ -261,8 +261,8 @@ The Lavish adapter splits each capture between two commands:
 
 | Command | What it emits |
 | --- | --- |
-| `bin/fm-procevent-lavish.sh answers` | An exact non-reconcile selection, or a bare note when no option was selected. |
-| `reconciles` | Only task ids whose structured selection is Reconcile, carrying their notes as request provenance. |
+| `bin/fm-procevent-lavish.sh answers` | An exact non-reconcile selection; note-only captures emit no answer. |
+| `reconciles` | Task ids whose structured selection is Reconcile or empty with a note, carrying their notes as request provenance. |
 
 Current rows require the versioned shape and the `choice` tag.
 A time-limited rollout branch accepts ordinary answers from the old question/answer shape.

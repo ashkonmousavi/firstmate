@@ -310,6 +310,39 @@ test_a_later_answer_queues_a_dated_deferral_and_other_answers_keep_the_close_mod
   pass "a later answer queues defer:<date> while another answer keeps the card close mode"
 }
 
+test_decision_and_credential_cards_render_all_context() {
+  local home out
+  home=$(make_home full-context)
+  out=$(answer_board "$home" '[
+    {"key":"decision-context","type":"decision","repo":"sample","title":"Choose scope",
+     "about":"Scope of the change","decide":"Choose the next action",
+     "detail":"First sentence.\n- First detail\n- Second detail <literal>",
+     "options":[{"value":"yes","label":"Proceed","hint":"Includes the full scope"}]},
+    {"key":"credential-context","type":"credential","repo":"sample","title":"Sign in",
+     "about":"Provider access","decide":"Choose when to sign in",
+     "detail":"Open the provider.\nReturn after signing in.",
+     "options":[{"value":"ready","label":"Ready","hint":"Access is available"}]},
+    {"key":"old-context","type":"decision","repo":"sample","title":"Older payload",
+     "options":[{"value":"yes","label":"Yes"}]},
+    {"key":"merge-context","type":"merge","repo":"sample","title":"Merge unchanged",
+     "risk":"low","detail":"Existing merge detail",
+     "options":[{"value":"yes","label":"Merge"}]}
+  ]' '[]')
+  printf '%s' "$out" | jq -e '
+    .error == "" and (.calls | length) == 4
+    and .calls[0].context == ["Scope of the change", "Choose the next action"]
+    and .calls[0].detail == "First sentence.\n- First detail\n- Second detail <literal>"
+    and (.calls[0].hints | index("Includes the full scope") != null)
+    and .calls[1].context == ["Provider access", "Choose when to sign in"]
+    and .calls[1].detail == "Open the provider.\nReturn after signing in."
+    and (.calls[1].hints | index("Access is available") != null)
+    and .calls[2].detail == "" and .calls[3].detail == "Existing merge detail"
+  ' >/dev/null || fail "decision or credential context was missing: $out"
+  pass "decision and credential cards render detail, context and option hints"
+}
+
+test_decision_and_credential_cards_render_all_context
+
 test_a_later_answer_queues_a_dated_deferral_and_other_answers_keep_the_close_mode
 test_an_underway_row_leads_with_the_task_name_and_keeps_its_run_status
 test_an_underway_identifier_label_is_not_replaced_by_run_status

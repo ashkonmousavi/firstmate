@@ -7,7 +7,8 @@
 // that option on the card's form and submits it, and the prompt and context
 // data the page hands window.lavish.queuePrompt are reported under queued.
 // Prints one JSON document:
-//   { stats:[{n,label}], underway:[{title,sub,badges}],
+//   { stats:[{n,label}], calls:[{title,context,detail,hints}],
+//     underway:[{title,sub,badges}],
 //     charted:[{title,sub,badges,pickable}], empty, more, error,
 //     queued:[{prompt,data}] }
 import { readFileSync } from "node:fs";
@@ -122,6 +123,13 @@ const badgesOf = (row) =>
     .filter((c) => c.className.includes("fm-badge"))
     .map((c) => ({ tone: c.className.replace(/.*fm-badge--/, "").trim(), text: c.textContent }));
 
+const calls = deckNode.children.map((card) => ({
+  title: card.querySelectorAll(".bb-decision__title")[0]?.textContent ?? "",
+  context: card.querySelectorAll(".bb-ctx__v").map((n) => n.textContent),
+  detail: card.querySelectorAll(".bb-decision__detail")[0]?.textContent ?? "",
+  hints: card.querySelectorAll(".bb-opt__hint").map((n) => n.textContent),
+}));
+
 const strip = byId.get("bb-stats") || new Node("div");
 const stats = strip.children.map((t) => ({
   n: Number(t.children.find((c) => c.className.includes("bb-stat__num"))?.textContent),
@@ -156,4 +164,4 @@ const empty = ch.children.filter((c) => c.className.includes("bb-empty")).map((c
 const more = ch.children.filter((c) => c.className.includes("bb-morechip")).map((c) => c.textContent);
 
 process.stdout.write(
-  JSON.stringify({ stats, underway, charted, empty, more, error: errorText, queued }) + "\n");
+  JSON.stringify({ stats, calls, underway, charted, empty, more, error: errorText, queued }) + "\n");
