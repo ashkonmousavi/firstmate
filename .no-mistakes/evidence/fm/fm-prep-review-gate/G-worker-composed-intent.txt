@@ -1,0 +1,13 @@
+Add a welcome line to the README.
+
+Accepted specification from the reviewed preparation record (not the captain's words):
+
+## 2. Behaviour spec
+README.md gains the line `Welcome to the lab project.` directly under `hello`.
+
+### Copy
+The line reads exactly `Welcome to the lab project.`
+
+## 11. Definition of done
+- README.md second line is `Welcome to the lab project.`
+- No other file changes.

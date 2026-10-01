@@ -1,0 +1,5 @@
+15c15,16
+< Add a greeting line to README.md as the captain asked.
+---
+> Captain's words: "Add a welcome line to the README."
+> The copy `Welcome to the lab project.` is the preparer's wording, within that ask.

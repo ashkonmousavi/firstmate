@@ -1,0 +1,14 @@
+reviewer=lab-prep-review
+author=lab-prep-review
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.msxl6U
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: task lab-ship cannot ship before a separate agent reviews its preparation record: /tmp/fm-lab.msxl6U/data/lab-ship/prep-review reviewer=lab-prep-review is also the record's author; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as /tmp/fm-lab.msxl6U/data/lab-ship/prep.md, then write /tmp/fm-lab.msxl6U/data/lab-ship/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>
+spawn-exit=1
+EXIT=0
+reviewer=lab-ship
+author=firstmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.msxl6U
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: task lab-ship cannot ship before a separate agent reviews its preparation record: /tmp/fm-lab.msxl6U/data/lab-ship/prep-review reviewer=lab-ship is the ship task itself; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as /tmp/fm-lab.msxl6U/data/lab-ship/prep.md, then write /tmp/fm-lab.msxl6U/data/lab-ship/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>
+spawn-exit=1
+EXIT=0

@@ -1,0 +1,16 @@
+reviewer=lab-prep-review
+author=firstmate
+brief.md
+launch-brief.md
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.msxl6U
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: task lab-ship cannot ship before a separate agent reviews its preparation record: reviewer lab-prep-review has no report at /tmp/fm-lab.msxl6U/data/lab-prep-review/report.md; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as /tmp/fm-lab.msxl6U/data/lab-ship/prep.md, then write /tmp/fm-lab.msxl6U/data/lab-ship/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>
+spawn-exit=1
+no lab-ship state
+EXIT=0

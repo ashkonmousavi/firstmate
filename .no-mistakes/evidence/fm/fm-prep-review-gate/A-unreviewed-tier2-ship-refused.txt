@@ -1,0 +1,11 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.msxl6U
+error: task lab-ship cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.msxl6U/data/lab-ship/prep-review; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as /tmp/fm-lab.msxl6U/data/lab-ship/prep.md, then write /tmp/fm-lab.msxl6U/data/lab-ship/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>
+spawn-exit=1
+--- state dir:
+--- task data:
+brief.md
+prep.md
+--- tmux windows:
+primary:1: bash* (1 panes) [200x50] 
+--- treehouse pool:
+EXIT=0

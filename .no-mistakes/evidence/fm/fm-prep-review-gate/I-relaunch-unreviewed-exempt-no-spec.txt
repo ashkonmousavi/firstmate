@@ -1,0 +1,14 @@
+brief.md
+launch-brief.md
+prep.md
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.msxl6U
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+spawned lab-ship2 harness=claude kind=ship mode=no-mistakes yolo=off window=primary:fm-lab-ship2 worktree=/tmp/fm-lab.msxl6U/pool/.treehouse/proj-82af4c/3/proj
+spawn-exit=0
+--- accepted-spec lines in relaunch brief:
+0
+--- prep overlay present:
+1
+## Captain intent authorized for --intent
+Add a welcome line to the README.
+EXIT=0

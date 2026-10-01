@@ -1,0 +1,10 @@
+reviewer=lab-prep-review
+author=firstmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.msxl6U
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+spawned lab-ship harness=claude kind=ship mode=no-mistakes yolo=off window=primary:fm-lab-ship worktree=/tmp/fm-lab.msxl6U/pool/.treehouse/proj-82af4c/2/proj
+spawn-exit=0
+primary:1: bash* (1 panes) [200x50] 
+primary:2: fm-lab-prep-review (1 panes) [200x50] 
+primary:3: fm-lab-ship (1 panes) [200x50] 
+EXIT=0
