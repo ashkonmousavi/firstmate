@@ -86,8 +86,10 @@
 #              Records a durable checkpoint and that note, exits the old agent,
 #              then delegates the launch to its single owner,
 #              bin/fm-spawn.sh --relaunch. A ship or scout in a Treehouse pool
-#              slot takes the project lock that launch needs before any of
-#              that, so a contended lock refuses while the old agent runs. A
+#              slot first has its slot claim re-asserted here under the project
+#              lock, which is released as soon as the claim is written, so a
+#              contended lock or a copy another task holds refuses while the
+#              old agent runs; that launch takes neither again. A
 #              failure before publication keeps the prior durable record in
 #              place and reports the concrete
 #              state; it never leaves a half-transitioned task claiming to be
