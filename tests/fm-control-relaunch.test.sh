@@ -173,21 +173,46 @@ case "${1:-}" in
     # answering `missing`. Echo a stable window id the way the real -P -F does.
     shift
     name=
+    cwd=
     while [ $# -gt 0 ]; do
       case "$1" in
         -n) name=${2:-}; shift 2 ;;
-        -c|-t) shift 2 ;;
+        -c) cwd=${2:-}; shift 2 ;;
+        -t) shift 2 ;;
         *) shift ;;
       esac
     done
     printf '%s\n' "$name" >> "$D/windows"
     printf '%s\n' "$name" >> "$D/created-windows"
+    printf '%s\n' "$cwd" >> "$D/created-window-cwds"
     printf '@9\n'
     exit 0 ;;
 esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  # The tmux absence proof reads this user's process table (`ps -u <uid> -o
+  # comm=` and `-o args=`). Only that read shape is faked, from $D/ps-mode:
+  # `tmux` (the default) shows a running tmux server, `none` shows no tmux
+  # process, `empty` prints nothing, `fail` fails. Every other ps call goes to
+  # the real ps, since the tmux backend reads process state through it too.
+  cat > "$fb/ps" <<SH
+#!/usr/bin/env bash
+case "\$*" in
+  "-u "*" -o comm="|"-u "*" -o args=")
+    mode=\$(cat "\$FM_FAKE_DIR/ps-mode" 2>/dev/null || printf tmux)
+    case "\$mode" in
+      tmux) printf '%s\\n' bash 'tmux: server' ;;
+      none) printf '%s\\n' bash claude ;;
+      empty) ;;
+      fail) exit 1 ;;
+    esac
+    exit 0
+    ;;
+esac
+exec $(command -v ps) "\$@"
+SH
+  chmod +x "$fb/ps"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_LOCK_WAITING:-}" ] || : > "$FM_FAKE_LOCK_WAITING"
@@ -1964,12 +1989,13 @@ strand_endpoint() {  # <case-dir> <id>
   : > "$1/fake/windows"
 }
 
-# Every tmux `missing` refuses on BOTH verbs, whatever produced it. tmux is the
-# one verified backend whose absence cannot be proven from a task record: the
-# record carries no socket identity for the endpoint, and any inventory
-# describes only the server this process happens to address. So a window that
-# is merely on a server this seat cannot reach is indistinguishable from one
-# that was destroyed, and neither verb will guess.
+# While any tmux process runs for this user (the fake ps's default), every tmux
+# `missing` refuses on BOTH verbs, whatever produced it: the record carries no
+# socket identity for the endpoint, and any inventory describes only the server
+# this process happens to address. So a window that is merely on a server this
+# seat cannot reach is indistinguishable from one that was destroyed, and
+# neither verb will guess. With no tmux process at all, absence is proven
+# (test_tmux_exit_proves_absence_from_the_process_table).
 assert_tmux_missing_refuses() {  # <case-dir> <id> <what-was-staged>
   local dir=$1 id=$2 what=$3 out rc brief_before
 
@@ -2025,6 +2051,67 @@ test_tmux_refuses_when_the_server_is_gone() {
   : > "$dir/fake/server-dead"
   assert_tmux_missing_refuses "$dir" rl62 "no tmux server on this socket"
   pass "tmux: a dead server on this socket refuses both verbs rather than proving absence"
+}
+
+# A tmux window can be proven gone from the other side: when no tmux process
+# runs for this user at all, no server anywhere can hold it. Each of the three
+# definitive missing shapes above then reads `gone` on both verbs, while a
+# running tmux process, or a process read that fails or prints nothing, still
+# refuses and says which.
+test_tmux_exit_proves_absence_from_the_process_table() {
+  local dir out rc mode
+  dir=$(new_case tmux-ps-gone rl64)
+  add_ship_task "$dir" rl64 claude
+  : > "$dir/fake/server-dead"
+  printf none > "$dir/fake/ps-mode"
+  out=$(run_control "$dir" rl64 exit); rc=$?
+  expect_code 0 "$rc" "exit should report a tmux endpoint gone when no tmux process runs"$'\n'"$out"
+  assert_contains "$out" "endpoint-gone" "exit should name the proven-gone endpoint"
+  [ ! -s "$dir/fake/literal" ] || fail "exit sent keys to an endpoint it proved gone"
+
+  for mode in tmux empty fail; do
+    dir=$(new_case "tmux-ps-$mode" rl65)
+    add_ship_task "$dir" rl65 claude
+    : > "$dir/fake/server-dead"
+    printf '%s' "$mode" > "$dir/fake/ps-mode"
+    out=$(run_control "$dir" rl65 exit); rc=$?
+    expect_code 1 "$rc" "exit must refuse when the process table read is '$mode'"$'\n'"$out"
+    assert_not_contains "$out" "endpoint-gone" "exit must not report a stop it cannot prove ($mode)"
+    case "$mode" in
+      tmux) assert_contains "$out" "while a tmux process runs" "the refusal should name the running tmux process" ;;
+      *) assert_contains "$out" "failed or printed nothing" "the refusal should name the failed process read ($mode)" ;;
+    esac
+  done
+  pass "tmux: exit proves absence only from a successful process read showing no tmux process"
+}
+
+test_tmux_relaunch_rebinds_a_proven_gone_window_in_the_recorded_copy() {
+  local dir out rc brief_before status_before
+  dir=$(new_case tmux-rebind rl66)
+  add_ship_task "$dir" rl66 claude
+  strand_endpoint "$dir" rl66
+  printf none > "$dir/fake/ps-mode"
+  printf 'working [at=1]: before the restart\n' > "$dir/home/state/rl66.status"
+  brief_before=$(cat "$dir/home/data/rl66/brief.md")
+  status_before=$(cat "$dir/home/state/rl66.status")
+  out=$(run_spawn "$dir" rl66 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "relaunch should rebind a tmux task whose window is proven gone"$'\n'"$out"
+  assert_equals "fm-rl66" "$(cat "$dir/fake/created-windows" 2>/dev/null)" \
+    "relaunch did not create exactly the task's window"
+  assert_equals "$dir/wt" "$(cat "$dir/fake/created-window-cwds" 2>/dev/null)" \
+    "the re-created window did not open in the recorded worktree"
+  # The new window lives in this home's tmux session, which need not be the
+  # recorded one; the record follows it.
+  case "$(meta_field "$dir" rl66 window)" in
+    *:fm-rl66) ;;
+    *) fail "the record did not republish window= for the new window, got '$(meta_field "$dir" rl66 window)'" ;;
+  esac
+  [ "$(meta_field "$dir" rl66 worktree)" = "$dir/wt" ] || fail "the rebind moved the task's worktree"
+  [ "$(cat "$dir/home/data/rl66/brief.md")" = "$brief_before" ] || fail "the rebind changed the instructions"
+  [ "$(cat "$dir/home/state/rl66.status")" = "$status_before" ] || fail "the rebind changed the status log"
+  assert_equals "task-rl66" "$(git -C "$dir/wt" branch --show-current)" "the rebind moved the task's branch"
+  assert_grep "Firstmate operational input waiting: read" "$dir/fake/literal" "the replacement was not launched"
+  pass "tmux: relaunch re-creates a proven-gone window in the recorded copy and republishes its endpoint"
 }
 
 test_reclaim_refuses_an_unreadable_endpoint() {
@@ -2706,6 +2793,8 @@ test_spawn_relaunch_refuses_a_pane_outside_the_worktree
 test_tmux_refuses_a_window_missing_from_its_session
 test_tmux_refuses_a_session_that_cannot_be_found
 test_tmux_refuses_when_the_server_is_gone
+test_tmux_exit_proves_absence_from_the_process_table
+test_tmux_relaunch_rebinds_a_proven_gone_window_in_the_recorded_copy
 test_reclaim_refuses_an_unreadable_endpoint
 test_herdr_relaunch_resumes_only_the_registered_pi_session
 test_herdr_reclaim_adopts_a_pane_that_outlived_its_server

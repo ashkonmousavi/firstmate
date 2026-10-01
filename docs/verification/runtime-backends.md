@@ -140,6 +140,36 @@ zsh
 A persistent parent shell waiting for a child remained reported as the parent process, while a shell that directly execed a simple command changed identity with the process itself.
 Pi and pi-signed 0.82.0 were reverified on 2026-07-27 through real isolated `fm-spawn.sh` launches.
 
+### Endpoint absence from the process table
+
+`fm_control_tmux_absence_verdict` in `bin/fm-control-lib.sh` proves a tmux endpoint gone only when this user's processes show none whose `comm` or argv0 basename begins with `tmux`.
+Verified on 2026-10-01 with tmux 3.4 on Linux 6.6 (WSL2), on a private socket.
+
+```sh
+tmux -L "$socket" new-session -d -s absence 'sleep 60'
+LC_ALL=C ps -u "$(id -u)" -o comm= | grep '^tmux'
+LC_ALL=C ps -u "$(id -u)" -o args= | grep '^tmux'
+tmux -L "$socket" kill-server
+LC_ALL=C ps -u "$(id -u)" -o comm= | grep -c '^tmux'
+```
+
+Observed output:
+
+```text
+tmux: server
+tmux -L fm-absence-doc-592945 new-session -d -s absence sleep 60
+0
+```
+
+The server keeps its original client argv and retitles only `comm`, so either source names it.
+macOS prints `comm` as a full path, which the basename rule covers; that platform was not rerun here.
+`tests/fm-tmux-absence-live-e2e.test.sh` refreshes this record against the installed tmux and fails naming its version; on 2026-10-01 it printed:
+
+```text
+ok - live tmux (tmux 3.4): a running server keeps absence unproven
+ok - live tmux (tmux 3.4): with the server killed, absence reads gone
+```
+
 ### Agent liveness name sources
 
 The earlier record that every harness is observed under its own `#{pane_current_command}` no longer holds and has been replaced by the per-harness evidence below.

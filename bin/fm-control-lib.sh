@@ -349,23 +349,57 @@ fm_control_backend_state_verified() {  # <backend>
 #     passes `--session <session>`, so the recheck starts and reads the session
 #     the RECORD names, through that session's own socket. The answer is about
 #     the task's endpoint and nothing else.
-#   tmux CANNOT. `list-windows -a` describes only the server the CURRENT
-#     process addresses (its TMUX_TMPDIR/socket), and a task's record does not
-#     carry the endpoint's socket identity - so a different but running server
-#     would answer "not anywhere" about a window it was never able to see.
-#     There is no read available here that closes that gap, so tmux always
-#     returns `unproven` and both verbs refuse. tmux is left exactly as
-#     deadlocked as it was before this change - no worse - but deliberately.
+#   tmux only when NO tmux runs for this user. `list-windows -a` describes
+#     only the server the CURRENT process addresses (its TMUX_TMPDIR/socket),
+#     and a task's record does not carry the endpoint's socket identity - so a
+#     different but running server would answer "not anywhere" about a window
+#     it was never able to see. The process table closes that gap from the
+#     other side: every tmux server runs as a process of its user, so when a
+#     successful read of this uid's processes shows none whose `comm` or argv0
+#     basename begins with `tmux` (the client `tmux`, the server `tmux:
+#     server`, and macOS's full-path `comm`), no server anywhere can hold the
+#     window and absence is `gone`. Any such process, or a process read that
+#     fails or prints nothing at all (a uid always has at least this shell),
+#     stays `unproven` and both verbs refuse, with the reason naming which.
 #
 # Both control-plane callers share this one implementation so the proof cannot
 # drift into two answers for the same endpoint.
+# The tmux leg of fm_control_endpoint_absence_verdict: `gone` only when two
+# successful reads of this uid's processes - `comm` and `args`, read
+# separately because `comm` itself can hold a space (`tmux: server`) - show
+# no process whose name or argv0 basename begins with `tmux`.
+fm_control_tmux_absence_verdict() {
+  local uid field out line word
+  uid=$(id -u 2>/dev/null) || uid=
+  if [ -z "$uid" ]; then
+    printf 'unproven\ttmux absence could not be proven: this user'"'"'s uid could not be read, so no process table read was possible'
+    return 0
+  fi
+  for field in comm args; do
+    if ! out=$(LC_ALL=C ps -u "$uid" -o "$field=" 2>/dev/null) || [ -z "$out" ]; then
+      printf 'unproven\ttmux absence could not be proven: reading this user'"'"'s process table (%s) failed or printed nothing, so a tmux server holding the window cannot be ruled out' "$field"
+      return 0
+    fi
+    while IFS= read -r line; do
+      read -r word _ <<<"$line" || true
+      case "${word##*/}" in
+        tmux*)
+          printf 'unproven\ttmux absence cannot be proven while a tmux process runs for this user: a task record does not carry its endpoint'"'"'s socket identity, and a window absent from the server this process addresses may still be alive on another'
+          return 0
+          ;;
+      esac
+    done <<<"$out"
+  done
+  printf 'gone\t'
+}
+
 fm_control_endpoint_absence_verdict() {  # <backend> <target>
   local backend=${1-} target=${2-}
   fm_backend_source "$backend" \
     || { printf 'unproven\tbackend %s could not be loaded to prove anything about that endpoint' "'$backend'"; return 0; }
   case "$backend" in
     tmux)
-      printf 'unproven\ttmux absence cannot be proven from a task record: the record does not carry the endpoint'"'"'s socket identity, and a server-wide window inventory only describes the tmux server this process addresses, so a window absent from it may still be alive on another'
+      fm_control_tmux_absence_verdict
       ;;
     herdr)
       # Start the RECORDED session's server (only the server - nothing is

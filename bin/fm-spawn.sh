@@ -82,12 +82,15 @@
 #   ADOPTED as-is, while an endpoint PROVEN gone is RE-CREATED in the recorded
 #   worktree and the republished record rebinds the task to it. That proof is
 #   its own step, because a backend's `missing` also covers an endpoint that is
-#   merely unreachable from here - and it is only available on HERDR, which must
-#   still read the recorded pane as gone once that session's server is running
-#   again. A tmux `missing` always refuses: a task record carries no socket
-#   identity for its endpoint, so no read here can tell a destroyed window from
-#   one on a tmux server this process cannot address. An endpoint that turns out
-#   to have survived refuses too. The worktree is reused untouched either way; a
+#   merely unreachable from here: HERDR must still read the recorded pane as
+#   gone once that session's server is running again, and a tmux `missing` is
+#   gone only when no tmux process runs for this user at all (a task record
+#   carries no socket identity, so while any tmux server runs no read here can
+#   tell a destroyed window from one on a server this process cannot address);
+#   bin/fm-control-lib.sh's fm_control_endpoint_absence_verdict owns that proof.
+#   A tmux rebind keeps its backend: one fm-<id> window in this home's tmux
+#   session, opened in the recorded worktree. An endpoint that turns out to have
+#   survived refuses too. The worktree is reused untouched either way; a
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
 #   (`--secondmate`, driven by the session-start liveness sweep).
@@ -178,6 +181,14 @@
 #   while it still holds the allocation lock drops its own claim; an abort after
 #   metadata publication has released that lock leaves the claim in place, and
 #   the next spawn's claim replaces it.
+#   A relaunch of a ship or scout whose recorded worktree is a pool slot takes
+#   the same project lock and, before any endpoint or agent is touched,
+#   re-asserts its claim: a claim naming this task, or none, is written for it;
+#   a claim naming a finished scout (record found in its recorded home,
+#   kind=scout, nonempty report, endpoint reading dead) is replaced with one
+#   line naming it; any other claimant, a claimant with no record, or an
+#   unreadable claim refuses. So a relaunch always leaves the copy claimed by
+#   the task now running in it.
 #   The local root is whatever bin/fm-wake-lib.sh's
 #   fm_firstmate_root_home resolves, so a home seeded from another machine anchors
 #   that lock itself rather than failing to resolve one;
@@ -1919,18 +1930,17 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # endpoint was DESTROYED" with "the endpoint is UNREACHABLE from here right
   # now", and an unreachable endpoint can still hold the live agent this
   # relaunch would duplicate. So absence is PROVEN before it may rebind, never
-  # inferred from a failed read - and only HERDR can prove it:
+  # inferred from a failed read:
   #   herdr - the recorded session's server is started, and the recorded pane is
   #           RE-READ through that session's own socket. `dead` means the pane
   #           survived the restart and is adopted after all; `alive` means the
   #           agent came back and refuses; only a second `missing` proves the
   #           pane itself did not survive.
-  #   tmux  - REFUSES, always. A task record carries no socket identity for its
-  #           endpoint, and a server-wide inventory describes only the server
-  #           this process addresses, so no read available here can tell "gone"
-  #           from "on a server I cannot see". A tmux `missing` therefore stays
-  #           as deadlocked as it was before this change - deliberately, and
-  #           with the reason stated rather than guessed past.
+  #   tmux  - proven gone only when no tmux process runs for this user at
+  #           all. A task record carries no socket identity for its endpoint,
+  #           and a server-wide inventory describes only the server this
+  #           process addresses, so while any tmux server runs, "gone" cannot
+  #           be told from "on a server I cannot see" and the relaunch refuses.
   # Every transient or self-contradicting read stays `unreadable`/`ambiguous`
   # and refuses as it always did (bin/fm-backend.sh's fm_backend_agent_state
   # owns that vocabulary). The proof itself lives in one place for the whole
@@ -3907,18 +3917,25 @@ if [ "$RELAUNCH" -eq 1 ]; then
     T=$RELAUNCH_TARGET
     WT_TARGET=$T
     SES=${T%%:*}
-  else
+  elif [ "$BACKEND" = tmux ]; then
     # The recorded endpoint is authoritatively gone, so there is nothing to
     # adopt: create ONE fresh endpoint for the same task, opened directly in the
     # recorded worktree. The record published below writes window= (and herdr's
     # ids) from these values, which is the whole rebind - the task id, brief,
     # worktree, armed poll and status log are untouched.
     #
-    # Herdr is the ONLY backend that reaches here: the gate above rebinds only
-    # on a PROVEN-gone endpoint, and absence is provable only on herdr, whose
-    # every read is scoped to the session the record names
-    # (fm_control_endpoint_absence_verdict owns that argument). tmux and every
-    # secondmate were already refused, so there is no dispatch left to make.
+    # Only tmux and herdr reach a rebind: the gate above rebinds only on a
+    # PROVEN-gone endpoint, absence is provable only on those two
+    # (fm_control_endpoint_absence_verdict owns that argument), and every
+    # secondmate was already refused. A tmux task keeps its backend: one
+    # window named fm-<id> in this home's tmux session, its working directory
+    # the recorded worktree rather than the project.
+    SES=$(fm_backend_tmux_container_ensure)
+    T="$SES:$W"
+    WID=$(fm_backend_tmux_create_task "$SES" "$W" "$WT") || exit 1
+    WT_TARGET="$WID"
+  else
+    # The herdr rebind (see the tmux branch above for what a rebind is).
     #
     # This deliberately uses the FLAT container shape rather than Herdr's
     # presentation projection: projection is a presentation-only layout that is

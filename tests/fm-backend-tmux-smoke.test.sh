@@ -169,5 +169,38 @@ state=$(fm_backend_agent_state tmux "$TARGET")
 fm_backend_tmux_kill "$TARGET" || fail "fm_backend_tmux_kill on an already-dead target must stay best-effort (never fail)"
 pass "real tmux: kill removes the window and the readable session inventory authoritatively classifies it missing"
 
+# --- endpoint absence proof from the process table --------------------------
+#
+# fm_control_endpoint_absence_verdict proves a tmux endpoint gone only when no
+# tmux process runs for this user. With this suite's real server running the
+# verdict must stay unproven; once that server is killed it must read gone -
+# unless some other tmux process of this user is running, which this suite
+# cannot control and reports rather than counting as a pass.
+
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-control-lib.sh"
+verdict=$(fm_control_endpoint_absence_verdict tmux "$TARGET")
+[ "${verdict%%$'\t'*}" = unproven ] \
+  || fail "real tmux: absence must stay unproven while a tmux server runs, got '$verdict'"
+pass "real tmux: a running tmux server keeps a missing window's absence unproven"
+
+tmux kill-server >/dev/null 2>&1 || true
+for _ in $(seq 1 50); do
+  verdict=$(fm_control_endpoint_absence_verdict tmux "$TARGET")
+  [ "${verdict%%$'\t'*}" = gone ] && break
+  sleep 0.1
+done
+case "${verdict%%$'\t'*}" in
+  gone) pass "real tmux: with no tmux process left for this user, absence is proven gone" ;;
+  *)
+    case "$verdict" in
+      *"while a tmux process runs"*)
+        echo "# skip: another tmux process runs for this user, so the gone leg cannot be checked here: ${verdict#*$'\t'}"
+        ;;
+      *) fail "real tmux: absence after kill-server should be gone, got '$verdict'" ;;
+    esac
+    ;;
+esac
+
 cleanup_all
 trap - EXIT
