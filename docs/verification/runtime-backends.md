@@ -167,8 +167,11 @@ macOS prints `comm` as a full path, which the basename rule covers; that platfor
 
 ```text
 ok - live tmux (tmux 3.4): a running server keeps absence unproven
+ok - live tmux (tmux 3.4): the recorded server accounts for itself, so a window absent from it reads gone
 ok - live tmux (tmux 3.4): with the server killed, absence reads gone
 ```
+
+The middle line is the recorded rebind server (`fm_control_tmux_rebind_server_record`), rerun on 2026-10-01 with the same tmux: `display-message -p '#{pid} #{start_time} #{socket_path}'` answers outside any client, `-S <socket>` reaches that server whatever `$TMUX` says, and on it a task spawned after the server started, or a window it still holds, kept absence unproven.
 
 ### Agent liveness name sources
 

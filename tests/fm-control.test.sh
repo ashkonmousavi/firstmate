@@ -795,12 +795,12 @@ test_missing_tmux_endpoint_refuses_rather_than_claiming_a_stop() {
   add_task "$dir" t1 claude
   : > "$dir/fake/windows"
   # A tmux server runs for this user: the process-table read the absence proof
-  # makes (`ps -u <uid> -o comm=` / `-o args=`) shows one; every other ps call
-  # reaches the real ps.
+  # makes (`ps -u <uid> -o pid= -o comm=` / `-o pid= -o args=`) shows one;
+  # every other ps call reaches the real ps.
   cat > "$dir/fakebin/ps" <<SH
 #!/usr/bin/env bash
 case "\$*" in
-  "-u "*" -o comm="|"-u "*" -o args=") printf '%s\\n' bash 'tmux: server'; exit 0 ;;
+  "-u "*" -o pid= -o comm="|"-u "*" -o pid= -o args=") printf '%s\\n' '1 bash' '2 tmux: server'; exit 0 ;;
 esac
 exec $(command -v ps) "\$@"
 SH

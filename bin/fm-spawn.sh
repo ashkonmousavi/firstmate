@@ -84,12 +84,15 @@
 #   its own step, because a backend's `missing` also covers an endpoint that is
 #   merely unreachable from here: HERDR must still read the recorded pane as
 #   gone once that session's server is running again, and a tmux `missing` is
-#   gone only when no tmux process runs for this user at all (a task record
-#   carries no socket identity, so while any tmux server runs no read here can
-#   tell a destroyed window from one on a server this process cannot address);
+#   gone only when no tmux process runs for this user beyond the server this
+#   home's own rebind recorded (a task record carries no socket identity, so
+#   while any other tmux server runs no read here can tell a destroyed window
+#   from one on a server this process cannot address);
 #   bin/fm-control-lib.sh's fm_control_endpoint_absence_verdict owns that proof.
 #   A tmux rebind keeps its backend: one fm-<id> window in this home's tmux
-#   session, opened in the recorded worktree. An endpoint that turns out to have
+#   session, opened in the recorded worktree, and outside tmux it records that
+#   session's server so the next task reclaimed after the same restart can be
+#   proven gone against it. An endpoint that turns out to have
 #   survived refuses too. The worktree is reused untouched either way; a
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
@@ -1936,11 +1939,14 @@ if [ "$RELAUNCH" -eq 1 ]; then
   #           survived the restart and is adopted after all; `alive` means the
   #           agent came back and refuses; only a second `missing` proves the
   #           pane itself did not survive.
-  #   tmux  - proven gone only when no tmux process runs for this user at
-  #           all. A task record carries no socket identity for its endpoint,
+  #   tmux  - proven gone only when no tmux process runs for this user other
+  #           than the server this home's own rebind recorded (and its
+  #           clients), read through its socket and holding no window for this
+  #           task. A task record carries no socket identity for its endpoint,
   #           and a server-wide inventory describes only the server this
-  #           process addresses, so while any tmux server runs, "gone" cannot
-  #           be told from "on a server I cannot see" and the relaunch refuses.
+  #           process addresses, so while any other tmux server runs, "gone"
+  #           cannot be told from "on a server I cannot see" and the relaunch
+  #           refuses.
   # Every transient or self-contradicting read stays `unreadable`/`ambiguous`
   # and refuses as it always did (bin/fm-backend.sh's fm_backend_agent_state
   # owns that vocabulary). The proof itself lives in one place for the whole
@@ -1948,7 +1954,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # `relaunch` cannot reach two different answers about one endpoint.
   RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
   if [ "$RELAUNCH_STATE" = missing ]; then
-    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET")
+    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET" "$RELAUNCH_META")
     case "${RELAUNCH_ABSENCE%%$'\t'*}" in
       gone) RELAUNCH_STATE=missing ;;
       dead) RELAUNCH_STATE=dead ;;
@@ -3223,7 +3229,9 @@ fi
 # A relaunch of a ship or scout whose recorded copy is a pool slot takes the
 # same project lock as a fresh spawn, because it re-asserts its slot claim
 # below and that write must not race another spawn's claim or a teardown's
-# return.
+# return. Launched by bin/fm-control.sh, it finds that lock already held by
+# the parent transaction, which took it before stopping the old agent, and
+# leaves its release to that parent.
 SPAWN_RELAUNCH_POOL_SLOT=0
 if [ "$RELAUNCH" -eq 1 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] &&
   fm_treehouse_pool_slot "$PROJ_ABS" "$RELAUNCH_WT"; then
@@ -3235,11 +3243,15 @@ if { [ "$RELAUNCH" -eq 0 ] || [ "$SPAWN_RELAUNCH_POOL_SLOT" = 1 ]; } &&
     echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
     exit 1
   }
-  if ! fm_lock_try_acquire "$SPAWN_TREEHOUSE_PROJECT_LOCK"; then
+  if [ "$SPAWN_RELAUNCH_POOL_SLOT" = 1 ] && [ "$SPAWN_CONTROL_PARENT" = 1 ] &&
+    [ "$(cat "$SPAWN_TREEHOUSE_PROJECT_LOCK/pid" 2>/dev/null || true)" = "$PPID" ]; then
+    :
+  elif ! fm_lock_try_acquire "$SPAWN_TREEHOUSE_PROJECT_LOCK"; then
     echo "error: another Treehouse slot allocation or return is in progress for $PROJ_ABS; refusing to race it" >&2
     exit 1
+  else
+    SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
   fi
-  SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
 fi
 if [ "$SPAWN_RELAUNCH_POOL_SLOT" = 1 ]; then
   spawn_relaunch_reclaim_slot "$RELAUNCH_WT"
@@ -3930,10 +3942,20 @@ if [ "$RELAUNCH" -eq 1 ]; then
     # secondmate was already refused. A tmux task keeps its backend: one
     # window named fm-<id> in this home's tmux session, its working directory
     # the recorded worktree rather than the project.
+    #
+    # Outside tmux that session lives on the server this rebind started (or
+    # on the one an earlier rebind recorded), so its identity is recorded for
+    # the absence proof: the next task reclaimed after the same restart is
+    # judged against that one known server instead of refusing because it
+    # runs. A seat inside tmux records nothing; its window goes to the
+    # operator's own server, which this rebind did not start.
     SES=$(fm_backend_tmux_container_ensure)
     T="$SES:$W"
     WID=$(fm_backend_tmux_create_task "$SES" "$W" "$WT") || exit 1
     WT_TARGET="$WID"
+    if [ -z "${TMUX:-}" ] && ! fm_control_tmux_rebind_server_record "$STATE" "$WID"; then
+      echo "warning: could not record the tmux server task $ID was rebound on; reclaiming another tmux task will refuse while that server runs" >&2
+    fi
   else
     # The herdr rebind (see the tmux branch above for what a rebind is).
     #

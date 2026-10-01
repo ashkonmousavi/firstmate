@@ -6,7 +6,10 @@
 # client, a vendor-emitted fact, so this guard checks it against the real tmux
 # on this host rather than a stub: the server must show up under that name
 # while it runs (absence unproven), and nothing may be left under it once the
-# server is killed (absence gone). It spends no model tokens, so it runs by
+# server is killed (absence gone). While it runs, the server recorded the way
+# a tmux rebind records it must account for itself through the format fields
+# that record reads, so a window absent from it reads gone. It spends no model
+# tokens, so it runs by
 # default wherever tmux is installed, on a private socket that never touches
 # the host's own sessions.
 set -u
@@ -18,7 +21,8 @@ fm_live_gate default-on FM_TMUX_ABSENCE_LIVE tmux ps
 
 TMUX_VERSION=$(tmux -V 2>/dev/null || printf 'tmux (version unreadable)')
 SOCKET="fm-tmux-absence-live-$$"
-cleanup() { tmux -L "$SOCKET" kill-server >/dev/null 2>&1 || true; }
+STATE_DIR=$(mktemp -d)
+cleanup() { tmux -L "$SOCKET" kill-server >/dev/null 2>&1 || true; rm -rf "$STATE_DIR"; }
 trap cleanup EXIT
 
 # shellcheck source=/dev/null
@@ -44,6 +48,19 @@ esac
 [ "$(verdict_word)" = unproven ] \
   || fail "$TMUX_VERSION: absence read '$(fm_control_tmux_absence_verdict)' while a tmux server runs"
 pass "live tmux ($TMUX_VERSION): a running server keeps absence unproven"
+
+wid=$(tmux -L "$SOCKET" display-message -p -t absence: '#{window_id}') \
+  || fail "$TMUX_VERSION: could not read the private server's window id"
+# shellcheck disable=SC2329 # Invoked by fm_control_tmux_rebind_server_record.
+tmux() { command tmux -L "$SOCKET" "$@"; }
+fm_control_tmux_rebind_server_record "$STATE_DIR" "$wid" \
+  || fail "$TMUX_VERSION: the running server's pid, start time and socket could not be recorded"
+unset -f tmux
+printf 'spawn_gen=s1000000000.1.1\n' > "$STATE_DIR/gone.meta"
+verdict=$(fm_control_tmux_absence_verdict absence:fm-gone "$STATE_DIR/gone.meta")
+[ "${verdict%%$'\t'*}" = gone ] \
+  || fail "$TMUX_VERSION: a window absent from the recorded server read '$verdict'"
+pass "live tmux ($TMUX_VERSION): the recorded server accounts for itself, so a window absent from it reads gone"
 
 tmux -L "$SOCKET" kill-server >/dev/null 2>&1 \
   || fail "$TMUX_VERSION: kill-server failed on the private socket"
