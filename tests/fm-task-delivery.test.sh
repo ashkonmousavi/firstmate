@@ -1365,7 +1365,6 @@ EOF
   # refusal names the missing record and what a review leaves behind.
   for tier in 1 2; do
     case $tier in
-      0) q1=no q2=no ;;
       1) q1=no q2=yes ;;
       2) q1=yes q2=no ;;
     esac
