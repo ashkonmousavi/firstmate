@@ -144,12 +144,18 @@ mark_surface_reported() {  # <status-file> <reported-signature>
 
 # Act on a fresh actionable transition from a push-capable backend.
 handle_push_transition() {  # <backend> <session> <record>
-  local backend=$1 session=$2 record=$3 pane_id to window task reason span_record rest surface_end='' surface_ident=''
+  local backend=$1 session=$2 record=$3 pane_id to window task harness reason span_record rest surface_end='' surface_ident=''
   pane_id=$(fm_transition_pane_id "$record")
   to=$(fm_transition_to_status "$record")
   [ -n "$pane_id" ] || { sleep 1; return; }
   window="$session:$pane_id"
   task=$(window_to_task "$window" "$STATE")
+  harness=$(fm_backend_meta_exact_value "$STATE/$task.meta" harness || true)
+  if ! fm_backend_blocked_is_question "$backend" "$harness"; then
+    triage_log "absorbed push $to ($harness reports $to in every state, so it is not a question): $window"
+    fm_backend_commit_transition "$backend" "$STATE" "$session" "$record" || exit 1
+    return
+  fi
   span_record=$(status_span_first_actionable_record "$STATE/$task.status" \
     "$(hb_surfaced_offset "$task")")
   case $? in

@@ -2235,8 +2235,9 @@ surface_nonterminal_stale() {  # <window> <hash>
     if until=$(status_paused_until "$last"); then
       now=$(date +%s)
       if [ "$now" -lt "$until" ]; then
-        if fm_backend_question_waiting "$(window_backend "$win")" "$win"; then
+        if fm_backend_question_waiting "$(window_backend "$win")" "$win" "$(window_harness "$win")"; then
           reason="stale: $win (a permission or question prompt is waiting in the pane)"
+          STALE_WAIT_DECLARATION="$STALE_WAIT_DECLARATION:question"
           stale_wait_throttled "$key" "$STALE_WAIT_DECLARATION" && throttled=0
         else
           throttled=0

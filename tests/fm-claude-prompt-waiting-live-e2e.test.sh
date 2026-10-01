@@ -6,8 +6,9 @@
 # bin/fm-watch.sh surfaces each new marker ahead of any declared pause.
 # Whether Claude fires that hook is a vendor fact no stub can prove, so this
 # guard runs the REAL installed Claude, in bypass mode as every worker does,
-# with the hook settings the REAL fm-spawn writes, and asserts a fresh marker
-# for each of the three ways a question reaches a worker pane:
+# with the hook settings the REAL fm-spawn writes. It first asserts that an
+# ordinary call bypass mode auto-approves leaves no marker, then asserts a
+# fresh marker for each of the three ways a question reaches a worker pane:
 #   - a main-thread Bash call bypass mode still refuses to auto-approve,
 #   - the same call from a background subagent, and
 #   - an AskUserQuestion question.
@@ -126,6 +127,28 @@ expect_marker() {
   pass "claude $CLAUDE_VERSION: $name raises the PermissionRequest prompt marker in bypass mode"
 }
 
+# expect_no_marker <case> <prompt> <done-file>: send a prompt bypass mode
+# auto-approves, wait until its command has run, and require the marker unchanged.
+expect_no_marker() {
+  local name=$1 done_file=$3 before after i=0
+  before=$(cat "$MARKER" 2>/dev/null || true)
+  send_line "$2"
+  while [ "$i" -lt 60 ] && [ ! -e "$done_file" ]; do
+    sleep 2
+    i=$((i + 1))
+  done
+  [ -e "$done_file" ] || fail "$name: the auto-approved command did not run within 120s"
+  sleep 6
+  after=$(cat "$MARKER" 2>/dev/null || true)
+  [ "$after" = "$before" ] \
+    || fail "$name: an auto-approved call changed the prompt-waiting marker ('${before:-absent}' -> '$after')"
+  CHECKED=$((CHECKED + 1))
+  pass "claude $CLAUDE_VERSION: $name leaves the PermissionRequest prompt marker alone in bypass mode"
+}
+
+expect_no_marker "an auto-approved Bash call" \
+  'Use the Bash tool to run exactly this command and nothing else, then stop: touch scr/auto-approved' \
+  "$WT/scr/auto-approved"
 expect_marker "a main-thread Bash prompt" \
   'Use the Bash tool to run exactly this command and nothing else, then stop: S=$PWD/scr; cd $S; rm -f trees/*'
 expect_marker "a background subagent's Bash prompt" \
@@ -133,6 +156,6 @@ expect_marker "a background subagent's Bash prompt" \
 expect_marker "an AskUserQuestion question" \
   'Use the AskUserQuestion tool to ask me one yes/no question, "Proceed?", with options Yes and No. Do nothing else.'
 
-[ "$CHECKED" -eq 3 ] || fail "only $CHECKED of 3 prompt cases were checked"
+[ "$CHECKED" -eq 4 ] || fail "only $CHECKED of 4 prompt cases were checked"
 [ -e "$WT/scr/trees/keep" ] || fail "a dismissed prompt still ran its command"
 printf '# claude %s: checked %s prompt cases\n' "$CLAUDE_VERSION" "$CHECKED"

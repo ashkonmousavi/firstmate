@@ -87,6 +87,19 @@ for declared in 'paused: waiting on the upstream release, until 2099-01-01T00:00
 done
 pass "handle_push_transition: a blocked crew wakes the supervisor under a declared pause or captain-held transfer"
 
+# --- handle_push_transition: Cursor's always-blocked state is not a question --
+
+reset_state
+fm_write_meta "$STATE_DIR/tk2c.meta" "window=default:wG:pQ" "backend=herdr" "kind=ship" "harness=cursor"
+printf 'paused: waiting on the upstream release, until 2099-01-01T00:00Z\n' > "$STATE_DIR/tk2c.status"
+handle_push_transition herdr default "$(mkrec wG:pQ blocked)"
+[ ! -s "$WAKE_LOG" ] || fail "a Cursor pane's blocked state must not wake the supervisor: $(cat "$WAKE_LOG")"
+if [ -e "$STATE_DIR/.wake-queue" ] && grep -q 'stale' "$STATE_DIR/.wake-queue"; then
+  fail "a Cursor pane's blocked state must not be queued: $(cat "$STATE_DIR/.wake-queue")"
+fi
+[ -e "$STATE_DIR/.herdr-escalated-default_wG_pQ" ] || fail "an absorbed Cursor edge must still commit its dedupe marker"
+pass "handle_push_transition: a Cursor pane, which herdr reports blocked in every state, is not a question"
+
 # --- surface_nonterminal_stale: a future paused-until silences only quiet ------
 # The poll loop's sighting of a live stale pane under a `paused: ... until
 # <future>` is silent, unless the backend reports its agent waiting on a human:
@@ -101,6 +114,9 @@ surface_nonterminal_stale default:wG:pQ h1
 [ ! -s "$WAKE_LOG" ] || fail "a quiet pane under a future paused-until must stay silent: $(cat "$WAKE_LOG")"
 # shellcheck disable=SC2329 # Runtime override called by the isolated watcher.
 fm_backend_question_waiting() { [ "$1" = herdr ] && [ "$2" = default:wG:pQ ]; }
+# A quiet pause re-surface earlier in the same window must not throttle the
+# first question sighting.
+stale_wait_declaration tk7 > "$STATE_DIR/.paused-resurfaced-default_wG_pQ"
 surface_nonterminal_stale default:wG:pQ h2
 grep -Fx 'stale: default:wG:pQ (a permission or question prompt is waiting in the pane)' "$WAKE_LOG" >/dev/null \
   || fail "a pane waiting on a human under a future paused-until must wake: $(cat "$WAKE_LOG")"

@@ -823,7 +823,7 @@ test_question_waiting_reads_native_blocked_without_starting_a_server() {
     fb=$(make_herdr_fakebin "$dir")
     rc=0
     PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-      bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting herdr fmtest:w1:p2' "$ROOT" || rc=$?
+      bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting herdr fmtest:w1:p2 codex' "$ROOT" || rc=$?
     case "$status:$rc" in
       blocked:0|idle:1|working:1) ;;
       *) fail "question_waiting for agent_status=$status returned $rc" ;;
@@ -831,6 +831,13 @@ test_question_waiting_reads_native_blocked_without_starting_a_server() {
     assert_contains "$(cat "$log")" $'agent\x1fget\x1fw1:p2' "question_waiting did not read the pane's native agent state"
     assert_not_contains "$(cat "$log")" $'status\x1f--json' "question_waiting must not ensure (start) the herdr server"
   done
+  dir="$TMP_ROOT/question-cursor"; mkdir -p "$dir/responses"; resp="$dir/responses"; log="$dir/log"; : > "$log"
+  printf '{"result":{"agent":{"agent":"cursor","agent_status":"blocked"}}}\n' > "$resp/1.out"
+  fb=$(make_herdr_fakebin "$dir")
+  rc=0
+  PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+    bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting herdr fmtest:w1:p2 cursor' "$ROOT" || rc=$?
+  [ "$rc" = 1 ] || fail "a Cursor pane, blocked in every state, must not read as a question waiting, got $rc"
   rc=0
   bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting tmux sess:fm-x' "$ROOT" || rc=$?
   [ "$rc" = 1 ] || fail "a backend with no native agent state must report no question waiting, got $rc"

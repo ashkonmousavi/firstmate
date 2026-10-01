@@ -906,15 +906,29 @@ fm_backend_busy_state() {  # <backend> <target>
 }
 
 # fm_backend_question_waiting: 0 when <backend> natively reports <target>'s
-# agent waiting on a human (a permission or question prompt on screen), whatever
-# the harness. Backends with no such primitive (tmux) report 1.
-fm_backend_question_waiting() {  # <backend> <target>
+# agent waiting on a human (a permission or question prompt on screen), for any
+# <harness> whose native blocked state the backend can read. Backends with no
+# such primitive (tmux) report 1.
+fm_backend_question_waiting() {  # <backend> <target> <harness>
   local backend=$1
   shift
   fm_backend_source "$backend" || return 1
   case "$backend" in
     herdr) fm_backend_herdr_question_waiting "$@" ;;
     *) return 1 ;;
+  esac
+}
+
+# fm_backend_blocked_is_question: 0 when a native `blocked` transition from
+# <backend> for a <harness> agent means it is waiting on a human. Backends
+# without a harness whose blocked state is illegible report 0.
+fm_backend_blocked_is_question() {  # <backend> <harness>
+  local backend=$1
+  shift
+  fm_backend_source "$backend" || return 0
+  case "$backend" in
+    herdr) fm_backend_herdr_blocked_is_question "$@" ;;
+    *) return 0 ;;
   esac
 }
 

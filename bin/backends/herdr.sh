@@ -3796,10 +3796,19 @@ fm_backend_herdr_busy_state() {  # <target>
   printf '%s' "$verdict"
 }
 
+# fm_backend_herdr_blocked_is_question: 0 when herdr's native `blocked` for a
+# <harness> agent means it waits on a human. Herdr reports a Cursor pane
+# `blocked` in every state (see the queued-Enter notes above), so for Cursor
+# blocked says nothing about a question on screen.
+fm_backend_herdr_blocked_is_question() {  # <harness>
+  [ "${1:-}" != cursor ]
+}
+
 # fm_backend_herdr_question_waiting: 0 when herdr's native agent-state reports
-# <target> `blocked`, an agent waiting on a human, for whichever harness it
-# detected. A passive read: it never starts the herdr server.
-fm_backend_herdr_question_waiting() {  # <target>
+# <target> `blocked`, an agent waiting on a human, for any <harness> whose
+# blocked state is legible. A passive read: it never starts the herdr server.
+fm_backend_herdr_question_waiting() {  # <target> <harness>
+  fm_backend_herdr_blocked_is_question "${2:-}" || return 1
   fm_backend_herdr_parse_target "$1" || return 1
   [ "$(fm_backend_herdr_agent_status_raw "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")" = blocked ]
 }
