@@ -18,8 +18,9 @@
 # (secondmate ledger-first publish of a child done). A ship `done:` is not
 # accepted while the named head exists only in the worker's disposable copy.
 # The check tests that head, not whether some branch moved. In no-mistakes
-# mode the pre-validation `done: {summary}` is the pipeline handoff and is
-# not gated; only the later CI-ready `done: PR <url> checks green` is, or on a
+# mode an older brief's pre-validation `done: {summary}` remains an ungated
+# pipeline handoff; fresh PR briefs start validation themselves and finish only
+# at CI-ready `done: PR <url> checks green`, or on a
 # Gerrit project the later `done: PR <change url> published for review`. The
 # named head is the worker copy's HEAD, except that a done naming the task's
 # recorded pr= passes when the forge holds that head: a forge-reported
@@ -96,16 +97,27 @@
 # cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# fm_prep_review_reason gates the same ship launch, at every tier, on a review
-# of that record by a separate agent. The proof is data/<task-id>/prep-review,
+# fm_prep_review_exempt permits complete all-no records and explicit unchanged
+# server installs without review. Inside ## Tier, declare exactly:
+#   - Prep review exemption: server-install
+#   - Changes unit: no
+#   - Changes setting: no
+#   - Changes pin: no
+#   - Changes store version: no
+# Missing, malformed, conflicting or yes install answers retain review; these
+# optional author declarations do not affect tier and are not verified facts.
+# fm_prep_review_reason gates non-exempt ships on a separate agent review.
+# The proof is data/<task-id>/prep-review,
 # two key=value lines firstmate writes after the review scout reports:
 #   reviewer=<the prep-review scout's task id>
 #   author=<who wrote the record: firstmate, a task id, or secondmate:<home>>
 # The reviewer must be neither the ship nor the author, must have run as its own
 # spawned session (data/<reviewer>/launch-brief.md, which only bin/fm-spawn.sh
 # writes and teardown keeps), must have left a nonempty data/<reviewer>/report.md,
+# with Standards and Spec headings (Architecture too when Q2 is yes),
 # and must have written the complete record it approves to
-# data/<reviewer>/reviewed-prep.md; firstmate installs that file as
+# data/<reviewer>/reviewed-prep/<task-id>.md, or legacy reviewed-prep.md when
+# no per-task artifact exists; firstmate installs those approved bytes as
 # data/<task-id>/prep.md, and the shipped record must stay byte-identical to it.
 # The author line is self-declared, because no record carries its author; that
 # is a stated limit rather than a check.
@@ -336,13 +348,13 @@ FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s wo
 ## 2. Behaviour spec|BEHAVIOUR_SPEC|2|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
 ## 3. UI/UX|UI_UX|2|START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the matching component and its path in the project'"'"'s design system or UI record as its instructions name it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
 ## 4. Blast radius|BLAST_RADIUS|1|PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown.|gitnexus serena
-## 5. Data and contracts|DATA_AND_CONTRACTS|2|Request and response shapes, versions, migrations.
-## 6. Tests|TESTS|1|The red-first list, journey tests, mutation witnesses, existing tests that change and why.
-## 7. Records|RECORDS|2|Project task items to complete, verification records, and other records its instructions require. If a component lands ahead of its consumer, record and clear the pending integration as the project'"'"'s instructions specify.
-## 8. Out of scope and follow-ups|OUT_OF_SCOPE|1|What this task deliberately leaves alone, and the follow-up work it creates.
+## 5. Data and contracts|DATA_AND_CONTRACTS|2|Name the module, its public seams, request/response shapes, versions and migrations; apply the deletion test: where would its complexity move if removed?
+## 6. Tests|TESTS|1|Name public seams (interfaces, never internals), red-first order and proof owed (direct proof, integrated journey or stage acceptance), journey tests, mutation witnesses, existing tests that change and why, the changed-file/test-module mapping, tests requiring a real installation, and failures already on the base (or unknown when unmeasured).
+## 7. Records|RECORDS|2|Project task items to complete, verification records, and other records its instructions require; answer the surfaces checklist (agent instructions/skills/tool docs, journeys/user docs, reference/help/changelog, plans, architecture, UI states and tests), each updated or n/a with reason; if a component lands ahead of its consumer, record and clear the pending integration as the project'"'"'s instructions specify.
+## 8. Out of scope and follow-ups|OUT_OF_SCOPE|1|What this task deliberately leaves alone and the follow-up work it creates; paste the project'"'"'s git grep -n '"'"'FINALIZE-AFTER(<this task id>)'"'"' -- . output and say which markers this task resolves; write any pre-staged value inline as FINALIZE-AFTER(<trigger task>): <what>, and resolve every marker whose trigger has landed.|finalize-after
 ## 9. Risks, dependencies, merge order|RISKS|2|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
-## 10. Demo receipt plan|DEMO_RECEIPT|2|What the worker walks and records before validation, including the project'"'"'s required visual comparison and states as its instructions name them.
-## 11. Definition of done|DEFINITION_OF_DONE|1|The done criteria, checked line by line against the intent above.
+## 10. Demo receipt plan|DEMO_RECEIPT|2|Name the evidence class each claim rests on (fixture/synthetic, admitted-data mirror or live deployment), never promoting one into another, and what the worker walks and records before validation, including the project'"'"'s required visual comparison and states as its instructions name them.
+## 11. Definition of done|DEFINITION_OF_DONE|1|The done criteria, checked line by line against the intent above, with no marker whose trigger has landed.
 ## 12. Size|SIZE|2|Files expected to change; more than about eight files means split the slice.'
 # fm_prep_path <data-dir> <task-id>
 fm_prep_path() {
@@ -405,9 +417,11 @@ fm_prep_template() {
   printf '\n'
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
   printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
+  printf 'Use primary-source citations (documentation, source code or specification) beside every external fact; choices between options follow the project research-first decision procedure.\n'
   printf 'This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.\n'
   while IFS='|' read -r heading placeholder tier guide evidence; do
     [ -n "$heading" ] || continue
+    guide=${guide//'<this task id>'/$id}
     printf '\n%s\n<!-- tier %s+. %s -->\n{%s}\n' "$heading" "$tier" "$guide" "$placeholder"
   done <<EOF
 $FM_PREP_SECTIONS
@@ -566,12 +580,49 @@ EOF
   return 1
 }
 
+# fm_prep_review_exempt <prep-path>
+# Completeness comes first; all-no and explicitly unchanged server installs
+# need no separate review. Install fields are author declarations, not checks.
+# An exemption is never proof of review for the accepted-specification overlay.
+fm_prep_review_exempt() {  # <prep-path>
+  local file=$1
+  fm_prep_unfilled_reason "$file" >/dev/null && return 1
+  [ "$(fm_prep_tier "$file")" = 0 ] && return 0
+  # Optional install declarations do not participate in tier selection. Every
+  # occurrence must agree; an absent, malformed or conflicting field refuses.
+  fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+    index($0, "- Prep review exemption:") == 1 {
+      value = substr($0, length("- Prep review exemption:") + 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      declared = 1
+      if (value != "server-install") invalid = 1
+    }
+    {
+      for (n = 1; n <= 4; n++) {
+        field = n == 1 ? "unit" : n == 2 ? "setting" : n == 3 ? "pin" : "store version"
+        if (index($0, "- Changes " field ":") != 1) continue
+        value = $0
+        sub(/^.*:/, "", value)
+        gsub(/[[:space:].]/, "", value)
+        seen[n] = 1
+        if (tolower(value) != "no") invalid = 1
+      }
+    }
+    END { exit !(declared && !invalid && seen[1] && seen[2] && seen[3] && seen[4]) }
+  '
+}
+
 # fm_prep_review_reason <data-dir> <task-id>
 # Prints the first refusal reason and exits 0; exits 1 when the task's
 # preparation record carries the proof of a separate review this file's header
-# defines. Each refusal names the one piece that is missing or wrong.
+# defines. Exemption is checked separately, never returned as review proof.
+# Each refusal names the one piece that is missing or wrong.
 fm_prep_review_reason() {  # <data-dir> <task-id>
-  local data=$1 id=$2 record reviewer author dir
+  local data=$1 id=$2 record reviewer author dir artifact heading
+  if ! fm_pr_task_id_valid "$id"; then
+    printf 'task id %s is not a plain task id\n' "$id"
+    return 0
+  fi
   record="$data/$id/prep-review"
   if [ ! -f "$record" ] || [ ! -r "$record" ]; then
     printf 'no review record at %s\n' "$record"
@@ -613,13 +664,22 @@ fm_prep_review_reason() {  # <data-dir> <task-id>
     printf 'reviewer %s report at %s is empty\n' "$reviewer" "$dir/report.md"
     return 0
   fi
-  if [ ! -f "$dir/reviewed-prep.md" ]; then
-    printf 'reviewer %s wrote no reviewed record at %s\n' "$reviewer" "$dir/reviewed-prep.md"
+  for heading in '## Standards' '## Spec' '## Architecture'; do
+    [ "$heading" != '## Architecture' ] || [ "$(fm_prep_answer "$data/$id/prep.md" Q2)" = yes ] || continue
+    if ! fm_brief_heading_present "$dir/report.md" "$heading"; then
+      printf 'reviewer %s report at %s requires %s\n' "$reviewer" "$dir/report.md" "$heading"
+      return 0
+    fi
+  done
+  artifact="$dir/reviewed-prep/$id.md"
+  [ -e "$artifact" ] || [ -L "$artifact" ] || artifact="$dir/reviewed-prep.md"
+  if [ ! -f "$artifact" ] || [ ! -r "$artifact" ]; then
+    printf 'reviewer %s wrote no readable reviewed record at %s\n' "$reviewer" "$artifact"
     return 0
   fi
-  if ! cmp -s "$data/$id/prep.md" "$dir/reviewed-prep.md"; then
+  if ! cmp -s "$data/$id/prep.md" "$artifact"; then
     printf 'prep changed after review; install the reviewed record or review again (%s differs from %s)\n' \
-      "$data/$id/prep.md" "$dir/reviewed-prep.md"
+      "$data/$id/prep.md" "$artifact"
     return 0
   fi
   return 1
@@ -658,6 +718,7 @@ Read it in full before you plan or write anything: it is the specification benea
 Its `## Tier` header decides how much the record says; a section it does not carry was ruled out there, not forgotten.
 Where the record carries `## 2. Behaviour spec` and `## 11. Definition of done`, those are the acceptance criteria the reviewer will hold this work to, alongside `## Captain's intent` above.
 A section answered `n/a: <reason>` is a decision already taken, not an invitation to fill the gap yourself.
+Write the tests named in Tests before their passing code, one slice at a time at the named public seams.
 If the record is wrong or incomplete for what you find in the code, say so through the status file rather than silently building something else.
 EOF
 }
@@ -809,11 +870,13 @@ EOF
 Delivery contract: mode=direct-PR
 Ship branch: $branch
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
-The task is complete only when committed on your branch.
+This task is complete only with an existing non-draft PR and every required check green for its current head.
 When it is implemented and committed, push your branch and open a PR with \`gh-axi\` that is ready for review, not a draft.
 Before you report done, read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.
 A draft cannot be merged, so a done report on one leaves the merge unasked.
-Then append \`done [at=<epoch>]: PR {url}\` to the status file and stop.
+Wait for every required check on the current PR head to be green, reading the forge with \`gh-axi pr checks <number>\` (consult its \`--help\` for current usage).
+Pending checks use \`paused [at=<epoch>]: {checks awaited and completion condition}\`; resume when they finish, fixing failed checks and pushing the repair through this direct-PR path before checking again.
+Then append \`done [at=<epoch>]: PR {full https URL from the forge} checks green\` to the status file and stop.
 That \`done:\` is accepted only when this copy's HEAD - your latest commit - is pushed to your PR branch; the check tests that commit, not merely that a branch moved.
 If you deliberately keep the PR a draft, append \`paused [at=<epoch>]: {why the draft is held}\` instead of done.
 Do NOT run /no-mistakes. The configured merge authority decides whether to merge the PR; firstmate relays the outcome.
@@ -837,10 +900,9 @@ EOF
 # Definition of done
 Delivery contract: mode=no-mistakes
 Ship branch: $branch
-The task is complete only when committed on your branch.
-When you believe it is complete, append \`done [at=<epoch>]: {summary}\` to the status file and stop.
-Firstmate will then instruct you to run /no-mistakes to validate and ship a PR.
-That first \`done:\` is the handoff that starts the pipeline, which owns the push; it is not a request to push from this copy.
+This task is complete only with an existing non-draft PR and every required check green for its current head.
+After your implementation commit, append a \`working [at=<epoch>]: implementation committed; starting validation\` milestone and start the pipeline yourself immediately with \`no-mistakes axi run\`, supplying \`--intent\` under the contract below.
+The pipeline owns the push; follow its version-matched skill and help to drive every gate through the green PR return.
 
 EOF
       fm_nm_driving_block "$forge"
@@ -848,8 +910,9 @@ EOF
 
 After /no-mistakes reports CI green (the CI-ready return point - do not wait for it to keep monitoring in the background until merge), read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.
 A draft cannot be merged, so a done report on one leaves the merge unasked.
-Then append \`done [at=<epoch>]: PR {url} checks green\` and stop. You are finished.
+Then append \`done [at=<epoch>]: PR {full https URL from the forge} checks green\` and stop. You are finished.
 That CI-ready \`done:\` is accepted only when this copy's HEAD - your latest commit - is one the /no-mistakes run pushed, so commit nothing after the run; the check tests that commit, not merely that a branch moved.
+Pending checks use \`paused [at=<epoch>]: {checks awaited and completion condition}\`; resume through the active pipeline when they finish, letting the pipeline own failed-check repairs.
 If you deliberately keep the PR a draft, append \`paused [at=<epoch>]: {why the draft is held}\` instead of done.
 EOF
       ;;
@@ -891,7 +954,7 @@ fm_dod_note_reports_published_change() {  # <note>
 }
 
 # 0 when this ship done: is one the named-head gate must accept or refuse.
-# no-mistakes pre-validation done: is the pipeline handoff and is not gated.
+# Legacy and Gerrit no-mistakes pre-validation done: handoffs stay ungated.
 # Empty mode is treated as no-mistakes, the unregistered-project default.
 fm_dod_should_gate_ship_done() {  # <kind> <mode> <line>
   local note

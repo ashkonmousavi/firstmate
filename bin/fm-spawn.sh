@@ -31,12 +31,13 @@
 #   that section; a section below the declared tier may be omitted entirely, and
 #   a required one that does not apply is answered `n/a: <reason>`. A required
 #   Blast radius section also has to name gitnexus or serena, because it is the
-#   one section that owes tool output rather than prose. When that refusal
+#   section that owes impact output; section 8 similarly owes finalize-after
+#   grep evidence or n/a with reason. When that refusal
 #   fires and a filled secondmate nav-prep exists, stderr also names that
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
 #   installs it. A ship spawn then refuses a record no separate agent has
-#   reviewed, at every tier (fm_prep_review_reason in bin/fm-dod-lib.sh owns
-#   that proof). Scouts and secondmates are not gated, and --relaunch is
+#   reviewed unless its complete prep is exempt (bin/fm-dod-lib.sh owns
+#   exemptions and review proof). Scouts and secondmates are not gated, and --relaunch is
 #   exempt from both gates so tasks dispatched before them still relaunch.
 #   When the record exists, the launch brief points the worker at it as the
 #   specification beneath the brief.
@@ -3221,15 +3222,15 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       exit 1
     fi
   fi
-  # A separate agent reviews every record, at every tier, before its ship
-  # starts; bin/fm-dod-lib.sh's header owns what proves that review. Only a
+  # A separate agent reviews non-exempt records before their ships
+  # start; bin/fm-dod-lib.sh's header owns what proves that review. Only a
   # record whose review still holds is handed over as accepted specification,
   # so a relaunched task with an unreviewed record gets none.
   REVIEWED_PREP=
   if [ "$KIND" = ship ]; then
     if REVIEW_REASON=$(fm_prep_review_reason "$DATA" "$ID"); then
-      if [ "$RELAUNCH" -eq 0 ]; then
-        echo "error: task $ID cannot ship before a separate agent reviews its preparation record: $REVIEW_REASON; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as $PREP_FILE, then write $DATA/$ID/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>" >&2
+      if [ "$RELAUNCH" -eq 0 ] && ! fm_prep_review_exempt "$PREP_FILE"; then
+        echo "error: task $ID cannot ship before a separate agent reviews its preparation record: $REVIEW_REASON; spawn a prep-review scout with --scout --prep-review $ID that writes data/<reviewer>/reviewed-prep/$ID.md (legacy data/<reviewer>/reviewed-prep.md is accepted only when that per-task artifact is absent) and its report, install that reviewed record as $PREP_FILE, then write $DATA/$ID/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>" >&2
         exit 1
       fi
     else

@@ -271,7 +271,7 @@ test_ship_mode_is_explicit_not_registry() {
   brief="$home/data/brief-explicit-a5/brief.md"
   grep -qx "Delivery contract: mode=no-mistakes" "$brief" \
     || fail "registered direct-PR posture overrode the explicit --mode"
-  assert_grep "Firstmate will then instruct you to run /no-mistakes" "$brief" \
+  assert_grep "start the pipeline yourself immediately" "$brief" \
     "explicit no-mistakes brief did not render the pipeline definition of done"
 
   # An unregistered project is not a blocker either, because nothing is looked up.
@@ -1144,6 +1144,12 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not name the caller tool a signature change owes"
   assert_grep 'claude-context semantic search only when a name is unknown' "$prep" \
     "prep record does not bound when semantic search replaces the two tools"
+  for term in 'primary-source citations' 'module' 'public seams' 'deletion test' \
+    'changed-file/test-module mapping' 'real installation' 'already on the base' \
+    'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' \
+    'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'; do
+    assert_grep "$term" "$prep" "prep guide missing $term"
+  done
   assert_grep '<!-- tier 1+.' "$prep" "prep record sections do not say which tier requires them"
   assert_grep '<!-- tier 2+.' "$prep" "prep record does not mark its tier-2-only sections"
 
@@ -1497,6 +1503,55 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   pass "fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool"
 }
 
+# A batch reviewer receives confined approval paths through the scout interface.
+test_prep_review_scout_brief() {
+  local home="$TMP_ROOT/reviewer-brief" brief out status args token
+  mkdir -p "$home/data"
+  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" reviewer repo --scout --prep-review task-a --prep-review task-b 2>&1)
+  status=$?
+  expect_code 0 "$status" "batch reviewer should scaffold: $out"
+  brief="$home/data/reviewer/brief.md"
+  for token in '## Standards' '## Spec' '## Architecture' 'Q2 yes' 'byte-identical' \
+    "$home/data/task-a/prep.md" "$home/data/task-b/prep.md" \
+    "$home/data/reviewer/reviewed-prep/task-a.md" "$home/data/reviewer/reviewed-prep/task-b.md"; do
+    assert_grep "$token" "$brief" "review brief missing $token"
+  done
+  out=$(sed -n '/^2\. Stay inside/p' "$brief")
+  assert_contains "$out" "$home/data/reviewer/reviewed-prep/task-a.md" "rule 2 does not allow task-a approval"
+  assert_contains "$out" "$home/data/reviewer/reviewed-prep/task-b.md" "rule 2 does not allow task-b approval"
+  assert_not_contains "$out" 'reviewed-prep.md' "batch reviewer was given an unconstrained legacy write"
+  for args in '--mode direct-PR --prep-review task-a' '--scout --prep-review ../bad' \
+    '--scout --prep-review reviewer' '--scout --prep-review' '--secondmate --no-projects --prep-review task-a'; do
+    # shellcheck disable=SC2086 # args deliberately tests CLI word splitting
+    out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" reviewer repo $args 2>&1)
+    status=$?
+    [ "$status" -ne 0 ] || fail "invalid prep reviewer flags accepted: $args"
+    assert_contains "$out" '--prep-review' "invalid review flags not explained: $out"
+  done
+  pass "fm-brief: batch prep reviewers get two axes and exact approval write paths"
+}
+
+test_pr_completion_requires_current_head_green_url() {
+  local home="$TMP_ROOT/pr-green-completion" mode brief
+  mkdir -p "$home/data"
+  for mode in no-mistakes direct-PR; do
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "green-$mode" repo --mode "$mode" >/dev/null 2>&1 \
+      || fail "PR brief scaffold failed: $mode"
+    brief="$home/data/green-$mode/brief.md"
+    assert_grep 'every required check green for its current head' "$brief" "$mode lost current-head checks"
+    assert_grep 'PR {full https URL from the forge} checks green' "$brief" "$mode terminal line is not a green full URL"
+    assert_no_grep 'The task is complete only when committed on your branch.' "$brief" "$mode still calls implementation-only complete"
+    assert_no_grep 'Firstmate will then instruct you to run /no-mistakes' "$brief" "$mode still stops for pipeline handoff"
+    if [ "$mode" = no-mistakes ]; then
+      # shellcheck disable=SC2016 # Assert the literal command in emitted instructions.
+      assert_grep 'start the pipeline yourself immediately with `no-mistakes axi run`' "$brief" "fresh worker does not start its run"
+    fi
+  done
+  pass "fm-brief: both PR paths finish only with current-head green non-draft forge URL"
+}
+
+test_pr_completion_requires_current_head_green_url
+test_prep_review_scout_brief
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header

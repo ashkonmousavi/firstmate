@@ -462,6 +462,11 @@ STUB
     assert_grep "## Firstmate spec" "$payload" \
       "$mode: promoted worker did not receive the Firstmate spec subsection"
 
+    if [ "$mode" != local-only ]; then
+      assert_grep 'PR {full https URL from the forge} checks green' "$payload" "$mode promotion lost green PR completion"
+      assert_no_grep 'Firstmate will then instruct you' "$payload" "$mode promotion kept an implementation-only stop"
+    fi
+
     # Compare the public outputs of both real generation paths. The promoted
     # payload ends at its Definition of done, as does an ordinary generated
     # brief, so identical suffixes prove both workers receive the same contract.
@@ -1343,7 +1348,7 @@ EOF
   pass "fm-spawn: a ship launch requires an answered task preparation record, and a scout never is"
 }
 
-# A separate agent reviews every preparation record, at every tier, before its
+# A separate agent reviews non-exempt preparation records before their
 # ship starts: the spawn refuses until data/<id>/prep-review names a reviewer
 # that is neither the ship nor the record's author, that ran as its own spawned
 # session and reported, and whose reviewed record is byte-identical to the one
@@ -1356,9 +1361,9 @@ test_ship_spawn_requires_a_separately_reviewed_preparation_record() {
 $rec
 EOF
 
-  # Every tier is gated: an answered record nobody reviewed is refused, and the
+  # Every nonzero tier is gated: an answered record nobody reviewed is refused, and the
   # refusal names the missing record and what a review leaves behind.
-  for tier in 0 1 2; do
+  for tier in 1 2; do
     case $tier in
       0) q1=no q2=no ;;
       1) q1=no q2=yes ;;
@@ -1373,11 +1378,19 @@ EOF
     out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
     assert_contains "$out" "reviewer=" "tier $tier: the refusal did not name the reviewer line the record needs"
     assert_contains "$out" "author=" "tier $tier: the refusal did not name the author line the record needs"
-    assert_contains "$out" "reviewed-prep.md" "tier $tier: the refusal did not say what the review scout writes"
+    assert_contains "$out" "reviewed-prep/$id.md" "tier $tier: the refusal did not say what the review scout writes"
   done
+
+  id=review-all-no
+  write_brief "$home" "$id" no-mistakes
+  rm -f "$home/data/$id/prep-review"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "all-no prep should launch without review"
+  assert_no_grep 'Accepted specification for --intent' "$home/data/$id/launch-brief.md" "exemption was labeled reviewed"
 
   # Each part of the proof is checked on its own, and each refusal names it.
   id=review-proof
+  write_prep "$home" "$id" yes yes
   write_brief "$home" "$id" direct-PR
   record="$home/data/$id/prep-review"
   reviewer="$id-prep-review"
@@ -1414,7 +1427,7 @@ EOF
   review_prep "$home" "$id"
   rm "$home/data/$reviewer/reviewed-prep.md"
   assert_review_refused "$home" "$fakebin" "$id" "$proj" \
-    "wrote no reviewed record at $home/data/$reviewer/reviewed-prep.md" "a reviewer that approved no record"
+    "wrote no readable reviewed record at $home/data/$reviewer/reviewed-prep.md" "a reviewer that approved no record"
 
   # One byte edited after the review is a different record from the one approved.
   review_prep "$home" "$id"
@@ -1435,7 +1448,7 @@ EOF
     "a scout spawn was refused for having no reviewed preparation record"
   assert_present "$home/data/$id/launch-brief.md" "a scout spawn rendered no launch brief"
 
-  pass "fm-spawn: a ship launch requires a separate, unchanged review of its preparation record at every tier"
+  pass "fm-spawn: all-no prep skips review; every nonzero tier retains separate review proof"
 }
 
 # A no-mistakes ship hands the worker the reviewed record's behaviour spec and
@@ -2151,6 +2164,137 @@ EOF
   pass "fm-project-mode: --branch-prefix resolves order-independently and defaults to the legacy fm/ prefix"
 }
 
+# An install exemption is explicit, complete and never review evidence.
+test_server_install_review_exemption() {
+  local rec home proj fakebin id=install-exemption prep out field variant
+  rec=$(make_home install-exemption)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" "$id" yes yes
+  write_brief "$home" "$id" no-mistakes
+  prep="$home/data/$id/prep.md"
+  rm -f "$home/data/$id/prep-review"
+  awk '$0 == "## Tier" { print; print "- Prep review exemption: server-install";
+    print "- Changes unit: no"; print "- Changes setting: no";
+    print "- Changes pin: no"; print "- Changes store version: no"; next } { print }' \
+    "$prep" > "$prep.install" && mv "$prep.install" "$prep"
+  cp "$prep" "$prep.valid"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "four-no declared install should launch"
+  assert_grep '# Task preparation record' "$home/data/$id/launch-brief.md" "exempt prep overlay missing"
+  assert_no_grep 'Accepted specification for --intent' "$home/data/$id/launch-brief.md" "install exemption was labeled reviewed"
+
+  write_brief "$home" "$id" direct-PR
+  rm -f "$home/data/$id/prep-review"
+  for field in unit setting pin 'store version'; do
+    for variant in yes missing malformed conflict; do
+      cp "$prep.valid" "$prep"
+      case "$variant" in
+        yes) sed "s/^- Changes $field: no$/- Changes $field: yes/" "$prep" > "$prep.edit" ;;
+        missing) sed "/^- Changes $field:/d" "$prep" > "$prep.edit" ;;
+        malformed) sed "s/^- Changes $field: no$/- Changes $field: maybe/" "$prep" > "$prep.edit" ;;
+        conflict) awk -v f="$field" '$0 == "## Tier" { print; print "- Changes " f ": yes"; next } { print }' "$prep" > "$prep.edit" ;;
+      esac
+      mv "$prep.edit" "$prep"
+      assert_review_refused "$home" "$fakebin" "$id" "$proj" 'no review record' "install $field $variant"
+    done
+  done
+  for variant in unknown conflict missing; do
+    cp "$prep.valid" "$prep"
+    case "$variant" in
+      unknown) sed 's/^- Prep review exemption: server-install$/- Prep review exemption: other/' "$prep" > "$prep.edit" ;;
+      missing) sed '/^- Prep review exemption:/d' "$prep" > "$prep.edit" ;;
+      conflict) awk '$0 == "## Tier" { print; print "- Prep review exemption: other"; next } { print }' "$prep" > "$prep.edit" ;;
+    esac
+    mv "$prep.edit" "$prep"
+    assert_review_refused "$home" "$fakebin" "$id" "$proj" 'no review record' "install declaration $variant"
+  done
+  # Exemption never masks a missing section or a malformed tier.
+  cp "$prep.valid" "$prep"
+  blank_section "$prep" '## 6. Tests'
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'which is empty' "incomplete install prep bypassed completeness"
+  cp "$prep.valid" "$prep"
+  answer_tier "$prep" maybe yes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'does not answer both Q1 and Q2' "install declaration altered tier parsing"
+  cp "$prep.valid" "$prep"
+  sed '/^- Prep review exemption:/d; /^- Changes /d' "$prep" > "$prep.edit"
+  mv "$prep.edit" "$prep"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" 'no review record' "install title without declaration"
+  pass "fm-spawn: only a complete explicit four-no server install is review-exempt, never reviewed"
+}
+
+# Task-specific bytes bind each approval even when one reviewer handles a batch.
+test_batch_prep_review_and_report_shape() {
+  local rec home proj fakebin id reviewer=batch-reviewer prep artifact heading
+  rec=$(make_home batch-review)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  mkdir -p "$home/data/$reviewer/reviewed-prep"
+  printf 'Separate reviewer launch receipt.\n' > "$home/data/$reviewer/launch-brief.md"
+  printf '## Standards\nBoth records follow conventions.\n## Spec\nBoth records meet their criteria.\n## Architecture\nBoth shared seams checked.\n' > "$home/data/$reviewer/report.md"
+  for id in batch-a batch-b; do
+    write_prep "$home" "$id" yes yes
+    write_brief "$home" "$id" direct-PR
+    printf 'reviewer=%s\nauthor=firstmate\n' "$reviewer" > "$home/data/$id/prep-review"
+    cp "$home/data/$id/prep.md" "$home/data/$reviewer/reviewed-prep/$id.md"
+    assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "batch approval $id"
+  done
+  id=batch-b
+  prep="$home/data/$id/prep.md"
+  artifact="$home/data/$reviewer/reviewed-prep/$id.md"
+  cp "$prep" "$home/data/$reviewer/reviewed-prep.md"
+  cp "$home/data/$reviewer/reviewed-prep/batch-a.md" "$artifact"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "$artifact" "wrong per-task proof cannot fall back to legacy"
+  cp "$prep" "$artifact"
+  printf x >> "$prep"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "$artifact" "one-byte drift"
+  cp "$artifact" "$prep"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "approved bytes reinstalled"
+  for heading in Standards Spec Architecture; do
+    printf '## Standards\nPass.\n## Spec\nPass.\n## Architecture\nPass.\n' > "$home/data/$reviewer/report.md"
+    sed "/^## $heading$/d" "$home/data/$reviewer/report.md" > "$home/data/$reviewer/report.edit"
+    mv "$home/data/$reviewer/report.edit" "$home/data/$reviewer/report.md"
+    assert_review_refused "$home" "$fakebin" "$id" "$proj" "## $heading" "missing report axis $heading"
+  done
+  printf '## Standards\nPass.\n## Spec\nPass.\n' > "$home/data/$reviewer/report.md"
+  answer_tier "$prep" yes no
+  cp "$prep" "$artifact"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "Q2 no does not owe Architecture"
+  cp "$prep" "$home/data/$reviewer/reviewed-prep.md"
+  rm "$artifact"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "legacy approval still works"
+  mkdir "$artifact"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "$artifact" "unreadable per-task artifact cannot fall back"
+  pass "fm-spawn: batch approval binds task bytes and owed report headings, with legacy compatibility"
+}
+
+test_prep_requires_finalize_after_evidence() {
+  local rec home proj fakebin id=finalize-evidence prep out
+  rec=$(make_home finalize-evidence)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_prep "$home" "$id" no yes
+  write_brief "$home" "$id" direct-PR
+  prep="$home/data/$id/prep.md"
+  fill_section "$prep" '## 8. Out of scope and follow-ups' 'Everything else stays unchanged.'
+  review_prep "$home" "$id"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'naming finalize-after' "prose without marker grep bypassed evidence check"
+  fill_section "$prep" '## 8. Out of scope and follow-ups' 'git grep FINALIZE-AFTER: exit 1, no pending markers.'
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "marker grep evidence"
+  assert_grep 'tests named in Tests before their passing code' "$home/data/$id/launch-brief.md" "ship overlay lost test-first instructions"
+  pass "fm-spawn: section 8 owes sentinel grep evidence or an explicit n/a reason"
+}
+
+test_prep_requires_finalize_after_evidence
+test_batch_prep_review_and_report_shape
+test_server_install_review_exemption
 test_ship_spawn_requires_a_valid_delivery_contract
 test_scout_and_secondmate_refuse_delivery_flags
 test_spawn_refuses_a_brief_mode_mismatch

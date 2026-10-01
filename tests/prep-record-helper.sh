@@ -12,7 +12,7 @@
 
 # fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>]
 # Writes an answered record for <id> under <data-dir>, plus the separate review
-# a ship spawn also requires (fm_test_prep_review). The tier header answers
+# a non-exempt ship spawn requires (fm_test_prep_review). The tier header answers
 # default to three noes - tier 0, the cheapest record a ship spawn accepts - so
 # a fixture that only needs the gate satisfied pays nothing for it; pass yes to
 # any of them to exercise a higher tier, where every section is answered.
@@ -50,6 +50,6 @@ fm_test_prep_review() {
   mkdir -p "$data/$reviewer" || return 1
   printf 'reviewer=%s\nauthor=firstmate\n' "$reviewer" > "$data/$id/prep-review" || return 1
   printf '# Current worker role contract\nPrep-review scout fixture.\n' > "$data/$reviewer/launch-brief.md" || return 1
-  printf 'Reviewed the preparation record for %s.\n' "$id" > "$data/$reviewer/report.md" || return 1
+  printf '## Standards\nChecked project conventions.\n## Spec\nReviewed the preparation record for %s.\n## Architecture\nChecked shared seams.\n' "$id" > "$data/$reviewer/report.md" || return 1
   cp "$data/$id/prep.md" "$data/$reviewer/reviewed-prep.md"
 }
