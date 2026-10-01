@@ -608,20 +608,22 @@ None of these three runs ever answered its dialog (Escape only, never Enter), so
 Verified 2026-10-01 on Claude Code 2.1.286.
 `bin/fm-spawn.sh` registers a `PermissionRequest` hook that writes `state/<id>.prompt-waiting`, and the watcher wakes on each new marker ahead of any declared pause.
 `--dangerously-skip-permissions` does not suppress every dialog: a Bash command whose removal target Claude cannot resolve statically still asks.
-The live guard runs the real Claude in bypass mode with the hook settings the real spawn writes, and requires a fresh marker for each case before dismissing the dialog.
+The live guard runs the real Claude in bypass mode with the hook settings the real spawn writes.
+It first requires that a call bypass mode auto-approves leaves the marker unchanged, then requires a fresh marker for each of the three prompt cases before dismissing the dialog.
 
 ```sh
 FM_CLAUDE_PROMPT_LIVE_E2E=1 tests/fm-claude-prompt-waiting-live-e2e.test.sh
 ```
 
 ```
+ok - claude 2.1.286 (Claude Code): an auto-approved Bash call leaves the PermissionRequest prompt marker alone in bypass mode
 ok - claude 2.1.286 (Claude Code): a main-thread Bash prompt raises the PermissionRequest prompt marker in bypass mode
 ok - claude 2.1.286 (Claude Code): a background subagent's Bash prompt raises the PermissionRequest prompt marker in bypass mode
 ok - claude 2.1.286 (Claude Code): an AskUserQuestion question raises the PermissionRequest prompt marker in bypass mode
-# claude 2.1.286 (Claude Code): checked 3 prompt cases
+# claude 2.1.286 (Claude Code): checked 4 prompt cases
 ```
 
-The hook input carried `"permission_mode":"bypassPermissions"` in all three cases, `agent_id` and `agent_type` for the subagent's call, and `"tool_name":"AskUserQuestion"` for the question.
+The hook input carried `"permission_mode":"bypassPermissions"` in all three prompt cases, `agent_id` and `agent_type` for the subagent's call, and `"tool_name":"AskUserQuestion"` for the question.
 `Notification` with `notification_type` `permission_prompt` also fired for each dialog.
 The `--permission-mode auto` launch shape is not covered: the probe session fell back to the default mode, so whether an auto-approved call fires the hook is unverified.
 
