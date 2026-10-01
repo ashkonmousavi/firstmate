@@ -2802,6 +2802,7 @@ hold_project_lock() {  # <case-dir>
   FM_HOME="$dir/home" bash -c \
     '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec /bin/sleep 30' _ \
     "$ROOT/bin/fm-wake-lib.sh" "$lock" "$dir/lock-held" &
+  # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
   HOLDER=$!
   while [ ! -e "$dir/lock-held" ] && [ "$waited" -lt 100 ]; do
     kill -0 "$HOLDER" 2>/dev/null || break
