@@ -1,0 +1,47 @@
+
+===== precondition: no tmux process for this user =====
+tmux processes: 0
+
+===== fresh spawn lab-t1 (scout, claude haiku) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+spawned lab-t1 harness=claude kind=scout window=firstmate:fm-lab-t1 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+rc=0
+window=firstmate:fm-lab-t1
+worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+harness=claude
+kind=scout
+spawn_gen=s1790869646.78377.28167
+
+===== fresh spawn lab-t2 (scout, claude haiku) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+spawned lab-t2 harness=claude kind=scout window=firstmate:fm-lab-t2 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo
+rc=0
+window=firstmate:fm-lab-t2
+worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo
+harness=claude
+kind=scout
+spawn_gen=s1790869650.80751.6402
+
+===== claims and tmux after both spawns =====
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+firstmate:bash bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3VZF72MYDKFSVPWF8SMTY11
+firstmate:fm-lab-t1 claude /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+firstmate:fm-lab-t2 claude /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo
+pid=78604
+start_time=1790869644
+socket=/tmp/fm-lab.fb4OBa/tmux/tmux-1000/default
+
+===== simulated restart: kill the lab tmux server =====
+tmux processes after restart: 0
+A new version of treehouse is available: v3.1.0 → v3.1.1
+Run "treehouse update" to update
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+                   bash (79197), claude (80715)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+
+base  main  (repository default)
+1     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)

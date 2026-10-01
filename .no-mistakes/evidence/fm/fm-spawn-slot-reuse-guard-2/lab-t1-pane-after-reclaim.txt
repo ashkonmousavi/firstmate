@@ -1,0 +1,14 @@
+ ▐▛███▛█   Claude Code v2.1.286
+▝▜██████▀  Haiku 4.5 · Claude Max
+ ▝▝   ▝▝   /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo · /rc
+❯ : Firstmate operational input waiting: read
+  '/tmp/fm-lab.fb4OBa/state/operational-inbox/1790869677-eb94833a7ebbbf1f.msg'
+  and handle its contents as Firstmate operational input.
+  Read 1 file
+● ready
+✻ Crunched for 8s · done 8:48 AM
+────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────
+  Firstmate operational input h... · WORKTREE:demo · haiku · SC · 25% · 5h25%…
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 2 agents

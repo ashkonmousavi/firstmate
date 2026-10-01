@@ -1,0 +1,166 @@
+
+===== trace 1 setup: lab-a, lab-b (merged ships) and lab-t2 (finished scout) name copy 2 =====
+## HEAD (no branch)
+4f9ecda (HEAD, origin/main, origin/HEAD, main) readme
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+===== fm-teardown lab-t2 --force =====
+●  4 task(s) in flight, but no watcher has a fresh beacon (last beat: 571s ago, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: task lab-t2's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo is also task lab-a's recorded worktree.
+Returning that pool slot would kill lab-a's processes and reset its copy, so nothing was changed - not even with --force.
+Reconcile whichever record is wrong (bin/fm-crew-state.sh lab-t2; bin/fm-crew-state.sh lab-a), then re-run teardown.
+rc=1
+records: lab-a.meta lab-b.meta lab-t1.meta lab-t2.meta 
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+                   bash (95820), claude (131641), node-MainThread (132114), npm exec @playw (132152), npm exec @model (132153), serena (132607), sh (132640), node-MainThread (132641), sh (132653), node-MainThread (132654), npm exec @model (132727), sh (132837), node-MainThread (132838)
+2     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+                   bash (97598)
+
+===== fm-teardown lab-a  =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+WARNING: watcher still down (same stale episode; last beat: 572s ago, grace 300s) - full banner already printed this episode.
+warning: task lab-a's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo was reassigned to task lab-t2 (home /tmp/fm-lab.fb4OBa), which claimed that pool slot after this record was written; that slot is no longer lab-a's, so its processes, copy, and claim are left untouched and only lab-a's own cleanup runs.
+note: task lab-a's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo is also task lab-b's recorded worktree; inspecting it read-only for lab-a's own unlanded work before cleaning up lab-a's records.
+WARNING: watcher still down (same stale episode; last beat: 572s ago, grace 300s) - full banner already printed this episode.
+/tmp/fm-lab.fb4OBa/src/demo: already current
+teardown lab-a complete (window firstmate:fm-lab-a; pool slot /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo left to task lab-t2 (home /tmp/fm-lab.fb4OBa), which it was reassigned to)
+Backlog: lab-a just finished (this home keeps no markdown backlog at /tmp/fm-lab.fb4OBa/data/backlog.md). Update /tmp/fm-lab.fb4OBa/data/backlog.md - move lab-a to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+rc=0
+records: lab-b.meta lab-t1.meta lab-t2.meta 
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+                   bash (95820), claude (131641), node-MainThread (132114), npm exec @playw (132152), npm exec @model (132153), serena (132607), sh (132640), node-MainThread (132641), sh (132653), node-MainThread (132654), npm exec @model (132727), sh (132837), node-MainThread (132838)
+2     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+                   bash (97598)
+
+===== fm-teardown lab-b  =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+WARNING: watcher still down (same stale episode; last beat: 573s ago, grace 300s) - full banner already printed this episode.
+warning: task lab-b's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo was reassigned to task lab-t2 (home /tmp/fm-lab.fb4OBa), which claimed that pool slot after this record was written; that slot is no longer lab-b's, so its processes, copy, and claim are left untouched and only lab-b's own cleanup runs.
+note: task lab-b's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo is also task lab-t2's recorded worktree; inspecting it read-only for lab-b's own unlanded work before cleaning up lab-b's records.
+WARNING: watcher still down (same stale episode; last beat: 573s ago, grace 300s) - full banner already printed this episode.
+/tmp/fm-lab.fb4OBa/src/demo: already current
+teardown lab-b complete (window firstmate:fm-lab-b; pool slot /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo left to task lab-t2 (home /tmp/fm-lab.fb4OBa), which it was reassigned to)
+Backlog: lab-b just finished (this home keeps no markdown backlog at /tmp/fm-lab.fb4OBa/data/backlog.md). Update /tmp/fm-lab.fb4OBa/data/backlog.md - move lab-b to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+rc=0
+records: lab-t1.meta lab-t2.meta 
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+                   bash (95820), claude (131641), node-MainThread (132114), npm exec @playw (132152), npm exec @model (132153), serena (132607), sh (132640), node-MainThread (132641), sh (132653), node-MainThread (132654), npm exec @model (132727), sh (132837), node-MainThread (132838)
+2     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+                   bash (97598)
+
+===== fm-teardown lab-t2 --force =====
+teardown: reaping leaked worktree process(es) for lab-t2: 97598
+teardown: force-killing leaked worktree process(es) for lab-t2: 97598
+A new version of treehouse is available: v3.1.0 → v3.1.1
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown lab-t2 complete (window firstmate:fm-lab-t2, worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo)
+Backlog: lab-t2 just finished (this home keeps no markdown backlog at /tmp/fm-lab.fb4OBa/data/backlog.md). Update /tmp/fm-lab.fb4OBa/data/backlog.md - move lab-t2 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+rc=0
+records: lab-t1.meta 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+                   bash (95820), claude (131641), node-MainThread (132114), npm exec @playw (132152), npm exec @model (132153), serena (132607), sh (132640), node-MainThread (132641), sh (132653), node-MainThread (132654), npm exec @model (132727), sh (132837), node-MainThread (132838)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+
+===== trace 2 setup: lab-t1 finishes; ship lab-s has unlanded work in copy 1 =====
+stopped lab-t1 harness=claude backend=tmux endpoint=firstmate:fm-lab-t1 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+## fm/lab-s
+?? work.txt
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+===== fm-teardown lab-t1 --force =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+WARNING: watcher still down (same stale episode; last beat: 581s ago, grace 300s) - full banner already printed this episode.
+REFUSED: task lab-t1's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo is also task lab-s's recorded worktree.
+Returning that pool slot would kill lab-s's processes and reset its copy, so nothing was changed - not even with --force.
+Reconcile whichever record is wrong (bin/fm-crew-state.sh lab-t1; bin/fm-crew-state.sh lab-s), then re-run teardown.
+rc=1
+records: lab-s.meta lab-t1.meta 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  [fm/lab-s]
+                   bash (95820), bash (175781)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+
+===== fm-teardown lab-s  =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+WARNING: watcher still down (same stale episode; last beat: 581s ago, grace 300s) - full banner already printed this episode.
+warning: task lab-s's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo was reassigned to task lab-t1 (home /tmp/fm-lab.fb4OBa), which claimed that pool slot after this record was written; that slot is no longer lab-s's, so its processes, copy, and claim are left untouched and only lab-s's own cleanup runs.
+note: task lab-s's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo is also task lab-t1's recorded worktree; inspecting it read-only for lab-s's own unlanded work before cleaning up lab-s's records.
+REFUSED: worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo has uncommitted changes.
+uncommitted changes present
+Commit them (or get the captain's explicit OK to discard, then --force).
+rc=1
+records: lab-s.meta lab-t1.meta 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  [fm/lab-s]
+                   bash (95820), bash (175781)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo/work.txt
+fm/lab-s
+
+===== lab-s's work lands (commit + push) =====
+
+===== fm-teardown lab-s  =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+WARNING: watcher still down (same stale episode; last beat: 582s ago, grace 300s) - full banner already printed this episode.
+warning: task lab-s's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo was reassigned to task lab-t1 (home /tmp/fm-lab.fb4OBa), which claimed that pool slot after this record was written; that slot is no longer lab-s's, so its processes, copy, and claim are left untouched and only lab-s's own cleanup runs.
+note: task lab-s's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo is also task lab-t1's recorded worktree; inspecting it read-only for lab-s's own unlanded work before cleaning up lab-s's records.
+WARNING: watcher still down (same stale episode; last beat: 582s ago, grace 300s) - full banner already printed this episode.
+/tmp/fm-lab.fb4OBa/src/demo: already current
+teardown lab-s complete (window firstmate:fm-lab-s; pool slot /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo left to task lab-t1 (home /tmp/fm-lab.fb4OBa), which it was reassigned to)
+Backlog: lab-s just finished (this home keeps no markdown backlog at /tmp/fm-lab.fb4OBa/data/backlog.md). Update /tmp/fm-lab.fb4OBa/data/backlog.md - move lab-s to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+rc=0
+records: lab-t1.meta 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+
+base  main  (repository default)
+1     in-use       /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  [fm/lab-s]
+                   bash (95820), bash (175781)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+
+===== fm-teardown lab-t1 --force =====
+teardown: reaping leaked worktree process(es) for lab-t1: 95820 175781
+teardown: force-killing leaked worktree process(es) for lab-t1: 95820
+A new version of treehouse is available: v3.1.0 → v3.1.1
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown lab-t1 complete (window firstmate:fm-lab-t1, worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo)
+Backlog: lab-t1 just finished (this home keeps no markdown backlog at /tmp/fm-lab.fb4OBa/data/backlog.md). Update /tmp/fm-lab.fb4OBa/data/backlog.md - move lab-t1 to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+rc=0
+records: 
+
+base  main  (repository default)
+1     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+  fm/lab-s
+
+===== lab teardown =====
+firstmate:bash bash
+tmux processes: 0
+lab processes left: 0

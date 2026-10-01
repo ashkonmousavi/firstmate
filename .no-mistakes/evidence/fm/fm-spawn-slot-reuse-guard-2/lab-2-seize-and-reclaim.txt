@@ -1,0 +1,70 @@
+
+===== fresh spawn lab-x after the restart (treehouse hands it a stale copy) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+error: treehouse get returned '/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo', but task lab-t1 still records it as its worktree and its recorded endpoint firstmate:fm-lab-t1 reads 'dead'; refusing to seize another task's worktree. Re-pin the pool's stale leases (treehouse get --lease on the free slots matching live tasks' recorded worktrees), or tear down or relaunch lab-t1 first; inspect window firstmate:fm-lab-x
+rc=1
+ls: cannot access '/tmp/fm-lab.fb4OBa/state/lab-x.meta': No such file or directory
+
+===== after lab-x: claims, windows, pool =====
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+firstmate:bash bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3VZF72MYDKFSVPWF8SMTY11
+
+base  main  (repository default)
+1     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+## HEAD (no branch)
+
+===== fresh spawn lab-y after the restart (treehouse hands it a stale copy) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+error: treehouse get returned '/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo', but task lab-t1 still records it as its worktree and its recorded endpoint firstmate:fm-lab-t1 reads 'dead'; refusing to seize another task's worktree. Re-pin the pool's stale leases (treehouse get --lease on the free slots matching live tasks' recorded worktrees), or tear down or relaunch lab-t1 first; inspect window firstmate:fm-lab-y
+rc=1
+ls: cannot access '/tmp/fm-lab.fb4OBa/state/lab-y.meta': No such file or directory
+
+===== after lab-y: claims, windows, pool =====
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+firstmate:bash bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3VZF72MYDKFSVPWF8SMTY11
+
+base  main  (repository default)
+1     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo  (detached)
+2     available    /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo  (detached)
+## HEAD (no branch)
+
+===== recorded started server =====
+pid=91544
+start_time=1790869672
+socket=/tmp/fm-lab.fb4OBa/tmux/tmux-1000/default
+  91544 tmux: server    tmux new-session -d -s firstmate
+
+===== fm-control lab-t1 exit (window went with the old server) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+endpoint-gone lab-t1 harness=claude backend=tmux endpoint=firstmate:fm-lab-t1 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+rc=0
+
+===== fm-control lab-t1 relaunch (reclaim after restart) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+relaunched lab-t1 harness=claude from=claude model=haiku effort=default backend=tmux endpoint=firstmate:fm-lab-t1 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+rc=0
+record before: window=firstmate:fm-lab-t1
+window=firstmate:fm-lab-t1
+endpoint_task_id=lab-t1
+worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+
+===== fm-control lab-t2 relaunch (reclaim after restart) =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+relaunched lab-t2 harness=claude from=claude model=haiku effort=default backend=tmux endpoint=firstmate:fm-lab-t2 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo
+rc=0
+record before: window=firstmate:fm-lab-t2
+window=firstmate:fm-lab-t2
+endpoint_task_id=lab-t2
+worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo
+
+===== after both reclaims: claims and windows =====
+pool/.treehouse/demo-55bf35/2/.fm-slot-owner: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+pool/.treehouse/demo-55bf35/1/.fm-slot-owner: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+firstmate:bash @0 bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3VZF72MYDKFSVPWF8SMTY11
+firstmate:fm-lab-t1 @3 claude /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+firstmate:fm-lab-t2 @4 claude /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo

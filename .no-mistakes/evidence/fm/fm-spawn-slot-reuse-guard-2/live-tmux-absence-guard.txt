@@ -1,0 +1,7 @@
+2026-10-01T08:37:50-07:00
+tmux 3.4
+ok - live tmux (tmux 3.4): a running server keeps absence unproven
+ok - live tmux (tmux 3.4): the recorded server accounts for itself, so a window absent from it reads gone
+ok - live tmux (tmux 3.4): the recorded server proves nothing for a task spawned after it started or a window it still holds
+ok - live tmux (tmux 3.4): with the server killed, absence reads gone
+exit=0

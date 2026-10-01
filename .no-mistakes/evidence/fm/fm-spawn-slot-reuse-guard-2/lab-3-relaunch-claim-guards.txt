@@ -1,0 +1,38 @@
+project lock path: /tmp/fm-lab.fb4OBa/state/.treehouse-project-8b2978f34f7d837e3d36d6799c2fabae57b639d4.lock
+
+===== a) claim on lab-t1's copy names lab-t2 (unfinished scout, worker alive) =====
+lab-t1 before: claude pane_pid=95820 children=97006 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+error: task lab-t1's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo is claimed by task lab-t2 (home /tmp/fm-lab.fb4OBa) (a scout with no report yet); refusing to relaunch into a copy another task holds. Reconcile which task owns that copy (bin/fm-crew-state.sh lab-t1; bin/fm-crew-state.sh lab-t2) first
+rc=1
+lab-t1 after:  claude pane_pid=95820 children=97006 
+claim after: task=lab-t2 home=/tmp/fm-lab.fb4OBa 
+/tmp/fm-lab.fb4OBa/state/lab-t1.control-relaunch
+/tmp/fm-lab.fb4OBa/state/lab-t1.control-relaunch.brief-prior
+/tmp/fm-lab.fb4OBa/state/lab-t1.control-relaunch.meta-prior
+/tmp/fm-lab.fb4OBa/state/lab-t1.control-relaunch.note
+
+===== b) another process holds the Treehouse project lock =====
+holder pid 125604
+lock pid file: 125604
+lab-t1 before: claude pane_pid=95820 children=97006 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+error: another Treehouse slot allocation or return is in progress for /tmp/fm-lab.fb4OBa/src/demo; refusing to race it
+rc=1
+lab-t1 after:  claude pane_pid=95820 children=97006 
+claim after: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
+lock released by its holder
+
+===== c) lab-t2 finishes (stopped, report written); lab-t1's claim names it =====
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+stopped lab-t2 harness=claude backend=tmux endpoint=firstmate:fm-lab-t2 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/2/demo
+lab-t2 endpoint: bash pane_pid=97598
+lab-t1 before: claude pane_pid=95820 children=97006 
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+note: task lab-t1's recorded worktree /tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo was claimed by finished scout lab-t2 (home /tmp/fm-lab.fb4OBa); re-claiming it for lab-t1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.fb4OBa
+relaunched lab-t1 harness=claude from=claude model=haiku effort=default backend=tmux endpoint=firstmate:fm-lab-t1 worktree=/tmp/fm-lab.fb4OBa/pool/.treehouse/demo-55bf35/1/demo
+rc=0
+lock polls during relaunch: held=0 free=19
+lab-t1 after:  claude pane_pid=95820 children=131641  (before: 97006 )
+claim after: task=lab-t1 home=/tmp/fm-lab.fb4OBa 
