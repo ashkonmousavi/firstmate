@@ -42,7 +42,7 @@
 #              claimed about it, because `missing` also covers an endpoint that
 #              is merely unreachable from this seat (HERDR rereads the session
 #              the record names; tmux is gone only when no tmux process runs
-#              for this user beyond the server this home's own rebind recorded
+#              for this user beyond the server this home started and recorded
 #              and its clients). Proven gone reports `endpoint-gone` rather than
 #              `already-stopped`, because the endpoint this verb normally
 #              preserves did not survive; a pane that turns out to be there and
@@ -56,8 +56,8 @@
 #              harness/model/effort - so switching harness is one ordinary use
 #              of this verb. When the recorded endpoint is instead proven gone -
 #              a Herdr pane or workspace destroyed in churn, or a tmux window
-#              with no tmux left running for this user but the server an
-#              earlier reclaim of this home recorded - the launch owner
+#              with no tmux left running for this user but the server this
+#              home started and recorded - the launch owner
 #              re-creates one in that worktree (herdr in the session the record
 #              names, tmux in this home's session), and the task's record
 #              rebinds to it; that is how a task whose terminal was destroyed

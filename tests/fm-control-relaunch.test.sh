@@ -167,7 +167,7 @@ case "${1:-}" in
     fi
     [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
   list-clients) [ ! -f "$D/clients" ] || cat "$D/clients"; exit 0 ;;
-  has-session) [ ! -f "$D/server-dead" ] || exit 1; exit 0 ;;
+  has-session|list-sessions) [ ! -f "$D/server-dead" ] || exit 1; exit 0 ;;
   new-session)
     # Nothing in the relaunch path may ever create a session; recording the
     # call is how a refusal test proves that. Creating one on a dead server
@@ -2018,14 +2018,15 @@ strand_endpoint() {  # <case-dir> <id>
 }
 
 # While any tmux process runs for this user (the fake ps's default) and this
-# home has recorded no rebind server, every tmux `missing` refuses on BOTH
+# home has recorded no started server, every tmux `missing` refuses on BOTH
 # verbs, whatever produced it: the record carries no
 # socket identity for the endpoint, and any inventory describes only the server
 # this process happens to address. So a window that is merely on a server this
 # seat cannot reach is indistinguishable from one that was destroyed, and
 # neither verb will guess. With no tmux process at all, absence is proven
 # (test_tmux_exit_proves_absence_from_the_process_table), and so it is against
-# a recorded rebind server (test_tmux_reclaims_two_tasks_in_sequence_after_a_restart).
+# the server this home started and recorded
+# (test_tmux_reclaims_two_tasks_in_sequence_after_a_restart).
 assert_tmux_missing_refuses() {  # <case-dir> <id> <what-was-staged>
   local dir=$1 id=$2 what=$3 out rc brief_before
 
@@ -2871,7 +2872,7 @@ test_tmux_reclaims_two_tasks_in_sequence_after_a_restart() {
   expect_code 0 "$rc" "the first reclaim after a restart should rebind"$'\n'"$out"
   assert_equals "firstmate" "$(cat "$dir/fake/created-sessions" 2>/dev/null)" \
     "the first reclaim should start exactly one tmux session"
-  assert_contains "$(cat "$dir/home/state/tmux-rebind-server" 2>/dev/null)" "pid=4242" \
+  assert_contains "$(cat "$dir/home/state/tmux-started-server" 2>/dev/null)" "pid=4242" \
     "the first reclaim did not record the server it started"
 
   # A task spawned after that server started cannot be judged against it.
@@ -2904,6 +2905,53 @@ test_tmux_reclaims_two_tasks_in_sequence_after_a_restart() {
   esac
   [ "$(meta_field "$dir" rt3 window)" = "fmses:fm-rt3" ] || fail "the refused rt3 record moved"
   pass "tmux: two tasks are reclaimed in sequence after a restart, against the server the first one recorded"
+}
+
+# The first tmux server after a restart need not come from a reclaim: a fresh
+# spawn dispatched first starts it, and records it the same way, so the tasks
+# whose windows the restart took are still reclaimed one after another.
+test_tmux_reclaims_after_a_fresh_spawn_started_the_server() {
+  local dir out rc id
+  dir=$(new_case tmux-spawn-first ru1)
+  add_ship_task "$dir" ru1 claude fmses "$dir/wt"
+  add_ship_task "$dir" ru2 claude fmses "$dir/wt2" >/dev/null 2>&1
+  for id in ru1 ru2; do
+    printf 'spawn_gen=s1000000000.1.1\n' >> "$dir/home/state/$id.meta"
+  done
+  git -C "$dir/proj" worktree add --quiet --detach "$dir/wtx" >/dev/null 2>&1 \
+    || fail "could not create the fresh spawn's copy"
+  mkdir -p "$dir/home/data/rux"
+  cat > "$dir/home/data/rux/brief.md" <<EOF
+# Task
+## Captain's intent
+Look around after the restart.
+
+## Firstmate spec
+Report what changed.
+EOF
+  : > "$dir/fake/windows"
+  : > "$dir/fake/server-dead"
+  printf none > "$dir/fake/ps-mode"
+
+  printf '%s' "$dir/wtx" > "$dir/fake/cwd"
+  out=$(run_spawn "$dir" rux "$dir/proj" --scout --harness claude); rc=$?
+  expect_code 0 "$rc" "a fresh spawn after the restart should start the tmux server"$'\n'"$out"
+  assert_equals "firstmate" "$(cat "$dir/fake/created-sessions" 2>/dev/null)" \
+    "the fresh spawn should start exactly one tmux session"
+  assert_contains "$(cat "$dir/home/state/tmux-started-server" 2>/dev/null)" "pid=4242" \
+    "the fresh spawn did not record the server it started"
+
+  for id in ru1 ru2; do
+    case "$id" in ru1) printf '%s' "$dir/wt" ;; ru2) printf '%s' "$dir/wt2" ;; esac > "$dir/fake/cwd"
+    out=$(run_control "$dir" "$id" relaunch --note "after the restart"); rc=$?
+    expect_code 0 "$rc" "$id should be reclaimed against the server the fresh spawn started"$'\n'"$out"
+    [ "$(meta_field "$dir" "$id" window)" = "firstmate:fm-$id" ] || fail "$id's record did not rebind"
+  done
+  assert_equals "firstmate" "$(cat "$dir/fake/created-sessions")" \
+    "the reclaims must reuse the fresh spawn's server, not start another"
+  assert_equals $'fm-rux\nfm-ru1\nfm-ru2' "$(cat "$dir/fake/created-windows")" \
+    "each spawn and reclaim should create exactly its own window"
+  pass "tmux: after a restart, tasks are reclaimed against the server a fresh spawn started first"
 }
 
 test_relaunch_carries_claude_worker_settings() {
@@ -2949,3 +2997,4 @@ test_relaunch_refuses_while_the_project_lock_is_held
 test_control_relaunch_holds_the_project_lock_across_its_launch
 test_control_relaunch_refuses_a_held_project_lock_before_stopping_the_agent
 test_tmux_reclaims_two_tasks_in_sequence_after_a_restart
+test_tmux_reclaims_after_a_fresh_spawn_started_the_server

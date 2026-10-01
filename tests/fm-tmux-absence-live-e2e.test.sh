@@ -7,7 +7,7 @@
 # on this host rather than a stub: the server must show up under that name
 # while it runs (absence unproven), and nothing may be left under it once the
 # server is killed (absence gone). While it runs, the server recorded the way
-# a tmux rebind records it must account for itself through the format fields
+# firstmate records a tmux server it started must account for itself through the format fields
 # that record reads, so a window absent from it reads gone. It spends no model
 # tokens, so it runs by
 # default wherever tmux is installed, on a private socket that never touches
@@ -49,11 +49,9 @@ esac
   || fail "$TMUX_VERSION: absence read '$(fm_control_tmux_absence_verdict)' while a tmux server runs"
 pass "live tmux ($TMUX_VERSION): a running server keeps absence unproven"
 
-wid=$(tmux -L "$SOCKET" display-message -p -t absence: '#{window_id}') \
-  || fail "$TMUX_VERSION: could not read the private server's window id"
-# shellcheck disable=SC2329 # Invoked by fm_control_tmux_rebind_server_record.
+# shellcheck disable=SC2329 # Invoked by fm_control_tmux_started_server_record.
 tmux() { command tmux -L "$SOCKET" "$@"; }
-fm_control_tmux_rebind_server_record "$STATE_DIR" "$wid" \
+fm_control_tmux_started_server_record "$STATE_DIR" absence: \
   || fail "$TMUX_VERSION: the running server's pid, start time and socket could not be recorded"
 unset -f tmux
 printf 'spawn_gen=s1000000000.1.1\n' > "$STATE_DIR/gone.meta"

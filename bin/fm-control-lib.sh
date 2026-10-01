@@ -15,8 +15,9 @@
 # This file owns three capability tables plus their pure artifact-path tables,
 # and ONE named exception to that purity - fm_control_endpoint_absence_verdict,
 # the single owner of the per-backend endpoint-absence proof, which does run
-# backend reads, together with the tmux rebind-server record that proof reads
-# (fm_control_tmux_rebind_server_record, written only by a tmux rebind).
+# backend reads, together with the tmux started-server record that proof reads
+# (fm_control_tmux_started_server_record, written only when firstmate's tmux
+# backend starts a server - bin/backends/tmux.sh's fm_backend_tmux_new_session).
 # Everything else has no side effects, runs no backend command,
 # and reads no state, so sourcing this file is still free and the tables can be
 # read by a test as a pure contract:
@@ -361,8 +362,8 @@ fm_control_backend_state_verified() {  # <backend>
 #     processes shows none whose `comm` or argv0 basename begins with `tmux`
 #     (the client `tmux`, the server `tmux: server`, and macOS's full-path
 #     `comm`), no server anywhere can hold the window and absence is `gone`.
-#     The one server that may still be running is the one this home's own
-#     rebind recorded (fm_control_tmux_rebind_server_record), because its
+#     The one server that may still be running is the one this home started
+#     and recorded (fm_control_tmux_started_server_record), because its
 #     socket is known: it is accounted for, together with its clients, only
 #     when that socket still answers with the recorded pid and start time, the
 #     server started after this task's record was spawned (`spawn_gen=`), and
@@ -375,18 +376,19 @@ fm_control_backend_state_verified() {  # <backend>
 #
 # Both control-plane callers share this one implementation so the proof cannot
 # drift into two answers for the same endpoint.
-# The state file in which a tmux rebind records the server it opened its
-# window on: written by bin/fm-spawn.sh's rebind, read by the absence proof.
-fm_control_tmux_rebind_server_path() {  # <state-dir>
+# The state file in which firstmate records the tmux server it started: written
+# by bin/backends/tmux.sh's fm_backend_tmux_new_session, read by the absence
+# proof.
+fm_control_tmux_started_server_path() {  # <state-dir>
   [ -n "${1-}" ] || return 1
-  printf '%s/tmux-rebind-server\n' "$1"
+  printf '%s/tmux-started-server\n' "$1"
 }
 
-# Record the identity of the tmux server holding <window-id> - its pid, socket
-# and start time, read from the server itself - for the absence proof below.
-fm_control_tmux_rebind_server_record() {  # <state-dir> <window-id>
+# Record the identity of the tmux server holding <target> - its pid, socket and
+# start time, read from the server itself - for the absence proof below.
+fm_control_tmux_started_server_record() {  # <state-dir> <target>
   local path ident pid start socket
-  path=$(fm_control_tmux_rebind_server_path "${1-}") || return 1
+  path=$(fm_control_tmux_started_server_path "${1-}") || return 1
   ident=$(LC_ALL=C tmux display-message -p -t "${2-}" '#{pid} #{start_time} #{socket_path}' 2>/dev/null) || return 1
   read -r pid start socket <<<"$ident"
   case "$pid:$start" in *[!0-9:]*|:*|*:) return 1 ;; esac
@@ -411,13 +413,13 @@ fm_control_tmux_server_without_window() {  # <socket> <window-name>
 }
 
 # The tmux pids the absence proof may account for, space-separated: the
-# recorded rebind server and its clients, and, when this seat runs inside tmux,
+# recorded started server and its clients, and, when this seat runs inside tmux,
 # its own server and clients. Empty when the record is absent or fails any
 # check, which leaves the proof to the bare process-table rule.
 fm_control_tmux_accounted_pids() {  # <target> <meta>
   local target=$1 meta=$2 record pid start socket spawn info ipid istart clients pids
   [ -n "$target" ] && [ -n "$meta" ] && [ -f "$meta" ] || return 0
-  record=$(fm_control_tmux_rebind_server_path "$(dirname "$meta")") || return 0
+  record=$(fm_control_tmux_started_server_path "$(dirname "$meta")") || return 0
   [ -f "$record" ] || return 0
   pid=$(sed -n 's/^pid=//p' "$record" | head -n 1)
   start=$(sed -n 's/^start_time=//p' "$record" | head -n 1)
@@ -462,7 +464,7 @@ fm_control_tmux_absence_verdict() {  # [<target> <meta>]
       case "${word##*/}" in
         tmux*)
           case "$accounted" in *" $pid "*) continue ;; esac
-          printf 'unproven\ttmux absence cannot be proven while a tmux process runs for this user (pid %s) that is not this home'"'"'s verified rebind server or one of its clients: a task record does not carry its endpoint'"'"'s socket identity, and a window absent from the server this process addresses may still be alive on another' "$pid"
+          printf 'unproven\ttmux absence cannot be proven while a tmux process runs for this user (pid %s) that is not the verified server this home started or one of its clients: a task record does not carry its endpoint'"'"'s socket identity, and a window absent from the server this process addresses may still be alive on another' "$pid"
           return 0
           ;;
       esac

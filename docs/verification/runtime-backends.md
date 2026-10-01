@@ -172,7 +172,7 @@ ok - live tmux (tmux 3.4): the recorded server proves nothing for a task spawned
 ok - live tmux (tmux 3.4): with the server killed, absence reads gone
 ```
 
-The second and third lines are the recorded rebind server (`fm_control_tmux_rebind_server_record`), rerun on 2026-10-01 with the same tmux: `display-message -p '#{pid} #{start_time} #{socket_path}'` answers outside any client, `-S <socket>` reaches that server whatever `$TMUX` says, and on it a task spawned after the server started, or a window it still holds, kept absence unproven.
+The second and third lines are the recorded started server (`fm_control_tmux_started_server_record`), rerun on 2026-10-01 with the same tmux: `display-message -p '#{pid} #{start_time} #{socket_path}'` answers outside any client, `-S <socket>` reaches that server whatever `$TMUX` says, and on it a task spawned after the server started, or a window it still holds, kept absence unproven.
 
 ### Agent liveness name sources
 

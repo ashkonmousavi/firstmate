@@ -85,14 +85,15 @@
 #   merely unreachable from here: HERDR must still read the recorded pane as
 #   gone once that session's server is running again, and a tmux `missing` is
 #   gone only when no tmux process runs for this user beyond the server this
-#   home's own rebind recorded (a task record carries no socket identity, so
+#   home started and recorded (a task record carries no socket identity, so
 #   while any other tmux server runs no read here can tell a destroyed window
 #   from one on a server this process cannot address);
 #   bin/fm-control-lib.sh's fm_control_endpoint_absence_verdict owns that proof.
 #   A tmux rebind keeps its backend: one fm-<id> window in this home's tmux
-#   session, opened in the recorded worktree, and outside tmux it records that
-#   session's server so the next task reclaimed after the same restart can be
-#   proven gone against it. An endpoint that turns out to have
+#   session, opened in the recorded worktree. Whichever spawn first starts that
+#   session's server after a restart records it (bin/backends/tmux.sh's
+#   fm_backend_tmux_new_session), so every task reclaimed after the same
+#   restart can be proven gone against it. An endpoint that turns out to have
 #   survived refuses too. The worktree is reused untouched either way; a
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
@@ -1940,7 +1941,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   #           agent came back and refuses; only a second `missing` proves the
   #           pane itself did not survive.
   #   tmux  - proven gone only when no tmux process runs for this user other
-  #           than the server this home's own rebind recorded (and its
+  #           than the server this home started and recorded (and its
   #           clients), read through its socket and holding no window for this
   #           task. A task record carries no socket identity for its endpoint,
   #           and a server-wide inventory describes only the server this
@@ -3942,20 +3943,10 @@ if [ "$RELAUNCH" -eq 1 ]; then
     # secondmate was already refused. A tmux task keeps its backend: one
     # window named fm-<id> in this home's tmux session, its working directory
     # the recorded worktree rather than the project.
-    #
-    # Outside tmux that session lives on the server this rebind started (or
-    # on the one an earlier rebind recorded), so its identity is recorded for
-    # the absence proof: the next task reclaimed after the same restart is
-    # judged against that one known server instead of refusing because it
-    # runs. A seat inside tmux records nothing; its window goes to the
-    # operator's own server, which this rebind did not start.
-    SES=$(fm_backend_tmux_container_ensure)
+    SES=$(fm_backend_tmux_container_ensure "$STATE")
     T="$SES:$W"
     WID=$(fm_backend_tmux_create_task "$SES" "$W" "$WT") || exit 1
     WT_TARGET="$WID"
-    if [ -z "${TMUX:-}" ] && ! fm_control_tmux_rebind_server_record "$STATE" "$WID"; then
-      echo "warning: could not record the tmux server task $ID was rebound on; reclaiming another tmux task will refuse while that server runs" >&2
-    fi
   else
     # The herdr rebind (see the tmux branch above for what a rebind is).
     #
@@ -4021,7 +4012,7 @@ EOF
 else
   case "$BACKEND" in
   tmux)
-    SES=$(fm_backend_tmux_container_ensure)
+    SES=$(fm_backend_tmux_container_ensure "$STATE")
     T="$SES:$W"
     # #134 robustness (tmux): fm_backend_tmux_create_task captures a stable window
     # id and pins the window name (automatic-rename/allow-rename off) so a captain's
