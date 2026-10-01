@@ -1,0 +1,29 @@
+# herdr: herdr 0.9.1; lab session fm-lab-alarm-1963239
+# panes: live=w1:p2 cursor=w1:p3 gone=w1:p4
+
+## S-gone-pane: reader subscribes [gone, live] (a task record that outlived its pane)
+base reader (9a7089ba430c9e4990d866357c8d588e551d0463): exit=3 stdout=[]
+branch reader: exit=0 stdout=[@subscribed ] stderr=[herdr-eventwait: dropped gone pane(s) w1:p4 ]
+ok - base reader exits 3 on one gone pane; branch reader drops it and subscribes the live pane
+
+## S-push-live-past-gone: the watcher's wait over [gone, cursor, live] delivers live's blocked edge
+wait_transition rc=0 record=[w1:p2	w1		blocked	claude]
+ok - fm_backend_herdr_wait_transition returns the live pane's blocked transition though a recorded pane is gone
+
+## S-blocked-under-paused-until (claude): handle_push_transition wakes firstmate
+status: paused: 8 research agents running; resume when they report, until 2026-10-01T13:11Z
+wake-queue:
+  1790853089	1	stale	fm-lab-alarm-1963239:w1:p2	stale: fm-lab-alarm-1963239:w1:p2 (herdr: agent blocked - waiting on human, escalated immediately, not via wedge timer)
+wakes:
+  WAKE: stale: fm-lab-alarm-1963239:w1:p2 (herdr: agent blocked - waiting on human, escalated immediately, not via wedge timer)
+ok - a claude pane's real herdr blocked edge under a future paused-until wakes firstmate
+
+## S-cursor-family-absorbed: a cursor-agent pane's blocked edge under paused-until is not a question
+wait_transition rc=0 record=[w1:p3	w1		blocked	cursor]
+triage: [2026-10-01T04:11:31-0700] absorbed push blocked (cursor-agent reports blocked in every state, so it is not a question): fm-lab-alarm-1963239:w1:p3
+ok - a cursor-agent pane's blocked edge is absorbed (logged, no wake, no queue row)
+
+## S-all-gone (adversarial): a subscription naming only gone panes still fails closed
+reader [gone] exit=3 stderr=[herdr-eventwait: dropped gone pane(s) w1:p4 ]
+wait_transition [gone] rc=2
+ok - only-gone panes exit 3 from the reader and rc 2 from the wait, so polling fallback still triggers

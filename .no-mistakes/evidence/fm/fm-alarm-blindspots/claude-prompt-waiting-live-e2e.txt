@@ -1,0 +1,6 @@
+ok - claude 2.1.286 (Claude Code): an auto-approved Bash call leaves the PermissionRequest prompt marker alone in bypass mode
+ok - claude 2.1.286 (Claude Code): a main-thread Bash prompt raises the PermissionRequest prompt marker in bypass mode
+ok - claude 2.1.286 (Claude Code): a background subagent's Bash prompt raises the PermissionRequest prompt marker in bypass mode
+ok - claude 2.1.286 (Claude Code): an AskUserQuestion question raises the PermissionRequest prompt marker in bypass mode
+# claude 2.1.286 (Claude Code): checked 4 prompt cases
+rc=0

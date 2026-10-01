@@ -1,0 +1,19 @@
+# herdr herdr 0.9.1; lab session fm-lab-fallback-2418055; recorded pane w1:p2 closed (task record outlives its pane)
+## settle with the base watcher (it has no fallback wake) until a quiet 20s run
+settle run 1 woke: signal: /tmp/fm-lab.DGpXYd/home/state/gone.status 
+settle run 2: quiet for 20s
+
+## S-fallback-base: base watcher, push path failing every cycle
+base watcher silent for 30s; push-related triage lines: 0
+
+## S-fallback-branch: branch watcher, same home
+branch watcher output: check: push fast-path lost for herdr:fm-lab-fallback-2418055 (disabled after 3 consecutive event-path failures); polling every 2s
+wake-queue: 1790853577	3	check	push-fallback:herdr:fm-lab-fallback-2418055	check: push fast-path lost for herdr:fm-lab-fallback-2418055 (disabled after 3 consecutive event-path failures); polling every 2s
+triage: [2026-10-01T04:19:37-0700] push fast-path disabled after 3 consecutive event-path failures for herdr session fm-lab-fallback-2418055; polling every 2s for the rest of this watcher process
+episode marker: .push-fallback-herdr_fm-lab-fallback-2418055
+ok - the branch watcher wakes firstmate once the push path is disabled
+
+## S-fallback-once-per-episode: acknowledged, relaunched watcher in the same episode stays quiet
+triage disable lines now: 2
+ok - no second wake within 30s for the same fallback episode
+exit=0

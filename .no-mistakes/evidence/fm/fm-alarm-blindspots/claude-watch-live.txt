@@ -1,0 +1,21 @@
+# claude 2.1.286 (Claude Code); spawn wrote hooks: ["PermissionRequest","SessionEnd","Stop","StopFailure","UserPromptSubmit"]
+# task meta: window=fleet:fm-prompt-live harness=claude backend=tmux 
+# status: paused: 8 research agents running; resume when they report, until 2026-10-01T13:20Z
+## settle: let the watcher absorb the fresh paused status before the dialog (no marker yet)
+settle run 1: quiet for 20s
+# marker: 1790853655 2531468; dialog on screen (pane saved to claude-dialog-pane.txt)
+
+## S-incident-base: base watcher (9a7089ba430c9e4990d866357c8d588e551d0463) with the dialog on screen under paused-until
+base watcher still silent after 40s; queue=[]
+base triage tail:
+  [2026-10-01T04:20:28-0700] absorbed benign signal: /tmp/fm-lab.Q45JTc/home/state/prompt-live.status
+
+## S-incident-branch: branch watcher with the same dialog under paused-until
+branch watcher output: stale: fleet:fm-prompt-live (a permission or question prompt is waiting in the pane)
+wake-queue: 1790853694	1	stale	fleet:fm-prompt-live	stale: fleet:fm-prompt-live (a permission or question prompt is waiting in the pane)
+ok - branch watcher wakes firstmate with the prompt reason through a future paused-until
+
+## S-once-per-marker: acknowledged, relaunched watcher does not re-wake for the same dialog
+ok - the same marker does not wake again across a relaunch (30s, dialog still on screen)
+ok - base watcher stayed silent with the dialog on screen (incident reproduced)
+exit=0

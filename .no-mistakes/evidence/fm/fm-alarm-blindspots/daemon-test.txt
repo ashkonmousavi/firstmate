@@ -1,0 +1,19 @@
+ok - a waiting permission or question prompt escalates in away mode even under a declared wait
+ok - catch-all scan escalates a missed terminal once, not twice
+ok - captain signal escalate marks seen so the catch-all scan does not re-fire
+ok - pane_input_pending: only proven empty agent prompts pass
+ok - fm_tmux_composer_state: a bare shell prompt ($/%/#/>) reads unknown, never empty (dead-shell injection safety)
+ok - classify_signal dedupes against the catch-all scan seen marker
+ok - catch-all routine scans advance before later actionable appends
+ok - catch-all markers advance only after escalation buffering succeeds
+ok - daemon catch-all reclassifies permission-recovered status content
+ok - the away-mode catch-all scan surfaces a masked event once
+ok - submit-ACK reports pending on a persistently swallowed Enter (type-once)
+ok - a failing channel logs and falls back to the next channel, never crashing the alarm
+ok - a hung notifier is bounded, logged, and falls through to the next channel
+ok - discover_supervisor_backend: override > TMUX_PANE > HERDR_ENV+HERDR_PANE_ID > tmux fallback
+ok - discover_supervisor_target: override > TMUX_PANE > herdr '<session>:<pane-id>' composition > firstmate:0 fallback
+ok - pane_is_busy: herdr native busy_state='busy' short-circuits without a capture fallback
+ok - pane_is_busy: omitted backend defaults to tmux for Grok's isolated fallback
+ok - inject_msg: herdr pane-gone check defers before any busy/composer/submit call
+daemon rc=0

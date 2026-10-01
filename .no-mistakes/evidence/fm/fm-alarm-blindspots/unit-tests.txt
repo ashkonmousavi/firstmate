@@ -1,0 +1,17 @@
+..........
+----------------------------------------------------------------------
+Ran 10 tests in 0.001s
+
+OK
+ok - handle_push_transition: a blocked crew enqueues a stale wake naming its window and wakes the supervisor
+ok - handle_push_transition: enqueue failure cannot commit the Herdr dedupe marker
+ok - handle_push_transition: a blocked crew wakes the supervisor under a declared pause or captain-held transfer
+ok - handle_push_transition: a Cursor-family pane, which herdr reports blocked in every state, is not a question
+ok - surface_nonterminal_stale: a future paused-until silences a quiet pane until the declared time
+ok - event_wait_or_sleep: herdr windows go on the event pane list, but kind=secondmate endpoints are excluded
+ok - event_wait_or_sleep: one cached capability probe owns validation across bounded waits
+ok - event_wait_or_sleep: a home with no push-capable window is inert (sleeps POLL, never touches the event path)
+ok - event_wait_or_sleep: consecutive event-path failures disable the fast-path and revert to pure polling (fail-closed)
+ok - event_wait_or_sleep: a failed capability probe falls back to polling and says so once
+ok - event_wait_or_sleep: a polling fallback wakes firstmate once per episode, not once per relaunch
+# fm-supervision-events.test.sh: all assertions passed
