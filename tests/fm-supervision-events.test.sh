@@ -151,6 +151,23 @@ event_wait_or_sleep   # fails=2 -> disable
 event_wait_or_sleep   # disabled: sleeps without calling wait_transition
 WTN=$(wc -l < "$TMP/wtcalls" | tr -d '[:space:]')
 [ "$WTN" = 2 ] || fail "after EVENT_CAP_FAIL_MAX connect failures the event path must be disabled for the process (expected 2 wait_transition calls, got $WTN)"
+DISABLED=$(grep -c 'push fast-path disabled' "$STATE_DIR/.watch-triage.log" 2>/dev/null || true)
+[ "$DISABLED" = 1 ] || fail "disabling the push fast-path must write exactly one triage line, got ${DISABLED:-0}: $(cat "$STATE_DIR/.watch-triage.log" 2>/dev/null)"
 pass "event_wait_or_sleep: consecutive event-path failures disable the fast-path and revert to pure polling (fail-closed)"
+
+# --- event_wait_or_sleep: a failed capability probe is logged once ------------
+
+reset_state
+fm_write_meta "$STATE_DIR/tk6.meta" "window=default:wG:pQ" "backend=herdr" "kind=ship"
+# shellcheck disable=SC2329 # Runtime overrides called by the isolated watcher.
+fm_backend_events_capable() { return 1; }
+# shellcheck disable=SC2329 # Runtime override called by the isolated watcher.
+fm_backend_wait_transition() { printf 'CALLED\n' > "$TMP/wtcalled"; return 1; }
+event_wait_or_sleep
+event_wait_or_sleep
+[ ! -e "$TMP/wtcalled" ] || fail "an incapable backend must never reach the event wait"
+UNAVAILABLE=$(grep -c 'push fast-path unavailable' "$STATE_DIR/.watch-triage.log" 2>/dev/null || true)
+[ "$UNAVAILABLE" = 1 ] || fail "a failed capability probe must write exactly one triage line, got ${UNAVAILABLE:-0}: $(cat "$STATE_DIR/.watch-triage.log" 2>/dev/null)"
+pass "event_wait_or_sleep: a failed capability probe falls back to polling and says so once"
 
 echo "# fm-supervision-events.test.sh: all assertions passed"

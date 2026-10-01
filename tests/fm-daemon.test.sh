@@ -857,6 +857,33 @@ test_enriched_wedge_under_declared_wait_uses_pause_cadence() {
   pass "an enriched wedge under a declared wait uses the pause cadence and restores wedge detection on resume"
 }
 
+# The watcher surfaces a waiting permission or question prompt (a Claude
+# worker's PermissionRequest marker) ahead of any declared pause. In away mode
+# this daemon re-classifies that same wake, and a declared wait must not turn it
+# back into a silent pause: nobody else will answer the question on screen.
+test_prompt_waiting_wake_escalates_through_a_declared_wait() {
+  local dir state fakebin task win pane reason
+  dir=$(make_supercase prompt-waiting-declared-wait)
+  state="$dir/state"; fakebin="$dir/fakebin"
+  task='prompt-waiting-w1'; win="sess:fm-$task"; pane="$dir/pane.txt"
+  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
+  printf 'paused: 8 research agents running; resume when they report, until 2099-01-01T00:00Z\n' \
+    > "$state/$task.status"
+  printf ' Do you want to proceed?\n ❯ 1. Yes\n   2. No\n' > "$pane"
+  case "$(FM_STATE_OVERRIDE="$state" classify_stale "$win" "$state")" in
+    pause\|*) ;;
+    *) fail "the fixture's own classifier verdict is not a pause, so this case pins nothing about the override" ;;
+  esac
+  reason="stale: $win (a permission or question prompt is waiting in the pane)"
+  LOG="$dir/daemon.log" FM_STATE_OVERRIDE="$state" handle_wake "$reason" "$state"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+    FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 FM_PAUSE_RESURFACE_SECS=3600 \
+    housekeeping "$state"
+  grep -F 'a permission or question prompt is waiting in the pane' "$state/.subsuper-escalations" >/dev/null \
+    || fail "a waiting prompt under a declared wait was absorbed as a pause instead of escalated: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  pass "a waiting permission or question prompt escalates in away mode even under a declared wait"
+}
+
 test_stale_terminal_escalates() {
   local dir state out
   dir=$(make_supercase stale-terminal)
@@ -3464,6 +3491,7 @@ test_unknown_wake_ack_failure_still_clears_delivered_digest
 test_stale_transient_self_records_marker
 test_stale_diagnostic_wedge_survives_busy_housekeeping
 test_enriched_wedge_under_declared_wait_uses_pause_cadence
+test_prompt_waiting_wake_escalates_through_a_declared_wait
 test_stale_terminal_escalates
 test_stale_actionable_wait_escalates_and_keeps_pause_cadence
 test_stale_paused_classifies_pause

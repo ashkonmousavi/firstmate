@@ -6052,6 +6052,71 @@ test_wait_transition_clean_timeout_returns_1() {
   pass "fm_backend_herdr_wait_transition: stock macOS Bash clean timeout closes fd 9 and returns 1"
 }
 
+# The REAL reader against a fake herdr control socket that, like herdr 0.9.1,
+# rejects a whole subscription naming a gone pane. A task record outliving its
+# pane used to make every wait return 2, so the push path disabled itself; the
+# live pane must still be subscribed and the wait must end as a clean timeout.
+test_wait_transition_real_reader_survives_a_gone_pane() {
+  local dir state agent fb sock log server_pid rc last i
+  command -v python3 >/dev/null 2>&1 || { printf 'ok - # SKIP python3 not found (the real reader needs it)\n'; return 0; }
+  dir="$TMP_ROOT/wt-gone-pane"; state="$dir/state"; agent="$dir/agents"; mkdir -p "$state" "$agent"
+  fb=$(make_herdr_eventfake "$dir")
+  set_fake_agent "$agent" "wG:pQ" idle
+  sock="$dir/herdr.sock"; log="$dir/subscriptions"
+  cat > "$dir/server.py" <<'PY'
+import json, socket, sys
+path, log, gone = sys.argv[1], sys.argv[2], set(sys.argv[3:])
+server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+server.bind(path)
+server.listen(8)
+server.settimeout(20)
+while True:
+    try:
+        conn, _ = server.accept()
+    except OSError:
+        break
+    request = json.loads(conn.makefile("rb").readline())
+    panes = [sub["pane_id"] for sub in request["params"]["subscriptions"]]
+    with open(log, "a") as out:
+        out.write(" ".join(panes) + "\n")
+    missing = [pane for pane in panes if pane in gone]
+    if missing:
+        conn.sendall(('{"id":"%s","error":{"code":"pane_not_found","message":"pane %s not found"}}\n' % (request["id"], missing[0])).encode())
+        conn.close()
+        continue
+    conn.sendall(('{"id":"%s","result":{"type":"subscription_started"}}\n' % request["id"]).encode())
+    conn.settimeout(20)
+    try:
+        conn.recv(1)
+    except OSError:
+        pass
+    conn.close()
+PY
+  python3 "$dir/server.py" "$sock" "$log" "wX:pGone" &
+  # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
+  server_pid=$!
+  i=0
+  while [ ! -S "$sock" ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done
+  [ -S "$sock" ] || { kill "$server_pid" 2>/dev/null; fail "the fake herdr socket never appeared"; }
+  PATH="$fb:$PATH" FM_BACKEND_HERDR_EVENTS_FORCE=1 FM_FAKE_SESSION_NAME=sess FM_FAKE_SOCKET="$sock" FM_FAKE_AGENT_DIR="$agent" \
+    /bin/bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_wait_transition sess 1 "$1" sess:wG:pQ sess:wX:pGone' "$ROOT" "$state" >/dev/null
+  rc=$?
+  kill "$server_pid" 2>/dev/null || true
+  wait "$server_pid" 2>/dev/null || true
+  [ "$rc" = 1 ] || fail "a recorded pane that is gone must not fail the wait (expected a clean timeout 1, got $rc); subscriptions: $(cat "$log" 2>/dev/null)"
+  last=$(tail -n 1 "$log")
+  [ "$last" = "wG:pQ" ] || fail "the live pane must be resubscribed alone, last subscription was '$last'"
+  pass "fm_backend_herdr_wait_transition: the real reader drops a gone pane and still subscribes the live one"
+}
+
+# The reader's own wire-level unit contract, run here so CI enforces it.
+test_eventwait_reader_unit_contract() {
+  command -v python3 >/dev/null 2>&1 || { printf 'ok - # SKIP python3 not found (the real reader needs it)\n'; return 0; }
+  python3 "$ROOT/tests/fm-backend-herdr-eventwait.test.py" >/dev/null 2>&1 \
+    || fail "tests/fm-backend-herdr-eventwait.test.py failed: $(python3 "$ROOT/tests/fm-backend-herdr-eventwait.test.py" 2>&1 | tail -20)"
+  pass "herdr-eventwait.py: wire-level unit contract passes"
+}
+
 # shellcheck source=bin/fm-backend.sh
 . "$ROOT/bin/fm-backend.sh"
 
@@ -6288,3 +6353,5 @@ test_wait_transition_stream_absorb_clears_then_timeout
 test_wait_transition_reader_failure_returns_2
 test_wait_transition_bad_ack_returns_2_and_cleans_up
 test_wait_transition_clean_timeout_returns_1
+test_wait_transition_real_reader_survives_a_gone_pane
+test_eventwait_reader_unit_contract

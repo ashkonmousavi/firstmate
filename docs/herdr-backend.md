@@ -757,6 +757,7 @@ The portable halves are pinned by `tests/fm-backend-herdr.test.sh` (the read, ag
 Protocol 16 can subscribe to `pane.agent_status_changed` over one bounded Unix-socket reader.
 `bin/fm-transition-lib.sh` owns the backend-neutral transition vocabulary and policy.
 The Herdr adapter subscribes before reconciling current levels, buffers edges during reconciliation, and returns fresh blocked transitions for this home's panes.
+Herdr rejects a whole subscription when any named pane is gone, and a task record can outlive its pane, so the reader drops each pane a `pane_not_found` rejection names and resubscribes the live ones (`bin/backends/herdr-eventwait.py` owns the wire shape).
 
 The watcher maps the pane back to the task and skips these:
 
@@ -779,8 +780,9 @@ Polling runs every cycle and remains the permanent fallback when any of these is
 - Repeated reader execution.
 
 There is still one watcher process; the event reader is a bounded child of that watcher.
+A failed capability probe, or `FM_EVENT_CAP_FAIL_MAX` consecutive reader failures, leaves that watcher process polling only, and each such fallback writes one `push fast-path` line to `state/.watch-triage.log`.
 
-`tests/fm-backend-herdr-eventwait-smoke.test.sh`, `tests/fm-transition-lib.test.sh`, and `tests/fm-supervision-events.test.sh` cover capability, subscribe-then-reconcile ordering, dedupe, exemptions, and polling fallback.
+`tests/fm-backend-herdr-eventwait-smoke.test.sh`, `tests/fm-backend-herdr-eventwait.test.py`, `tests/fm-transition-lib.test.sh`, and `tests/fm-supervision-events.test.sh` cover capability, subscribe-then-reconcile ordering, gone-pane resubscription, dedupe, exemptions, and polling fallback.
 
 ## Away-mode supervisor support
 
