@@ -62,6 +62,17 @@ verdict=$(fm_control_tmux_absence_verdict absence:fm-gone "$STATE_DIR/gone.meta"
   || fail "$TMUX_VERSION: a window absent from the recorded server read '$verdict'"
 pass "live tmux ($TMUX_VERSION): the recorded server accounts for itself, so a window absent from it reads gone"
 
+printf 'spawn_gen=s9999999999.1.1\n' > "$STATE_DIR/later.meta"
+verdict=$(fm_control_tmux_absence_verdict absence:fm-gone "$STATE_DIR/later.meta")
+[ "${verdict%%$'\t'*}" = unproven ] \
+  || fail "$TMUX_VERSION: a task spawned after the recorded server started read '$verdict'"
+tmux -L "$SOCKET" new-window -d -t absence: -n fm-held 'sleep 60' \
+  || fail "$TMUX_VERSION: could not open a task window on the recorded server"
+verdict=$(fm_control_tmux_absence_verdict absence:fm-held "$STATE_DIR/gone.meta")
+[ "${verdict%%$'\t'*}" = unproven ] \
+  || fail "$TMUX_VERSION: a window the recorded server still holds read '$verdict'"
+pass "live tmux ($TMUX_VERSION): the recorded server proves nothing for a task spawned after it started or a window it still holds"
+
 tmux -L "$SOCKET" kill-server >/dev/null 2>&1 \
   || fail "$TMUX_VERSION: kill-server failed on the private socket"
 for _ in $(seq 1 50); do
