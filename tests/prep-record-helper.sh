@@ -11,22 +11,45 @@
 # sections.
 
 # fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>]
-# Writes an answered record for <id> under <data-dir>. The tier header answers
+# Writes an answered record for <id> under <data-dir>, plus the separate review
+# a ship spawn also requires (fm_test_prep_review). The tier header answers
 # default to three noes - tier 0, the cheapest record a ship spawn accepts - so
 # a fixture that only needs the gate satisfied pays nothing for it; pass yes to
 # any of them to exercise a higher tier, where every section is answered.
-# Idempotent: an existing record is left alone so a test can write its own.
+# Idempotent: an existing record, and an existing review of it, are left alone
+# so a test can write its own; a record with no review yet gets one.
 # Returns non-zero if the scaffold fails.
 fm_test_prep_record() {
   local data=$1 id=$2 q1=${3:-no} q2=${4:-no} ui=${5:-no} root prep
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   prep="$data/$id/prep.md"
-  [ -e "$prep" ] && return 0
-  mkdir -p "$data/$id"
-  FM_HOME="$data" FM_DATA_OVERRIDE="$data" "$root/bin/fm-brief.sh" "$id" --prep >/dev/null \
-    || return 1
-  sed -e "s/{Q1}/$q1/" -e "s/{Q2}/$q2/" \
-      -e "s/{UI_WIRING}/$ui, spawn fixture./" \
-      -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' "$prep" > "$prep.filled" \
-    && mv "$prep.filled" "$prep"
+  if [ ! -e "$prep" ]; then
+    mkdir -p "$data/$id"
+    FM_HOME="$data" FM_DATA_OVERRIDE="$data" "$root/bin/fm-brief.sh" "$id" --prep >/dev/null \
+      || return 1
+    sed -e "s/{Q1}/$q1/" -e "s/{Q2}/$q2/" \
+        -e "s/{UI_WIRING}/$ui, spawn fixture./" \
+        -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' "$prep" > "$prep.filled" \
+      && mv "$prep.filled" "$prep" || return 1
+  fi
+  [ -e "$data/$id/prep-review" ] && return 0
+  fm_test_prep_review "$data" "$id"
+}
+
+# fm_test_prep_review <data-dir> <id>
+# Writes the proof of a separate review that bin/fm-dod-lib.sh's
+# fm_prep_review_reason accepts: data/<id>/prep-review naming the reviewer
+# <id>-prep-review and author firstmate, and that reviewer's launch brief,
+# report, and reviewed-prep.md copied from the current prep.md. Always
+# refreshes, so a test that edits prep.md after review calls it again to
+# re-approve the edited record.
+fm_test_prep_review() {
+  local data=$1 id=$2 reviewer
+  reviewer="$id-prep-review"
+  [ -f "$data/$id/prep.md" ] || return 1
+  mkdir -p "$data/$reviewer" || return 1
+  printf 'reviewer=%s\nauthor=firstmate\n' "$reviewer" > "$data/$id/prep-review" || return 1
+  printf '# Current worker role contract\nPrep-review scout fixture.\n' > "$data/$reviewer/launch-brief.md" || return 1
+  printf 'Reviewed the preparation record for %s.\n' "$id" > "$data/$reviewer/report.md" || return 1
+  cp "$data/$id/prep.md" "$data/$reviewer/reviewed-prep.md"
 }

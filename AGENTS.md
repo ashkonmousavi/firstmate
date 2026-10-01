@@ -201,9 +201,9 @@ For work larger than one task, build the shared structure the later work attache
 A shared or unstable module has exactly one integration owner: a lane that needs it changed asks that owner rather than editing it, and keeps working on its own files until that change lands (`wayfinding` owns the multi-task procedure).
 Size concurrent writing lanes to review capacity, not to the number of ready items.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
-Write the task's preparation record before the brief with `bin/fm-brief.sh <task-id> --prep`, which owns the template, its tier header, and its sections; give it an Opus pass whenever the task touches product behaviour or shared code.
+Write the task's preparation record before the brief with `bin/fm-brief.sh <task-id> --prep`, which owns the template, its tier header, and its sections; then have a separately spawned prep-review scout review it, at every tier, on Opus whenever the task touches product behaviour or shared code, and install the record that scout approves.
 The record's own tier answers decide what it owes, so a change no user meets, that alters nothing a user sees and touches nothing shared, costs three answers and no sections.
-A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, or where a section that tier requires is missing, still placeheld, or empty.
+A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or that lacks the separate review whose record `bin/fm-dod-lib.sh` owns.
 When a secondmate already filled `data/nav-preps/<id>.md`, install that sheet into this home's `data/<id>/prep.md` with `bin/fm-prep-install.sh` before spawn; an empty local `--prep` scaffold must not hide a filled nav-prep.
 Write the task-specific brief under section 11 before spawning.
 Fill the task subsections according to section 11.

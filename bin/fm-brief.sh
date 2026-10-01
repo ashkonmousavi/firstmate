@@ -59,7 +59,9 @@
 #   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
 #   header is missing or leaves any of its three answers unanswered or outside
 #   its format, or where a section the declared tier requires is missing, still
-#   placeheld, or empty, naming that section.
+#   placeheld, or empty, naming that section, and then one that no separate
+#   prep-review scout has approved, at every tier; bin/fm-dod-lib.sh's header
+#   owns that review record.
 #   The guide lines for sections 1, 3, 7, and 10 point at the project's own
 #   task, design, UI, and verification records as its instructions name them.
 #   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
