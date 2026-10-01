@@ -1053,11 +1053,12 @@ do_relaunch() {
       ;;
   esac
 
-  # A ship or scout in a Treehouse pool slot is relaunched under the project
-  # lock its launch owner needs to re-assert the slot claim. Taking it here,
-  # before the old agent is stopped, makes a contended lock refuse while that
-  # agent still runs; bin/fm-spawn.sh finds it held by this process and leaves
-  # its release to this one.
+  # A ship or scout in a Treehouse pool slot has its slot claim re-asserted
+  # (bin/fm-wake-lib.sh's fm_treehouse_relaunch_reclaim_slot) under the project
+  # lock before the old agent is stopped, so a contended lock or a copy another
+  # task holds refuses while that agent still runs. The lock is released as soon
+  # as the claim is written; the launch delegated to bin/fm-spawn.sh does not
+  # take either again.
   if [ "$KIND" != secondmate ]; then
     project=$(fm_meta_get "$META" project)
     if [ -n "$project" ] && fm_treehouse_pool_slot "$project" "$WT"; then
@@ -1066,6 +1067,9 @@ do_relaunch() {
       fm_lock_try_acquire "$PROJECT_LOCK" \
         || die "another Treehouse slot allocation or return is in progress for $project; refusing to race it"
       PROJECT_LOCK_HELD=1
+      fm_treehouse_relaunch_reclaim_slot "$WT" "$ID" "$STATE" "$DATA" || exit 1
+      PROJECT_LOCK_HELD=0
+      fm_lock_release "$PROJECT_LOCK" || true
     fi
   fi
 
@@ -1096,10 +1100,6 @@ do_relaunch() {
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
       "$SCRIPT_DIR/fm-spawn.sh" "${spawn_args[@]}" >/dev/null; then
     RELAUNCH_META_PUBLISHED=1
-    if [ "$PROJECT_LOCK_HELD" = 1 ]; then
-      PROJECT_LOCK_HELD=0
-      fm_lock_release "$PROJECT_LOCK" || true
-    fi
     # $T was resolved from the record before the launch. When the recorded
     # endpoint was gone, the launch owner created a fresh one and republished
     # the record pointing at it, so every postcondition below must be read from

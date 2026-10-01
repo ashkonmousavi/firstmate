@@ -1562,6 +1562,78 @@ fm_treehouse_slot_owner_release() {  # <worktree> <task-id>
   rm -f "$marker" 2>/dev/null || true
 }
 
+# Whether the task a slot claim names is a finished scout: its record exists in
+# the home the claim records, it is kind=scout, its report exists and is
+# nonempty, and its recorded endpoint reads dead (a missing endpoint reads dead
+# there). <state> and <data> are the caller's own home's directories, used when
+# the claim names this home. On any other answer FM_TREEHOUSE_CLAIMANT_READING
+# names why, for the refusal; a claimant record that cannot be found is never
+# finished. Reads endpoints through bin/fm-backend.sh, which the caller sources.
+FM_TREEHOUSE_CLAIMANT_READING=
+fm_treehouse_claimant_is_finished_scout() {  # <claimant-id> <claimant-home> <state> <data>
+  local claimant=$1 home=$2 state_dir=$3 data_dir=$4 meta target
+  FM_TREEHOUSE_CLAIMANT_READING="record not found"
+  [ -n "$claimant" ] && [ -n "$home" ] || return 1
+  if ! [ "$home" -ef "$FM_HOME" ]; then
+    state_dir=$home/state
+    data_dir=$home/data
+  fi
+  meta=$state_dir/$claimant.meta
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
+  if [ "$(fm_meta_get "$meta" kind)" != scout ]; then
+    FM_TREEHOUSE_CLAIMANT_READING="kind=$(fm_meta_get "$meta" kind), not a scout"
+    return 1
+  fi
+  if [ ! -s "$data_dir/$claimant/report.md" ]; then
+    FM_TREEHOUSE_CLAIMANT_READING="a scout with no report yet"
+    return 1
+  fi
+  target=$(fm_backend_target_of_meta "$meta")
+  if [ -z "$target" ]; then
+    FM_TREEHOUSE_CLAIMANT_READING="a scout whose endpoint reads 'none'"
+    return 1
+  fi
+  FM_TREEHOUSE_CLAIMANT_READING=$(fm_backend_agent_alive "$(fm_backend_of_meta "$meta")" "$target" 2>/dev/null || printf 'unknown')
+  if [ "$FM_TREEHOUSE_CLAIMANT_READING" != dead ]; then
+    FM_TREEHOUSE_CLAIMANT_READING="a scout whose endpoint reads '$FM_TREEHOUSE_CLAIMANT_READING'"
+    return 1
+  fi
+  return 0
+}
+
+# Re-assert a relaunched task's claim on its recorded pool slot. The caller
+# holds the Treehouse project lock and has touched no endpoint or agent yet, so
+# a refusal leaves the old agent running. A claim naming this task, or none, is
+# (re)written; a claim naming a finished scout is replaced, with one line
+# naming it (its report is the work product and the copy is declared scratch);
+# a claim naming any other task, or one that cannot be read, refuses on stderr.
+# The claim is written before the agent launches and is not rolled back by a
+# later refusal.
+fm_treehouse_relaunch_reclaim_slot() {  # <worktree> <task-id> <state> <data>
+  local worktree=$1 id=$2 state_dir=$3 data_dir=$4 marker
+  fm_treehouse_slot_owner_state "$worktree" "$id"
+  case "$FM_TREEHOUSE_SLOT_OWNER" in
+    mine|absent) ;;
+    other)
+      if fm_treehouse_claimant_is_finished_scout "$FM_TREEHOUSE_SLOT_OWNER_ID" "$FM_TREEHOUSE_SLOT_OWNER_HOME" "$state_dir" "$data_dir"; then
+        echo "note: task $id's recorded worktree $worktree was claimed by finished scout $FM_TREEHOUSE_SLOT_OWNER_ID${FM_TREEHOUSE_SLOT_OWNER_HOME:+ (home $FM_TREEHOUSE_SLOT_OWNER_HOME)}; re-claiming it for $id" >&2
+      else
+        echo "error: task $id's recorded worktree $worktree is claimed by task $FM_TREEHOUSE_SLOT_OWNER_ID${FM_TREEHOUSE_SLOT_OWNER_HOME:+ (home $FM_TREEHOUSE_SLOT_OWNER_HOME)} ($FM_TREEHOUSE_CLAIMANT_READING); refusing to relaunch into a copy another task holds. Reconcile which task owns that copy (bin/fm-crew-state.sh $id; bin/fm-crew-state.sh $FM_TREEHOUSE_SLOT_OWNER_ID) first" >&2
+        return 1
+      fi
+      ;;
+    *)
+      marker=$(fm_treehouse_slot_owner_marker "$worktree" 2>/dev/null) || marker="beside $worktree"
+      echo "error: task $id's recorded worktree $worktree carries a slot-owner claim that cannot be read ($marker), so the copy cannot be proved to still be this task's; refusing to relaunch. Inspect or repair the claim file (task= and home= lines), then retry" >&2
+      return 1
+      ;;
+  esac
+  if ! fm_treehouse_slot_owner_claim "$worktree" "$id" "$FM_HOME"; then
+    echo "error: could not claim Treehouse pool slot $worktree for task $id; refusing to relaunch a worker whose slot cannot later be proved to be its own" >&2
+    return 1
+  fi
+}
+
 fm_failure_episode_reset() {
   local state=$1 mode=${2:-acquire} lock current pid acquired=0 path
   lock="$state/.turnend-claude-blocks.lock"

@@ -88,8 +88,8 @@ A relaunch does take one session reference when the endpoint's own runtime recor
 4. **Stop the old agent** through the `exit` verb, with its postcondition.
 5. **Launch the replacement** through its single owner, `bin/fm-spawn.sh --relaunch`, which reuses the recorded worktree instead of creating one, adopts the recorded endpoint when it still exists, clears the previous harness's per-task wiring, and arms a fresh busy generation.
    When the recorded endpoint is proven gone rather than merely idle or unreachable, the launch owner creates one fresh endpoint in that same worktree and the republished record rebinds the task to it - see [Reclaiming a task whose endpoint is gone](#reclaiming-a-task-whose-endpoint-is-gone).
-   When that worktree is a Treehouse pool slot, the launch owner also re-asserts the task's claim on it (`bin/fm-spawn.sh` owns the rule) and refuses when another unfinished task holds that claim; that refusal comes after step 4, so it leaves the task stopped with its record and work kept.
-   The Treehouse project lock that claim is written under is taken before step 2 instead, so when another spawn, teardown, or relaunch in the same project holds it, the relaunch refuses with the old agent still running.
+   When that worktree is a Treehouse pool slot, the task's claim on it is re-asserted before step 2, under the Treehouse project lock (`bin/fm-spawn.sh` states the rule and `bin/fm-wake-lib.sh` carries it), and the lock is released as soon as the claim is written.
+   So when another spawn, teardown, or relaunch in the same project holds that lock, or another unfinished task holds the claim, the relaunch refuses with the old agent still running.
 6. **Preserve runtime-bound status authority where supported.**
    The endpoint's runtime may bind pane status to one session identity; the launch owner preserves it only when that runtime records a reference the replacement adapter can consume, and otherwise launches the ordinary fresh session.
    This reference is a launch input, never authority to send, close, or act on the pane.
@@ -122,6 +122,8 @@ An unreachable endpoint can still hold the live agent a rebind would duplicate, 
   Whenever firstmate itself starts a tmux server - outside tmux, the first spawn, rebind, or away-mode daemon launch after a restart - it records the server's pid, socket, and start time in `state/tmux-started-server`.
   A task reclaimed after that restart may then find that one server running: it is accounted for, with its clients, only when its recorded socket still answers with the recorded pid and start time, it started after the task's record was spawned, and it holds no window with the task's name.
   An operator seat inside tmux is accounted for the same way, by reading its own server for the task's window, and only alongside a verified recorded server; on its own it proves nothing.
+  So a tmux reclaim refuses wherever no recorded server exists: from a seat running inside a tmux server firstmate did not start, such as one the operator opened after a restart, and from any home other than the one that started the shared server.
+  That refusal is safe and accepted rather than worked around; reclaim such a task from a plain shell in the home that started the server once no unrecorded tmux server runs, or run the fleet under Herdr, whose proof has no such gap.
   While any other tmux process runs, or when that read fails or prints nothing, tmux refuses - for a renamed session, a moved window, a foreign socket, and a dead server alike.
 
 Every transient or self-contradicting read stays `unreadable` or `ambiguous` and still refuses, so a momentary backend failure can never be mistaken for absence.

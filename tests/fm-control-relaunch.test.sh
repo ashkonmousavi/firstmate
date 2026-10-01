@@ -82,6 +82,14 @@ case "${1:-}" in
         ". '"*"'") staged=${payload#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || payload=$(cat "$staged") ;;
       esac
       printf '%s\n' "$payload" >> "$D/literal"
+      if [ -n "${FM_FAKE_LOCK_PROBE:-}" ]; then
+        probe=free
+        { [ ! -e "$FM_FAKE_LOCK_PROBE" ] && [ ! -L "$FM_FAKE_LOCK_PROBE" ]; } || probe=held
+        case "$payload" in
+          /exit|/quit) printf 'stop:%s\n' "$probe" >> "$D/lock-probe" ;;
+          *'Firstmate operational input waiting: read'*) printf 'launch:%s\n' "$probe" >> "$D/lock-probe" ;;
+        esac
+      fi
       case "$payload" in
         /exit|/quit)
           if [ -n "${FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS:-}" ]; then
@@ -2723,10 +2731,12 @@ test_relaunch_claims_an_unclaimed_pool_copy() {
   local dir out rc
   dir=$(new_case pool-claim-absent rl70)
   add_pool_ship_task "$dir" rl70
-  out=$(run_spawn "$dir" rl70 --relaunch --harness claude); rc=$?
+  out=$(FM_FAKE_LOCK_PROBE="$(project_lock_path "$dir")" run_spawn "$dir" rl70 --relaunch --harness claude); rc=$?
   expect_code 0 "$rc" "relaunch into an unclaimed pool copy should succeed"$'\n'"$out"
   assert_contains "$(pool_claim "$dir")" "task=rl70" "relaunch did not claim its pool copy"
   assert_contains "$(pool_claim "$dir")" "home=$dir/home" "relaunch did not record its home in the claim"
+  assert_equals "launch:free" "$(cat "$dir/fake/lock-probe" 2>/dev/null)" \
+    "a direct relaunch must release the project lock once its copy is claimed"
   pass "fm-spawn --relaunch: an unclaimed pool copy is claimed for the relaunched task"
 }
 
@@ -2740,7 +2750,15 @@ test_relaunch_reclaims_a_copy_from_a_finished_scout() {
   expect_code 0 "$rc" "relaunch should re-claim a copy a finished scout claimed"$'\n'"$out"
   assert_contains "$(pool_claim "$dir")" "task=rl71" "relaunch did not re-claim the copy from the finished scout"
   assert_contains "$out" "finished scout scout71" "relaunch did not name the replaced claimant"
-  pass "fm-spawn --relaunch: a copy claimed by a finished scout is re-claimed with one line naming it"
+  dir=$(new_case pool-control-claim-scout rl78)
+  add_pool_ship_task "$dir" rl78
+  add_claimant_scout "$dir" scout78 yes
+  printf 'task=scout78\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  out=$(run_control "$dir" rl78 relaunch --note "resume after the scout"); rc=$?
+  expect_code 0 "$rc" "an fm-control relaunch should re-claim a copy a finished scout claimed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl78" "the fm-control relaunch did not re-claim the copy from the finished scout"
+  assert_contains "$out" "finished scout scout78" "the fm-control relaunch did not name the replaced claimant"
+  pass "relaunch: a copy claimed by a finished scout is re-claimed with one line naming it, directly and through fm-control"
 }
 
 test_relaunch_refuses_a_copy_another_task_holds() {
@@ -2813,20 +2831,53 @@ test_relaunch_refuses_while_the_project_lock_is_held() {
   pass "fm-spawn --relaunch: a held Treehouse project lock refuses a pool-copy relaunch"
 }
 
-# fm-control takes the project lock before it stops the old agent, and the
-# launch it delegates to fm-spawn finds that lock held by its parent rather
-# than refusing on it.
-test_control_relaunch_holds_the_project_lock_across_its_launch() {
-  local dir out rc
+# project_lock_path <case-dir>: the case project's Treehouse project lock.
+project_lock_path() {  # <case-dir>
+  FM_HOME="$1/home" bash -c '. "$1"; fm_treehouse_project_lock_path "$2"' _ \
+    "$ROOT/bin/fm-wake-lib.sh" "$1/proj"
+}
+
+# fm-control re-asserts the claim under the project lock before it stops the
+# old agent and releases the lock as soon as the claim is written, so neither
+# the stop nor the launch it delegates to fm-spawn holds up another spawn,
+# teardown, or relaunch in the project.
+test_control_relaunch_releases_the_project_lock_once_the_copy_is_claimed() {
+  local dir out rc lock
   dir=$(new_case pool-control-lock rl75)
   add_pool_ship_task "$dir" rl75
-  out=$(run_control "$dir" rl75 relaunch --note "resume in the pool copy"); rc=$?
+  printf 'claude' > "$dir/fake/command"
+  lock=$(project_lock_path "$dir") || fail "could not resolve the project lock"
+  out=$(FM_FAKE_LOCK_PROBE="$lock" run_control "$dir" rl75 relaunch --note "resume in the pool copy"); rc=$?
   expect_code 0 "$rc" "an fm-control relaunch into a pool copy should succeed"$'\n'"$out"
   assert_contains "$(pool_claim "$dir")" "task=rl75" "the relaunch did not claim its pool copy"
   assert_grep "Firstmate operational input waiting: read" "$dir/fake/literal" "the replacement was not launched"
+  assert_equals $'stop:free\nlaunch:free' "$(cat "$dir/fake/lock-probe" 2>/dev/null)" \
+    "the project lock must be released once the copy is claimed, before the stop and the launch"
+  pass "fm-control relaunch: the project lock is released as soon as the copy is claimed"
+}
+
+# A copy another unfinished task holds refuses while the old agent still runs,
+# so the task is left working rather than stopped and stranded.
+test_control_relaunch_refuses_a_held_copy_before_stopping_the_agent() {
+  local dir out rc brief_before
+  dir=$(new_case pool-control-claim-held rl77)
+  add_pool_ship_task "$dir" rl77
+  printf 'claude' > "$dir/fake/command"
+  fm_write_meta "$dir/home/state/holder77.meta" \
+    "window=fmses:fm-holder77" "endpoint_task_id=holder77" \
+    "worktree=$dir/elsewhere" "project=$dir/proj" "kind=ship"
+  printf 'task=holder77\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  brief_before=$(cat "$dir/home/data/rl77/brief.md")
+  out=$(run_control "$dir" rl77 relaunch --note "should not land"); rc=$?
+  expect_code 1 "$rc" "an fm-control relaunch into a copy another task holds should refuse"$'\n'"$out"
+  assert_contains "$out" "holder77" "the refusal should name the claimant"
+  assert_no_grep "/exit" "$dir/fake/literal" "a claim-refused relaunch stopped the old agent"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a claim-refused relaunch left no agent running"
+  [ "$(cat "$dir/home/data/rl77/brief.md")" = "$brief_before" ] || fail "a claim-refused relaunch changed the instructions"
+  assert_contains "$(pool_claim "$dir")" "task=holder77" "a claim-refused relaunch rewrote the claim"
   hold_project_lock "$dir"
   release_project_lock
-  pass "fm-control relaunch: the project lock taken before the stop carries through the launch and is released"
+  pass "fm-control relaunch: a copy another task holds refuses before the old agent is stopped"
 }
 
 test_control_relaunch_refuses_a_held_project_lock_before_stopping_the_agent() {
@@ -2994,7 +3045,8 @@ test_relaunch_claims_an_unclaimed_pool_copy
 test_relaunch_reclaims_a_copy_from_a_finished_scout
 test_relaunch_refuses_a_copy_another_task_holds
 test_relaunch_refuses_while_the_project_lock_is_held
-test_control_relaunch_holds_the_project_lock_across_its_launch
+test_control_relaunch_releases_the_project_lock_once_the_copy_is_claimed
+test_control_relaunch_refuses_a_held_copy_before_stopping_the_agent
 test_control_relaunch_refuses_a_held_project_lock_before_stopping_the_agent
 test_tmux_reclaims_two_tasks_in_sequence_after_a_restart
 test_tmux_reclaims_after_a_fresh_spawn_started_the_server
