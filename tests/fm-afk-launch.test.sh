@@ -836,6 +836,7 @@ unit_daemon_terminal_receives_the_primary_harness() {
         fi
       }
       tmux() { [ "$1" = new-session ] && bash -c "$5"; }
+      fm_backend_tmux_new_session() { tmux new-session -d -s "$2" "$3"; }
       fm_afk_launch_record_write() { return 0; }
       fm_afk_launch_commit_terminal() { return 0; }
       fm_afk_launch_create_"$2" lab:captain "$2"

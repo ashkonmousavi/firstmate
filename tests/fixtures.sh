@@ -97,7 +97,13 @@ fm_test_fake_gh_axi() {
 # set, each send-keys -l payload is appended one per line. When FM_FAKE_PANE_LOG
 # is set, each send-keys TEXT-LINE payload (the pre-launch pane exports, which
 # carry no -l) is appended there instead, one per line in send order. Optional
-# FM_FAKE_DUPLICATE_WINDOW is printed from list-windows.
+# FM_FAKE_DUPLICATE_WINDOW is printed from list-windows, and
+# FM_FAKE_PANE_COMMAND is reported for pane_current_command (default firstmate,
+# which classifies a present window's agent state as unknown rather than alive).
+# When FM_FAKE_WINDOW_LOG is set, each kill-window argv is appended there.
+# When FM_FAKE_PANE_PATH_DIR is set, a file there named after the most recently
+# created window (fm-<id>) overrides FM_FAKE_PANE_PATH, so one batch can hand
+# each task its own copy the way `treehouse get` hands out distinct slots.
 #
 # The pane path defaults to empty when FM_FAKE_PANE_PATH is unset. Window
 # cleanup and option operations are no-ops. Launch logging is env-gated, so
@@ -108,7 +114,14 @@ fm_test_fake_tmux_spawn() {
 #!/usr/bin/env bash
 set -u
 case "$*" in
-  *"#{pane_current_path}"*) printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
+  *"#{pane_current_path}"*)
+    if [ -n "${FM_FAKE_PANE_PATH_DIR:-}" ] && [ -f "$FM_FAKE_PANE_PATH_DIR/.last-window" ] &&
+      [ -f "$FM_FAKE_PANE_PATH_DIR/$(cat "$FM_FAKE_PANE_PATH_DIR/.last-window")" ]; then
+      cat "$FM_FAKE_PANE_PATH_DIR/$(cat "$FM_FAKE_PANE_PATH_DIR/.last-window")"
+      exit 0
+    fi
+    printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
+  *"#{pane_current_command}"*) printf '%s\n' "${FM_FAKE_PANE_COMMAND:-firstmate}"; exit 0 ;;
 esac
 case "${1:-}" in
   display-message) printf 'firstmate\n'; exit 0 ;;
@@ -118,7 +131,21 @@ case "${1:-}" in
     fi
     exit 0
     ;;
-  has-session|new-session|new-window|kill-window|set-window-option) exit 0 ;;
+  kill-window)
+    [ -z "${FM_FAKE_WINDOW_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_WINDOW_LOG"
+    exit 0
+    ;;
+  new-window)
+    if [ -n "${FM_FAKE_PANE_PATH_DIR:-}" ]; then
+      prev=
+      for a in "$@"; do
+        [ "$prev" != -n ] || printf '%s\n' "$a" > "$FM_FAKE_PANE_PATH_DIR/.last-window"
+        prev=$a
+      done
+    fi
+    exit 0
+    ;;
+  has-session|new-session|set-window-option) exit 0 ;;
   send-keys)
     if [ -n "${FM_FAKE_LAUNCH_LOG:-}" ]; then
       prev=
@@ -280,6 +307,14 @@ fm_test_spawn_home() {
 # fm_test_spawn_prep <home> <id> - fm_test_prep_record for a home's data dir.
 fm_test_spawn_prep() {
   fm_test_prep_record "$1/data" "$2"
+}
+
+# fm_test_spawn_record_cleared <home> <id>
+# Stands in for an earlier spawned task's cleanup, so a suite that spawns again
+# into the same fake copy can be handed it: a spawn refuses a copy that any
+# other surviving task record names (tests/fm-spawn-worktree-seize.test.sh).
+fm_test_spawn_record_cleared() {
+  rm -f "$1/state/$2.meta"
 }
 
 # fm_test_spawn_brief <home> <id> [captain-intent]

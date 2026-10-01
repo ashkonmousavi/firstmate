@@ -290,6 +290,7 @@ test_pi_extension_provider_and_old_pi_fall_back_to_the_model_listing() {
   printf 'codex-native  gpt-6  272K\n' > "$CASE/pi-work/listed"
   out=$(spawn_ship "$id-ext" --model codex-native/gpt-6); rc=$?
   expect_code 0 "$rc" "an extension provider listed under the root should launch: $out"
+  fm_test_spawn_record_cleared "$HOME_DIR" "$id-ext"
   : > "$CASE/pi-work/old-pi"
   printf 'openai-codex-mini  gpt-5  128K\n' > "$CASE/pi-work/listed"
   out=$(spawn_ship "$id-old-near" --model openai-codex/gpt-5); rc=$?
@@ -309,6 +310,7 @@ test_a_pin_governs_only_its_own_runner() {
   out=$(spawn_ship "$id-codex"); rc=$?
   expect_code 0 "$rc" "a codex spawn must ignore a Claude pin: $out"
   assert_not_contains "$out" "account=" "a codex spawn must not report a Claude pin"
+  fm_test_spawn_record_cleared "$HOME_DIR" "$id-codex"
   out=$(spawn_ship "$id-pi" --harness pi --model gpt-5.5); rc=$?
   expect_code 0 "$rc" "a Pi spawn must ignore a Claude pin: $out"
   assert_absent "$CASE/claude-checks" "no Claude sign-in check may run for another runner"

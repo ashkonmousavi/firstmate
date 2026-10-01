@@ -1017,6 +1017,156 @@ test_own_and_absent_slot_claims_still_tear_down() {
   pass "fm-teardown: a task's own slot claim, and an unclaimed slot, both still tear down"
 }
 
+# Give the pool copy's commit a remote and drop the untracked sentinel, so a
+# ship record's read-only dirty and landed-work inspection of the copy passes.
+publish_clean_pool_copy() {  # <case>
+  local dir=$1
+  git init -q --bare "$dir/origin.git"
+  git -C "$dir/project" remote add origin "$dir/origin.git"
+  git -C "$dir/project" push -q origin HEAD:refs/heads/main
+  git -C "$dir/project" fetch -q origin
+  rm -f "$dir/worktree/sentinel"
+  [ -z "$(git -C "$dir/worktree" status --porcelain)" ] \
+    || fail "clean-copy fixture is not clean: $(git -C "$dir/worktree" status --porcelain)"
+}
+
+run_case_unforced() {  # <case> <id>
+  local dir=$1 id=$2
+  FM_HOME="$dir/home" FM_ROOT_OVERRIDE="$ROOT" \
+  FM_RUNTIME_LOG="$dir/runtime.log" PATH="$dir/fakebin:$PATH" \
+    "$TEARDOWN" "$id"
+}
+
+assert_own_cleanup_left_copy_alone() {  # <case> <id> <claimant> <description>
+  local dir=$1 id=$2 claimant=$3 description=$4
+  assert_absent "$dir/home/state/$id.meta" "$description: the record's own cleanup did not run"
+  assert_contains "$(cat "$dir/pool/1/.fm-slot-owner")" "task=$claimant" \
+    "$description: the claimant's slot claim was rewritten or removed"
+  assert_present "$dir/pool/1/project/.git" "$description: the shared copy was removed"
+  ! grep -Fq "treehouse <return>" "$dir/runtime.log" \
+    || fail "$description: the shared copy was returned to the pool: $(cat "$dir/runtime.log")"
+  assert_contains "$(cat "$dir/stderr")" "reassigned" \
+    "$description: the reassignment warning was not printed"
+}
+
+# Several finished records name one clean pool copy whose claim names the last
+# task that took it. Before the claim was read first, each record's shared-copy
+# scan found the others and every cleanup refused, so none could ever finish.
+# Now a record whose claim names another task cleans up only its own records
+# (after the read-only inspection of the copy, which a clean, landed copy
+# passes), and the claimant, once alone, returns the copy.
+test_finished_records_sharing_a_claimed_copy_all_clean_up() {
+  local dir a=merged-ship-a b=merged-ship-b c=finished-scout rc
+  dir=$(make_case slot-shared-finished)
+  mark_case_as_treehouse_pool "$dir"
+  publish_clean_pool_copy "$dir"
+  for id in "$a" "$b"; do
+    fm_write_meta "$dir/home/state/$id.meta" \
+      "window=firstmate:fm-$id" "endpoint_task_id=$id" \
+      "worktree=$dir/worktree" "project=$dir/project" "kind=ship" "mode=no-mistakes"
+  done
+  fm_write_meta "$dir/home/state/$c.meta" \
+    "window=firstmate:fm-$c" "endpoint_task_id=$c" \
+    "worktree=$dir/worktree" "project=$dir/project" "kind=scout"
+  claim_pool_slot "$dir" "$c"
+
+  # The claimant still refuses while another record names its copy.
+  set +e
+  run_case "$dir" "$c" > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "the claimant returned a copy other records still name"
+  assert_present "$dir/home/state/$c.meta" "the claimant's refused cleanup removed its record"
+  assert_contains "$(cat "$dir/stderr")" "REFUSED" "the claimant's refusal did not say so"
+  [ ! -s "$dir/runtime.log" ] || fail "the claimant's refused cleanup reached the runtime: $(cat "$dir/runtime.log")"
+
+  for id in "$a" "$b"; do
+    : > "$dir/runtime.log"
+    set +e
+    run_case_unforced "$dir" "$id" > "$dir/stdout" 2> "$dir/stderr"
+    rc=$?
+    set -e
+    [ "$rc" -eq 0 ] || fail "cleanup of $id on a copy claimed by $c refused: $(cat "$dir/stderr")"
+    assert_own_cleanup_left_copy_alone "$dir" "$id" "$c" "cleanup of $id"
+    assert_present "$dir/home/state/$c.meta" "cleanup of $id removed the claimant's record"
+  done
+
+  : > "$dir/runtime.log"
+  run_case "$dir" "$c" > "$dir/stdout" 2> "$dir/stderr" \
+    || fail "the claimant's cleanup refused once it alone named the copy: $(cat "$dir/stderr")"
+  assert_absent "$dir/home/state/$c.meta" "the claimant's cleanup left its record"
+  assert_absent "$dir/pool/1/.fm-slot-owner" "the claimant's cleanup left its spent claim"
+  grep -Fq "treehouse <return>" "$dir/runtime.log" \
+    || fail "the claimant's cleanup did not return the copy: $(cat "$dir/runtime.log")"
+  pass "fm-teardown: finished records sharing a claimed copy each clean up, and the claimant returns it"
+}
+
+# A claim left from before relaunch re-claimed can name a finished scout while
+# the copy holds a ship record's live work. The scout's cleanup still refuses
+# (another record names its copy); the ship's cleanup, whose claim reads as
+# another task's, runs its own read-only inspection of the copy first and
+# refuses on the uncommitted change, so the ship's record cannot vanish and
+# leave the scout's cleanup to return the copy with that work in it. Once the
+# work has landed, both clean up in turn.
+test_stale_claim_over_live_work_inspects_before_cleanup() {
+  local dir s=live-ship k=claimant-scout rc
+  dir=$(make_case slot-stale-claim-live-work)
+  mark_case_as_treehouse_pool "$dir"
+  publish_clean_pool_copy "$dir"
+  git -C "$dir/worktree" checkout -q -b "fm/$s"
+  fm_write_meta "$dir/home/state/$s.meta" \
+    "window=firstmate:fm-$s" "endpoint_task_id=$s" \
+    "worktree=$dir/worktree" "project=$dir/project" "kind=ship" \
+    "mode=no-mistakes" "branch=fm/$s"
+  fm_write_meta "$dir/home/state/$k.meta" \
+    "window=firstmate:fm-$k" "endpoint_task_id=$k" \
+    "worktree=$dir/worktree" "project=$dir/project" "kind=scout"
+  claim_pool_slot "$dir" "$k"
+  printf 'unlanded\n' > "$dir/worktree/work.txt"
+
+  # The claimant scout: claim reads as its own, the scan finds the ship.
+  set +e
+  run_case "$dir" "$k" > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "the claimant scout returned a copy a ship record still names"
+  assert_contains "$(cat "$dir/stderr")" "$s" "the scout's refusal did not name the ship"
+  [ ! -s "$dir/runtime.log" ] || fail "the scout's refused cleanup reached the runtime: $(cat "$dir/runtime.log")"
+
+  # The ship: claim names the scout, another record names the copy, so the
+  # inspection runs and refuses on the uncommitted change.
+  set +e
+  run_case_unforced "$dir" "$s" > "$dir/stdout" 2> "$dir/stderr"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "the ship's cleanup proceeded over its uncommitted work in a shared copy"
+  assert_contains "$(cat "$dir/stderr")" "uncommitted changes" \
+    "the ship's refusal did not name the uncommitted change"
+  assert_present "$dir/home/state/$s.meta" "the ship's refused cleanup removed its record"
+  assert_present "$dir/home/state/$k.meta" "the ship's refused cleanup removed the scout's record"
+  assert_present "$dir/worktree/work.txt" "the ship's refused cleanup discarded its work"
+  assert_equals "fm/$s" "$(git -C "$dir/worktree" branch --show-current)" \
+    "the ship's refused cleanup moved the copy's branch"
+  assert_contains "$(cat "$dir/pool/1/.fm-slot-owner")" "task=$k" \
+    "the ship's refused cleanup rewrote the claim"
+  [ ! -s "$dir/runtime.log" ] || fail "the ship's refused cleanup reached the runtime: $(cat "$dir/runtime.log")"
+
+  # The work lands: committed and pushed, so the inspection passes.
+  git -C "$dir/worktree" add work.txt
+  git -C "$dir/worktree" -c user.name=test -c user.email=test@example.invalid commit -qm work
+  git -C "$dir/worktree" push -q origin "fm/$s"
+  run_case_unforced "$dir" "$s" > "$dir/stdout" 2> "$dir/stderr" \
+    || fail "the ship's cleanup refused after its work landed: $(cat "$dir/stderr")"
+  assert_own_cleanup_left_copy_alone "$dir" "$s" "$k" "cleanup of the landed ship"
+
+  : > "$dir/runtime.log"
+  run_case "$dir" "$k" > "$dir/stdout" 2> "$dir/stderr" \
+    || fail "the claimant scout's cleanup refused once it alone named the copy: $(cat "$dir/stderr")"
+  grep -Fq "treehouse <return>" "$dir/runtime.log" \
+    || fail "the claimant scout's cleanup did not return the copy: $(cat "$dir/runtime.log")"
+  pass "fm-teardown: a stale claim over a ship's live work inspects the copy before the ship's cleanup"
+}
+
 # The tmux shim used by the endpoint-close tests below: every subcommand
 # reaches the real isolated server, so presence is always read from real tmux.
 # When FM_TEST_BLOCK_KILL is set, `kill-window` alone fails without forwarding,
@@ -1404,6 +1554,8 @@ test_cross_home_pool_slot_collision_refuses
 test_sole_slot_record_still_tears_down
 test_reassigned_pool_slot_finishes_own_cleanup_without_touching_the_slot
 test_own_and_absent_slot_claims_still_tear_down
+test_finished_records_sharing_a_claimed_copy_all_clean_up
+test_stale_claim_over_live_work_inspects_before_cleanup
 test_recorded_endpoint_that_changed_directory_still_tears_down
 test_project_lock_anchors_at_the_local_root_across_home_layouts
 test_remote_seeded_home_returns_its_uncontested_slot

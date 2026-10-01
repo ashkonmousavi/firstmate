@@ -115,6 +115,17 @@ run_ship_spawn() {
   run_spawn "$@" --mode no-mistakes --yolo off
 }
 
+# batch_copies <id1> <id2>: hand each task in a two-task batch its own copy,
+# as distinct pool slots are (a spawn refuses a copy another surviving record
+# names). Run the batch with FM_FAKE_PANE_PATH_DIR="$CASE_DIR/pane-paths".
+batch_copies() {
+  local id1=$1 id2=$2
+  git -C "$PROJ_DIR" worktree add --quiet -b "wt-$id2" "$CASE_DIR/wt-b"
+  mkdir -p "$CASE_DIR/pane-paths"
+  printf '%s\n' "$WT_DIR" > "$CASE_DIR/pane-paths/fm-$id1"
+  printf '%s\n' "$CASE_DIR/wt-b" > "$CASE_DIR/pane-paths/fm-$id2"
+}
+
 read_case_record() {
   IFS='|' read -r CASE_DIR HOME_DIR PROJ_DIR WT_DIR FAKEBIN_DIR LAUNCH_LOG <<EOF
 $1
@@ -302,6 +313,7 @@ test_home_defaults_preserve_absolute_or_resolve_relative_paths() {
 
   linked_home="$CASE_DIR/home-link"
   ln -s "$HOME_DIR" "$linked_home"
+  fm_test_spawn_record_cleared "$HOME_DIR" "$relative_id"
   : > "$LAUNCH_LOG"
   out=$(
     FM_ROOT_OVERRIDE='' FM_HOME="$linked_home" \
@@ -875,7 +887,8 @@ test_batch_preserves_native_ultra() {
   mkdir -p "$HOME_DIR/data/$id1" "$HOME_DIR/data/$id2"
   printf '%s\n' 'captain chose native ultra for this batch' > "$HOME_DIR/data/$id1/dispatch-override"
   printf '%s\n' 'captain chose native ultra for this batch' > "$HOME_DIR/data/$id2/dispatch-override"
-  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+  batch_copies "$id1" "$id2"
+  out=$(FM_FAKE_PANE_PATH_DIR="$CASE_DIR/pane-paths" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness pi --model codex-native/gpt-6-astra --effort ultra)
   expect_code 0 "$?" "native Ultra batch failed: $out"
   assert_meta_profile "$HOME_DIR/state/$id1.meta" pi codex-native/gpt-6-astra ultra
@@ -1034,8 +1047,9 @@ test_batch_forwards_shared_profile_flags() {
   rec=$(make_spawn_case profile-batch claude "$id1" "$id2")
   read_case_record "$rec"
   enable_dispatch_profile "$HOME_DIR"
+  batch_copies "$id1" "$id2"
 
-  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
+  out=$(FM_FAKE_PANE_PATH_DIR="$CASE_DIR/pane-paths" run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" \
     "$id1=$PROJ_DIR" "$id2=$PROJ_DIR" --harness codex --model gpt-5 --effort high)
   status=$?
   expect_code 0 "$status" "batch spawn with shared profile flags should succeed"

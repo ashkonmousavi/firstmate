@@ -24,6 +24,8 @@
 . "$FM_BACKEND_LIB_DIR/fm-session-lock-lib.sh"
 # shellcheck source=bin/fm-agent-process-lib.sh
 . "$FM_BACKEND_LIB_DIR/fm-agent-process-lib.sh"
+# shellcheck source=bin/fm-control-lib.sh
+. "$FM_BACKEND_LIB_DIR/fm-control-lib.sh"
 
 # fm_backend_tmux_resolve_bare_selector: the live-window-listing fallback for a
 # selector that is neither an explicit target nor a task selector routed
@@ -66,15 +68,35 @@ fm_backend_tmux_send_text_submit() {  # <target> <text> <retries> <enter-sleep> 
   fm_tmux_submit_core "$@"
 }
 
+# fm_backend_tmux_new_session: create detached session <session>, running
+# [command...] when given. When no server was answering on this socket
+# beforehand, this call started it, so its identity is recorded in
+# <state-dir> (bin/fm-control-lib.sh's fm_control_tmux_started_server_record):
+# that is what lets the endpoint-absence proof account for the one tmux server
+# firstmate itself started after a restart. Every place firstmate creates a
+# tmux session goes through here, so the record cannot depend on which one ran
+# first.
+fm_backend_tmux_new_session() {  # <state-dir> <session> [command...]
+  local state=$1 session=$2 started=0
+  shift 2
+  tmux list-sessions >/dev/null 2>&1 || started=1
+  tmux new-session -d -s "$session" "$@" || return 1
+  if [ "$started" = 1 ] && ! fm_control_tmux_started_server_record "$state" "$session:"; then
+    echo "warning: could not record the tmux server started for session $session; reclaiming a tmux task will refuse while that server runs" >&2
+  fi
+  return 0
+}
+
 # fm_backend_tmux_container_ensure: reuse the current tmux session when
 # firstmate itself runs inside tmux, else ensure a dedicated detached
-# "firstmate" session exists. Mirrors fm-spawn.sh's container-ensure block;
-# prints the resolved session name.
-fm_backend_tmux_container_ensure() {
+# "firstmate" session exists, recording its server in <state-dir> when this
+# starts it. Mirrors fm-spawn.sh's container-ensure block; prints the resolved
+# session name.
+fm_backend_tmux_container_ensure() {  # <state-dir>
   if [ -n "${TMUX:-}" ]; then
     tmux display-message -p '#S'
   else
-    tmux has-session -t firstmate 2>/dev/null || tmux new-session -d -s firstmate
+    tmux has-session -t firstmate 2>/dev/null || fm_backend_tmux_new_session "${1-}" firstmate
     printf 'firstmate'
   fi
 }

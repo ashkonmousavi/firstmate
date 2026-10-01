@@ -82,12 +82,19 @@
 #   ADOPTED as-is, while an endpoint PROVEN gone is RE-CREATED in the recorded
 #   worktree and the republished record rebinds the task to it. That proof is
 #   its own step, because a backend's `missing` also covers an endpoint that is
-#   merely unreachable from here - and it is only available on HERDR, which must
-#   still read the recorded pane as gone once that session's server is running
-#   again. A tmux `missing` always refuses: a task record carries no socket
-#   identity for its endpoint, so no read here can tell a destroyed window from
-#   one on a tmux server this process cannot address. An endpoint that turns out
-#   to have survived refuses too. The worktree is reused untouched either way; a
+#   merely unreachable from here: HERDR must still read the recorded pane as
+#   gone once that session's server is running again, and a tmux `missing` is
+#   gone only when no tmux process runs for this user beyond the server this
+#   home started and recorded (a task record carries no socket identity, so
+#   while any other tmux server runs no read here can tell a destroyed window
+#   from one on a server this process cannot address);
+#   bin/fm-control-lib.sh's fm_control_endpoint_absence_verdict owns that proof.
+#   A tmux rebind keeps its backend: one fm-<id> window in this home's tmux
+#   session, opened in the recorded worktree. Whichever spawn first starts that
+#   session's server after a restart records it (bin/backends/tmux.sh's
+#   fm_backend_tmux_new_session), so every task reclaimed after the same
+#   restart can be proven gone against it. An endpoint that turns out to have
+#   survived refuses too. The worktree is reused untouched either way; a
 #   rebind is a recovery, never a teardown. Only a crewmate or scout rebinds: a
 #   secondmate whose endpoint is gone is respawned by its own owner
 #   (`--secondmate`, driven by the session-start liveness sweep).
@@ -178,6 +185,18 @@
 #   while it still holds the allocation lock drops its own claim; an abort after
 #   metadata publication has released that lock leaves the claim in place, and
 #   the next spawn's claim replaces it.
+#   A relaunch of a ship or scout whose recorded worktree is a pool slot takes
+#   the same project lock and, before any endpoint or agent is touched,
+#   re-asserts its claim: a claim naming this task, or none, is written for it;
+#   a claim naming a finished scout (record found in its recorded home,
+#   kind=scout, nonempty report, endpoint reading dead) is replaced with one
+#   line naming it; any other claimant, a claimant with no record, or an
+#   unreadable claim refuses. So a relaunch always leaves the copy claimed by
+#   the task now running in it. The lock is released as soon as that claim is
+#   written. bin/fm-wake-lib.sh's fm_treehouse_relaunch_reclaim_slot carries
+#   this rule for both callers: bin/fm-control.sh's relaunch runs it before it
+#   stops the old agent, so a refusal leaves that agent running, and the launch
+#   it delegates here does not run it again.
 #   The local root is whatever bin/fm-wake-lib.sh's
 #   fm_firstmate_root_home resolves, so a home seeded from another machine anchors
 #   that lock itself rather than failing to resolve one;
@@ -264,6 +283,18 @@
 #   itself a linked worktree of the project repository still launches. A pane
 #   that never reaches an isolated worktree refuses at the end of that wait,
 #   naming the last path seen and why it was rejected.
+#   Isolation cannot see a seized slot either: Treehouse's pool lease is
+#   pid-based, so a host crash plus a backend resume under new pids frees every
+#   live task's slot at once, and `treehouse get` may hand one live task's slot
+#   to the next spawn (issue #947). Before the slot is claimed or freshened,
+#   the resolved path is therefore refused whenever another surviving local
+#   task record names it as its worktree, whatever that task's endpoint reads -
+#   including a task the slot's own owner claim names in another home's state.
+#   (Upstream lets a dead endpoint reclaim the slot; this fork does not,
+#   because a paused task whose worker died still owns its copy.) The refusal
+#   names the task and its endpoint reading, closes the pane it opened, and
+#   never returns the slot or touches its claim, so the next spawn handed that
+#   copy refuses again until the record is cleaned up or relaunched.
 #   That placement is proven only at launch. Every ship or scout pane therefore
 #   also receives `export FM_TASK_ID=<task-id>` before the launch command, on
 #   the same channel as GOTMPDIR, and bin/fm-test-run.sh refuses to execute the
@@ -1834,18 +1865,20 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # endpoint was DESTROYED" with "the endpoint is UNREACHABLE from here right
   # now", and an unreachable endpoint can still hold the live agent this
   # relaunch would duplicate. So absence is PROVEN before it may rebind, never
-  # inferred from a failed read - and only HERDR can prove it:
+  # inferred from a failed read:
   #   herdr - the recorded session's server is started, and the recorded pane is
   #           RE-READ through that session's own socket. `dead` means the pane
   #           survived the restart and is adopted after all; `alive` means the
   #           agent came back and refuses; only a second `missing` proves the
   #           pane itself did not survive.
-  #   tmux  - REFUSES, always. A task record carries no socket identity for its
-  #           endpoint, and a server-wide inventory describes only the server
-  #           this process addresses, so no read available here can tell "gone"
-  #           from "on a server I cannot see". A tmux `missing` therefore stays
-  #           as deadlocked as it was before this change - deliberately, and
-  #           with the reason stated rather than guessed past.
+  #   tmux  - proven gone only when no tmux process runs for this user other
+  #           than the server this home started and recorded (and its
+  #           clients), read through its socket and holding no window for this
+  #           task. A task record carries no socket identity for its endpoint,
+  #           and a server-wide inventory describes only the server this
+  #           process addresses, so while any other tmux server runs, "gone"
+  #           cannot be told from "on a server I cannot see" and the relaunch
+  #           refuses.
   # Every transient or self-contradicting read stays `unreadable`/`ambiguous`
   # and refuses as it always did (bin/fm-backend.sh's fm_backend_agent_state
   # owns that vocabulary). The proof itself lives in one place for the whole
@@ -1853,7 +1886,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # `relaunch` cannot reach two different answers about one endpoint.
   RELAUNCH_STATE=$(fm_backend_agent_state "$BACKEND" "$RELAUNCH_TARGET")
   if [ "$RELAUNCH_STATE" = missing ]; then
-    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET")
+    RELAUNCH_ABSENCE=$(fm_control_endpoint_absence_verdict "$BACKEND" "$RELAUNCH_TARGET" "$RELAUNCH_META")
     case "${RELAUNCH_ABSENCE%%$'\t'*}" in
       gone) RELAUNCH_STATE=missing ;;
       dead) RELAUNCH_STATE=dead ;;
@@ -3125,7 +3158,21 @@ else
   WT=""
   BRIEF="$DATA/$ID/brief.md"
 fi
-if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
+# A relaunch of a ship or scout whose recorded copy is a pool slot re-asserts
+# its slot claim (bin/fm-wake-lib.sh's fm_treehouse_relaunch_reclaim_slot)
+# under the same project lock as a fresh spawn, so that write cannot race
+# another spawn's claim or a teardown's return, and releases the lock as soon
+# as the claim is written. Launched by bin/fm-control.sh, the claim was already
+# re-asserted by the parent transaction before it stopped the old agent, so
+# this launch takes neither the lock nor the claim again.
+SPAWN_RELAUNCH_POOL_SLOT=0
+if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" != 1 ] &&
+  [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] &&
+  fm_treehouse_pool_slot "$PROJ_ABS" "$RELAUNCH_WT"; then
+  SPAWN_RELAUNCH_POOL_SLOT=1
+fi
+if { [ "$RELAUNCH" -eq 0 ] || [ "$SPAWN_RELAUNCH_POOL_SLOT" = 1 ]; } &&
+  [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   SPAWN_TREEHOUSE_PROJECT_LOCK=$(fm_treehouse_project_lock_path "$PROJ_ABS") || {
     echo "error: could not resolve the shared Treehouse project lock for $PROJ_ABS" >&2
     exit 1
@@ -3135,6 +3182,11 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ];
     exit 1
   fi
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=1
+  if [ "$SPAWN_RELAUNCH_POOL_SLOT" = 1 ]; then
+    fm_treehouse_relaunch_reclaim_slot "$RELAUNCH_WT" "$ID" "$STATE" "$DATA" || exit 1
+    SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
+    fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK" || true
+  fi
 fi
 [ -f "$BRIEF" ] || {
   echo "error: task $ID has no brief at inaccessible data path $BRIEF" >&2
@@ -3435,6 +3487,133 @@ validate_spawn_worktree() { # <source> <inspect-target>
   fi
 }
 
+# Whether a task record still names <resolved-worktree> as its task's local
+# copy, through its worktree= or (for a secondmate record) its home=, the same
+# two fields bin/fm-teardown.sh's shared-copy scan reads. This fork deviates from upstream here (issue #947, 3cfdaeb9/53e7b4e5):
+# upstream lets a `dead` endpoint read (only shells, or missing outright)
+# reclaim the slot, but a record whose worker died is not a finished record -
+# a paused task whose worker died still owns its copy, and its later relaunch
+# would then land in another task's copy. So any surviving record naming the
+# copy seizes it, whatever its endpoint reads and even with no endpoint target;
+# the liveness read (`alive`, `dead`, `unknown`, or `none` when the record has
+# no target) only fills the refusal message. A remote task's record names
+# remote paths and a remote endpoint, so it is never evidence against a local
+# slot. On a seizing record the task id, endpoint target, and liveness read
+# are left in SPAWN_SEIZED_* for the refusal message.
+SPAWN_SEIZED_TASK=
+SPAWN_SEIZED_ENDPOINT=
+SPAWN_SEIZED_STATE=
+spawn_meta_seizes_worktree() { # <meta-file> <resolved-worktree>
+  local meta=$1 wt_real=$2 field recorded_wt named=0 backend target agent_alive
+  SPAWN_SEIZED_TASK=
+  for field in worktree home; do
+    recorded_wt=$(fm_meta_get "$meta" "$field")
+    if [ -n "$recorded_wt" ] && [ "$(real_path_or_raw "$recorded_wt")" = "$wt_real" ]; then
+      named=1
+      break
+    fi
+  done
+  [ "$named" = 1 ] || return 1
+  grep -q '^remote_host=.' "$meta" 2>/dev/null && return 1
+  backend=$(fm_backend_of_meta "$meta")
+  target=$(fm_backend_target_of_meta "$meta")
+  if [ -n "$target" ]; then
+    agent_alive=$(fm_backend_agent_alive "$backend" "$target" 2>/dev/null || printf 'unknown\n')
+  else
+    agent_alive=none
+  fi
+  SPAWN_SEIZED_TASK=$(basename "$meta" .meta)
+  SPAWN_SEIZED_ENDPOINT=${target:-none}
+  SPAWN_SEIZED_STATE=$agent_alive
+  return 0
+}
+
+# Close the pane this spawn opened for `treehouse get` and stop, after any
+# refusal in spawn_refuse_seized_worktree: the seized-record refusal and the
+# claim leg's two (an unreadable claim, a claim with no home= to inspect).
+# Upstream's guard exits with the pane left open, because spawn_abort_cleanup
+# closes a pane only once a slot was claimed; this fork closes it here. No task
+# record exists and the slot was never
+# claimed, so nothing else (teardown, the watcher, spawn_abort_cleanup's
+# claimed-slot branch) will ever learn the pane is orphaned. The slot itself
+# is never returned and its claim never touched: it belongs to the record that
+# names it. Closing the pane ends the shell's process lease, so the next
+# `treehouse get` may hand out the same copy and refuse again, by name, until
+# that record is cleaned up or relaunched.
+spawn_seized_refusal_exit() {
+  local zellij_tab=
+  [ "${BACKEND:-}" != zellij ] || zellij_tab=${ZELLIJ_TAB_ID:-}
+  if [ -n "${T:-}" ] && [ -n "${BACKEND:-}" ] &&
+    fm_backend_kill "$BACKEND" "$T" "$zellij_tab" "fm-$ID" 2>/dev/null; then
+    SPAWN_ENDPOINT_CLOSED=1
+  fi
+  exit 1
+}
+
+# Refuse the worktree `treehouse get` resolved to when another task's record
+# still names it, whatever that task's endpoint reads (see
+# spawn_meta_seizes_worktree for this fork's deviation from upstream). A slot
+# lease is pid-based, so a host crash plus a backend resume under new pids
+# frees every live task's slot at once and `treehouse get` can hand one live
+# task's slot to the next spawn (issue #947); neither the pane settle nor the
+# isolation guard can see that, because a seized slot IS a real isolated
+# worktree. Every state/*.meta whose recorded worktree resolves to the same
+# path is checked. A pool slot's owner claim is then read as evidence, never
+# as the answer: its task= is home-scoped (a foreign task can collide on this
+# spawn's own id), so only a claim whose home= resolves outside this home
+# leads to one more record worth checking, in that home's state dir. A claim
+# that cannot be read as a claim, or that names a task without a home to
+# inspect, cannot prove the slot free and the claim step below would overwrite
+# it - the same fail-closed call bin/fm-teardown.sh makes on a slot claim it
+# cannot prove, so the spawn refuses there too. This runs before the slot is
+# claimed or its base is freshened, so a refusal can neither strip the live
+# task's claim nor reset its checkout.
+spawn_refuse_seized_worktree() { # <worktree> <inspect-target>
+  local worktree=$1 inspect_target=$2 wt_real meta claimed_meta marker
+  wt_real=$(real_path_or_raw "$worktree")
+  for meta in "$STATE"/*.meta; do
+    [ -f "$meta" ] && [ ! -L "$meta" ] || continue
+    # Only ANOTHER task's record can seize the copy: this task's own record,
+    # if one survives, is the claim step's to replace, not a rival occupant.
+    [ "$(basename "$meta" .meta)" != "$ID" ] || continue
+    spawn_meta_seizes_worktree "$meta" "$wt_real" && break
+  done
+  if [ -z "$SPAWN_SEIZED_TASK" ] && fm_treehouse_pool_slot "$PROJ_ABS" "$worktree"; then
+    fm_treehouse_slot_owner_state "$worktree" "$ID"
+    case "$FM_TREEHOUSE_SLOT_OWNER" in
+      absent) ;;
+      unsafe)
+        # A marker that is not a plain file reaches the claim step below,
+        # which refuses it on its own terms; this refusal exists for the plain
+        # file whose contents cannot be read as a claim, which that step would
+        # otherwise silently overwrite.
+        marker=$(fm_treehouse_slot_owner_marker "$worktree" 2>/dev/null || printf 'beside %s\n' "$worktree")
+        if [ -f "$marker" ] && [ ! -L "$marker" ]; then
+          echo "error: treehouse get returned '$worktree', but its pool slot carries an owner claim that cannot be read as a claim (a plain file with task= and home= lines at $marker), so the slot cannot be proved free of another task; refusing to seize it. Inspect or repair the claim, or re-pin the pool's stale leases; inspect window $inspect_target" >&2
+          spawn_seized_refusal_exit
+        fi
+        ;;
+      *)
+        if [ -z "$FM_TREEHOUSE_SLOT_OWNER_HOME" ]; then
+          marker=$(fm_treehouse_slot_owner_marker "$worktree" 2>/dev/null || printf 'beside %s\n' "$worktree")
+          echo "error: treehouse get returned '$worktree', but its pool slot's owner claim names task $FM_TREEHOUSE_SLOT_OWNER_ID without a home= to inspect it under ($marker), so the slot cannot be proved free of another task; refusing to seize it. Inspect or repair the claim, or re-pin the pool's stale leases; inspect window $inspect_target" >&2
+          spawn_seized_refusal_exit
+        fi
+        if [ "$(real_path_or_raw "$FM_TREEHOUSE_SLOT_OWNER_HOME")" != "$(real_path_or_raw "$FM_HOME")" ]; then
+          claimed_meta=$FM_TREEHOUSE_SLOT_OWNER_HOME/state/$FM_TREEHOUSE_SLOT_OWNER_ID.meta
+          if [ -f "$claimed_meta" ] && [ ! -L "$claimed_meta" ]; then
+            spawn_meta_seizes_worktree "$claimed_meta" "$wt_real" || true
+          fi
+        fi
+        ;;
+    esac
+  fi
+  if [ -n "$SPAWN_SEIZED_TASK" ]; then
+    echo "error: treehouse get returned '$worktree', but task $SPAWN_SEIZED_TASK still records it as its worktree and its recorded endpoint $SPAWN_SEIZED_ENDPOINT reads '$SPAWN_SEIZED_STATE'; refusing to seize another task's worktree. Re-pin the pool's stale leases (treehouse get --lease on the free slots matching live tasks' recorded worktrees), or tear down or relaunch $SPAWN_SEIZED_TASK first; inspect window $inspect_target" >&2
+    spawn_seized_refusal_exit
+  fi
+}
+
 # A pooled slot whose only deviation is a submodule gitlink is stale, not dirty:
 # an earlier refresh moved the superproject and left the submodule checkout on
 # the pin the previous base recorded. The refusal still stands and this gate
@@ -3682,18 +3861,25 @@ if [ "$RELAUNCH" -eq 1 ]; then
     T=$RELAUNCH_TARGET
     WT_TARGET=$T
     SES=${T%%:*}
-  else
+  elif [ "$BACKEND" = tmux ]; then
     # The recorded endpoint is authoritatively gone, so there is nothing to
     # adopt: create ONE fresh endpoint for the same task, opened directly in the
     # recorded worktree. The record published below writes window= (and herdr's
     # ids) from these values, which is the whole rebind - the task id, brief,
     # worktree, armed poll and status log are untouched.
     #
-    # Herdr is the ONLY backend that reaches here: the gate above rebinds only
-    # on a PROVEN-gone endpoint, and absence is provable only on herdr, whose
-    # every read is scoped to the session the record names
-    # (fm_control_endpoint_absence_verdict owns that argument). tmux and every
-    # secondmate were already refused, so there is no dispatch left to make.
+    # Only tmux and herdr reach a rebind: the gate above rebinds only on a
+    # PROVEN-gone endpoint, absence is provable only on those two
+    # (fm_control_endpoint_absence_verdict owns that argument), and every
+    # secondmate was already refused. A tmux task keeps its backend: one
+    # window named fm-<id> in this home's tmux session, its working directory
+    # the recorded worktree rather than the project.
+    SES=$(fm_backend_tmux_container_ensure "$STATE")
+    T="$SES:$W"
+    WID=$(fm_backend_tmux_create_task "$SES" "$W" "$WT") || exit 1
+    WT_TARGET="$WID"
+  else
+    # The herdr rebind (see the tmux branch above for what a rebind is).
     #
     # This deliberately uses the FLAT container shape rather than Herdr's
     # presentation projection: projection is a presentation-only layout that is
@@ -3757,7 +3943,7 @@ EOF
 else
   case "$BACKEND" in
   tmux)
-    SES=$(fm_backend_tmux_container_ensure)
+    SES=$(fm_backend_tmux_container_ensure "$STATE")
     T="$SES:$W"
     # #134 robustness (tmux): fm_backend_tmux_create_task captures a stable window
     # id and pins the window name (automatic-rename/allow-rename off) so a captain's
@@ -4424,6 +4610,13 @@ elif [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ]; then
   fi
 
   validate_spawn_worktree "treehouse get" "$T"
+
+  # A stale Treehouse lease can hand this spawn a slot a live task still
+  # occupies: the pane-settle and isolation screens above cannot tell a seized
+  # slot from a free one, so only this fleet's own task records can - and the
+  # refusal must run before the claim and the freshen below, which would
+  # otherwise overwrite the live task's claim and reset its checkout.
+  spawn_refuse_seized_worktree "$WT" "$T"
 
   # Claim the pool slot for this task. The interactive `treehouse get` sent to
   # the pane above records only a process lease (Treehouse's durable

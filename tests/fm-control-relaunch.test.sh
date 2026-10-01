@@ -59,6 +59,12 @@ make_tmux_stub() {  # <dir>
 #!/usr/bin/env bash
 set -u
 D=$FM_FAKE_DIR
+# A socket named with -S addresses the one fake server; it answers only while
+# that server runs.
+if [ "${1:-}" = -S ]; then
+  shift 2
+  [ ! -f "$D/server-dead" ] || exit 1
+fi
 case "${1:-}" in
   send-keys)
     shift
@@ -76,6 +82,14 @@ case "${1:-}" in
         ". '"*"'") staged=${payload#". '"}; staged=${staged%"'"}; [ ! -f "$staged" ] || payload=$(cat "$staged") ;;
       esac
       printf '%s\n' "$payload" >> "$D/literal"
+      if [ -n "${FM_FAKE_LOCK_PROBE:-}" ]; then
+        probe=free
+        { [ ! -e "$FM_FAKE_LOCK_PROBE" ] && [ ! -L "$FM_FAKE_LOCK_PROBE" ]; } || probe=held
+        case "$payload" in
+          /exit|/quit) printf 'stop:%s\n' "$probe" >> "$D/lock-probe" ;;
+          *'Firstmate operational input waiting: read'*) printf 'launch:%s\n' "$probe" >> "$D/lock-probe" ;;
+        esac
+      fi
       case "$payload" in
         /exit|/quit)
           if [ -n "${FM_FAKE_EXIT_TRANSPORT_FAIL_STOPS_AFTER_READS:-}" ]; then
@@ -108,6 +122,12 @@ case "${1:-}" in
   display-message)
     for a in "$@"; do
       case "$a" in
+        *'#{pid}'*)
+          [ ! -f "$D/server-dead" ] || exit 1
+          out=${a//'#{pid}'/$(cat "$D/server-pid" 2>/dev/null || printf 2)}
+          out=${out//'#{start_time}'/$(cat "$D/server-start" 2>/dev/null || printf 1)}
+          printf '%s\n' "${out//'#{socket_path}'/$D/tmux.sock}"
+          exit 0 ;;
         *cursor_y*) printf '1\n'; exit 0 ;;
         *pane_current_command*)
           if [ -f "$D/stop-countdown" ]; then
@@ -154,9 +174,12 @@ case "${1:-}" in
       exit 1
     fi
     [ -f "$D/windows" ] && cat "$D/windows"; exit 0 ;;
+  list-clients) [ ! -f "$D/clients" ] || cat "$D/clients"; exit 0 ;;
+  has-session|list-sessions) [ ! -f "$D/server-dead" ] || exit 1; exit 0 ;;
   new-session)
     # Nothing in the relaunch path may ever create a session; recording the
-    # call is how a refusal test proves that.
+    # call is how a refusal test proves that. Creating one on a dead server
+    # starts the fake server, which the fake ps then shows under its pid.
     shift
     ses=
     while [ $# -gt 0 ]; do
@@ -166,6 +189,12 @@ case "${1:-}" in
       esac
     done
     printf '%s\n' "$ses" >> "$D/created-sessions"
+    if [ -f "$D/server-dead" ]; then
+      rm -f "$D/server-dead"
+      printf '4242' > "$D/server-pid"
+      date +%s > "$D/server-start"
+      printf started > "$D/ps-mode"
+    fi
     exit 0 ;;
   new-window)
     # Model the one thing an endpoint re-creation depends on: the window now
@@ -173,21 +202,52 @@ case "${1:-}" in
     # answering `missing`. Echo a stable window id the way the real -P -F does.
     shift
     name=
+    cwd=
     while [ $# -gt 0 ]; do
       case "$1" in
         -n) name=${2:-}; shift 2 ;;
-        -c|-t) shift 2 ;;
+        -c) cwd=${2:-}; shift 2 ;;
+        -t) shift 2 ;;
         *) shift ;;
       esac
     done
     printf '%s\n' "$name" >> "$D/windows"
     printf '%s\n' "$name" >> "$D/created-windows"
+    printf '%s\n' "$cwd" >> "$D/created-window-cwds"
     printf '@9\n'
     exit 0 ;;
 esac
 exit 0
 SH
   chmod +x "$fb/tmux"
+  # The tmux absence proof reads this user's process table (`ps -u <uid> -o
+  # pid= -o comm=` and `-o pid= -o args=`). Only that read shape is faked, from
+  # $D/ps-mode: `tmux` (the default) shows a running tmux server, `none` shows
+  # no tmux process, `started` shows the server the fake new-session started
+  # (plus any lines in $D/ps-extra), `empty` prints nothing, `fail` fails.
+  # Every other ps call goes to the real ps, since the tmux backend reads
+  # process state through it too.
+  cat > "$fb/ps" <<SH
+#!/usr/bin/env bash
+case "\$*" in
+  "-u "*" -o pid= -o comm="|"-u "*" -o pid= -o args=")
+    mode=\$(cat "\$FM_FAKE_DIR/ps-mode" 2>/dev/null || printf tmux)
+    case "\$mode" in
+      tmux) printf '%s\\n' '1 bash' '2 tmux: server' ;;
+      none) printf '%s\\n' '1 bash' '3 claude' ;;
+      started)
+        printf '%s\\n' '1 bash' "\$(cat "\$FM_FAKE_DIR/server-pid") tmux: server"
+        cat "\$FM_FAKE_DIR/ps-extra" 2>/dev/null
+        ;;
+      empty) ;;
+      fail) exit 1 ;;
+    esac
+    exit 0
+    ;;
+esac
+exec $(command -v ps) "\$@"
+SH
+  chmod +x "$fb/ps"
   cat > "$fb/sleep" <<'SH'
 #!/usr/bin/env bash
 [ -z "${FM_FAKE_LOCK_WAITING:-}" ] || : > "$FM_FAKE_LOCK_WAITING"
@@ -210,10 +270,10 @@ new_case() {
   printf '%s\n' "$dir"
 }
 
-# add_ship_task <case-dir> <id> [harness] [session]
+# add_ship_task <case-dir> <id> [harness] [session] [worktree]
 add_ship_task() {
   local dir=$1 id=$2 harness=${3:-claude} ses=${4:-fmses}
-  local home="$dir/home" proj="$dir/proj" wt="$dir/wt"
+  local home="$dir/home" proj="$dir/proj" wt=${5:-$dir/wt}
   fm_git_worktree "$proj" "$wt" "task-$id"
   mkdir -p "$home/data/$id"
   cat > "$home/data/$id/brief.md" <<EOF
@@ -250,7 +310,8 @@ run_control() {  # <case-dir> <args...>
   # without it this suite would write the developer's real ~/.claude.json.
   mkdir -p "$dir/user-home"
   env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
-    -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
+    -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID -u TMUX \
+    ${FM_FAKE_SEAT_TMUX:+"TMUX=$FM_FAKE_SEAT_TMUX"} \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
@@ -273,7 +334,7 @@ run_spawn() {  # <case-dir> <args...>
   # without it this suite would write the developer's real ~/.claude.json.
   mkdir -p "$dir/user-home"
   env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
-    -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
+    -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID -u TMUX \
     PATH="$dir/fakebin:$PATH" FM_HOME="$dir/home" FM_FAKE_DIR="$dir/fake" \
     HOME="$dir/user-home" CLAUDE_CONFIG_DIR='' \
     FM_SPAWN_NO_GUARD=1 GROK_HOME="$dir/grokhome" \
@@ -1964,12 +2025,16 @@ strand_endpoint() {  # <case-dir> <id>
   : > "$1/fake/windows"
 }
 
-# Every tmux `missing` refuses on BOTH verbs, whatever produced it. tmux is the
-# one verified backend whose absence cannot be proven from a task record: the
-# record carries no socket identity for the endpoint, and any inventory
-# describes only the server this process happens to address. So a window that
-# is merely on a server this seat cannot reach is indistinguishable from one
-# that was destroyed, and neither verb will guess.
+# While any tmux process runs for this user (the fake ps's default) and this
+# home has recorded no started server, every tmux `missing` refuses on BOTH
+# verbs, whatever produced it: the record carries no
+# socket identity for the endpoint, and any inventory describes only the server
+# this process happens to address. So a window that is merely on a server this
+# seat cannot reach is indistinguishable from one that was destroyed, and
+# neither verb will guess. With no tmux process at all, absence is proven
+# (test_tmux_exit_proves_absence_from_the_process_table), and so it is against
+# the server this home started and recorded
+# (test_tmux_reclaims_two_tasks_in_sequence_after_a_restart).
 assert_tmux_missing_refuses() {  # <case-dir> <id> <what-was-staged>
   local dir=$1 id=$2 what=$3 out rc brief_before
 
@@ -2025,6 +2090,67 @@ test_tmux_refuses_when_the_server_is_gone() {
   : > "$dir/fake/server-dead"
   assert_tmux_missing_refuses "$dir" rl62 "no tmux server on this socket"
   pass "tmux: a dead server on this socket refuses both verbs rather than proving absence"
+}
+
+# A tmux window can be proven gone from the other side: when no tmux process
+# runs for this user at all, no server anywhere can hold it. Each of the three
+# definitive missing shapes above then reads `gone` on both verbs, while a
+# running tmux process, or a process read that fails or prints nothing, still
+# refuses and says which.
+test_tmux_exit_proves_absence_from_the_process_table() {
+  local dir out rc mode
+  dir=$(new_case tmux-ps-gone rl64)
+  add_ship_task "$dir" rl64 claude
+  : > "$dir/fake/server-dead"
+  printf none > "$dir/fake/ps-mode"
+  out=$(run_control "$dir" rl64 exit); rc=$?
+  expect_code 0 "$rc" "exit should report a tmux endpoint gone when no tmux process runs"$'\n'"$out"
+  assert_contains "$out" "endpoint-gone" "exit should name the proven-gone endpoint"
+  [ ! -s "$dir/fake/literal" ] || fail "exit sent keys to an endpoint it proved gone"
+
+  for mode in tmux empty fail; do
+    dir=$(new_case "tmux-ps-$mode" rl65)
+    add_ship_task "$dir" rl65 claude
+    : > "$dir/fake/server-dead"
+    printf '%s' "$mode" > "$dir/fake/ps-mode"
+    out=$(run_control "$dir" rl65 exit); rc=$?
+    expect_code 1 "$rc" "exit must refuse when the process table read is '$mode'"$'\n'"$out"
+    assert_not_contains "$out" "endpoint-gone" "exit must not report a stop it cannot prove ($mode)"
+    case "$mode" in
+      tmux) assert_contains "$out" "while a tmux process runs" "the refusal should name the running tmux process" ;;
+      *) assert_contains "$out" "failed or printed nothing" "the refusal should name the failed process read ($mode)" ;;
+    esac
+  done
+  pass "tmux: exit proves absence only from a successful process read showing no tmux process"
+}
+
+test_tmux_relaunch_rebinds_a_proven_gone_window_in_the_recorded_copy() {
+  local dir out rc brief_before status_before
+  dir=$(new_case tmux-rebind rl66)
+  add_ship_task "$dir" rl66 claude
+  strand_endpoint "$dir" rl66
+  printf none > "$dir/fake/ps-mode"
+  printf 'working [at=1]: before the restart\n' > "$dir/home/state/rl66.status"
+  brief_before=$(cat "$dir/home/data/rl66/brief.md")
+  status_before=$(cat "$dir/home/state/rl66.status")
+  out=$(run_spawn "$dir" rl66 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "relaunch should rebind a tmux task whose window is proven gone"$'\n'"$out"
+  assert_equals "fm-rl66" "$(cat "$dir/fake/created-windows" 2>/dev/null)" \
+    "relaunch did not create exactly the task's window"
+  assert_equals "$dir/wt" "$(cat "$dir/fake/created-window-cwds" 2>/dev/null)" \
+    "the re-created window did not open in the recorded worktree"
+  # The new window lives in this home's tmux session, which need not be the
+  # recorded one; the record follows it.
+  case "$(meta_field "$dir" rl66 window)" in
+    *:fm-rl66) ;;
+    *) fail "the record did not republish window= for the new window, got '$(meta_field "$dir" rl66 window)'" ;;
+  esac
+  [ "$(meta_field "$dir" rl66 worktree)" = "$dir/wt" ] || fail "the rebind moved the task's worktree"
+  [ "$(cat "$dir/home/data/rl66/brief.md")" = "$brief_before" ] || fail "the rebind changed the instructions"
+  [ "$(cat "$dir/home/state/rl66.status")" = "$status_before" ] || fail "the rebind changed the status log"
+  assert_equals "task-rl66" "$(git -C "$dir/wt" branch --show-current)" "the rebind moved the task's branch"
+  assert_grep "Firstmate operational input waiting: read" "$dir/fake/literal" "the replacement was not launched"
+  pass "tmux: relaunch re-creates a proven-gone window in the recorded copy and republishes its endpoint"
 }
 
 test_reclaim_refuses_an_unreadable_endpoint() {
@@ -2565,6 +2691,321 @@ test_spawn_relaunch_keeps_its_early_meta_lock_continuous
 test_spawn_relaunch_refuses_a_pending_authoritative_close
 # config/claude-worker-settings.json (bin/fm-spawn.sh header) must reach a
 # relaunched claude agent exactly as it reaches a fresh spawn.
+# --- relaunch re-asserts its claim on a pool copy ---------------------------
+#
+# A relaunch reuses the task's recorded copy, so when that copy is a Treehouse
+# pool slot the relaunch takes the project lock and re-claims it for the task
+# now running in it. Without that, a claim written by a scout that later took
+# the slot while this task was paused kept naming the scout, and cleanup of the
+# two records refused each other.
+
+# add_pool_ship_task <case-dir> <id>: a ship task whose recorded copy is a
+# pool-shaped slot at <case>/pool/1/wt, with its agent stopped.
+add_pool_ship_task() {  # <case-dir> <id>
+  local dir=$1 id=$2
+  mkdir -p "$dir/pool"
+  add_ship_task "$dir" "$id" claude fmses "$dir/pool/1/wt"
+  printf '{}\n' > "$dir/pool/treehouse-state.json"
+  printf 'zsh' > "$dir/fake/command"
+}
+
+pool_claim() {  # <case-dir>
+  cat "$1/pool/1/.fm-slot-owner" 2>/dev/null
+}
+
+# add_claimant_scout <case-dir> <id> <report:yes|no> [backend]: a scout record
+# naming no copy of its own, whose endpoint window is absent (reads dead)
+# unless the backend cannot classify it.
+add_claimant_scout() {  # <case-dir> <id> <report> [backend]
+  local dir=$1 id=$2 report=$3 backend=${4:-tmux}
+  fm_write_meta "$dir/home/state/$id.meta" \
+    "window=fmses:fm-$id" "endpoint_task_id=$id" \
+    "worktree=$dir/scout-gone" "project=$dir/proj" "kind=scout" "backend=$backend"
+  if [ "$report" = yes ]; then
+    mkdir -p "$dir/home/data/$id"
+    printf '# Report\nFindings.\n' > "$dir/home/data/$id/report.md"
+  fi
+}
+
+test_relaunch_claims_an_unclaimed_pool_copy() {
+  local dir out rc
+  dir=$(new_case pool-claim-absent rl70)
+  add_pool_ship_task "$dir" rl70
+  out=$(FM_FAKE_LOCK_PROBE="$(project_lock_path "$dir")" run_spawn "$dir" rl70 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "relaunch into an unclaimed pool copy should succeed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl70" "relaunch did not claim its pool copy"
+  assert_contains "$(pool_claim "$dir")" "home=$dir/home" "relaunch did not record its home in the claim"
+  assert_equals "launch:free" "$(cat "$dir/fake/lock-probe" 2>/dev/null)" \
+    "a direct relaunch must release the project lock once its copy is claimed"
+  pass "fm-spawn --relaunch: an unclaimed pool copy is claimed for the relaunched task"
+}
+
+test_relaunch_reclaims_a_copy_from_a_finished_scout() {
+  local dir out rc
+  dir=$(new_case pool-claim-scout rl71)
+  add_pool_ship_task "$dir" rl71
+  add_claimant_scout "$dir" scout71 yes
+  printf 'task=scout71\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  out=$(run_spawn "$dir" rl71 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "relaunch should re-claim a copy a finished scout claimed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl71" "relaunch did not re-claim the copy from the finished scout"
+  assert_contains "$out" "finished scout scout71" "relaunch did not name the replaced claimant"
+  dir=$(new_case pool-control-claim-scout rl78)
+  add_pool_ship_task "$dir" rl78
+  add_claimant_scout "$dir" scout78 yes
+  printf 'task=scout78\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  out=$(run_control "$dir" rl78 relaunch --note "resume after the scout"); rc=$?
+  expect_code 0 "$rc" "an fm-control relaunch should re-claim a copy a finished scout claimed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl78" "the fm-control relaunch did not re-claim the copy from the finished scout"
+  assert_contains "$out" "finished scout scout78" "the fm-control relaunch did not name the replaced claimant"
+  pass "relaunch: a copy claimed by a finished scout is re-claimed with one line naming it, directly and through fm-control"
+}
+
+test_relaunch_refuses_a_copy_another_task_holds() {
+  local dir out rc case_name claimant
+  for case_name in ship noreport unknown; do
+    dir=$(new_case "pool-claim-$case_name" rl72)
+    add_pool_ship_task "$dir" rl72
+    claimant="claimant-$case_name"
+    case "$case_name" in
+      ship)
+        fm_write_meta "$dir/home/state/$claimant.meta" \
+          "window=fmses:fm-$claimant" "endpoint_task_id=$claimant" \
+          "worktree=$dir/elsewhere" "project=$dir/proj" "kind=ship"
+        ;;
+      noreport) add_claimant_scout "$dir" "$claimant" no ;;
+      unknown) add_claimant_scout "$dir" "$claimant" yes zellij ;;
+    esac
+    printf 'task=%s\nhome=%s\n' "$claimant" "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+    out=$(run_spawn "$dir" rl72 --relaunch --harness claude); rc=$?
+    expect_code 1 "$rc" "relaunch into a copy claimed by an unfinished task should refuse ($case_name)"$'\n'"$out"
+    assert_contains "$out" "$claimant" "the refusal should name the claimant ($case_name)"
+    assert_contains "$(pool_claim "$dir")" "task=$claimant" "a refused relaunch rewrote the claim ($case_name)"
+    [ ! -s "$dir/fake/literal" ] || fail "a refused relaunch launched an agent ($case_name)"
+  done
+  # A claimant record that cannot be found is never a finished scout.
+  dir=$(new_case pool-claim-unknown-record rl73)
+  add_pool_ship_task "$dir" rl73
+  printf 'task=vanished\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  out=$(run_spawn "$dir" rl73 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "relaunch into a copy claimed by a task with no record should refuse"$'\n'"$out"
+  assert_contains "$out" "record not found" "the refusal should say the claimant's record is missing"
+  pass "fm-spawn --relaunch: a copy claimed by a ship, a scout without a report, an unclassifiable scout, or an unknown task refuses"
+}
+
+# hold_project_lock <case-dir>: take the case project's Treehouse project lock
+# in a background holder, and set HOLDER to its pid once the lock is held.
+hold_project_lock() {  # <case-dir>
+  local dir=$1 lock waited=0
+  lock=$(FM_HOME="$dir/home" bash -c '. "$1"; fm_treehouse_project_lock_path "$2"' _ \
+    "$ROOT/bin/fm-wake-lib.sh" "$dir/proj") || fail "could not resolve the project lock"
+  FM_HOME="$dir/home" bash -c \
+    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec /bin/sleep 30' _ \
+    "$ROOT/bin/fm-wake-lib.sh" "$lock" "$dir/lock-held" &
+  # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
+  HOLDER=$!
+  while [ ! -e "$dir/lock-held" ] && [ "$waited" -lt 100 ]; do
+    kill -0 "$HOLDER" 2>/dev/null || break
+    /bin/sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ -e "$dir/lock-held" ] || fail "the holder never took the project lock"
+}
+
+release_project_lock() {
+  kill "$HOLDER" 2>/dev/null || true
+  wait "$HOLDER" 2>/dev/null || true
+}
+
+test_relaunch_refuses_while_the_project_lock_is_held() {
+  local dir out rc
+  dir=$(new_case pool-claim-lock rl74)
+  add_pool_ship_task "$dir" rl74
+  hold_project_lock "$dir"
+  out=$(run_spawn "$dir" rl74 --relaunch --harness claude); rc=$?
+  release_project_lock
+  expect_code 1 "$rc" "relaunch should refuse while the project lock is held"$'\n'"$out"
+  assert_contains "$out" "another Treehouse slot allocation or return is in progress" \
+    "the refusal should use the fresh-spawn lock text"
+  [ ! -s "$dir/fake/literal" ] || fail "a lock-refused relaunch launched an agent"
+  [ -z "$(pool_claim "$dir")" ] || fail "a lock-refused relaunch wrote a claim"
+  pass "fm-spawn --relaunch: a held Treehouse project lock refuses a pool-copy relaunch"
+}
+
+# project_lock_path <case-dir>: the case project's Treehouse project lock.
+project_lock_path() {  # <case-dir>
+  FM_HOME="$1/home" bash -c '. "$1"; fm_treehouse_project_lock_path "$2"' _ \
+    "$ROOT/bin/fm-wake-lib.sh" "$1/proj"
+}
+
+# fm-control re-asserts the claim under the project lock before it stops the
+# old agent and releases the lock as soon as the claim is written, so neither
+# the stop nor the launch it delegates to fm-spawn holds up another spawn,
+# teardown, or relaunch in the project.
+test_control_relaunch_releases_the_project_lock_once_the_copy_is_claimed() {
+  local dir out rc lock
+  dir=$(new_case pool-control-lock rl75)
+  add_pool_ship_task "$dir" rl75
+  printf 'claude' > "$dir/fake/command"
+  lock=$(project_lock_path "$dir") || fail "could not resolve the project lock"
+  out=$(FM_FAKE_LOCK_PROBE="$lock" run_control "$dir" rl75 relaunch --note "resume in the pool copy"); rc=$?
+  expect_code 0 "$rc" "an fm-control relaunch into a pool copy should succeed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl75" "the relaunch did not claim its pool copy"
+  assert_grep "Firstmate operational input waiting: read" "$dir/fake/literal" "the replacement was not launched"
+  assert_equals $'stop:free\nlaunch:free' "$(cat "$dir/fake/lock-probe" 2>/dev/null)" \
+    "the project lock must be released once the copy is claimed, before the stop and the launch"
+  pass "fm-control relaunch: the project lock is released as soon as the copy is claimed"
+}
+
+# A copy another unfinished task holds refuses while the old agent still runs,
+# so the task is left working rather than stopped and stranded.
+test_control_relaunch_refuses_a_held_copy_before_stopping_the_agent() {
+  local dir out rc brief_before
+  dir=$(new_case pool-control-claim-held rl77)
+  add_pool_ship_task "$dir" rl77
+  printf 'claude' > "$dir/fake/command"
+  fm_write_meta "$dir/home/state/holder77.meta" \
+    "window=fmses:fm-holder77" "endpoint_task_id=holder77" \
+    "worktree=$dir/elsewhere" "project=$dir/proj" "kind=ship"
+  printf 'task=holder77\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  brief_before=$(cat "$dir/home/data/rl77/brief.md")
+  out=$(run_control "$dir" rl77 relaunch --note "should not land"); rc=$?
+  expect_code 1 "$rc" "an fm-control relaunch into a copy another task holds should refuse"$'\n'"$out"
+  assert_contains "$out" "holder77" "the refusal should name the claimant"
+  assert_no_grep "/exit" "$dir/fake/literal" "a claim-refused relaunch stopped the old agent"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a claim-refused relaunch left no agent running"
+  [ "$(cat "$dir/home/data/rl77/brief.md")" = "$brief_before" ] || fail "a claim-refused relaunch changed the instructions"
+  assert_contains "$(pool_claim "$dir")" "task=holder77" "a claim-refused relaunch rewrote the claim"
+  hold_project_lock "$dir"
+  release_project_lock
+  pass "fm-control relaunch: a copy another task holds refuses before the old agent is stopped"
+}
+
+test_control_relaunch_refuses_a_held_project_lock_before_stopping_the_agent() {
+  local dir out rc brief_before
+  dir=$(new_case pool-control-lock-held rl76)
+  add_pool_ship_task "$dir" rl76
+  printf 'claude' > "$dir/fake/command"
+  brief_before=$(cat "$dir/home/data/rl76/brief.md")
+  hold_project_lock "$dir"
+  out=$(run_control "$dir" rl76 relaunch --note "should not land"); rc=$?
+  release_project_lock
+  expect_code 1 "$rc" "an fm-control relaunch should refuse while the project lock is held"$'\n'"$out"
+  assert_contains "$out" "another Treehouse slot allocation or return is in progress" \
+    "the refusal should use the fresh-spawn lock text"
+  assert_no_grep "/exit" "$dir/fake/literal" "a lock-refused relaunch stopped the old agent"
+  [ "$(cat "$dir/fake/command")" = claude ] || fail "a lock-refused relaunch left no agent running"
+  [ "$(cat "$dir/home/data/rl76/brief.md")" = "$brief_before" ] || fail "a lock-refused relaunch changed the instructions"
+  [ -z "$(pool_claim "$dir")" ] || fail "a lock-refused relaunch wrote a claim"
+  pass "fm-control relaunch: a held project lock refuses before the old agent is stopped"
+}
+
+# After a host restart takes every tmux window with its server, the first
+# reclaim proves absence from an empty process table and starts a server. That
+# server is then the only tmux process, and the next reclaim proves its own
+# window gone against it - but only while it is the recorded server, started
+# after the task's record was spawned, and no other tmux process runs.
+test_tmux_reclaims_two_tasks_in_sequence_after_a_restart() {
+  local dir out rc id
+  dir=$(new_case tmux-two-reclaims rt1)
+  add_ship_task "$dir" rt1 claude fmses "$dir/wt"
+  add_ship_task "$dir" rt2 claude fmses "$dir/wt2" >/dev/null 2>&1
+  add_ship_task "$dir" rt3 claude fmses "$dir/wt3" >/dev/null 2>&1
+  for id in rt1 rt2; do
+    printf 'spawn_gen=s1000000000.1.1\n' >> "$dir/home/state/$id.meta"
+  done
+  printf 'spawn_gen=s9999999999.1.1\n' >> "$dir/home/state/rt3.meta"
+  : > "$dir/fake/windows"
+  : > "$dir/fake/server-dead"
+  printf none > "$dir/fake/ps-mode"
+
+  printf '%s' "$dir/wt" > "$dir/fake/cwd"
+  out=$(run_control "$dir" rt1 relaunch --note "after the restart"); rc=$?
+  expect_code 0 "$rc" "the first reclaim after a restart should rebind"$'\n'"$out"
+  assert_equals "firstmate" "$(cat "$dir/fake/created-sessions" 2>/dev/null)" \
+    "the first reclaim should start exactly one tmux session"
+  assert_contains "$(cat "$dir/home/state/tmux-started-server" 2>/dev/null)" "pid=4242" \
+    "the first reclaim did not record the server it started"
+
+  # A task spawned after that server started cannot be judged against it.
+  printf '%s' "$dir/wt3" > "$dir/fake/cwd"
+  out=$(run_control "$dir" rt3 relaunch --note "spawned after the server"); rc=$?
+  expect_code 1 "$rc" "a task spawned after the recorded server started must refuse"$'\n'"$out"
+  assert_contains "$out" "pid 4242" "the refusal should name the unaccounted server"
+
+  # Any other tmux process keeps the proof refusing.
+  printf '777 tmux: server\n' > "$dir/fake/ps-extra"
+  printf '%s' "$dir/wt2" > "$dir/fake/cwd"
+  out=$(run_control "$dir" rt2 relaunch --note "after the restart"); rc=$?
+  expect_code 1 "$rc" "a second tmux server must keep the reclaim refusing"$'\n'"$out"
+  assert_contains "$out" "pid 777" "the refusal should name the foreign tmux process"
+
+  # An operator seat attached to the recorded server runs inside tmux: its
+  # client is accounted for through that server's own socket.
+  printf '555 tmux: client\n' > "$dir/fake/ps-extra"
+  printf '555\n' > "$dir/fake/clients"
+  out=$(FM_FAKE_SEAT_TMUX="$dir/fake/tmux.sock,4242,0" run_control "$dir" rt2 relaunch --note "after the restart"); rc=$?
+  expect_code 0 "$rc" "the second reclaim should be proven against the recorded server"$'\n'"$out"
+  assert_equals "firstmate" "$(cat "$dir/fake/created-sessions")" \
+    "the second reclaim must reuse the recorded server, not start another"
+  assert_equals $'fm-rt1\nfm-rt2' "$(cat "$dir/fake/created-windows")" \
+    "each reclaim should create exactly its own window"
+  [ "$(meta_field "$dir" rt1 window)" = "firstmate:fm-rt1" ] || fail "rt1's record did not rebind"
+  case "$(meta_field "$dir" rt2 window)" in
+    *:fm-rt2) ;;
+    *) fail "rt2's record did not rebind, got '$(meta_field "$dir" rt2 window)'" ;;
+  esac
+  [ "$(meta_field "$dir" rt3 window)" = "fmses:fm-rt3" ] || fail "the refused rt3 record moved"
+  pass "tmux: two tasks are reclaimed in sequence after a restart, against the server the first one recorded"
+}
+
+# The first tmux server after a restart need not come from a reclaim: a fresh
+# spawn dispatched first starts it, and records it the same way, so the tasks
+# whose windows the restart took are still reclaimed one after another.
+test_tmux_reclaims_after_a_fresh_spawn_started_the_server() {
+  local dir out rc id
+  dir=$(new_case tmux-spawn-first ru1)
+  add_ship_task "$dir" ru1 claude fmses "$dir/wt"
+  add_ship_task "$dir" ru2 claude fmses "$dir/wt2" >/dev/null 2>&1
+  for id in ru1 ru2; do
+    printf 'spawn_gen=s1000000000.1.1\n' >> "$dir/home/state/$id.meta"
+  done
+  git -C "$dir/proj" worktree add --quiet --detach "$dir/wtx" >/dev/null 2>&1 \
+    || fail "could not create the fresh spawn's copy"
+  mkdir -p "$dir/home/data/rux"
+  cat > "$dir/home/data/rux/brief.md" <<EOF
+# Task
+## Captain's intent
+Look around after the restart.
+
+## Firstmate spec
+Report what changed.
+EOF
+  : > "$dir/fake/windows"
+  : > "$dir/fake/server-dead"
+  printf none > "$dir/fake/ps-mode"
+
+  printf '%s' "$dir/wtx" > "$dir/fake/cwd"
+  out=$(run_spawn "$dir" rux "$dir/proj" --scout --harness claude); rc=$?
+  expect_code 0 "$rc" "a fresh spawn after the restart should start the tmux server"$'\n'"$out"
+  assert_equals "firstmate" "$(cat "$dir/fake/created-sessions" 2>/dev/null)" \
+    "the fresh spawn should start exactly one tmux session"
+  assert_contains "$(cat "$dir/home/state/tmux-started-server" 2>/dev/null)" "pid=4242" \
+    "the fresh spawn did not record the server it started"
+
+  for id in ru1 ru2; do
+    case "$id" in ru1) printf '%s' "$dir/wt" ;; ru2) printf '%s' "$dir/wt2" ;; esac > "$dir/fake/cwd"
+    out=$(run_control "$dir" "$id" relaunch --note "after the restart"); rc=$?
+    expect_code 0 "$rc" "$id should be reclaimed against the server the fresh spawn started"$'\n'"$out"
+    [ "$(meta_field "$dir" "$id" window)" = "firstmate:fm-$id" ] || fail "$id's record did not rebind"
+  done
+  assert_equals "firstmate" "$(cat "$dir/fake/created-sessions")" \
+    "the reclaims must reuse the fresh spawn's server, not start another"
+  assert_equals $'fm-rux\nfm-ru1\nfm-ru2' "$(cat "$dir/fake/created-windows")" \
+    "each spawn and reclaim should create exactly its own window"
+  pass "tmux: after a restart, tasks are reclaimed against the server a fresh spawn started first"
+}
+
 test_relaunch_carries_claude_worker_settings() {
   local dir out rc
   dir=$(new_case worker-settings rl50)
@@ -2587,6 +3028,8 @@ test_spawn_relaunch_refuses_a_pane_outside_the_worktree
 test_tmux_refuses_a_window_missing_from_its_session
 test_tmux_refuses_a_session_that_cannot_be_found
 test_tmux_refuses_when_the_server_is_gone
+test_tmux_exit_proves_absence_from_the_process_table
+test_tmux_relaunch_rebinds_a_proven_gone_window_in_the_recorded_copy
 test_reclaim_refuses_an_unreadable_endpoint
 test_herdr_relaunch_resumes_only_the_registered_pi_session
 test_herdr_reclaim_adopts_a_pane_that_outlived_its_server
@@ -2599,3 +3042,12 @@ test_herdr_rebind_failure_from_a_plain_shell_names_the_real_cause
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight
 test_relaunch_carries_claude_worker_settings
+test_relaunch_claims_an_unclaimed_pool_copy
+test_relaunch_reclaims_a_copy_from_a_finished_scout
+test_relaunch_refuses_a_copy_another_task_holds
+test_relaunch_refuses_while_the_project_lock_is_held
+test_control_relaunch_releases_the_project_lock_once_the_copy_is_claimed
+test_control_relaunch_refuses_a_held_copy_before_stopping_the_agent
+test_control_relaunch_refuses_a_held_project_lock_before_stopping_the_agent
+test_tmux_reclaims_two_tasks_in_sequence_after_a_restart
+test_tmux_reclaims_after_a_fresh_spawn_started_the_server

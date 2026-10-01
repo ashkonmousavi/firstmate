@@ -340,6 +340,16 @@ seed_env() {
 }
 
 REAL_GIT=$(command -v git)
+# A held clone stops inside git's post-checkout hook, which git runs before the
+# clone exits, so the hold is reached however fast the clone is and the staged
+# copy is still owned by a live clone while the test races it.
+mkdir -p "$TMP_ROOT/clone-hold-hooks"
+cat > "$TMP_ROOT/clone-hold-hooks/post-checkout" <<SH
+#!/usr/bin/env bash
+touch "$TMP_ROOT/race-clone.held"
+while [ ! -f "$TMP_ROOT/race-clone.release" ] && [ -d "$TMP_ROOT" ]; do sleep 0.02; done
+SH
+chmod +x "$TMP_ROOT/clone-hold-hooks/post-checkout"
 cat > "$FAKEBIN/git" <<SH
 #!/usr/bin/env bash
 if [ "\${1:-}" = clone ]; then
@@ -355,27 +365,7 @@ if [ "\${1:-}" = clone ]; then
 fi
 if [ "\${1:-}" = clone ] && [ -n "\${FM_FAKE_CLONE_HOLD_DIR:-}" ] \
   && [ "\$(dirname "\${!#}")" = "\$FM_FAKE_CLONE_HOLD_DIR" ]; then
-  hold_dest="\${!#}"
-  "$REAL_GIT" "\$@" &
-  hold_git=\$!
-  hold_state() { ps -o stat= -p "\$hold_git" 2>/dev/null | tr -d '[:space:]'; }
-  while [ ! -d "\$hold_dest/.git/objects" ]; do
-    case "\$(hold_state)" in ''|Z*) wait "\$hold_git"; exit \$? ;; esac
-    sleep 0.005
-  done
-  kill -STOP "\$hold_git" 2>/dev/null || true
-  while :; do
-    case "\$(hold_state)" in
-      T*) break ;;
-      ''|Z*) wait "\$hold_git"; exit \$? ;;
-    esac
-    sleep 0.005
-  done
-  touch "$TMP_ROOT/race-clone.held"
-  while [ ! -f "$TMP_ROOT/race-clone.release" ] && [ -d "$TMP_ROOT" ]; do sleep 0.02; done
-  kill -CONT "\$hold_git" 2>/dev/null || true
-  wait "\$hold_git"
-  exit \$?
+  exec "$REAL_GIT" -c core.hooksPath="$TMP_ROOT/clone-hold-hooks" "\$@"
 fi
 exec "$REAL_GIT" "\$@"
 SH

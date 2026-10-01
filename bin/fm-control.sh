@@ -40,30 +40,31 @@
 #              `missing` is put through the control plane's per-backend absence
 #              proof (fm_control_endpoint_absence_verdict) before anything is
 #              claimed about it, because `missing` also covers an endpoint that
-#              is merely unreachable from this seat. That proof exists only on
-#              HERDR, whose reads are scoped to the session the record names:
-#              proven gone reports `endpoint-gone` rather than
+#              is merely unreachable from this seat (HERDR rereads the session
+#              the record names; tmux is gone only when no tmux process runs
+#              for this user beyond the server this home started and recorded
+#              and its clients). Proven gone reports `endpoint-gone` rather than
 #              `already-stopped`, because the endpoint this verb normally
 #              preserves did not survive; a pane that turns out to be there and
 #              idle is the ordinary `already-stopped`; one whose agent is back
-#              takes the ordinary interrupt-then-exit path. A tmux `missing`
-#              always REFUSES: a task record carries no socket identity for its
-#              endpoint, so this verb cannot tell a destroyed window from one on
-#              a tmux server it cannot address, and it will not claim a stop it
-#              cannot see.
+#              takes the ordinary interrupt-then-exit path. An endpoint whose
+#              absence is not proven REFUSES: this verb will not claim a stop
+#              it cannot see.
 #   relaunch   Transactionally replace the running agent with a new one, in the
 #              SAME worktree - and the same endpoint whenever that endpoint
 #              still exists - on the same or a newly chosen
 #              harness/model/effort - so switching harness is one ordinary use
 #              of this verb. When the recorded endpoint is instead proven gone -
-#              a Herdr pane or workspace destroyed in churn - the launch owner
-#              re-creates one in that worktree, in the herdr session the record
-#              names, and the task's record rebinds to it; that is how a task
-#              whose terminal was destroyed is reclaimed by the home that owns
-#              it, rather than being stranded with a parked approval nobody can
-#              answer. Reclaim is HERDR-ONLY for the reason `exit` gives above:
-#              a tmux `missing` cannot be proven absent from a task record, so
-#              it refuses.
+#              a Herdr pane or workspace destroyed in churn, or a tmux window
+#              with no tmux left running for this user but the server this
+#              home started and recorded - the launch owner
+#              re-creates one in that worktree (herdr in the session the record
+#              names, tmux in this home's session), and the task's record
+#              rebinds to it; that is how a task whose terminal was destroyed
+#              is reclaimed by the home that owns it, rather than being
+#              stranded with a parked approval nobody can answer. An endpoint
+#              whose absence is not proven refuses, for the reason `exit`
+#              gives above.
 #              An explicit `default` model or effort clears that
 #              axis for the replacement. With no explicit axis, a secondmate
 #              re-resolves its durable config/secondmate-harness pin (harness
@@ -84,8 +85,13 @@
 #              standing charter is never rewritten.
 #              Records a durable checkpoint and that note, exits the old agent,
 #              then delegates the launch to its single owner,
-#              bin/fm-spawn.sh --relaunch. A failure before publication keeps
-#              the prior durable record in place and reports the concrete
+#              bin/fm-spawn.sh --relaunch. A ship or scout in a Treehouse pool
+#              slot first has its slot claim re-asserted here under the project
+#              lock, which is released as soon as the claim is written, so a
+#              contended lock or a copy another task holds refuses while the
+#              old agent runs; that launch takes neither again. A
+#              failure before publication keeps the prior durable record in
+#              place and reports the concrete
 #              state; it never leaves a half-transitioned task claiming to be
 #              running.
 #
@@ -204,6 +210,8 @@ die() {  # <message>
 
 CONTROL_LOCK=
 CONTROL_LOCK_HELD=0
+PROJECT_LOCK=
+PROJECT_LOCK_HELD=0
 RELAUNCH_ACTIVE=0
 RELAUNCH_PHASE=start
 
@@ -212,6 +220,10 @@ control_cleanup() {
   if [ "$RELAUNCH_ACTIVE" = 1 ] \
      && declare -F relaunch_rollback >/dev/null 2>&1; then
     relaunch_rollback || true
+  fi
+  if [ "$PROJECT_LOCK_HELD" = 1 ]; then
+    PROJECT_LOCK_HELD=0
+    fm_lock_release "$PROJECT_LOCK" || true
   fi
   if [ "$CONTROL_LOCK_HELD" = 1 ]; then
     CONTROL_LOCK_HELD=0
@@ -604,7 +616,7 @@ do_exit() {
       # "destroyed" with "unreachable from this seat". Route it through the
       # control plane's one absence proof - the same one the relaunch gate uses
       # - and report what that proof actually established, never more.
-      absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T")
+      absence=$(fm_control_endpoint_absence_verdict "$BACKEND" "$T" "$META")
       case "${absence%%$'\t'*}" in
         gone)
           # Proven gone, so the agent that lived in it went with it: exit's
@@ -1019,7 +1031,7 @@ record_note() {
 }
 
 do_relaunch() {
-  local exit_result state note_line
+  local exit_result state note_line project
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -1042,6 +1054,26 @@ do_relaunch() {
       die "task $ID records kind '$KIND', which has no defined relaunch shape"
       ;;
   esac
+
+  # A ship or scout in a Treehouse pool slot has its slot claim re-asserted
+  # (bin/fm-wake-lib.sh's fm_treehouse_relaunch_reclaim_slot) under the project
+  # lock before the old agent is stopped, so a contended lock or a copy another
+  # task holds refuses while that agent still runs. The lock is released as soon
+  # as the claim is written; the launch delegated to bin/fm-spawn.sh does not
+  # take either again.
+  if [ "$KIND" != secondmate ]; then
+    project=$(fm_meta_get "$META" project)
+    if [ -n "$project" ] && fm_treehouse_pool_slot "$project" "$WT"; then
+      PROJECT_LOCK=$(fm_treehouse_project_lock_path "$project") \
+        || die "could not resolve the shared Treehouse project lock for $project"
+      fm_lock_try_acquire "$PROJECT_LOCK" \
+        || die "another Treehouse slot allocation or return is in progress for $project; refusing to race it"
+      PROJECT_LOCK_HELD=1
+      fm_treehouse_relaunch_reclaim_slot "$WT" "$ID" "$STATE" "$DATA" || exit 1
+      PROJECT_LOCK_HELD=0
+      fm_lock_release "$PROJECT_LOCK" || true
+    fi
+  fi
 
   if [ -n "$NOTE" ]; then
     note_line="note_file=$NOTE_FILE"

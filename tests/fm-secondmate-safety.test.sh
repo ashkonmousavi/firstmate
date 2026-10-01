@@ -2055,6 +2055,25 @@ EOF
   grep -F 'kill-window' "$log" >/dev/null && fail "forced secondmate teardown killed a child before detecting its slot collision"
   grep -F 'live-child' "$err" >/dev/null || grep -F 'stale-child' "$err" >/dev/null \
     || fail "forced secondmate teardown did not identify the duplicated child slot"
+
+  # A child's own teardown reads its claim first, but a forced retirement has
+  # no inspection of a child's copy to fall back on, so the child sites keep
+  # scan-first: the shared copy still refuses even when the claim names a
+  # third task and so reads as another task's for both children.
+  printf 'task=other-claimant\nhome=%s\n' "$home" \
+    > "$TMP_ROOT/force-duplicate-slot-pool/1/.fm-slot-owner"
+  : > "$log"
+  set +e
+  PATH="$fakebin:$PATH" FM_HOME="$home" FM_FAKE_TMUX_LOG="$log" \
+    FM_FAKE_TMUX_CAPTURE="$TMP_ROOT/force-duplicate-slot-fake/pane.txt" \
+    "$ROOT/bin/fm-teardown.sh" domain --force >/dev/null 2>"$err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "forced secondmate teardown returned a duplicated child slot claimed by a third task"
+  [ -e "$subhome/state/stale-child.meta" ] || fail "claimed duplicate: forced teardown removed the stale child record"
+  [ -e "$subhome/state/live-child.meta" ] || fail "claimed duplicate: forced teardown removed the live child record"
+  grep -F 'kill-window' "$log" >/dev/null && fail "claimed duplicate: forced teardown killed a child before refusing"
+  grep -F 'REFUSED' "$err" >/dev/null || fail "claimed duplicate: forced teardown did not refuse the shared child copy"
   pass "forced secondmate teardown refuses duplicated descendant pool slots"
 }
 

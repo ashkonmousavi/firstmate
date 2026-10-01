@@ -433,6 +433,18 @@ finish_concurrent_expected_abort() {  # <id> <status> <stdout> <stderr>
   fi
 }
 
+# A recovery that cannot take the named session lock within its bounded wait
+# refuses before it reclaims or opens anything, so it is re-run once its peer
+# has finished and released the lock; any other failure fails the case.
+retry_recovery_after_lock_refusal() {  # <id> <home> <project> <status> <stdout> <stderr>
+  local id=$1 home=$2 project=$3 status=$4 out=$5 err=$6
+  [ "$status" -ne 0 ] || return 0
+  grep -F "herdr presentation recovery could not acquire its session lock" "$err" >/dev/null 2>&1 \
+    || fail "concurrent recovery of $id failed: $(cat "$err")"
+  spawn_task "$id" "$home" "$project" > "$out" 2> "$err" \
+    || fail "recovery of $id failed after its peer released the session lock: $(cat "$err")"
+}
+
 spawn_secondmate_task() {
   local id=$1 home=$2
   FM_GATE_REFUSE_BYPASS=1 FM_SPAWN_NO_GUARD=1 FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
@@ -509,6 +521,7 @@ assert_no_projection_mutation_since() {  # <line-count> <case-name>
 HOME_DIR="$TMP_ROOT/home"
 PROJECT_DIR="$TMP_ROOT/project"
 RECOVERY_PROJECT_DIR="$TMP_ROOT/recovery-project"
+RECOVERY_BRAVO_PROJECT_DIR="$TMP_ROOT/recovery-project-bravo"
 mkdir -p "$HOME_DIR/state" "$HOME_DIR/config" \
   "$HOME_DIR/data/anchor" "$HOME_DIR/data/shape" \
   "$HOME_DIR/data/order-a" "$HOME_DIR/data/order-b" \
@@ -534,6 +547,7 @@ write_ship_brief "$HOME_DIR" lock-contended 'Projection lock contention fixture.
 write_ship_brief "$HOME_DIR" default-on 'Projection default-on fixture.'
 make_project "$PROJECT_DIR"
 make_project "$RECOVERY_PROJECT_DIR"
+make_project "$RECOVERY_BRAVO_PROJECT_DIR"
 
 # Keep one ordinary primary task live so the durable firstmate workspace is
 # first and remains present while disposable workers are projected around it.
@@ -1297,7 +1311,10 @@ teardown_task "$CROSS_RESTART_ID" "$SECOND_HOME_A" > "$TMP_ROOT/cross-restart-te
 pass "real Herdr lab: secondmate restart binding and reclaim stay isolated to the exact child home and parent"
 
 # Two homes recovering concurrently serialize on the named session lock and
-# each replace only their own exact husk.
+# each replace only their own exact husk. Each home recovers in its own project:
+# a restart frees both old copies in a shared pool while their records still
+# name them, so either re-spawn could be handed the other's copy and refused by
+# bin/fm-spawn.sh's seized-worktree guard after its husk was already replaced.
 PRIMARY_WAVE_ID=resume-wave-primary
 BRAVO_WAVE_ID=resume-wave-bravo
 mkdir -p "$HOME_DIR/data/$PRIMARY_WAVE_ID" "$SECOND_HOME_B/data/$BRAVO_WAVE_ID"
@@ -1305,7 +1322,7 @@ write_ship_brief "$HOME_DIR" "$PRIMARY_WAVE_ID" 'Concurrent primary recovery fix
 write_ship_brief "$SECOND_HOME_B" "$BRAVO_WAVE_ID" 'Concurrent secondmate recovery fixture.'
 spawn_task "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/primary-wave-first.out" 2> "$TMP_ROOT/primary-wave-first.err" \
   || fail "primary recovery-wave fixture failed: $(cat "$TMP_ROOT/primary-wave-first.err")"
-spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-first.out" 2> "$TMP_ROOT/bravo-wave-first.err" \
+spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_BRAVO_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-first.out" 2> "$TMP_ROOT/bravo-wave-first.err" \
   || fail "secondmate recovery-wave fixture failed: $(cat "$TMP_ROOT/bravo-wave-first.err")"
 PRIMARY_WAVE_META="$HOME_DIR/state/$PRIMARY_WAVE_ID.meta"
 BRAVO_WAVE_META="$SECOND_HOME_B/state/$BRAVO_WAVE_ID.meta"
@@ -1322,10 +1339,16 @@ PATH="$HERDR_ORIGINAL_PATH" "$HERDR_LAB_HELPER" provision "$HERDR_LAB_SESSION" \
 CONCURRENT_RECOVERY_FOCUS=$(focus_snapshot)
 spawn_task "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/primary-wave-resume.out" 2> "$TMP_ROOT/primary-wave-resume.err" &
 PRIMARY_WAVE_PID=$!
-spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-resume.out" 2> "$TMP_ROOT/bravo-wave-resume.err" &
+spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_BRAVO_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-resume.out" 2> "$TMP_ROOT/bravo-wave-resume.err" &
 BRAVO_WAVE_PID=$!
-wait "$PRIMARY_WAVE_PID" || fail "concurrent primary recovery failed: $(cat "$TMP_ROOT/primary-wave-resume.err")"
-wait "$BRAVO_WAVE_PID" || fail "concurrent secondmate recovery failed: $(cat "$TMP_ROOT/bravo-wave-resume.err")"
+PRIMARY_WAVE_STATUS=0
+wait "$PRIMARY_WAVE_PID" || PRIMARY_WAVE_STATUS=$?
+BRAVO_WAVE_STATUS=0
+wait "$BRAVO_WAVE_PID" || BRAVO_WAVE_STATUS=$?
+retry_recovery_after_lock_refusal "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" "$PRIMARY_WAVE_STATUS" \
+  "$TMP_ROOT/primary-wave-resume.out" "$TMP_ROOT/primary-wave-resume.err"
+retry_recovery_after_lock_refusal "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_BRAVO_PROJECT_DIR" "$BRAVO_WAVE_STATUS" \
+  "$TMP_ROOT/bravo-wave-resume.out" "$TMP_ROOT/bravo-wave-resume.err"
 PRIMARY_WAVE_NEW_WT=$(remember_meta_worktree "$PRIMARY_WAVE_META")
 BRAVO_WAVE_NEW_WT=$(remember_meta_worktree "$BRAVO_WAVE_META")
 PRIMARY_WAVE_NEW_PANE=$(grep '^herdr_pane_id=' "$PRIMARY_WAVE_META" | cut -d= -f2-)
