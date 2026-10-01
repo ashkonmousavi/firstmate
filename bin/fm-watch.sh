@@ -88,7 +88,10 @@
 #                          a Claude worker's PermissionRequest hook marked a
 #                          dialog waiting on a human; surfaced once per marker
 #                          ahead of every pause, captain-held, and busy absorb
-#                          (prompt_waiting_check owns it)
+#                          (prompt_waiting_check owns it); also a stale pane
+#                          whose backend reports its agent waiting on a human
+#                          under a not-yet-reached paused-until, on the pause
+#                          cadence (surface_nonterminal_stale)
 #   stale: <window> (steering-inbox ladder bookkeeping unwritable: ...)
 #                          an unhandled record's ladder cannot advance; quiet
 #                          successful attempts never wake firstmate
@@ -120,6 +123,12 @@
 #                          source owned closes that episode); the queued
 #                          payload names what to check. These three kinds are
 #                          joined with `;` when more than one surfaces in a cycle
+#   check: push fast-path lost for <backend>:<session> (<why>); polling every <n>s
+#                          a failed capability probe or the runtime disable
+#                          after FM_EVENT_CAP_FAIL_MAX event-path failures left
+#                          this watcher polling only; queued once per fallback
+#                          episode, which a working event wait closes
+#                          (push_fallback_wake owns the episode marker)
 #   check: rejected unauthenticated state checks: <paths>
 #                          unsafe state checks were refused without execution
 #   check: rejected unauthenticated PR poll retirement receipts: <paths>
@@ -2213,8 +2222,9 @@ captain_call_stale_bound() {  # <window-key> <task>
 # above): the status line the worker declared, and the backlog hold firstmate
 # recorded once the captain took the work in hand.
 surface_nonterminal_stale() {  # <window> <hash>
-  local win=$1 h=$2 key task last declared=1 bounded=1 throttled=1 until now
+  local win=$1 h=$2 key task last declared=1 bounded=1 throttled=1 until now reason
   key=$(window_key "$win")
+  reason="stale: $win"
   task=$(window_to_task "$win" "$STATE")
   last=$(status_declared_wait_line "$STATE/$task.status")
   STALE_WAIT_DECLARATION=
@@ -2225,7 +2235,12 @@ surface_nonterminal_stale() {  # <window> <hash>
     if until=$(status_paused_until "$last"); then
       now=$(date +%s)
       if [ "$now" -lt "$until" ]; then
-        throttled=0
+        if fm_backend_question_waiting "$(window_backend "$win")" "$win"; then
+          reason="stale: $win (a permission or question prompt is waiting in the pane)"
+          stale_wait_throttled "$key" "$STALE_WAIT_DECLARATION" && throttled=0
+        else
+          throttled=0
+        fi
       else
         STALE_WAIT_DECLARATION="$STALE_WAIT_DECLARATION:due"
         stale_wait_throttled "$key" "$STALE_WAIT_DECLARATION" && throttled=0
@@ -2249,7 +2264,7 @@ surface_nonterminal_stale() {  # <window> <hash>
     bounded=0
   fi
   if [ "$throttled" -ne 0 ]; then
-    fm_wake_append stale "$win" "stale: $win" || exit 1
+    fm_wake_append stale "$win" "$reason" || exit 1
     stale_wait_record "$key"
   fi
   printf '%s' "$h" > "$STATE/.stale-$key"
@@ -2273,7 +2288,7 @@ surface_nonterminal_stale() {  # <window> <hash>
     triage_log "absorbed non-terminal stale (declared wait or open captain call already re-surfaced this window): $win"
     return 0
   fi
-  wake "stale: $win"
+  wake "$reason"
 }
 
 # Surface a permission or question prompt waiting in a worker pane. A Claude
@@ -2728,6 +2743,30 @@ heartbeat_scan_finds_actionable() {
 # loop is the permanent fail-closed backstop). This preserves the single live
 # supervision cycle: the reader is a short-lived subprocess of THIS watcher, not
 # a second watcher, so every guard/beacon/arm/turn-end mechanism is unchanged.
+#
+# A fallback to polling wakes firstmate once per episode: the episode marker
+# outlives this process, because every handled wake relaunches the watcher and
+# the relaunch re-probes, so an in-memory memo alone would re-wake on every
+# launch. The marker is written only after the wake was durably appended, and a
+# working event wait (rc 0 or 1) closes the episode.
+push_fallback_marker() {  # <backend:session>
+  printf '%s/.push-fallback-%s' "$STATE" "$(printf '%s' "$1" | tr ':/.' '___')"
+}
+
+push_fallback_wake() {  # <backend:session> <why>
+  local marker reason
+  marker=$(push_fallback_marker "$1")
+  [ ! -e "$marker" ] || return 0
+  reason="check: push fast-path lost for $1 ($2); polling every ${POLL}s"
+  fm_wake_append check "push-fallback:$1" "$reason" || exit 1
+  : > "$marker"
+  wake "$reason"
+}
+
+push_fallback_clear() {  # <backend:session>
+  rm -f "$(push_fallback_marker "$1")"
+}
+
 event_wait_or_sleep() {
   local w b session first_backend="" first_session="" rec rc wait_seconds
   wait_seconds=$(checkpoint_wait_budget "$POLL") || return 0
@@ -2758,8 +2797,9 @@ event_wait_or_sleep() {
 
   # Memoized capability probe (fm_backend_events_capable runs a heavy schema
   # read); re-probed only when the backend/session key changes.
-  # Either way the push path is lost, the triage log says so once, because the
-  # poll loop silently carrying on is otherwise indistinguishable from health.
+  # Either way the push path is lost, the triage log says so once and
+  # push_fallback_wake wakes firstmate once per episode, because the poll loop
+  # silently carrying on is otherwise indistinguishable from health.
   if [ "$_event_cap_key" != "$first_backend:$first_session" ]; then
     _event_cap_key="$first_backend:$first_session"
     if fm_backend_events_capable "$first_backend" "$first_session"; then
@@ -2767,6 +2807,7 @@ event_wait_or_sleep() {
     else
       _event_cap_ok=0
       triage_log "push fast-path unavailable for $first_backend session $first_session (capability probe failed); polling every ${POLL}s"
+      push_fallback_wake "$_event_cap_key" "capability probe failed"
     fi
     _event_cap_fails=0
   fi
@@ -2780,6 +2821,7 @@ event_wait_or_sleep() {
   case "$rc" in
     0)
       _event_cap_fails=0
+      push_fallback_clear "$_event_cap_key"
       handle_push_transition "$first_backend" "$first_session" "$rec"
       ;;
     2)
@@ -2790,6 +2832,7 @@ event_wait_or_sleep() {
       if [ "$_event_cap_fails" -ge "$EVENT_CAP_FAIL_MAX" ]; then
         _event_cap_ok=0
         triage_log "push fast-path disabled after $_event_cap_fails consecutive event-path failures for $first_backend session $first_session; polling every ${POLL}s for the rest of this watcher process"
+        push_fallback_wake "$_event_cap_key" "disabled after $_event_cap_fails consecutive event-path failures"
       fi
       wait_seconds=$(checkpoint_wait_budget "$wait_seconds") || return 0
       sleep "$wait_seconds"
@@ -2798,6 +2841,7 @@ event_wait_or_sleep() {
       # 1: a clean full-budget wait with no actionable edge - the reader already
       # blocked ~POLL, so just continue; the next cycle re-scans.
       _event_cap_fails=0
+      push_fallback_clear "$_event_cap_key"
       ;;
   esac
 }

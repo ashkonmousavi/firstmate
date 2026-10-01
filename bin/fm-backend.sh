@@ -905,6 +905,19 @@ fm_backend_busy_state() {  # <backend> <target>
   esac
 }
 
+# fm_backend_question_waiting: 0 when <backend> natively reports <target>'s
+# agent waiting on a human (a permission or question prompt on screen), whatever
+# the harness. Backends with no such primitive (tmux) report 1.
+fm_backend_question_waiting() {  # <backend> <target>
+  local backend=$1
+  shift
+  fm_backend_source "$backend" || return 1
+  case "$backend" in
+    herdr) fm_backend_herdr_question_waiting "$@" ;;
+    *) return 1 ;;
+  esac
+}
+
 # fm_backend_composer_state: classify the composer/input area of <target> as
 # empty|pending|pending-unproven|unknown for callers that need a pre-submit
 # input guard, a submit acknowledgement, or a launch-readiness check. It is

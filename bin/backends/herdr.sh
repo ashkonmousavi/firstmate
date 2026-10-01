@@ -3796,6 +3796,14 @@ fm_backend_herdr_busy_state() {  # <target>
   printf '%s' "$verdict"
 }
 
+# fm_backend_herdr_question_waiting: 0 when herdr's native agent-state reports
+# <target> `blocked`, an agent waiting on a human, for whichever harness it
+# detected. A passive read: it never starts the herdr server.
+fm_backend_herdr_question_waiting() {  # <target>
+  fm_backend_herdr_parse_target "$1" || return 1
+  [ "$(fm_backend_herdr_agent_status_raw "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")" = blocked ]
+}
+
 # fm_backend_herdr_wait_for_working: poll <session>:<pane_id>'s NATIVE
 # agent-state (agent get) up to <polls> times spread evenly across
 # <budget-seconds>, returning on stdout the STRONGEST signal observed:

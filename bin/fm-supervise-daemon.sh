@@ -1636,11 +1636,12 @@ handle_wake() {  # <reason> <state> [<wake-key>]
                    esac ;;
               esac
               # A permission or question prompt waiting on screen (bin/fm-watch.sh
-              # prompt_waiting_check) outranks even a declared wait: the
-              # declaration accounts for quiet, and nothing but an answer clears
-              # a question.
+              # prompt_waiting_check and surface_nonterminal_stale, or a herdr
+              # blocked push from bin/fm-push-transition-lib.sh) outranks even a
+              # declared wait: the declaration accounts for quiet, and nothing
+              # but an answer clears a question.
               case "$stale_detail" in
-                'a permission or question prompt is waiting in the pane'*)
+                'a permission or question prompt is waiting in the pane'*|'herdr: agent '*' - waiting on human'*)
                   decision="escalate|${reason#stale: }" ;;
               esac ;;
     check:*)  decision=$(classify_check "$reason") ;;

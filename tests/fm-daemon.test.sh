@@ -858,29 +858,33 @@ test_enriched_wedge_under_declared_wait_uses_pause_cadence() {
 }
 
 # The watcher surfaces a waiting permission or question prompt (a Claude
-# worker's PermissionRequest marker) ahead of any declared pause. In away mode
-# this daemon re-classifies that same wake, and a declared wait must not turn it
-# back into a silent pause: nobody else will answer the question on screen.
+# worker's PermissionRequest marker, or a herdr blocked push) ahead of any
+# declared pause. In away mode this daemon re-classifies that same wake, and a
+# declared wait must not turn it back into a silent pause: nobody else will
+# answer the question on screen.
 test_prompt_waiting_wake_escalates_through_a_declared_wait() {
-  local dir state fakebin task win pane reason
-  dir=$(make_supercase prompt-waiting-declared-wait)
-  state="$dir/state"; fakebin="$dir/fakebin"
-  task='prompt-waiting-w1'; win="sess:fm-$task"; pane="$dir/pane.txt"
-  fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
-  printf 'paused: 8 research agents running; resume when they report, until 2099-01-01T00:00Z\n' \
-    > "$state/$task.status"
-  printf ' Do you want to proceed?\n ❯ 1. Yes\n   2. No\n' > "$pane"
-  case "$(FM_STATE_OVERRIDE="$state" classify_stale "$win" "$state")" in
-    pause\|*) ;;
-    *) fail "the fixture's own classifier verdict is not a pause, so this case pins nothing about the override" ;;
-  esac
-  reason="stale: $win (a permission or question prompt is waiting in the pane)"
-  LOG="$dir/daemon.log" FM_STATE_OVERRIDE="$state" handle_wake "$reason" "$state"
-  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
-    FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 FM_PAUSE_RESURFACE_SECS=3600 \
-    housekeeping "$state"
-  grep -F 'a permission or question prompt is waiting in the pane' "$state/.subsuper-escalations" >/dev/null \
-    || fail "a waiting prompt under a declared wait was absorbed as a pause instead of escalated: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  local dir state fakebin task win pane detail n=0
+  for detail in 'a permission or question prompt is waiting in the pane' \
+    'herdr: agent blocked - waiting on human, escalated immediately, not via wedge timer'; do
+    n=$((n + 1))
+    dir=$(make_supercase "prompt-waiting-declared-wait-$n")
+    state="$dir/state"; fakebin="$dir/fakebin"
+    task='prompt-waiting-w1'; win="sess:fm-$task"; pane="$dir/pane.txt"
+    fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
+    printf 'paused: 8 research agents running; resume when they report, until 2099-01-01T00:00Z\n' \
+      > "$state/$task.status"
+    printf ' Do you want to proceed?\n ❯ 1. Yes\n   2. No\n' > "$pane"
+    case "$(FM_STATE_OVERRIDE="$state" classify_stale "$win" "$state")" in
+      pause\|*) ;;
+      *) fail "the fixture's own classifier verdict is not a pause, so this case pins nothing about the override" ;;
+    esac
+    LOG="$dir/daemon.log" FM_STATE_OVERRIDE="$state" handle_wake "stale: $win ($detail)" "$state"
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 FM_PAUSE_RESURFACE_SECS=3600 \
+      housekeeping "$state"
+    grep -F "$detail" "$state/.subsuper-escalations" >/dev/null \
+      || fail "'$detail' under a declared wait was absorbed as a pause instead of escalated: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
+  done
   pass "a waiting permission or question prompt escalates in away mode even under a declared wait"
 }
 
