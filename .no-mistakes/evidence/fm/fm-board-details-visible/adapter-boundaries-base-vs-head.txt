@@ -1,0 +1,60 @@
+=== A-note-only-release
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"\",\"note\":\"list all details wtf\",\"close\":\"release\"}",form,choice,"Choose scope -> list al
+  [base] answers:    sample-note-only | list all details wtf | Choose scope -> list all details wtf | release
+  [base] reconciles: 
+  [head] answers:    
+  [head] reconciles: sample-note-only | list all details wtf
+=== B-reconcile-plus-note
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"reconcile\",\"note\":\"check again\"}",form,choice,"Choose scope -> reconcile - check again"
+  [base] answers:    
+  [base] reconciles: sample-note-only | check again
+  [head] answers:    
+  [head] reconciles: sample-note-only | check again
+=== C-legacy-free-text
+  ctx: Context data:\n{\"question\":\"sample-note-only\",\"answer\":\"ship it\"}",form,choice,"Choose scope -> ship it"
+  [base] answers:    sample-note-only | ship it | Choose scope -> ship it
+  [base] reconciles: 
+  [head] answers:    sample-note-only | ship it | Choose scope -> ship it
+  [head] reconciles: 
+=== D-legacy-reconcile
+  ctx: Context data:\n{\"question\":\"sample-note-only\",\"answer\":\"reconcile\"}",form,choice,"Choose scope -> reconcile"
+  [base] answers:    
+  [base] reconciles: 
+  [head] answers:    
+  [head] reconciles: 
+=== E-empty-empty
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"\",\"note\":\"\"}",form,choice,"Choose scope -> "
+  [base] answers:    
+  [base] reconciles: 
+  [head] answers:    
+  [head] reconciles: 
+=== F-note-injects-row
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"\",\"note\":\"line one\\nsample-cred\\tready\"}",form,choice,"x"
+  [base] answers:    sample-note-only | line one sample-cred ready | x
+  [base] reconciles: 
+  [head] answers:    
+  [head] reconciles: sample-note-only | line one sample-cred ready
+=== G-untagged-message
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"\",\"note\":\"list all details wtf\"}",form,message,"x"
+  [base] answers:    
+  [base] reconciles: 
+  [head] answers:    
+  [head] reconciles: 
+=== H-later-deferral
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"later\",\"note\":\"\",\"close\":\"defer:2026-10-15\"}",form,choice,"Choose scope -> later"
+  [base] answers:    sample-note-only | later | Choose scope -> later | defer:2026-10-15
+  [base] reconciles: 
+  [head] answers:    sample-note-only | later | Choose scope -> later | defer:2026-10-15
+  [head] reconciles: 
+=== I-option-plus-note-done
+  ctx: Context data:\n{\"schema\":\"fm-bearings-answer.v1\",\"question\":\"sample-note-only\",\"selection\":\"wide\",\"note\":\"and creds\",\"close\":\"done\"}",form,choice,"Choose scope -> wide - and creds"
+  [base] answers:    sample-note-only | wide | Choose scope -> wide - and creds | done
+  [base] reconciles: 
+  [head] answers:    sample-note-only | wide | Choose scope -> wide - and creds | done
+  [head] reconciles: 
+=== R-real-live-capture
+  ctx: Context data:\n{\n  \"schema\": \"fm-bearings-answer.v1\",\n  \"question\": \"sample-note-only\",\n  \"selection\": \"\",\n  \"note\": \"list all details wtf\"\n}","div#bb-call > div:nth-of-type(1) > 
+  [base] answers:    sample-note-only | list all details wtf | Choose scope -> list all details wtf;sample-with-note | staged | Pick rollout -> staged - start with ring one
+  [base] reconciles: 
+  [head] answers:    sample-with-note | staged | Pick rollout -> staged - start with ring one
+  [head] reconciles: sample-note-only | list all details wtf

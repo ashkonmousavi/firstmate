@@ -1,0 +1,18 @@
+{"schema":"fm-bearings-board.v1","home":"fm-lab","generated":"2026-09-30T21:50Z","prs_live":false,
+ "captains_call":[
+  {"key":"sample-note-only","type":"decision","repo":"sample","title":"Choose scope",
+   "about":"Scope of the board fix","decide":"Choose whether to ship the narrow or wide scope",
+   "detail":"Narrow scope only renders detail on decision cards.\n- Wide scope also covers credential cards\n- Both keep merge cards unchanged <literal>",
+   "options":[{"value":"narrow","label":"Narrow","hint":"Only decision cards"},{"value":"wide","label":"Wide","hint":"Decision and credential cards"}],
+   "allow_freeform":true},
+  {"key":"sample-with-note","type":"decision","repo":"sample","title":"Pick rollout",
+   "about":"Rollout pacing","decide":"Pick now or staged",
+   "detail":"Staged rollout waits one day between rings.",
+   "options":[{"value":"now","label":"Ship now","hint":"Everything at once"},{"value":"staged","label":"Staged","hint":"One ring per day"}],
+   "allow_freeform":true},
+  {"key":"sample-cred","type":"credential","repo":"sample","title":"Sign in to provider",
+   "about":"Provider access","decide":"Choose when to sign in",
+   "detail":"Open the provider console.\nReturn here after signing in.",
+   "options":[{"value":"ready","label":"Ready","hint":"Access is available"}]}
+ ],
+ "underway":[],"landed":[],"charted":[],"charted_more":0,"charted_warning_more":0}

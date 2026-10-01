@@ -1,0 +1,12 @@
+## BEFORE send
+count: 3
+tasks[3]{id,state,kind,repo,title}:
+  sample-note-only,queued,captain,sample,Choose scope
+  sample-with-note,queued,captain,sample,Pick rollout
+  sample-cred,queued,captain,sample,Sign in to provider
+help[2]:
+  - Run `tasks-axi show <id>` for full notes on a task
+  - Run `tasks-axi ready` to see unblocked queued work
+reconcile-requests: 0
+SOURCE                       ADAPTER      OWNER      PENDING
+lavish-631aa1988a589d1d      lavish       live       0

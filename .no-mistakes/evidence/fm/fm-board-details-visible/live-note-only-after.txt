@@ -1,0 +1,63 @@
+## AFTER send (real Lavish UI -> armed process-event source -> keyed-answer intake)
+### wake queue
+1790830199	1	check	procevent:lavish-631aa1988a589d1d:1	check: procevent lavish lavish-631aa1988a589d1d 1
+### procevent
+SOURCE                       ADAPTER      OWNER      PENDING
+lavish-631aa1988a589d1d      lavish       none       1
+### tasks
+count: 3
+tasks[3]{id,state,kind,repo,title}:
+  sample-note-only,queued,captain,sample,Choose scope
+  sample-cred,queued,captain,sample,Sign in to provider
+  sample-with-note,done,captain,sample,Pick rollout
+help[2]:
+  - Run `tasks-axi show <id>` for full notes on a task
+  - Run `tasks-axi ready` to see unblocked queued work
+### show sample-note-only
+task:
+  id: sample-note-only
+  title: Choose scope
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: scope choice pending
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: 2026-09-30
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-01T04:48:15Z"
+### show sample-with-note
+task:
+  id: sample-with-note
+  title: Pick rollout
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: rollout choice pending
+  hold_kind: captain
+  hold_until: "-"
+  kind: captain
+  repo: sample
+  priority: "-"
+  created: "-"
+  closed: 2026-09-30
+  deps: none
+  links: none
+  body: "Resolution recorded by fm-captain-hold.\nDecision digest: de18b7096cddabc46b0e62d8b2dc64efe274772d362acf03d4fa6a4c52b21e40\nResolution mode: answered\n\nCaptain decision:\nCaptain answered this call through the captured result lavish-631aa1988a589d1d sequence 1.\nTask: sample-with-note\nAnswer: staged\nAnswer as shown to the captain: Pick rollout -> staged - start with ring one"
+### reconcile list
+sample-note-only	requested=2026-10-01T04:49:58Z	source=the captured result lavish-631aa1988a589d1d sequence 1; captain note: list all details wtf
+reconcile-requests: 1
+### request files
+-- /tmp/fm-lab.AlP4xD/state/reconcile-requests/sample-note-only.request
+schema=fm-reconcile-request.v1
+task=sample-note-only
+requested=2026-10-01T04:49:58Z
+source=the captured result lavish-631aa1988a589d1d sequence 1; captain note: list all details wtf
+
