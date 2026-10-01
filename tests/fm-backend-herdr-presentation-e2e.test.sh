@@ -433,6 +433,18 @@ finish_concurrent_expected_abort() {  # <id> <status> <stdout> <stderr>
   fi
 }
 
+# A recovery that cannot take the named session lock within its bounded wait
+# refuses before it reclaims or opens anything, so it is re-run once its peer
+# has finished and released the lock; any other failure fails the case.
+retry_recovery_after_lock_refusal() {  # <id> <home> <project> <status> <stdout> <stderr>
+  local id=$1 home=$2 project=$3 status=$4 out=$5 err=$6
+  [ "$status" -ne 0 ] || return 0
+  grep -F "herdr presentation recovery could not acquire its session lock" "$err" >/dev/null 2>&1 \
+    || fail "concurrent recovery of $id failed: $(cat "$err")"
+  spawn_task "$id" "$home" "$project" > "$out" 2> "$err" \
+    || fail "recovery of $id failed after its peer released the session lock: $(cat "$err")"
+}
+
 spawn_secondmate_task() {
   local id=$1 home=$2
   FM_GATE_REFUSE_BYPASS=1 FM_SPAWN_NO_GUARD=1 FM_HOME="$HOME_DIR" FM_ROOT_OVERRIDE="$ROOT" \
@@ -1329,8 +1341,14 @@ spawn_task "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/p
 PRIMARY_WAVE_PID=$!
 spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_BRAVO_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-resume.out" 2> "$TMP_ROOT/bravo-wave-resume.err" &
 BRAVO_WAVE_PID=$!
-wait "$PRIMARY_WAVE_PID" || fail "concurrent primary recovery failed: $(cat "$TMP_ROOT/primary-wave-resume.err")"
-wait "$BRAVO_WAVE_PID" || fail "concurrent secondmate recovery failed: $(cat "$TMP_ROOT/bravo-wave-resume.err")"
+PRIMARY_WAVE_STATUS=0
+wait "$PRIMARY_WAVE_PID" || PRIMARY_WAVE_STATUS=$?
+BRAVO_WAVE_STATUS=0
+wait "$BRAVO_WAVE_PID" || BRAVO_WAVE_STATUS=$?
+retry_recovery_after_lock_refusal "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" "$PRIMARY_WAVE_STATUS" \
+  "$TMP_ROOT/primary-wave-resume.out" "$TMP_ROOT/primary-wave-resume.err"
+retry_recovery_after_lock_refusal "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_BRAVO_PROJECT_DIR" "$BRAVO_WAVE_STATUS" \
+  "$TMP_ROOT/bravo-wave-resume.out" "$TMP_ROOT/bravo-wave-resume.err"
 PRIMARY_WAVE_NEW_WT=$(remember_meta_worktree "$PRIMARY_WAVE_META")
 BRAVO_WAVE_NEW_WT=$(remember_meta_worktree "$BRAVO_WAVE_META")
 PRIMARY_WAVE_NEW_PANE=$(grep '^herdr_pane_id=' "$PRIMARY_WAVE_META" | cut -d= -f2-)
