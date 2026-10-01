@@ -210,10 +210,10 @@ new_case() {
   printf '%s\n' "$dir"
 }
 
-# add_ship_task <case-dir> <id> [harness] [session]
+# add_ship_task <case-dir> <id> [harness] [session] [worktree]
 add_ship_task() {
   local dir=$1 id=$2 harness=${3:-claude} ses=${4:-fmses}
-  local home="$dir/home" proj="$dir/proj" wt="$dir/wt"
+  local home="$dir/home" proj="$dir/proj" wt=${5:-$dir/wt}
   fm_git_worktree "$proj" "$wt" "task-$id"
   mkdir -p "$home/data/$id"
   cat > "$home/data/$id/brief.md" <<EOF
@@ -2565,6 +2565,125 @@ test_spawn_relaunch_keeps_its_early_meta_lock_continuous
 test_spawn_relaunch_refuses_a_pending_authoritative_close
 # config/claude-worker-settings.json (bin/fm-spawn.sh header) must reach a
 # relaunched claude agent exactly as it reaches a fresh spawn.
+# --- relaunch re-asserts its claim on a pool copy ---------------------------
+#
+# A relaunch reuses the task's recorded copy, so when that copy is a Treehouse
+# pool slot the relaunch takes the project lock and re-claims it for the task
+# now running in it. Without that, a claim written by a scout that later took
+# the slot while this task was paused kept naming the scout, and cleanup of the
+# two records refused each other.
+
+# add_pool_ship_task <case-dir> <id>: a ship task whose recorded copy is a
+# pool-shaped slot at <case>/pool/1/wt, with its agent stopped.
+add_pool_ship_task() {  # <case-dir> <id>
+  local dir=$1 id=$2
+  mkdir -p "$dir/pool"
+  add_ship_task "$dir" "$id" claude fmses "$dir/pool/1/wt"
+  printf '{}\n' > "$dir/pool/treehouse-state.json"
+  printf 'zsh' > "$dir/fake/command"
+}
+
+pool_claim() {  # <case-dir>
+  cat "$1/pool/1/.fm-slot-owner" 2>/dev/null
+}
+
+# add_claimant_scout <case-dir> <id> <report:yes|no> [backend]: a scout record
+# naming no copy of its own, whose endpoint window is absent (reads dead)
+# unless the backend cannot classify it.
+add_claimant_scout() {  # <case-dir> <id> <report> [backend]
+  local dir=$1 id=$2 report=$3 backend=${4:-tmux}
+  fm_write_meta "$dir/home/state/$id.meta" \
+    "window=fmses:fm-$id" "endpoint_task_id=$id" \
+    "worktree=$dir/scout-gone" "project=$dir/proj" "kind=scout" "backend=$backend"
+  if [ "$report" = yes ]; then
+    mkdir -p "$dir/home/data/$id"
+    printf '# Report\nFindings.\n' > "$dir/home/data/$id/report.md"
+  fi
+}
+
+test_relaunch_claims_an_unclaimed_pool_copy() {
+  local dir out rc
+  dir=$(new_case pool-claim-absent rl70)
+  add_pool_ship_task "$dir" rl70
+  out=$(run_spawn "$dir" rl70 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "relaunch into an unclaimed pool copy should succeed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl70" "relaunch did not claim its pool copy"
+  assert_contains "$(pool_claim "$dir")" "home=$dir/home" "relaunch did not record its home in the claim"
+  pass "fm-spawn --relaunch: an unclaimed pool copy is claimed for the relaunched task"
+}
+
+test_relaunch_reclaims_a_copy_from_a_finished_scout() {
+  local dir out rc
+  dir=$(new_case pool-claim-scout rl71)
+  add_pool_ship_task "$dir" rl71
+  add_claimant_scout "$dir" scout71 yes
+  printf 'task=scout71\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  out=$(run_spawn "$dir" rl71 --relaunch --harness claude); rc=$?
+  expect_code 0 "$rc" "relaunch should re-claim a copy a finished scout claimed"$'\n'"$out"
+  assert_contains "$(pool_claim "$dir")" "task=rl71" "relaunch did not re-claim the copy from the finished scout"
+  assert_contains "$out" "finished scout scout71" "relaunch did not name the replaced claimant"
+  pass "fm-spawn --relaunch: a copy claimed by a finished scout is re-claimed with one line naming it"
+}
+
+test_relaunch_refuses_a_copy_another_task_holds() {
+  local dir out rc case_name claimant
+  for case_name in ship noreport unknown; do
+    dir=$(new_case "pool-claim-$case_name" rl72)
+    add_pool_ship_task "$dir" rl72
+    claimant="claimant-$case_name"
+    case "$case_name" in
+      ship)
+        fm_write_meta "$dir/home/state/$claimant.meta" \
+          "window=fmses:fm-$claimant" "endpoint_task_id=$claimant" \
+          "worktree=$dir/elsewhere" "project=$dir/proj" "kind=ship"
+        ;;
+      noreport) add_claimant_scout "$dir" "$claimant" no ;;
+      unknown) add_claimant_scout "$dir" "$claimant" yes zellij ;;
+    esac
+    printf 'task=%s\nhome=%s\n' "$claimant" "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+    out=$(run_spawn "$dir" rl72 --relaunch --harness claude); rc=$?
+    expect_code 1 "$rc" "relaunch into a copy claimed by an unfinished task should refuse ($case_name)"$'\n'"$out"
+    assert_contains "$out" "$claimant" "the refusal should name the claimant ($case_name)"
+    assert_contains "$(pool_claim "$dir")" "task=$claimant" "a refused relaunch rewrote the claim ($case_name)"
+    [ ! -s "$dir/fake/literal" ] || fail "a refused relaunch launched an agent ($case_name)"
+  done
+  # A claimant record that cannot be found is never a finished scout.
+  dir=$(new_case pool-claim-unknown-record rl73)
+  add_pool_ship_task "$dir" rl73
+  printf 'task=vanished\nhome=%s\n' "$dir/home" > "$dir/pool/1/.fm-slot-owner"
+  out=$(run_spawn "$dir" rl73 --relaunch --harness claude); rc=$?
+  expect_code 1 "$rc" "relaunch into a copy claimed by a task with no record should refuse"$'\n'"$out"
+  assert_contains "$out" "record not found" "the refusal should say the claimant's record is missing"
+  pass "fm-spawn --relaunch: a copy claimed by a ship, a scout without a report, an unclassifiable scout, or an unknown task refuses"
+}
+
+test_relaunch_refuses_while_the_project_lock_is_held() {
+  local dir out rc lock holder waited=0
+  dir=$(new_case pool-claim-lock rl74)
+  add_pool_ship_task "$dir" rl74
+  lock=$(FM_HOME="$dir/home" bash -c '. "$1"; fm_treehouse_project_lock_path "$2"' _ \
+    "$ROOT/bin/fm-wake-lib.sh" "$dir/proj") || fail "could not resolve the project lock"
+  FM_HOME="$dir/home" bash -c \
+    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec /bin/sleep 30' _ \
+    "$ROOT/bin/fm-wake-lib.sh" "$lock" "$dir/lock-held" &
+  holder=$!
+  while [ ! -e "$dir/lock-held" ] && [ "$waited" -lt 100 ]; do
+    kill -0 "$holder" 2>/dev/null || break
+    /bin/sleep 0.1
+    waited=$((waited + 1))
+  done
+  [ -e "$dir/lock-held" ] || fail "the holder never took the project lock"
+  out=$(run_spawn "$dir" rl74 --relaunch --harness claude); rc=$?
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+  expect_code 1 "$rc" "relaunch should refuse while the project lock is held"$'\n'"$out"
+  assert_contains "$out" "another Treehouse slot allocation or return is in progress" \
+    "the refusal should use the fresh-spawn lock text"
+  [ ! -s "$dir/fake/literal" ] || fail "a lock-refused relaunch launched an agent"
+  [ -z "$(pool_claim "$dir")" ] || fail "a lock-refused relaunch wrote a claim"
+  pass "fm-spawn --relaunch: a held Treehouse project lock refuses a pool-copy relaunch"
+}
+
 test_relaunch_carries_claude_worker_settings() {
   local dir out rc
   dir=$(new_case worker-settings rl50)
@@ -2599,3 +2718,7 @@ test_herdr_rebind_failure_from_a_plain_shell_names_the_real_cause
 test_relaunch_reverifies_an_already_in_flight_item_instead_of_rewriting_it
 test_relaunch_moves_a_drifted_item_back_in_flight
 test_relaunch_carries_claude_worker_settings
+test_relaunch_claims_an_unclaimed_pool_copy
+test_relaunch_reclaims_a_copy_from_a_finished_scout
+test_relaunch_refuses_a_copy_another_task_holds
+test_relaunch_refuses_while_the_project_lock_is_held
