@@ -217,8 +217,47 @@ EOF
     "a filled primary prep was refused"
   assert_not_contains "$out" "fm-prep-install.sh filledok" \
     "a filled primary prep still printed the nav-prep install hint"
+  assert_present "$home/data/filledok/launch-brief.md" \
+    "a filled, reviewed primary prep did not get past the preparation gates"
 
   pass "fm-spawn: names a filled nav-prep on prep refusal and never auto-installs"
+}
+
+# Installing a filled nav-prep is unchanged by the review gate: the install still
+# succeeds with no review behind it, and the ship spawn then refuses that task
+# for the missing review rather than for the record itself.
+test_installed_unreviewed_nav_prep_is_refused_for_its_review() {
+  local rec home proj fakebin sm id dest out status
+  rec=$(make_spawn_world install-unreviewed)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  sm="$TMP_ROOT/install-unreviewed/secondmate"
+  id=navunreviewed
+  mkdir -p "$sm"
+  sm=$(CDPATH='' cd -- "$sm" && pwd -P)
+  write_registry "$home" "$sm"
+  place_filled_nav_prep "$sm" "$id"
+  dest="$home/data/$id/prep.md"
+
+  status=0
+  out=$(FM_HOME="$home" "$INSTALL" "$id" 2>&1) || status=$?
+  expect_code 0 "$status" "install of a filled, unreviewed nav-prep"
+  cmp -s "$sm/data/nav-preps/$id.md" "$dest" || fail "installed prep.md did not match the nav-prep"
+  assert_absent "$home/data/$id/prep-review" "install fabricated a review record"
+
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with an installed, unreviewed nav-prep should exit non-zero"
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an installed, filled nav-prep was refused as unfilled"
+  assert_contains "$out" "cannot ship before a separate agent reviews its preparation record" \
+    "an installed, unreviewed nav-prep was not refused for its missing review"
+  assert_absent "$home/state/$id.meta" "a review-gated spawn wrote task metadata"
+
+  pass "fm-prep-install.sh: installs an unreviewed nav-prep, and spawn refuses it for the missing review"
 }
 
 test_script_parses
@@ -227,4 +266,5 @@ test_refuses_overwrite_of_filled_primary_without_force
 test_replaces_unfilled_primary_scaffold
 test_refuses_missing_or_unfilled_source
 test_spawn_names_filled_nav_prep_and_does_not_install
+test_installed_unreviewed_nav_prep_is_refused_for_its_review
 echo "# all fm-prep-install tests passed"

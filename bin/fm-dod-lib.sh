@@ -65,7 +65,13 @@
 # monitoring on a draft through the same reading bin/fm-pr-merge.sh uses.
 # This file is the one owner of the no-mistakes `--intent` contract: only the
 # brief's `## Captain's intent` subsection plus later captain words, never
-# `## Firstmate spec` and never the worker's own tradeoffs.
+# `## Firstmate spec` and never the worker's own tradeoffs. The one addition is
+# the reviewed preparation record's sections 2 and 11, which
+# fm_brief_intent_overlay hands a no-mistakes ship as accepted specification,
+# placed before the captain's words in the launch brief and appended after them
+# in --intent under a label that says they are not the captain's words, so the
+# pipeline reviews the work against what the record promised. A section that is
+# absent, empty, or answered n/a, and every tier-0 record, adds nothing.
 # Author the subsection body and later relays as the actual words, without
 # adding speaker labels or direct address: the heading supplies provenance and
 # is not part of --intent. A legacy mixed Task instead marks each captain line
@@ -90,6 +96,19 @@
 # cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
+# fm_prep_review_reason gates the same ship launch, at every tier, on a review
+# of that record by a separate agent. The proof is data/<task-id>/prep-review,
+# two key=value lines firstmate writes after the review scout reports:
+#   reviewer=<the prep-review scout's task id>
+#   author=<who wrote the record: firstmate, a task id, or secondmate:<home>>
+# The reviewer must be neither the ship nor the author, must have run as its own
+# spawned session (data/<reviewer>/launch-brief.md, which only bin/fm-spawn.sh
+# writes and teardown keeps), must have left a nonempty data/<reviewer>/report.md,
+# and must have written the complete record it approves to
+# data/<reviewer>/reviewed-prep.md; firstmate installs that file as
+# data/<task-id>/prep.md, and the shipped record must stay byte-identical to it.
+# The author line is self-declared, because no record carries its author; that
+# is a stated limit rather than a check.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
 # data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
 # spawn names that path when this home's data/<task-id>/prep.md is missing or
@@ -236,7 +255,15 @@ fm_brief_marked_captain_words() {  # <task-body>
   '
 }
 
-fm_brief_intent_overlay() {  # <captain-intent>
+# fm_brief_intent_overlay <captain-intent> [<reviewed-prep-path>]
+# The launch section that states the current --intent contract and ends with the
+# captain's words, so they stay the last section of the launch brief. With a
+# reviewed preparation record, its accepted specification (fm_prep_accepted_spec)
+# is placed before those words under its own heading, with the instruction to
+# append it after them in --intent.
+fm_brief_intent_overlay() {  # <captain-intent> [<reviewed-prep-path>]
+  local spec=''
+  [ -z "${2:-}" ] || spec=$(fm_prep_accepted_spec "$2")
   cat <<'EOF'
 
 # Current no-mistakes intent contract
@@ -245,6 +272,17 @@ Use everything under `## Captain intent authorized for --intent` through the end
 Preserve those words without adding speaker labels or direct address.
 Firstmate-authored constraints, acceptance criteria, implementation details, decisions, and tradeoffs are specification, not captain intent.
 The Definition of done's rule that `--intent` must be self-sufficient still governs the string you pass: resolve any report, decision, or PR the intent below refers to into its substance rather than passing the pointer.
+EOF
+  if [ -n "$spec" ]; then
+    cat <<'EOF'
+The one addition is the accepted specification below, which a separate agent reviewed in this task's preparation record: after the captain's words, add a blank line, then the line `Accepted specification from the reviewed preparation record (not the captain's words):`, then every heading and body under `## Accepted specification for --intent (reviewed preparation record, not the captain's words)` exactly as written, so the review checks the work against what the record promised.
+It is specification, not captain intent; `## Firstmate spec`, later Firstmate constraints, and your own decisions and tradeoffs still stay out.
+
+## Accepted specification for --intent (reviewed preparation record, not the captain's words)
+EOF
+    printf '%s\n' "$spec"
+  fi
+  cat <<'EOF'
 
 ## Captain intent authorized for --intent
 EOF
@@ -528,6 +566,87 @@ EOF
   return 1
 }
 
+# fm_prep_review_reason <data-dir> <task-id>
+# Prints the first refusal reason and exits 0; exits 1 when the task's
+# preparation record carries the proof of a separate review this file's header
+# defines. Each refusal names the one piece that is missing or wrong.
+fm_prep_review_reason() {  # <data-dir> <task-id>
+  local data=$1 id=$2 record reviewer author dir
+  record="$data/$id/prep-review"
+  if [ ! -f "$record" ] || [ ! -r "$record" ]; then
+    printf 'no review record at %s\n' "$record"
+    return 0
+  fi
+  reviewer=$(sed -n 's/^reviewer=//p' "$record" | head -n 1)
+  author=$(sed -n 's/^author=//p' "$record" | head -n 1)
+  if [ -z "$reviewer" ]; then
+    printf '%s names no reviewer=\n' "$record"
+    return 0
+  fi
+  if ! fm_pr_task_id_valid "$reviewer"; then
+    printf '%s reviewer=%s is not a plain task id\n' "$record" "$reviewer"
+    return 0
+  fi
+  if [ "$reviewer" = "$id" ]; then
+    printf '%s reviewer=%s is the ship task itself\n' "$record" "$reviewer"
+    return 0
+  fi
+  if [ -z "$author" ]; then
+    printf '%s names no author=\n' "$record"
+    return 0
+  fi
+  if [ "$reviewer" = "$author" ]; then
+    printf "%s reviewer=%s is also the record's author\n" "$record" "$reviewer"
+    return 0
+  fi
+  dir="$data/$reviewer"
+  if [ ! -f "$dir/launch-brief.md" ]; then
+    printf 'reviewer %s has no launch brief at %s, so it never ran as its own spawned session\n' \
+      "$reviewer" "$dir/launch-brief.md"
+    return 0
+  fi
+  if [ ! -f "$dir/report.md" ]; then
+    printf 'reviewer %s has no report at %s\n' "$reviewer" "$dir/report.md"
+    return 0
+  fi
+  if ! grep -q '[^[:space:]]' "$dir/report.md"; then
+    printf 'reviewer %s report at %s is empty\n' "$reviewer" "$dir/report.md"
+    return 0
+  fi
+  if [ ! -f "$dir/reviewed-prep.md" ]; then
+    printf 'reviewer %s wrote no reviewed record at %s\n' "$reviewer" "$dir/reviewed-prep.md"
+    return 0
+  fi
+  if ! cmp -s "$data/$id/prep.md" "$dir/reviewed-prep.md"; then
+    printf 'prep changed after review; install the reviewed record or review again (%s differs from %s)\n' \
+      "$data/$id/prep.md" "$dir/reviewed-prep.md"
+    return 0
+  fi
+  return 1
+}
+
+# fm_prep_accepted_spec <prep-path>
+# Prints the record's `## 2. Behaviour spec` and `## 11. Definition of done`,
+# each under its own heading with guide comments stripped, for
+# fm_brief_intent_overlay. A section that is absent, empty, still placeheld, or
+# answered n/a is left out, and a tier-0 or unreadable record prints nothing.
+fm_prep_accepted_spec() {  # <prep-path>
+  local file=$1 tier heading placeholder required guide evidence body first sep=''
+  tier=$(fm_prep_tier "$file")
+  case "$tier" in 1|2) ;; *) return 0 ;; esac
+  while IFS='|' read -r heading placeholder required guide evidence; do
+    case "$placeholder" in BEHAVIOUR_SPEC|DEFINITION_OF_DONE) ;; *) continue ;; esac
+    [ "$(fm_prep_section_state "$file" "$heading" "$placeholder")" = filled ] || continue
+    body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//' | awk 'NF { started = 1 } started')
+    first=$(printf '%s\n' "$body" | awk 'NF { sub(/^[[:space:]]+/, ""); print tolower($0); exit }')
+    case "$first" in 'n/a'|'n/a:'*|'n/a '*) continue ;; esac
+    printf '%s%s\n%s\n' "$sep" "$heading" "$body"
+    sep=$'\n'
+  done <<EOF
+$FM_PREP_SECTIONS
+EOF
+}
+
 # fm_brief_prep_overlay <prep-path> - launch-brief section pointing the worker
 # at the preparation record as the specification beneath the brief.
 fm_brief_prep_overlay() {  # <prep-path>
@@ -583,7 +702,7 @@ fm_nm_driving_block() {  # <forge>
   cat <<EOF
 You drive no-mistakes by responding to its gates, not by implementing fixes.
 Follow the guidance no-mistakes itself provides for the mechanics: it loads when you invoke /no-mistakes, and \`no-mistakes axi run --help\` plus the \`help\` lines in each \`axi\` response are authoritative and version-matched to the installed binary.
-When starting no-mistakes, pass \`--intent\` as only this brief's \`## Captain's intent\` subsection body, not its heading, plus any later words the captain actually said.
+When starting no-mistakes, pass \`--intent\` as only this brief's \`## Captain's intent\` subsection body, not its heading, plus any later words the captain actually said, plus, when your launch brief carries one, the reviewed preparation record's accepted specification appended after them exactly as that launch section says.
 Preserve the actual words without adding speaker labels or direct address; the subsection heading supplies provenance outside the pipeline input.
 For a legacy brief with no such subsection, include only words on lines marked \`[captain] \`, excluding that metadata prefix; never copy its mixed \`# Task\` wholesale.
 If it has no provenance-marked captain words, stop and ask firstmate instead of starting no-mistakes.

@@ -2824,7 +2824,7 @@ test_spawn_refuses_a_data_directory_symlinked_outside_the_home() {
   home=$(home_of "$case_dir")
   add_item "$case_dir" "$id"
   mkdir -p "$case_dir/outside"
-  mv "$home/data/backlog.md" "$home/data/$id" "$case_dir/outside/"
+  mv "$home/data/backlog.md" "$home/data/$id" "$home/data/$id-prep-review" "$case_dir/outside/"
   rmdir "$home/data"
   ln -s "$case_dir/outside" "$home/data"
 
@@ -2845,7 +2845,7 @@ test_configured_adapter_refuses_a_data_directory_outside_the_home() {
   home=$(home_of "$case_dir")
   add_item "$case_dir" "$id"
   mkdir -p "$case_dir/outside"
-  mv "$home/data/backlog.md" "$home/data/$id" "$case_dir/outside/"
+  mv "$home/data/backlog.md" "$home/data/$id" "$home/data/$id-prep-review" "$case_dir/outside/"
   rmdir "$home/data"
   ln -s "$case_dir/outside" "$home/data"
 

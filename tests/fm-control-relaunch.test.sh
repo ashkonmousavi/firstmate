@@ -1080,11 +1080,12 @@ test_ship_relaunch_ignores_the_crew_harness_config() {
   pass "fm-control relaunch: a ship task keeps its recorded harness instead of re-reading crew config"
 }
 
-# A ship spawn requires the task's preparation record (bin/fm-brief.sh --prep),
-# but --relaunch replaces the agent on a task that already exists, including
-# every task dispatched before that gate existed. add_ship_task writes no
-# record, so this relaunch reaches the brief checks without one and must still
-# launch, and its launch brief must not point at a record that is not there.
+# A ship spawn requires the task's preparation record (bin/fm-brief.sh --prep)
+# and a separate review of it, but --relaunch replaces the agent on a task that
+# already exists, including every task dispatched before those gates existed.
+# add_ship_task writes no record, so this relaunch reaches the brief checks
+# without one and must still launch, and its launch brief must not point at a
+# record that is not there.
 test_relaunch_is_exempt_from_the_task_preparation_gate() {
   local dir out
   dir=$(new_case prepgate rl60)
@@ -1094,6 +1095,8 @@ test_relaunch_is_exempt_from_the_task_preparation_gate() {
   out=$(run_spawn "$dir" rl60 --relaunch)
   assert_not_contains "$out" "cannot ship without its preparation record" \
     "a relaunch of a task dispatched before the preparation gate was refused"
+  assert_not_contains "$out" "cannot ship before a separate agent reviews" \
+    "a relaunch of a task dispatched before the review gate was refused"
   assert_contains "$out" "spawned rl60" "the exempt relaunch did not launch"
   assert_absent "$dir/home/data/rl60/prep.md" "a relaunch fabricated a preparation record"
   assert_no_grep "# Task preparation record" "$dir/home/data/rl60/launch-brief.md" \

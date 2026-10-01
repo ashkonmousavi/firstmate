@@ -34,13 +34,16 @@
 #   one section that owes tool output rather than prose. When that refusal
 #   fires and a filled secondmate nav-prep exists, stderr also names that
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
-#   installs it. Scouts and secondmates are not gated, and --relaunch is
-#   exempt so tasks dispatched before the gate still relaunch.
+#   installs it. A ship spawn then refuses a record no separate agent has
+#   reviewed, at every tier (fm_prep_review_reason in bin/fm-dod-lib.sh owns
+#   that proof). Scouts and secondmates are not gated, and --relaunch is
+#   exempt from both gates so tasks dispatched before them still relaunch.
 #   When the record exists, the launch brief points the worker at it as the
 #   specification beneath the brief.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
-#   intent. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
+#   intent, preceded by the reviewed record's accepted specification. A legacy
+#   mixed Task is accepted there only under bin/fm-dod-lib.sh's
 #   provenance-marking rules; unmarked legacy Tasks stop for migration rather
 #   than becoming intent. That library owns the parsing and intent rules. When
 #   the explicit mode carries less rigor than the project's standing posture, a
@@ -3165,8 +3168,20 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       fi
       exit 1
     fi
+    # A separate agent reviews every record, at every tier, before its ship
+    # starts; bin/fm-dod-lib.sh's header owns what proves that review.
+    if REVIEW_REASON=$(fm_prep_review_reason "$DATA" "$ID"); then
+      echo "error: task $ID cannot ship before a separate agent reviews its preparation record: $REVIEW_REASON; spawn a prep-review scout that writes data/<reviewer>/reviewed-prep.md and its report, install that reviewed record as $PREP_FILE, then write $DATA/$ID/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>" >&2
+      exit 1
+    fi
   fi
+  REVIEWED_PREP=
   if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
+    # Only a record whose review still holds is handed over as accepted
+    # specification, so a relaunched task with an unreviewed record gets none.
+    if ! fm_prep_review_reason "$DATA" "$ID" >/dev/null; then
+      REVIEWED_PREP=$PREP_FILE
+    fi
     if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
       CAPTAIN_INTENT=$(fm_brief_task_heading_body "$BRIEF" "## Captain's intent")
     else
@@ -3198,7 +3213,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
         fm_brief_prep_overlay "$PREP_FILE"
       fi &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
-        fm_brief_intent_overlay "$CAPTAIN_INTENT"
+        fm_brief_intent_overlay "$CAPTAIN_INTENT" "$REVIEWED_PREP"
       fi
   } >"$BRIEF_TMP" || {
     rm -f -- "$BRIEF_TMP"

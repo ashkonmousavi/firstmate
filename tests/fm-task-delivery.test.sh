@@ -61,6 +61,64 @@ write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>]
     || fail "prep record scaffold failed for $2"
 }
 
+# review_prep <home> <id>: approve the record as it stands now, as the separate
+# prep-review scout does, after a test edited it in place.
+review_prep() {
+  fm_test_prep_review "$1/data" "$2" || fail "prep review fixture failed for $2"
+}
+
+# assert_spawn_clears_prep_gates <home> <fakebin> <id> <proj> <label>: a
+# direct-PR ship spawn gets past both the preparation and the review gate,
+# proven by the launch brief spawn renders only after both (the fake tmux still
+# stops it before any endpoint exists).
+assert_spawn_clears_prep_gates() {
+  local home=$1 fakebin=$2 id=$3 proj=$4 label=$5 out
+  rm -f "$home/data/$id/launch-brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" "$label: refused by the preparation gate"
+  assert_not_contains "$out" "cannot ship before a separate agent reviews" "$label: refused by the review gate"
+  assert_present "$home/data/$id/launch-brief.md" "$label: spawn did not get past the preparation gates"
+}
+
+# assert_review_refused <home> <fakebin> <id> <proj> <expected> <label>: a
+# direct-PR ship spawn stops at the review gate with a refusal naming <expected>
+# and renders no launch brief.
+assert_review_refused() {
+  local home=$1 fakebin=$2 id=$3 proj=$4 expected=$5 label=$6 out status
+  rm -f "$home/data/$id/launch-brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "$label: expected a non-zero exit"
+  assert_contains "$out" "cannot ship before a separate agent reviews its preparation record" \
+    "$label: the refusal did not say the record lacks a separate review"
+  assert_contains "$out" "$expected" "$label: the refusal did not name what is missing"
+  assert_absent "$home/data/$id/launch-brief.md" "$label: a review-gated spawn rendered a launch brief"
+  assert_absent "$home/state/$id.meta" "$label: a review-gated spawn wrote task metadata"
+}
+
+# write_spec_prep <home> <id> <q1> <q2>: scaffold a record whose behaviour spec
+# and definition of done carry real answers under their guide comments, with
+# every other section answered n/a, at the tier the two answers declare.
+write_spec_prep() {
+  local home=$1 id=$2 prep
+  prep="$home/data/$id/prep.md"
+  mkdir -p "$home/data/$id"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "spec prep scaffold failed for $id"
+  awk '
+    $0 == "{BEHAVIOUR_SPEC}" {
+      print "Refuse the launch and name the missing review."
+      print ""
+      print "### Copy"
+      print "The refusal names the record."
+      next
+    }
+    $0 == "{DEFINITION_OF_DONE}" { print "- Every tier is gated."; print "- The relaunch stays exempt."; next }
+    /^\{[A-Z0-9_]*\}$/ { print "n/a: fixture."; next }
+    { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" "$3" "$4"
+}
+
 # answer_tier <prep-file> <q1> <q2>: set or reset both tier answers in place.
 # answer_tier <prep-file> <q1> <q2> [<ui-wiring>]: rewrite the tier header's
 # answers. The greedy match before the final colon works because no tier
@@ -1148,9 +1206,9 @@ EOF
   # The SAME record at tier 1 launches: section 3 is below that tier, so deleting
   # it was a decision the tier authorizes rather than a hole in the record.
   answer_tier "$prep" no yes
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "a tier-1 record was refused for a section only tier 2 requires"
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a tier-1 record refused for a section only tier 2 requires"
 
   # Tier 1 still owes its own five sections, so blanking one is refused by name.
   blank_section "$prep" "## 6. Tests"
@@ -1183,21 +1241,21 @@ EOF
   # Naming the tool that was run is the whole check: it reads what was run, never
   # whether the output is right.
   fill_section "$prep" "## 4. Blast radius" "gitnexus impact bin/fm-dod-lib.sh: 3 modules, 0 callers outside."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "a blast radius carrying impact output was still refused"
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a blast radius carrying impact output"
 
   # Serena answers it too, and case never matters.
   fill_section "$prep" "## 4. Blast radius" "Serena find_referencing_symbols: 4 callers, all in tests/."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "a blast radius carrying caller counts was still refused"
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a blast radius carrying caller counts"
 
   # A decision already taken needs no tool output, but a bare n/a is not one.
   fill_section "$prep" "## 4. Blast radius" "n/a: this change crosses no module boundary."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "an n/a blast radius with a reason was refused"
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "an n/a blast radius with a reason"
   fill_section "$prep" "## 4. Blast radius" "n/a"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   status=$?
@@ -1226,9 +1284,9 @@ EOF
   # Answering the same record's behaviour spec launches it, so the refusal above
   # was the missing section rather than the UI wiring answer itself.
   fill_section "$prep" "## 2. Behaviour spec" "The user sees a new button."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "an answered UI-wiring record was still refused"
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "an answered UI-wiring record"
 
   # Tier 0 is three answers and nothing else: with every section deleted and all
   # three answers no, the record is complete and the launch proceeds.
@@ -1242,9 +1300,9 @@ EOF
   awk '/^## [0-9]+\. / { exit } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   answer_tier "$prep" no no
   assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "a tier-0 record carrying only its three answers was refused"
+  review_prep "$home" "$id"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a tier-0 record carrying only its three answers"
 
   # An answered record is a complete answer: the launch proceeds past the gate
   # (the fake tmux still stops it before any endpoint exists) and the worker's
@@ -1277,10 +1335,204 @@ EOF
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --scout)
   assert_not_contains "$out" "cannot ship without its preparation record" \
     "a scout spawn was refused for having no preparation record"
+  assert_not_contains "$out" "cannot ship before a separate agent reviews" \
+    "a scout spawn was refused for having no reviewed preparation record"
   assert_no_grep "# Task preparation record" "$home/data/$id/launch-brief.md" \
     "a scout launch brief carried the ship-only preparation-record overlay"
 
   pass "fm-spawn: a ship launch requires an answered task preparation record, and a scout never is"
+}
+
+# A separate agent reviews every preparation record, at every tier, before its
+# ship starts: the spawn refuses until data/<id>/prep-review names a reviewer
+# that is neither the ship nor the record's author, that ran as its own spawned
+# session and reported, and whose reviewed record is byte-identical to the one
+# being shipped. tests/fm-control-relaunch.test.sh owns the --relaunch
+# exemption, and a scout is never gated.
+test_ship_spawn_requires_a_separately_reviewed_preparation_record() {
+  local rec home proj fakebin tier q1 q2 id record reviewer prep out
+  rec=$(make_home prep-review-gate)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  # Every tier is gated: an answered record nobody reviewed is refused, and the
+  # refusal names the missing record and what a review leaves behind.
+  for tier in 0 1 2; do
+    case $tier in
+      0) q1=no q2=no ;;
+      1) q1=no q2=yes ;;
+      2) q1=yes q2=no ;;
+    esac
+    id="review-absent-tier$tier"
+    write_prep "$home" "$id" "$q1" "$q2"
+    write_brief "$home" "$id" direct-PR
+    rm -f "$home/data/$id/prep-review"
+    assert_review_refused "$home" "$fakebin" "$id" "$proj" \
+      "no review record at $home/data/$id/prep-review" "tier $tier unreviewed"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+    assert_contains "$out" "reviewer=" "tier $tier: the refusal did not name the reviewer line the record needs"
+    assert_contains "$out" "author=" "tier $tier: the refusal did not name the author line the record needs"
+    assert_contains "$out" "reviewed-prep.md" "tier $tier: the refusal did not say what the review scout writes"
+  done
+
+  # Each part of the proof is checked on its own, and each refusal names it.
+  id=review-proof
+  write_brief "$home" "$id" direct-PR
+  record="$home/data/$id/prep-review"
+  reviewer="$id-prep-review"
+  prep="$home/data/$id/prep.md"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "a separately reviewed record"
+
+  printf 'author=firstmate\n' > "$record"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "names no reviewer=" "a record naming no reviewer"
+  printf 'reviewer=../elsewhere\nauthor=firstmate\n' > "$record"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "reviewer=../elsewhere is not a plain task id" \
+    "a reviewer outside the data directory"
+  printf 'reviewer=%s\nauthor=firstmate\n' "$id" > "$record"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "reviewer=$id is the ship task itself" \
+    "a ship reviewing its own record"
+  printf 'reviewer=%s\n' "$reviewer" > "$record"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "names no author=" "a record naming no author"
+  printf 'reviewer=%s\nauthor=%s\n' "$reviewer" "$reviewer" > "$record"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" "reviewer=$reviewer is also the record's author" \
+    "a scout reviewing the record it wrote"
+
+  review_prep "$home" "$id"
+  rm "$home/data/$reviewer/launch-brief.md"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" \
+    "has no launch brief at $home/data/$reviewer/launch-brief.md" "a reviewer that was never spawned"
+
+  review_prep "$home" "$id"
+  rm "$home/data/$reviewer/report.md"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" \
+    "has no report at $home/data/$reviewer/report.md" "a reviewer that never reported"
+  printf '\n  \n' > "$home/data/$reviewer/report.md"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" \
+    "report at $home/data/$reviewer/report.md is empty" "a reviewer whose report is blank"
+
+  review_prep "$home" "$id"
+  rm "$home/data/$reviewer/reviewed-prep.md"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" \
+    "wrote no reviewed record at $home/data/$reviewer/reviewed-prep.md" "a reviewer that approved no record"
+
+  # One byte edited after the review is a different record from the one approved.
+  review_prep "$home" "$id"
+  printf 'x' >> "$prep"
+  assert_review_refused "$home" "$fakebin" "$id" "$proj" \
+    "prep changed after review; install the reviewed record or review again" "a record edited after review"
+  # Installing the reviewed record is the documented way back.
+  cp "$home/data/$reviewer/reviewed-prep.md" "$prep"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "the reviewed record reinstalled"
+
+  # A scout produces knowledge rather than a change, so it is never review-gated.
+  id=review-scout
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nInvestigate.\n\n## Firstmate spec\nReport.\n' \
+    > "$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --scout)
+  assert_not_contains "$out" "cannot ship before a separate agent reviews" \
+    "a scout spawn was refused for having no reviewed preparation record"
+  assert_present "$home/data/$id/launch-brief.md" "a scout spawn rendered no launch brief"
+
+  pass "fm-spawn: a ship launch requires a separate, unchanged review of its preparation record at every tier"
+}
+
+# A no-mistakes ship hands the worker the reviewed record's behaviour spec and
+# definition of done as accepted specification for --intent, under a heading that
+# marks them as not the captain's words and that sits before the captain's words,
+# so the captain's words stay the last section of the launch brief. A section
+# that is absent or answered n/a is left out, a tier-0 record hands over nothing,
+# and the other delivery modes carry no --intent at all.
+test_no_mistakes_launch_brief_hands_over_the_accepted_specification() {
+  local rec home proj fakebin id out launch accepted expected authorized heading_line spec_line done_line captain_line mode
+  local accepted_heading="## Accepted specification for --intent (reviewed preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  rec=$(make_home accepted-spec)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  id='spec-tier2'
+  write_spec_prep "$home" "$id" yes no
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a reviewed tier-2 no-mistakes spawn rendered no launch brief"
+  heading_line=$(grep -nxF "$accepted_heading" "$launch" | cut -d: -f1)
+  spec_line=$(grep -nxF '## 2. Behaviour spec' "$launch" | cut -d: -f1)
+  done_line=$(grep -nxF '## 11. Definition of done' "$launch" | cut -d: -f1)
+  captain_line=$(grep -nxF "$captain_heading" "$launch" | cut -d: -f1)
+  [ -n "$heading_line" ] || fail "the launch brief carries no accepted-specification heading"
+  [ -n "$spec_line" ] && [ -n "$done_line" ] && [ -n "$captain_line" ] ||
+    fail "the launch brief lost a section heading: spec=$spec_line done=$done_line captain=$captain_line"
+  [ "$heading_line" -lt "$spec_line" ] && [ "$spec_line" -lt "$done_line" ] && [ "$done_line" -lt "$captain_line" ] ||
+    fail "the accepted specification must sit before the captain's words: heading=$heading_line spec=$spec_line done=$done_line captain=$captain_line"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  expected=$(printf '%s\n' '## 2. Behaviour spec' 'Refuse the launch and name the missing review.' '' '### Copy' \
+    'The refusal names the record.' '' '## 11. Definition of done' '- Every tier is gated.' '- The relaunch stays exempt.')
+  [ "$accepted" = "$expected" ] ||
+    fail "the accepted specification must carry the two section bodies without guide comments: $accepted"
+  authorized=$(awk -v c="$captain_heading" '$0 == c { emit = 1; next } emit { print }' "$launch")
+  [ "$authorized" = 'Exercise the delivery contract.' ] ||
+    fail "the captain's words must stay the whole tail of the launch brief: $authorized"
+  assert_grep "Accepted specification from the reviewed preparation record (not the captain's words):" "$launch" \
+    "the launch brief does not give the label that keeps the specification apart in --intent"
+
+  # Tier 1 may omit the behaviour spec, and then only the definition of done is handed over.
+  id='spec-tier1'
+  write_spec_prep "$home" "$id" no yes
+  drop_section "$home/data/$id/prep.md" "## 2. Behaviour spec" "## 3."
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a reviewed tier-1 no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  expected=$(printf '%s\n' '## 11. Definition of done' '- Every tier is gated.' '- The relaunch stays exempt.')
+  [ "$accepted" = "$expected" ] || fail "a tier-1 record without a behaviour spec must hand over only its definition of done: $accepted"
+
+  # A section answered n/a is a decision, not specification, so it is left out.
+  id='spec-na'
+  write_spec_prep "$home" "$id" yes no
+  fill_section "$home/data/$id/prep.md" "## 2. Behaviour spec" "n/a: nothing a user meets changes."
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a reviewed n/a-section no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  [ "$accepted" = "$expected" ] || fail "a behaviour spec answered n/a must be left out: $accepted"
+
+  # Tier 0 hands over nothing, even when the record happens to carry answers,
+  # and so does a record whose two sections are both answered n/a.
+  for id in spec-tier0 spec-both-na; do
+    if [ "$id" = spec-tier0 ]; then
+      write_spec_prep "$home" "$id" no no
+    else
+      write_prep "$home" "$id" yes no
+    fi
+    write_brief "$home" "$id" no-mistakes
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+    launch="$home/data/$id/launch-brief.md"
+    assert_present "$launch" "$id: a reviewed no-mistakes spawn rendered no launch brief"
+    assert_no_grep "## Accepted specification" "$launch" "$id: the launch brief handed over an accepted specification"
+    assert_no_grep "Accepted specification from the reviewed preparation record" "$launch" \
+      "$id: the launch brief told the worker to append a specification it does not carry"
+    authorized=$(awk -v c="$captain_heading" '$0 == c { emit = 1; next } emit { print }' "$launch")
+    [ "$authorized" = 'Exercise the delivery contract.' ] || fail "$id: the captain's words changed: $authorized"
+  done
+
+  # Only a no-mistakes worker builds --intent, so the other modes carry none.
+  for mode in direct-PR local-only; do
+    id="spec-$mode"
+    write_spec_prep "$home" "$id" yes no
+    write_brief "$home" "$id" "$mode"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
+    launch="$home/data/$id/launch-brief.md"
+    assert_present "$launch" "$mode: a reviewed spawn rendered no launch brief"
+    assert_no_grep "Accepted specification" "$launch" "$mode: the launch brief handed over an --intent specification"
+  done
+
+  pass "fm-spawn: a no-mistakes launch brief hands over the reviewed behaviour spec and definition of done apart from, and before, the captain's words"
 }
 
 # The forge binding is orthogonal to the mode and to +yolo, exactly as +yolo is
@@ -1924,5 +2176,7 @@ test_spawn_refuses_a_registry_forge_it_cannot_read
 test_promotion_carries_the_forge_binding
 test_spawn_and_promote_require_filled_task_subsections
 test_ship_spawn_requires_the_task_preparation_record
+test_ship_spawn_requires_a_separately_reviewed_preparation_record
+test_no_mistakes_launch_brief_hands_over_the_accepted_specification
 test_project_mode_resolves_branch_prefix
 echo "# all fm-task-delivery tests passed"
