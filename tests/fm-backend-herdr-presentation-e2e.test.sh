@@ -423,6 +423,26 @@ finish_concurrent_spawn() {  # <id> <status> <stdout> <stderr>
     || fail "projected spawn $id retry failed after task-set publication completed: $(cat "$err")"
 }
 
+# finish_recovery_wave_spawn <id> <home> <project> <status> <stdout> <stderr>
+# After a backend restart every recovering task's old copy is free in the pool
+# while its own record still names it, until that task's re-spawn republishes
+# the record. A concurrent re-spawn from another home can therefore be handed
+# that copy and refuse it by name (bin/fm-spawn.sh's seized-worktree guard,
+# which refuses whatever the recorded endpoint reads). Only that exact refusal
+# is retried, once, after the wave has settled; the retry is counted in
+# RECOVERY_WAVE_RETRIES so a guard that keeps refusing, or one that refuses for
+# any other reason, still fails here.
+RECOVERY_WAVE_RETRIES=0
+finish_recovery_wave_spawn() {
+  local id=$1 home=$2 project=$3 status=$4 out=$5 err=$6
+  [ "$status" -ne 0 ] || return 0
+  grep -F "refusing to seize another task's worktree" "$err" >/dev/null 2>&1 \
+    || fail "concurrent recovery of $id failed: $(cat "$err")"
+  RECOVERY_WAVE_RETRIES=$((RECOVERY_WAVE_RETRIES + 1))
+  spawn_task "$id" "$home" "$project" > "$out" 2> "$err" \
+    || fail "concurrent recovery of $id still failed after one retry of the seized-copy refusal: $(cat "$err")"
+}
+
 finish_concurrent_expected_abort() {  # <id> <status> <stdout> <stderr>
   local id=$1 status=$2 out=$3 err=$4
   [ "$status" -ne 0 ] || fail "post-create abort fixture $id unexpectedly succeeded"
@@ -1324,8 +1344,12 @@ spawn_task "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/p
 PRIMARY_WAVE_PID=$!
 spawn_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_PROJECT_DIR" > "$TMP_ROOT/bravo-wave-resume.out" 2> "$TMP_ROOT/bravo-wave-resume.err" &
 BRAVO_WAVE_PID=$!
-wait "$PRIMARY_WAVE_PID" || fail "concurrent primary recovery failed: $(cat "$TMP_ROOT/primary-wave-resume.err")"
-wait "$BRAVO_WAVE_PID" || fail "concurrent secondmate recovery failed: $(cat "$TMP_ROOT/bravo-wave-resume.err")"
+wait "$PRIMARY_WAVE_PID"; PRIMARY_WAVE_STATUS=$?
+wait "$BRAVO_WAVE_PID"; BRAVO_WAVE_STATUS=$?
+finish_recovery_wave_spawn "$PRIMARY_WAVE_ID" "$HOME_DIR" "$RECOVERY_PROJECT_DIR" "$PRIMARY_WAVE_STATUS" \
+  "$TMP_ROOT/primary-wave-resume.out" "$TMP_ROOT/primary-wave-resume.err"
+finish_recovery_wave_spawn "$BRAVO_WAVE_ID" "$SECOND_HOME_B" "$RECOVERY_PROJECT_DIR" "$BRAVO_WAVE_STATUS" \
+  "$TMP_ROOT/bravo-wave-resume.out" "$TMP_ROOT/bravo-wave-resume.err"
 PRIMARY_WAVE_NEW_WT=$(remember_meta_worktree "$PRIMARY_WAVE_META")
 BRAVO_WAVE_NEW_WT=$(remember_meta_worktree "$BRAVO_WAVE_META")
 PRIMARY_WAVE_NEW_PANE=$(grep '^herdr_pane_id=' "$PRIMARY_WAVE_META" | cut -d= -f2-)
@@ -1349,7 +1373,7 @@ teardown_task "$BRAVO_WAVE_ID" "$SECOND_HOME_B" > "$TMP_ROOT/bravo-wave-teardown
 "$REAL_TREEHOUSE" return --force "$BRAVO_WAVE_OLD_WT" >/dev/null 2>&1 || true
 "$REAL_TREEHOUSE" return --force "$PRIMARY_WAVE_NEW_WT" >/dev/null 2>&1 || true
 "$REAL_TREEHOUSE" return --force "$BRAVO_WAVE_NEW_WT" >/dev/null 2>&1 || true
-pass "real Herdr lab: concurrent cross-home recoveries replace exact husks under one session lock with no focus drift"
+pass "real Herdr lab: concurrent cross-home recoveries replace exact husks under one session lock with no focus drift (seized-copy retries: $RECOVERY_WAVE_RETRIES)"
 
 # Seed a legacy old-format primary projection and a flat secondmate tab; correction must not migrate them.
 LEGACY_OUT=$(lab workspace create --cwd "$PROJECT_DIR" --label "firstmate/legacy-seed · p:AbCdEfGhIjKlMnOpQrStUv" --no-focus) \
