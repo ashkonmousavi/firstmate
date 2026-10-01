@@ -1,0 +1,511 @@
+
+===== env check =====
+$ echo FM_HOME=$FM_HOME TMUX=$TMUX; env | grep -c NO_MISTAKES_GATE
+FM_HOME=/tmp/fm-lab.7PgY7H TMUX=/tmp/fm-lab.7PgY7H/tmux/tmux-1000/fm-lab,3708013,0
+0
+EXIT=1
+
+===== prep scaffold =====
+$ bin/fm-brief.sh lane-allno --prep && cat $FM_HOME/data/lane-allno/prep.md
+scaffolded: /tmp/fm-lab.7PgY7H/data/lane-allno/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+# Task prep: lane-allno
+
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->
+- Q1 does this change alter what a user sees or can do: {Q1}
+- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}
+- UI wiring: {UI_WIRING}
+<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->
+
+Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.
+Use primary-source citations (documentation, source code or specification) beside every external fact; choices between options follow the project research-first decision procedure.
+This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+
+## 1. Intent and boxes
+<!-- tier 1+. The captain's words, and each task item this work completes in the project's own record, verified against the current base with the command used as its instructions require. -->
+{INTENT_AND_BOXES}
+
+## 2. Behaviour spec
+<!-- tier 2+. Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour. -->
+{BEHAVIOUR_SPEC}
+
+## 3. UI/UX
+<!-- tier 2+. START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the matching component and its path in the project's design system or UI record as its instructions name it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes. -->
+{UI_UX}
+
+## 4. Blast radius
+<!-- tier 1+. PASTE TOOL OUTPUT, not prose: the GitNexus impact result (gitnexus impact, or the MCP impact tool, against the ~/.gitnexus clone) for every module touched, and the Serena find_referencing_symbols counts for every symbol whose signature changes; reach for claude-context semantic search only when a name is unknown. -->
+{BLAST_RADIUS}
+
+## 5. Data and contracts
+<!-- tier 2+. Name the module, its public seams, request/response shapes, versions and migrations; apply the deletion test: where would its complexity move if removed? -->
+{DATA_AND_CONTRACTS}
+
+## 6. Tests
+<!-- tier 1+. Name public seams (interfaces, never internals), red-first order and proof owed (direct proof, integrated journey or stage acceptance), journey tests, mutation witnesses, existing tests that change and why, the changed-file/test-module mapping, tests requiring a real installation, and failures already on the base (or unknown when unmeasured). -->
+{TESTS}
+
+## 7. Records
+<!-- tier 2+. Project task items to complete, verification records, and other records its instructions require; answer the surfaces checklist (agent instructions/skills/tool docs, journeys/user docs, reference/help/changelog, plans, architecture, UI states and tests), each updated or n/a with reason; if a component lands ahead of its consumer, record and clear the pending integration as the project's instructions specify. -->
+{RECORDS}
+
+## 8. Out of scope and follow-ups
+<!-- tier 1+. What this task deliberately leaves alone and the follow-up work it creates; paste the project's git grep -n 'FINALIZE-AFTER(lane-allno)' -- . output and say which markers this task resolves; write any pre-staged value inline as FINALIZE-AFTER(<trigger task>): <what>, and resolve every marker whose trigger has landed. -->
+{OUT_OF_SCOPE}
+
+## 9. Risks, dependencies, merge order
+<!-- tier 2+. Risks, dependencies, sibling lanes touching the same files, and the order these must land in. -->
+{RISKS}
+
+## 10. Demo receipt plan
+<!-- tier 2+. Name the evidence class each claim rests on (fixture/synthetic, admitted-data mirror or live deployment), never promoting one into another, and what the worker walks and records before validation, including the project's required visual comparison and states as its instructions name them. -->
+{DEMO_RECEIPT}
+
+## 11. Definition of done
+<!-- tier 1+. The done criteria, checked line by line against the intent above, with no marker whose trigger has landed. -->
+{DEFINITION_OF_DONE}
+
+## 12. Size
+<!-- tier 2+. Files expected to change; more than about eight files means split the slice. -->
+{SIZE}
+EXIT=0
+
+===== write all-no prep and no-mistakes brief =====
+$ 
+set -e
+P=$FM_HOME/data/lane-allno/prep.md
+awk '/^## 1\./{exit} {print}' "$P" | sed -e "s/{Q1}/no/" -e "s/{Q2}/no/" -e "s/{UI_WIRING}/no, internal lab fixture only./" > "$P.new" && mv "$P.new" "$P"
+cat "$P"
+bin/fm-brief.sh lane-allno proj --mode no-mistakes >/dev/null
+sed -i "s/{TASK}/Exercise the all-no prep exemption in a lab./; s/{FIRSTMATE_SPEC}/Make no change; this is a gate fixture./" $FM_HOME/data/lane-allno/brief.md
+grep -n "{" $FM_HOME/data/lane-allno/brief.md | head -5 || true
+ls $FM_HOME/data/lane-allno
+# Task prep: lane-allno
+
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->
+- Q1 does this change alter what a user sees or can do: no
+- Q2 does this change touch a shared module, a contract, or more than about eight files: no
+- UI wiring: no, internal lab fixture only.
+<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->
+
+Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.
+Use primary-source citations (documentation, source code or specification) beside every external fact; choices between options follow the project research-first decision procedure.
+This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+
+30:   `echo "{state} [at=<epoch>]: {one short line}" >> '/tmp/fm-lab.7PgY7H/state/lane-allno.status' && { [ ! -e '/tmp/fm-lab.7PgY7H/config/fleet-ledger' ] || '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M3WT618NZX8Z9PS9FH3C1G3D/bin/fm-fleet-ledger.sh' appended '/tmp/fm-lab.7PgY7H/config' '/tmp/fm-lab.7PgY7H/state/lane-allno.status' >/dev/null 2>&1 || true; }`
+42:   Use `paused: {why}` - distinct from `blocked:` - when deliberately waiting for work or an external condition expected to clear on its own, including your own validation round.
+43:   Before ending your turn with your own background shell or monitor still running, or before waiting on your own pipeline run or a long foreground command, append `paused [at=<epoch>]: {job and completion condition}` to the status file.
+51:5. If you hit the same obstacle twice, append `blocked [at=<epoch>]: {why}` and stop; firstmate will help.
+54:   append `needs-decision [at=<epoch>]: {summary of options}` and stop. Firstmate will reply with the decision.
+brief.md
+prep.md
+EXIT=0
+
+===== direct-PR brief for all-no lane =====
+$ 
+set -e
+rm $FM_HOME/data/lane-allno/brief.md
+bin/fm-brief.sh lane-allno proj --mode direct-PR >/dev/null
+sed -i "s/{TASK}/Exercise the all-no prep exemption in a lab./; s/{FIRSTMATE_SPEC}/Make no change; this is a gate fixture./" $FM_HOME/data/lane-allno/brief.md
+cp $FM_HOME/data/lane-allno/brief.md /home/tegris/.no-mistakes/evidence/01M3WT618NZX8Z9PS9FH3C1G3D/brief-direct-PR-fresh.md
+sed -n "/^# Definition of done/,\$p" $FM_HOME/data/lane-allno/brief.md
+# Definition of done
+Delivery contract: mode=direct-PR
+Ship branch: fm/lane-allno
+This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
+This task is complete only with an existing non-draft PR and every required check green for its current head.
+When it is implemented and committed, push your branch and open a PR with `gh-axi` that is ready for review, not a draft.
+Before you report done, read the PR back from the forge and confirm it is not a draft (`gh-axi pr view <number>` must print `draft: no`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with `gh-axi pr ready <number>`.
+A draft cannot be merged, so a done report on one leaves the merge unasked.
+Wait for every required check on the current PR head to be green, reading the forge with `gh-axi pr checks <number>` (consult its `--help` for current usage).
+Pending checks use `paused [at=<epoch>]: {checks awaited and completion condition}`; resume when they finish, fixing failed checks and pushing the repair through this direct-PR path before checking again.
+Then append `done [at=<epoch>]: PR {full https URL from the forge} checks green` to the status file and stop.
+That `done:` is accepted only when this copy's HEAD - your latest commit - is pushed to your PR branch; the check tests that commit, not merely that a branch moved.
+If you deliberately keep the PR a draft, append `paused [at=<epoch>]: {why the draft is held}` instead of done.
+Do NOT run /no-mistakes. The configured merge authority decides whether to merge the PR; firstmate relays the outcome.
+EXIT=0
+
+===== S1 all-no prep, no prep-review file: ship spawn (no-mistakes) =====
+$ 
+B=$FM_HOME/data/lane-allno/brief.md
+rm -f $B; bin/fm-brief.sh lane-allno proj --mode no-mistakes >/dev/null
+sed -i "s/{TASK}/Exercise the all-no prep exemption in a lab./; s/{FIRSTMATE_SPEC}/Make no change; this is a gate fixture./" $B
+ls $FM_HOME/data/lane-allno/prep-review 2>&1
+timeout 100 bin/fm-spawn.sh lane-allno $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900"; echo spawn_exit=$?
+echo "--- launch brief present?"; ls -la $FM_HOME/data/lane-allno/launch-brief.md
+echo "--- overlay heading count:"; grep -c "^# Task preparation record" $FM_HOME/data/lane-allno/launch-brief.md
+echo "--- Accepted specification count:"; grep -c "Accepted specification" $FM_HOME/data/lane-allno/launch-brief.md
+echo "--- meta:"; cat $FM_HOME/state/lane-allno.meta 2>&1 | head -20
+ls: cannot access '/tmp/fm-lab.7PgY7H/data/lane-allno/prep-review': No such file or directory
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+error: could not resolve origin's current default branch for pooled worktree '/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/1/proj'; refusing to launch from a potentially stale base
+spawn_exit=1
+--- launch brief present?
+-rw-rw-r-- 1 tegris tegris 18803 Oct  1 16:03 /tmp/fm-lab.7PgY7H/data/lane-allno/launch-brief.md
+--- overlay heading count:
+1
+--- Accepted specification count:
+0
+--- meta:
+cat: /tmp/fm-lab.7PgY7H/state/lane-allno.meta: No such file or directory
+EXIT=0
+
+===== S1 retry: all-no prep, no review, full live launch =====
+$ 
+rm -f $FM_HOME/data/lane-allno/launch-brief.md
+timeout 110 bin/fm-spawn.sh lane-allno $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900"; echo spawn_exit=$?
+echo "--- overlay heading count:"; grep -c "^# Task preparation record" $FM_HOME/data/lane-allno/launch-brief.md
+echo "--- Accepted specification count:"; grep -c "Accepted specification" $FM_HOME/data/lane-allno/launch-brief.md
+echo "--- meta:"; grep -E "^(kind|mode|window|worktree|backend|harness)=" $FM_HOME/state/lane-allno.meta 2>&1
+tmux list-windows -a -F "#{session_name}:#{window_name} #{pane_current_command}"
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+spawned lane-allno harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-lane-allno worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/1/proj
+spawn_exit=0
+--- overlay heading count:
+1
+--- Accepted specification count:
+0
+--- meta:
+window=ops:fm-lane-allno
+worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/1/proj
+harness=sleep
+kind=ship
+mode=no-mistakes
+ops:bash bash
+ops:fm-lane-allno sleep
+EXIT=0
+
+===== S6 --scout --prep-review refusals (adversarial) =====
+$ 
+for args in "rev-x proj --prep-review lane-t1 --mode direct-PR" "rev-x --prep --prep-review lane-t1" "rev-x proj --scout --prep-review ../lane-t1" "rev-x proj --scout --prep-review rev-x" "rev-x proj --scout --prep-review"; do
+  echo "\$ bin/fm-brief.sh $args"; bin/fm-brief.sh $args; echo "exit=$?"; done
+ls $FM_HOME/data/rev-x 2>&1
+$ bin/fm-brief.sh rev-x proj --prep-review lane-t1 --mode direct-PR
+error: --prep-review requires --scout and cannot combine with --prep
+exit=1
+$ bin/fm-brief.sh rev-x --prep --prep-review lane-t1
+error: --prep-review requires --scout and cannot combine with --prep
+exit=1
+$ bin/fm-brief.sh rev-x proj --scout --prep-review ../lane-t1
+error: --prep-review needs a plain task id (got '../lane-t1')
+exit=1
+$ bin/fm-brief.sh rev-x proj --scout --prep-review rev-x
+error: --prep-review cannot review the reviewer's own id rev-x
+exit=1
+$ bin/fm-brief.sh rev-x proj --scout --prep-review
+error: --prep-review requires a value
+exit=1
+ls: cannot access '/tmp/fm-lab.7PgY7H/data/rev-x': No such file or directory
+EXIT=2
+
+===== S3/S5 tier-1 records: unreviewed refusal, finalize-after evidence =====
+$ 
+bash /tmp/fm-lab.7PgY7H/fill-t1.sh lane-t1 no yes
+bash /tmp/fm-lab.7PgY7H/fill-t1.sh lane-t1b no yes
+for id in lane-t1 lane-t1b; do bin/fm-brief.sh $id proj --mode no-mistakes >/dev/null; sed -i "s/{TASK}/Exercise the review gate./; s/{FIRSTMATE_SPEC}/Gate fixture./" $FM_HOME/data/$id/brief.md; done
+echo "## tier-1, no review:"
+bin/fm-spawn.sh lane-t1 $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900"; echo spawn_exit=$?
+ls $FM_HOME/data/lane-t1/launch-brief.md $FM_HOME/state/lane-t1.meta 2>&1
+echo "## tier-1, section 8 prose only (no finalize-after token):"
+cp $FM_HOME/data/lane-t1b/prep.md /tmp/fm-lab-t1b.bak
+awk '/^## 8\./{print; getline; print; getline; print "Everything else stays unchanged."; next} {print}' /tmp/fm-lab-t1b.bak > $FM_HOME/data/lane-t1b/prep.md
+sed -n "/^## 8\./,/^## 11/p" $FM_HOME/data/lane-t1b/prep.md
+bin/fm-spawn.sh lane-t1b $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900"; echo spawn_exit=$?
+cp /tmp/fm-lab-t1b.bak $FM_HOME/data/lane-t1b/prep.md; rm /tmp/fm-lab-t1b.bak
+echo "## section 8 restored with finalize-after grep evidence:"
+bin/fm-spawn.sh lane-t1b $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900" 2>&1 | grep -o "cannot ship[^:]*"; true
+## tier-1, no review:
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  watcher supervision needs Stop-owned automatic recovery; inspect the hook registration and startup status before ending the turn.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: task lane-t1 cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/lane-t1/prep-review; spawn a prep-review scout with --scout --prep-review lane-t1 that writes data/<reviewer>/reviewed-prep/lane-t1.md (legacy data/<reviewer>/reviewed-prep.md is accepted only when that per-task artifact is absent) and its report, install that reviewed record as /tmp/fm-lab.7PgY7H/data/lane-t1/prep.md, then write /tmp/fm-lab.7PgY7H/data/lane-t1/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>
+spawn_exit=1
+ls: cannot access '/tmp/fm-lab.7PgY7H/data/lane-t1/launch-brief.md': No such file or directory
+ls: cannot access '/tmp/fm-lab.7PgY7H/state/lane-t1.meta': No such file or directory
+## tier-1, section 8 prose only (no finalize-after token):
+## 8. Out of scope and follow-ups
+<!-- tier 1+. What this task deliberately leaves alone and the follow-up work it creates; paste the project's git grep -n 'FINALIZE-AFTER(lane-t1b)' -- . output and say which markers this task resolves; write any pre-staged value inline as FINALIZE-AFTER(<trigger task>): <what>, and resolve every marker whose trigger has landed. -->
+Everything else stays unchanged.
+
+## 9. Risks, dependencies, merge order
+<!-- tier 2+. Risks, dependencies, sibling lanes touching the same files, and the order these must land in. -->
+n/a: lab fixture.
+
+## 10. Demo receipt plan
+<!-- tier 2+. Name the evidence class each claim rests on (fixture/synthetic, admitted-data mirror or live deployment), never promoting one into another, and what the worker walks and records before validation, including the project's required visual comparison and states as its instructions name them. -->
+n/a: lab fixture.
+
+## 11. Definition of done
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: task lane-t1b cannot ship without its preparation record: tier 1 requires ## 8. Out of scope and follow-ups to paste the tool output behind it, naming finalize-after, or to answer `n/a: <reason>`, in /tmp/fm-lab.7PgY7H/data/lane-t1b/prep.md; scaffold it with bin/fm-brief.sh lane-t1b --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+spawn_exit=1
+## section 8 restored with finalize-after grep evidence:
+cannot ship before a separate agent reviews its preparation record
+EXIT=0
+
+===== S7 render batch prep-review scout brief and spawn the reviewer live =====
+$ 
+bin/fm-brief.sh rev-batch proj --scout --prep-review lane-t1 --prep-review lane-t1b; echo brief_exit=$?
+B=$FM_HOME/data/rev-batch/brief.md
+sed -i "s/{TASK}/Review the two named preparation records./; s/{FIRSTMATE_SPEC}/Two-axis review per the section below./" $B
+cp $B /home/tegris/.no-mistakes/evidence/01M3WT618NZX8Z9PS9FH3C1G3D/brief-scout-prep-review-batch.md
+echo "--- Preparation review section:"; sed -n "/^# Preparation review/,/^# Setup/p" $B | grep -v "^# Setup"
+echo "--- rule 2:"; grep -n "^2\. Stay inside" $B
+bin/fm-spawn.sh rev-batch $FM_HOME/projects/proj --scout --harness "sleep 900" 2>&1 | grep -v "^●\|WARNING: watcher"; echo spawn_exit=$?
+ls -la $FM_HOME/data/rev-batch/launch-brief.md
+scaffolded: /tmp/fm-lab.7PgY7H/data/rev-batch/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+brief_exit=0
+--- Preparation review section:
+# Preparation review
+Review each named preparation record against the current base on two axes, with a verdict for each record under the report headings, never merging or reranking the axes.
+## Standards
+Would the proposed files, interfaces and tests follow the project documented rules?
+Check that Tests names public seams and a red-first order, each new or changed interface names its module and seam, every external fact cites a primary source, and pre-staged values use FINALIZE-AFTER(<trigger>).
+Cite each violated rule and its evidence.
+## Spec
+Does the record deliver the quoted intent with nothing unasked, and a behaviour spec and definition of done that would catch a wrong build?
+Flag missing, partial, unasked or wrong behavior against the accepted criteria.
+## Architecture
+For each Q2 yes record, apply the deletion test to every module its Blast radius names and list shallow modules or leaking seams the change would deepen; otherwise write n/a: Q2 no.
+The batch report carries each owed heading once, naming each record and its verdict under it.
+Approve only complete records; copy the approved bytes byte-identical to the exact path below, without silently rewriting the specification.
+Review `/tmp/fm-lab.7PgY7H/data/lane-t1/prep.md`; approved record: `/tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-t1.md`.
+Review `/tmp/fm-lab.7PgY7H/data/lane-t1b/prep.md`; approved record: `/tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-t1b.md`.
+
+# Herdr lifecycle declaration - NOT ENABLED
+**HARD SAFETY GATE:** this scaffold cannot inspect the task text filled in above.
+If the task will start, stop, delete, restart, profile, or otherwise drive Herdr lifecycle behavior, stop and regenerate the brief with `--herdr-lab` before dispatch.
+Do not add Herdr lifecycle commands to this unguarded brief by hand.
+
+--- rule 2:
+39:2. Stay inside this worktree; the only files you may write outside it are the report and status file below, and these exact approved-record paths: `/tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-t1.md` `/tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-t1b.md`
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+spawned rev-batch harness=sleep kind=scout window=ops:fm-rev-batch worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/2/proj
+spawn_exit=0
+-rw-rw-r-- 1 tegris tegris 11338 Oct  1 16:04 /tmp/fm-lab.7PgY7H/data/rev-batch/launch-brief.md
+EXIT=0
+
+===== S8 one reviewer approves two records; both ships launch; reviewed spec reaches --intent =====
+$ 
+R=$FM_HOME/data/rev-batch; mkdir -p $R/reviewed-prep
+printf "## Standards\nlane-t1: approve. lane-t1b: approve.\n## Spec\nlane-t1: approve. lane-t1b: approve.\n## Architecture\nlane-t1: no shared seams deepened. lane-t1b: same.\n" > $R/report.md
+for id in lane-t1 lane-t1b; do cp $FM_HOME/data/$id/prep.md $R/reviewed-prep/$id.md; printf "reviewer=rev-batch\nauthor=firstmate\n" > $FM_HOME/data/$id/prep-review; done
+ls $R/reviewed-prep.md 2>&1
+for id in lane-t1 lane-t1b; do
+  bin/fm-spawn.sh $id $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900" 2>&1 | grep -v "^●\|WARNING: watcher"
+  echo "$id Accepted-specification lines: $(grep -c "Accepted specification" $FM_HOME/data/$id/launch-brief.md)"
+done
+cp $FM_HOME/data/lane-t1/launch-brief.md /home/tegris/.no-mistakes/evidence/01M3WT618NZX8Z9PS9FH3C1G3D/launch-brief-reviewed-tier1.md
+cp $FM_HOME/data/lane-allno/launch-brief.md /home/tegris/.no-mistakes/evidence/01M3WT618NZX8Z9PS9FH3C1G3D/launch-brief-allno-exempt.md
+tmux list-windows -a -F "#{session_name}:#{window_name}"
+ls: cannot access '/tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep.md': No such file or directory
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+spawned lane-t1 harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-lane-t1 worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/3/proj
+lane-t1 Accepted-specification lines: 2
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.7PgY7H
+spawned lane-t1b harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-lane-t1b worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/4/proj
+lane-t1b Accepted-specification lines: 2
+ops:bash
+ops:fm-lane-allno
+ops:fm-rev-batch
+ops:fm-lane-t1
+ops:fm-lane-t1b
+EXIT=0
+
+===== S9 multi-record approval adversarial: cross-task bytes, no legacy fallback, byte drift, owed headings =====
+$ 
+R=$FM_HOME/data/rev-batch
+sp() { bin/fm-spawn.sh $1 $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900" 2>&1 | grep -v "^●\|WARNING: watcher\|fm-gate-refuse" | sed "s/; spawn a prep-review scout.*//"; }
+for id in lane-c lane-d; do bash /tmp/fm-lab.7PgY7H/fill-t1.sh $id no yes; bin/fm-brief.sh $id proj --mode no-mistakes >/dev/null; sed -i "s/{TASK}/Gate fixture./; s/{FIRSTMATE_SPEC}/Gate fixture./" $FM_HOME/data/$id/brief.md; printf "reviewer=rev-batch\nauthor=firstmate\n" > $FM_HOME/data/$id/prep-review; done
+cp $FM_HOME/data/lane-c/prep.md $R/reviewed-prep/lane-c.md
+echo "## (a) task C approved, task D names same reviewer but has no artifact of its own:"; sp lane-d
+echo "## (b) D per-task artifact holds C bytes while a correct legacy reviewed-prep.md exists:"
+cp $FM_HOME/data/lane-d/prep.md $R/reviewed-prep.md; cp $R/reviewed-prep/lane-c.md $R/reviewed-prep/lane-d.md; sp lane-d
+echo "## (c) correct per-task bytes, then one byte appended to installed prep:"
+cp $FM_HOME/data/lane-d/prep.md $R/reviewed-prep/lane-d.md; printf x >> $FM_HOME/data/lane-d/prep.md; sp lane-d
+cp $R/reviewed-prep/lane-d.md $FM_HOME/data/lane-d/prep.md
+for h in Standards Spec Architecture; do
+  echo "## (d) report missing ## $h (Q2 yes record):"
+  printf "## Standards\nok\n## Spec\nok\n## Architecture\nok\n" | sed "/^## $h\$/d" > $R/report.md; sp lane-d
+done
+echo "## (e) per-task path is a directory (unreadable) with legacy present:"
+mv $R/reviewed-prep/lane-d.md /tmp/fm-lab-d.bak; mkdir $R/reviewed-prep/lane-d.md; sp lane-d; rmdir $R/reviewed-prep/lane-d.md; mv /tmp/fm-lab-d.bak $R/reviewed-prep/lane-d.md
+printf "## Standards\nok\n## Spec\nok\n## Architecture\nok\n" > $R/report.md
+echo "## (f) reinstalled approved bytes restore eligibility:"; sp lane-d; grep -c "Accepted specification" $FM_HOME/data/lane-d/launch-brief.md
+## (a) task C approved, task D names same reviewer but has no artifact of its own:
+error: task lane-d cannot ship before a separate agent reviews its preparation record: reviewer rev-batch wrote no readable reviewed record at /tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep.md
+## (b) D per-task artifact holds C bytes while a correct legacy reviewed-prep.md exists:
+error: task lane-d cannot ship before a separate agent reviews its preparation record: prep changed after review; install the reviewed record or review again (/tmp/fm-lab.7PgY7H/data/lane-d/prep.md differs from /tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-d.md)
+## (c) correct per-task bytes, then one byte appended to installed prep:
+error: task lane-d cannot ship before a separate agent reviews its preparation record: prep changed after review; install the reviewed record or review again (/tmp/fm-lab.7PgY7H/data/lane-d/prep.md differs from /tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-d.md)
+## (d) report missing ## Standards (Q2 yes record):
+error: task lane-d cannot ship before a separate agent reviews its preparation record: reviewer rev-batch report at /tmp/fm-lab.7PgY7H/data/rev-batch/report.md requires ## Standards
+## (d) report missing ## Spec (Q2 yes record):
+error: task lane-d cannot ship before a separate agent reviews its preparation record: reviewer rev-batch report at /tmp/fm-lab.7PgY7H/data/rev-batch/report.md requires ## Spec
+## (d) report missing ## Architecture (Q2 yes record):
+error: task lane-d cannot ship before a separate agent reviews its preparation record: reviewer rev-batch report at /tmp/fm-lab.7PgY7H/data/rev-batch/report.md requires ## Architecture
+## (e) per-task path is a directory (unreadable) with legacy present:
+error: task lane-d cannot ship before a separate agent reviews its preparation record: reviewer rev-batch report at /tmp/fm-lab.7PgY7H/data/rev-batch/report.md requires ## Architecture
+## (f) reinstalled approved bytes restore eligibility:
+spawned lane-d harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-lane-d worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/5/proj
+2
+EXIT=0
+
+===== S9b unreadable per-task artifact never falls back; Q2-no owes no Architecture; legacy-only approval still works =====
+$ 
+R=$FM_HOME/data/rev-batch
+sp() { bin/fm-spawn.sh $1 $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900" 2>&1 | grep -v "^●\|WARNING: watcher\|fm-gate-refuse" | sed "s/; spawn a prep-review scout.*//"; }
+printf "## Standards\nok\n## Spec\nok\n## Architecture\nok\n" > $R/report.md
+echo "## (e) lane-c per-task path is a directory; legacy holds lane-c correct bytes:"
+cp $FM_HOME/data/lane-c/prep.md $R/reviewed-prep.md; rm $R/reviewed-prep/lane-c.md; mkdir $R/reviewed-prep/lane-c.md; sp lane-c; rmdir $R/reviewed-prep/lane-c.md
+echo "## (g) lane-c legacy-only approval (no per-task artifact):"; sp lane-c
+echo "## (h) Q1 yes / Q2 no record, report has Standards+Spec only:"
+bash /tmp/fm-lab.7PgY7H/fill-t1.sh lane-q2no yes no; bin/fm-brief.sh lane-q2no proj --mode no-mistakes >/dev/null; sed -i "s/{TASK}/Gate fixture./; s/{FIRSTMATE_SPEC}/Gate fixture./" $FM_HOME/data/lane-q2no/brief.md
+printf "reviewer=rev-batch\nauthor=firstmate\n" > $FM_HOME/data/lane-q2no/prep-review; cp $FM_HOME/data/lane-q2no/prep.md $R/reviewed-prep/lane-q2no.md
+printf "## Standards\nok\n## Spec\nok\n" > $R/report.md; sp lane-q2no
+echo "## (i) reviewer identical to ship refuses:"
+bash /tmp/fm-lab.7PgY7H/fill-t1.sh lane-self no yes; bin/fm-brief.sh lane-self proj --mode no-mistakes >/dev/null; sed -i "s/{TASK}/Gate fixture./; s/{FIRSTMATE_SPEC}/Gate fixture./" $FM_HOME/data/lane-self/brief.md
+printf "reviewer=lane-self\nauthor=firstmate\n" > $FM_HOME/data/lane-self/prep-review; sp lane-self
+## (e) lane-c per-task path is a directory; legacy holds lane-c correct bytes:
+error: task lane-c cannot ship before a separate agent reviews its preparation record: reviewer rev-batch wrote no readable reviewed record at /tmp/fm-lab.7PgY7H/data/rev-batch/reviewed-prep/lane-c.md
+## (g) lane-c legacy-only approval (no per-task artifact):
+spawned lane-c harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-lane-c worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/6/proj
+## (h) Q1 yes / Q2 no record, report has Standards+Spec only:
+spawned lane-q2no harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-lane-q2no worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/7/proj
+## (i) reviewer identical to ship refuses:
+error: task lane-self cannot ship before a separate agent reviews its preparation record: /tmp/fm-lab.7PgY7H/data/lane-self/prep-review reviewer=lane-self is the ship task itself
+EXIT=0
+
+===== S4 server-install exemption: explicit four-no declaration vs adversarial variants =====
+$ 
+sp() { bin/fm-spawn.sh $1 $FM_HOME/projects/proj --mode no-mistakes --yolo off --harness "sleep 900" 2>&1 | grep -v "^●\|WARNING: watcher\|fm-gate-refuse" | sed "s/; spawn a prep-review scout.*//; s/, in \/tmp.*//"; }
+mk() { id=$1; bash /tmp/fm-lab.7PgY7H/fill-t1.sh $id yes yes; P=$FM_HOME/data/$id/prep.md
+  awk '$0 == "## Tier" { print; print "- Prep review exemption: server-install"; print "- Changes unit: no"; print "- Changes setting: no"; print "- Changes pin: no"; print "- Changes store version: no"; next } { print }' $P > $P.n && mv $P.n $P
+  bin/fm-brief.sh $id proj --mode no-mistakes >/dev/null; sed -i "s/{TASK}/Install fixture./; s/{FIRSTMATE_SPEC}/Install fixture./" $FM_HOME/data/$id/brief.md; }
+mk inst-ok; sed -n "/^## Tier/,/UI wiring:/p" $FM_HOME/data/inst-ok/prep.md
+echo "## valid four-no tier-2 install, no review record:"; sp inst-ok
+echo "   overlay: $(grep -c "^# Task preparation record" $FM_HOME/data/inst-ok/launch-brief.md)  accepted-spec: $(grep -c "Accepted specification" $FM_HOME/data/inst-ok/launch-brief.md)"
+cp $FM_HOME/data/inst-ok/launch-brief.md /home/tegris/.no-mistakes/evidence/01M3WT618NZX8Z9PS9FH3C1G3D/launch-brief-server-install-exempt.md
+mk inst-bad; P=$FM_HOME/data/inst-bad/prep.md; cp $P $P.valid
+try() { echo "## $1:"; cp $P.valid $P; eval "$2"; sp inst-bad; }
+try "Changes pin: yes" "sed -i \"s/^- Changes pin: no/- Changes pin: yes/\" \$P"
+try "Changes store version missing" "sed -i \"/^- Changes store version:/d\" \$P"
+try "Changes unit: maybe" "sed -i \"s/^- Changes unit: no/- Changes unit: maybe/\" \$P"
+try "conflicting duplicate Changes setting: yes" "sed -i \"/^- Changes setting: no/a - Changes setting: yes\" \$P"
+try "exemption kind other" "sed -i \"s/server-install/other/\" \$P"
+try "declaration line removed (title/keywords alone)" "sed -i \"/^- Prep review exemption:/d\" \$P"
+try "valid declaration but section 6 emptied (completeness first)" "awk '/^## 6\./{print; getline; print; getline; next} {print}' \$P > \$P.n && mv \$P.n \$P"
+try "valid declaration but Q1 malformed (tier parsing unaffected)" "sed -i \"s/^- Q1 does this change alter what a user sees or can do: yes/- Q1 does this change alter what a user sees or can do: maybe/\" \$P"
+## Tier
+- Prep review exemption: server-install
+- Changes unit: no
+- Changes setting: no
+- Changes pin: no
+- Changes store version: no
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->
+- Q1 does this change alter what a user sees or can do: yes
+- Q2 does this change touch a shared module, a contract, or more than about eight files: yes
+- UI wiring: no, internal lab fixture only.
+## valid four-no tier-2 install, no review record:
+spawned inst-ok harness=sleep kind=ship mode=no-mistakes yolo=off window=ops:fm-inst-ok worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/8/proj
+   overlay: 1  accepted-spec: 0
+## Changes pin: yes:
+error: task inst-bad cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/inst-bad/prep-review
+## Changes store version missing:
+error: task inst-bad cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/inst-bad/prep-review
+## Changes unit: maybe:
+error: task inst-bad cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/inst-bad/prep-review
+## conflicting duplicate Changes setting: yes:
+error: task inst-bad cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/inst-bad/prep-review
+## exemption kind other:
+error: task inst-bad cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/inst-bad/prep-review
+## declaration line removed (title/keywords alone):
+error: task inst-bad cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.7PgY7H/data/inst-bad/prep-review
+## valid declaration but section 6 emptied (completeness first):
+error: task inst-bad cannot ship without its preparation record: tier 2 requires ## 6. Tests, which is empty in /tmp/fm-lab.7PgY7H/data/inst-bad/prep.md; scaffold it with bin/fm-brief.sh inst-bad --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+## valid declaration but Q1 malformed (tier parsing unaffected):
+error: task inst-bad cannot ship without its preparation record: its ## Tier header does not answer both Q1 and Q2 yes or no in /tmp/fm-lab.7PgY7H/data/inst-bad/prep.md; scaffold it with bin/fm-brief.sh inst-bad --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+EXIT=0
+
+===== S1b all-no header but malformed/unanswered still refuses =====
+$ 
+bin/fm-brief.sh allno-bad --prep >/dev/null; P=$FM_HOME/data/allno-bad/prep.md
+awk '/^## 1\./{exit} {print}' $P | sed -e "s/{Q1}/no/" -e "s/{Q2}/no/" > $P.n && mv $P.n $P
+bin/fm-brief.sh allno-bad proj --mode direct-PR >/dev/null; sed -i "s/{TASK}/x./; s/{FIRSTMATE_SPEC}/x./" $FM_HOME/data/allno-bad/brief.md
+bin/fm-spawn.sh allno-bad $FM_HOME/projects/proj --mode direct-PR --yolo off --harness "sleep 900" 2>&1 | grep "^error"; ls $FM_HOME/data/allno-bad/launch-brief.md 2>&1
+error: task allno-bad cannot ship without its preparation record: its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /tmp/fm-lab.7PgY7H/data/allno-bad/prep.md; scaffold it with bin/fm-brief.sh allno-bad --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+ls: cannot access '/tmp/fm-lab.7PgY7H/data/allno-bad/launch-brief.md': No such file or directory
+EXIT=2
+
+===== S10 promote a live scout to a no-mistakes ship and to direct-PR: promoted DoD =====
+$ 
+for id in scout-p1 scout-p2; do
+  bin/fm-brief.sh $id proj --scout >/dev/null; sed -i "s/{TASK}/Investigate the fixture./; s/{FIRSTMATE_SPEC}/Report findings./" $FM_HOME/data/$id/brief.md
+  bin/fm-spawn.sh $id $FM_HOME/projects/proj --scout --harness "sleep 900" 2>&1 | grep "^spawned\|^error"
+done
+bin/fm-promote.sh scout-p1 --mode no-mistakes --yolo off 2>&1 | grep -v "^●\|WARNING: watcher" | tail -3
+bin/fm-promote.sh scout-p2 --mode direct-PR --yolo off 2>&1 | grep -v "^●\|WARNING: watcher" | tail -3
+for id in scout-p1 scout-p2; do S=$FM_HOME/data/$id/ship-instructions.md; cp $S /home/tegris/.no-mistakes/evidence/01M3WT618NZX8Z9PS9FH3C1G3D/promoted-$id-ship-instructions.md
+  echo "--- $id:"; grep -n "complete only\|checks green\|Firstmate will then instruct\|complete only when committed\|no-mistakes axi run. supplying\|start the pipeline yourself" $S; done
+spawned scout-p1 harness=sleep kind=scout window=ops:fm-scout-p1 worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/9/proj
+spawned scout-p2 harness=sleep kind=scout window=ops:fm-scout-p2 worktree=/tmp/fm-lab.7PgY7H/treehouse/.treehouse/proj-9ac4e4/10/proj
+promoted scout-p1 to ship mode=no-mistakes yolo=off (teardown protection restored)
+wrote ship instructions for mode=no-mistakes: /tmp/fm-lab.7PgY7H/data/scout-p1/ship-instructions.md
+next: FM_HOME=/tmp/fm-lab.7PgY7H bin/fm-send.sh fm-scout-p1 "$(cat /tmp/fm-lab.7PgY7H/data/scout-p1/ship-instructions.md)"
+promoted scout-p2 to ship mode=direct-PR yolo=off (teardown protection restored)
+wrote ship instructions for mode=direct-PR: /tmp/fm-lab.7PgY7H/data/scout-p2/ship-instructions.md
+next: FM_HOME=/tmp/fm-lab.7PgY7H bin/fm-send.sh fm-scout-p2 "$(cat /tmp/fm-lab.7PgY7H/data/scout-p2/ship-instructions.md)"
+--- scout-p1:
+36:This task is complete only with an existing non-draft PR and every required check green for its current head.
+37:After your implementation commit, append a `working [at=<epoch>]: implementation committed; starting validation` milestone and start the pipeline yourself immediately with `no-mistakes axi run`, supplying `--intent` under the contract below.
+70:Then append `done [at=<epoch>]: PR {full https URL from the forge} checks green` and stop. You are finished.
+--- scout-p2:
+32:This task is complete only with an existing non-draft PR and every required check green for its current head.
+38:Then append `done [at=<epoch>]: PR {full https URL from the forge} checks green` to the status file and stop.
+EXIT=0
+
+===== S11 local-only and Gerrit DoD unchanged vs base =====
+$ 
+dod() { sed -n "/^# Definition of done/,\$p" "$1"; }
+for spec in "local-only|--mode local-only" "gerrit-nm|--mode no-mistakes --forge gerrit" "gerrit-dpr|--mode direct-PR --forge gerrit"; do
+  name=${spec%%|*}; flags=${spec#*|}
+  rm -rf $FM_HOME/data/cmp-$name-head $FM_HOME/data/cmp-$name-base
+  bin/fm-brief.sh cmp-$name-head proj $flags >/dev/null
+  /tmp/fm-lab.7PgY7H/base/bin/fm-brief.sh cmp-$name-base proj $flags >/dev/null
+  if diff <(dod $FM_HOME/data/cmp-$name-head/brief.md | sed "s/cmp-$name-head/ID/g") <(dod $FM_HOME/data/cmp-$name-base/brief.md | sed "s/cmp-$name-base/ID/g") >/tmp/fm-lab-dod.diff; then echo "$name: Definition of done identical to base ($(dod $FM_HOME/data/cmp-$name-head/brief.md | wc -l) lines)"; else echo "$name: DIFFERS"; cat /tmp/fm-lab-dod.diff; fi
+done; rm -f /tmp/fm-lab-dod.diff
+echo "--- gerrit no-mistakes keeps firstmate handoff:"; grep -n "Firstmate will then instruct\|published for review" $FM_HOME/data/cmp-gerrit-nm-head/brief.md | head
+local-only: Definition of done identical to base (9 lines)
+gerrit-nm: Definition of done identical to base (63 lines)
+gerrit-dpr: Definition of done identical to base (21 lines)
+--- gerrit no-mistakes keeps firstmate handoff:
+103:Firstmate will then instruct you to run /no-mistakes to validate.
+154:Then append `done [at=<epoch>]: PR {change url} published for review` to the status file and stop. You are finished.
+EXIT=0
+
+===== S12 old-shape status lines on live tasks read by fm-crew-state.sh =====
+$ 
+bin/fm-crew-state.sh --help 2>&1 | head -5
+echo "working [at=$(date +%s)]: lab working line" >> $FM_HOME/state/lane-t1.status
+echo "done [at=$(date +%s)]: implemented the fixture" >> $FM_HOME/state/lane-t1b.status
+bin/fm-crew-state.sh 2>&1 | grep -v "^●\|WARNING: watcher" | head -40
+state: unknown · source: none · no metadata for --help
+usage: fm-crew-state.sh <id>
+EXIT=0
+
+===== S12 old-shape status lines: crew state per task =====
+$ 
+for id in lane-t1 lane-t1b lane-allno; do printf "%s: " $id; tail -1 $FM_HOME/state/$id.status 2>/dev/null; bin/fm-crew-state.sh $id 2>&1 | grep -v "^●\|WARNING: watcher"; done
+lane-t1: working [at=1790895968]: lab working line
+state: unknown · source: pane · harness state unavailable (unknown missing)
+lane-t1b: done [at=1790895968]: implemented the fixture
+state: unknown · source: pane · harness state unavailable (unknown missing)
+lane-allno: state: unknown · source: pane · harness state unavailable (unknown missing)
+EXIT=0
