@@ -815,35 +815,6 @@ test_busy_state_never_reports_a_shell_only_pane_busy() {
   pass "herdr stale registration: busy_state proves a working record at process level before reporting busy"
 }
 
-test_question_waiting_reads_native_blocked_without_starting_a_server() {
-  local dir resp log fb status rc
-  for status in blocked idle working; do
-    dir="$TMP_ROOT/question-$status"; mkdir -p "$dir/responses"; resp="$dir/responses"; log="$dir/log"; : > "$log"
-    printf '{"result":{"agent":{"agent":"codex","agent_status":"%s"}}}\n' "$status" > "$resp/1.out"
-    fb=$(make_herdr_fakebin "$dir")
-    rc=0
-    PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-      bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting herdr fmtest:w1:p2 codex' "$ROOT" || rc=$?
-    case "$status:$rc" in
-      blocked:0|idle:1|working:1) ;;
-      *) fail "question_waiting for agent_status=$status returned $rc" ;;
-    esac
-    assert_contains "$(cat "$log")" $'agent\x1fget\x1fw1:p2' "question_waiting did not read the pane's native agent state"
-    assert_not_contains "$(cat "$log")" $'status\x1f--json' "question_waiting must not ensure (start) the herdr server"
-  done
-  dir="$TMP_ROOT/question-cursor"; mkdir -p "$dir/responses"; resp="$dir/responses"; log="$dir/log"; : > "$log"
-  printf '{"result":{"agent":{"agent":"cursor","agent_status":"blocked"}}}\n' > "$resp/1.out"
-  fb=$(make_herdr_fakebin "$dir")
-  rc=0
-  PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-    bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting herdr fmtest:w1:p2 cursor' "$ROOT" || rc=$?
-  [ "$rc" = 1 ] || fail "a Cursor pane, blocked in every state, must not read as a question waiting, got $rc"
-  rc=0
-  bash -c '. "$0/bin/fm-backend.sh"; fm_backend_question_waiting tmux sess:fm-x' "$ROOT" || rc=$?
-  [ "$rc" = 1 ] || fail "a backend with no native agent state must report no question waiting, got $rc"
-  pass "herdr question_waiting: native blocked reads as a question waiting, for any harness, without starting a server"
-}
-
 test_agent_state_bypasses_a_stale_client_shadowing_a_compatible_one() {
   local dir out err
   dir="$TMP_ROOT/client-pair-bypass"; make_herdr_client_pair "$dir"
@@ -6174,7 +6145,6 @@ test_registered_agent_with_an_unreadable_process_view_is_unknown
 test_registered_agent_with_an_empty_foreground_over_a_real_shell_settles_via_descendant_walk
 test_projection_reclaim_rollback_refuses_a_stale_registration
 test_busy_state_never_reports_a_shell_only_pane_busy
-test_question_waiting_reads_native_blocked_without_starting_a_server
 test_cli_caches_the_selected_client_within_a_process
 test_cli_scopes_the_selected_client_to_its_session
 test_cli_unrelated_failure_never_triggers_reselection

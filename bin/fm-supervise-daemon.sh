@@ -1636,8 +1636,8 @@ handle_wake() {  # <reason> <state> [<wake-key>]
                    esac ;;
               esac
               # A permission or question prompt waiting on screen (bin/fm-watch.sh
-              # prompt_waiting_check and surface_nonterminal_stale, or a herdr
-              # blocked push from bin/fm-push-transition-lib.sh) outranks even a
+              # prompt_waiting_check, or a herdr blocked push from
+              # bin/fm-push-transition-lib.sh) outranks even a
               # declared wait: the declaration accounts for quiet, and nothing
               # but an answer clears a question.
               case "$stale_detail" in

@@ -88,10 +88,7 @@
 #                          a Claude worker's PermissionRequest hook marked a
 #                          dialog waiting on a human; surfaced once per marker
 #                          ahead of every pause, captain-held, and busy absorb
-#                          (prompt_waiting_check owns it); also a stale pane
-#                          whose backend reports its agent waiting on a human
-#                          under a not-yet-reached paused-until, on the pause
-#                          cadence (surface_nonterminal_stale)
+#                          (prompt_waiting_check owns it)
 #   stale: <window> (steering-inbox ladder bookkeeping unwritable: ...)
 #                          an unhandled record's ladder cannot advance; quiet
 #                          successful attempts never wake firstmate
@@ -2222,9 +2219,8 @@ captain_call_stale_bound() {  # <window-key> <task>
 # above): the status line the worker declared, and the backlog hold firstmate
 # recorded once the captain took the work in hand.
 surface_nonterminal_stale() {  # <window> <hash>
-  local win=$1 h=$2 key task last declared=1 bounded=1 throttled=1 until now reason
+  local win=$1 h=$2 key task last declared=1 bounded=1 throttled=1 until now
   key=$(window_key "$win")
-  reason="stale: $win"
   task=$(window_to_task "$win" "$STATE")
   last=$(status_declared_wait_line "$STATE/$task.status")
   STALE_WAIT_DECLARATION=
@@ -2235,13 +2231,7 @@ surface_nonterminal_stale() {  # <window> <hash>
     if until=$(status_paused_until "$last"); then
       now=$(date +%s)
       if [ "$now" -lt "$until" ]; then
-        if fm_backend_question_waiting "$(window_backend "$win")" "$win" "$(window_harness "$win")"; then
-          reason="stale: $win (a permission or question prompt is waiting in the pane)"
-          STALE_WAIT_DECLARATION="$STALE_WAIT_DECLARATION:question"
-          stale_wait_throttled "$key" "$STALE_WAIT_DECLARATION" && throttled=0
-        else
-          throttled=0
-        fi
+        throttled=0
       else
         STALE_WAIT_DECLARATION="$STALE_WAIT_DECLARATION:due"
         stale_wait_throttled "$key" "$STALE_WAIT_DECLARATION" && throttled=0
@@ -2265,7 +2255,7 @@ surface_nonterminal_stale() {  # <window> <hash>
     bounded=0
   fi
   if [ "$throttled" -ne 0 ]; then
-    fm_wake_append stale "$win" "$reason" || exit 1
+    fm_wake_append stale "$win" "stale: $win" || exit 1
     stale_wait_record "$key"
   fi
   printf '%s' "$h" > "$STATE/.stale-$key"
@@ -2289,7 +2279,7 @@ surface_nonterminal_stale() {  # <window> <hash>
     triage_log "absorbed non-terminal stale (declared wait or open captain call already re-surfaced this window): $win"
     return 0
   fi
-  wake "$reason"
+  wake "stale: $win"
 }
 
 # Surface a permission or question prompt waiting in a worker pane. A Claude

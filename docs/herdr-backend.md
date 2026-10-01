@@ -762,8 +762,7 @@ Herdr rejects a whole subscription when any named pane is gone, and a task recor
 The watcher maps the pane back to the task and skips secondmate endpoints.
 A blocked transition escalates even under a declared `paused:` wait or a verified `captain-held` transfer, because a declaration accounts for quiet and nothing but an answer clears a question on screen.
 The away daemon escalates that wake under a declared wait too.
-When the poll loop finds a stale pane under a `paused:` wait whose `until` time has not arrived, it still surfaces the pane on the pause cadence if `agent get` reports it `blocked`.
-A Cursor pane is the exception on both paths: Herdr reports it `blocked` in every state, so its `blocked` is not read as a question.
+A Cursor-family pane is the exception on the push path: Herdr reports it `blocked` in every state, so its `blocked` is not read as a question.
 
 ### Polling fallback
 
