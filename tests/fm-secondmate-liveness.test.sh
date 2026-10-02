@@ -702,6 +702,45 @@ test_remote_poll_probe_unreachable_preserves_route() {
   pass "poll probe: unreachable or inconclusive remote reads preserve the route"
 }
 
+# stall_ssh <w>: an ssh that swallows stdin and outlives any bound, the shape
+# of a remote command that never finishes on an overloaded host.
+stall_ssh() {
+  cat > "$1/stall-ssh" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+sleep "${FM_FAKE_STALL_SECS:-30}"
+SH
+  chmod +x "$1/stall-ssh"
+}
+
+test_remote_poll_probe_is_bounded() {
+  local w out started elapsed
+  w=$(make_remote_probe_world probe-bounded)
+  stall_ssh "$w"
+  started=$(date +%s)
+  out=$(probe_remote "$w" poll FM_SSH_BIN="$w/stall-ssh" FM_SECONDMATE_LIVENESS_PROBE_BUDGET=2)
+  elapsed=$(( $(date +%s) - started ))
+  [ "$elapsed" -lt 15 ] || fail "a stalled remote probe must return within its bound, took ${elapsed}s"
+  [ "$out" = 'skipped|unknown|0|||remote host unavailable or endpoint state unknown; route preserved on lab-host' ] \
+    || fail "a bound hit must read as unreachable and never relaunchable, got: $out"
+  pass "poll probe: a stalled remote host is bounded and reads as unreachable"
+}
+
+test_remote_poll_probe_invalid_budget_keeps_bound() {
+  local w out started elapsed
+  w=$(make_remote_probe_world probe-bad-budget)
+  stall_ssh "$w"
+  started=$(date +%s)
+  # A 0 budget would disable the bound outright if passed through unchecked.
+  out=$(probe_remote "$w" poll FM_SSH_BIN="$w/stall-ssh" FM_FAKE_STALL_SECS=45 \
+    FM_SECONDMATE_LIVENESS_PROBE_BUDGET=0)
+  elapsed=$(( $(date +%s) - started ))
+  [ "$elapsed" -lt 40 ] || fail "a 0 budget must fall back to the default bound, took ${elapsed}s"
+  [ "$out" = 'skipped|unknown|0|||remote host unavailable or endpoint state unknown; route preserved on lab-host' ] \
+    || fail "a 0 budget must not disable the bound, got: $out"
+  pass "poll probe: a zero budget falls back to the default bound"
+}
+
 test_tmux_agent_state_classifies
 test_tmux_agent_state_rejects_malformed_targets_before_probe
 test_herdr_agent_state_preserves_husk_classifier
@@ -721,5 +760,7 @@ test_sweep_skips_mate_whose_liveness_lock_is_held
 test_sweep_refuses_relaunch_on_ledger_errors
 test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route
+test_remote_poll_probe_is_bounded
+test_remote_poll_probe_invalid_budget_keeps_bound
 
 echo "# all fm-secondmate-liveness tests passed"

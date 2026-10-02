@@ -3248,6 +3248,35 @@ test_remote_unreachable_is_unknown_remote_not_dead() {
   pass "fm-crew-state remote: an unreachable host reads unknown-remote, never gone or dead"
 }
 
+test_remote_stalled_host_is_bounded_unknown_remote() {
+  reset_fakes
+  local d out rc started elapsed budget
+  d=$(setup_remote_case remote-stalled)
+  make_fakebin "$d" >/dev/null
+  cat > "$d/fakebin/stall-ssh" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+sleep "${FM_FAKE_STALL_SECS:-30}"
+SH
+  chmod +x "$d/fakebin/stall-ssh"
+  for budget in 2 0; do
+    started=$(date +%s)
+    out=$(FM_SSH_BIN="$d/fakebin/stall-ssh" FM_FAKE_STALL_SECS=45 FM_CREW_STATE_REMOTE_BUDGET=$budget \
+      PATH="$d/fakebin:$PATH" FM_HOME="$d" FM_STATE_OVERRIDE="$d/state" "$CREW_STATE" rsm); rc=$?
+    elapsed=$(( $(date +%s) - started ))
+    expect_code 0 "$rc" "stalled remote exits 0"
+    # A 0 budget is invalid and must fall back to the 30 s default, not disable the bound.
+    if [ "$budget" = 2 ]; then
+      [ "$elapsed" -lt 15 ] || fail "a stalled remote state read must return within its bound, took ${elapsed}s"
+    else
+      [ "$elapsed" -lt 40 ] || fail "a 0 budget must fall back to the default bound, took ${elapsed}s"
+    fi
+    assert_contains "$out" "unknown-remote: remote-mac unreachable or endpoint unreadable (not proof of death)" \
+      "a bound hit reads as unknown-remote, never dead"
+  done
+  pass "fm-crew-state remote: a stalled host is bounded and reads unknown-remote"
+}
+
 test_remote_dead_reports_remote_verdict() {
   reset_fakes
   local d out rc
@@ -5604,6 +5633,7 @@ test_remote_alive_with_log_uses_status_log
 test_remote_alive_idle_is_healthy_not_gone
 test_remote_unreachable_is_unknown_remote_not_dead
 test_remote_dead_reports_remote_verdict
+test_remote_stalled_host_is_bounded_unknown_remote
 test_missing_meta
 test_provably_working_via_runs_list_fallback
 test_not_provably_working_when_stopped
