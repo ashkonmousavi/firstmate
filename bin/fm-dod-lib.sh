@@ -420,7 +420,7 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review unless a complete surgical certificate or server-install exemption applies. -->\n'
+  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review; a complete surgical certificate replaces both, and the server-install exemption waives only the review. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
   printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
