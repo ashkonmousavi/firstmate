@@ -1184,6 +1184,12 @@ EOF
     ' "$baseline" > "$prep"
     fm_prep_review_exempt "$prep" && fail "$change certificate exempted"
   done
+  # Tier answers keep the shared reader's legacy normalization on a certificate.
+  sed 's/^\(- Q2 .*\): no$/\1: No./' "$baseline" > "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "normalized tier answer refused: $reason"
+  fm_prep_review_exempt "$prep" || fail "normalized tier answer lost exemption"
+  sed 's/^\(- Q2 .*\): no$/\1: maybe/' "$baseline" > "$prep"
+  fm_prep_unfilled_reason "$prep" >/dev/null || fail "malformed tier answer certified"
   cp "$baseline" "$prep"
   answer_tier "$prep" yes yes
   reason=$(fm_prep_unfilled_reason "$prep") || fail "shared declaration certified"

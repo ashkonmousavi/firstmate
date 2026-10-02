@@ -1311,13 +1311,13 @@ wait_record() {  # <kind> <subject> <whom> <action> <age-record>
 # not that evidence, and neither is a verdict that names no run. The wait is owed
 # by firstmate, not the captain: escalated stop-set findings reach firstmate, which
 # decides most of them itself, and one it escalates becomes a captain-held
-# transfer that the first record above already catches. This detection is still
-# the legacy ask-user row plus the open key, not the worker's stop-set judgment:
-# a stop-set escalation whose rows carry another action keeps the ladder, and a
-# non-stop ask-user row the worker batch-fixes never has the open key. So the
-# away-posture silence does not apply to it: under away posture the supervision
-# branch is the actor allowed to answer it, and it is rechecked on the long
-# cadence throughout.
+# transfer that the first record above already catches. So the away-posture
+# silence does not apply to it: under away posture the supervision branch is the
+# actor allowed to answer it, and it is rechecked on the long cadence throughout.
+# This detection is still the legacy ask-user row plus the open key, not the
+# worker's stop-set judgment: a stop-set escalation whose rows carry another
+# action keeps the ladder, and a non-stop ask-user row the worker batch-fixes
+# never has the open key.
 # The two signals come apart in both directions, and the ladder is kept in each:
 #   - the decision was ANSWERED and the crewmate has not yet relayed it with
 #     `axi respond`: the gate is still reported parked and still carries the

@@ -577,8 +577,6 @@ fm_prep_certainty_reason() {  # <file>
   if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
     /^- Q[12] / {
       q = substr($0, 3, 2); seen[q]++; awaiting = 1
-      value = $0; sub(/^.*:/, "", value); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-      if (value != "yes" && value != "no") bad = 1
       next
     }
     awaiting {
