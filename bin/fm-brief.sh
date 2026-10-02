@@ -17,7 +17,7 @@
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--branch-prefix <prefix>] [--forge <none|gerrit> [--shape squash]] [--herdr-lab]
 #        fm-brief.sh <task-id> <repo-name> --scout [--prep-review <task-id> ...] [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
-#        fm-brief.sh <task-id> --prep
+#        fm-brief.sh <task-id> --prep [--surgical]
 #   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
 #   nothing else, so it is written and reviewed before the brief exists. The
 #   record is the specification beneath the brief: what the change does, where it
@@ -26,8 +26,7 @@
 #   It is TIERED, never flat, so preparation costs what the change is worth. The
 #   scaffold's `## Tier` header comes first and carries three mandatory answers:
 #     Q1  does this change alter what a user sees or can do?  yes or no
-#     Q2  does it touch a shared module, a contract, or more than about eight
-#         files?  yes or no
+#     Q2  does it touch a shared module or a contract?  yes or no
 #     UI wiring  `yes, <the step and control the user meets>` or
 #         `no, <why the user never meets this change>`; a change that lets a user
 #         configure or choose something is always yes, and the reason is
@@ -36,7 +35,7 @@
 #     UI wiring yes     tier 2 - whatever Q1 and Q2 say
 #     Q1 yes            tier 2 - every section below
 #     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
-#     all three no      tier 0 - the header IS the record; delete every section
+#     all three no      retain tier 1 sections and separate review
 #   The sections are:
 #     1. Intent and boxes        7. Records
 #     2. Behaviour spec          8. Out of scope and follow-ups
@@ -46,9 +45,8 @@
 #     6. Tests                  12. Size
 #   Each carries a one-line guide, the tier it becomes required at, and one
 #   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
-#   is answered `n/a: <one-line reason>`, so a tier-0 change costs three answers
-#   and nothing else, a tier-1 change five sections, and only a tier-2 change
-#   costs a page.
+#   is answered `n/a: <one-line reason>`; full records owe at least the five
+#   tier-1 sections, and only a tier-2 change costs a page.
 #   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
 #   Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
 #   result for every module touched and the Serena find_referencing_symbols
@@ -63,10 +61,15 @@
 #   its format, or where a section the declared tier requires is missing, still
 #   placeheld, or empty, naming that section, and then a non-exempt record no
 #   separate prep-review scout has approved; bin/fm-dod-lib.sh's header owns
-#   the all-no/server-install exemptions and review proof.
+#   the surgical/server-install exemptions and review proof.
 #   The guide lines for sections 1, 3, 7, and 10 point at the project's own
 #   task, design, UI, and verification records as its instructions name them.
-#   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
+#   --prep --surgical emits a compact certainty certificate: every C1-C5 answer
+#   must be exactly yes with concrete evidence to skip separate review. Any no,
+#   unsure, malformed or incomplete certificate requires full prep and review.
+#   Direct source lookup suffices for confined fixes; unknown impact is not empty.
+#   Shared, sensitive, install or server scope cannot certify surgical certainty.
+#   --surgical requires --prep. Preparation accepts no worker or delivery flags
 #   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
@@ -170,11 +173,8 @@
 # Serena find_symbol/find_referencing_symbols before renaming, moving, or
 # changing a function's signature; GitNexus impact against the GitNexus clone
 # (never inside the worktree) before changing a shared module; semantic search
-# only when the symbol's name is unknown. A no-mistakes ship scaffold also gets
-# a two-round review stop: after the second review round on one validation run,
-# stop answering fix and escalate needs-decision with the findings so far and
-# one reproducing command and three to five ranked hypotheses, each with its
-# disproof observation, built without editing while the run owns the branch.
+# only when the symbol's name is unknown. The shared no-mistakes driving block
+# in fm-dod-lib.sh owns triage, class-fix handoff and repeat visibility.
 # A home may carry standing worker instructions without editing this tracked
 # script: when config/brief-include.md exists under the active home, ship and
 # scout scaffolds append its text verbatim as their last section, "# Home brief
@@ -250,6 +250,7 @@ case "$CONFIG" in /*) ;; *) CONFIG="$PWD/$CONFIG" ;; esac
 KIND=ship
 HERDR_LAB=0
 PREP=0
+SURGICAL=0
 PREP_REVIEWS=()
 PREP_REVIEWS_N=0
 NO_PROJECTS=0
@@ -286,6 +287,7 @@ for a in "$@"; do
     --scout) KIND=scout ;;
     --secondmate) KIND=secondmate ;;
     --prep) PREP=1 ;;
+    --surgical) SURGICAL=1 ;;
     --prep-review) want_value=prep-review ;;
     --prep-review=*) PREP_REVIEWS+=("${a#--prep-review=}"); PREP_REVIEWS_N=$((PREP_REVIEWS_N + 1)) ;;
     --herdr-lab) HERDR_LAB=1 ;;
@@ -307,6 +309,11 @@ for a in "$@"; do
 done
 [ -z "$want_value" ] || { echo "error: --$want_value requires a value" >&2; exit 1; }
 
+if [ "$SURGICAL" -eq 1 ] && [ "$PREP" -ne 1 ]; then
+  echo "error: --surgical requires --prep" >&2
+  exit 1
+fi
+
 if [ "$PREP_REVIEWS_N" -gt 0 ] && { [ "$KIND" != scout ] || [ "$PREP" -eq 1 ]; }; then
   echo "error: --prep-review requires --scout and cannot combine with --prep" >&2
   exit 1
@@ -316,8 +323,8 @@ fi
 # written and reviewed while the brief is still unwritten. It carries no delivery
 # mode, no repo, and no kind: it is one file about the change itself.
 if [ "$PREP" -eq 1 ]; then
-  if [ "$KIND" != ship ] || [ "$MODE_SET" -eq 1 ] || [ "$HERDR_LAB" -eq 1 ] || [ "$NO_PROJECTS" -eq 1 ]; then
-    echo "error: --prep scaffolds the task preparation record alone; it takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects" >&2
+  if [ "$KIND" != ship ] || [ "$MODE_SET" -eq 1 ] || [ "$HERDR_LAB" -eq 1 ] || [ "$NO_PROJECTS" -eq 1 ] || [ "$BRANCH_PREFIX_SET" -eq 1 ] || [ "$FORGE_SET" -eq 1 ] || [ "$SHAPE_SET" -eq 1 ]; then
+    echo "error: --prep scaffolds the task preparation record alone; it takes no worker or delivery flags (--mode, --scout, --secondmate, --herdr-lab, --no-projects, --branch-prefix, --forge, --shape)" >&2
     exit 1
   fi
   [ "$POS_N" -eq 1 ] || {
@@ -328,7 +335,11 @@ if [ "$PREP" -eq 1 ]; then
   PREP_FILE=$(fm_prep_path "$DATA" "$PREP_ID")
   [ -e "$PREP_FILE" ] && { echo "error: $PREP_FILE already exists" >&2; exit 1; }
   mkdir -p "$DATA/$PREP_ID"
-  fm_prep_template "$PREP_ID" > "$PREP_FILE"
+  if [ "$SURGICAL" -eq 1 ]; then
+    fm_prep_surgical_template "$PREP_ID" > "$PREP_FILE"
+  else
+    fm_prep_template "$PREP_ID" > "$PREP_FILE"
+  fi
   echo "scaffolded: $PREP_FILE (task prep; answer the ## Tier header first - it decides which sections this task owes)"
   exit 0
 fi
@@ -440,9 +451,6 @@ mkdir -p "$DATA/$ID"
 ASK_USER_BLOCK=
 if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
   ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
-  # The two-round review stop is a validation-run escalation, so it rides rule 6.
-  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks must stay literal
-  ASK_USER_BLOCK+=$'\n''   After the second review round on one validation run, stop answering `fix` to new findings; append `needs-decision` with the full findings list so far, one reproducing command and three to five ranked hypotheses each with the observation that would disprove it, built without editing while the run owns the branch, then stop and wait for firstmate.'
 fi
 
 shell_quote() {

@@ -1,6 +1,6 @@
 ---
 name: validation-supervision
-description: Load when a ship starts or already has an active no-mistakes validation run, including a mid-run requirement change or finding, and before deciding or answering any ask-user finding.
+description: Load when a ship starts or already has an active no-mistakes validation run, including a mid-run requirement change or finding, and before deciding an escalated no-mistakes finding.
 user-invocable: false
 metadata:
   internal: true
@@ -21,10 +21,17 @@ Custody recovery settles branch ownership, not content: the worker must replace 
 Apart from that single supported abort, do not hand-edit, commit, restart, or start a second validation run while the obsolete run still owns the branch.
 Once ownership is settled, validate exactly once against that final head so no obsolete or intermediate head is ever treated as authoritative.
 
-An ask-user finding returns as `needs-decision`; firstmate loads `ask-user-authority` and either decides or escalates per that skill.
+A finding in the worker triage stop set returns as keyed `needs-decision`; firstmate loads `ask-user-authority` and either decides or escalates per that skill.
 Send the same worker one exact decision naming the decision key, step, action, affected finding IDs, instructions where needed, and exact response command, passing `--resolve-key` so the worker's open decision record closes at answer time.
 Require the matching `resolved` event, forbid `--yes`, and require the worker to process every synchronous return until completion or a genuinely new escalation.
 Resume fleet supervision immediately after the decision lands.
+
+`bin/fm-dod-lib.sh`'s `fm_nm_driving_block` owns the common triage, class-inventory payload and repeated-finding handoff for ordinary and promoted workers on both forges.
+For each authorized fix, require the worker's actual respond call with its inventory guidance in the active step input and retained run evidence; launch prose alone does not prove the next Review checked the inventory.
+Keep a mixed gate parked until its stop-set decision arrives; require installed help and a controlled receipt for singular-action selection semantics rather than guessing.
+A repeated finding in the same run returns with a `working:` event and the exact response command when outside the stop set, not a new decision solely because it repeated.
+Check the current quoted code before relaying a repeat, following `ask-user-authority`; a stale repeat carries file:line proof.
+If inventory propagation or mixed-gate semantics remain unproven, retain that precise external gap as unverified without adding a new pipeline or round cap.
 
 Judge validation by the resolved state line from [`bin/fm-crew-state.sh`](../../../bin/fm-crew-state.sh), whose header owns outcome mappings and CI-monitor/daemon exceptions, never by shell liveness, the last status event, or a raw run record.
 Workers parked at approval or fix-review must follow the active gate help.

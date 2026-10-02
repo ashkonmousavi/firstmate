@@ -239,7 +239,7 @@ EOF
   write_registry "$home" "$sm"
   place_filled_nav_prep "$sm" "$id"
   dest="$home/data/$id/prep.md"
-  # This case owes review: all-no installation is separately eligible below.
+  # This case owes review: all-no full preparation still owes review below.
   sed 's/^- Q2 .*: no$/- Q2 does this change touch a shared contract: yes/' \
     "$sm/data/nav-preps/$id.md" > "$sm/data/nav-preps/$id.edit"
   mv "$sm/data/nav-preps/$id.edit" "$sm/data/nav-preps/$id.md"
@@ -264,10 +264,39 @@ EOF
   sed 's/^- Q2 .*: yes$/- Q2 does this change touch a shared contract: no/' "$dest" > "$dest.tiny"
   mv "$dest.tiny" "$dest"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_present "$home/data/$id/launch-brief.md" "all-no installed prep should launch without review"
+  assert_contains "$out" "cannot ship before a separate agent reviews" "all-no installed full prep bypassed review"
+  assert_absent "$home/data/$id/launch-brief.md" "unreviewed installed full record launched"
   assert_absent "$home/data/$id/prep-review" "all-no installation fabricated review"
-  pass "fm-prep-install.sh: installation preserves review requirements and the all-no exemption"
+  pass "fm-prep-install.sh: installation preserves full review requirements even with all-no tier answers"
 }
+
+test_surgical_nav_prep_installation() {
+  local home sm id src dest out rc
+  home=$(make_primary surgical-nav)
+  sm="$TMP_ROOT/surgical-nav/secondmate"
+  id=surgical-nav
+  mkdir -p "$sm/data/nav-preps"
+  write_registry "$home" "$sm"
+  FM_HOME="$sm" "$ROOT/bin/fm-brief.sh" "$id" --prep --surgical >/dev/null || fail "compact nav scaffold"
+  src="$sm/data/nav-preps/$id.md"
+  sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{Q[12]_REASON\}/Confined output inspected./' \
+    -e 's/\{UI_WIRING\}/no, confined output./' -e 's/\{C[1-5]\}/yes/' \
+    -e 's/\{C[1-5]_EVIDENCE\}/bin\/own.sh:1; rg own returned only owned file; all excluded paths untouched; cause reproduced; bash tests\/own.test.sh red-first regression covers fix./' \
+    "$sm/data/$id/prep.md" > "$src"
+  dest="$home/data/$id/prep.md"
+  out=$(FM_HOME="$home" "$INSTALL" "$id" 2>&1); rc=$?
+  expect_code 0 "$rc" "complete compact nav installation"
+  cmp -s "$src" "$dest" || fail "compact bytes changed during installation"
+  assert_absent "$home/data/$id/prep-review" "compact install invented approval"
+  sed 's/^- C2 .*: yes$/- C2 unknown: unsure/' "$src" > "$src.uncertain"
+  mv "$src.uncertain" "$src"
+  out=$(FM_HOME="$home" "$INSTALL" "$id" --force 2>&1); rc=$?
+  expect_code 1 "$rc" "uncertain compact nav installation"
+  assert_contains "$out" 'no filled nav-prep' "uncertain compact nav treated as filled"
+  pass "nav-prep: complete compact bytes install unchanged; uncertainty does not install"
+}
+
+test_surgical_nav_prep_installation
 
 test_script_parses
 test_installs_filled_nav_prep_into_primary_prep

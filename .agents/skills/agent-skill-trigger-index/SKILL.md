@@ -14,7 +14,7 @@ These skills are not captain-invocable; load them only at their precise triggers
 - `diagnostic-reasoning` - load before scoping a reported bug and before acting on a diagnostic report.
 - `research-first-decisions` - load before selecting a tool, library, framework, service, vendor, or approach from candidates, and before recording such a selection as decided; also load before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage, where its Context7 version check is mandatory whether or not a candidate is being chosen.
 - `wayfinding` - load before scoping work larger than one task, such as a stage, a release, a migration, or a campaign of related changes; before dispatching a task whose backlog dependency names a stage, a release, or a final acceptance; when work is blocked only at its final step or the queue looks fully gated; and whenever the ready frontier lists only umbrellas or nothing while holds still exist.
-- `ask-user-authority` - load before deciding any ask-user finding.
+- `ask-user-authority` - load before deciding any escalated no-mistakes finding.
 - `quota-array-dispatch` - load before resolving an explicitly `quota-balanced` crew-dispatch rule.
 - `harness-adapters` - load before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter.
 - `firstmate-orca` - load before switching to Orca, spawning or supervising Orca-backed work, smoke-testing Orca backend behavior, debugging Orca task state, or reconciling Orca-backed task metadata.

@@ -22,6 +22,9 @@ BRIEF="$ROOT/bin/fm-brief.sh"
 PROMOTE="$ROOT/bin/fm-promote.sh"
 PROJECT_MODE="$ROOT/bin/fm-project-mode.sh"
 MERGE_LOCAL="$ROOT/bin/fm-merge-local.sh"
+# shellcheck source=bin/fm-dod-lib.sh
+. "$ROOT/bin/fm-dod-lib.sh"
+
 TMP_ROOT=$(fm_test_tmproot fm-task-delivery)
 
 # A home with one registered project, one project directory, and a fake tmux that
@@ -409,7 +412,7 @@ test_promote_refuses_a_symlinked_task_record() {
 
 # The delivery contract only protects a worker that actually receives it. A promoted
 # scout used to get a free-form hint instead of the mode-specific Definition of done,
-# so it never saw the ask-user escalation rule or the --yes ban that every briefed
+# so it never saw the stop-set triage rule or the --yes ban that every briefed
 # no-mistakes worker gets. This drives the real promotion path, then runs the delivery command it
 # prints against a capturing fm-send.sh, and asserts on the message the worker would
 # actually receive - for every supported mode.
@@ -482,12 +485,12 @@ STUB
   done
 
   payload="$TMP_ROOT/promote-dod/payload-promote-dod-no-mistakes"
-  assert_grep "ask-user findings are never yours to answer: escalate to firstmate" "$payload" \
-    "promoted no-mistakes worker did not receive the ask-user escalation rule"
-  assert_grep "write only the ask-user findings, verbatim and unparaphrased (id, severity, file, line, description, authority)" "$payload" \
-    "promoted no-mistakes worker did not receive the ask-user-only snapshot contract"
+  assert_grep "Every other finding, ask-user ones included, is yours to batch-fix" "$payload" \
+    "promoted no-mistakes worker did not receive the stop-set triage rule"
+  assert_grep "write only the stop-set findings, verbatim and unparaphrased (id, severity, file, line, description, authority), naming the stop category" "$payload" \
+    "promoted no-mistakes worker did not receive the stop-set-only snapshot contract"
   # shellcheck disable=SC2016  # single quotes are deliberate: the placeholders must stay literal
-  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: ask-user findings=<id1>,<id2>,... file='"$home/data/promote-dod-no-mistakes/nm-<run>-findings.txt" "$payload" \
+  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file='"$home/data/promote-dod-no-mistakes/nm-<run>-findings.txt" "$payload" \
     "promoted no-mistakes worker did not receive the structured escalation event"
   assert_grep "NEVER pass \`--yes\` (or \`-y\`)" "$payload" \
     "promoted no-mistakes worker did not receive the --yes prohibition"
@@ -497,7 +500,7 @@ STUB
   payload="$TMP_ROOT/promote-dod/payload-promote-dod-direct-pr"
   assert_grep "supersede the scout delivery rules and report-based Definition of done" "$payload" \
     "promoted worker retained the scout delivery contract"
-  assert_grep "status protocol; the instruction inbox and its acknowledgement; the escalation rules, including ask-user; and every safety rule" "$payload" \
+  assert_grep "status protocol; the instruction inbox and its acknowledgement; the escalation rules, including the stop set; and every safety rule" "$payload" \
     "promoted worker lost the scout protocols and safety rules that still apply"
 
   # The faster paths keep their own contracts rather than inheriting the pipeline's.
@@ -1124,11 +1127,83 @@ EOF
 
 # The task preparation record gates a ship launch, and the record is tiered by
 # its own ## Tier header, so the gate costs what the change is worth: a launch
-# with no record or an unanswered header is refused, a tier-0 header alone
-# launches, and a section is required only from the tier that declares it - a
+# with no record or an unanswered header is refused, a header-only all-no
+# record remains incomplete, and a section is required only from the tier that declares it - a
 # tier-2 record owes every section, while a tier-1 record legitimately omits the
 # ones below it. A scout is not gated. tests/fm-control-relaunch.test.sh owns the
 # --relaunch exemption, where a relaunch reaches this check with a live endpoint.
+test_surgical_certainty_and_admission() {
+  local rec home proj fakebin id prep baseline field change reason out
+  rec=$(make_home surgical-admission)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  id=surgical-certain
+  write_brief "$home" "$id" no-mistakes
+  rm -f "$home/data/$id/prep.md" "$home/data/$id/prep-review"
+  FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+  prep="$home/data/$id/prep.md"
+  sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
+    -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
+    -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/bin\/owned.sh:12; rg callers returned only owned file; stored data, security, permissions, money, install and server paths untouched; cause reproduced by bash tests\/owned.test.sh; fix output; red-first regression covers behaviour./' \
+    "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  baseline="$home/certain.md"
+  cp "$prep" "$baseline"
+  fm_prep_unfilled_reason "$prep" && fail "complete certificate refused"
+  fm_prep_review_exempt "$prep" || fail "complete certificate not exempt"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "certain surgical record did not launch"
+  assert_no_grep 'Accepted specification for --intent' "$home/data/$id/launch-brief.md" "certainty impersonated review"
+  # Certainty validates filled evidence, not the syntax of quoted tool output.
+  awk '/^Evidence:/ { print "Evidence: owned.sh:12; direct lookup returned {\"callers\": []}; test output uses <empty>; scope exclusions and reproduced cause recorded."; next } { print }' \
+    "$baseline" > "$prep"
+  fm_prep_unfilled_reason "$prep" && fail "literal tool-output evidence mistaken for placeholders"
+  fm_prep_review_exempt "$prep" || fail "filled tool-output evidence lost exemption"
+  for field in C1 C2 C3 C4 C5; do
+    for change in no unsure absent placeholder malformed duplicate conflicting evidence; do
+      awk -v f="$field" -v c="$change" '
+        index($0, "- " f " ") == 1 {
+          if (c == "absent") { skip = 1; next }
+          if (c == "no" || c == "unsure" || c == "placeholder" || c == "malformed") {
+            sub(/: yes$/, ": " (c == "placeholder" ? "{" f "}" : c == "malformed" ? "YES." : c))
+          }
+          print
+          if (c == "duplicate") print
+          if (c == "conflicting") { sub(/: yes$/, ": no"); print }
+          if (c == "evidence") skip = 1
+          next
+        }
+        skip && /^Evidence:/ { skip = 0; next }
+        { print }
+      ' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep") || fail "$field $change accepted as complete"
+      assert_contains "$reason" "$field" "$field $change refusal did not identify field"
+      assert_contains "$reason" 'full prep and separate review' "$field $change no fallback"
+      fm_prep_review_exempt "$prep" && fail "$field $change exempted"
+    done
+  done
+  for change in reason duplicate-q duplicate-format; do
+    awk -v c="$change" '
+      c == "reason" && /^Reason:/ { next }
+      { print }
+      c == "duplicate-q" && /^- Q2 / { sub(/: no$/, ": yes"); print }
+      c == "duplicate-format" && /^- Preparation format:/ { print }
+    ' "$baseline" > "$prep"
+    fm_prep_review_exempt "$prep" && fail "$change certificate exempted"
+  done
+  cp "$baseline" "$prep"
+  answer_tier "$prep" yes yes
+  reason=$(fm_prep_unfilled_reason "$prep") || fail "shared declaration certified"
+  assert_contains "$reason" C2 "shared contradiction not named"
+  for field in 'stored data' security permissions money install server; do
+    cp "$baseline" "$prep"
+    sed "/^- Preparation format:/a\\
+- Changes $field: yes" "$baseline" > "$prep"
+    fm_prep_review_exempt "$prep" && fail "$field declaration certified"
+  done
+  pass "surgical certainty: complete evidence admits without reviewed overlay; uncertainty and contradictions fail closed"
+}
+
 test_ship_spawn_requires_the_task_preparation_record() {
   local rec home proj fakebin id prep out status
   rec=$(make_home prep-gate)
@@ -1293,8 +1368,7 @@ EOF
   assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
     "an answered UI-wiring record"
 
-  # Tier 0 is three answers and nothing else: with every section deleted and all
-  # three answers no, the record is complete and the launch proceeds.
+  # Legacy header-only all-no records now owe the tier-1 sections.
   id="prep-tier0"
   mkdir -p "$home/data/$id"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
@@ -1305,9 +1379,9 @@ EOF
   awk '/^## [0-9]+\. / { exit } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   answer_tier "$prep" no no
   assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
-  review_prep "$home" "$id"
-  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
-    "a tier-0 record carrying only its three answers"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" "tier 1 requires ## 1. Intent and boxes" "legacy header-only record bypassed completeness"
+  assert_absent "$home/data/$id/launch-brief.md" "header-only legacy record launched"
 
   # An answered record is a complete answer: the launch proceeds past the gate
   # (the fake tmux still stops it before any endpoint exists) and the worker's
@@ -1384,8 +1458,8 @@ EOF
   write_brief "$home" "$id" no-mistakes
   rm -f "$home/data/$id/prep-review"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
-  assert_present "$home/data/$id/launch-brief.md" "all-no prep should launch without review"
-  assert_no_grep 'Accepted specification for --intent' "$home/data/$id/launch-brief.md" "exemption was labeled reviewed"
+  assert_contains "$out" "cannot ship before a separate agent reviews" "all-no full prep bypassed review"
+  assert_absent "$home/data/$id/launch-brief.md" "unreviewed full record launched"
 
   # Each part of the proof is checked on its own, and each refusal names it.
   id=review-proof
@@ -1447,7 +1521,7 @@ EOF
     "a scout spawn was refused for having no reviewed preparation record"
   assert_present "$home/data/$id/launch-brief.md" "a scout spawn rendered no launch brief"
 
-  pass "fm-spawn: all-no prep skips review; every nonzero tier retains separate review proof"
+  pass "fm-spawn: full records including all-no retain separate review proof"
 }
 
 # A no-mistakes ship hands the worker the reviewed record's behaviour spec and
@@ -1774,19 +1848,23 @@ test_forge_gerrit_changes_what_no_mistakes_means() {
   # The forge changes the contract's head and tail only: how the pipeline is
   # driven, what --intent may carry, and the two firstmate-specific rules are the
   # same text a GitHub-forge worker receives.
-  assert_grep 'ask-user findings are never yours to answer: escalate to firstmate' "$brief" \
-    "the gerrit worker lost the ask-user escalation rule"
+  assert_grep 'Every other finding, ask-user ones included, is yours to batch-fix' "$brief" \
+    "the gerrit worker lost the stop-set triage rule"
   # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
   assert_grep 'NEVER pass `--yes` (or `-y`)' "$brief" "the gerrit worker lost the --yes ban"
   FM_HOME="$home" "$BRIEF" forge-dod-n1 other-project --mode no-mistakes >/dev/null \
     || fail "a default-forge no-mistakes brief should scaffold"
   plain="$home/data/forge-dod-n1/brief.md"
+  assert_grep 'bypassing the stop-set authority boundary.' "$brief" \
+    "the gerrit driving block lost its authority-boundary terminator"
+  assert_grep 'bypassing the stop-set authority boundary.' "$plain" \
+    "the default driving block lost its authority-boundary terminator"
   awk '/^You drive no-mistakes by responding to its gates/ { emit = 1 }
        emit { print }
-       emit && /hard rule violation\.$/ { exit }' "$brief" > "$TMP_ROOT/forge-dod/gerrit-middle"
+       emit && /bypassing the stop-set authority boundary\.$/ { exit }' "$brief" > "$TMP_ROOT/forge-dod/gerrit-middle"
   awk '/^You drive no-mistakes by responding to its gates/ { emit = 1 }
        emit { print }
-       emit && /hard rule violation\.$/ { exit }' "$plain" > "$TMP_ROOT/forge-dod/plain-middle"
+       emit && /bypassing the stop-set authority boundary\.$/ { exit }' "$plain" > "$TMP_ROOT/forge-dod/plain-middle"
   [ -s "$TMP_ROOT/forge-dod/gerrit-middle" ] || fail "the gerrit brief carries no pipeline-driving section to compare"
   # Only the two statements about a green PR differ: the ci step is skipped on
   # this forge, so there is no checks-passed return to wait for.
@@ -2294,6 +2372,7 @@ EOF
 test_prep_requires_finalize_after_evidence
 test_batch_prep_review_and_report_shape
 test_server_install_review_exemption
+test_surgical_certainty_and_admission
 test_ship_spawn_requires_a_valid_delivery_contract
 test_scout_and_secondmate_refuse_delivery_flags
 test_spawn_refuses_a_brief_mode_mismatch
