@@ -199,11 +199,12 @@ Record the resulting mode, `yolo` merge posture, and the one-line reason for any
 Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work as soon as a writing lane is free when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
 For work larger than one task, build the shared structure the later work attaches to first, under one owner, then split by vertical outcome with one lane per area owning its files.
 A shared or unstable module has exactly one integration owner: a lane that needs it changed asks that owner rather than editing it, and keeps working on its own files until that change lands (`wayfinding` owns the multi-task procedure).
-Size concurrent writing lanes to review capacity, not to the number of ready items.
+Use as many isolated ship/scout lanes as this home's presequenced, currently parallel-safe work needs, up to seven; never create idle work to fill slots, and retain existing resource and ownership restrictions.
+Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB, no swap-in/out pressure, and current load strictly below available core count; missing or failing readings prevent that admission.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
-Write the task's preparation record before the brief with `bin/fm-brief.sh <task-id> --prep`, which owns the template, its tier header, and its sections; then have a separately spawned prep-review scout review it, at every tier, on Opus whenever the task touches product behaviour or shared code, and install the record that scout approves.
+Write the task's preparation record before the brief with `bin/fm-brief.sh <task-id> --prep`, which owns the template, its tier header, and its sections; then, unless its complete tier header answers all no or declares the server-install exemption owned by `bin/fm-dod-lib.sh`, have a separately spawned prep-review scout review it on Opus whenever the task touches product behaviour or shared code, and install the record that scout approves.
 The record's own tier answers decide what it owes, so a change no user meets, that alters nothing a user sees and touches nothing shared, costs three answers and no sections.
-A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or that lacks the separate review whose record `bin/fm-dod-lib.sh` owns.
+A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or, when review is owed, that lacks the separate review whose record `bin/fm-dod-lib.sh` owns.
 When a secondmate already filled `data/nav-preps/<id>.md`, install that sheet into this home's `data/<id>/prep.md` with `bin/fm-prep-install.sh` before spawn; an empty local `--prep` scaffold must not hide a filled nav-prep.
 Write the task-specific brief under section 11 before spawning.
 Fill the task subsections according to section 11.
@@ -318,6 +319,9 @@ Load `away-quiet-supervision` whenever either mode is invoked, either record exi
 For the full `stuck-crewmate-recovery` trigger, including a live worker claiming its no-mistakes pipeline is dead, unreachable, or timed out, follow that skill's description.
 
 ## 9. Escalation and captain etiquette
+
+Every captain-facing progress, completion, decision or failure update includes its own line `lanes working: X`, counting this home's live task workers once by `bin/fm-crew-state.sh`'s reconciled working or validating state, excluding idle, blocked or paused workers and PRs waiting only for merge.
+Disclose unknown state rather than inventing zero; the exact `Captain, shipshape.` no-op reply stays exact.
 
 - **Talk in outcomes, not mechanics.**
 - Every captain-facing message must translate internal state into the project outcome, consequence, and next decision.

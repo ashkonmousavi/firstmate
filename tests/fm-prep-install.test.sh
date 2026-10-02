@@ -239,6 +239,10 @@ EOF
   write_registry "$home" "$sm"
   place_filled_nav_prep "$sm" "$id"
   dest="$home/data/$id/prep.md"
+  # This case owes review: all-no installation is separately eligible below.
+  sed 's/^- Q2 .*: no$/- Q2 does this change touch a shared contract: yes/' \
+    "$sm/data/nav-preps/$id.md" > "$sm/data/nav-preps/$id.edit"
+  mv "$sm/data/nav-preps/$id.edit" "$sm/data/nav-preps/$id.md"
 
   status=0
   out=$(FM_HOME="$home" "$INSTALL" "$id" 2>&1) || status=$?
@@ -257,7 +261,12 @@ EOF
     "an installed, unreviewed nav-prep was not refused for its missing review"
   assert_absent "$home/state/$id.meta" "a review-gated spawn wrote task metadata"
 
-  pass "fm-prep-install.sh: installs an unreviewed nav-prep, and spawn refuses it for the missing review"
+  sed 's/^- Q2 .*: yes$/- Q2 does this change touch a shared contract: no/' "$dest" > "$dest.tiny"
+  mv "$dest.tiny" "$dest"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "all-no installed prep should launch without review"
+  assert_absent "$home/data/$id/prep-review" "all-no installation fabricated review"
+  pass "fm-prep-install.sh: installation preserves review requirements and the all-no exemption"
 }
 
 test_script_parses

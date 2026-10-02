@@ -15,7 +15,7 @@
 # sections when the task genuinely deviates (e.g. working an existing external
 # PR instead of shipping a new one).
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--branch-prefix <prefix>] [--forge <none|gerrit> [--shape squash]] [--herdr-lab]
-#        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
+#        fm-brief.sh <task-id> <repo-name> --scout [--prep-review <task-id> ...] [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #        fm-brief.sh <task-id> --prep
 #   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
@@ -56,12 +56,14 @@
 #   semantic search only when a name is unknown. Where a tier requires it, a
 #   filled Blast radius that names neither gitnexus nor serena is refused unless
 #   it is answered `n/a: <reason>`; nothing checks whether the output is right.
+#   Section 8 carries the FINALIZE-AFTER marker grep for this task id and disposition of landed
+#   triggers; naming neither finalize-after nor n/a with reason is refused.
 #   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
 #   header is missing or leaves any of its three answers unanswered or outside
 #   its format, or where a section the declared tier requires is missing, still
-#   placeheld, or empty, naming that section, and then one that no separate
-#   prep-review scout has approved, at every tier; bin/fm-dod-lib.sh's header
-#   owns that review record.
+#   placeheld, or empty, naming that section, and then a non-exempt record no
+#   separate prep-review scout has approved; bin/fm-dod-lib.sh's header owns
+#   the all-no/server-install exemptions and review proof.
 #   The guide lines for sections 1, 3, 7, and 10 point at the project's own
 #   task, design, UI, and verification records as its instructions name them.
 #   --prep takes no --mode, --scout, --secondmate, --herdr-lab, or --no-projects,
@@ -70,6 +72,11 @@
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
 #   It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
 #   confirms the supported lavish-axi floor; otherwise it asks for a text report.
+#   --prep-review <task-id> requires --scout and is repeatable for a batch.
+#   Each id must be plain and distinct from the reviewer; the scout reviews the
+#   named preps along Standards and Spec, plus Architecture when Q2 is yes,
+#   and may write only their exact per-task approval paths outside its worktree.
+#   bin/fm-dod-lib.sh owns the review report and approved-byte proof.
 #   --secondmate writes a persistent secondmate charter. The project list
 #   is cloned into the secondmate home, while the natural-language scope
 #   tells the main firstmate when to route work there; routine churn stays in its own home;
@@ -166,7 +173,8 @@
 # only when the symbol's name is unknown. A no-mistakes ship scaffold also gets
 # a two-round review stop: after the second review round on one validation run,
 # stop answering fix and escalate needs-decision with the findings so far and
-# the worker's reading of the root cause instead.
+# one reproducing command and three to five ranked hypotheses, each with its
+# disproof observation, built without editing while the run owns the branch.
 # A home may carry standing worker instructions without editing this tracked
 # script: when config/brief-include.md exists under the active home, ship and
 # scout scaffolds append its text verbatim as their last section, "# Home brief
@@ -242,6 +250,8 @@ case "$CONFIG" in /*) ;; *) CONFIG="$PWD/$CONFIG" ;; esac
 KIND=ship
 HERDR_LAB=0
 PREP=0
+PREP_REVIEWS=()
+PREP_REVIEWS_N=0
 NO_PROJECTS=0
 MODE=
 MODE_SET=0
@@ -266,6 +276,7 @@ for a in "$@"; do
       branch-prefix) BRANCH_PREFIX=$a; BRANCH_PREFIX_SET=1 ;;
       forge) FORGE=$a; FORGE_SET=1 ;;
       shape) SHAPE=$a; SHAPE_SET=1 ;;
+      prep-review) PREP_REVIEWS+=("$a"); PREP_REVIEWS_N=$((PREP_REVIEWS_N + 1)) ;;
       *) echo "error: internal parser state for --$want_value" >&2; exit 1 ;;
     esac
     want_value=
@@ -275,6 +286,8 @@ for a in "$@"; do
     --scout) KIND=scout ;;
     --secondmate) KIND=secondmate ;;
     --prep) PREP=1 ;;
+    --prep-review) want_value=prep-review ;;
+    --prep-review=*) PREP_REVIEWS+=("${a#--prep-review=}"); PREP_REVIEWS_N=$((PREP_REVIEWS_N + 1)) ;;
     --herdr-lab) HERDR_LAB=1 ;;
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
@@ -293,6 +306,11 @@ for a in "$@"; do
   esac
 done
 [ -z "$want_value" ] || { echo "error: --$want_value requires a value" >&2; exit 1; }
+
+if [ "$PREP_REVIEWS_N" -gt 0 ] && { [ "$KIND" != scout ] || [ "$PREP" -eq 1 ]; }; then
+  echo "error: --prep-review requires --scout and cannot combine with --prep" >&2
+  exit 1
+fi
 
 # The preparation record is scaffolded on its own, before the brief, so it can be
 # written and reviewed while the brief is still unwritten. It carries no delivery
@@ -366,6 +384,13 @@ elif [ "$FORGE_SET" -eq 1 ] || [ "$SHAPE_SET" -eq 1 ]; then
   exit 1
 fi
 ID=${POS[0]}
+if [ "$PREP_REVIEWS_N" -gt 0 ]; then
+  fm_pr_task_id_valid "$ID" || { echo "error: --prep-review reviewer must be a plain task id" >&2; exit 1; }
+  for REVIEW_TASK in "${PREP_REVIEWS[@]}"; do
+    fm_pr_task_id_valid "$REVIEW_TASK" || { echo "error: --prep-review needs a plain task id (got '$REVIEW_TASK')" >&2; exit 1; }
+    [ "$REVIEW_TASK" != "$ID" ] || { echo "error: --prep-review cannot review the reviewer's own id $ID" >&2; exit 1; }
+  done
+fi
 BRANCH="$BRANCH_PREFIX$ID"
 if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
   echo "error: --branch-prefix and task id must form a valid git branch (got '$BRANCH')" >&2
@@ -417,7 +442,7 @@ if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
   ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
   # The two-round review stop is a validation-run escalation, so it rides rule 6.
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks must stay literal
-  ASK_USER_BLOCK+=$'\n''   After the second review round on one validation run, stop answering `fix` to new findings; append `needs-decision` with the full findings list so far and your reading of the root cause, then stop and wait for firstmate.'
+  ASK_USER_BLOCK+=$'\n''   After the second review round on one validation run, stop answering `fix` to new findings; append `needs-decision` with the full findings list so far, one reproducing command and three to five ranked hypotheses each with the observation that would disprove it, built without editing while the run owns the branch, then stop and wait for firstmate.'
 fi
 
 shell_quote() {
@@ -624,6 +649,25 @@ EOF
 SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
 
 if [ "$KIND" = scout ]; then
+SCOUT_RULE2='2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'
+PREP_REVIEW_SECTION=
+if [ "$PREP_REVIEWS_N" -gt 0 ]; then
+  SCOUT_RULE2='2. Stay inside this worktree; the only files you may write outside it are the report and status file below, and these exact approved-record paths:'
+  for REVIEW_TASK in "${PREP_REVIEWS[@]}"; do
+    SCOUT_RULE2+=" \`$DATA/$ID/reviewed-prep/$REVIEW_TASK.md\`"
+  done
+  PREP_REVIEW_SECTION=$(
+    printf '# Preparation review\nReview each named preparation record against the current base on two axes, with a verdict for each record under the report headings, never merging or reranking the axes.\n'
+    printf '## Standards\nWould the proposed files, interfaces and tests follow the project documented rules?\nCheck that Tests names public seams and a red-first order, each new or changed interface names its module and seam, every external fact cites a primary source, and pre-staged values use FINALIZE-AFTER(<trigger>).\nCite each violated rule and its evidence.\n'
+    printf '## Spec\nDoes the record deliver the quoted intent with nothing unasked, and a behaviour spec and definition of done that would catch a wrong build?\nFlag missing, partial, unasked or wrong behavior against the accepted criteria.\n'
+    printf '## Architecture\nFor each Q2 yes record, apply the deletion test to every module its Blast radius names and list shallow modules or leaking seams the change would deepen; otherwise write n/a: Q2 no.\n'
+    printf 'The batch report carries each owed heading once, naming each record and its verdict under it.\nApprove only complete records; copy the approved bytes byte-identical to the exact path below, without silently rewriting the specification.\n'
+    for REVIEW_TASK in "${PREP_REVIEWS[@]}"; do
+      # shellcheck disable=SC2016 # Literal backticks are part of the emitted brief.
+      printf 'Review `%s/%s/prep.md`; approved record: `%s/%s/reviewed-prep/%s.md`.\n' "$DATA" "$REVIEW_TASK" "$DATA" "$ID" "$REVIEW_TASK"
+    done
+  )
+fi
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, use the lavish-axi rule: arm your board with bin/fm-procevent-lavish.sh arm <artifact.html> --for <task-id>; never run lavish-axi poll yourself. Re-arm with the reply after each nonterminal round to acknowledge it, route the board feedback through your steering inbox, write needs-decision [key=board-review] with the live board URL when the captain owes a decision, and stop at session_ended or an empty End without re-arming - acknowledge that final round with bin/fm-procevent.sh handled <source-id> <sequence> to conclude and retire your board.'
 else
@@ -633,6 +677,8 @@ cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
 $TASK_SECTION
+
+$PREP_REVIEW_SECTION
 
 $HERDR_SECTION
 
@@ -644,7 +690,7 @@ The report is the only thing that survives, so anything worth keeping must be in
 
 # Rules
 1. Never push to any remote and never open a PR.
-2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
+$SCOUT_RULE2
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
@@ -658,6 +704,7 @@ The report is the only thing that survives, so anything worth keeping must be in
    copies that URL from your line rather than assembling one.
 $CREWMATE_PAUSE_INSTRUCTIONS
 5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
+   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
 6. If a decision belongs to a human (product choices, destructive actions),
    append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
    A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
@@ -735,6 +782,7 @@ $RULE1
    turn after it; continue the same stage until a defined \`done:\` gate under Definition of done.
 $CREWMATE_PAUSE_INSTRUCTIONS
 5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
+   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
 6. If a decision belongs above the implementation worker (product choices, destructive actions),
    append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
 $ASK_USER_BLOCK

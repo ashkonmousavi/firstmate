@@ -145,6 +145,7 @@ Pi's `/supervision-model` command pins a cheaper model and a shallower reasoning
 
   PR ready for review, captain: https://github.com/you/xyz/pull/42
   (fix flaky login test - risk: low - CI green)
+  lanes working: 1
 
 > alright merge it
 ```

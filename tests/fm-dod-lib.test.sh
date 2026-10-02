@@ -59,6 +59,8 @@ test_remote_containing_named_head_is_accepted() {
   git -C "$wt" update-ref refs/remotes/origin/fm/pushed "$sha"
   accept_done ship no-mistakes "$wt" "$repo" "done: PR https://example.test/o/r/pull/2 checks green" \
     || fail "named head on a remote-tracking ref was refused"
+  accept_done ship direct-PR "$wt" "$repo" "done: PR https://example.test/o/r/pull/2 checks green" \
+    || fail "direct-PR green suffix must preserve named-head acceptance"
   pass "named head on a remote-tracking ref is accepted"
 }
 

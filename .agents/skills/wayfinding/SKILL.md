@@ -118,11 +118,10 @@ When the dependency lands, integrate prepared consumers before extending that ch
 Write every placeholder as the exact token `FINALIZE-AFTER(<trigger>): <what>`, inline where the value belongs.
 One search, `grep -rn 'FINALIZE-AFTER('`, then finds every open placeholder with its trigger already beside it, so no separate index of pending work exists to drift out of date.
 
-Two rules enforce it, and both are yours to run because no script checks them:
+Two rules govern prepared artifacts:
 
-- Consuming any prepared artifact BEGINS by grepping the sentinel and resolving every hit whose trigger has landed.
-- Delivered or landed material contains zero unresolved sentinels.
-  Grep the branch before reporting a task ready, and name that check in the brief of any task that pre-stages, so the worker runs it rather than remembering it.
+- Consuming a prepared artifact begins with the sentinel grep and resolving every hit whose trigger has landed; prep section 8 carries that evidence and spawn checks it.
+- A sentinel may land ahead of its trigger only when that trigger is a tracked task, and no sentinel outlives a landed trigger.
 
 When the queue looks fully gated, enumerate what can be pre-staged before accepting that nothing can proceed.
 "Everything is blocked" is usually "every final step is blocked", and the preparation standing behind those final steps is independent and useful anyway.
@@ -158,3 +157,5 @@ Route anything durable per `AGENTS.md` section 6 rather than leaving it in a tas
 When a decision you already recorded turns out to be wrong, reopen it.
 The instinct is to design around it instead, which buries the mistake under the work built on top of it and makes it more expensive with every slice.
 Say plainly what changed, correct the affected records in the same step, and never build onward against a route known to be wrong.
+
+When a stage or batch closes, record what slowed it at that cause's owner before planning the next one, off the current delivery critical path.
