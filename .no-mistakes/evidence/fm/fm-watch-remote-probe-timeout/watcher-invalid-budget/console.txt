@@ -1,0 +1,46 @@
+seeded pending reply e811fe7110b4fe58
+watcher (invalid) pid 184614 started 14:08:51 in lab /tmp/fm-lab.6qO55X
+t=+  3s  watcher alive=yes  beacon age=2s
+t=+  6s  watcher alive=yes  beacon age=5s
+t=+  9s  watcher alive=yes  beacon age=8s
+t=+ 12s  watcher alive=yes  beacon age=11s
+t=+ 15s  watcher alive=yes  beacon age=14s
+t=+ 16s  watcher alive=yes  beacon age=15s
+t=+ 19s  watcher alive=yes  beacon age=18s
+t=+ 22s  watcher alive=yes  beacon age=21s
+t=+ 25s  watcher alive=yes  beacon age=24s
+t=+ 28s  watcher alive=yes  beacon age=27s
+t=+ 31s  watcher alive=yes  beacon age=30s
+t=+ 34s  watcher alive=yes  beacon age=33s
+t=+ 37s  watcher alive=yes  beacon age=36s
+t=+ 40s  watcher alive=yes  beacon age=39s
+t=+ 43s  watcher alive=yes  beacon age=42s
+t=+ 43s  watcher alive=yes  beacon age=42s
+t=+ 46s  watcher alive=yes  beacon age=45s
+t=+ 49s  watcher alive=yes  beacon age=48s
+t=+ 52s  watcher alive=yes  beacon age=51s
+t=+ 55s  watcher alive=yes  beacon age=54s
+t=+ 58s  watcher alive=yes  beacon age=0s
+t=+ 61s  watcher alive=yes  beacon age=3s
+t=+ 64s  watcher alive=yes  beacon age=6s
+t=+ 67s  watcher alive=yes  beacon age=9s
+t=+ 70s  watcher alive=yes  beacon age=12s
+t=+ 70s  watcher alive=yes  beacon age=12s
+t=+ 73s  watcher alive=yes  beacon age=15s
+t=+ 76s  watcher alive=yes  beacon age=18s
+t=+ 79s  watcher alive=yes  beacon age=21s
+t=+ 82s  watcher alive=yes  beacon age=24s
+t=+ 85s  watcher alive=yes  beacon age=27s
+t=+ 88s  watcher alive=yes  beacon age=30s
+t=+ 91s  watcher alive=yes  beacon age=33s
+t=+ 94s  watcher alive=yes  beacon age=36s
+t=+ 97s  watcher alive=yes  beacon age=39s
+--- ssh log
+14:08:52 start pid=185253 cmd=fm-remote-secondmate-control.sh observe rsm 
+14:09:19 start pid=208734 cmd=fm-remote-secondmate-control.sh state rsm 
+14:09:49 start pid=227172 cmd=fm-remote-secondmate-control.sh observe rsm 
+14:10:16 start pid=239253 cmd=fm-remote-secondmate-control.sh state rsm 
+--- triage log (secondmate lines)
+[2026-10-02T14:09:46-0700] secondmate rsm liveness: remote host unavailable or endpoint state unknown; route preserved on remote-mac
+--- watcher stdout
+--- watcher stderr

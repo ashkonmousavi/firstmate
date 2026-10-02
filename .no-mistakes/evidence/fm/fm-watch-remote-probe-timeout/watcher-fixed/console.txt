@@ -1,0 +1,31 @@
+seeded pending reply fd0be0cd1852f6f3
+watcher (fixed) pid 371673 started 14:13:41 in lab /tmp/fm-lab.Fsvyvi
+t=+  0s  watcher alive=yes  beacon age=0s
+t=+  3s  watcher alive=yes  beacon age=3s
+t=+  6s  watcher alive=yes  beacon age=6s
+t=+  9s  watcher alive=yes  beacon age=1s
+t=+ 12s  watcher alive=yes  beacon age=4s
+t=+ 15s  watcher alive=yes  beacon age=7s
+t=+ 18s  watcher alive=yes  beacon age=10s
+t=+ 21s  watcher alive=yes  beacon age=3s
+t=+ 24s  watcher alive=yes  beacon age=6s
+t=+ 27s  watcher alive=yes  beacon age=9s
+t=+ 28s  watcher alive=yes  beacon age=2s
+--- hung ssh processes still running while watcher alive: 1
+--- pending reply records:
+task_id=rsm
+phase=awaiting_report
+--- ssh log
+14:13:41 start pid=372095 cmd=fm-remote-secondmate-control.sh observe rsm 
+14:13:43 start pid=372832 cmd=fm-remote-secondmate-control.sh state rsm 
+14:13:49 start pid=378102 cmd=fm-remote-secondmate-control.sh observe rsm 
+14:13:53 start pid=384518 cmd=fm-remote-secondmate-control.sh state rsm 
+14:13:59 start pid=388821 cmd=fm-remote-secondmate-control.sh observe rsm 
+14:14:04 start pid=390947 cmd=fm-remote-secondmate-control.sh state rsm 
+14:14:07 start pid=397107 cmd=fm-remote-secondmate-control.sh observe rsm 
+--- triage log (secondmate lines)
+[2026-10-02T14:13:47-0700] secondmate rsm liveness: remote host unavailable or endpoint state unknown; route preserved on remote-mac
+[2026-10-02T14:13:57-0700] secondmate rsm liveness: remote host unavailable or endpoint state unknown; route preserved on remote-mac
+[2026-10-02T14:14:08-0700] secondmate rsm liveness: remote host unavailable or endpoint state unknown; route preserved on remote-mac
+--- watcher stdout
+--- watcher stderr

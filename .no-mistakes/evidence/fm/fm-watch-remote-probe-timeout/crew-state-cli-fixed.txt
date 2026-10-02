@@ -1,0 +1,25 @@
+== stalled host, budget 3
+$ FM_SSH_BIN=/tmp/fm-lab.RVtKmR/stall-ssh FM_CREW_STATE_REMOTE_BUDGET=3 fm-crew-state.sh rsm
+exit=0 elapsed=3s
+state: unknown · source: remote-endpoint · unknown-remote: remote-mac unreachable or endpoint unreadable (not proof of death)
+
+== stalled host, default budget
+$ FM_SSH_BIN=/tmp/fm-lab.RVtKmR/stall-ssh fm-crew-state.sh rsm
+exit=0 elapsed=27s
+state: unknown · source: remote-endpoint · unknown-remote: remote-mac unreachable or endpoint unreadable (not proof of death)
+
+== stalled host, invalid budget -5
+$ FM_SSH_BIN=/tmp/fm-lab.RVtKmR/stall-ssh FM_CREW_STATE_REMOTE_BUDGET=-5 fm-crew-state.sh rsm
+exit=0 elapsed=28s
+state: unknown · source: remote-endpoint · unknown-remote: remote-mac unreachable or endpoint unreadable (not proof of death)
+
+== responsive host answering alive
+$ FM_SSH_BIN=/tmp/fm-lab.RVtKmR/ok-ssh FM_FAKE_REPLY=alive fm-crew-state.sh rsm
+exit=0 elapsed=0s
+state: unknown · source: remote-endpoint · alive on remote-mac (an idle secondmate is healthy)
+
+== responsive host answering dead
+$ FM_SSH_BIN=/tmp/fm-lab.RVtKmR/ok-ssh FM_FAKE_REPLY=dead fm-crew-state.sh rsm
+exit=0 elapsed=0s
+state: unknown · source: remote-endpoint · remote endpoint dead on remote-mac
+

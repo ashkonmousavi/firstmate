@@ -1,0 +1,24 @@
+base commit c2c15785 watcher, stalled remote host, 60 s observation
+watcher (base) pid 130520 started 14:07:46 in lab /tmp/fm-lab.EyPoCM
+t=+  0s  watcher alive=yes  beacon age=0s
+t=+  3s  watcher alive=yes  beacon age=3s
+t=+  6s  watcher alive=yes  beacon age=6s
+t=+  9s  watcher alive=yes  beacon age=9s
+t=+ 12s  watcher alive=yes  beacon age=12s
+t=+ 15s  watcher alive=yes  beacon age=15s
+t=+ 18s  watcher alive=yes  beacon age=18s
+t=+ 21s  watcher alive=yes  beacon age=21s
+t=+ 24s  watcher alive=yes  beacon age=24s
+t=+ 27s  watcher alive=yes  beacon age=27s
+t=+ 27s  watcher alive=yes  beacon age=27s
+t=+ 30s  watcher alive=yes  beacon age=30s
+t=+ 33s  watcher alive=yes  beacon age=33s
+t=+ 36s  watcher alive=yes  beacon age=36s
+t=+ 39s  watcher alive=yes  beacon age=39s
+t=+ 42s  watcher alive=yes  beacon age=42s
+t=+ 45s  watcher alive=yes  beacon age=45s
+t=+ 48s  watcher alive=yes  beacon age=48s
+t=+ 51s  watcher alive=yes  beacon age=51s
+t=+ 54s  watcher alive=yes  beacon age=54s
+--- ssh log
+14:07:46 start pid=130856 cmd=fm-remote-secondmate-control.sh observe rsm 
