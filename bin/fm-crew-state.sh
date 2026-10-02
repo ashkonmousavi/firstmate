@@ -280,7 +280,9 @@ LOG_VERB=$(status_line_verb "$LOG_LINE")
 # down or dead mate; only the remote host's own dead/missing verdict may say
 # the endpoint is actually gone.
 if [ -n "$REMOTE_HOST" ]; then
-  if ! REMOTE_STATE=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-on.sh" "$ID" \
+  REMOTE_BUDGET=${FM_CREW_STATE_REMOTE_BUDGET:-30}
+  case "$REMOTE_BUDGET" in ''|*[!0-9]*|0) REMOTE_BUDGET=30 ;; esac
+  if ! REMOTE_STATE=$(FM_HOME="$FM_HOME" fm_run_timed "$REMOTE_BUDGET" "$SCRIPT_DIR/fm-on.sh" "$ID" \
     fm-remote-secondmate-control.sh state "$ID" < /dev/null 2>/dev/null); then
     REMOTE_STATE=
   fi

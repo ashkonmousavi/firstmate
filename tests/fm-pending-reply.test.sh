@@ -1225,6 +1225,46 @@ test_remote_repost_waits_for_the_reply_channel() {
   pass "a remote repost waits for the reply channel and still fires on a real miss"
 }
 
+test_remote_observe_is_bounded() {
+  local home state corr stall started elapsed budget
+  home=$(setup_parent remote-observe-bounded)
+  state="$home/state"
+  mkdir -p "$home/data"
+  export FM_PENDING_REPLY_NOW=7000
+  fm_write_meta "$state/ios.meta" \
+    "window=fm-remote:w1:p1" "harness=claude" "kind=secondmate" "mode=secondmate" \
+    "remote_host=remote-mac" "remote_root=/remote/root" "remote_backend=herdr"
+  cat > "$home/data/secondmates.md" <<'REG'
+- ios - remote test domain (host: remote-mac; root: /remote/root; home: /remote/home; scope: remote testing; projects: alpha; added 2026-08-02)
+REG
+  corr=$(fm_pending_reply_create "$home" "$state" "ios" "status of the iOS build")
+  fm_pending_reply_mark_delivered "$state" "$corr"
+  # An ssh whose remote command never finishes on an overloaded host.
+  stall="$TMP_ROOT/remote-observe-stall-ssh"
+  cat > "$stall" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+sleep "${FM_FAKE_STALL_SECS:-30}"
+SH
+  chmod +x "$stall"
+  for budget in 2 0; do
+    started=$(date +%s)
+    FM_HOME="$home" FM_SSH_BIN="$stall" FM_FAKE_STALL_SECS=45 \
+      FM_PENDING_REPLY_OBSERVE_BUDGET=$budget fm_pending_reply_tick "$state" \
+      || fail "a stalled remote observation must not fail the tick"
+    elapsed=$(( $(date +%s) - started ))
+    # A 0 budget is invalid and must fall back to the 30 s default, not disable the bound.
+    if [ "$budget" = 2 ]; then
+      [ "$elapsed" -lt 15 ] || fail "a stalled remote observe must return within its bound, took ${elapsed}s"
+    else
+      [ "$elapsed" -lt 40 ] || fail "a 0 budget must fall back to the default bound, took ${elapsed}s"
+    fi
+    [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
+      || fail "an unknown observation must leave the reply armed, got $(phase_of "$state" "$corr")"
+  done
+  pass "a stalled remote observation is bounded and reads as unknown"
+}
+
 test_mirrored_remote_reply_never_triggers_a_repost() {
   local home state corr hook_log
   home=$(setup_parent remote-mirrored-reply)
@@ -1633,6 +1673,7 @@ test_correlations_reuse_only_for_matching_open_task
 test_tick_end_to_end_missed_then_escalate
 test_failed_send_discards_undelivered_expectation
 test_remote_repost_waits_for_the_reply_channel
+test_remote_observe_is_bounded
 test_mirrored_remote_reply_never_triggers_a_repost
 test_same_basename_self_home_corr_resolves_on_tick
 test_same_basename_reply_resolves_after_recovery_failure
