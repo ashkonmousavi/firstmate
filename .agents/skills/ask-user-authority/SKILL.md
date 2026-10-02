@@ -32,6 +32,7 @@ The worker remains the sole driver of the active gate and applies firstmate's ex
 4. Escalate only genuinely ambiguous findings:
    - a Fix that would materially expand the contract by adding a new guarantee, threat model, subsystem, abstraction, compatibility surface, state machine, continuous-monitoring requirement, generalized framework, or broader architecture not required by the accepted intent
    - a product or architecture call not settled by accepted intent
+   - repeated same-theme findings when incremental corrections are preserving a questionable abstraction rather than closing independent defects; that design smell, not the number of repeats, is the trigger
    - destructive, irreversible, and genuinely security-sensitive choices, which always escalate under the stronger existing captain boundary
 5. Before relaying a repeated finding, verify its quoted code still exists at the current head with file:line evidence.
    A repeat alone does not authorize a new question or round cap.
@@ -53,6 +54,7 @@ Do not relay reviewer labels or gate output as if they settled the decision.
 
 - Fixing a concrete defect that violates an original acceptance criterion is firstmate's to decide, regardless of implementation difficulty.
 - Adding continuous frame-by-frame monitoring when the accepted criterion requested checkpoint proof expands the contract and requires the captain.
+- A new finding in the same causal theme requires the captain before another fix round when prior fixes are accreting machinery around a questionable abstraction; the design smell is the trigger, never the repeat count alone.
 - A repeated finding follows the same scope and authority criteria; verify it is still real before relaying it.
 - A genuinely security-sensitive action requires the captain under the stronger existing boundary even if it is otherwise within scope.
 - Complex architecture explicitly requested by the captain stays within scope and does not escalate merely because it is complex.
