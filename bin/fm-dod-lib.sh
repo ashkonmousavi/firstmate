@@ -460,13 +460,12 @@ fm_prep_ui_wiring_line() {  # <file>
   '
 }
 
-# fm_prep_answer <file> <Qn|Cn> - answer after the question's final colon.
-# Tier answers keep legacy yes/no normalization; certainty answers stay exact
-# for fm_prep_certainty_reason to validate.
-fm_prep_answer() {  # <file> <Q1|Q2|C1..C5>
-  local file=$1 question=$2 answer heading=$FM_PREP_TIER_HEADING
-  case "$question" in C[1-5]) heading="## Certainty" ;; esac
-  answer=$(fm_brief_heading_body "$file" "$heading" | awk -v q="$question" '
+# fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
+# empty when the question is unanswered, left placeheld, or not yes/no. The
+# answer is whatever follows the final colon on that question's line.
+fm_prep_answer() {  # <file> <Q1|Q2>
+  local file=$1 question=$2 answer
+  answer=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk -v q="$question" '
     index($0, "- " q " ") == 1 {
       pos = 0
       for (i = length($0); i > 0; i--) { if (substr($0, i, 1) == ":") { pos = i; break } }
@@ -474,13 +473,7 @@ fm_prep_answer() {  # <file> <Q1|Q2|C1..C5>
       print substr($0, pos + 1)
       exit
     }
-  ')
-  case "$question" in
-    C[1-5])
-      printf '%s' "$answer" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
-      return 0 ;;
-  esac
-  answer=$(printf '%s' "$answer" | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
+  ' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
   case "$answer" in
     yes|no) printf '%s\n' "$answer" ;;
     *) printf '\n' ;;
@@ -568,7 +561,7 @@ fm_prep_surgical_declared() {  # <file>
 # fm_prep_certainty_reason <file>: same reason exit convention as completeness.
 # Parse answer-after-label and evidence once; declarations are not verified facts.
 fm_prep_certainty_reason() {  # <file>
-  local file=$1 field label evidence answer
+  local file=$1 field label evidence
   if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
     /^- Preparation format:/ { n++; if ($0 != "- Preparation format: surgical") bad = 1 }
     END { exit !(n == 1 && !bad) }
@@ -614,8 +607,7 @@ fm_prep_certainty_reason() {  # <file>
   fi
   while IFS='|' read -r field label evidence; do
     # Match the label, never a yes quoted in the question or evidence.
-    answer=$(fm_prep_answer "$file" "$field")
-    if [ "$answer" != yes ] || ! fm_brief_heading_body "$file" '## Certainty' | awk -v f="$field" -v label="$label" '
+    if ! fm_brief_heading_body "$file" '## Certainty' | awk -v f="$field" -v label="$label" '
       index($0, "- " f) == 1 {
         n++
         prefix = "- " f " " label ":"
@@ -707,10 +699,7 @@ EOF
 fm_prep_review_exempt() {  # <prep-path>
   local file=$1
   fm_prep_unfilled_reason "$file" >/dev/null && return 1
-  if fm_prep_surgical_declared "$file"; then
-    ! fm_prep_certainty_reason "$file" >/dev/null
-    return $?
-  fi
+  fm_prep_surgical_declared "$file" && return 0
   # Optional install declarations do not participate in tier selection. Every
   # occurrence must agree; an absent, malformed or conflicting field refuses.
   fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '

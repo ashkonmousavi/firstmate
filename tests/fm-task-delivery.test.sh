@@ -1125,13 +1125,6 @@ EOF
   pass "fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions"
 }
 
-# The task preparation record gates a ship launch, and the record is tiered by
-# its own ## Tier header, so the gate costs what the change is worth: a launch
-# with no record or an unanswered header is refused, a header-only all-no
-# record remains incomplete, and a section is required only from the tier that declares it - a
-# tier-2 record owes every section, while a tier-1 record legitimately omits the
-# ones below it. A scout is not gated. tests/fm-control-relaunch.test.sh owns the
-# --relaunch exemption, where a relaunch reaches this check with a live endpoint.
 test_surgical_certainty_and_admission() {
   local rec home proj fakebin id prep baseline field change reason out
   rec=$(make_home surgical-admission)
@@ -1204,6 +1197,13 @@ EOF
   pass "surgical certainty: complete evidence admits without reviewed overlay; uncertainty and contradictions fail closed"
 }
 
+# The task preparation record gates a ship launch, and the record is tiered by
+# its own ## Tier header, so the gate costs what the change is worth: a launch
+# with no record or an unanswered header is refused, a header-only all-no
+# record remains incomplete, and a section is required only from the tier that declares it - a
+# tier-2 record owes every section, while a tier-1 record legitimately omits the
+# ones below it. A scout is not gated. tests/fm-control-relaunch.test.sh owns the
+# --relaunch exemption, where a relaunch reaches this check with a live endpoint.
 test_ship_spawn_requires_the_task_preparation_record() {
   local rec home proj fakebin id prep out status
   rec=$(make_home prep-gate)

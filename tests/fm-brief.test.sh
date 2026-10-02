@@ -1069,10 +1069,6 @@ test_worker_role_scope() {
   pass "fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract"
 }
 
-# --prep scaffolds the task preparation record alone: no repo, no delivery mode,
-# no brief. The tier header comes first, because its two answers decide which
-# sections the task owes; every section then arrives with a guide, the tier it
-# becomes required at, and one placeholder to replace.
 test_surgical_prep_scaffold() {
   local home prep out rc id flags
   home="$TMP_ROOT/surgical-scaffold"
@@ -1098,6 +1094,10 @@ test_surgical_prep_scaffold() {
   pass "surgical prep: compact scaffold, evidence and closed flag combinations"
 }
 
+# --prep scaffolds the task preparation record alone: no repo, no delivery mode,
+# no brief. The tier header comes first, because its two answers decide which
+# sections the task owes; every section then arrives with a guide, the tier it
+# becomes required at, and one placeholder to replace.
 test_prep_scaffolds_the_preparation_record() {
   local home prep out status term
   home="$TMP_ROOT/prep-scaffold"
