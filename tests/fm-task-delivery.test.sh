@@ -1194,6 +1194,25 @@ EOF
 - Changes $field: yes" "$baseline" > "$prep"
     fm_prep_review_exempt "$prep" && fail "$field declaration certified"
   done
+  # A refused certificate names its explicit conversion; converted and reviewed,
+  # it ships as a full record rather than as an upgraded certificate.
+  sed 's/^\(- C4 .*\): yes$/\1: unsure/' "$baseline" > "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") || fail "unsure certificate accepted"
+  assert_contains "$reason" 'delete the Preparation format line' "unsure refusal did not name the conversion"
+  FM_HOME="$home" "$BRIEF" surgical-full --prep >/dev/null || fail "full scaffold for conversion"
+  {
+    grep -v '^- Preparation format:' "$prep"
+    awk '/^## [0-9]+\. / { emit = 1 } emit' "$home/data/surgical-full/prep.md" | sed 's/^{[A-Z0-9_]*}$/n\/a: converted fixture./'
+  } > "$prep.f" && mv "$prep.f" "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "converted full record refused: $reason"
+  fm_prep_review_exempt "$prep" && fail "converted record skipped separate review"
+  rm -f "$home/data/$id/launch-brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_contains "$out" 'cannot ship before a separate agent reviews' "converted record shipped unreviewed"
+  assert_absent "$home/data/$id/launch-brief.md" "converted record launched before review"
+  review_prep "$home" "$id"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "reviewed converted record did not launch: $out"
   pass "surgical certainty: complete evidence admits without reviewed overlay; uncertainty and contradictions fail closed"
 }
 
@@ -1528,8 +1547,9 @@ EOF
 # definition of done as accepted specification for --intent, under a heading that
 # marks them as not the captain's words and that sits before the captain's words,
 # so the captain's words stay the last section of the launch brief. A section
-# that is absent or answered n/a is left out, a tier-0 record hands over nothing,
-# and the other delivery modes carry no --intent at all.
+# that is absent or answered n/a is left out, a reviewed all-no record hands over
+# its owed sections like any other tier, and the other delivery modes carry no
+# --intent at all.
 test_no_mistakes_launch_brief_hands_over_the_accepted_specification() {
   local rec home proj fakebin id out launch accepted expected authorized heading_line spec_line done_line captain_line mode
   local accepted_heading="## Accepted specification for --intent (reviewed preparation record, not the captain's words)"
@@ -1588,24 +1608,31 @@ EOF
   accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
   [ "$accepted" = "$expected" ] || fail "a behaviour spec answered n/a must be left out: $accepted"
 
-  # Tier 0 hands over nothing, even when the record happens to carry answers,
-  # and so does a record whose two sections are both answered n/a.
-  for id in spec-tier0 spec-both-na; do
-    if [ "$id" = spec-tier0 ]; then
-      write_spec_prep "$home" "$id" no no
-    else
-      write_prep "$home" "$id" yes no
-    fi
-    write_brief "$home" "$id" no-mistakes
-    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
-    launch="$home/data/$id/launch-brief.md"
-    assert_present "$launch" "$id: a reviewed no-mistakes spawn rendered no launch brief"
-    assert_no_grep "## Accepted specification" "$launch" "$id: the launch brief handed over an accepted specification"
-    assert_no_grep "Accepted specification from the reviewed preparation record" "$launch" \
-      "$id: the launch brief told the worker to append a specification it does not carry"
-    authorized=$(awk -v c="$captain_heading" '$0 == c { emit = 1; next } emit { print }' "$launch")
-    [ "$authorized" = 'Exercise the delivery contract.' ] || fail "$id: the captain's words changed: $authorized"
-  done
+  # A reviewed all-no record owes the tier-1 sections, so its reviewed
+  # definition of done reaches --intent too.
+  id='spec-tier0'
+  write_spec_prep "$home" "$id" no no
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a reviewed all-no no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  expected=$(printf '%s\n' '## 2. Behaviour spec' 'Refuse the launch and name the missing review.' '' '### Copy' \
+    'The refusal names the record.' '' '## 11. Definition of done' '- Every tier is gated.' '- The relaunch stays exempt.')
+  [ "$accepted" = "$expected" ] || fail "a reviewed all-no record dropped its accepted specification: $accepted"
+
+  # A record whose two sections are both answered n/a hands over nothing.
+  id='spec-both-na'
+  write_prep "$home" "$id" yes no
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "$id: a reviewed no-mistakes spawn rendered no launch brief"
+  assert_no_grep "## Accepted specification" "$launch" "$id: the launch brief handed over an accepted specification"
+  assert_no_grep "Accepted specification from the reviewed preparation record" "$launch" \
+    "$id: the launch brief told the worker to append a specification it does not carry"
+  authorized=$(awk -v c="$captain_heading" '$0 == c { emit = 1; next } emit { print }' "$launch")
+  [ "$authorized" = 'Exercise the delivery contract.' ] || fail "$id: the captain's words changed: $authorized"
 
   # Only a no-mistakes worker builds --intent, so the other modes carry none.
   for mode in direct-PR local-only; do

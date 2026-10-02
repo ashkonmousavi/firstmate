@@ -28,7 +28,6 @@ fm_test_prep_record() {
       || return 1
     sed -e "s/{Q1}/$q1/" -e "s/{Q2}/$q2/" \
         -e "s/{UI_WIRING}/$ui, spawn fixture./" \
-        -e 's/{Q[12]_REASON}/Inspected spawn fixture./' \
         -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' "$prep" > "$prep.filled" \
       && mv "$prep.filled" "$prep" || return 1
   fi

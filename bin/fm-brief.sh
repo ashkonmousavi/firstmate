@@ -31,7 +31,8 @@
 #         `no, <why the user never meets this change>`; a change that lets a user
 #         configure or choose something is always yes, and the reason is
 #         mandatory in both directions.
-#   Those three answers alone decide what the record owes:
+#   Without a Preparation format declaration, those three answers decide what
+#   the record owes:
 #     UI wiring yes     tier 2 - whatever Q1 and Q2 say
 #     Q1 yes            tier 2 - every section below
 #     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
@@ -66,7 +67,9 @@
 #   task, design, UI, and verification records as its instructions name them.
 #   --prep --surgical emits a compact certainty certificate: every C1-C5 answer
 #   must be exactly yes with concrete evidence to skip separate review. Any no,
-#   unsure, malformed or incomplete certificate requires full prep and review.
+#   unsure, malformed or incomplete certificate is refused, never upgraded:
+#   convert it by deleting its Preparation format line, answering every section
+#   its tier requires, and obtaining a separate prep review.
 #   Direct source lookup suffices for confined fixes; unknown impact is not empty.
 #   Shared, sensitive, install or server scope cannot certify surgical certainty.
 #   --surgical requires --prep. Preparation accepts no worker or delivery flags

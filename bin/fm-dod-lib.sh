@@ -72,7 +72,7 @@
 # placed before the captain's words in the launch brief and appended after them
 # in --intent under a label that says they are not the captain's words, so the
 # pipeline reviews the work against what the record promised. A section that is
-# absent, empty, or answered n/a, and every tier-0 record, adds nothing.
+# absent, empty, or answered n/a adds nothing.
 # Author the subsection body and later relays as the actual words, without
 # adding speaker labels or direct address: the heading supplies provenance and
 # is not part of --intent. A legacy mixed Task instead marks each captain line
@@ -407,14 +407,19 @@ C2|Impact lookup finds no caller outside the change and no shared module or cont
 C3|Stored data, security, permissions, money, install and server paths are untouched|Scope reason covering every exclusion.
 C4|The cause and the complete fix are known|Reproduced cause and concrete fix.
 C5|One focused regression covers the entire changed behaviour|Executable test seam and red-first reproduction.'
+FM_PREP_FULL_FALLBACK='full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review'
 
-fm_prep_tier_template() {  # <task-id>
-  local id=$1
+fm_prep_tier_template() {  # <task-id> [surgical]
+  local id=$1 q1_reason='' q2_reason=''
+  if [ "${2:-}" = surgical ]; then
+    q1_reason=$'Reason: {Q1_REASON}\n'
+    q2_reason=$'Reason: {Q2_REASON}\n'
+  fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
   printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review unless a complete surgical certificate or server-install exemption applies. -->\n'
-  printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\nReason: {Q1_REASON}\n'
-  printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\nReason: {Q2_REASON}\n'
+  printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
+  printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
@@ -422,9 +427,9 @@ fm_prep_tier_template() {  # <task-id>
 
 fm_prep_surgical_template() {  # <task-id>
   local field label evidence
-  fm_prep_tier_template "$1"
+  fm_prep_tier_template "$1" surgical
   printf -- '- Preparation format: surgical\n\n## Certainty\n'
-  printf 'Every answer must be exactly yes with concrete evidence. Any no, unsure or incomplete answer requires full prep and separate review.\n'
+  printf 'Every answer must be exactly yes with concrete evidence. Any no, unsure or incomplete answer requires %s.\n' "$FM_PREP_FULL_FALLBACK"
   while IFS='|' read -r field label evidence; do
     printf '\n- %s %s: {%s}\nEvidence: {%s_EVIDENCE}\n<!-- %s -->\n' "$field" "$label" "$field" "$field" "$evidence"
   done <<EOF
@@ -460,20 +465,20 @@ fm_prep_ui_wiring_line() {  # <file>
   '
 }
 
+# fm_prep_labelled <file> <heading> <id> - the text after `- <id> ` on every
+# line of <heading> that opens with it, one per line: the one answer reader
+# shared by tier and certainty answers.
+fm_prep_labelled() {  # <file> <heading> <id>
+  fm_brief_heading_body "$1" "$2" | awk -v q="$3" 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
+}
+
 # fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
 # empty when the question is unanswered, left placeheld, or not yes/no. The
 # answer is whatever follows the final colon on that question's line.
 fm_prep_answer() {  # <file> <Q1|Q2>
   local file=$1 question=$2 answer
-  answer=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk -v q="$question" '
-    index($0, "- " q " ") == 1 {
-      pos = 0
-      for (i = length($0); i > 0; i--) { if (substr($0, i, 1) == ":") { pos = i; break } }
-      if (pos == 0) next
-      print substr($0, pos + 1)
-      exit
-    }
-  ' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
+  answer=$(fm_prep_labelled "$file" "$FM_PREP_TIER_HEADING" "$question" | awk -F: 'NF > 1 && !done { print $NF; done = 1 }' \
+    | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
   case "$answer" in
     yes|no) printf '%s\n' "$answer" ;;
     *) printf '\n' ;;
@@ -561,12 +566,12 @@ fm_prep_surgical_declared() {  # <file>
 # fm_prep_certainty_reason <file>: same reason exit convention as completeness.
 # Parse answer-after-label and evidence once; declarations are not verified facts.
 fm_prep_certainty_reason() {  # <file>
-  local file=$1 field label evidence
+  local file=$1 field label evidence answer
   if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
     /^- Preparation format:/ { n++; if ($0 != "- Preparation format: surgical") bad = 1 }
     END { exit !(n == 1 && !bad) }
   '; then
-    printf 'Preparation format must declare surgical exactly once; use full prep and separate review\n'
+    printf 'Preparation format must declare surgical exactly once; use %s\n' "$FM_PREP_FULL_FALLBACK"
     return 0
   fi
   if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
@@ -587,11 +592,11 @@ fm_prep_certainty_reason() {  # <file>
     /^- UI wiring:/ { ui++ }
     END { exit !(seen["Q1"] == 1 && seen["Q2"] == 1 && ui == 1 && !bad && !awaiting) }
   '; then
-    printf 'Tier answers require unique Q1, Q2 and UI wiring with concrete reasons; use full prep and separate review\n'
+    printf 'Tier answers require unique Q1, Q2 and UI wiring with concrete reasons; use %s\n' "$FM_PREP_FULL_FALLBACK"
     return 0
   fi
   if [ "$(fm_prep_answer "$file" Q2)" != no ]; then
-    printf 'C2 contradicts a shared module or contract declaration; use full prep and separate review\n'
+    printf 'C2 contradicts a shared module or contract declaration; use %s\n' "$FM_PREP_FULL_FALLBACK"
     return 0
   fi
   if fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
@@ -602,22 +607,16 @@ fm_prep_certainty_reason() {  # <file>
     }
     END { exit !bad }
   '; then
-    printf 'C3 contradicts sensitive, install or server scope; use full prep and separate review\n'
+    printf 'C3 contradicts sensitive, install or server scope; use %s\n' "$FM_PREP_FULL_FALLBACK"
     return 0
   fi
   while IFS='|' read -r field label evidence; do
     # Match the label, never a yes quoted in the question or evidence.
-    if ! fm_brief_heading_body "$file" '## Certainty' | awk -v f="$field" -v label="$label" '
-      index($0, "- " f) == 1 {
-        n++
-        prefix = "- " f " " label ":"
-        if (index($0, prefix) != 1) bad = 1
-        value = substr($0, length(prefix) + 1)
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-        if (value != "yes") bad = 1
-        awaiting = 1
-        next
-      }
+    answer=$(fm_prep_labelled "$file" '## Certainty' "$field")
+    case "$answer" in "$label:"*) answer=${answer#"$label:"} ;; *) answer= ;; esac
+    answer=$(printf '%s' "$answer" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    if [ "$answer" != yes ] || ! fm_brief_heading_body "$file" '## Certainty' | awk -v f="$field" '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
       awaiting {
         if ($0 ~ /^[[:space:]]*$/) next
         if (index($0, "Evidence:") != 1) bad = 1
@@ -628,7 +627,7 @@ fm_prep_certainty_reason() {  # <file>
       }
       END { exit !(n == 1 && !bad && !awaiting) }
     '; then
-      printf '%s requires one exact yes and nonempty concrete evidence; use full prep and separate review\n' "$field"
+      printf '%s requires one exact yes and nonempty concrete evidence; use %s\n' "$field" "$FM_PREP_FULL_FALLBACK"
       return 0
     fi
   done <<EOF
@@ -801,11 +800,10 @@ fm_prep_review_reason() {  # <data-dir> <task-id>
 # Prints the record's `## 2. Behaviour spec` and `## 11. Definition of done`,
 # each under its own heading with guide comments stripped, for
 # fm_brief_intent_overlay. A section that is absent, empty, still placeheld, or
-# answered n/a is left out, and a tier-0 or unreadable record prints nothing.
+# answered n/a is left out, and an unreadable record prints nothing.
 fm_prep_accepted_spec() {  # <prep-path>
-  local file=$1 tier heading placeholder required guide evidence body first sep=''
-  tier=$(fm_prep_tier "$file")
-  case "$tier" in 1|2) ;; *) return 0 ;; esac
+  local file=$1 heading placeholder required guide evidence body first sep=''
+  [ -n "$(fm_prep_tier "$file")" ] || return 0
   while IFS='|' read -r heading placeholder required guide evidence; do
     case "$placeholder" in BEHAVIOUR_SPEC|DEFINITION_OF_DONE) ;; *) continue ;; esac
     [ "$(fm_prep_section_state "$file" "$heading" "$placeholder")" = filled ] || continue
@@ -897,7 +895,7 @@ Review triage and class-fix handoff:
 - The stop set is exactly a finding whose severity column is exactly error; a security, money or data-loss risk; or a product choice the accepted intent and record never settled.
   Severity is mechanical; judging the risks and unsettled choices is your responsibility. Escalate to firstmate using rule 6's stop-set format and stop until its exact decision arrives.
   Firstmate applies \`ask-user-authority\` and obtains any required captain decision.
-  When the decision comes back, feed it to the gate with \`no-mistakes axi respond\`; never implement the fix yourself.
+  When the decision comes back, feed it to the gate with \`no-mistakes axi respond\`; an authorized fix carries the same class-inventory \`--instructions\` as the batch below. Never implement the fix yourself.
 - Every other finding, ask-user ones included, is yours to batch-fix without a firstmate decision.
   Build each cause's class inventory read-only: reproduced cause, every affected occurrence, search scope and negative evidence. Select every non-stale finding being fixed in one response:
   \`no-mistakes axi respond --step <step> --action fix --findings <every id being fixed> --instructions <inventory and guidance>\`.

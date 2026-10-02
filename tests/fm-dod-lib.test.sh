@@ -30,6 +30,7 @@ test_common_review_triage_contract() {
     assert_grep 'security, money or data-loss risk' "$output" "sensitive stop scope missing"
     assert_grep 'product choice the accepted intent and record never settled' "$output" "unsettled choice missing"
     assert_grep 'Every other finding, ask-user ones included, is yours to batch-fix' "$output" "autonomous fixes missing"
+    assert_grep 'an authorized fix carries the same class-inventory' "$output" "stop-set fix lost the inventory handoff"
     assert_grep '--instructions <inventory and guidance>' "$output" "active fix instructions missing"
     assert_grep 'before editing' "$output" "inventory ordering missing"
     assert_grep 'next Review' "$output" "review handoff missing"

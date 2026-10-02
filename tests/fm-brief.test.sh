@@ -1117,6 +1117,7 @@ test_prep_scaffolds_the_preparation_record() {
     "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
   assert_grep '- UI wiring: {UI_WIRING}' "$prep" \
     "prep record's tier header does not ask the UI wiring question with a placeholder to answer"
+  assert_no_grep 'Reason: {Q' "$prep" "full prep emitted surgical reason placeholders no gate validates"
   assert_grep 'yes, <the step and control the user meets>' "$prep" \
     "prep record does not give the UI wiring answer its required yes format"
   assert_grep 'no, <why the user never meets this change>' "$prep" \

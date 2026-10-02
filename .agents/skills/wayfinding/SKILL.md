@@ -81,7 +81,7 @@ That limit is about the count, not the shape: how the split is shaped and ordere
 Building in parallel stays the default here for disjoint work, and that is deliberate.
 The external method this is adapted from recommends one thing at a time, because two live sessions planning the same effort re-ask each other questions they cannot see the answers to.
 That cost is real for decisions and absent for building: every dispatched task carries a zero-memory brief and an isolated copy, so two builders share no context to lose.
-Independent implementation and validation determine parallel safety under section 7; shared mutable contracts require one integration owner, while incidental same-file edits alone do not require waiting.
+Section 7 owns when work is independent enough to run in parallel.
 Parallelize by area under section 7, one lane per area at a time, owning its files.
 An area's slices queue behind it, and finished work across every area merges one at a time in dependency order.
 Every shared module is held by its single integration owner, which a lane asks rather than edits.
@@ -96,7 +96,6 @@ Beyond the horizon, keep only a one-line sketch in the existing work board: outc
 
 Before consuming a plan, compare its reviewed base and file/contract read set against merges since review, including changed shared dependencies even when the consumer's own files did not change.
 Refresh and review only an affected delta, then install updated approved bytes when changed; an untouched plan need not be planned again.
-Preserve the FINALIZE-AFTER and landed-trigger checks below.
 Expand the horizon if builders wait on planning; shorten it if repeated refreshes materially rewrite plans.
 
 What this skill adds is the accounting:
