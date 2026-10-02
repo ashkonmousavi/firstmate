@@ -1,0 +1,15 @@
+schema=fm-task-inbox.v1
+at=2026-10-02T05:16:04Z
+delivery=fire-and-forget
+--
+Firstmate gate nudge (automatic prompt, no reply needed).
+
+Your no-mistakes run is parked at a gate with nothing attached to it: parked at review: 3 finding(s)
+
+Run "no-mistakes axi status" in your task worktree for the run id, the gate
+step and the finding ids, then respond with the exact command that run step
+documents ("no-mistakes axi respond --help"). Never pass --yes, and process
+every synchronous return until the run completes or genuinely escalates.
+
+Apply the review triage and class-fix handoff in your brief; its stop-set
+escalation format owns which findings need firstmate and which you batch-fix.

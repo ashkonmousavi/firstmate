@@ -1,0 +1,92 @@
+brief nm-plain rc=0
+brief nm-gerrit rc=0
+brief dpr rc=0
+##### ordinary ship, forge none: /tmp/fm-lab.nbQmEH/data/nm-plain/brief.md
+Review triage and class-fix handoff:
+- The stop set is exactly a finding whose severity column is exactly error; a security, money or data-loss risk; or a product choice the accepted intent and record never settled.
+  Severity is mechanical; judging the risks and unsettled choices is your responsibility. Escalate to firstmate using rule 6's stop-set format and stop until its exact decision arrives.
+  Firstmate applies `ask-user-authority` and obtains any required captain decision.
+  When the decision comes back, feed it to the gate with `no-mistakes axi respond`; an authorized fix carries the same class-inventory `--instructions` as the batch below. Never implement the fix yourself.
+- Every other finding, ask-user ones included, is yours to batch-fix without a firstmate decision.
+  Build each cause's class inventory read-only: reproduced cause, every affected occurrence, search scope and negative evidence. Select every non-stale finding being fixed in one response:
+  `no-mistakes axi respond --step <step> --action fix --findings <every id being fixed> --instructions <inventory and guidance>`.
+  The instructions must require the pipeline Fix step to record that inventory in retained run evidence before editing, then fix and test every occurrence in the cause class.
+  They must require the next Review to check that exact retained inventory, verify every listed occurrence and regression evidence, and search for missed siblings; re-checks look at the fix rather than re-reviewing the whole change.
+  Use the installed pipeline's existing evidence/configuration surfaces to demonstrate this handoff. Prompt delivery alone is not semantic success: if the next Review cannot consume the inventory, report that precise external gap as unverified rather than inventing a pipeline.
+- A finding whose quoted code is already gone at the reviewed head is stale. Leave it out of the fix and record its id with file:line proof in the next status line or report; --instructions exists only with --action fix.
+  For a gate containing both stop-set and other findings, keep the gate parked until the exact firstmate decision arrives, then use the installed help and proven gate semantics to select the authorized findings together; never guess how a singular action handles the remainder.
+- A repeated finding returns in a later review of the same run: match the same id, or the same file and line and cause as a finding already fixed, including round-numbered ids.
+  Skip a stale repeat with file:line proof. Batch-fix a still-real repeat outside the stop set again, and append `working [at=<epoch>]:` naming the run, step, repeated ids, inventory/evidence reference and exact respond command including its instructions.
+  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort, restart or a round cap. The worker remains the sole driver of its run.
+- NEVER pass `--yes` (or `-y`) to `no-mistakes axi run` or `no-mistakes axi respond`. It is banned fleet-wide.
+--- stop-set escalation shape ---
+55:   For a no-mistakes gate, escalate only stop-set findings as one event plus one snapshot file, using that same shape even when the gate holds only a single stop-set finding: write only the stop-set findings, verbatim
+56:   `needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file=/tmp/fm-lab.nbQmEH/data/nm-plain/nm-<run>-findings.txt`
+--- removed rules (expect no matches) ---
+none
+--- --yes ban present ---
+1
+
+##### ordinary ship, forge gerrit: /tmp/fm-lab.nbQmEH/data/nm-gerrit/brief.md
+Review triage and class-fix handoff:
+- The stop set is exactly a finding whose severity column is exactly error; a security, money or data-loss risk; or a product choice the accepted intent and record never settled.
+  Severity is mechanical; judging the risks and unsettled choices is your responsibility. Escalate to firstmate using rule 6's stop-set format and stop until its exact decision arrives.
+  Firstmate applies `ask-user-authority` and obtains any required captain decision.
+  When the decision comes back, feed it to the gate with `no-mistakes axi respond`; an authorized fix carries the same class-inventory `--instructions` as the batch below. Never implement the fix yourself.
+- Every other finding, ask-user ones included, is yours to batch-fix without a firstmate decision.
+  Build each cause's class inventory read-only: reproduced cause, every affected occurrence, search scope and negative evidence. Select every non-stale finding being fixed in one response:
+  `no-mistakes axi respond --step <step> --action fix --findings <every id being fixed> --instructions <inventory and guidance>`.
+  The instructions must require the pipeline Fix step to record that inventory in retained run evidence before editing, then fix and test every occurrence in the cause class.
+  They must require the next Review to check that exact retained inventory, verify every listed occurrence and regression evidence, and search for missed siblings; re-checks look at the fix rather than re-reviewing the whole change.
+  Use the installed pipeline's existing evidence/configuration surfaces to demonstrate this handoff. Prompt delivery alone is not semantic success: if the next Review cannot consume the inventory, report that precise external gap as unverified rather than inventing a pipeline.
+- A finding whose quoted code is already gone at the reviewed head is stale. Leave it out of the fix and record its id with file:line proof in the next status line or report; --instructions exists only with --action fix.
+  For a gate containing both stop-set and other findings, keep the gate parked until the exact firstmate decision arrives, then use the installed help and proven gate semantics to select the authorized findings together; never guess how a singular action handles the remainder.
+- A repeated finding returns in a later review of the same run: match the same id, or the same file and line and cause as a finding already fixed, including round-numbered ids.
+  Skip a stale repeat with file:line proof. Batch-fix a still-real repeat outside the stop set again, and append `working [at=<epoch>]:` naming the run, step, repeated ids, inventory/evidence reference and exact respond command including its instructions.
+  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort, restart or a round cap. The worker remains the sole driver of its run.
+- NEVER pass `--yes` (or `-y`) to `no-mistakes axi run` or `no-mistakes axi respond`. It is banned fleet-wide.
+--- stop-set escalation shape ---
+55:   For a no-mistakes gate, escalate only stop-set findings as one event plus one snapshot file, using that same shape even when the gate holds only a single stop-set finding: write only the stop-set findings, verbatim
+56:   `needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file=/tmp/fm-lab.nbQmEH/data/nm-gerrit/nm-<run>-findings.txt`
+--- removed rules (expect no matches) ---
+none
+--- --yes ban present ---
+1
+
+##### direct-PR brief carries no no-mistakes triage block:
+0
+scout brief rc=0
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+promote rc=141
+##### promoted scout (no-mistakes): /tmp/fm-lab.nbQmEH/data/promo/ship-instructions.md
+Review triage and class-fix handoff:
+- The stop set is exactly a finding whose severity column is exactly error; a security, money or data-loss risk; or a product choice the accepted intent and record never settled.
+  Severity is mechanical; judging the risks and unsettled choices is your responsibility. Escalate to firstmate using rule 6's stop-set format and stop until its exact decision arrives.
+  Firstmate applies `ask-user-authority` and obtains any required captain decision.
+  When the decision comes back, feed it to the gate with `no-mistakes axi respond`; an authorized fix carries the same class-inventory `--instructions` as the batch below. Never implement the fix yourself.
+- Every other finding, ask-user ones included, is yours to batch-fix without a firstmate decision.
+  Build each cause's class inventory read-only: reproduced cause, every affected occurrence, search scope and negative evidence. Select every non-stale finding being fixed in one response:
+  `no-mistakes axi respond --step <step> --action fix --findings <every id being fixed> --instructions <inventory and guidance>`.
+  The instructions must require the pipeline Fix step to record that inventory in retained run evidence before editing, then fix and test every occurrence in the cause class.
+  They must require the next Review to check that exact retained inventory, verify every listed occurrence and regression evidence, and search for missed siblings; re-checks look at the fix rather than re-reviewing the whole change.
+  Use the installed pipeline's existing evidence/configuration surfaces to demonstrate this handoff. Prompt delivery alone is not semantic success: if the next Review cannot consume the inventory, report that precise external gap as unverified rather than inventing a pipeline.
+- A finding whose quoted code is already gone at the reviewed head is stale. Leave it out of the fix and record its id with file:line proof in the next status line or report; --instructions exists only with --action fix.
+  For a gate containing both stop-set and other findings, keep the gate parked until the exact firstmate decision arrives, then use the installed help and proven gate semantics to select the authorized findings together; never guess how a singular action handles the remainder.
+- A repeated finding returns in a later review of the same run: match the same id, or the same file and line and cause as a finding already fixed, including round-numbered ids.
+  Skip a stale repeat with file:line proof. Batch-fix a still-real repeat outside the stop set again, and append `working [at=<epoch>]:` naming the run, step, repeated ids, inventory/evidence reference and exact respond command including its instructions.
+  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort, restart or a round cap. The worker remains the sole driver of its run.
+- NEVER pass `--yes` (or `-y`) to `no-mistakes axi run` or `no-mistakes axi respond`. It is banned fleet-wide.
+--- stop-set escalation shape ---
+29:   For a no-mistakes gate, escalate only stop-set findings as one event plus one snapshot file, using that same shape even when the gate holds only a single stop-set finding: write only the stop-set findings, verbatim
+30:   `needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file=/tmp/fm-lab.nbQmEH/data/promo/nm-<run>-findings.txt`
+--- removed rules (expect no matches) ---
+none
+--- --yes ban present ---
+1
+
+15:7. Everything else in your original instructions carries over unchanged: the status protocol; the instruction inbox and its acknowledgement; the escalation rules, including the stop set; and every 
+28:The no-mistakes stop-set escalation below supersedes the scout rule 6 escalation shape.

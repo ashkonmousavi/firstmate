@@ -1,0 +1,148 @@
+=== S1: surgical scaffold through the existing --prep entry point ===
+$ fm-brief.sh cert-ok --prep --surgical
+scaffolded: /tmp/fm-lab.ETP18u/data/cert-ok/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+# Task prep: cert-ok
+
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review; a complete surgical certificate replaces both, and the server-install exemption waives only the review. -->
+- Q1 does this change alter what a user sees or can do: {Q1}
+Reason: {Q1_REASON}
+- Q2 does this change touch a shared module or a contract: {Q2}
+Reason: {Q2_REASON}
+- UI wiring: {UI_WIRING}
+<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->
+- Preparation format: surgical
+
+## Certainty
+Every answer must be exactly yes with concrete evidence. Any no, unsure or incomplete answer requires full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review.
+
+- C1 Exact changed files and line locations are known: {C1}
+Evidence: {C1_EVIDENCE}
+<!-- File:line targets at the inspected base. -->
+
+- C2 Impact lookup finds no caller outside the change and no shared module or contract: {C2}
+Evidence: {C2_EVIDENCE}
+<!-- Actual lookup command and result, with source path traced; unknown is not empty. -->
+
+- C3 Stored data, security, permissions, money, install and server paths are untouched: {C3}
+Evidence: {C3_EVIDENCE}
+<!-- Scope reason covering every exclusion. -->
+
+- C4 The cause and the complete fix are known: {C4}
+Evidence: {C4_EVIDENCE}
+<!-- Reproduced cause and concrete fix. -->
+
+- C5 One focused regression covers the entire changed behaviour: {C5}
+Evidence: {C5_EVIDENCE}
+<!-- Executable test seam and red-first reproduction. -->
+
+=== S2: --surgical guards ===
+$ fm-brief.sh guard-a --surgical
+error: --surgical requires --prep
+[exit 1]
+$ fm-brief.sh guard-b --prep --surgical --mode no-mistakes
+error: --prep scaffolds the task preparation record alone; it takes no worker or delivery flags (--mode, --scout, --secondmate, --herdr-lab, --no-projects, --branch-prefix, --forge, --shape)
+[exit 1]
+$ fm-brief.sh guard-c --prep --surgical --forge gerrit
+error: --prep scaffolds the task preparation record alone; it takes no worker or delivery flags (--mode, --scout, --secondmate, --herdr-lab, --no-projects, --branch-prefix, --forge, --shape)
+[exit 1]
+$ fm-brief.sh cert-ok --prep --surgical
+error: /tmp/fm-lab.ETP18u/data/cert-ok/prep.md already exists
+[exit 1]
+--- plain --prep stays the full scaffold (Q2 wording + Size guide) ---
+$ fm-brief.sh full-a --prep
+scaffolded: /tmp/fm-lab.ETP18u/data/full-a/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+6:- Q2 does this change touch a shared module or a contract: {Q2}
+58:## 12. Size
+59:<!-- tier 2+. Split by one visible, independently testable behaviour, about 300 changed real lines, excluding tests, docs and generated outputs. Keep tiny fixes bundled; design shared structure first under one integration owner. This is a planning guide, not an automatic threshold. -->
+
+=== S3: complete all-yes certificate is admitted without a prep review ===
+brief.md
+prep.md
+$ fm-spawn.sh cert-ok <lab-proj> claude --mode no-mistakes --yolo off
+RESULT: admitted (launch-brief.md rendered)
+  launch brief has NO accepted-spec overlay
+
+=== S4: doubt refuses (C4 unsure / C2 no / evidence-free C5 / only Q1 Reason removed) ===
+--- c4-unsure ---
+5:- Q1 does this change alter what a user sees or can do: no
+6:Reason: Inspected the one confined helper.
+7:- Q2 does this change touch a shared module or a contract: no
+8:Reason: Inspected the one confined helper.
+$ fm-spawn.sh c4-unsure <lab-proj> claude --mode no-mistakes --yolo off
+error: task c4-unsure cannot ship without its preparation record: C4 requires one exact yes and nonempty concrete evidence; use full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review; scaffold it with bin/fm-brief.sh c4-unsure --prep, then answer every section (a section that does not apply is answered 'n/a: <reas
+RESULT: refused (no launch brief)
+--- c2-no ---
+5:- Q1 does this change alter what a user sees or can do: no
+6:Reason: Inspected the one confined helper.
+7:- Q2 does this change touch a shared module or a contract: no
+8:Reason: Inspected the one confined helper.
+$ fm-spawn.sh c2-no <lab-proj> claude --mode no-mistakes --yolo off
+error: task c2-no cannot ship without its preparation record: C2 requires one exact yes and nonempty concrete evidence; use full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review; scaffold it with bin/fm-brief.sh c2-no --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+RESULT: refused (no launch brief)
+--- c5-noevidence ---
+5:- Q1 does this change alter what a user sees or can do: no
+6:Reason: Inspected the one confined helper.
+7:- Q2 does this change touch a shared module or a contract: no
+8:Reason: Inspected the one confined helper.
+$ fm-spawn.sh c5-noevidence <lab-proj> claude --mode no-mistakes --yolo off
+error: task c5-noevidence cannot ship without its preparation record: C5 requires one exact yes and nonempty concrete evidence; use full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review; scaffold it with bin/fm-brief.sh c5-noevidence --prep, then answer every section (a section that does not apply is answered 'n/
+RESULT: refused (no launch brief)
+--- q1-reason-missing ---
+5:- Q1 does this change alter what a user sees or can do: no
+6:- Q2 does this change touch a shared module or a contract: no
+7:Reason: Inspected the one confined helper.
+19:- C2 Impact lookup finds no caller outside the change and no shared module or contract: yes
+$ fm-spawn.sh q1-reason-missing <lab-proj> claude --mode no-mistakes --yolo off
+error: task q1-reason-missing cannot ship without its preparation record: Tier answers require unique Q1, Q2 and UI wiring with concrete reasons; use full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review; scaffold it with bin/fm-brief.sh q1-reason-missing --prep, then answer every section (a section that does not
+RESULT: refused (no launch brief)
+
+=== S5: shared-scope (Q2 yes) surgical certificate is ineligible ===
+$ fm-spawn.sh cert-shared <lab-proj> claude --mode no-mistakes --yolo off
+error: task cert-shared cannot ship without its preparation record: C2 contradicts a shared module or contract declaration; use full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review; scaffold it with bin/fm-brief.sh cert-shared --prep, then answer every section (a section that does not apply is answered 'n/a: <re
+RESULT: refused (no launch brief)
+
+=== S6: legacy all-no header-only record no longer ships ===
+# Task prep: legacy0
+
+## Tier
+<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review; a complete surgical certificate replaces both, and the server-install exemption waives only the review. -->
+- Q1 does this change alter what a user sees or can do: no
+- Q2 does this change touch a shared module or a contract: no
+- UI wiring: no, internal.
+<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->
+
+Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.
+Use primary-source citations (documentation, source code or specification) beside every external fact; choices between options follow the project research-first decision procedure.
+This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+
+$ fm-spawn.sh legacy0 <lab-proj> claude --mode no-mistakes --yolo off
+error: task legacy0 cannot ship without its preparation record: tier 1 requires ## 1. Intent and boxes, which is missing from /tmp/fm-lab.ETP18u/data/legacy0/prep.md; scaffold it with bin/fm-brief.sh legacy0 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+RESULT: refused (no launch brief)
+--- same all-no answers with tier-1 sections filled but no review ---
+$ fm-spawn.sh legacy1 <lab-proj> claude --mode no-mistakes --yolo off
+error: task legacy1 cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.ETP18u/data/legacy1/prep-review; spawn a prep-review scout with --scout --prep-review legacy1 that writes data/<reviewer>/reviewed-prep/legacy1.md (legacy data/<reviewer>/reviewed-prep.md is accepted only when that per-task artifact is absent) and its report, install that reviewe
+RESULT: refused (no launch brief)
+--- after a byte-bound separate review ---
+$ fm-spawn.sh legacy1 <lab-proj> claude --mode no-mistakes --yolo off
+RESULT: admitted (launch-brief.md rendered)
+  launch brief has NO accepted-spec overlay
+
+=== S7: explicit four-no server-install exemption still skips review ===
+5:- Q1 does this change alter what a user sees or can do: no
+6:- Q2 does this change touch a shared module or a contract: no
+7:- UI wiring: no, internal.
+8:- Prep review exemption: server-install
+9:- Changes unit: no
+10:- Changes setting: no
+11:- Changes pin: no
+12:- Changes store version: no
+$ fm-spawn.sh srv <lab-proj> claude --mode no-mistakes --yolo off
+RESULT: admitted (launch-brief.md rendered)
+  launch brief has NO accepted-spec overlay
+--- server-install header with all-no but no tier-1 sections ---
+$ fm-spawn.sh srv0 <lab-proj> claude --mode no-mistakes --yolo off
+error: task srv0 cannot ship without its preparation record: tier 1 requires ## 1. Intent and boxes, which is missing from /tmp/fm-lab.ETP18u/data/srv0/prep.md; scaffold it with bin/fm-brief.sh srv0 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+RESULT: refused (no launch brief)

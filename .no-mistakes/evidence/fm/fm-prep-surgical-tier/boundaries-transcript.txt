@@ -1,0 +1,32 @@
+=== server-install: four no -> exempt; one yes -> needs review ===
+11:- Changes pin: no
+$ fm-spawn.sh srv-pin-no <lab-proj> claude --mode no-mistakes --yolo off
+RESULT: admitted (launch-brief.md rendered)
+  overlay ABSENT
+11:- Changes pin: yes
+$ fm-spawn.sh srv-pin-yes <lab-proj> claude --mode no-mistakes --yolo off
+error: task srv-pin-yes cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.EwT8DK/data/srv-pin-yes/prep-review; spawn a prep-review scout with --scout --prep-review srv-pin-yes that writes data/<reviewer>/reviewed-prep/srv-pin-yes.md (legacy data/<rev
+RESULT: refused (no launch brief)
+
+=== reviewed full record with a filled Definition of done hands over the accepted spec ===
+$ fm-spawn.sh full-dod <lab-proj> claude --mode no-mistakes --yolo off
+error: task full-dod cannot ship before a separate agent reviews its preparation record: no review record at /tmp/fm-lab.EwT8DK/data/full-dod/prep-review; spawn a prep-review scout with --scout --prep-review full-dod that writes data/<reviewer>/reviewed-prep/full-dod.md (legacy data/<reviewer>/revie
+RESULT: refused (no launch brief)
+$ fm-spawn.sh full-dod <lab-proj> claude --mode no-mistakes --yolo off
+RESULT: admitted (launch-brief.md rendered)
+  overlay PRESENT:
+    The one addition is the accepted specification below, which a separate agent reviewed in this task's preparation record: after the captain's words, add a blank line, then the line `Accepted specification from the reviewed preparation record (not the captain's words):`, then every heading and body under `## Accepted specification for --intent (reviewed preparation record, not the captain's words)` exactly as written, so the review checks the work against what the record promised.
+    It is specification, not captain intent; `## Firstmate spec`, later Firstmate constraints, and your own decisions and tradeoffs still stay out.
+    
+    ## Accepted specification for --intent (reviewed preparation record, not the captain's words)
+    ## 11. Definition of done
+    - The typo in owned.sh usage text is corrected and its regression passes.
+    n/a: lab fixture.
+    
+    ## Captain intent authorized for --intent
+    Fix the typo.
+
+=== surgical certificate (exempt) never carries the overlay ===
+$ fm-spawn.sh cert <lab-proj> claude --mode no-mistakes --yolo off
+RESULT: admitted (launch-brief.md rendered)
+  overlay ABSENT
