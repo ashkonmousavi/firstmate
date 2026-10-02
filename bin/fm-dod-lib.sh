@@ -326,8 +326,11 @@ fm_brief_task_content_valid() {  # <file>
 # launch whose record is missing or unanswered.
 #
 # The record is TIERED, never flat, so preparation costs what the change is
-# worth. Its `## Tier` header answers two yes-or-no questions and those answers
-# alone decide which sections are required:
+# worth. Its `## Tier` header answers Q1, Q2 and UI wiring. Without a
+# Preparation format declaration, those answers decide which sections are
+# required; a declared surgical record owes fm_prep_certainty_reason's
+# certificate instead of numbered sections:
+#   UI wiring yes           -> tier 2, whatever Q1 and Q2 say
 #   Q1 yes                  -> tier 2, every section (an `n/a: <reason>` answer
 #                              still settles one that does not apply)
 #   Q1 no and Q2 yes        -> tier 1, sections 1, 4, 6, 8 and 11 only; the rest
