@@ -73,7 +73,7 @@ Multiple owners of one contract produce divergence that only appears at merge.
 
 ## Dispatching the frontier
 
-The frontier is the set of nodes whose dependencies have cleared.
+The dispatch-ready frontier is the set of nodes whose dependencies have cleared; the reviewed-plan horizon also includes bounded jobs whose blockers are expected to clear during the current wave.
 Recompute it whenever the graph changes: `AGENTS.md` section 10 owns when that happens after a teardown or heartbeat, and section 7 owns how many independent nodes may go at once and when to serialize.
 Do not restate either here, and never set how many lanes go at once or a cap those sections do not impose.
 That limit is about the count, not the shape: how the split is shaped and ordered is this skill's own to state.
@@ -81,11 +81,22 @@ That limit is about the count, not the shape: how the split is shaped and ordere
 Building in parallel stays the default here for disjoint work, and that is deliberate.
 The external method this is adapted from recommends one thing at a time, because two live sessions planning the same effort re-ask each other questions they cannot see the answers to.
 That cost is real for decisions and absent for building: every dispatched task carries a zero-memory brief and an isolated copy, so two builders share no context to lose.
-That zero-shared-context argument holds only when builders touch disjoint files; parallel builders on one shared head make conflicting implicit decisions that surface at merge, so many lanes on one journey or page pay the cost of parallelism without its benefit.
+Section 7 owns when work is independent enough to run in parallel.
 Parallelize by area under section 7, one lane per area at a time, owning its files.
 An area's slices queue behind it, and finished work across every area merges one at a time in dependency order.
 Every shared module is held by its single integration owner, which a lane asks rather than edits.
 Keep decisions on one shared record so a second lane never resolves what a first lane already settled.
+
+For L lanes warranted by actual authorized work and admitted under section 7, prepare one parallel-safe set of L jobs and a second set that can refill each lane once: the horizon is two times L reviewed plans.
+When fewer eligible jobs exist, record the actual planning or dependency gap; never invent work to fill that horizon.
+Plan and review in parallel batches by area, keeping decisions in one authoritative place and every shared seam under one owner.
+Design the shared interface first, then fan dependent plans out against it.
+A known blocker permits pre-staging, never premature dispatch; include bounded plans whose blocker is expected to clear during the current wave.
+Beyond the horizon, keep only a one-line sketch in the existing work board: outcome, dependencies, code area and kind of unknown.
+
+Before consuming a plan, compare its reviewed base and file/contract read set against merges since review, including changed shared dependencies even when the consumer's own files did not change.
+Refresh and review only an affected delta, then install updated approved bytes when changed; an untouched plan need not be planned again.
+Expand the horizon if builders wait on planning; shorten it if repeated refreshes materially rewrite plans.
 
 What this skill adds is the accounting:
 

@@ -197,13 +197,12 @@ An unregistered project or absent registry resolves to `no-mistakes` with yolo o
 Record the resulting mode, `yolo` merge posture, and the one-line reason for any deviation in the backlog item note.
 
 Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work as soon as a writing lane is free when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
-For work larger than one task, build the shared structure the later work attaches to first, under one owner, then split by vertical outcome with one lane per area owning its files.
-A shared or unstable module has exactly one integration owner: a lane that needs it changed asks that owner rather than editing it, and keeps working on its own files until that change lands (`wayfinding` owns the multi-task procedure).
+Load `wayfinding` for shared-seam ownership, parallel batches and the reviewed-plan horizon; `bin/fm-dod-lib.sh` owns the preparation Size guide for splitting by behaviour.
 Use as many isolated ship/scout lanes as this home's presequenced, currently parallel-safe work needs, up to seven; never create idle work to fill slots, and retain existing resource and ownership restrictions.
 Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB, no swap-in/out pressure, and current load strictly below available core count; missing or failing readings prevent that admission.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
-Write the task's preparation record before the brief with `bin/fm-brief.sh <task-id> --prep`, which owns the template, its tier header, and its sections; then, unless its complete tier header answers all no or declares the server-install exemption owned by `bin/fm-dod-lib.sh`, have a separately spawned prep-review scout review it on Opus whenever the task touches product behaviour or shared code, and install the record that scout approves.
-The record's own tier answers decide what it owes, so a change no user meets, that alters nothing a user sees and touches nothing shared, costs three answers and no sections.
+Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns completeness, surgical certainty and the separate server-install exemption.
+Unless that owner grants exemption, have a separately spawned prep-review scout review the full record on Opus and install its approved bytes.
 A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or, when review is owed, that lacks the separate review whose record `bin/fm-dod-lib.sh` owns.
 When a secondmate already filled `data/nav-preps/<id>.md`, install that sheet into this home's `data/<id>/prep.md` with `bin/fm-prep-install.sh` before spawn; an empty local `--prep` scaffold must not hide a filled nav-prep.
 Write the task-specific brief under section 11 before spawning.
@@ -245,7 +244,7 @@ Delivery mode and `yolo` are orthogonal.
 Never merge a red PR, or one with a required check that has not reported, under either setting unless a current explicit captain instruction names the GitHub check to waive; `bin/fm-pr-merge.sh`'s header owns the attended-only waiver mechanics and remaining guards.
 Destructive, irreversible, and security-sensitive merges still escalate.
 Without a current explicit captain instruction that states the concrete merge, the green default stands, and standing `yolo` cannot authorize a red merge; section 1 owns when such an instruction overrides a Firstmate-written standing rule within its exact scope.
-Load `ask-user-authority` and `validation-supervision` before deciding or answering any ask-user finding; the implementation worker never answers its own finding.
+Load `ask-user-authority` and `validation-supervision` before deciding an escalated finding; `bin/fm-dod-lib.sh` owns worker triage, autonomous batch fixes and stop-set escalation.
 Use `bin/fm-pr-merge.sh` for every task PR merge so merge metadata is recorded and an unproved merge is refused instead of reported as landed, and use `bin/fm-merge-local.sh` for approved local-only landing; never call a lower-level merge command around their guards.
 After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that `ship-landing` requires before the task counts as landed; a local-only landing gives only the local-main outcome.
 

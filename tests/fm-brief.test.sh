@@ -406,7 +406,7 @@ test_no_mistakes_dod_wording() {
   # claim an enforcement the tool does not provide: this is instruction only.
   assert_grep "NEVER pass \`--yes\` (or \`-y\`) to \`no-mistakes axi run\` or \`no-mistakes axi respond\`. It is banned fleet-wide." "$brief" \
     "no-mistakes DOD must state the --yes ban as a prohibition"
-  assert_grep "answering your own ask-user finding is a hard rule violation" "$brief" \
+  assert_grep "bypassing the stop-set authority boundary" "$brief" \
     "no-mistakes DOD must say why --yes is banned"
   assert_no_grep "Avoid \`--yes\`" "$brief" \
     "no-mistakes DOD still states the --yes ban as a preference"
@@ -452,35 +452,34 @@ test_ask_user_escalation_format() {
   brief="$home/data/$id/brief.md"
   assert_present "$brief" "brief was not scaffolded"
 
-  # A no-mistakes ask-user gate must escalate its ask-user findings as one status
+  # A no-mistakes gate must escalate its stop-set findings as one status
   # event plus one verbatim findings snapshot file, using that same shape even
   # for a single finding, never paraphrased into the status line.
-  assert_grep "escalate all ask-user findings as one event plus one snapshot file" "$brief" \
-    "ship rule 6 lost the one-event-plus-snapshot-file ask-user contract"
-  assert_grep "using that same shape even when the gate holds only a single ask-user finding" "$brief" \
+  assert_grep "escalate only stop-set findings as one event plus one snapshot file" "$brief" \
+    "ship rule 6 lost the one-event-plus-snapshot-file stop-set contract"
+  assert_grep "using that same shape even when the gate holds only a single stop-set finding" "$brief" \
     "ship rule 6 must require the same shape for a single finding"
-  assert_grep "write only the ask-user findings, verbatim and unparaphrased (id, severity, file, line, description, authority)" "$brief" \
-    "ship rule 6 must limit the verbatim axi slice to ask-user findings"
+  assert_grep "write only the stop-set findings, verbatim and unparaphrased (id, severity, file, line, description, authority), naming the stop category" "$brief" \
+    "ship rule 6 must limit the verbatim axi slice to stop-set findings"
   # shellcheck disable=SC2016  # single quotes are deliberate: backticks and the key/findings/file tokens must stay literal
-  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: ask-user findings=<id1>,<id2>,... file='"$home/data/$id/nm-<run>-findings.txt" "$brief" \
-    "ship rule 6 must render the exact needs-decision ask-user status line"
+  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file='"$home/data/$id/nm-<run>-findings.txt" "$brief" \
+    "ship rule 6 must render the exact needs-decision stop-set status line"
   assert_grep "$home/data/$id/nm-<run>-findings.txt" "$brief" \
     "ship rule 6 must point the snapshot file under this task's own data directory"
   assert_grep "The status line only points at the file; it never restates or summarizes a finding's content." "$brief" \
-    "ship rule 6 must forbid paraphrasing ask-user findings into the status line"
+    "ship rule 6 must forbid paraphrasing escalated findings into the status line"
 
-  # The two-round review stop only makes sense on a validation run, so it is
-  # scoped to the no-mistakes brief alongside the rest of the ask-user contract.
+  # Review continuation has no arbitrary round cap.
   # shellcheck disable=SC2016 # single quotes are deliberate: the backtick must stay literal
-  assert_grep 'After the second review round on one validation run, stop answering `fix`' "$brief" \
-    "no-mistakes brief missing the two-round review stop rule"
+  assert_no_grep 'After the second review round on one validation run, stop answering `fix`' "$brief" \
+    "no-mistakes brief retained the obsolete round stop"
 
-  # The DOD's own ask-user paragraph must point back at rule 6's format
+  # The DOD's own stop-set paragraph must point back at rule 6's format
   # (one-owner rule) rather than restating or bare-citing it.
-  assert_grep "escalate to firstmate using rule 6's ask-user format" "$brief" \
-    "no-mistakes DOD ask-user paragraph must point at rule 6's format instead of a bare citation"
+  assert_grep "Escalate to firstmate using rule 6's stop-set format" "$brief" \
+    "no-mistakes DOD stop-set paragraph must point at rule 6's format instead of a bare citation"
   assert_no_grep "escalate to firstmate (rule 6) and stop." "$brief" \
-    "no-mistakes DOD ask-user paragraph still uses the old bare rule-6 pointer"
+    "no-mistakes DOD stop-set paragraph still uses the old bare rule-6 pointer"
 
   other_id="brief-no-ask-user-scout"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$other_id" some-proj --scout >/dev/null 2>&1
@@ -488,7 +487,7 @@ test_ask_user_escalation_format() {
   assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
     "scout brief received a no-mistakes-only decision case"
   assert_no_grep "stop answering \`fix\`" "$other_brief" \
-    "scout brief received the no-mistakes-only two-round review stop rule"
+    "scout brief received the obsolete no-mistakes round stop"
 
   for mode in direct-PR local-only; do
     other_id="brief-no-ask-user-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
@@ -499,10 +498,10 @@ test_ask_user_escalation_format() {
     assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
       "$mode brief received a no-mistakes-only decision case"
     assert_no_grep "stop answering \`fix\`" "$other_brief" \
-      "$mode brief received the no-mistakes-only two-round review stop rule"
+      "$mode brief received the obsolete no-mistakes round stop"
   done
 
-  pass "fm-brief.sh: no-mistakes ask-user findings use one event plus a verbatim snapshot"
+  pass "fm-brief.sh: no-mistakes stop-set findings use one event plus a verbatim snapshot"
 }
 
 # The project-memory section bounds crewmate edits of a project's AGENTS.md or
@@ -1070,6 +1069,31 @@ test_worker_role_scope() {
   pass "fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract"
 }
 
+test_surgical_prep_scaffold() {
+  local task_home prep out rc id flags
+  task_home="$TMP_ROOT/surgical-scaffold"
+  mkdir -p "$task_home/data"
+  out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
+  expect_code 0 "$rc" "surgical scaffold (got: $out)"
+  prep="$task_home/data/surgical/prep.md"
+  assert_grep '- Preparation format: surgical' "$prep" "compact format was not declared"
+  for id in C1 C2 C3 C4 C5; do
+    grep -E -- "^- $id .*: \{$id\}" "$prep" >/dev/null || fail "certainty field $id missing"
+    assert_grep "Evidence: {${id}_EVIDENCE}" "$prep" "certainty evidence $id missing"
+  done
+  assert_no_grep '## 1. Intent and boxes' "$prep" "surgical scaffold emitted full sections"
+  assert_grep 'Reason: {Q1_REASON}' "$prep" "tier reason missing"
+  for flags in '--surgical' '--prep --surgical --scout' '--prep --surgical --mode direct-PR' '--prep --surgical --branch-prefix feature/' '--prep --surgical --forge gerrit'; do
+    # shellcheck disable=SC2086 # each test case is a flag list
+    out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" invalid $flags 2>&1); rc=$?
+    [ "$rc" -ne 0 ] || fail "invalid surgical flags accepted: $flags"
+  done
+  out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
+  expect_code 1 "$rc" "surgical overwrite"
+  assert_contains "$out" 'already exists' "overwrite refusal missing"
+  pass "surgical prep: compact scaffold, evidence and closed flag combinations"
+}
+
 # --prep scaffolds the task preparation record alone: no repo, no delivery mode,
 # no brief. The tier header comes first, because its two answers decide which
 # sections the task owes; every section then arrives with a guide, the tier it
@@ -1089,10 +1113,11 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep '## Tier' "$prep" "prep record lost its tier header"
   assert_grep '- Q1 does this change alter what a user sees or can do: {Q1}' "$prep" \
     "prep record's tier header does not ask Q1 with a placeholder to answer"
-  assert_grep '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}' \
+  assert_grep '- Q2 does this change touch a shared module or a contract: {Q2}' \
     "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
   assert_grep '- UI wiring: {UI_WIRING}' "$prep" \
     "prep record's tier header does not ask the UI wiring question with a placeholder to answer"
+  assert_no_grep 'Reason: {Q' "$prep" "full prep emitted surgical reason placeholders no gate validates"
   assert_grep 'yes, <the step and control the user meets>' "$prep" \
     "prep record does not give the UI wiring answer its required yes format"
   assert_grep 'no, <why the user never meets this change>' "$prep" \
@@ -1103,8 +1128,8 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not say a UI wiring yes forces tier 2"
   [ "$(grep -n '^## Tier$' "$prep" | cut -d: -f1)" -lt "$(grep -n '^## 1\.' "$prep" | cut -d: -f1)" ] \
     || fail "the tier header does not come before the sections it governs"
-  assert_grep 'All no: tier 0, this header is the whole record' "$prep" \
-    "prep record does not say a tier-0 change owes nothing but its three answers"
+  assert_grep 'All no: retain tier 1 sections and separate review' "$prep" \
+    "prep record does not retain sections and review for all-no full prep"
   assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
   assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
   assert_grep '## 3. UI/UX' "$prep" "prep record lost its UI/UX section"
@@ -1183,12 +1208,12 @@ EOF
     "--help does not say what tier 2 requires"
   assert_contains "$help_text" "tier 1 - sections 1, 4, 6, 8 and 11 only" \
     "--help does not say what tier 1 requires"
-  assert_contains "$help_text" "tier 0 - the header IS the record" \
-    "--help does not say that a tier-0 change owes nothing but its three answers"
+  assert_contains "$help_text" "retain tier 1 sections and separate review" \
+    "--help does not retain full sections and review for all-no"
   assert_contains "$help_text" "UI wiring yes     tier 2 - whatever Q1 and Q2 say" \
     "--help does not say a UI wiring yes forces tier 2"
-  assert_contains "$help_text" "a tier-0 change costs three answers" \
-    "--help does not say what a tier-0 change costs"
+  assert_contains "$help_text" "full records owe at least the five" \
+    "--help does not state the minimum full-record cost"
   assert_contains "$help_text" "Blast radius is TOOL OUTPUT, not prose" \
     "--help does not say the blast radius owes tool output"
   assert_contains "$help_text" "names neither gitnexus nor serena is refused" \
@@ -1550,6 +1575,7 @@ test_pr_completion_requires_current_head_green_url() {
   pass "fm-brief: both PR paths finish only with current-head green non-draft forge URL"
 }
 
+test_surgical_prep_scaffold
 test_pr_completion_requires_current_head_green_url
 test_prep_review_scout_brief
 test_script_parses

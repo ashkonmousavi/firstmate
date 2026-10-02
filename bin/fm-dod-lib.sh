@@ -4,7 +4,7 @@
 # Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
 # bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
-# no-mistakes worker that never received the ask-user escalation rule or the
+# no-mistakes worker that never received the stop-set escalation rule or the
 # `--yes` ban is the exact delivery hole this single owner exists to close.
 # fm_dod_block <no-mistakes|direct-PR|local-only> <task-id> [branch] [<forge>]
 # prints the block on stdout with no trailing blank line. The caller validates the
@@ -72,7 +72,7 @@
 # placed before the captain's words in the launch brief and appended after them
 # in --intent under a label that says they are not the captain's words, so the
 # pipeline reviews the work against what the record promised. A section that is
-# absent, empty, or answered n/a, and every tier-0 record, adds nothing.
+# absent, empty, or answered n/a adds nothing.
 # Author the subsection body and later relays as the actual words, without
 # adding speaker labels or direct address: the heading supplies provenance and
 # is not part of --intent. A legacy mixed Task instead marks each captain line
@@ -97,7 +97,7 @@
 # cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# fm_prep_review_exempt permits complete all-no records and explicit unchanged
+# fm_prep_review_exempt permits complete surgical certificates and unchanged
 # server installs without review. Inside ## Tier, declare exactly:
 #   - Prep review exemption: server-install
 #   - Changes unit: no
@@ -326,13 +326,16 @@ fm_brief_task_content_valid() {  # <file>
 # launch whose record is missing or unanswered.
 #
 # The record is TIERED, never flat, so preparation costs what the change is
-# worth. Its `## Tier` header answers two yes-or-no questions and those answers
-# alone decide which sections are required:
+# worth. Its `## Tier` header answers Q1, Q2 and UI wiring. Without a
+# Preparation format declaration, those answers decide which sections are
+# required; a declared surgical record owes fm_prep_certainty_reason's
+# certificate instead of numbered sections:
+#   UI wiring yes           -> tier 2, whatever Q1 and Q2 say
 #   Q1 yes                  -> tier 2, every section (an `n/a: <reason>` answer
 #                              still settles one that does not apply)
 #   Q1 no and Q2 yes        -> tier 1, sections 1, 4, 6, 8 and 11 only; the rest
 #                              may be omitted entirely
-#   both no                 -> tier 0, the header IS the whole record
+#   both no                 -> full prep still owes tier-1 sections and review
 #
 # The canonical section list lives here exactly once, with the tier each section
 # becomes required at, so the writer and the validator cannot drift: within a
@@ -355,7 +358,7 @@ FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s wo
 ## 9. Risks, dependencies, merge order|RISKS|2|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
 ## 10. Demo receipt plan|DEMO_RECEIPT|2|Name the evidence class each claim rests on (fixture/synthetic, admitted-data mirror or live deployment), never promoting one into another, and what the worker walks and records before validation, including the project'"'"'s required visual comparison and states as its instructions name them.
 ## 11. Definition of done|DEFINITION_OF_DONE|1|The done criteria, checked line by line against the intent above, with no marker whose trigger has landed.
-## 12. Size|SIZE|2|Files expected to change; more than about eight files means split the slice.'
+## 12. Size|SIZE|2|Split by one visible, independently testable behaviour, about 300 changed real lines, excluding tests, docs and generated outputs. Keep tiny fixes bundled; design shared structure first under one integration owner. This is a planning guide, not an automatic threshold.'
 # fm_prep_path <data-dir> <task-id>
 fm_prep_path() {
   printf '%s/%s/prep.md\n' "$1" "$2"
@@ -401,19 +404,48 @@ fm_nav_prep_filled_source() {
   return 1
 }
 
+# Certainty fields have one owner for both compact rendering and admission.
+FM_PREP_CERTAINTY='C1|Exact changed files and line locations are known|File:line targets at the inspected base.
+C2|Impact lookup finds no caller outside the change and no shared module or contract|Actual lookup command and result, with source path traced; unknown is not empty.
+C3|Stored data, security, permissions, money, install and server paths are untouched|Scope reason covering every exclusion.
+C4|The cause and the complete fix are known|Reproduced cause and concrete fix.
+C5|One focused regression covers the entire changed behaviour|Executable test seam and red-first reproduction.'
+FM_PREP_FULL_FALLBACK='full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review'
+
+fm_prep_tier_template() {  # <task-id> [surgical]
+  local id=$1 q1_reason='' q2_reason=''
+  if [ "${2:-}" = surgical ]; then
+    q1_reason=$'Reason: {Q1_REASON}\n'
+    q2_reason=$'Reason: {Q2_REASON}\n'
+  fi
+  printf '# Task prep: %s\n\n' "$id"
+  printf '%s\n' "$FM_PREP_TIER_HEADING"
+  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review; a complete surgical certificate replaces both, and the server-install exemption waives only the review. -->\n'
+  printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
+  printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
+  printf -- '- UI wiring: {UI_WIRING}\n'
+  # shellcheck disable=SC2016 # literal answer forms
+  printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
+}
+
+fm_prep_surgical_template() {  # <task-id>
+  local field label evidence
+  fm_prep_tier_template "$1" surgical
+  printf -- '- Preparation format: surgical\n\n## Certainty\n'
+  printf 'Every answer must be exactly yes with concrete evidence. Any no, unsure or incomplete answer requires %s.\n' "$FM_PREP_FULL_FALLBACK"
+  while IFS='|' read -r field label evidence; do
+    printf '\n- %s %s: {%s}\nEvidence: {%s_EVIDENCE}\n<!-- %s -->\n' "$field" "$label" "$field" "$field" "$evidence"
+  done <<EOF
+$FM_PREP_CERTAINTY
+EOF
+}
+
 # fm_prep_template <task-id> - the scaffold written to data/<task-id>/prep.md.
 # The tier header comes first, because its three answers decide how much of the
 # rest this task owes.
 fm_prep_template() {
   local id=$1 heading placeholder tier guide evidence
-  printf '# Task prep: %s\n\n' "$id"
-  printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: tier 0, this header is the whole record - delete every section. -->\n'
-  printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n'
-  printf -- '- Q2 does this change touch a shared module, a contract, or more than about eight files: {Q2}\n'
-  printf -- '- UI wiring: {UI_WIRING}\n'
-  # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
-  printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
+  fm_prep_tier_template "$id"
   printf '\n'
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
   printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
@@ -436,20 +468,20 @@ fm_prep_ui_wiring_line() {  # <file>
   '
 }
 
+# fm_prep_labelled <file> <heading> <id> - the text after `- <id> ` on every
+# line of <heading> that opens with it, one per line: the one answer reader
+# shared by tier and certainty answers.
+fm_prep_labelled() {  # <file> <heading> <id>
+  fm_brief_heading_body "$1" "$2" | awk -v q="$3" 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
+}
+
 # fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
 # empty when the question is unanswered, left placeheld, or not yes/no. The
 # answer is whatever follows the final colon on that question's line.
 fm_prep_answer() {  # <file> <Q1|Q2>
   local file=$1 question=$2 answer
-  answer=$(fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk -v q="$question" '
-    index($0, "- " q " ") == 1 {
-      pos = 0
-      for (i = length($0); i > 0; i--) { if (substr($0, i, 1) == ":") { pos = i; break } }
-      if (pos == 0) next
-      print substr($0, pos + 1)
-      exit
-    }
-  ' | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
+  answer=$(fm_prep_labelled "$file" "$FM_PREP_TIER_HEADING" "$question" | awk -F: 'NF > 1 && !done { print $NF; done = 1 }' \
+    | tr -d '[:space:].' | tr '[:upper:]' '[:lower:]')
   case "$answer" in
     yes|no) printf '%s\n' "$answer" ;;
     *) printf '\n' ;;
@@ -529,6 +561,83 @@ fm_prep_evidence_ok() {  # <file> <heading> <token>...
   return 1
 }
 
+# A format declaration selects the compact gate even when malformed or duplicated.
+fm_prep_surgical_declared() {  # <file>
+  fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | grep -q '^- Preparation format:'
+}
+
+# fm_prep_certainty_reason <file>: same reason exit convention as completeness.
+# Parse answer-after-label and evidence once; declarations are not verified facts.
+fm_prep_certainty_reason() {  # <file>
+  local file=$1 field label evidence answer
+  if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+    /^- Preparation format:/ { n++; if ($0 != "- Preparation format: surgical") bad = 1 }
+    END { exit !(n == 1 && !bad) }
+  '; then
+    printf 'Preparation format must declare surgical exactly once; use %s\n' "$FM_PREP_FULL_FALLBACK"
+    return 0
+  fi
+  if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+    /^- Q[12] / {
+      if (awaiting) bad = 1
+      q = substr($0, 3, 2); seen[q]++; awaiting = 1
+      next
+    }
+    awaiting {
+      if ($0 ~ /^[[:space:]]*$/) next
+      if (index($0, "Reason:") != 1) bad = 1
+      value = substr($0, length("Reason:") + 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/) bad = 1
+      awaiting = 0
+    }
+    /^- UI wiring:/ { ui++ }
+    END { exit !(seen["Q1"] == 1 && seen["Q2"] == 1 && ui == 1 && !bad && !awaiting) }
+  '; then
+    printf 'Tier answers require unique Q1, Q2 and UI wiring with concrete reasons; use %s\n' "$FM_PREP_FULL_FALLBACK"
+    return 0
+  fi
+  if [ "$(fm_prep_answer "$file" Q2)" != no ]; then
+    printf 'C2 contradicts a shared module or contract declaration; use %s\n' "$FM_PREP_FULL_FALLBACK"
+    return 0
+  fi
+  if fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+    /^- Prep review exemption:/ { bad = 1 }
+    /^- Changes (stored data|security|permissions|money|install|server|unit|setting|pin|store version):/ {
+      value = $0; sub(/^.*:/, "", value); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value != "no") bad = 1
+    }
+    END { exit !bad }
+  '; then
+    printf 'C3 contradicts sensitive, install or server scope; use %s\n' "$FM_PREP_FULL_FALLBACK"
+    return 0
+  fi
+  while IFS='|' read -r field label evidence; do
+    # Match the label, never a yes quoted in the question or evidence.
+    answer=$(fm_prep_labelled "$file" '## Certainty' "$field")
+    case "$answer" in "$label:"*) answer=${answer#"$label:"} ;; *) answer= ;; esac
+    answer=$(printf '%s' "$answer" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    if [ "$answer" != yes ] || ! fm_brief_heading_body "$file" '## Certainty' | awk -v f="$field" '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
+      awaiting {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if (index($0, "Evidence:") != 1) bad = 1
+        value = substr($0, length("Evidence:") + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|unknown|unavailable|todo|tbd)([ :]|$)/) bad = 1
+        awaiting = 0
+      }
+      END { exit !(n == 1 && !bad && !awaiting) }
+    '; then
+      printf '%s requires one exact yes and nonempty concrete evidence; use %s\n' "$field" "$FM_PREP_FULL_FALLBACK"
+      return 0
+    fi
+  done <<EOF
+$FM_PREP_CERTAINTY
+EOF
+  return 1
+}
+
 # fm_prep_unfilled_reason <file>
 # Prints the first refusal reason and exits 0; exits 1 when the record answers
 # everything its declared tier requires. A missing file and an unreadable tier
@@ -556,7 +665,11 @@ fm_prep_unfilled_reason() {  # <file>
       "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
-  [ "$tier" != 0 ] || return 1
+  if fm_prep_surgical_declared "$file"; then
+    fm_prep_certainty_reason "$file"
+    return $?
+  fi
+  [ "$tier" != 0 ] || tier=1
   while IFS='|' read -r heading placeholder required guide evidence; do
     [ -n "$heading" ] || continue
     [ "$required" -le "$tier" ] || continue
@@ -581,13 +694,13 @@ EOF
 }
 
 # fm_prep_review_exempt <prep-path>
-# Completeness comes first; all-no and explicitly unchanged server installs
+# Completeness comes first; surgical certificates and unchanged server installs
 # need no separate review. Install fields are author declarations, not checks.
 # An exemption is never proof of review for the accepted-specification overlay.
 fm_prep_review_exempt() {  # <prep-path>
   local file=$1
   fm_prep_unfilled_reason "$file" >/dev/null && return 1
-  [ "$(fm_prep_tier "$file")" = 0 ] && return 0
+  fm_prep_surgical_declared "$file" && return 0
   # Optional install declarations do not participate in tier selection. Every
   # occurrence must agree; an absent, malformed or conflicting field refuses.
   fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
@@ -689,11 +802,10 @@ fm_prep_review_reason() {  # <data-dir> <task-id>
 # Prints the record's `## 2. Behaviour spec` and `## 11. Definition of done`,
 # each under its own heading with guide comments stripped, for
 # fm_brief_intent_overlay. A section that is absent, empty, still placeheld, or
-# answered n/a is left out, and a tier-0 or unreadable record prints nothing.
+# answered n/a is left out, and an unreadable record prints nothing.
 fm_prep_accepted_spec() {  # <prep-path>
-  local file=$1 tier heading placeholder required guide evidence body first sep=''
-  tier=$(fm_prep_tier "$file")
-  case "$tier" in 1|2) ;; *) return 0 ;; esac
+  local file=$1 heading placeholder required guide evidence body first sep=''
+  [ -n "$(fm_prep_tier "$file")" ] || return 0
   while IFS='|' read -r heading placeholder required guide evidence; do
     case "$placeholder" in BEHAVIOUR_SPEC|DEFINITION_OF_DONE) ;; *) continue ;; esac
     [ "$(fm_prep_section_state "$file" "$heading" "$placeholder")" = filled ] || continue
@@ -743,14 +855,14 @@ fm_brief_intent_address_line() {  # <file>
 fm_ask_user_escalation_block() {  # <data-dir> <task-id>
   local data=$1 id=$2
   cat <<EOF
-   For a no-mistakes ask-user gate specifically, escalate all ask-user findings as one event plus one snapshot file, using that same shape even when the gate holds only a single ask-user finding: write only the ask-user findings, verbatim and unparaphrased (id, severity, file, line, description, authority), to \`$data/$id/nm-<run>-findings.txt\`, then report the gate with
-   \`needs-decision [at=<epoch>] [key=nm-<run>-<step>]: ask-user findings=<id1>,<id2>,... file=$data/$id/nm-<run>-findings.txt\`
-   naming every ask-user finding id from that gate. The status line only points at the file; it never restates or summarizes a finding's content.
+   For a no-mistakes gate, escalate only stop-set findings as one event plus one snapshot file, using that same shape even when the gate holds only a single stop-set finding: write only the stop-set findings, verbatim and unparaphrased (id, severity, file, line, description, authority), naming the stop category, to \`$data/$id/nm-<run>-findings.txt\`, then report the gate with
+   \`needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file=$data/$id/nm-<run>-findings.txt\`
+   naming every escalated finding id from that gate. The status line only points at the file; it never restates or summarizes a finding's content.
 EOF
 }
 
 # The forge-independent middle of the no-mistakes contract: how a worker drives
-# the pipeline, what `--intent` may carry, and the two firstmate-specific rules.
+# the pipeline, what `--intent` may carry, triage and the class-fix handoff.
 # Written once; only the two sentences about a green PR depend on the forge,
 # because on gerrit the ci step is skipped and there is no PR to report.
 fm_nm_driving_block() {  # <forge>
@@ -781,12 +893,25 @@ ${pr_return_line}Whenever a drive call returns without a gate or an outcome - it
 A killed or timed-out call is never evidence the daemon died: the daemon accepts your response immediately and runs the round in the background, so the call was only ever waiting for a read while the run kept working.
 Reattach and keep going rather than reporting the pipeline blocked; rule 7 owns the checks that decide when a pipeline block is real.
 
-Two firstmate-specific rules layer on top of that guidance:
-- ask-user findings are never yours to answer: escalate to firstmate using rule 6's ask-user format and stop.
+Review triage and class-fix handoff:
+- The stop set is exactly a finding whose severity column is exactly error; a security, money or data-loss risk; or a product choice the accepted intent and record never settled.
+  Severity is mechanical; judging the risks and unsettled choices is your responsibility. Escalate to firstmate using rule 6's stop-set format and stop until its exact decision arrives.
   Firstmate applies \`ask-user-authority\` and obtains any required captain decision.
-  When the decision comes back, feed it to the gate with \`no-mistakes axi respond\` and let the pipeline apply it - do not route the question to "the user" or implement the fix yourself.
+  When the decision comes back, feed it to the gate with \`no-mistakes axi respond\`; an authorized fix carries the same class-inventory \`--instructions\` as the batch below. Never implement the fix yourself.
+- Every other finding, ask-user ones included, is yours to batch-fix without a firstmate decision.
+  Build each cause's class inventory read-only: reproduced cause, every affected occurrence, search scope and negative evidence. Select every non-stale finding being fixed in one response:
+  \`no-mistakes axi respond --step <step> --action fix --findings <every id being fixed> --instructions <inventory and guidance>\`.
+  The instructions must require the pipeline Fix step to record that inventory in retained run evidence before editing, then fix and test every occurrence in the cause class.
+  They must require the next Review to check that exact retained inventory, verify every listed occurrence and regression evidence, and search for missed siblings; re-checks look at the fix rather than re-reviewing the whole change.
+  Use the installed pipeline's existing evidence/configuration surfaces to demonstrate this handoff. Prompt delivery alone is not semantic success: if the next Review cannot consume the inventory, report that precise external gap as unverified rather than inventing a pipeline.
+- A finding whose quoted code is already gone at the reviewed head is stale. Leave it out of the fix and record its id with file:line proof in the next status line or report; --instructions exists only with --action fix.
+  For a gate containing both stop-set and other findings, keep the gate parked until the exact firstmate decision arrives, then use the installed help and proven gate semantics to select the authorized findings together; never guess how a singular action handles the remainder.
+- A repeated finding returns in a later review of the same run: match the same id, or the same file and line and cause as a finding already fixed, including round-numbered ids.
+  Skip a stale repeat with file:line proof. Batch-fix a still-real repeat outside the stop set again, and append \`working [at=<epoch>]:\` naming the run, step, repeated ids, inventory/evidence reference and exact respond command including its instructions.
+  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort, restart or a round cap. The worker remains the sole driver of its run.
 - NEVER pass \`--yes\` (or \`-y\`) to \`no-mistakes axi run\` or \`no-mistakes axi respond\`. It is banned fleet-wide.
-  It auto-resolves every gate including ask-user findings with no escalation, and answering your own ask-user finding is a hard rule violation.
+  It auto-resolves every gate including ask-user findings with no escalation, bypassing the stop-set authority boundary.
+
 EOF
 }
 

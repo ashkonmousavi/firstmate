@@ -21,6 +21,33 @@ write_merge_marker() {  # <state> <id> <provider> <host> <path> <number>
   chmod 600 "$1/$2.pr-poll-merge-notified"
 }
 
+test_common_review_triage_contract() {
+  local mode forge output
+  output="$TMP_ROOT/driving.md"
+  for forge in none gerrit; do
+    fm_dod_block no-mistakes sample fm/sample "$forge" > "$output"
+    assert_grep 'severity column is exactly error' "$output" "error floor missing"
+    assert_grep 'security, money or data-loss risk' "$output" "sensitive stop scope missing"
+    assert_grep 'product choice the accepted intent and record never settled' "$output" "unsettled choice missing"
+    assert_grep 'Every other finding, ask-user ones included, is yours to batch-fix' "$output" "autonomous fixes missing"
+    assert_grep 'an authorized fix carries the same class-inventory' "$output" "stop-set fix lost the inventory handoff"
+    assert_grep '--instructions <inventory and guidance>' "$output" "active fix instructions missing"
+    assert_grep 'before editing' "$output" "inventory ordering missing"
+    assert_grep 'next Review' "$output" "review handoff missing"
+    assert_grep 'same file and line and cause' "$output" "round-numbered repeat matching missing"
+    assert_grep 'working [at=<epoch>]' "$output" "nonterminal repeat visibility missing"
+    assert_grep 'exact respond command including its instructions' "$output" "actual response receipt missing"
+    assert_grep 'file:line proof' "$output" "stale exclusion proof missing"
+    assert_no_grep 'second review round' "$output" "round cap survived"
+    assert_no_grep 'ask-user findings are never yours' "$output" "blanket ask-user stop survived"
+  done
+  for mode in direct-PR local-only; do
+    fm_dod_block "$mode" sample fm/sample > "$output"
+    assert_no_grep 'axi respond' "$output" "fast path acquired gate commands"
+  done
+  pass "common no-mistakes renderer: triage, active class inventory and repeat visibility on both forges"
+}
+
 test_scout_done_is_not_gated() {
   local repo wt
   repo="$TMP_ROOT/scout-repo"
@@ -384,6 +411,7 @@ test_pr_based_dod_draft_check_uses_gh_axi() {
   pass "PR-based DoD draft check uses gh-axi"
 }
 
+test_common_review_triage_contract
 test_scout_done_is_not_gated
 test_unpushed_ship_done_is_refused
 test_no_mistakes_prevalidation_done_is_not_gated

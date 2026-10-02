@@ -13,8 +13,7 @@
 # fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>]
 # Writes an answered record for <id> under <data-dir>, plus the separate review
 # a non-exempt ship spawn requires (fm_test_prep_review). The tier header answers
-# default to three noes - tier 0, the cheapest record a ship spawn accepts - so
-# a fixture that only needs the gate satisfied pays nothing for it; pass yes to
+# default to three noes with the tier-1 sections and byte-bound review; pass yes to
 # any of them to exercise a higher tier, where every section is answered.
 # Idempotent: an existing record, and an existing review of it, are left alone
 # so a test can write its own; a record with no review yet gets one.

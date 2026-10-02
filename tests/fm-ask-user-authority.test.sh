@@ -16,8 +16,8 @@ test_primary_and_secondmate_instruction_generation() {
   FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
     "$BRIEF" authority-worker sample --mode no-mistakes >/dev/null 2>&1
   ship="$home/data/authority-worker/brief.md"
-  assert_grep 'ask-user findings are never yours to answer' "$ship" \
-    "generated implementation brief lets the worker own an ask-user decision"
+  assert_grep 'Every other finding, ask-user ones included, is yours to batch-fix' "$ship" \
+    "generated implementation brief omitted autonomous batch triage"
   assert_grep "Firstmate applies \`ask-user-authority\` and obtains any required captain decision" "$ship" \
     "generated implementation brief bypasses the primary authority owner"
   # shellcheck disable=SC2016 # Backticks are literal generated Markdown.

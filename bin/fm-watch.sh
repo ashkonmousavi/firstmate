@@ -1309,11 +1309,15 @@ wait_record() {  # <kind> <subject> <whom> <action> <age-record>
 # yet, which is what makes the lane's quiet a wait rather than a suspected wedge.
 # An open decision under any other key - an unrelated question never closed - is
 # not that evidence, and neither is a verdict that names no run. The wait is owed
-# by firstmate, not the captain: ask-user findings are routed to firstmate, which
+# by firstmate, not the captain: escalated stop-set findings reach firstmate, which
 # decides most of them itself, and one it escalates becomes a captain-held
 # transfer that the first record above already catches. So the away-posture
 # silence does not apply to it: under away posture the supervision branch is the
 # actor allowed to answer it, and it is rechecked on the long cadence throughout.
+# This detection is still the legacy ask-user row plus the open key, not the
+# worker's stop-set judgment: a stop-set escalation whose rows carry another
+# action keeps the ladder, and a non-stop ask-user row the worker batch-fixes
+# never has the open key.
 # The two signals come apart in both directions, and the ladder is kept in each:
 #   - the decision was ANSWERED and the crewmate has not yet relayed it with
 #     `axi respond`: the gate is still reported parked and still carries the
@@ -1710,8 +1714,8 @@ gate_nudge_message() {  # <class> <detail>
       printf 'step and the finding ids, then respond with the exact command that run step\n'
       printf 'documents ("no-mistakes axi respond --help"). Never pass --yes, and process\n'
       printf 'every synchronous return until the run completes or genuinely escalates.\n\n'
-      printf 'If the gate is an ask-user finding, it is firstmate to decide, not you:\n'
-      printf 'append a "needs-decision: <the options>" line to your status file and stop.\n'
+      printf 'Apply the review triage and class-fix handoff in your brief; its stop-set\n'
+      printf 'escalation format owns which findings need firstmate and which you batch-fix.\n'
       ;;
   esac
 }

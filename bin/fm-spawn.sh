@@ -32,7 +32,9 @@
 #   a required one that does not apply is answered `n/a: <reason>`. A required
 #   Blast radius section also has to name gitnexus or serena, because it is the
 #   section that owes impact output; section 8 similarly owes finalize-after
-#   grep evidence or n/a with reason. When that refusal
+#   grep evidence or n/a with reason. A record declaring the surgical
+#   Preparation format owes bin/fm-dod-lib.sh's certainty certificate instead
+#   of those sections. When that refusal
 #   fires and a filled secondmate nav-prep exists, stderr also names that
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
 #   installs it. A ship spawn then refuses a record no separate agent has

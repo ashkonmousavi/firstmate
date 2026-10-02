@@ -18,6 +18,8 @@ review:
         Standards: check CONTRIBUTING.md and .agents/skills/firstmate-coding-guidelines/SKILL.md; cite the rule.
         Spec: check the intent and any accepted specification from the preparation record; quote the line and flag missing, partial, unasked or wrong behavior.
         Never merge or rerank across the two axes.
+        For fix re-checks, read the class-inventory handoff owned by fm_nm_driving_block in bin/fm-dod-lib.sh and apply it to the retained run evidence.
+        Report any missing inventory evidence rather than treating prompt delivery as proof.
 
 # Trusted documentation placement policy for the Document step.
 # The audience inventory and coding guideline own the detail; keep this as a
