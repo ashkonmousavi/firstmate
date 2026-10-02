@@ -1070,12 +1070,12 @@ test_worker_role_scope() {
 }
 
 test_surgical_prep_scaffold() {
-  local home prep out rc id flags
-  home="$TMP_ROOT/surgical-scaffold"
-  mkdir -p "$home/data"
-  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
+  local task_home prep out rc id flags
+  task_home="$TMP_ROOT/surgical-scaffold"
+  mkdir -p "$task_home/data"
+  out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
   expect_code 0 "$rc" "surgical scaffold (got: $out)"
-  prep="$home/data/surgical/prep.md"
+  prep="$task_home/data/surgical/prep.md"
   assert_grep '- Preparation format: surgical' "$prep" "compact format was not declared"
   for id in C1 C2 C3 C4 C5; do
     grep -E -- "^- $id .*: \{$id\}" "$prep" >/dev/null || fail "certainty field $id missing"
@@ -1085,10 +1085,10 @@ test_surgical_prep_scaffold() {
   assert_grep 'Reason: {Q1_REASON}' "$prep" "tier reason missing"
   for flags in '--surgical' '--prep --surgical --scout' '--prep --surgical --mode direct-PR' '--prep --surgical --branch-prefix feature/' '--prep --surgical --forge gerrit'; do
     # shellcheck disable=SC2086 # each test case is a flag list
-    out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" invalid $flags 2>&1); rc=$?
+    out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" invalid $flags 2>&1); rc=$?
     [ "$rc" -ne 0 ] || fail "invalid surgical flags accepted: $flags"
   done
-  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
+  out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
   expect_code 1 "$rc" "surgical overwrite"
   assert_contains "$out" 'already exists' "overwrite refusal missing"
   pass "surgical prep: compact scaffold, evidence and closed flag combinations"

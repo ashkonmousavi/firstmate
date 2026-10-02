@@ -57,8 +57,8 @@ write_brief() {  # <home> <id> [<recorded-mode>]
 }
 
 # The preparation record a ship spawn requires, so these delivery cases reach
-# the checks they are about instead of stopping at the prep gate. Tier 0 by
-# default, the cheapest record the gate accepts.
+# the checks they are about instead of stopping at the prep gate. All-no answers
+# by default, with the tier-1 sections and a byte-bound review.
 write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>]
   fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" "${5:-no}" \
     || fail "prep record scaffold failed for $2"
@@ -1126,27 +1126,27 @@ EOF
 }
 
 test_surgical_certainty_and_admission() {
-  local rec home proj fakebin id prep baseline field change reason out
+  local rec task_home proj fakebin id prep baseline field change reason out
   rec=$(make_home surgical-admission)
-  IFS='|' read -r home proj fakebin <<EOF
+  IFS='|' read -r task_home proj fakebin <<EOF
 $rec
 EOF
   id=surgical-certain
-  write_brief "$home" "$id" no-mistakes
-  rm -f "$home/data/$id/prep.md" "$home/data/$id/prep-review"
-  FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
-  prep="$home/data/$id/prep.md"
+  write_brief "$task_home" "$id" no-mistakes
+  rm -f "$task_home/data/$id/prep.md" "$task_home/data/$id/prep-review"
+  FM_HOME="$task_home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+  prep="$task_home/data/$id/prep.md"
   sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
     -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
     -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/bin\/owned.sh:12; rg callers returned only owned file; stored data, security, permissions, money, install and server paths untouched; cause reproduced by bash tests\/owned.test.sh; fix output; red-first regression covers behaviour./' \
     "$prep" > "$prep.f" && mv "$prep.f" "$prep"
-  baseline="$home/certain.md"
+  baseline="$task_home/certain.md"
   cp "$prep" "$baseline"
   fm_prep_unfilled_reason "$prep" && fail "complete certificate refused"
   fm_prep_review_exempt "$prep" || fail "complete certificate not exempt"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
-  assert_present "$home/data/$id/launch-brief.md" "certain surgical record did not launch"
-  assert_no_grep 'Accepted specification for --intent' "$home/data/$id/launch-brief.md" "certainty impersonated review"
+  out=$(run_spawn "$task_home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$task_home/data/$id/launch-brief.md" "certain surgical record did not launch"
+  assert_no_grep 'Accepted specification for --intent' "$task_home/data/$id/launch-brief.md" "certainty impersonated review"
   # Certainty validates filled evidence, not the syntax of quoted tool output.
   awk '/^Evidence:/ { print "Evidence: owned.sh:12; direct lookup returned {\"callers\": []}; test output uses <empty>; scope exclusions and reproduced cause recorded."; next } { print }' \
     "$baseline" > "$prep"
@@ -1174,6 +1174,12 @@ EOF
       assert_contains "$reason" 'full prep and separate review' "$field $change no fallback"
       fm_prep_review_exempt "$prep" && fail "$field $change exempted"
     done
+  done
+  for change in 1 2; do
+    awk -v n="$change" '/^Reason:/ && ++seen == n { next } { print }' "$baseline" > "$prep"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "certificate missing reason $change accepted"
+    assert_contains "$reason" 'concrete reasons' "missing reason $change refusal not named"
+    fm_prep_review_exempt "$prep" && fail "certificate missing reason $change exempted"
   done
   for change in reason duplicate-q duplicate-format; do
     awk -v c="$change" '
@@ -1205,20 +1211,20 @@ EOF
   sed 's/^\(- C4 .*\): yes$/\1: unsure/' "$baseline" > "$prep"
   reason=$(fm_prep_unfilled_reason "$prep") || fail "unsure certificate accepted"
   assert_contains "$reason" 'delete the Preparation format line' "unsure refusal did not name the conversion"
-  FM_HOME="$home" "$BRIEF" surgical-full --prep >/dev/null || fail "full scaffold for conversion"
+  FM_HOME="$task_home" "$BRIEF" surgical-full --prep >/dev/null || fail "full scaffold for conversion"
   {
     grep -v '^- Preparation format:' "$prep"
-    awk '/^## [0-9]+\. / { emit = 1 } emit' "$home/data/surgical-full/prep.md" | sed 's/^{[A-Z0-9_]*}$/n\/a: converted fixture./'
+    awk '/^## [0-9]+\. / { emit = 1 } emit' "$task_home/data/surgical-full/prep.md" | sed 's/^{[A-Z0-9_]*}$/n\/a: converted fixture./'
   } > "$prep.f" && mv "$prep.f" "$prep"
   reason=$(fm_prep_unfilled_reason "$prep") && fail "converted full record refused: $reason"
   fm_prep_review_exempt "$prep" && fail "converted record skipped separate review"
-  rm -f "$home/data/$id/launch-brief.md"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  rm -f "$task_home/data/$id/launch-brief.md"
+  out=$(run_spawn "$task_home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_contains "$out" 'cannot ship before a separate agent reviews' "converted record shipped unreviewed"
-  assert_absent "$home/data/$id/launch-brief.md" "converted record launched before review"
-  review_prep "$home" "$id"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
-  assert_present "$home/data/$id/launch-brief.md" "reviewed converted record did not launch: $out"
+  assert_absent "$task_home/data/$id/launch-brief.md" "converted record launched before review"
+  review_prep "$task_home" "$id"
+  out=$(run_spawn "$task_home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$task_home/data/$id/launch-brief.md" "reviewed converted record did not launch: $out"
   pass "surgical certainty: complete evidence admits without reviewed overlay; uncertainty and contradictions fail closed"
 }
 

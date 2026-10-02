@@ -271,26 +271,26 @@ EOF
 }
 
 test_surgical_nav_prep_installation() {
-  local home sm id src dest out rc
-  home=$(make_primary surgical-nav)
+  local task_home sm id src dest out rc
+  task_home=$(make_primary surgical-nav)
   sm="$TMP_ROOT/surgical-nav/secondmate"
   id=surgical-nav
   mkdir -p "$sm/data/nav-preps"
-  write_registry "$home" "$sm"
+  write_registry "$task_home" "$sm"
   FM_HOME="$sm" "$ROOT/bin/fm-brief.sh" "$id" --prep --surgical >/dev/null || fail "compact nav scaffold"
   src="$sm/data/nav-preps/$id.md"
   sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{Q[12]_REASON\}/Confined output inspected./' \
     -e 's/\{UI_WIRING\}/no, confined output./' -e 's/\{C[1-5]\}/yes/' \
     -e 's/\{C[1-5]_EVIDENCE\}/bin\/own.sh:1; rg own returned only owned file; all excluded paths untouched; cause reproduced; bash tests\/own.test.sh red-first regression covers fix./' \
     "$sm/data/$id/prep.md" > "$src"
-  dest="$home/data/$id/prep.md"
-  out=$(FM_HOME="$home" "$INSTALL" "$id" 2>&1); rc=$?
+  dest="$task_home/data/$id/prep.md"
+  out=$(FM_HOME="$task_home" "$INSTALL" "$id" 2>&1); rc=$?
   expect_code 0 "$rc" "complete compact nav installation"
   cmp -s "$src" "$dest" || fail "compact bytes changed during installation"
-  assert_absent "$home/data/$id/prep-review" "compact install invented approval"
+  assert_absent "$task_home/data/$id/prep-review" "compact install invented approval"
   sed 's/^- C2 .*: yes$/- C2 unknown: unsure/' "$src" > "$src.uncertain"
   mv "$src.uncertain" "$src"
-  out=$(FM_HOME="$home" "$INSTALL" "$id" --force 2>&1); rc=$?
+  out=$(FM_HOME="$task_home" "$INSTALL" "$id" --force 2>&1); rc=$?
   expect_code 1 "$rc" "uncertain compact nav installation"
   assert_contains "$out" 'no filled nav-prep' "uncertain compact nav treated as filled"
   pass "nav-prep: complete compact bytes install unchanged; uncertainty does not install"
