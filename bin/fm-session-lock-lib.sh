@@ -417,10 +417,10 @@ fm_session_lock_anchor_pid() {
   _fm_harness_outermost_pid "$pids"
 }
 
-# True when state dir $1 holds a session lock that this process's session owns.
-# Codex requires the exact live client pid and birth and a trusted session id. Other
-# harnesses use ancestry membership or their trusted session id. Membership is
-# the honest ancestry test for Claude, because the lock owner
+# True when state dir $1 holds a session lock that this process's session owns:
+# the recorded pid is ANY harness ancestor of the current process, or the lock
+# was recorded by this same trusted Claude session and its recorded pid is still
+# a live harness. Membership is the honest ancestry test, because the lock owner
 # sits at an unknown depth in a contiguous Claude run - it is the outermost pid
 # when the hook fires inside the session's own nested worker chain, and an inner
 # pid when a harness-named daemon parents the session. The same-session path
@@ -436,10 +436,6 @@ fm_session_lock_owned_by_self() {
     ''|*[!0-9]*) return 1 ;;
   esac
   pids=$(fm_harness_ancestry_pids) || return 1
-  if fm_codex_ancestry_pid "$pids" >/dev/null; then
-    fm_session_lock_codex_same_client "$state" "$pids"
-    return $?
-  fi
   while IFS= read -r pid; do
     [ "$pid" = "$lock_pid" ] && return 0
   done <<EOF
@@ -463,13 +459,8 @@ fm_session_lock_foreign_owner_live() {
   case "$lock_pid" in
     ''|*[!0-9]*) return 1 ;;
   esac
-  fm_session_lock_holder_alive "$state" "$lock_pid" || return 1
+  fm_harness_pid_alive "$lock_pid" || return 1
   pids=$(fm_harness_ancestry_pids) || return 1
-  if fm_codex_ancestry_pid "$pids" >/dev/null; then
-    fm_session_lock_codex_same_client "$state" "$pids" && return 1
-    FM_SESSION_LOCK_FOREIGN_OWNER_PID=$lock_pid
-    return 0
-  fi
   while IFS= read -r pid; do
     [ "$pid" = "$lock_pid" ] && return 1
   done <<EOF

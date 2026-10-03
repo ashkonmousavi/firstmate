@@ -172,12 +172,6 @@
 # second owner of a contract that must stay current across relaunches.
 # bin/fm-spawn.sh owns the harness/model-dependent Opus advisor line in the
 # launch brief; ship and scout scaffolds do not supply it.
-# Ship scaffolds carry a fixed Rules line naming which tool serves which step:
-# Serena find_symbol/find_referencing_symbols before renaming, moving, or
-# changing a function's signature; GitNexus impact against the GitNexus clone
-# (never inside the worktree) before changing a shared module; semantic search
-# only when the symbol's name is unknown. The shared no-mistakes driving block
-# in fm-dod-lib.sh owns triage, class-fix handoff and repeat visibility.
 # A home may carry standing worker instructions without editing this tracked
 # script: when config/brief-include.md exists under the active home, ship and
 # scout scaffolds append its text verbatim as their last section, "# Home brief
