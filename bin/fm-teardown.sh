@@ -95,13 +95,13 @@
 # name a slot a DIFFERENT live task now holds. Cleanup kills every process under
 # that path and hard-resets it before returning it, so releasing a slot that is
 # not genuinely this task's destroys another worker's live work. Before the first
-# cleanup step, teardown verifies record exclusivity: no OTHER task record in
-# this home or any locally registered Firstmate home may name the same live path
-# in its worktree= or home=. One live path with two task records is the reuse
-# collision itself, whichever record is stale. The one exception is a slot whose
-# owner claim (below) names another task: this teardown is then records-only and
-# touches nothing under the slot, so the scan is skipped rather than stranding
-# the stale record and, with it, the claimant's own teardown.
+# cleanup step, teardown reads the slot's owner claim (below) and then scans
+# for record exclusivity: no OTHER task record in this home or any locally
+# registered Firstmate home may name the same live path in its worktree= or
+# home=. While the slot is still this task's, one live path with two task
+# records is the reuse collision itself, whichever record is stale, and refuses.
+# A slot claimed by another task is records-only even alongside a contradictory
+# record; skipping that scan avoids stranding the stale record and its claimant.
 # That scan alone cannot prove THIS record is the current owner, because the task
 # that took the slot next may leave no record it can reach - its own worker may
 # have exited and its record been cleaned up, or it may live in a home this
@@ -113,11 +113,21 @@
 # proof of reassignment: the slot is no longer this task's, so teardown warns,
 # names the claimant, and then finishes only this task's own cleanup - endpoint,
 # status, records, checks, backlog - while every step that would read or touch
-# that slot is skipped: no process kill under it, no dirty or landed-work
-# inspection of it, no branch or hook removal in it, no Treehouse return, and
-# never the other task's claim. Skipping the inspection discards nothing of this
-# task's: whatever unlanded work it had in that slot was already destroyed when
-# the pool handed the slot on. Refusing instead would strand the record, because
+# that slot is skipped: no process kill under it, no branch or hook removal in
+# it, no Treehouse return, and never the other task's claim. The record scan
+# then only detects, never refuses, because no slot step can cost another record
+# anything. When no other record names the slot, its dirty and landed-work
+# inspection is skipped too, which discards nothing of this task's: whatever
+# unlanded work it had in that slot was already destroyed when the pool handed
+# the slot on. When another record does name it, the claim may predate a
+# relaunch that moved this task back in (a claim naming a finished scout over
+# this ship's live work), so the read-only inspection runs against the copy
+# first and refuses on uncommitted or unlanded work, under the inspection's
+# usual kind, --force, and stale-lock rules; otherwise the claimant's later
+# cleanup would return the copy with that work in it. Forced secondmate
+# retirement's child records keep scan-first, refusing a shared copy, because
+# no inspection exists there to fall back on. Refusing a reassigned record
+# outright would strand it, because
 # bin/fm-backend.sh's endpoint validation refuses an empty or missing worktree=
 # unconditionally, so there is no line an operator could clear to get past it.
 # A claim that cannot be read proves nothing either way and refuses; inspect or
@@ -2356,17 +2366,19 @@ collect_local_firstmate_states() {
   done
 }
 
-require_exclusive_worktree_slot_record() {
-  local record_meta=$1 record_id=$2 record_state=$3 worktree=$4
-  local slot state_dir other other_id field other_path other_slot
-  slot=$(canonical_existing_dir "$worktree") || return 0
-  # A slot whose owner claim names another task was reassigned, so this record's
-  # teardown is records-only and touches nothing under it; another record naming
-  # the slot is then no hazard, and refusing would strand this stale record and
-  # block the claimant's own teardown behind it.
-  fm_treehouse_slot_owner_state "$slot" "$record_id"
-  [ "$FM_TREEHOUSE_SLOT_OWNER" != other ] || return 0
-  collect_local_firstmate_states "$record_state" || return 1
+# The shared-copy scan: whether any OTHER local task record names <worktree>
+# through its worktree= or home=. Returns 0 on the first such record, leaving
+# its id in SLOT_OTHER_RECORD_ID and the naming field in SLOT_OTHER_RECORD_FIELD;
+# 1 when none does; 2 when the set of local homes to scan cannot be read.
+SLOT_OTHER_RECORD_ID=
+SLOT_OTHER_RECORD_FIELD=
+find_other_worktree_slot_record() {  # <record-meta> <record-state> <worktree>
+  local record_meta=$1 record_state=$2 worktree=$3
+  local slot state_dir other field other_path other_slot
+  SLOT_OTHER_RECORD_ID=
+  SLOT_OTHER_RECORD_FIELD=
+  slot=$(canonical_existing_dir "$worktree") || return 1
+  collect_local_firstmate_states "$record_state" || return 2
   for state_dir in "${TREEHOUSE_OWNER_STATES[@]}"; do
     for other in "$state_dir"/*.meta; do
       [ -f "$other" ] && [ ! -L "$other" ] || continue
@@ -2375,25 +2387,67 @@ require_exclusive_worktree_slot_record() {
       # differently named hardlink is another task's record, so the name must
       # match too.
       [ "${other##*/}" = "${record_meta##*/}" ] && [ "$other" -ef "$record_meta" ] && continue
-      other_id=$(basename "$other" .meta)
       for field in worktree home; do
         other_path=$(fm_meta_get "$other" "$field")
         [ -n "$other_path" ] || continue
         other_slot=$(canonical_existing_dir "$other_path") || continue
         [ "$other_slot" = "$slot" ] || continue
-        echo "REFUSED: task $record_id's recorded worktree $slot is also task $other_id's recorded $field." >&2
-        echo "Returning that pool slot would kill $other_id's processes and reset its copy, so nothing was changed - not even with --force." >&2
-        echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $record_id; bin/fm-crew-state.sh $other_id), then re-run teardown." >&2
-        return 1
+        SLOT_OTHER_RECORD_ID=$(basename "$other" .meta)
+        SLOT_OTHER_RECORD_FIELD=$field
+        return 0
       done
     done
   done
+  return 1
 }
 
+require_exclusive_worktree_slot_record() {
+  local record_meta=$1 record_id=$2 record_state=$3 worktree=$4 slot rc=0
+  slot=$(canonical_existing_dir "$worktree") || return 0
+  find_other_worktree_slot_record "$record_meta" "$record_state" "$slot" || rc=$?
+  case "$rc" in
+    1) return 0 ;;
+    2) return 1 ;;
+  esac
+  echo "REFUSED: task $record_id's recorded worktree $slot is also task $SLOT_OTHER_RECORD_ID's recorded $SLOT_OTHER_RECORD_FIELD." >&2
+  echo "Returning that pool slot would kill $SLOT_OTHER_RECORD_ID's processes and reset its copy, so nothing was changed - not even with --force." >&2
+  echo "Reconcile whichever record is wrong (bin/fm-crew-state.sh $record_id; bin/fm-crew-state.sh $SLOT_OTHER_RECORD_ID), then re-run teardown." >&2
+  return 1
+}
+
+# This task's own slot gate. The claim is read first (require_owned_task_worktree_slot,
+# below): it alone decides whether the slot is still this task's, and so
+# whether any slot step runs. The shared-copy scan then decides what another
+# record naming the copy means:
+#   - claim mine or absent: the copy is this task's to return, so another
+#     record naming it refuses, exactly as require_exclusive_worktree_slot_record
+#     does; that refusal is what protects a live task working in the copy.
+#   - claim naming another task: no slot step runs, so the scan cannot cost the
+#     other record anything and only detects it. When another record names the
+#     copy, this record's own read-only dirty and landed-work inspection still
+#     runs against the copy before cleanup (TEARDOWN_SHARED_COPY_INSPECT), since
+#     a claim written before relaunch re-claimed can name a finished scout
+#     while the copy holds this record's live work; the claimant's later
+#     cleanup would otherwise return the copy with that work in it.
+# Forced secondmate retirement's child sites keep scan-first, because they run
+# only under --force, where no inspection exists to fall back on.
+TEARDOWN_SHARED_COPY_INSPECT=0
 require_exclusive_task_worktree_slot() {
-  local slot
+  local slot rc=0
   slot=$(teardown_live_slot_path) || return 0
-  require_exclusive_worktree_slot_record "$META" "$ID" "$STATE" "$slot"
+  if teardown_owns_worktree; then
+    require_exclusive_worktree_slot_record "$META" "$ID" "$STATE" "$slot"
+    return
+  fi
+  find_other_worktree_slot_record "$META" "$STATE" "$slot" || rc=$?
+  case "$rc" in
+    0)
+      TEARDOWN_SHARED_COPY_INSPECT=1
+      echo "note: task $ID's recorded worktree $slot is also task $SLOT_OTHER_RECORD_ID's recorded $SLOT_OTHER_RECORD_FIELD; inspecting it read-only for $ID's own unlanded work before cleaning up $ID's records." >&2
+      ;;
+    2) return 1 ;;
+  esac
+  return 0
 }
 
 # Positive slot ownership, read from the claim the task that took the slot wrote
@@ -3064,10 +3118,6 @@ teardown_herdr_require_prerequisites() {  # <task-id>
       return 1
     fi
   done
-  if ! declare -F fm_lock_try_acquire >/dev/null 2>&1; then
-    # shellcheck source=bin/fm-wake-lib.sh
-    . "$SCRIPT_DIR/fm-wake-lib.sh"
-  fi
   if ! declare -F fm_lock_try_acquire >/dev/null 2>&1 \
     || ! declare -F fm_lock_release >/dev/null 2>&1; then
     echo "error: herdr teardown lock machinery is unavailable for $task_id; nothing was changed - restore the lock support and rerun teardown" >&2
@@ -3305,6 +3355,7 @@ cleanup_firstmate_home_children() {
     fm_wake_queue_prune_task "$sub_state" "$child_id" "$child_t" 2>/dev/null || true
     fm_backlog_atomic_transition remove "$sub_state/$child_id.meta" "task record" "$sub_state" || return 1
     rm -f "$sub_state/$child_id.turn-ended" "$sub_state/$child_id.progress" \
+      "$sub_state/$child_id.prompt-waiting" \
       "$(fm_wake_signal_seen_path "$sub_state" "$sub_state/$child_id.turn-ended")" \
       "$sub_state/$child_id.pi-ext.ts" "$sub_state/$child_id.omp-ext.ts" \
       "$sub_state/$child_id.grok-turnend-token" "$sub_state/$child_id.kimi-turnend-token" \
@@ -3332,8 +3383,8 @@ remove_secondmate_registry_entry() {
   return "$rc"
 }
 
-require_exclusive_task_worktree_slot || exit 1
 require_owned_task_worktree_slot || exit 1
+require_exclusive_task_worktree_slot || exit 1
 
 validate_pr_poll_cleanup "$STATE" "$ID" || exit 1
 
@@ -3443,7 +3494,8 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] &&
   ORCA_PATH_MATCH_VERIFIED=1
 fi
 
-if teardown_owns_worktree && [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
+if { teardown_owns_worktree || [ "$TEARDOWN_SHARED_COPY_INSPECT" = 1 ]; } &&
+  [ -d "$WT" ] && [ "$FORCE" != "--force" ]; then
   if validate_worktree_teardown_safety; then
     :
   else
@@ -3776,7 +3828,7 @@ retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 [ ! -e "$CONFIG/fleet-ledger" ] || FM_HOME=$FM_HOME FM_STATE_OVERRIDE=$STATE FM_CONFIG_OVERRIDE=$CONFIG "$SCRIPT_DIR/fm-fleet-ledger.sh" cleaned_up "$ID" || true
 status_retire_presentation_task "$STATE" "$ID" || exit 1
 fm_wake_queue_prune_task "$STATE" "$ID" "$T" 2>/dev/null || true
-rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" \
+rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" "$STATE/$ID.prompt-waiting" \
   "$(fm_wake_signal_seen_path "$STATE" "$STATE/$ID.turn-ended")" \
   "$STATE/$ID.pi-ext.ts" "$STATE/$ID.omp-ext.ts" "$STATE/$ID.grok-turnend-token" \
   "$STATE/$ID.kimi-turnend-token" "$STATE/$ID.muse-session" \
@@ -3784,7 +3836,7 @@ rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" \
   "$STATE/$ID.control-relaunch" "$STATE/$ID.control-relaunch.meta-prior" \
   "$STATE/$ID.control-relaunch.brief-prior" "$STATE/$ID.control-relaunch.note" \
   "$STATE/$ID.reconcile-nudged" "$STATE/$ID.gemini-settings.json" "$STATE/$ID.devin-config.json" \
-  "$STATE/.$ID.branch-outcome-index" \
+  "$STATE/.gate-nudge-$ID" "$STATE/.$ID.branch-outcome-index" \
   "$STATE/.secondmate-relaunch-$ID" "$STATE/.secondmate-relaunch-bound-$ID"
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
 # retired endpoint; teardown only runs after landing is confirmed, so any
