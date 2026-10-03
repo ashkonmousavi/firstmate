@@ -124,9 +124,6 @@ Herdr does not enforce workspace or tab label uniqueness, so a label can never d
 Herdr 0.7.5 exports `HERDR_ENV`, `HERDR_PANE_ID`, `HERDR_SESSION`, `HERDR_SOCKET_PATH`, `HERDR_TAB_ID`, and `HERDR_WORKSPACE_ID` into every process it manages a pane for.
 A Firstmate or secondmate agent's own commands inherit them.
 Older injection shapes are unverified, so a claimed launcher pane without the injected socket identity cannot be trusted.
-Launch a Codex primary with [`bin/fm-codex-primary.sh`](../bin/fm-codex-primary.sh).
-Its per-thread client binding lets the adapter locate the client's current pane by its live foreground process id after a pane move or restore, even when tool commands run under Codex's shared managed process.
-The inherited pane remains a required launch-session claim, and a dead client, missing process listing, cross-session claim, or ambiguous match stops placement.
 
 With presentation spaces disabled, a crewmate or scout is created in the exact workspace that identity currently resolves to.
 That workspace is read live from Herdr rather than from the injected snapshot, so the worker always appears beside the agent that launched it.
@@ -143,7 +140,6 @@ That covers:
 - A pane and tab that disagree about their workspace.
 - A workspace missing from the session.
 - A pane belonging to another named session or Herdr server.
-- A Codex client that is dead, absent from foreground process listings, or present in more than one pane.
 
 ### Firstmate running outside Herdr
 
@@ -164,12 +160,6 @@ The one recovery that does place new work is the control plane's reclaim of a de
 It mints a replacement tab through this section's ordinary placement rules while pinning the herdr session the task's record names ([`agent-control.md`](agent-control.md) "Reclaiming a task whose endpoint is gone").
 
 Existing task operations use recorded endpoint ids and do not move a live task when labels change.
-Task cleanup closes the task's own pane, and closing a tab's only pane closes the tab.
-A sidebar plugin such as herdr-sidebar docks its own pane, labelled `Sidebar`, into every new tab, so cleanup then also closes the task's tab when every pane left in it is such a sidebar pane with no agent.
-It does so by closing those exact sidebar panes, not the tab, because Herdr 0.7.4 refuses to close a workspace's last tab.
-This holds for flat tabs and for projected per-task workspaces, on teardown and on restart cleanup alike.
-When that tab is its workspace's last one, closing its last pane removes the workspace, which then holds nothing but sidebar panes; wherever cleanup holds a focus snapshot, the exact-tab focus restore backstops that explicit close.
-A tab holding any other pane stays open; `tests/fm-backend-herdr-sidebar-tab-e2e.test.sh` covers these cases in a guarded lab.
 The per-home workspace is reused while it has task tabs.
 Closing its last tab can remove the workspace, and the next spawn recreates it.
 
@@ -366,6 +356,7 @@ After every close path, only a structured not-found response counts as gone.
 A present or unknown result retains every record with a visible, retryable error.
 Missing or malformed endpoint identity and missing confirmation machinery are ambiguity, never proof of a gone pane, and refuse record removal the same way.
 If lock, snapshot, pane identity, or restoration is ambiguous, cleanup warns and preserves the journal for manual inspection.
+Once the exact pane is confirmed gone, teardown retires the task's own journal when it binds that same pane, or when it is a version 1 attempt whose token-bearing projected workspace is itself confirmed gone, because nothing then remains for the session-start sweep to correlate; a journal bound to any other pane, or a version 1 attempt whose workspace is still present or unreadable, stays for that sweep.
 
 ### Restart recovery
 
@@ -416,8 +407,7 @@ A candidate must meet all of these conditions:
 - The title must equal the title derived from exactly one valid presentation journal in this home's own `state/`.
 - A version 2 journal additionally must bind this exact physical home, named session, workspace, tab, and pane.
 - The task's ordinary metadata must be absent.
-- The candidate must have exactly one tab and exactly one pane besides plugin sidebar panes docked in that tab.
-- An allowed sidebar pane is labelled `Sidebar`, has no agent, and has unknown or absent agent status; every other extra pane preserves the candidate.
+- The candidate must have exactly one tab and exactly one pane.
 
 Firstmate then cleans up the candidate in this order:
 
@@ -426,9 +416,9 @@ Firstmate then cleans up the candidate in this order:
 3. Require one unambiguous non-target focus and the exact title, token, tab, and pane shape.
 4. Positively confirm no registered agent.
 5. Read Herdr's process information for the exact named-session pane and apply the process proof below.
-6. Immediately revalidate the same journal, metadata absence, workspace title and token uniqueness, one-tab and one-pane topology besides sidebar panes, exact pane relationship, absent agent, process proof, and non-target focus.
+6. Immediately revalidate the same journal, metadata absence, workspace title and token uniqueness, one-tab and one-pane topology, exact pane relationship, absent agent, process proof, and non-target focus.
 7. Call the existing exact-pane focus-preserving close helper.
-   It closes only that pane, never a workspace; the helper may then close a sidebar-only tab to remove the husk workspace.
+   It closes only that pane, never a workspace.
 8. Retire the matching journal only after the exact pane is positively confirmed gone.
 
 The process proof requires all of these:
@@ -454,7 +444,7 @@ Any of these preserves the candidate and lets session startup continue with at m
 - A cross-home version 2 binding.
 - Current metadata.
 - A registered or unknown agent.
-- An extra tab or pane outside the allowed sidebar shape.
+- An extra tab or pane.
 - An active target.
 - A busy lock.
 - A changed revalidation.
@@ -646,9 +636,7 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 ### Placeholder and ghost text
 
 ANSI capture preserves de-emphasized placeholder style.
-`bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and muted (near-grey) dark truecolor placeholders while retaining bright typed input and saturated highlights such as the blue of a typed Claude slash command.
-Claude's Herdr transcript can end in a titled rule, a bare `❯` composer, and one closing rule; with native Claude idle or done identity, that adjacent shape is an empty composer, while typed text remains pending.
-Rows wrapped between that `❯` row and the closing rule are draft text and read pending, and the Claude pre-send and post-send payload proofs extract the same identity-gated shape so away-mode alerts can be delivered into it.
+`bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
 
 If the ANSI capture ever fails, the plain fallback declares itself unstyled.
 The classifier then degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input.
@@ -757,12 +745,14 @@ The portable halves are pinned by `tests/fm-backend-herdr.test.sh` (the read, ag
 Protocol 16 can subscribe to `pane.agent_status_changed` over one bounded Unix-socket reader.
 `bin/fm-transition-lib.sh` owns the backend-neutral transition vocabulary and policy.
 The Herdr adapter subscribes before reconciling current levels, buffers edges during reconciliation, and returns fresh blocked transitions for this home's panes.
-Herdr rejects a whole subscription when any named pane is gone, and a task record can outlive its pane, so the reader drops each pane a `pane_not_found` rejection names and resubscribes the live ones (`bin/backends/herdr-eventwait.py` owns the wire shape).
 
-The watcher maps the pane back to the task and skips secondmate endpoints.
-A blocked transition escalates even under a declared `paused:` wait or a verified `captain-held` transfer, because a declaration accounts for quiet and nothing but an answer clears a question on screen.
-The away daemon escalates that wake under a declared wait too.
-A Cursor-family pane is the exception on the push path: Herdr reports it `blocked` in every state, so its `blocked` is not read as a question.
+The watcher maps the pane back to the task and skips these:
+
+- Secondmate endpoints.
+- Declared `paused:` waits, because the worker's declared wait already accounts for its quiet.
+  It is left to the watcher's own bounded pause cadence.
+- Verified `captain-held` transfers.
+  A captain-held transfer remains silent without rechecks while the away-posture record exists.
 
 ### Polling fallback
 
@@ -777,25 +767,21 @@ Polling runs every cycle and remains the permanent fallback when any of these is
 - Repeated reader execution.
 
 There is still one watcher process; the event reader is a bounded child of that watcher.
-A failed capability probe, or `FM_EVENT_CAP_FAIL_MAX` consecutive reader failures, leaves that watcher process polling only.
-Each such fallback writes one `push fast-path` line to `state/.watch-triage.log` and queues one `check: push fast-path lost` wake per episode.
-The episode marker, `state/.push-fallback-<backend>_<session>`, survives watcher relaunches and is cleared by the next working event wait.
 
-`tests/fm-backend-herdr-eventwait-smoke.test.sh`, `tests/fm-backend-herdr-eventwait.test.py`, `tests/fm-transition-lib.test.sh`, and `tests/fm-supervision-events.test.sh` cover capability, subscribe-then-reconcile ordering, gone-pane resubscription, dedupe, exemptions, and polling fallback.
+`tests/fm-backend-herdr-eventwait-smoke.test.sh`, `tests/fm-transition-lib.test.sh`, and `tests/fm-supervision-events.test.sh` cover capability, subscribe-then-reconcile ordering, dedupe, exemptions, and polling fallback.
 
 ## Away-mode supervisor support
 
 The away daemon supports tmux and Herdr supervisor panes only.
 It refuses Zellij, Orca, and cmux as supervisor backends rather than applying the wrong transport.
 For Herdr, target existence, native state, capture, composer state, and verified submit all route through the shared backend dispatcher and the explicit named-session CLI owner.
-The pane-independent max-defer alert, and when the daemon hands supervision back to the ordinary turn-end path or keeps running, are owned by [`wedge-alarm.md`](wedge-alarm.md).
+The pane-independent max-defer alert is configured in [`wedge-alarm.md`](wedge-alarm.md).
 
 ### Where the daemon runs
 
 - Harnesses with native tracked background execution can run the daemon in their terminal.
 - Pi and pi-signed no longer launch the away daemon; their ordinary supervision session continues under the posture record.
-- Codex also runs no away daemon; its bounded foreground checkpoint loop returns durable watcher output as a tool result without changing the composer.
-- An opted-in non-Pi home also skips the daemon for `/afk`; see [supervision-host.md](supervision-host.md).
+- A non-Pi home that runs the supervision host also skips the daemon for `/afk`; see [supervision-host.md](supervision-host.md).
 - For another harness without native tracked background execution, `bin/fm-afk-launch.sh` runs the daemon in a Herdr workspace, as described next.
 
 In that last case, `bin/fm-afk-launch.sh`:
@@ -845,8 +831,6 @@ Tests use thin compatibility wrappers in `tests/herdr-test-safety.sh` and never 
 - A Firstmate outside Herdr cannot resolve a launcher workspace, so a colliding home label refuses new spawns until the collision is cleared.
 - Ghost and placeholder recognition uses ANSI de-emphasis when available; an unstyled glyph row carrying trailing non-idle text fails safely to `unknown`.
 - Only tmux and Herdr can host the away-mode supervisor terminal.
-- The away-mode daemon terminal's dedicated workspace is still retired by a single pane close, so with a sidebar plugin such as herdr-sidebar installed its sidebar-only workspace can linger until closed manually (tracked as follow-up).
-- With a sidebar plugin installed, a flat workspace can keep at most one sidebar-only seeded default tab, because the plugin labels its pane `Sidebar` only after the seeded-tab prune runs; the next spawn reuses that workspace and tab, and this is not a regression from base (tracked as follow-up).
 
 ## Regression entry points
 
@@ -861,7 +845,6 @@ tests/fm-backend-herdr-workspace-per-home-e2e.test.sh
 tests/fm-backend-herdr-launcher-workspace-e2e.test.sh
 tests/fm-backend-herdr-presentation-e2e.test.sh
 tests/fm-backend-herdr-agent-exit-shell-e2e.test.sh
-tests/fm-backend-herdr-sidebar-tab-e2e.test.sh
 tests/fm-herdr-pi-stale-registration-live-e2e.test.sh
 tests/fm-backend-herdr-eventwait-smoke.test.sh
 tests/fm-control-herdr-smoke.test.sh

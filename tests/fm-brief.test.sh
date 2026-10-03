@@ -22,13 +22,6 @@ TMP_ROOT=$(fm_test_tmproot fm-brief)
 BRIEF_HOME="$TMP_ROOT/home"
 mkdir -p "$BRIEF_HOME/data"
 
-# shellcheck source=bin/fm-dod-lib.sh
-. "$ROOT/bin/fm-dod-lib.sh"
-# shellcheck source=bin/fm-tasks-axi-lib.sh
-. "$ROOT/bin/fm-tasks-axi-lib.sh"
-# shellcheck source=bin/fm-backlog-transition-lib.sh
-. "$ROOT/bin/fm-backlog-transition-lib.sh"
-
 # The script itself must always parse under the ambient bash. That is Bash 5 in
 # CI and locally, where the issue #958/#1069 parser bug does not fire, so this
 # is a weak guard on its own; test_no_heredoc_in_command_substitution and the
@@ -223,10 +216,6 @@ test_ship_modes_generate_clean_briefs() {
     assert_grep 'never a bare number such as "PR 108"' "$brief" "$id: brief missing the full-PR-URL rule"
     assert_grep "mid-task \`working:\` line (including setup complete) is nonterminal" "$brief" \
       "$id: brief missing nonterminal working:/setup-complete gate protection"
-    assert_no_grep 'Call your built-in Opus advisor tool at every design fork' "$brief" \
-      "$id: scaffold must not contain the launch-only advisor instruction"
-    assert_grep "Serena's \`find_symbol\` and \`find_referencing_symbols\`" "$brief" \
-      "$id: brief missing the tool-for-purpose rule"
     assert_no_grep "EOF" "$brief" "$id: brief leaked a heredoc EOF marker (unterminated heredoc)"
   done
   pass "fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly"
@@ -271,7 +260,7 @@ test_ship_mode_is_explicit_not_registry() {
   brief="$home/data/brief-explicit-a5/brief.md"
   grep -qx "Delivery contract: mode=no-mistakes" "$brief" \
     || fail "registered direct-PR posture overrode the explicit --mode"
-  assert_grep "start the pipeline yourself immediately" "$brief" \
+  assert_grep "Firstmate will then instruct you to run /no-mistakes" "$brief" \
     "explicit no-mistakes brief did not render the pipeline definition of done"
 
   # An unregistered project is not a blocker either, because nothing is looked up.
@@ -406,7 +395,7 @@ test_no_mistakes_dod_wording() {
   # claim an enforcement the tool does not provide: this is instruction only.
   assert_grep "NEVER pass \`--yes\` (or \`-y\`) to \`no-mistakes axi run\` or \`no-mistakes axi respond\`. It is banned fleet-wide." "$brief" \
     "no-mistakes DOD must state the --yes ban as a prohibition"
-  assert_grep "bypassing the stop-set authority boundary" "$brief" \
+  assert_grep "answering your own ask-user finding is a hard rule violation" "$brief" \
     "no-mistakes DOD must say why --yes is banned"
   assert_no_grep "Avoid \`--yes\`" "$brief" \
     "no-mistakes DOD still states the --yes ban as a preference"
@@ -452,42 +441,35 @@ test_ask_user_escalation_format() {
   brief="$home/data/$id/brief.md"
   assert_present "$brief" "brief was not scaffolded"
 
-  # A no-mistakes gate must escalate its stop-set findings as one status
+  # A no-mistakes ask-user gate must escalate its ask-user findings as one status
   # event plus one verbatim findings snapshot file, using that same shape even
   # for a single finding, never paraphrased into the status line.
-  assert_grep "escalate only stop-set findings as one event plus one snapshot file" "$brief" \
-    "ship rule 6 lost the one-event-plus-snapshot-file stop-set contract"
-  assert_grep "using that same shape even when the gate holds only a single stop-set finding" "$brief" \
+  assert_grep "escalate all ask-user findings as one event plus one snapshot file" "$brief" \
+    "ship rule 6 lost the one-event-plus-snapshot-file ask-user contract"
+  assert_grep "using that same shape even when the gate holds only a single ask-user finding" "$brief" \
     "ship rule 6 must require the same shape for a single finding"
-  assert_grep "write only the stop-set findings, verbatim and unparaphrased (id, severity, file, line, description, authority), naming the stop category" "$brief" \
-    "ship rule 6 must limit the verbatim axi slice to stop-set findings"
+  assert_grep "write only the ask-user findings, verbatim and unparaphrased (id, severity, file, line, description, authority)" "$brief" \
+    "ship rule 6 must limit the verbatim axi slice to ask-user findings"
   # shellcheck disable=SC2016  # single quotes are deliberate: backticks and the key/findings/file tokens must stay literal
-  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file='"$home/data/$id/nm-<run>-findings.txt" "$brief" \
-    "ship rule 6 must render the exact needs-decision stop-set status line"
+  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: ask-user findings=<id1>,<id2>,... file='"$home/data/$id/nm-<run>-findings.txt" "$brief" \
+    "ship rule 6 must render the exact needs-decision ask-user status line"
   assert_grep "$home/data/$id/nm-<run>-findings.txt" "$brief" \
     "ship rule 6 must point the snapshot file under this task's own data directory"
   assert_grep "The status line only points at the file; it never restates or summarizes a finding's content." "$brief" \
-    "ship rule 6 must forbid paraphrasing escalated findings into the status line"
+    "ship rule 6 must forbid paraphrasing ask-user findings into the status line"
 
-  # Review continuation has no arbitrary round cap.
-  # shellcheck disable=SC2016 # single quotes are deliberate: the backtick must stay literal
-  assert_no_grep 'After the second review round on one validation run, stop answering `fix`' "$brief" \
-    "no-mistakes brief retained the obsolete round stop"
-
-  # The DOD's own stop-set paragraph must point back at rule 6's format
+  # The DOD's own ask-user paragraph must point back at rule 6's format
   # (one-owner rule) rather than restating or bare-citing it.
-  assert_grep "Escalate to firstmate using rule 6's stop-set format" "$brief" \
-    "no-mistakes DOD stop-set paragraph must point at rule 6's format instead of a bare citation"
+  assert_grep "escalate to firstmate using rule 6's ask-user format" "$brief" \
+    "no-mistakes DOD ask-user paragraph must point at rule 6's format instead of a bare citation"
   assert_no_grep "escalate to firstmate (rule 6) and stop." "$brief" \
-    "no-mistakes DOD stop-set paragraph still uses the old bare rule-6 pointer"
+    "no-mistakes DOD ask-user paragraph still uses the old bare rule-6 pointer"
 
   other_id="brief-no-ask-user-scout"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$other_id" some-proj --scout >/dev/null 2>&1
   other_brief="$home/data/$other_id/brief.md"
   assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
     "scout brief received a no-mistakes-only decision case"
-  assert_no_grep "stop answering \`fix\`" "$other_brief" \
-    "scout brief received the obsolete no-mistakes round stop"
 
   for mode in direct-PR local-only; do
     other_id="brief-no-ask-user-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
@@ -497,11 +479,9 @@ test_ask_user_escalation_format() {
       "$mode brief received a no-mistakes-only escalation format"
     assert_no_grep "destructive actions, ask-user findings" "$other_brief" \
       "$mode brief received a no-mistakes-only decision case"
-    assert_no_grep "stop answering \`fix\`" "$other_brief" \
-      "$mode brief received the obsolete no-mistakes round stop"
   done
 
-  pass "fm-brief.sh: no-mistakes stop-set findings use one event plus a verbatim snapshot"
+  pass "fm-brief.sh: no-mistakes ask-user findings use one event plus a verbatim snapshot"
 }
 
 # The project-memory section bounds crewmate edits of a project's AGENTS.md or
@@ -940,7 +920,8 @@ SIGNALS
 test_ship_and_scout_teach_validation_round_pause() {
   local home kind id brief
   home="$TMP_ROOT/validation-round-pause-home"
-  mkdir -p "$home/data"
+  mkdir -p "$home/data" "$home/config"
+  : > "$home/config/wait-no-turns"
 
   for kind in ship scout; do
     id="brief-validation-round-pause-$kind"
@@ -950,6 +931,12 @@ test_ship_and_scout_teach_validation_round_pause() {
       FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode no-mistakes >/dev/null 2>&1
     fi
     brief="$home/data/$id/brief.md"
+    assert_grep "your own validation round, which you declare once just before its blocking hold" "$brief" \
+      "$kind brief did not teach workers to declare their validation-round wait before holding it"
+    assert_grep "append \`paused:\` once just before its first blocking command, then stay in the command" "$brief" \
+      "$kind brief's Waiting section does not declare the validation round once and then hold it"
+    assert_no_grep "is not a \`paused:\` wait" "$brief" \
+      "$kind brief still tells workers never to declare a wait they hold in a command"
     assert_grep "your own validation round" "$brief" \
       "$kind brief did not teach workers to declare their validation-round wait"
     assert_grep 'Before ending your turn with your own background shell or monitor still running' "$brief" \
@@ -961,7 +948,7 @@ test_ship_and_scout_teach_validation_round_pause() {
     assert_grep 'Do not declare active implementation or reasoning as a wait' "$brief" \
       "$kind brief did not limit the declaration to actual waits"
   done
-  pass "fm-brief.sh: ship and scout scaffolds teach validation-round pauses"
+  pass "fm-brief.sh: ship and scout scaffolds declare a validation-round pause once, then hold it"
 }
 
 test_scout_and_secondmate_load_decision_hold_policy() {
@@ -983,9 +970,8 @@ test_scout_and_secondmate_load_decision_hold_policy() {
   pass "fm-brief.sh: investigation and visual-review completions load the shared decision policy"
 }
 
-# A scout brief offers the Lavish review loop only when bootstrap confirms the
-# supported lavish-axi floor at scaffold time; a missing or older build gets a
-# text-report instruction instead, so a scout never drives a below-floor Lavish.
+# A scout brief offers the Lavish review loop for every compatible board version,
+# including older builds that use the legacy reply path.
 test_scout_lavish_line_follows_presentation_floor() {
   local base label version expect case_dir fakebin brief n=0
   local hosting='use the lavish-axi rule'
@@ -1010,9 +996,11 @@ test_scout_lavish_line_follows_presentation_floor() {
       assert_no_grep "$hosting" "$brief" "$label: scout brief offered a below-floor Lavish"
     fi
   done <<'ROWS'
-lavish-axi at the floor^0.1.77^hosting
-lavish-axi above the floor^0.2.0^hosting
-lavish-axi just below the floor^0.1.76^text
+lavish-axi at the board compatibility floor^0.1.77^hosting
+lavish-axi below the reply feature floor^0.1.79^hosting
+lavish-axi at the reply feature floor^0.1.80^hosting
+lavish-axi above the reply feature floor^0.2.0^hosting
+lavish-axi below the board compatibility floor^0.1.76^text
 absent lavish-axi^absent^text
 ROWS
   pass "fm-brief.sh: scout Lavish hosting follows the bootstrap lavish-axi floor"
@@ -1030,8 +1018,6 @@ test_scout_and_secondmate_scaffold() {
   assert_grep "## Captain's intent" "$brief" "scout brief missing Captain's intent subsection"
   assert_grep "## Firstmate spec" "$brief" "scout brief missing Firstmate spec subsection"
   assert_grep "{FIRSTMATE_SPEC}" "$brief" "scout brief missing the spec placeholder"
-  assert_no_grep 'Call your built-in Opus advisor tool at every design fork' "$brief" \
-    "scout scaffold must not contain the launch-only advisor instruction"
 
   FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \
     FM_HOME="$BRIEF_HOME" "$ROOT/bin/fm-brief.sh" brief-sm-q6 --secondmate alpha >/dev/null 2>&1 \
@@ -1045,6 +1031,68 @@ test_scout_and_secondmate_scaffold() {
   assert_no_grep "{FIRSTMATE_SPEC}" "$brief" \
     "secondmate charter must not carry the Firstmate spec placeholder"
   pass "fm-brief: scout and secondmate code paths still scaffold well-formed briefs"
+}
+
+# Contract: a waiting worker spends no turns. A decision wait ends the turn, an
+# external wait sleeps in one bounded blocking shell command sized per harness,
+# and a waiting worker neither polls its inbox nor polls a pipeline between holds.
+test_workers_wait_without_spending_turns() {
+  local home id brief
+  home="$TMP_ROOT/wait-home"
+  mkdir -p "$home/data" "$home/config"
+  : > "$home/config/wait-no-turns"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-wait-ship some-proj --mode no-mistakes >/dev/null 2>&1 \
+    || fail "fm-brief.sh ship scaffold exited non-zero"
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-wait-scout some-proj --scout >/dev/null 2>&1 \
+    || fail "fm-brief.sh scout scaffold exited non-zero"
+  for id in brief-wait-ship brief-wait-scout; do
+    brief="$home/data/$id/brief.md"
+    assert_grep "end your turn at once" "$brief" "$id: a decision wait must end the turn"
+    assert_grep "with ONE blocking shell command that returns when the state changes" "$brief" \
+      "$id: an external wait must sleep in one blocking shell command"
+    assert_grep "gh pr checks <pr> --watch" "$brief" "$id: the CI wait primitive is missing"
+    assert_grep "a \`timeout\` of at most 2700 seconds" "$brief" "$id: the Pi ceiling is missing"
+    assert_grep "its maximum \`timeout\` of 600000 ms" "$brief" "$id: the Claude Code ceiling is missing"
+    assert_grep "empty \`write_stdin\` polls of up to 300000 ms" "$brief" "$id: the Codex ceiling is missing"
+    assert_grep "is the sanctioned foreground wait" "$brief" \
+      "$id: the wait a Claude Code worker may use is not named"
+    assert_grep "reattach with \`no-mistakes axi run --wait\` instead, and never send the same \`respond\` again" "$brief" \
+      "$id: a timed-out respond must reattach with axi run, never resend its answer"
+    assert_grep "Do not poll or list the inbox while waiting; a waiting instruction rings." "$brief" \
+      "$id: polling the inbox while waiting is not forbidden"
+    assert_grep "natural checkpoint" "$brief" "$id: the flag dropped the natural-checkpoint inbox check"
+  done
+  brief="$home/data/brief-wait-ship/brief.md"
+  assert_grep "issue the same foreground call again" "$brief" \
+    "the no-mistakes DOD must reattach with the same foreground call"
+  assert_no_grep "background the drive call" "$brief" "the no-mistakes DOD still backgrounds the drive call"
+
+  FM_SECONDMATE_CHARTER='Supervise the alpha domain.' \
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-wait-sm --secondmate --no-projects >/dev/null 2>&1 \
+    || fail "fm-brief.sh secondmate scaffold exited non-zero"
+  brief="$home/data/brief-wait-sm/brief.md"
+  assert_grep "Do not poll or list the inbox while waiting; a waiting instruction rings." "$brief" \
+    "secondmate: polling the inbox while waiting is not forbidden"
+  assert_grep "natural checkpoint" "$brief" "secondmate: the flag dropped the natural-checkpoint inbox check"
+  pass "fm-brief: workers end the turn on a decision, wait in one bounded shell command, and never poll"
+}
+
+# Without config/wait-no-turns the scaffold matches the pre-flag brief and drive text.
+test_wait_no_turns_absent_keeps_the_previous_brief() {
+  local home brief
+  home="$TMP_ROOT/wait-off"
+  mkdir -p "$home/data"
+  [ ! -e "$home/config/wait-no-turns" ]
+  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-wait-off some-proj --mode no-mistakes >/dev/null 2>&1 \
+    || fail "fm-brief.sh ship scaffold exited non-zero"
+  brief="$home/data/brief-wait-off/brief.md"
+  assert_no_grep "end your turn at once" "$brief" "an absent flag still added the waiting section"
+  assert_grep "natural checkpoint" "$brief" "an absent flag dropped the unprompted inbox check"
+  assert_no_grep "Do not poll or list the inbox while waiting" "$brief" "an absent flag still added the no-poll inbox line"
+  assert_grep "background the drive call" "$brief" "an absent flag replaced the backgrounded drive text"
+  assert_no_grep "issue the same foreground call again" "$brief" \
+    "an absent flag still asked for the foreground reattach"
+  pass "fm-brief: without config/wait-no-turns the brief and drive text stay as they were"
 }
 
 test_worker_role_scope() {
@@ -1067,187 +1115,6 @@ test_worker_role_scope() {
   assert_grep "The local \`AGENTS.md\` is your job description" "$brief" "secondmate lost its supervisor contract"
   assert_grep 'That file is your parent channel' "$brief" "secondmate lost its parent channel"
   pass "fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract"
-}
-
-test_surgical_prep_scaffold() {
-  local task_home prep out rc id flags
-  task_home="$TMP_ROOT/surgical-scaffold"
-  mkdir -p "$task_home/data"
-  out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
-  expect_code 0 "$rc" "surgical scaffold (got: $out)"
-  prep="$task_home/data/surgical/prep.md"
-  assert_grep '- Preparation format: surgical' "$prep" "compact format was not declared"
-  for id in C1 C2 C3 C4 C5; do
-    grep -E -- "^- $id .*: \{$id\}" "$prep" >/dev/null || fail "certainty field $id missing"
-    assert_grep "Evidence: {${id}_EVIDENCE}" "$prep" "certainty evidence $id missing"
-  done
-  assert_no_grep '## 1. Intent and boxes' "$prep" "surgical scaffold emitted full sections"
-  assert_grep 'Reason: {Q1_REASON}' "$prep" "tier reason missing"
-  for flags in '--surgical' '--prep --surgical --scout' '--prep --surgical --mode direct-PR' '--prep --surgical --branch-prefix feature/' '--prep --surgical --forge gerrit'; do
-    # shellcheck disable=SC2086 # each test case is a flag list
-    out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" invalid $flags 2>&1); rc=$?
-    [ "$rc" -ne 0 ] || fail "invalid surgical flags accepted: $flags"
-  done
-  out=$(FM_HOME="$task_home" "$ROOT/bin/fm-brief.sh" surgical --prep --surgical 2>&1); rc=$?
-  expect_code 1 "$rc" "surgical overwrite"
-  assert_contains "$out" 'already exists' "overwrite refusal missing"
-  pass "surgical prep: compact scaffold, evidence and closed flag combinations"
-}
-
-# --prep scaffolds the task preparation record alone: no repo, no delivery mode,
-# no brief. The tier header comes first, because its two answers decide which
-# sections the task owes; every section then arrives with a guide, the tier it
-# becomes required at, and one placeholder to replace.
-test_prep_scaffolds_the_preparation_record() {
-  local home prep out status term
-  home="$TMP_ROOT/prep-scaffold"
-  mkdir -p "$home/data"
-  prep="$home/data/prep-a1/prep.md"
-
-  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
-  expect_code 0 "$status" "--prep should scaffold (got: $out)"
-  assert_present "$prep" "--prep wrote no preparation record"
-  assert_absent "$home/data/prep-a1/brief.md" "--prep also wrote a brief"
-  assert_contains "$out" "prep-a1/prep.md" "--prep did not name the record it wrote"
-
-  assert_grep '## Tier' "$prep" "prep record lost its tier header"
-  assert_grep '- Q1 does this change alter what a user sees or can do: {Q1}' "$prep" \
-    "prep record's tier header does not ask Q1 with a placeholder to answer"
-  assert_grep '- Q2 does this change touch a shared module or a contract: {Q2}' \
-    "$prep" "prep record's tier header does not ask Q2 with a placeholder to answer"
-  assert_grep '- UI wiring: {UI_WIRING}' "$prep" \
-    "prep record's tier header does not ask the UI wiring question with a placeholder to answer"
-  assert_no_grep 'Reason: {Q' "$prep" "full prep emitted surgical reason placeholders no gate validates"
-  assert_grep 'yes, <the step and control the user meets>' "$prep" \
-    "prep record does not give the UI wiring answer its required yes format"
-  assert_grep 'no, <why the user never meets this change>' "$prep" \
-    "prep record does not give the UI wiring answer its required no format"
-  assert_grep 'lets a user configure or choose something is always yes' "$prep" \
-    "prep record does not give the worked example of a UI wiring yes"
-  assert_grep 'a yes is tier 2 whatever Q1 and Q2 say' "$prep" \
-    "prep record does not say a UI wiring yes forces tier 2"
-  [ "$(grep -n '^## Tier$' "$prep" | cut -d: -f1)" -lt "$(grep -n '^## 1\.' "$prep" | cut -d: -f1)" ] \
-    || fail "the tier header does not come before the sections it governs"
-  assert_grep 'All no: retain tier 1 sections and separate review' "$prep" \
-    "prep record does not retain sections and review for all-no full prep"
-  assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
-  assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
-  assert_grep '## 3. UI/UX' "$prep" "prep record lost its UI/UX section"
-  assert_grep '## 4. Blast radius' "$prep" "prep record lost its blast radius"
-  assert_grep '## 5. Data and contracts' "$prep" "prep record lost its data and contracts"
-  assert_grep '## 6. Tests' "$prep" "prep record lost its tests section"
-  assert_grep '## 7. Records' "$prep" "prep record lost its records section"
-  assert_grep '## 8. Out of scope and follow-ups' "$prep" "prep record lost its out-of-scope section"
-  assert_grep '## 9. Risks, dependencies, merge order' "$prep" "prep record lost its risks section"
-  assert_grep '## 10. Demo receipt plan' "$prep" "prep record lost its demo receipt plan"
-  assert_grep '## 11. Definition of done' "$prep" "prep record lost its definition of done"
-  assert_grep '## 12. Size' "$prep" "prep record lost its size section"
-  assert_grep '{INTENT_AND_BOXES}' "$prep" "prep record section 1 carries no placeholder to replace"
-  assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
-  assert_grep 'n/a: <one-line reason>' "$prep" \
-    "prep record does not offer the n/a answer that keeps a small change small"
-  grep -c '^<!-- ' "$prep" | grep -qx 14 \
-    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
-  assert_grep "task item this work completes in the project's own record" "$prep" \
-    "prep record does not point at the project's own task record"
-  assert_grep 'record and clear the pending integration' "$prep" \
-    "prep record does not account for components that land before their consumer"
-  assert_grep 'START WITH THE COMPONENT CHECK' "$prep" \
-    "prep record does not open the UI/UX section with the component check"
-  assert_grep "matching component and its path in the project's design system or UI record" "$prep" \
-    "prep record does not ask the UI/UX section to name the matching component and its path"
-  assert_grep "project's required visual comparison and states" "$prep" \
-    "prep record does not ask for the project's own visual receipt"
-  for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit; do
-    assert_no_grep "$term" "$prep" "prep record still carries project-specific vocabulary: $term"
-  done
-  assert_grep 'PASTE TOOL OUTPUT, not prose' "$prep" \
-    "prep record does not tell the author the blast radius is tool output"
-  assert_grep 'gitnexus impact' "$prep" \
-    "prep record does not name the impact tool the blast radius owes"
-  assert_grep 'find_referencing_symbols' "$prep" \
-    "prep record does not name the caller tool a signature change owes"
-  assert_grep 'claude-context semantic search only when a name is unknown' "$prep" \
-    "prep record does not bound when semantic search replaces the two tools"
-  for term in 'primary-source citations' 'module' 'public seams' 'deletion test' \
-    'changed-file/test-module mapping' 'real installation' 'already on the base' \
-    'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' \
-    'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'; do
-    assert_grep "$term" "$prep" "prep guide missing $term"
-  done
-  assert_grep '<!-- tier 1+.' "$prep" "prep record sections do not say which tier requires them"
-  assert_grep '<!-- tier 2+.' "$prep" "prep record does not mark its tier-2-only sections"
-
-  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-a1 --prep 2>&1); status=$?
-  [ "$status" -ne 0 ] || fail "--prep overwrote an existing preparation record"
-  assert_contains "$out" "already exists" "--prep overwrite refusal did not say why"
-  pass "fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one"
-}
-
-# Every prep section named in --help must exist in the record --prep writes, so
-# the documented contract and the scaffold cannot drift apart.
-test_prep_help_lists_every_scaffolded_section() {
-  local home prep help_text heading number title
-  home="$TMP_ROOT/prep-help"
-  mkdir -p "$home/data"
-  prep="$home/data/prep-b1/prep.md"
-  FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-b1 --prep >/dev/null 2>&1 \
-    || fail "prep scaffold failed"
-  help_text=$("$ROOT/bin/fm-brief.sh" --help)
-
-  while IFS= read -r heading; do
-    number=${heading#\#\# }
-    number=${number%%.*}
-    title=${heading#*. }
-    assert_contains "$help_text" "$number. $title" \
-      "--help does not list the scaffolded prep section '$title'"
-  done <<EOF
-$(grep '^## [0-9]' "$prep")
-EOF
-  assert_contains "$help_text" "tier 2 - every section below" \
-    "--help does not say what tier 2 requires"
-  assert_contains "$help_text" "tier 1 - sections 1, 4, 6, 8 and 11 only" \
-    "--help does not say what tier 1 requires"
-  assert_contains "$help_text" "retain tier 1 sections and separate review" \
-    "--help does not retain full sections and review for all-no"
-  assert_contains "$help_text" "UI wiring yes     tier 2 - whatever Q1 and Q2 say" \
-    "--help does not say a UI wiring yes forces tier 2"
-  assert_contains "$help_text" "full records owe at least the five" \
-    "--help does not state the minimum full-record cost"
-  assert_contains "$help_text" "Blast radius is TOOL OUTPUT, not prose" \
-    "--help does not say the blast radius owes tool output"
-  assert_contains "$help_text" "names neither gitnexus nor serena is refused" \
-    "--help does not say what the blast radius check refuses"
-  assert_not_contains "$help_text" "V4 destination" \
-    "--help still describes the removed project-specific gate"
-  pass "fm-brief.sh: --help lists the tier rules and every section the record scaffolds"
-}
-
-# --prep is its own scaffold, not a modifier on a brief.
-test_prep_refuses_brief_flags() {
-  local home out status
-  home="$TMP_ROOT/prep-flags"
-  mkdir -p "$home/data"
-  while IFS='|' read -r label flags; do
-    [ -n "$label" ] || continue
-    # shellcheck disable=SC2086  # flags is an intentional word-split arg list
-    out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-c1 $flags 2>&1); status=$?
-    [ "$status" -ne 0 ] || fail "$label: --prep should refuse"
-    assert_contains "$out" "--prep scaffolds the task preparation record alone" \
-      "$label: refusal did not explain what --prep takes"
-    assert_absent "$home/data/prep-c1/prep.md" "$label: refused --prep still wrote a record"
-  done <<'ROWS'
-with a delivery mode|--prep --mode direct-PR
-with --scout|--prep --scout
-with --secondmate|--prep --secondmate
-with --herdr-lab|--prep --herdr-lab
-ROWS
-
-  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" prep-c1 some-repo --prep 2>&1); status=$?
-  [ "$status" -ne 0 ] || fail "--prep with a repo positional should refuse"
-  assert_contains "$out" "usage: fm-brief.sh <task-id> --prep" \
-    "--prep arity refusal did not print its usage"
-  pass "fm-brief.sh: --prep refuses brief flags and extra positionals"
 }
 
 # A home can carry standing worker instructions in its gitignored
@@ -1528,56 +1395,6 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   pass "fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool"
 }
 
-# A batch reviewer receives confined approval paths through the scout interface.
-test_prep_review_scout_brief() {
-  local home="$TMP_ROOT/reviewer-brief" brief out status args token
-  mkdir -p "$home/data"
-  out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" reviewer repo --scout --prep-review task-a --prep-review task-b 2>&1)
-  status=$?
-  expect_code 0 "$status" "batch reviewer should scaffold: $out"
-  brief="$home/data/reviewer/brief.md"
-  for token in '## Standards' '## Spec' '## Architecture' 'Q2 yes' 'byte-identical' \
-    "$home/data/task-a/prep.md" "$home/data/task-b/prep.md" \
-    "$home/data/reviewer/reviewed-prep/task-a.md" "$home/data/reviewer/reviewed-prep/task-b.md"; do
-    assert_grep "$token" "$brief" "review brief missing $token"
-  done
-  out=$(sed -n '/^2\. Stay inside/p' "$brief")
-  assert_contains "$out" "$home/data/reviewer/reviewed-prep/task-a.md" "rule 2 does not allow task-a approval"
-  assert_contains "$out" "$home/data/reviewer/reviewed-prep/task-b.md" "rule 2 does not allow task-b approval"
-  assert_not_contains "$out" 'reviewed-prep.md' "batch reviewer was given an unconstrained legacy write"
-  for args in '--mode direct-PR --prep-review task-a' '--scout --prep-review ../bad' \
-    '--scout --prep-review reviewer' '--scout --prep-review' '--secondmate --no-projects --prep-review task-a'; do
-    # shellcheck disable=SC2086 # args deliberately tests CLI word splitting
-    out=$(FM_HOME="$home" "$ROOT/bin/fm-brief.sh" reviewer repo $args 2>&1)
-    status=$?
-    [ "$status" -ne 0 ] || fail "invalid prep reviewer flags accepted: $args"
-    assert_contains "$out" '--prep-review' "invalid review flags not explained: $out"
-  done
-  pass "fm-brief: batch prep reviewers get two axes and exact approval write paths"
-}
-
-test_pr_completion_requires_current_head_green_url() {
-  local home="$TMP_ROOT/pr-green-completion" mode brief
-  mkdir -p "$home/data"
-  for mode in no-mistakes direct-PR; do
-    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "green-$mode" repo --mode "$mode" >/dev/null 2>&1 \
-      || fail "PR brief scaffold failed: $mode"
-    brief="$home/data/green-$mode/brief.md"
-    assert_grep 'every required check green for its current head' "$brief" "$mode lost current-head checks"
-    assert_grep 'PR {full https URL from the forge} checks green' "$brief" "$mode terminal line is not a green full URL"
-    assert_no_grep 'The task is complete only when committed on your branch.' "$brief" "$mode still calls implementation-only complete"
-    assert_no_grep 'Firstmate will then instruct you to run /no-mistakes' "$brief" "$mode still stops for pipeline handoff"
-    if [ "$mode" = no-mistakes ]; then
-      # shellcheck disable=SC2016 # Assert the literal command in emitted instructions.
-      assert_grep 'start the pipeline yourself immediately with `no-mistakes axi run`' "$brief" "fresh worker does not start its run"
-    fi
-  done
-  pass "fm-brief: both PR paths finish only with current-head green non-draft forge URL"
-}
-
-test_surgical_prep_scaffold
-test_pr_completion_requires_current_head_green_url
-test_prep_review_scout_brief
 test_script_parses
 test_no_heredoc_in_command_substitution
 test_help_includes_entire_header
@@ -1604,9 +1421,8 @@ test_ship_and_scout_teach_validation_round_pause
 test_scout_and_secondmate_load_decision_hold_policy
 test_scout_and_secondmate_scaffold
 test_scout_lavish_line_follows_presentation_floor
-test_prep_scaffolds_the_preparation_record
-test_prep_help_lists_every_scaffolded_section
-test_prep_refuses_brief_flags
+test_workers_wait_without_spending_turns
+test_wait_no_turns_absent_keeps_the_previous_brief
 test_home_brief_include_is_appended_last
 test_ship_branch_prefix_defaults_to_legacy_fm
 test_ship_branch_prefix_override_is_consistent_across_modes

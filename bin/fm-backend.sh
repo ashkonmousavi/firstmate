@@ -622,34 +622,35 @@ fm_backend_source_readable() {  # <path>
 }
 
 fm_backend_source() {  # <name>
-  local name=$1 adapter rel path siblings
+  local name=$1 adapter rel sibling
   fm_backend_validate "$name" || return 1
   adapter="$FM_BACKEND_LIB_DIR/backends/$name.sh"
+  # The sibling list rides in the positional parameters: zsh does not
+  # word-split an unquoted expansion, so a space-separated string is one path.
   case "$name" in
     tmux)
-      siblings="fm-tmux-lib.sh fm-composer-lib.sh fm-cursor-lib.sh fm-session-lock-lib.sh fm-agent-process-lib.sh fm-gemini-lib.sh fm-control-lib.sh"
+      set -- fm-tmux-lib.sh fm-composer-lib.sh fm-cursor-lib.sh fm-session-lock-lib.sh fm-agent-process-lib.sh fm-gemini-lib.sh
       ;;
     herdr)
-      siblings="fm-composer-lib.sh fm-transition-lib.sh fm-agent-process-lib.sh fm-session-lock-lib.sh fm-gemini-lib.sh"
+      set -- fm-composer-lib.sh fm-transition-lib.sh fm-agent-process-lib.sh fm-session-lock-lib.sh fm-gemini-lib.sh
       ;;
     zellij)
-      siblings="fm-backend-hometag-lib.sh fm-composer-lib.sh"
+      set -- fm-backend-hometag-lib.sh fm-composer-lib.sh
       ;;
     orca)
-      siblings="fm-composer-lib.sh"
+      set -- fm-composer-lib.sh
       ;;
     cmux)
-      siblings="fm-backend-hometag-lib.sh fm-composer-lib.sh"
+      set -- fm-backend-hometag-lib.sh fm-composer-lib.sh
       ;;
     *)
       return 1
       ;;
   esac
   fm_backend_source_readable "$adapter" || return 1
-  # shellcheck disable=SC2086 # sibling names are a fixed space-separated list
-  for rel in $siblings; do
-    path="$FM_BACKEND_LIB_DIR/$rel"
-    fm_backend_source_readable "$path" || return 1
+  for rel in "$@"; do
+    sibling="$FM_BACKEND_LIB_DIR/$rel"
+    fm_backend_source_readable "$sibling" || return 1
   done
   case "$name" in
     tmux)
@@ -851,23 +852,6 @@ fm_backend_kill() {  # <backend> <target>
   esac
 }
 
-# fm_backend_stop_agent: send SIGTERM to the agent process running in
-# <target>'s endpoint, leaving the endpoint and its shell in place so a
-# replacement can launch there. Only tmux and herdr classify an endpoint's
-# processes; every other backend refuses. Returns 0 only when an agent process
-# was signalled.
-fm_backend_stop_agent() {  # <backend> <target>
-  local backend=$1
-  shift
-  [ -n "${1:-}" ] || { echo "error: refusing empty backend stop target" >&2; return 1; }
-  fm_backend_source "$backend" || return 1
-  case "$backend" in
-    tmux) fm_backend_tmux_stop_agent "$@" ;;
-    herdr) fm_backend_herdr_stop_agent "$@" ;;
-    *) echo "error: no agent process stop for backend '$backend'" >&2; return 1 ;;
-  esac
-}
-
 fm_backend_remove_worktree() {  # <backend> <worktree-id>
   local backend=$1
   shift
@@ -902,19 +886,6 @@ fm_backend_busy_state() {  # <backend> <target>
   case "$backend" in
     herdr) fm_backend_herdr_busy_state "$@" ;;
     *) printf 'unknown' ;;
-  esac
-}
-
-# fm_backend_blocked_is_question: 0 when a native `blocked` transition from
-# <backend> for a <harness> agent means it is waiting on a human. Backends
-# without a harness whose blocked state is illegible report 0.
-fm_backend_blocked_is_question() {  # <backend> <harness>
-  local backend=$1
-  shift
-  fm_backend_source "$backend" || return 0
-  case "$backend" in
-    herdr) fm_backend_herdr_blocked_is_question "$@" ;;
-    *) return 0 ;;
   esac
 }
 

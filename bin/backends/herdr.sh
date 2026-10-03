@@ -92,8 +92,6 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # same rule (fm_backend_herdr_pane_process_state).
 # shellcheck source=bin/fm-agent-process-lib.sh
 . "$FM_BACKEND_HERDR_ROOT/bin/fm-agent-process-lib.sh"
-# shellcheck source=bin/fm-session-lock-lib.sh
-. "$FM_BACKEND_HERDR_ROOT/bin/fm-session-lock-lib.sh"
 
 FM_BACKEND_HERDR_MIN_PROTOCOL=14
 # events.subscribe (the native pane.agent_status_changed push stream) and its
@@ -1007,9 +1005,7 @@ fm_backend_herdr_projection_target_tab_mutation_allowed() {  # <session> <tab-id
 # shell so Herdr removes the emptied workspace through its focus-preserving
 # pane-death path. The exact-tab restore below remains the backstop, and any
 # ambiguity falls back to the plain explicit close, which the backstop masks
-# exactly as before this hardening. A confirmed plain close then also closes
-# the target tab, and with it an emptied workspace, when only plugin sidebar
-# panes remain (fm_backend_herdr_close_sidebar_only_tab).
+# exactly as before this hardening.
 fm_backend_herdr_projection_close_pane_focus_preserving() {  # <session> <pane-id> [required-agent-state]
   local session=$1 pane_id=$2 required_agent_state=${3:-}
   local before active_tab info target_pane target_tab target_ws close_status state plan plan_shell_pid plan_move_record workspace_presence
@@ -1097,13 +1093,6 @@ fm_backend_herdr_projection_close_pane_focus_preserving() {  # <session> <pane-i
     fi
   else
     close_status=1
-  fi
-  if [ "$close_status" -eq 0 ] && [ "$plan" = plain ]; then
-    fm_backend_herdr_close_sidebar_only_tab "$session" "$target_ws" "$target_tab" "$target_tab"
-    if [ -n "${FM_BACKEND_HERDR_PROJECTION_MUTATION_FOCUS:-}" ]; then
-      before=$FM_BACKEND_HERDR_PROJECTION_MUTATION_FOCUS
-      skip_restore=0
-    fi
   fi
   if [ "$close_status" -eq 0 ] && [ -n "$plan_move_record" ]; then
     workspace_presence=$(fm_backend_herdr_workspace_presence_state "$session" "$target_ws")
@@ -1756,23 +1745,10 @@ fm_backend_herdr_workspace_find() {  # <session>
 #       degrading to a label search.
 fm_backend_herdr_launcher_identity() {  # <session>
   local session=$1 pane=${HERDR_PANE_ID:-} claimed_session claimed_socket session_socket
-  local pane_out tab_out list tab workspace client_pid pane_ids candidate info matches=0
+  local pane_out tab_out list tab workspace
   FM_BACKEND_HERDR_LAUNCHER_PANE_ID=""
   FM_BACKEND_HERDR_LAUNCHER_TAB_ID=""
   FM_BACKEND_HERDR_LAUNCHER_WORKSPACE_ID=""
-  if [ -n "${FM_CODEX_CLIENT_PID:-}" ]; then
-    client_pid=$(fm_codex_client_pid) || {
-      echo "error: Codex launcher client identity is not live and verified; refusing to place a Herdr worker" >&2
-      return 1
-    }
-  elif fm_codex_ancestry_pid >/dev/null; then
-    # A managed daemon without a foreground-client binding carries a pane
-    # snapshot from another lifetime. It cannot vouch for any placement.
-    client_pid=$(fm_codex_client_pid) || {
-      echo "error: Codex tool command has no live foreground-client binding; launch the primary with bin/fm-codex-primary.sh" >&2
-      return 1
-    }
-  fi
   [ -n "$pane" ] || return 2
 
   # Same-session proof, before the pane id is trusted at all: herdr pane ids
@@ -1801,41 +1777,6 @@ fm_backend_herdr_launcher_identity() {  # <session>
   if [ "$claimed_socket" != "$session_socket" ]; then
     echo "error: herdr launcher pane '$pane' belongs to the server at '$claimed_socket', not session '$session' at '$session_socket'; refusing to place a worker from a cross-session parent identity" >&2
     return 1
-  fi
-
-  if [ -n "${FM_CODEX_CLIENT_PID:-}" ]; then
-    list=$(fm_backend_herdr_cli "$session" pane list 2>/dev/null) || {
-      echo "error: could not list Herdr panes to locate Codex client pid $client_pid; refusing placement" >&2
-      return 1
-    }
-    if ! printf '%s' "$list" | jq -e '(.result.panes | type) == "array"' >/dev/null 2>&1; then
-      echo "error: Herdr pane list is malformed; refusing Codex client placement" >&2
-      return 1
-    fi
-    pane_ids=$(printf '%s' "$list" | jq -r '.result.panes[] | .pane_id // empty') || return 1
-    while IFS= read -r candidate; do
-      [ -n "$candidate" ] || continue
-      info=$(fm_backend_herdr_cli "$session" pane process-info --pane "$candidate" 2>/dev/null) || {
-        echo "error: could not inspect Herdr pane '$candidate' while locating Codex client; refusing placement" >&2
-        return 1
-      }
-      if ! printf '%s' "$info" | jq -e '(.result.process_info.foreground_processes | type) == "array"' >/dev/null 2>&1; then
-        echo "error: Herdr pane '$candidate' has no verifiable process list; refusing placement" >&2
-        return 1
-      fi
-      if printf '%s' "$info" | jq -e --argjson pid "$client_pid" '
-        [.result.process_info.foreground_processes[] | select(.pid == $pid)] | length == 1
-      ' >/dev/null 2>&1; then
-        pane=$candidate
-        matches=$((matches + 1))
-      fi
-    done <<EOF
-$pane_ids
-EOF
-    if [ "$matches" -ne 1 ]; then
-      echo "error: Codex client pid $client_pid appears in $matches Herdr panes in session '$session'; refusing to guess its workspace" >&2
-      return 1
-    fi
   fi
 
   pane_out=$(fm_backend_herdr_cli "$session" pane get "$pane" 2>/dev/null) || {
@@ -1935,17 +1876,14 @@ EOF
 # exists alongside it, never right after workspace creation - and this
 # function independently re-checks the tab count as a second layer.
 fm_backend_herdr_workspace_prune_seeded_default_tab() {  # <session> <workspace_id> <seeded_tab_id> [focus-preserving]
-  local session=$1 wsid=$2 tab_id=$3 close_mode=${4:-direct} tabs tab_count current_label panes pane_id agent_out agent_status
+  local session=$1 wsid=$2 tab_id=$3 close_mode=${4:-direct} tabs tab_count current_label pane_id agent_out agent_status
   [ -n "$tab_id" ] || return 0
   tabs=$(fm_backend_herdr_cli "$session" tab list --workspace "$wsid" 2>/dev/null) || return 0
   tab_count=$(printf '%s' "$tabs" | jq -r '.result.tabs? // [] | length' 2>/dev/null)
   case "$tab_count" in ''|*[!0-9]*|0|1) return 0 ;; esac
   current_label=$(printf '%s' "$tabs" | jq -r --arg t "$tab_id" '.result.tabs[]? | select(.tab_id == $t) | .label' 2>/dev/null)
   [ "$current_label" = "1" ] || return 0
-  panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$wsid" 2>/dev/null) || return 0
-  pane_id=$(printf '%s' "$panes" | jq -r --arg tab "$tab_id" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
-    [.result.panes[]? | select(.tab_id == $tab and (fm_sidebar_pane | not)) | .pane_id][0] // empty
-  ' 2>/dev/null)
+  pane_id=$(fm_backend_herdr_pane_for_tab "$session" "$wsid" "$tab_id") || return 0
   [ -n "$pane_id" ] || return 0
   agent_out=$(fm_backend_herdr_cli "$session" agent get "$pane_id" 2>/dev/null)
   agent_status=$(printf '%s' "$agent_out" | jq -r '.result.agent.agent_status // empty' 2>/dev/null)
@@ -1954,7 +1892,6 @@ fm_backend_herdr_workspace_prune_seeded_default_tab() {  # <session> <workspace_
     fm_backend_herdr_projection_close_pane_focus_preserving "$session" "$pane_id"
   else
     fm_backend_herdr_cli "$session" pane close "$pane_id" >/dev/null 2>&1 || true
-    fm_backend_herdr_close_sidebar_only_tab "$session" "$wsid" "$tab_id"
   fi
 }
 
@@ -2187,40 +2124,6 @@ fm_backend_herdr_pane_process_state() {  # <session> <pane_id>
     sleep 0.1
   done
   printf '%s' "$verdict"
-}
-
-# SIGTERM each foreground process of <target>'s exact pane that classifies as
-# an agent, read from the same process-info the state probe below trusts.
-fm_backend_herdr_stop_agent() {  # <target>
-  local info count i pid name argv0 args sent=1
-  fm_backend_herdr_parse_target "$1" || return 1
-  info=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane process-info --pane "$FM_BACKEND_HERDR_PANE" 2>/dev/null) \
-    || return 1
-  printf '%s' "$info" | jq -e --arg pane "$FM_BACKEND_HERDR_PANE" '
-    .result.type == "pane_process_info"
-    and .result.process_info.pane_id == $pane
-  ' >/dev/null 2>&1 || return 1
-  count=$(printf '%s' "$info" | jq -er \
-    '.result.process_info.foreground_processes | select(type == "array") | length' 2>/dev/null) \
-    || return 1
-  i=0
-  while [ "$i" -lt "$count" ]; do
-    pid=$(printf '%s' "$info" | jq -r --argjson i "$i" \
-      '.result.process_info.foreground_processes[$i].pid | select(type == "number" and . > 1) | floor' 2>/dev/null)
-    name=$(printf '%s' "$info" | jq -r --argjson i "$i" \
-      '.result.process_info.foreground_processes[$i].name // empty' 2>/dev/null)
-    argv0=$(printf '%s' "$info" | jq -r --argjson i "$i" '
-      .result.process_info.foreground_processes[$i] as $p
-      | (($p.argv // [])[0]) // $p.argv0 // empty' 2>/dev/null)
-    args=$(printf '%s' "$info" | jq -r --argjson i "$i" '
-      .result.process_info.foreground_processes[$i] as $p
-      | $p.cmdline // (($p.argv // []) | join(" ")) // empty' 2>/dev/null)
-    i=$((i + 1))
-    [ -n "$pid" ] || continue
-    [ "$(fm_agent_process_classify "$name" "$argv0" "$args" "$pid")" = agent ] || continue
-    kill -TERM "$pid" 2>/dev/null && sent=0
-  done
-  return "$sent"
 }
 
 # fm_backend_herdr_pane_process_state_sample: one instantaneous observation
@@ -3098,6 +3001,30 @@ fm_backend_herdr_projection_endpoint_matches_journal() {  # <session> <workspace
   [ "$matches" = "$workspace_id" ]
 }
 
+# fm_backend_herdr_projection_token_workspace_gone: true only when the named
+# session's workspace list was read and parsed successfully and no workspace
+# label still carries the journal's token. A version 1 attempt journal binds no
+# pane, so its projected workspace is confirmed gone only by this token absence;
+# any read or jq error - including a malformed entry that leaves the query
+# ambiguous - is unknown, not gone, so the session-start sweep keeps the journal.
+fm_backend_herdr_projection_token_workspace_gone() {  # <session> <journal> <task-id>
+  local session=$1 journal=$2 id=$3 token list verdict
+  token=$(fm_backend_herdr_projection_journal_token "$journal" "$id") || return 1
+  list=$(fm_backend_herdr_cli "$session" workspace list 2>/dev/null) || return 1
+  # A single jq verdict: "unknown" when the list is not an array or any entry is
+  # not an object with an absent/string label (a malformed entry could itself be
+  # the token-bearing workspace in a shape we cannot read), "present" when a
+  # label carries the token, else "gone". jq errors and empty output both fall
+  # through the guard below to unknown, keeping the journal.
+  verdict=$(printf '%s' "$list" | jq -r --arg suffix " · p:$token" '
+    if (.result.workspaces | type) != "array" then "unknown"
+    elif any(.result.workspaces[]; (type != "object") or (has("label") and (.label | type != "string"))) then "unknown"
+    elif any(.result.workspaces[]; (.label // "") | endswith($suffix)) then "present"
+    else "gone"
+    end' 2>/dev/null) || return 1
+  [ "$verdict" = "gone" ]
+}
+
 # fm_backend_herdr_parse_target: split "<session>:<pane_id>" (pane_id itself
 # contains a colon, e.g. "w1:p2") on the FIRST colon only. Sets
 # FM_BACKEND_HERDR_SESSION and FM_BACKEND_HERDR_PANE for the caller.
@@ -3416,11 +3343,10 @@ fm_backend_herdr_queued_enter_busy() {  # <target> <allow-rendered>
 # itself is the full visible viewport (fm_backend_herdr_composer_content), so
 # this bound no longer sizes a capture.
 fm_backend_herdr_proof_lines() {  # <text>
-  local text=$1 lines floor=40
+  local text=$1 lines
   lines=$(( (${#text} / 40) + 8 ))
-  [ "$FM_COMPOSER_CAPTURE_LINES" -le "$floor" ] || floor=$FM_COMPOSER_CAPTURE_LINES
-  if [ "$lines" -lt "$floor" ]; then
-    lines=$floor
+  if [ "$lines" -lt "$FM_COMPOSER_CAPTURE_LINES" ]; then
+    lines=$FM_COMPOSER_CAPTURE_LINES
   fi
   if [ "$lines" -gt 200 ]; then
     lines=200
@@ -3437,6 +3363,11 @@ fm_backend_herdr_proof_lines() {  # <text>
 # viewport is the one bound that always contains the composer.
 # Styled capture is preferred. An empty or failed styled read falls through to
 # the plain capture so a missing ANSI format does not look like an empty draft.
+# This read serves only the Claude payload proof, so the grok-tuned
+# dark-truecolor ghost strip is off (FM_COMPOSER_GHOST_LUMA_MAX=0): Claude
+# 2.1.283 draws a typed slash command in muted grey 38;2;112;112;112 (verified
+# live), which that strip dropped, judging a typed /exit unsent. Claude's own
+# ghost suggestion is SGR-2 dim and is still stripped.
 fm_backend_herdr_composer_content() {  # <target>
   local target=$1 cap caps
   if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null) && [ -n "$cap" ]; then
@@ -3446,7 +3377,7 @@ fm_backend_herdr_composer_content() {  # <target>
   else
     return 1
   fi
-  fm_composer_extract_selected_content "$caps" "$cap" "$identity"
+  FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$caps" "$cap"
 }
 
 # fm_backend_herdr_composer_payload_shown: 0 when <after>, read from a
@@ -3589,44 +3520,9 @@ fm_backend_herdr_send_text_submit() {  # <target> <text> <retries> <enter-sleep>
   done
 }
 
-# fm_backend_herdr_close_sidebar_only_tab: after a confirmed task-pane close,
-# close that task's own <tab-id> when every pane still in it is a plugin
-# sidebar pane (label "Sidebar", no agent). Closing a tab's only pane closes
-# the tab, but a sidebar plugin (herdr-sidebar) docks its own pane into every
-# new tab, which otherwise keeps each finished task's tab open forever. It
-# closes those exact sidebar panes rather than the tab, because Herdr 0.7.4
-# refuses `tab close` on a workspace's last tab while closing that tab's last
-# pane removes the workspace, which then holds nothing but sidebar panes; the
-# next spawn recreates it. Callers
-# run it before their exact-tab focus restore, which backstops the explicit
-# close. [guard-tab-id] re-checks the projection focus guard right before the
-# close. Best-effort and conservative: any read failure, any other pane, a tab
-# that is already gone, or a refused guard leaves everything untouched.
-# FM_BACKEND_HERDR_SIDEBAR_PANE_JQ: the one jq definition of such a plugin
-# sidebar pane record, shared with the restart-cleanup husk gates.
-FM_BACKEND_HERDR_SIDEBAR_PANE_JQ='def fm_sidebar_pane: .label == "Sidebar" and (.agent // null) == null and ((.agent_status // "unknown") == "unknown");'
-fm_backend_herdr_close_sidebar_only_tab() {  # <session> <workspace-id> <tab-id> [guard-tab-id]
-  local session=$1 ws_id=$2 tab_id=$3 guard_tab=${4:-} panes sidebar_panes pane
-  [ -n "$ws_id" ] && [ -n "$tab_id" ] || return 0
-  panes=$(fm_backend_herdr_cli "$session" pane list --workspace "$ws_id" 2>/dev/null) || return 0
-  sidebar_panes=$(printf '%s' "$panes" | jq -r --arg tab "$tab_id" "$FM_BACKEND_HERDR_SIDEBAR_PANE_JQ"'
-    select((.result.panes | type) == "array")
-    | [.result.panes[] | select(.tab_id == $tab)] as $p
-    | select(($p | length) > 0 and all($p[]; fm_sidebar_pane))
-    | $p[].pane_id // empty
-  ' 2>/dev/null) || return 0
-  [ -n "$sidebar_panes" ] || return 0
-  [ -z "$guard_tab" ] || fm_backend_herdr_projection_target_tab_mutation_allowed "$session" "$guard_tab" || return 0
-  while IFS= read -r pane; do
-    fm_backend_herdr_cli "$session" pane close "$pane" >/dev/null 2>&1 \
-      || echo "warning: herdr cleanup could not close the task's sidebar-only tab $tab_id" >&2
-  done <<< "$sidebar_panes"
-  return 0
-}
-
 # fm_backend_herdr_kill: remove the task's pane, best-effort (mirrors
-# tmux-kill-window's `|| true` contract), then close the task's tab when only
-# plugin sidebar panes remain in it (fm_backend_herdr_close_sidebar_only_tab).
+# tmux-kill-window's `|| true` contract). Verified: closing a tab's only pane
+# closes the tab too, so a separate tab close is unnecessary.
 # When the close would empty a non-focused workspace, Herdr 0.7.5's explicit
 # close moves focus to that workspace's neighbor with no restore anywhere in
 # this path, so the kill follows the same focus-safe removal plan as
@@ -3664,11 +3560,7 @@ fm_backend_herdr_kill_serialized() {  # <session> <pane>
           fi
           ;;
         *)
-          if fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane"; then
-            fm_backend_herdr_close_sidebar_only_tab "$session" "$target_ws" "$target_tab"
-          else
-            close_failed=1
-          fi
+          fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane" || close_failed=1
           ;;
       esac
       if [ "$close_failed" = 0 ] && [ -n "$plan_move_record" ]; then
@@ -3685,13 +3577,7 @@ fm_backend_herdr_kill_serialized() {  # <session> <pane>
       return 0
     fi
   fi
-  [ -n "${info:-}" ] || info=$(fm_backend_herdr_cli "$session" pane get "$pane" 2>/dev/null) || info=
-  target_pane=$(printf '%s' "$info" | jq -r '.result.pane.pane_id // empty' 2>/dev/null)
-  target_tab=$(printf '%s' "$info" | jq -r '.result.pane.tab_id // empty' 2>/dev/null)
-  target_ws=$(printf '%s' "$info" | jq -r '.result.pane.workspace_id // empty' 2>/dev/null)
-  if fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane" && [ "$target_pane" = "$pane" ]; then
-    fm_backend_herdr_close_sidebar_only_tab "$session" "$target_ws" "$target_tab"
-  fi
+  fm_backend_herdr_explicit_close_pane_confirmed "$session" "$pane" || true
 }
 
 fm_backend_herdr_kill() {  # <target>
@@ -3794,18 +3680,6 @@ fm_backend_herdr_busy_state() {  # <target>
     verdict=unknown
   fi
   printf '%s' "$verdict"
-}
-
-# fm_backend_herdr_blocked_is_question: 0 when herdr's native `blocked` for a
-# <harness> agent means it waits on a human. Herdr reports a Cursor pane
-# `blocked` in every state (see the queued-Enter notes above), so for the whole
-# Cursor family, matched as fm_control_harness_family does, blocked says nothing
-# about a question on screen.
-fm_backend_herdr_blocked_is_question() {  # <harness>
-  case "${1:-}" in
-    cursor*) return 1 ;;
-    *) return 0 ;;
-  esac
 }
 
 # fm_backend_herdr_wait_for_working: poll <session>:<pane_id>'s NATIVE

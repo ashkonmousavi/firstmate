@@ -15,74 +15,12 @@
 # sections when the task genuinely deviates (e.g. working an existing external
 # PR instead of shipping a new one).
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--branch-prefix <prefix>] [--forge <none|gerrit> [--shape squash]] [--herdr-lab]
-#        fm-brief.sh <task-id> <repo-name> --scout [--prep-review <task-id> ...] [--herdr-lab]
+#        fm-brief.sh <task-id> <repo-name> --scout [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
-#        fm-brief.sh <task-id> --prep [--surgical]
-#   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
-#   nothing else, so it is written and reviewed before the brief exists. The
-#   record is the specification beneath the brief: what the change does, where it
-#   lands, and what done means, decided before a worker starts rather than
-#   discovered during review.
-#   It is TIERED, never flat, so preparation costs what the change is worth. The
-#   scaffold's `## Tier` header comes first and carries three mandatory answers:
-#     Q1  does this change alter what a user sees or can do?  yes or no
-#     Q2  does it touch a shared module or a contract?  yes or no
-#     UI wiring  `yes, <the step and control the user meets>` or
-#         `no, <why the user never meets this change>`; a change that lets a user
-#         configure or choose something is always yes, and the reason is
-#         mandatory in both directions.
-#   Without a Preparation format declaration, those three answers decide what
-#   the record owes:
-#     UI wiring yes     tier 2 - whatever Q1 and Q2 say
-#     Q1 yes            tier 2 - every section below
-#     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
-#     all three no      retain tier 1 sections and separate review
-#   The sections are:
-#     1. Intent and boxes        7. Records
-#     2. Behaviour spec          8. Out of scope and follow-ups
-#     3. UI/UX                   9. Risks, dependencies, merge order
-#     4. Blast radius           10. Demo receipt plan
-#     5. Data and contracts     11. Definition of done
-#     6. Tests                  12. Size
-#   Each carries a one-line guide, the tier it becomes required at, and one
-#   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
-#   is answered `n/a: <one-line reason>`; full records owe at least the five
-#   tier-1 sections, and only a tier-2 change costs a page.
-#   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
-#   Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
-#   result for every module touched and the Serena find_referencing_symbols
-#   counts for every symbol whose signature changes, reaching for claude-context
-#   semantic search only when a name is unknown. Where a tier requires it, a
-#   filled Blast radius that names neither gitnexus nor serena is refused unless
-#   it is answered `n/a: <reason>`; nothing checks whether the output is right.
-#   Section 8 carries the FINALIZE-AFTER marker grep for this task id and disposition of landed
-#   triggers; naming neither finalize-after nor n/a with reason is refused.
-#   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
-#   header is missing or leaves any of its three answers unanswered or outside
-#   its format, or where a section the declared tier requires is missing, still
-#   placeheld, or empty, naming that section, and then a non-exempt record no
-#   separate prep-review scout has approved; bin/fm-dod-lib.sh's header owns
-#   the surgical/server-install exemptions and review proof.
-#   The guide lines for sections 1, 3, 7, and 10 point at the project's own
-#   task, design, UI, and verification records as its instructions name them.
-#   --prep --surgical emits a compact certainty certificate: every C1-C5 answer
-#   must be exactly yes with concrete evidence to skip separate review. Any no,
-#   unsure, malformed or incomplete certificate is refused, never upgraded:
-#   convert it by deleting its Preparation format line, answering every section
-#   its tier requires, and obtaining a separate prep review.
-#   Direct source lookup suffices for confined fixes; unknown impact is not empty.
-#   Shared, sensitive, install or server scope cannot certify surgical certainty.
-#   --surgical requires --prep. Preparation accepts no worker or delivery flags
-#   and refuses to overwrite an existing record.
 #   --scout writes the scout contract instead: the deliverable is a report at
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
 #   It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
-#   confirms the supported lavish-axi floor; otherwise it asks for a text report.
-#   --prep-review <task-id> requires --scout and is repeatable for a batch.
-#   Each id must be plain and distinct from the reviewer; the scout reviews the
-#   named preps along Standards and Spec, plus Architecture when Q2 is yes,
-#   and may write only their exact per-task approval paths outside its worktree.
-#   bin/fm-dod-lib.sh owns the review report and approved-byte proof.
+#   confirms the legacy board-compatibility floor; otherwise it asks for a text report.
 #   --secondmate writes a persistent secondmate charter. The project list
 #   is cloned into the secondmate home, while the natural-language scope
 #   tells the main firstmate when to route work there; routine churn stays in its own home;
@@ -170,14 +108,6 @@
 # Scaffolds carry no role scope: fm-spawn.sh supplies fm_brief_worker_role from
 # fm-dod-lib.sh to every ship/scout launch brief, so this file never becomes a
 # second owner of a contract that must stay current across relaunches.
-# bin/fm-spawn.sh owns the harness/model-dependent Opus advisor line in the
-# launch brief; ship and scout scaffolds do not supply it.
-# Ship scaffolds carry a fixed Rules line naming which tool serves which step:
-# Serena find_symbol/find_referencing_symbols before renaming, moving, or
-# changing a function's signature; GitNexus impact against the GitNexus clone
-# (never inside the worktree) before changing a shared module; semantic search
-# only when the symbol's name is unknown. The shared no-mistakes driving block
-# in fm-dod-lib.sh owns triage, class-fix handoff and repeat visibility.
 # A home may carry standing worker instructions without editing this tracked
 # script: when config/brief-include.md exists under the active home, ship and
 # scout scaffolds append its text verbatim as their last section, "# Home brief
@@ -252,10 +182,6 @@ CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 case "$CONFIG" in /*) ;; *) CONFIG="$PWD/$CONFIG" ;; esac
 KIND=ship
 HERDR_LAB=0
-PREP=0
-SURGICAL=0
-PREP_REVIEWS=()
-PREP_REVIEWS_N=0
 NO_PROJECTS=0
 MODE=
 MODE_SET=0
@@ -266,9 +192,6 @@ FORGE_SET=0
 SHAPE=
 SHAPE_SET=0
 POS=()
-# Bash 3.2 errors on ${#POS[@]} for an empty array under `set -u`, and the
-# --prep arity check runs before ID=${POS[0]} guarantees one, so count here.
-POS_N=0
 want_value=
 for a in "$@"; do
   if [ -n "$want_value" ]; then
@@ -280,7 +203,6 @@ for a in "$@"; do
       branch-prefix) BRANCH_PREFIX=$a; BRANCH_PREFIX_SET=1 ;;
       forge) FORGE=$a; FORGE_SET=1 ;;
       shape) SHAPE=$a; SHAPE_SET=1 ;;
-      prep-review) PREP_REVIEWS+=("$a"); PREP_REVIEWS_N=$((PREP_REVIEWS_N + 1)) ;;
       *) echo "error: internal parser state for --$want_value" >&2; exit 1 ;;
     esac
     want_value=
@@ -289,10 +211,6 @@ for a in "$@"; do
   case "$a" in
     --scout) KIND=scout ;;
     --secondmate) KIND=secondmate ;;
-    --prep) PREP=1 ;;
-    --surgical) SURGICAL=1 ;;
-    --prep-review) want_value=prep-review ;;
-    --prep-review=*) PREP_REVIEWS+=("${a#--prep-review=}"); PREP_REVIEWS_N=$((PREP_REVIEWS_N + 1)) ;;
     --herdr-lab) HERDR_LAB=1 ;;
     --no-projects) NO_PROJECTS=1 ;;
     --mode) want_value=mode ;;
@@ -307,45 +225,10 @@ for a in "$@"; do
     # brief input. Refuse it loudly so it is never silently dropped here and then
     # believed to have been recorded.
     --yolo|--yolo=*) echo "error: --yolo is not a brief input; pass it to bin/fm-spawn.sh, which records the task's merge posture" >&2; exit 1 ;;
-    *) POS+=("$a"); POS_N=$((POS_N + 1)) ;;
+    *) POS+=("$a") ;;
   esac
 done
 [ -z "$want_value" ] || { echo "error: --$want_value requires a value" >&2; exit 1; }
-
-if [ "$SURGICAL" -eq 1 ] && [ "$PREP" -ne 1 ]; then
-  echo "error: --surgical requires --prep" >&2
-  exit 1
-fi
-
-if [ "$PREP_REVIEWS_N" -gt 0 ] && { [ "$KIND" != scout ] || [ "$PREP" -eq 1 ]; }; then
-  echo "error: --prep-review requires --scout and cannot combine with --prep" >&2
-  exit 1
-fi
-
-# The preparation record is scaffolded on its own, before the brief, so it can be
-# written and reviewed while the brief is still unwritten. It carries no delivery
-# mode, no repo, and no kind: it is one file about the change itself.
-if [ "$PREP" -eq 1 ]; then
-  if [ "$KIND" != ship ] || [ "$MODE_SET" -eq 1 ] || [ "$HERDR_LAB" -eq 1 ] || [ "$NO_PROJECTS" -eq 1 ] || [ "$BRANCH_PREFIX_SET" -eq 1 ] || [ "$FORGE_SET" -eq 1 ] || [ "$SHAPE_SET" -eq 1 ]; then
-    echo "error: --prep scaffolds the task preparation record alone; it takes no worker or delivery flags (--mode, --scout, --secondmate, --herdr-lab, --no-projects, --branch-prefix, --forge, --shape)" >&2
-    exit 1
-  fi
-  [ "$POS_N" -eq 1 ] || {
-    echo "error: usage: fm-brief.sh <task-id> --prep" >&2
-    exit 1
-  }
-  PREP_ID=${POS[0]}
-  PREP_FILE=$(fm_prep_path "$DATA" "$PREP_ID")
-  [ -e "$PREP_FILE" ] && { echo "error: $PREP_FILE already exists" >&2; exit 1; }
-  mkdir -p "$DATA/$PREP_ID"
-  if [ "$SURGICAL" -eq 1 ]; then
-    fm_prep_surgical_template "$PREP_ID" > "$PREP_FILE"
-  else
-    fm_prep_template "$PREP_ID" > "$PREP_FILE"
-  fi
-  echo "scaffolded: $PREP_FILE (task prep; answer the ## Tier header first - it decides which sections this task owes)"
-  exit 0
-fi
 
 # Ship delivery mode is an explicit per-task decision (AGENTS.md section 7). A
 # missing or invalid value stops the scaffold rather than silently defaulting.
@@ -398,13 +281,6 @@ elif [ "$FORGE_SET" -eq 1 ] || [ "$SHAPE_SET" -eq 1 ]; then
   exit 1
 fi
 ID=${POS[0]}
-if [ "$PREP_REVIEWS_N" -gt 0 ]; then
-  fm_pr_task_id_valid "$ID" || { echo "error: --prep-review reviewer must be a plain task id" >&2; exit 1; }
-  for REVIEW_TASK in "${PREP_REVIEWS[@]}"; do
-    fm_pr_task_id_valid "$REVIEW_TASK" || { echo "error: --prep-review needs a plain task id (got '$REVIEW_TASK')" >&2; exit 1; }
-    [ "$REVIEW_TASK" != "$ID" ] || { echo "error: --prep-review cannot review the reviewer's own id $ID" >&2; exit 1; }
-  done
-fi
 BRANCH="$BRANCH_PREFIX$ID"
 if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
   echo "error: --branch-prefix and task id must form a valid git branch (got '$BRANCH')" >&2
@@ -472,16 +348,47 @@ INBOX_DIR=$(shell_quote "$STATE/$ID.inbox")
 
 # The receive-and-ack half of the steering-inbox contract, included in every
 # scaffold kind. The record format, doorbell line, and re-ring ladder are
-# owned by bin/fm-task-inbox-lib.sh; the doorbell itself is self-describing,
-# so this section is reinforcement for the natural-checkpoint habit, not the
-# only carrier of the instruction.
+# owned by bin/fm-task-inbox-lib.sh. The doorbell names the inbox as
+# "$FM_TASK_INBOX", which bin/fm-spawn.sh exports into every launch; the full
+# path here remains the fallback for a worker launched without that export.
+# The doorbell itself is self-describing, so this section is reinforcement
+# for the natural-checkpoint habit, not the only carrier of the instruction.
+# config/wait-no-turns (docs/configuration.md) adds the line that a waiting
+# worker does not poll the inbox: checkpoint checks happen during active work,
+# so waiting still spends no turns.
 IFS= read -r -d '' INBOX_SECTION <<EOF || true
 # Firstmate instruction inbox
 Firstmate steers you through durable message files in $INBOX_DIR.
 When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list $INBOX_DIR/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: \`mv $INBOX_DIR/NNN.msg $INBOX_DIR/handled/\`.
 The move IS the acknowledgement: without it firstmate rings again and eventually treats you as stuck. An empty or absent inbox needs no action.
 EOF
+if [ -e "$CONFIG/wait-no-turns" ]; then
+  INBOX_SECTION+="Do not poll or list the inbox while waiting; a waiting instruction rings."$'\n'
+fi
 INBOX_SECTION=${INBOX_SECTION%$'\n'}
+
+# How a crewmate or scout waits. Every model turn resends the whole context, so
+# a wait must cost no turns: a decision wait ends the turn, and an external
+# wait sleeps in one bounded blocking shell command sized to the harness.
+# Emitted only when config/wait-no-turns is present.
+IFS= read -r -d '' WAIT_SECTION <<'EOF' || true
+# Waiting
+Every turn you take resends your whole context, so a wait must cost no turns.
+After you append `needs-decision:` or `blocked:`, end your turn at once: do not check the inbox, the status file, or anything else, because the answer arrives as a terminal message that starts your next turn.
+Wait on anything external - a pipeline gate, PR checks, a heavy-test slot - with ONE blocking shell command that returns when the state changes: `no-mistakes axi run` or `respond` with `--wait`, `gh pr checks <pr> --watch`, or `until <condition>; do sleep 30; done` for anything else.
+Never spend turns on `sleep` followed by a status check, and never background a command in order to poll it.
+In Claude Code that `until` loop in a single Bash call is the sanctioned foreground wait: when the harness refuses a sleep-then-check command and points you at backgrounding instead, reissue the wait as the loop rather than accepting the background.
+Bound that command by what your harness lets one command run: in Pi pass the bash tool a `timeout` of at most 2700 seconds, because Pi sets none by default; in Claude Code pass the Bash tool its maximum `timeout` of 600000 ms, because its default is 2 minutes; in Codex keep waiting on a still-running command with empty `write_stdin` polls of up to 300000 ms; elsewhere pass your shell tool its largest timeout and assume at most 10 minutes.
+Give any `--wait` a duration a little under that bound.
+When the bound passes with nothing changed, run the same blocking command again, with no status check in between.
+The one exception is `respond`: it sent its answer before it began waiting, so reattach with `no-mistakes axi run --wait` instead, and never send the same `respond` again, because it would answer whichever gate parks next without you reading it.
+A wait your shell can watch this way needs no `paused:` line, except your own pipeline run, a long foreground command, or your own validation round, which you declare once just before its blocking hold: append `paused:` once just before its first blocking command, then stay in the command, and never append it again as you reissue that command.
+EOF
+WAIT_SECTION=${WAIT_SECTION%$'\n'}
+WAIT_BLOCK=
+if [ -e "$CONFIG/wait-no-turns" ]; then
+  WAIT_BLOCK="$WAIT_SECTION"$'\n\n'
+fi
 
 if [ "$KIND" = secondmate ]; then
 SECONDMATE_PROJECTS=""
@@ -660,25 +567,6 @@ EOF
 SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
 
 if [ "$KIND" = scout ]; then
-SCOUT_RULE2='2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'
-PREP_REVIEW_SECTION=
-if [ "$PREP_REVIEWS_N" -gt 0 ]; then
-  SCOUT_RULE2='2. Stay inside this worktree; the only files you may write outside it are the report and status file below, and these exact approved-record paths:'
-  for REVIEW_TASK in "${PREP_REVIEWS[@]}"; do
-    SCOUT_RULE2+=" \`$DATA/$ID/reviewed-prep/$REVIEW_TASK.md\`"
-  done
-  PREP_REVIEW_SECTION=$(
-    printf '# Preparation review\nReview each named preparation record against the current base on two axes, with a verdict for each record under the report headings, never merging or reranking the axes.\n'
-    printf '## Standards\nWould the proposed files, interfaces and tests follow the project documented rules?\nCheck that Tests names public seams and a red-first order, each new or changed interface names its module and seam, every external fact cites a primary source, and pre-staged values use FINALIZE-AFTER(<trigger>).\nCite each violated rule and its evidence.\n'
-    printf '## Spec\nDoes the record deliver the quoted intent with nothing unasked, and a behaviour spec and definition of done that would catch a wrong build?\nFlag missing, partial, unasked or wrong behavior against the accepted criteria.\n'
-    printf '## Architecture\nFor each Q2 yes record, apply the deletion test to every module its Blast radius names and list shallow modules or leaking seams the change would deepen; otherwise write n/a: Q2 no.\n'
-    printf 'The batch report carries each owed heading once, naming each record and its verdict under it.\nApprove only complete records; copy the approved bytes byte-identical to the exact path below, without silently rewriting the specification.\n'
-    for REVIEW_TASK in "${PREP_REVIEWS[@]}"; do
-      # shellcheck disable=SC2016 # Literal backticks are part of the emitted brief.
-      printf 'Review `%s/%s/prep.md`; approved record: `%s/%s/reviewed-prep/%s.md`.\n' "$DATA" "$REVIEW_TASK" "$DATA" "$ID" "$REVIEW_TASK"
-    done
-  )
-fi
 if "$SCRIPT_DIR/fm-bootstrap.sh" lavish-compatible >/dev/null 2>&1; then
   LAVISH_LINE='If your deliverable is a visual artifact the captain will review and iterate on, use the lavish-axi rule: arm your board with bin/fm-procevent-lavish.sh arm <artifact.html> --for <task-id>; never run lavish-axi poll yourself. Re-arm with the reply after each nonterminal round to acknowledge it, route the board feedback through your steering inbox, write needs-decision [key=board-review] with the live board URL when the captain owes a decision, and stop at session_ended or an empty End without re-arming - acknowledge that final round with bin/fm-procevent.sh handled <source-id> <sequence> to conclude and retire your board.'
 else
@@ -688,8 +576,6 @@ cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
 
 $TASK_SECTION
-
-$PREP_REVIEW_SECTION
 
 $HERDR_SECTION
 
@@ -701,7 +587,7 @@ The report is the only thing that survives, so anything worth keeping must be in
 
 # Rules
 1. Never push to any remote and never open a PR.
-$SCOUT_RULE2
+2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
@@ -715,14 +601,13 @@ $SCOUT_RULE2
    copies that URL from your line rather than assembling one.
 $CREWMATE_PAUSE_INSTRUCTIONS
 5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
-   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
 6. If a decision belongs to a human (product choices, destructive actions),
    append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
    A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
 $SHARED_INFRA_RULE
 
-$INBOX_SECTION
+$WAIT_BLOCK$INBOX_SECTION
 
 # Definition of done
 Write your findings to \`$DATA/$ID/report.md\`.
@@ -793,7 +678,6 @@ $RULE1
    turn after it; continue the same stage until a defined \`done:\` gate under Definition of done.
 $CREWMATE_PAUSE_INSTRUCTIONS
 5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
-   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
 6. If a decision belongs above the implementation worker (product choices, destructive actions),
    append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
 $ASK_USER_BLOCK
@@ -801,9 +685,7 @@ $ASK_USER_BLOCK
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
 $SHARED_INFRA_RULE
 
-8. Before renaming, moving, or changing the signature of a function, use Serena's \`find_symbol\` and \`find_referencing_symbols\`; before changing a shared module, run GitNexus impact against the GitNexus clone, never inside this worktree; reach for semantic search only when you do not know the symbol's name.
-
-$INBOX_SECTION
+$WAIT_BLOCK$INBOX_SECTION
 
 # Project memory
 A project's \`AGENTS.md\` or \`CLAUDE.md\` is loaded into every agent session in that project, so edit it only to correct information that is factually wrong - including information your own change made wrong - and never to add knowledge because it is missing.
