@@ -71,6 +71,13 @@
 # an Aqua requirement. The launch-agent renderer and repair helpers here are
 # shared by the entrypoint and remote doctor so their ownership cannot drift.
 #
+# Worker, claim and staging start cookies use proc-starttime=<ticks> when
+# Linux-compatible procfs is available, and ps lstart otherwise. Every producer
+# and reader uses fm_remote_job_process_start; commands still must match for
+# worker ownership. Switching cookie formats requires a quiet queue with old
+# staging callers and worker trees stopped before installation, not a live
+# mixed-format handoff.
+#
 # The Linux start path puts the worker tree in its own process group, so
 # stopping a worker signals its restart supervisor, its serving child, and any
 # job descendant together instead of leaving a supervisor to restart what was
@@ -903,7 +910,24 @@ fm_remote_job_worker_identity_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worke
 fm_remote_job_worker_lock_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.lock"; }
 
 fm_remote_job_process_start() {
-  local pid=$1 ps_bin value
+  local pid=$1 ps_bin value proc_root stat_line starttime
+  local -a stat_fields
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  proc_root=${FM_PROC_ROOT_OVERRIDE:-/proc}
+  # Linux-compatible procfs field 22 is clock ticks since boot, independent of
+  # wall-clock rendering. Parse after the final comm delimiter (comm may contain
+  # spaces and parentheses); readable malformed records must not fall back.
+  if [ -r "$proc_root/$pid/stat" ]; then
+    stat_line=$(cat "$proc_root/$pid/stat" 2>/dev/null) || return 1
+    case "$stat_line" in *')'*) ;; *) return 1 ;; esac
+    read -r -a stat_fields <<< "${stat_line##*)}"
+    [ "${#stat_fields[@]}" -ge 20 ] || return 1
+    starttime=${stat_fields[19]}
+    case "$starttime" in ''|*[!0-9]*) return 1 ;; esac
+    printf 'proc-starttime=%s\n' "$starttime"
+    return 0
+  fi
+  # Preserve ps lstart on systems without this procfs capability, including macOS.
   if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
   value=$("$ps_bin" -p "$pid" -o lstart= 2>/dev/null) || return 1
   [ -n "$value" ] || return 1

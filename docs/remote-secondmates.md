@@ -82,6 +82,7 @@ On macOS the worker is `dev.firstmate.remote-job`, an Aqua-scoped LaunchAgent at
 After that bootstrap, every non-doctor `fm-on.sh` target runs through that worker in the remote account's GUI session.
 It never runs in the SSH process or a Herdr pane.
 Linux uses the same queue and worker protocol without the Aqua-session requirement.
+Its clock-independent procfs identity and quiet-transition requirement are owned by [`bin/fm-remote-job-lib.sh`](../bin/fm-remote-job-lib.sh).
 When idle, the worker checks for newly staged work about once per second; after a lane starts or finishes it checks more frequently for a short period.
 
 ### Job lanes and preemption
