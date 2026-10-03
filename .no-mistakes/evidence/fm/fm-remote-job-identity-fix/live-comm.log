@@ -1,0 +1,9 @@
+COMMAND=bash /home/tegris/.no-mistakes/evidence/01M4081VGDFZTDFF3WTMAPTVNQ/live-comm.sh
+ISOLATION=private user/PID/mount namespaces; disposable TMPDIR
+before-rename-pid=4 comm=python3 cookie=proc-starttime=22416603
+after-rename-pid=4 comm=odd) (worker)) cookie=proc-starttime=22416603
+comm-with-spaces-and-parentheses=identity-retained
+COMMAND_EXIT=0
+LAB_CHILDREN_BEFORE_CLEANUP=[]
+LAB_WORKERS_AFTER=0
+LAB_TMPDIR_REMOVED=true

@@ -1,0 +1,11 @@
+COMMAND=bash /home/tegris/.no-mistakes/evidence/01M4081VGDFZTDFF3WTMAPTVNQ/date-divergence.sh /home/tegris/.no-mistakes/evidence/01M4081VGDFZTDFF3WTMAPTVNQ/base-job-lib.sh
+ISOLATION=private user/PID/mount namespaces; disposable TMPDIR
+ps-UTC=Sat Oct  3 06:54:47 2026
+ps-HST=Fri Oct  2 20:54:47 2026
+recorded-cookie=Sat Oct  3 06:54:47 2026
+HST-cookie=Fri Oct  2 20:54:47 2026
+same-live-process-under-changed-TZ=REJECTED process-still-alive=true
+COMMAND_EXIT=1
+LAB_CHILDREN_BEFORE_CLEANUP=[]
+LAB_WORKERS_AFTER=0
+LAB_TMPDIR_REMOVED=true

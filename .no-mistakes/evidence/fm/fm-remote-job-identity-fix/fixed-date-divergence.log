@@ -1,0 +1,11 @@
+COMMAND=bash /home/tegris/.no-mistakes/evidence/01M4081VGDFZTDFF3WTMAPTVNQ/date-divergence.sh bin/fm-remote-job-lib.sh
+ISOLATION=private user/PID/mount namespaces; disposable TMPDIR
+ps-UTC=Sat Oct  3 06:54:48 2026
+ps-HST=Fri Oct  2 20:54:48 2026
+recorded-cookie=proc-starttime=22395501
+HST-cookie=proc-starttime=22395501
+same-live-process-under-changed-TZ=accepted
+COMMAND_EXIT=0
+LAB_CHILDREN_BEFORE_CLEANUP=[]
+LAB_WORKERS_AFTER=0
+LAB_TMPDIR_REMOVED=true

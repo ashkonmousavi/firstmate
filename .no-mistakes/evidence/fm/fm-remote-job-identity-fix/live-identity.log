@@ -1,0 +1,35 @@
+COMMAND=bash /home/tegris/.no-mistakes/evidence/01M4081VGDFZTDFF3WTMAPTVNQ/live-identity.sh
+ISOLATION=private user/PID/mount namespaces; disposable TMPDIR
+initial-worker=142 group=85 cookie=proc-starttime=22388863
+ps-UTC=Sat Oct  3 06:53:47 2026
+ps-HST=Fri Oct  2 20:53:47 2026
+job=job-ePuSoP state=running
+persisted-start=proc-starttime=22388863
+persisted-owner_start=proc-starttime=22388890
+persisted-supervisor_start=proc-starttime=22388890
+persisted-group_start=proc-starttime=22388900
+ensure-TZ=UTC0 worker=142 group=85 cookie=proc-starttime=22388863 job-state=running
+ensure-TZ=HST10 worker=142 group=85 cookie=proc-starttime=22388863 job-state=running
+ensure-TZ=UTC0 worker=142 group=85 cookie=proc-starttime=22388863 job-state=running
+completed-state=done exit=0 stdout-begin
+job-started
+job-completed
+stdout-end
+guard-control=accepted pid=2639 cookie=proc-starttime=22389526
+tick-mismatch=rejected actual=proc-starttime=22389526 recorded=proc-starttime=22389536
+command-mismatch=rejected matching-pid-and-cookie=true
+pid-mismatch=rejected first=2639 replacement=2641 unrelated-alive=true
+unavailable-proc-cookie=Fri Oct  2 23:53:54 2026
+actual-ps-cookie=Fri Oct  2 23:53:54 2026
+staging-after-changed-TZ-sweep=live-retained,stale-removed cookie=proc-starttime=22389526
+crash-serving-worker=142
+recovered-worker=3052 cookie=proc-starttime=22389560
+recovery-job-exit=0 stdout-begin
+job-started
+job-completed
+stdout-end
+live-product-scenarios=complete
+COMMAND_EXIT=0
+LAB_CHILDREN_BEFORE_CLEANUP=[85]
+LAB_WORKERS_AFTER=0
+LAB_TMPDIR_REMOVED=true

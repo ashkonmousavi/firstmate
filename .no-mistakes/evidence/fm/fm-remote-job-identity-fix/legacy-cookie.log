@@ -1,0 +1,9 @@
+COMMAND=bash /home/tegris/.no-mistakes/evidence/01M4081VGDFZTDFF3WTMAPTVNQ/legacy-cookie.sh
+ISOLATION=private user/PID/mount namespaces; disposable TMPDIR
+control=current-cookie-accepted pid=31 cookie=proc-starttime=22424021
+legacy-cookie=Fri Oct  2 23:59:06 2026
+legacy-comparison=rejected matching-live-pid-and-command=true
+COMMAND_EXIT=0
+LAB_CHILDREN_BEFORE_CLEANUP=[]
+LAB_WORKERS_AFTER=0
+LAB_TMPDIR_REMOVED=true

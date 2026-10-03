@@ -1,0 +1,25 @@
+COMMAND=bash bin/fm-test-run.sh --jobs 1 tests/fm-remote-job.test.sh
+ISOLATION=private user/PID/mount namespaces; disposable TMPDIR
+FM_TEST_BEGIN 2026-10-03T06:50:38Z tests/fm-remote-job.test.sh family=secondmate expected_gate_skip=none
+ok - default queue and execution bounds independently cover long polls
+ok - process start cookies parse procfs comm delimiters and field 22
+ok - start cookies reject malformed procfs and retain the unavailable-procfs fallback
+ok - live lock ownership survives nonvacuous date rendering and rejects tick mismatch
+ok - lock ownership still rejects a mismatching command with matching PID and start
+ok - staging custody retains old live-owner stages and removes stale owners
+ok - operator PATH excludes a symlinked local bin
+ok - operator PATH honors nvm defaults with a deterministic fallback
+ok - operator PATH resolves the authorized Nix profile bin link
+ok - operator PATH orders discovered tool installs deterministically
+ok - the worker preserves bounded argv and stdin in an empty environment
+ok - active jobs keep the worker ready for concurrent requests
+ok - ensure replaces a live worker after its code changes
+not ok - stale remote job worker did not stop safely
+FM_TEST_END 2026-10-03T06:50:46Z tests/fm-remote-job.test.sh exit=1 duration_ms=8078 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=8230
+FM_TEST_SUMMARY_FAMILY family=secondmate count=1 duration_ms=8078 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-remote-job.test.sh duration_ms=8078
+COMMAND_EXIT=1
+LAB_CHILDREN_BEFORE_CLEANUP=[]
+LAB_WORKERS_AFTER=0
+LAB_TMPDIR_REMOVED=true
