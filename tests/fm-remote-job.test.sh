@@ -7,8 +7,10 @@ set -u
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
 TMP_ROOT=$(fm_test_tmproot fm-remote-job)
+[ -n "$TMP_ROOT" ] && [ -f "$TMP_ROOT/.fm-test-fixture" ] || fail "temporary root was not allocated"
 mkdir -p "$TMP_ROOT"
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
+case "$TMP_ROOT/" in "$ROOT/"*) fail "temporary root is inside the checkout" ;; esac
 REMOTE_ROOT="$TMP_ROOT/remote-root"
 REMOTE_HOME="$TMP_ROOT/remote-home"
 ACCOUNT_HOME="$TMP_ROOT/account"
@@ -136,6 +138,118 @@ export FM_REMOTE_JOB_QUEUE_TIMEOUT=5
 export FM_REMOTE_JOB_TIMEOUT=5
 # shellcheck source=bin/fm-remote-job-lib.sh
 . "$ROOT/bin/fm-remote-job-lib.sh"
+
+# A procfs fixture pins the public cookie independently of wall-clock dates.
+PROC_FIXTURE="$TMP_ROOT/proc"
+mkdir -p "$PROC_FIXTURE/4242"
+printf '4242 (worker (name) with spaces)) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 987654 20\n' > "$PROC_FIXTURE/4242/stat"
+START_COOKIE=$(FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_process_start 4242) \
+  || fail "the start-cookie helper rejected a valid procfs record"
+[ "$START_COOKIE" = proc-starttime=987654 ] || fail "the start cookie did not use procfs field 22"
+pass "process start cookies parse procfs comm delimiters and field 22"
+
+printf '4242 (worker) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 987655 20\n' > "$PROC_FIXTURE/4242/stat"
+[ "$(FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_process_start 4242)" = proc-starttime=987655 ] \
+  || fail "changed kernel ticks did not change the start cookie"
+for INVALID_PID in '' invalid -1 '42 42'; do
+  if FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_process_start "$INVALID_PID" >/dev/null; then
+    fail "the start-cookie helper accepted an invalid PID"
+  fi
+done
+# Use a live PID so malformed readable procfs cannot pass via ps fallback.
+mkdir -p "$PROC_FIXTURE/$$"
+for STAT_RECORD in \
+  "$$ no delimiter S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 123 20" \
+  "$$ (worker) S 1 2 3" \
+  "$$ (worker) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 bad 20"; do
+  printf '%s\n' "$STAT_RECORD" > "$PROC_FIXTURE/$$/stat"
+  if FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_process_start "$$" >/dev/null; then
+    fail "malformed readable procfs fell back to ps"
+  fi
+done
+rm -f "$PROC_FIXTURE/$$/stat"
+mkdir "$PROC_FIXTURE/$$/stat"
+if FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_process_start "$$" >/dev/null; then
+  fail "a failed procfs read fell back to ps"
+fi
+sleep 60 &
+OTHER_PID=$!
+FALLBACK_START=$(FM_PROC_ROOT_OVERRIDE="$TMP_ROOT/missing-proc" fm_remote_job_process_start "$OTHER_PID") \
+  || fail "missing procfs did not preserve the ps fallback"
+[ "$FALLBACK_START" = "$(/bin/ps -p "$OTHER_PID" -o lstart=)" ] \
+  || fail "the missing-procfs fallback changed the ps cookie"
+pass "start cookies reject malformed procfs and retain the unavailable-procfs fallback"
+
+(
+  FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/identity-jobs"
+  fm_remote_job_prepare_state "$ACCOUNT_HOME" || fail "identity state setup failed"
+  IDENTITY_LOCK=$(fm_remote_job_worker_lock_path)
+  mkdir "$IDENTITY_LOCK"
+  printf '%s\n' "$OTHER_PID" > "$IDENTITY_LOCK/pid"
+  TZ=UTC0 fm_remote_job_process_start "$OTHER_PID" > "$IDENTITY_LOCK/start" \
+    || fail "the identity fixture could not record its start"
+  fm_remote_job_process_command "$OTHER_PID" > "$IDENTITY_LOCK/command" \
+    || fail "the identity fixture could not record its command"
+  TZ=UTC0 fm_remote_job_lock_owner_matches_process "$ACCOUNT_HOME" || fail "matching ownership was rejected"
+  if [ -r "/proc/$OTHER_PID/stat" ]; then
+    UTC_START=$(TZ=UTC0 /bin/ps -p "$OTHER_PID" -o lstart=)
+    HST_START=$(TZ=HST10 /bin/ps -p "$OTHER_PID" -o lstart=)
+    [ "$UTC_START" != "$HST_START" ] || fail "the date-rendering divergence was vacuous"
+    IDENTITY_START=$(cat "$IDENTITY_LOCK/start")
+    case "$IDENTITY_START" in proc-starttime=*) ;; *) fail "the live Linux cookie did not use procfs" ;; esac
+    [ "$IDENTITY_START" = "$(TZ=HST10 fm_remote_job_process_start "$OTHER_PID")" ] \
+      || fail "timezone rendering changed the kernel cookie"
+    TZ=HST10 fm_remote_job_lock_owner_matches_process "$ACCOUNT_HOME" \
+      || fail "date rendering rejected a live lock owner"
+    kill -0 "$OTHER_PID" || fail "the date-rendering witness lost its process"
+    mkdir -p "$PROC_FIXTURE/$OTHER_PID"
+    printf '%s (worker) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 987654 20\n' "$OTHER_PID" > "$PROC_FIXTURE/$OTHER_PID/stat"
+    printf 'proc-starttime=987654\n' > "$IDENTITY_LOCK/start"
+    FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_lock_owner_matches_process "$ACCOUNT_HOME" \
+      || fail "the tick-mismatch control did not match"
+    printf 'proc-starttime=987655\n' > "$IDENTITY_LOCK/start"
+    if FM_PROC_ROOT_OVERRIDE="$PROC_FIXTURE" fm_remote_job_lock_owner_matches_process "$ACCOUNT_HOME"; then
+      fail "ownership accepted mismatching ticks for the same PID"
+    fi
+    printf '%s\n' "$IDENTITY_START" > "$IDENTITY_LOCK/start"
+    pass "live lock ownership survives nonvacuous date rendering and rejects tick mismatch"
+  else
+    printf 'skip: Linux procfs date-rendering witness unavailable\n'
+  fi
+  # Test 5: reach the command guard with matching live PID and start cookie.
+  EXPECTED_COMMAND=$(cat "$IDENTITY_LOCK/command")
+  printf 'wrong-command\n' > "$IDENTITY_LOCK/command"
+  [ "$EXPECTED_COMMAND" != "$(cat "$IDENTITY_LOCK/command")" ] || fail "the command mismatch was vacuous"
+  [ "$(cat "$IDENTITY_LOCK/start")" = "$(fm_remote_job_process_start "$OTHER_PID")" ] \
+    || fail "the command witness did not reach the command guard"
+  [ "$(cat "$IDENTITY_LOCK/pid")" = "$OTHER_PID" ] && kill -0 "$OTHER_PID" \
+    || fail "the command witness lost its matching live PID"
+  if fm_remote_job_lock_owner_matches_process "$ACCOUNT_HOME"; then
+    fail "matching PID and ticks accepted a mismatching command"
+  fi
+  printf '%s\n' "$EXPECTED_COMMAND" > "$IDENTITY_LOCK/command"
+  fm_remote_job_lock_owner_matches_process "$ACCOUNT_HOME" || fail "the restored command control was rejected"
+  pass "lock ownership still rejects a mismatching command with matching PID and start"
+  LIVE_IDENTITY_STAGE="$FM_REMOTE_JOB_JOBS/.stage.identity-live"
+  DEAD_IDENTITY_STAGE="$FM_REMOTE_JOB_JOBS/.stage.identity-dead"
+  mkdir "$LIVE_IDENTITY_STAGE" "$DEAD_IDENTITY_STAGE"
+  printf '%s\n' "$OTHER_PID" > "$LIVE_IDENTITY_STAGE/.owner-pid"
+  fm_remote_job_process_start "$OTHER_PID" > "$LIVE_IDENTITY_STAGE/.owner-start"
+  printf '%s\n' "$OTHER_PID" > "$DEAD_IDENTITY_STAGE/.owner-pid"
+  printf 'stale-start\n' > "$DEAD_IDENTITY_STAGE/.owner-start"
+  touch -t 200001010000 "$LIVE_IDENTITY_STAGE" "$DEAD_IDENTITY_STAGE"
+  if [ -r "/proc/$OTHER_PID/stat" ]; then
+    TZ=HST10 fm_remote_job_reap_stale "$ACCOUNT_HOME" || fail "the changed-TZ staging reap failed"
+  else
+    fm_remote_job_reap_stale "$ACCOUNT_HOME" || fail "the staging reap failed"
+  fi
+  assert_present "$LIVE_IDENTITY_STAGE" "the reaper removed old staging with a live owner"
+  assert_absent "$DEAD_IDENTITY_STAGE" "the reaper retained abandoned staging with stale identity"
+  pass "staging custody retains old live-owner stages and removes stale owners"
+) || fail "the process ownership regressions failed"
+kill "$OTHER_PID" 2>/dev/null || true
+wait "$OTHER_PID" 2>/dev/null || true
+OTHER_PID=
 
 LOCAL_BIN_PARENT="$ACCOUNT_HOME/.local"
 LOCAL_BIN_TARGET="$TMP_ROOT/local-bin-target"
@@ -310,6 +424,42 @@ fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the relocated-root probe c
 fm_remote_job_ensure_worker "$REMOTE_ROOT" "$ACCOUNT_HOME" || fail "$FM_REMOTE_JOB_ERROR"
 NEW_WORKER_PID=$(cat "$STATE_ROOT/worker.pid")
 pass "worker identity binds the canonical configured code root"
+
+if [ -r "/proc/$NEW_WORKER_PID/stat" ]; then
+  # This worker was installed by ensure, so its supervisor owns an isolated group.
+  STABLE_GROUP=$(fm_remote_job_process_pgid "$NEW_WORKER_PID") || fail "could not read the serving group"
+  STABLE_START=$(fm_remote_job_process_start "$NEW_WORKER_PID") || fail "could not read the serving start"
+  STABLE_SIDE_EFFECT="$TMP_ROOT/stable-owner-result"
+  FM_REMOTE_JOB_TIMEOUT=20 fm_remote_job_stage "$ACCOUNT_HOME" "$REMOTE_ROOT" "$REMOTE_HOME" \
+    fm-delay-job.sh 4 "$STABLE_SIDE_EFFECT" < /dev/null > /dev/null
+  JOB_ID=$FM_REMOTE_JOB_ID
+  JOB_DIR="$STATE_ROOT/jobs/$JOB_ID"
+  for _ in $(seq 1 100); do
+    [ "$(fm_remote_job_read_state "$JOB_DIR" 2>/dev/null || true)" = running ] && break
+    sleep 0.05
+  done
+  [ "$(fm_remote_job_read_state "$JOB_DIR" 2>/dev/null || true)" = running ] \
+    || fail "the stable-owner job never began running"
+  [ "$(TZ=UTC0 /bin/ps -p "$NEW_WORKER_PID" -o lstart=)" != \
+    "$(TZ=HST10 /bin/ps -p "$NEW_WORKER_PID" -o lstart=)" ] \
+    || fail "the running-job date-rendering divergence was vacuous"
+  for CALLER_TZ in UTC0 HST10 UTC0; do
+    TZ=$CALLER_TZ fm_remote_job_ensure_worker "$REMOTE_ROOT" "$ACCOUNT_HOME" || fail "$FM_REMOTE_JOB_ERROR"
+    [ "$(cat "$STATE_ROOT/worker.pid")" = "$NEW_WORKER_PID" ] || fail "ensure replaced the live job owner"
+    [ "$(fm_remote_job_process_start "$NEW_WORKER_PID")" = "$STABLE_START" ] || fail "the owner birth changed"
+    [ "$(fm_remote_job_process_pgid "$NEW_WORKER_PID")" = "$STABLE_GROUP" ] || fail "ensure replaced the supervisor group"
+  done
+  SUPERVISOR_COUNT=$(/bin/ps -eo pid=,command= | awk -v worker="$REMOTE_ROOT/bin/fm-remote-job-worker.sh" \
+    'index($0,worker) && $NF == worker {count++} END {print count+0}')
+  [ "$SUPERVISOR_COUNT" -eq 1 ] || fail "repeated ensure created duplicate supervisors"
+  fm_remote_job_wait "$ACCOUNT_HOME" "$JOB_ID" || fail "$FM_REMOTE_JOB_ERROR"
+  [ "$FM_REMOTE_JOB_EXIT" -eq 0 ] || fail "the stable-owner job did not finish successfully"
+  [ "$(cat "$STABLE_SIDE_EFFECT")" = ran ] || fail "the stable-owner job result was not delivered"
+  fm_remote_job_reap "$ACCOUNT_HOME" "$JOB_ID" || fail "the stable-owner job could not be reaped"
+  pass "changed-TZ ensure callers retain one supervisor and a running job's owner"
+else
+  printf 'skip: Linux procfs running-job date-rendering witness unavailable\n'
+fi
 
 CRASHED_WORKER_PID=$NEW_WORKER_PID
 kill -KILL "$CRASHED_WORKER_PID"
