@@ -121,15 +121,11 @@ if out=$(run_lock S2 "$client2" "$birth2" 2>&1); then
   fail "a second session under the same daemon acquired the first session's lock: $out"
 fi
 [ "$(cat "$home/state/.lock")" = "$client1" ] || fail 'the denied second session changed the owner'
-out=$(run_lock S2 "$client1" "$birth1") || fail "a new thread in the same live client could not re-key its lock: $out"
-[ "$(cat "$home/state/.lock")" = "$client1" ] || fail 'a same-client re-key changed the owner pid'
-[ "$(cat "$home/state/.lock-session")" = "codex:$client1:$birth1:S2" ] || fail 'a same-client new thread did not re-key the sidecar'
-run_lock S1 "$client1" "$birth1" >/dev/null || fail 'the first thread could not re-key back to itself'
 env PATH="$fakebin:$PATH" FM_HOME="$home" CODEX_SESSION_ID=S1 \
   CLAUDE_CODE_SESSION_ID=inherited-claude CLAUDE_PID="$daemon" \
   FM_CODEX_CLIENT_PID="$client1" FM_CODEX_CLIENT_BIRTH="$birth1" FM_CODEX_CLIENT_HOME="$home" \
   "$ROOT/bin/fm-lock.sh" >/dev/null || fail 'inherited Claude markers hid the real Codex owner'
-pass 'Codex lock: separate clients stay exclusive while one client re-keys across threads'
+pass 'Codex lock: separate clients stay exclusive under a shared daemon'
 
 if out=$(run_lock S2 "$client2" wrong-birth 2>&1); then
   fail "an unverified client birth acquired the lock: $out"
@@ -242,26 +238,13 @@ assert_contains "$out" "lock acquired: harness pid $shim" 'the tool shell did no
 # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
 run_tool T1 "$shim" "$shim_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home" \
   || fail 'the tool shell could not begin a checkpoint under the hook-held lock'
-printf '{"session_id":"T2","hook_event_name":"SessionStart","source":"startup"}' \
-  | env -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID -u FM_CODEX_CLIENT_PID -u FM_CODEX_CLIENT_BIRTH -u FM_CODEX_CLIENT_HOME \
-    PATH="$hookbin:$PATH" FM_HOME="$hook_home" FM_TEST_REAL_ROOT="$ROOT" \
-    "$hook_root/bin/fm-sessionstart-run.sh" --codex-hook >/dev/null
-assert_contains "$(cat "$hook_home/hook-lock.out")" "lock acquired: harness pid $shim" \
-  "a new thread's SessionStart hook in the same client was refused: $(cat "$hook_home/hook-lock.out")"
-[ "$(cat "$hook_home/state/.lock-session")" = "codex:$shim:$shim_birth:T2" ] \
-  || fail "the new thread's hook did not re-key the sidecar: $(cat "$hook_home/state/.lock-session")"
-out=$(run_tool T2 "$shim" "$shim_birth" "$ROOT/bin/fm-lock.sh" 2>&1) \
-  || fail "the new thread's tool shell could not confirm its re-keyed lock: $out"
-# shellcheck disable=SC2016 # Positional parameters expand in the child bash.
-run_tool T2 "$shim" "$shim_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home" \
-  || fail 'the new thread could not begin a checkpoint'
 if out=$(run_tool T1 "$other_shim" "$other_birth" "$ROOT/bin/fm-lock.sh" 2>&1); then
   fail "another live client took the hook-held lock: $out"
 fi
 # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
-if run_tool T2 "$other_shim" "$other_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home"; then
+if run_tool T1 "$other_shim" "$other_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home"; then
   fail 'another live client began a checkpoint under the hook-held lock'
 fi
 [ "$(cat "$hook_home/state/.lock")" = "$shim" ] || fail 'a refused caller changed the hook-held lock'
-[ "$(cat "$hook_home/state/.lock-session")" = "codex:$shim:$shim_birth:T2" ] || fail 'a refused caller changed the sidecar'
-pass 'Codex hook: SessionStart and tool shells of one client share its lock across threads; another client is refused'
+[ "$(cat "$hook_home/state/.lock-session")" = "codex:$shim:$shim_birth:T1" ] || fail 'a refused caller changed the sidecar'
+pass 'Codex hook: SessionStart and tool shells of one client share its session lock; another client is refused'

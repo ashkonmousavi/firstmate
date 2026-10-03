@@ -321,9 +321,9 @@ fm_session_lock_holder_alive() {  # <state> <pid>
   return 0
 }
 
-# A new conversation or thread in the same live client keeps that client's
-# ownership, and bin/fm-lock.sh then re-keys the sidecar to the new thread.
-# Another live client is never the owner.
+# Match a verified Codex client to the recorded pid and birth.
+# Core ownership follows the upstream predicates below; this client comparison
+# does not grant a different managed thread ownership of an existing session.
 fm_session_lock_codex_same_client() {  # <state> <ancestry-pids>
   local state=$1 pids=$2 lock_pid client recorded birth
   client=$(fm_codex_client_pid "$pids") || return 1
