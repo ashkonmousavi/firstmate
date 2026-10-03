@@ -19,7 +19,7 @@
 # confirmed-own acquisition, including the early already-mine exit that waits
 # for the claim lock, removed when the acquiring session proves no trusted id,
 # and left byte-identical when it already names that id. A same-session
-# confirmation never rewrites line 1 while the recorded pid is alive, because
+# confirmation never rewrites line 1 while the recorded harness holder is valid, because
 # bin/fm-startup-network.sh compares that pid across its deferred sweeps; a dead
 # recorded pid is reclaimed and rewritten to this session's anchor.
 #
@@ -159,8 +159,8 @@ publish_lock_session_or_die() {
   exit 1
 }
 
-# This session already holds the lock, recorded as pid $1. Line 1 stays exactly
-# as recorded while that pid is alive; only the sidecar is refreshed, under the
+# This session already holds a valid harness lock, recorded as pid $1. Line 1
+# stays as recorded while that holder is valid; only the sidecar is refreshed, under the
 # claim lock, so a /clear re-key inside the same process replaces the old id.
 # A same-session confirmation waits for the claim lock so the sidecar refresh
 # completes. After the wait, the lock is re-read and the sidecar is refreshed
@@ -176,7 +176,8 @@ confirm_own_lock() {  # <recorded-pid>
     waited=1
   fi
   recorded=$(cat "$LOCK" 2>/dev/null || true)
-  if fm_session_lock_owned_by_self "$STATE"; then
+  if fm_session_lock_holder_alive "$STATE" "$recorded" \
+    && fm_session_lock_owned_by_self "$STATE"; then
     publish_lock_session_or_die
     commit_lock_session
     release_claim_lock
@@ -201,7 +202,8 @@ refuse_live_owner() {  # <recorded-pid>
 
 if [ -f "$LOCK" ] && [ ! -L "$LOCK" ]; then
   old=$(cat "$LOCK" 2>/dev/null || true)
-  if fm_session_lock_owned_by_self "$STATE"; then
+  if fm_session_lock_holder_alive "$STATE" "$old" \
+    && fm_session_lock_owned_by_self "$STATE"; then
     confirm_own_lock "$old"
     old=$(cat "$LOCK" 2>/dev/null || true)
   fi

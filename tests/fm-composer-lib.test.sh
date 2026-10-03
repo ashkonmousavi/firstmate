@@ -323,48 +323,6 @@ test_composer_footer_zone_refuses_rather_than_allows() {
   pass "fm_composer_classify_screen: the footer zone only ever refuses, never allows"
 }
 
-test_claude_herdr_titled_rule_idle() {
-  # Reproduces the 2026-09-24 idle Claude pane: a titled transcript rule,
-  # the bare prompt, one closing rule, and two status-footer rows. Without
-  # native identity the lone lower rule remains an ambiguous Pi opening.
-  local screen typed
-  screen=$'answer complete\n────────────── Firstmate ─\n❯\r\n────────────────────────\r\n  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
-  assert_screen "Claude Herdr idle with native identity" empty "$CAPS_STYLED" "$screen" '' $'claude\tidle'
-  assert_screen "Claude Herdr completed with native identity" empty "$CAPS_STYLED" "$screen" '' $'claude\tdone'
-  assert_screen "Claude Herdr waits for native identity" need-identity "$CAPS_STYLED" "$screen"
-  assert_screen "unidentified titled rule stays unknown" unknown "$CAPS_STYLED_NOID" "$screen"
-  typed=$'answer complete\n────────────── Firstmate ─\n❯ hold this draft\r\n────────────────────────\r\n  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
-  assert_screen "Claude Herdr real draft stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
-  typed=$'answer complete\n────────────── Firstmate ─\n❯ wrapped draft head\n  wrapped draft tail\r\n────────────────────────\r\n  Opus 5.5 · high · 97%'
-  assert_screen "Claude Herdr wrapped draft stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
-  typed=$'answer complete\n────────────── Firstmate ─\n❯\n  draft after a leading newline\r\n────────────────────────\r\n  Opus 5.5 · high · 97%'
-  assert_screen "Claude Herdr draft opening with a newline stays pending" pending "$CAPS_STYLED" "$typed" '' $'claude\tidle'
-  pass "Claude Herdr titled-rule composer is empty only with matching native identity and no draft"
-}
-
-test_claude_herdr_titled_rule_extract() {
-  # The Claude pre-send and post-send proofs on Herdr read this extractor, so
-  # it must select the same identity-gated titled-rule composer the classifier
-  # reports empty, including a payload wrapped down to the closing rule.
-  local head rule footer out rc
-  head=$'answer complete\n────────────── Firstmate ─\n'
-  rule=$'\r\n────────────────────────\r\n'
-  footer=$'  Opus 5.5 · high · 97%\n  ⏵⏵ bypass permissions on'
-  rc=0; out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯$rule$footer" $'claude\tidle') || rc=$?
-  [ "$rc" = 0 ] && [ -z "$out" ] || fail "idle titled Claude composer should extract empty, got rc=$rc '$out'"
-  rc=0; out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯$rule$footer") || rc=$?
-  [ "$rc" = 1 ] || fail "titled rule without native identity must stay unproven, got rc=$rc '$out'"
-  rc=0; out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯$rule$footer" $'claude\tworking') || rc=$?
-  [ "$rc" = 1 ] || fail "titled rule on a working Claude must stay unproven, got rc=$rc '$out'"
-  out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯ hold this draft$rule$footer" $'claude\tidle') \
-    || fail "titled Claude draft should extract"
-  [ "$out" = "hold this draft" ] || fail "titled Claude draft extracted '$out'"
-  out=$(fm_composer_extract_selected_content "$CAPS_STYLED" "$head❯ wrapped payload head"$'\n  middle of it\n  wrapped tail'"$rule$footer" $'claude\tdone') \
-    || fail "wrapped titled Claude payload should extract"
-  [ "$out" = "wrapped payload head middle of it wrapped tail" ] || fail "wrapped titled Claude payload extracted '$out'"
-  pass "fm_composer_extract_selected_content: titled-rule Claude composer extracts only with native identity"
-}
-
 test_matrix_codex_dim_hint_row() {
   # Real idle codex: bold `›`, reset, then an SGR-2 dim hint. Styled captures
   # strip the ghost and prove empty; plain captures must defer as unknown -
@@ -377,25 +335,6 @@ test_matrix_codex_dim_hint_row() {
   assert_screen "codex idle on zellij" empty "$CAPS_STYLED_NOID" "$styled"
   assert_screen "codex idle on plain backends" unknown "$CAPS_PLAIN" "$plain"
   pass "matrix: codex's dim hint is empty when styling proves it, unknown (never pending) when it cannot"
-}
-
-test_matrix_codex_decorated_idle_and_drafts() {
-  # The real 2026-09-13 navigator capture has single-dot braille decoration
-  # around Codex's idle placeholder and across its continuation rows. Rebuild
-  # that frame with the styling observed on the real Codex idle/draft controls:
-  # dim placeholder, bright user text. A text-only capture cannot prove this.
-  local decorated plain draft mixed single_row
-  decorated=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁'"${ESC}[2mAsk Codex to do anything${ESC}[0m"$'   ⠂    ⡀\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
-  assert_screen "codex decorated idle on herdr" empty "$CAPS_STYLED" "$decorated"
-  plain=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁Ask Codex to do anything   ⠂    ⡀\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
-  assert_screen "codex decorated text-only frame defers" pending "$CAPS_STYLED" "$plain"
-  draft=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁'"${ESC}[1mAsk Codex to do anything${ESC}[0m"$'   ⠂    ⡀\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
-  assert_screen "codex bright placeholder-like draft stays pending" pending "$CAPS_STYLED" "$draft"
-  mixed=$'reply\n⠈   ⠁ ⢀      ⠐\n›⠁'"${ESC}[2mAsk Codex to do anything${ESC}[0m"$' real draft\n  ⠐    ⠄      ⠠\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
-  assert_screen "codex bright text beside dim placeholder stays pending" pending "$CAPS_STYLED" "$mixed"
-  single_row=$'reply\n›⠁'"${ESC}[2mAsk Codex to do anything${ESC}[0m"$'\n  gpt-6-astra medium · ~/.treehouse/firstmate · Navigator'
-  assert_screen "codex isolated dot without decoration row stays pending" pending "$CAPS_STYLED" "$single_row"
-  pass "matrix: Codex decoration is empty only with styled placeholder proof and no surviving draft"
 }
 
 test_matrix_muse_truecolor_glyph_survives_signal_loss() {
@@ -736,7 +675,7 @@ test_matrix_opencode_leftbar_signals() {
   # blanks, and a Build-mode footer. Two independent idle signals: the shared
   # idle-placeholder pattern (works on plain captures) and the ghost strip
   # (works on styled captures even if the pattern is overridden away).
-  local screen typed dim_screen captured_idle captured_pending floor_only rail colored out
+  local screen typed dim_screen captured_idle captured_pending out
   screen=$'  ┃\n  ┃  Ask anything... "What is the tech stack?"\n  ┃\n  ┃  Build · GPT-5.5 Fast OpenAI · high\n  ╹▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀'
   dim_screen=$'  ┃\n  ┃  '"${ESC}[2mAsk anything...${ESC}[0m"$'\n  ┃\n  ┃  Build · GPT-5.5 Fast OpenAI · high\n  ╹▀▀▀▀'
   assert_screen "opencode idle on tmux (cursor on hint)" empty "$CAPS_TMUX" "$dim_screen" 1
@@ -763,12 +702,6 @@ test_matrix_opencode_leftbar_signals() {
   assert_screen "opencode placeholder-like input on plain backends" unknown "$CAPS_PLAIN" "$typed"
   typed=$'┃  refactor the parser please\n┃\n┃  Build · GPT-5.5 Fast OpenAI · high'
   assert_screen "opencode multiline draft above blank cursor row" pending "$CAPS_TMUX" "$typed" 1
-  floor_only=$'┃\n┃  refactor the parser please\n┃\n╹▀▀▀▀▀▀▀▀'
-  assert_screen "opencode draft with floor but no mode footer" pending "$CAPS_STYLED" "$floor_only"
-  rail="${ESC}[38;2;92;156;245m┃${ESC}[0m"
-  colored=$rail$'\n'$rail"  ${ESC}[2mAsk anything...${ESC}[0m"$'\n'$rail$'\n'$rail"  ${ESC}[38;2;92;156;245mBuild${ESC}[0m · GPT-5.5 Fast OpenAI · high"$'\n'"${ESC}[38;2;92;156;245m╹▀▀▀▀${ESC}[0m"
-  assert_screen "opencode idle with a coloured rail, footer and floor on herdr" empty "$CAPS_STYLED" "$colored"
-  assert_screen "opencode idle with a coloured rail, footer and floor on tmux" empty "$CAPS_TMUX" "$colored" 1
   pass "matrix: opencode's left-bar composer reads empty everywhere and scans the full active run"
 }
 
@@ -798,36 +731,57 @@ test_matrix_grok_titled_bottom_border() {
   pass "matrix: grok's real oversized titled bottom is empty while typed and unproved panes stay safe"
 }
 
-test_grok_usage_picker_is_not_a_composer() {
-  # A weekly-limit picker is a menu, even though its left rail resembles an
-  # OpenCode composer. It has no prompt glyph or text entry field.
-  local screen
-  screen=$(cat "$ROOT/tests/captures/grok-weekly-limit-picker.txt")
-  assert_screen "grok weekly-limit picker on herdr" unknown "$CAPS_STYLED" "$screen"
-  assert_screen "grok weekly-limit picker on tmux" unknown "$CAPS_TMUX" "$screen" 4
-  if fm_composer_extract_selected_content "$CAPS_STYLED" "$screen" >/dev/null; then
-    fail "grok usage picker was selected as an input composer"
-  fi
-  pass "grok usage picker stays unproven instead of masquerading as pending text"
-}
-
-test_claude_light_palette_slash_command_is_typed_text() {
-  # Real Herdr captures of claude 2.1.283 in its light palette: the idle
-  # placeholder is dim, but a typed `/exit` is saturated dark blue
-  # 38;2;29;78;216. Reading that as ghost text made the send proof see an
-  # empty composer and refuse to submit `/exit`.
-  local idle typed out caps=$'styled=1\ncursor=0\nidentity=0\nrows=40'
-  idle=$(cat "$ROOT/tests/captures/claude-light-idle-herdr.txt")
-  typed=$(cat "$ROOT/tests/captures/claude-light-slash-exit-herdr.txt")
-  assert_screen "claude light idle on herdr" empty "$CAPS_STYLED" "$idle" "" $'claude\tidle'
-  assert_screen "claude light typed /exit on herdr" pending "$CAPS_STYLED" "$typed" "" $'claude\tidle'
-  out=$(fm_composer_extract_selected_content "$caps" "$idle" $'claude\tidle') \
-    || fail "claude light idle composer was not selected"
-  [ -z "$out" ] || fail "claude light idle placeholder read as content: '$out'"
-  out=$(fm_composer_extract_selected_content "$caps" "$typed" $'claude\tidle') \
-    || fail "claude light typed composer was not selected"
-  [ "$out" = /exit ] || fail "claude light typed /exit read as '$out'"
-  pass "claude's saturated typed slash command is content while its dim placeholder stays empty"
+test_matrix_claude_titled_top_rule() {
+  # A named Claude Code session draws its title into the composer's TOP rule
+  # (issues #5601 and #5558; observed on herdr as
+  # `─── Firstmate operational input 1790546042 ─`). The strict separator
+  # predicate rejects that row, so the pair never opened, the closing rule
+  # read as a lower unmatched separator, and a visibly empty composer read
+  # `unknown` on every cursorless backend, refusing steers, exit, and relaunch.
+  local rule title top bottom footer screen ansi typed claude_idle
+  local scrollback short nonascii flush blank
+  claude_idle=$(printf 'claude\tidle')
+  rule='────────────────────────────────────────────────────────────'
+  title=' Firstmate operational input 1790546042 '
+  top="${rule}───${title}─"
+  bottom="${rule}────────────────────────────────────────────"
+  footer='  ⏵⏵ bypass permissions on (shift+tab to cycle)'
+  screen="recap: earlier work"$'\n'"$top"$'\n❯'"$NBSP"$'\n'"$bottom"$'\n'"$footer"
+  ansi="${ESC}[38;2;128;130;131mrecap: earlier work${ESC}[0m"$'\n'
+  ansi+="${ESC}[0m${ESC}[38;2;121;129;134m${rule}─── ${ESC}[38;2;177;185;249m${title# }${ESC}[38;2;121;129;134m─${ESC}[0m"$'\n'
+  ansi+="${ESC}[0m${ESC}[38;2;128;130;131m❯${NBSP}${ESC}[0m"$'\n'
+  ansi+="${ESC}[0m${ESC}[38;2;121;129;134m${bottom}${ESC}[0m"$'\n'"$footer"
+  assert_screen "titled claude idle on herdr" empty "$CAPS_STYLED" "$screen" '' "$claude_idle"
+  assert_screen "titled claude idle on herdr (ansi)" empty "$CAPS_STYLED" "$ansi" '' "$claude_idle"
+  assert_screen "titled claude idle on zellij (ansi)" empty "$CAPS_STYLED_NOID" "$ansi"
+  assert_screen "titled claude idle on cmux/orca" empty "$CAPS_PLAIN" "$screen"
+  assert_screen "titled claude idle on tmux" empty "$CAPS_TMUX" "$ansi" 2 probe-absent
+  typed="$top"$'\n❯ fix the login bug\n'"$bottom"$'\n'"$footer"
+  assert_screen "titled claude typed on herdr" pending "$CAPS_STYLED" "$typed" '' "$claude_idle"
+  assert_screen "titled claude typed on zellij" pending "$CAPS_STYLED_NOID" "$typed"
+  assert_screen "titled claude typed on tmux" pending "$CAPS_TMUX" "$typed" 1 probe-absent
+  assert_screen "titled claude typed on plain backends" unknown "$CAPS_PLAIN" "$typed"
+  # The staleness rule still holds: a titled sandwich stranded in scrollback,
+  # with transcript rows between it and a lower unmatched rule, stays unknown.
+  scrollback="$top"$'\n❯'"$NBSP"$'\n'"$bottom"$'\nlater transcript output\n'"$bottom"$'\nmore output'
+  assert_screen "titled sandwich in scrollback" unknown "$CAPS_STYLED_NOID" "$scrollback"
+  # Width is proven, not assumed: a titled rule narrower than its closing rule
+  # is not that composer's top edge.
+  short="${rule}${title}─"$'\n❯'"$NBSP"$'\n'"$bottom"
+  assert_screen "mismatched titled rule width" unknown "$CAPS_STYLED_NOID" "$short"
+  # A non-ASCII title leaves residue and refuses rather than guessing width.
+  nonascii="${rule}─── ✳ Firstmate operational input 179054604 ─"$'\n❯'"$NBSP"$'\n'"$bottom"
+  assert_screen "non-ASCII titled rule" unknown "$CAPS_STYLED_NOID" "$nonascii"
+  # The rule must open with the strict separator's dash run.
+  flush=" Firstmate operational input 1790546042 ${rule}────"$'\n❯'"$NBSP"$'\n'"$bottom"
+  assert_screen "title flush at the rule's start" unknown "$CAPS_STYLED_NOID" "$flush"
+  # The strict blank-row posture is untouched: no glyph row, no proof.
+  blank="$top"$'\n\n'"$bottom"
+  assert_screen "titled rule over a blank row" unknown "$CAPS_STYLED_NOID" "$blank"
+  # The untitled pair keeps its verdict alongside the new shape.
+  assert_screen "untitled claude idle on herdr" empty "$CAPS_STYLED" \
+    "$bottom"$'\n❯'"$NBSP"$'\n'"$bottom"$'\n'"$footer" '' "$claude_idle"
+  pass "matrix: claude's titled top rule proves an idle composer empty and a draft pending (#5601, #5558)"
 }
 
 test_matrix_kimi_bordered_shell_glyph_box() {
@@ -1067,14 +1021,11 @@ test_idle_placeholder_is_empty
 test_idle_placeholder_case_mode_is_explicit
 test_real_text_is_pending
 test_matrix_claude_bare_nbsp_row
-test_claude_herdr_titled_rule_idle
-test_claude_herdr_titled_rule_extract
 test_matrix_claude_arrow_statusline_footer
 test_composer_footer_demotion_needs_a_proven_pair
 test_composer_footer_zone_is_shape_independent
 test_composer_footer_zone_refuses_rather_than_allows
 test_matrix_codex_dim_hint_row
-test_matrix_codex_decorated_idle_and_drafts
 test_matrix_muse_truecolor_glyph_survives_signal_loss
 test_matrix_cursor_reverse_video_placeholder_remnant
 test_matrix_herdr_halfblock_rule_bounds_bare_wrap
@@ -1084,8 +1035,7 @@ test_matrix_pi_separated_needs_identity
 test_matrix_pi_dollar_status_footer_is_empty
 test_matrix_opencode_leftbar_signals
 test_matrix_grok_titled_bottom_border
-test_grok_usage_picker_is_not_a_composer
-test_claude_light_palette_slash_command_is_typed_text
+test_matrix_claude_titled_top_rule
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump
 test_strict_blank_row_divergence

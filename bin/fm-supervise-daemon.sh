@@ -57,20 +57,18 @@
 #     PAUSE_RESURFACE_SECS recheck, never a wedge escalation, whether its pane
 #     reads idle or busy; only a status append that stops declaring the wait
 #     ends that routing. A captain-held transfer is not rechecked at all while
-#     the away-posture record (state/.afk-contract) exists: nobody is there to
-#     answer it, and the return brief lists it.
+#     an away record (state/.afk-contract, never quiet mode's) exists: nobody
+#     is there to answer it, and the return brief lists it.
 #     Crewmates are autonomous, so a delayed stale response does not stall a
 #     healthy crewmate's own progress.
 #     Buffered escalation delivery also has a max-defer alarm: if a digest stays
 #     undelivered past FM_MAX_DEFER_SECS, the daemon retries a normal flush and
 #     writes state/.subsuper-inject-wedged and attempts a configurable active
-#     alert if submit still cannot be confirmed. A harness-native launch then
-#     requeues the buffer as a durable wake row and exits loudly to hand
-#     supervision back to the Stop-hook path; a terminal-launched daemon keeps
-#     running with the buffer preserved.
-#   - Cheap heartbeat catch-all: every HEARTBEAT_SCAN_SECS the daemon greps all
-#     state/*.status for a captain-relevant line the per-wake classifier might
-#     have missed (e.g. a status verb outside CAPTAIN_RE) and escalates it.
+#     alert if submit still cannot be confirmed.
+#   - Cheap heartbeat catch-all: every HEARTBEAT_SCAN_SECS the daemon greps the
+#     state dir's task status logs for a captain-relevant line the per-wake
+#     classifier might have missed (e.g. a status verb outside CAPTAIN_RE) and
+#     escalates it.
 #
 # The robustness shell from the prior always-inject version is preserved:
 # single-instance lock (portable helper, no flock dependency), crash-loop
@@ -110,7 +108,7 @@
 #                                   recheck (default 14400, four hours); an
 #                                   `until` time cannot extend this bound, and a
 #                                   captain-held transfer is never rechecked
-#                                   while the away-posture record exists
+#                                   while an away record exists
 #          FM_ESCALATE_BATCH_SECS   buffer window for batched escalation
 #                                   digests; 0 = flush immediately (default 90)
 #          FM_HEARTBEAT_SCAN_SECS   cadence for the catch-all status scan
@@ -745,27 +743,14 @@ stale_window_is_busy() {  # <window> <state>
   [ "${verdict%% *}" = busy ]
 }
 
-escalate_add() {  # <state> <distilled-item> [<wake-key>]
-  local state=$1 item=$2 key=${3:-} buf prefix replacement line
+escalate_add() {  # <state> <distilled-item>
+  local state=$1 item=$2 buf line
   if line=$(unknown_wake_line "$item"); then
     unknown_wake_acknowledged "$state" "$line" && return 0
   fi
   buf="$state/.subsuper-escalations"
   [ -s "$buf" ] || _now > "${buf}.since"
-  if [ -n "$key" ]; then
-    prefix="{$key} "
-    item="$prefix$item"
-    if FM_ESC_PREFIX=$prefix awk 'index($0, ENVIRON["FM_ESC_PREFIX"]) == 1 { found = 1; exit } END { exit !found }' "$buf" 2>/dev/null; then
-      replacement=$(mktemp "$state/.subsuper-escalations.XXXXXX") || return 1
-      FM_ESC_PREFIX=$prefix FM_ESC_ITEM=$item awk '
-        index($0, ENVIRON["FM_ESC_PREFIX"]) == 1 { if (!seen++) print ENVIRON["FM_ESC_ITEM"]; next }
-        { print }
-      ' "$buf" > "$replacement" && mv "$replacement" "$buf" && return 0
-      rm -f "$replacement"
-      return 1
-    fi
-  fi
-  printf '%s\n' "$item" >> "$buf" || return 1
+  printf '%s\n' "$item" >> "$buf"
 }
 
 # _utf8_prefix: the longest prefix of <text> that fits in <max-bytes> bytes
@@ -915,14 +900,13 @@ escalate_flush() {  # <state>
 # single directive. Directives:
 #   off              disable the active alert entirely, regardless of position
 #                    (marker + flash remain)
-#   auto | default   platform default: macOS -> osascript; a Herdr primary on
-#                    another platform -> herdr; otherwise none
+#   auto | default   platform default: macOS -> osascript; otherwise none
 #   osascript        macOS Notification Center banner (backend-independent)
 #   herdr            herdr UI notification (herdr notification show)
 #   command:<cmd>    run <cmd> via `sh -c`, summary on $1 and on stdin
-# An absent config means auto, i.e. default-ON on macOS and on a Herdr primary:
-# the alarm's whole purpose is to never be silent, so the reachable channel fires
-# unless the captain explicitly disables it.
+# An absent config means auto, i.e. default-ON on macOS: the alarm's whole
+# purpose is to never be silent, so the reachable OS channel fires unless the
+# captain explicitly disables it.
 
 # Print the configured channel directives, one per line. FM_WEDGE_ALARM_CHANNEL
 # wins (a single directive); else each non-empty, non-comment line of
@@ -947,12 +931,14 @@ wedge_alarm_configured_channels() {
   [ -n "$found" ] || printf 'auto\n'
 }
 
-# Resolve the default alert channel. On Linux, Herdr's notification surface is
-# available independently of the blocked composer when Herdr owns the primary.
+# Resolve the platform's default OS-level channel for `auto`. macOS reaches the
+# captain via an osascript Notification Center banner; other platforms have no
+# built-in OS channel (the captain wires a command: directive), so this prints
+# nothing and wedge_alarm_notify logs that the marker is the only signal.
 wedge_alarm_platform_default() {
   case "$(uname)" in
     Darwin) command -v osascript >/dev/null 2>&1 && printf 'osascript' ;;
-    *) [ "${FM_SUPERVISOR_BACKEND:-}" = herdr ] && command -v herdr >/dev/null 2>&1 && printf 'herdr' ;;
+    *) : ;;
   esac
 }
 
@@ -1133,8 +1119,8 @@ wedge_alarm_notify() {  # <summary> <marker>
 # marker firstmate/recovery can surface, flashes the tmux supervisor client's
 # status line when applicable, and attempts a
 # configurable backend-independent active alert (wedge_alarm_notify). Nothing
-# is lost - the buffer is preserved, or requeued as a durable wake row when a
-# native launch hands supervision back - and the stall stops being invisible.
+# is lost - the buffer and the
+# wake-queue both survive - but the stall stops being invisible.
 inject_wedge_alarm() {  # <state> <age-seconds>
   local state=$1 age=$2 marker target backend max_defer now notify=1
   marker="$state/.subsuper-inject-wedged"
@@ -1173,19 +1159,6 @@ inject_wedge_alarm() {  # <state> <age-seconds>
   if [ "$notify" -eq 1 ]; then
     wedge_alarm_notify "away-mode escalations WEDGED ${age}s undelivered - see $marker" "$marker"
   fi
-  # A native daemon cannot keep claiming supervision after its only route to
-  # the primary has remained blocked through the max-defer window. The main
-  # loop requeues the buffer as a durable wake row and exits its tracked
-  # background job, which makes the ordinary Stop-hook path eligible again.
-  FM_DAEMON_HANDOFF=1
-}
-
-# Only a harness-native launch (bin/fm-afk-launch.sh start-native records this
-# exact line) runs the daemon as the primary's tracked background job, whose
-# exit wakes the primary. A terminal-launched daemon's exit wakes nothing, so it
-# must keep supervising instead of handing back.
-daemon_launched_natively() {  # <state>
-  [ "$(cat "$1/.afk-daemon-terminal" 2>/dev/null)" = $'none\t-\tnative' ]
 }
 
 _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first arrived (sidecar epoch)
@@ -1212,8 +1185,8 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #     re-peek; gone -> clear; still declaring the wait, on an idle OR a busy pane
 #     -> escalate a recheck digest naming which human the wait is on, and reset
 #     the window (repeating bounded re-surface, never a wedge).
-#  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, grep state/*.status for a
-#     captain-relevant line the per-wake classifier missed and escalate it.
+#  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, run the catch-all status scan in
+#     the block below and escalate what it finds; that block owns its file set.
 housekeeping() {  # <state>
   local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason
   now=$(_now)
@@ -1313,7 +1286,7 @@ housekeeping() {  # <state>
     due="$state/.subsuper-pause-until-due-$key"
     until=
     bounded_until=0
-    if status_is_captain_held "$last" && fm_afk_contract_present "$state"; then
+    if status_is_captain_held "$last" && fm_afk_contract_away_present "$state"; then
       continue
     fi
     if until=$(status_paused_until "$last"); then
@@ -1367,11 +1340,17 @@ housekeeping() {  # <state>
   #     because the event this backstop most needs to catch is precisely one a
   #     later routine append has already moved past; fm-classify-lib.sh's span
   #     read decides relevance, and the classified-through offset is the dedup.
+  #     A remote mate's own parent channel is not a self-home task status log,
+  #     so it is excluded here exactly as in the watcher's twin backstop
+  #     (fm-watch.sh heartbeat_scan_finds_actionable); the home-shape-aware
+  #     resolution lives in status_scan_parent_channel_exclude.
   if [ "$(_file_age "$state/.subsuper-last-scan")" -ge "${FM_HEARTBEAT_SCAN_SECS:-$HEARTBEAT_SCAN_SECS_DEFAULT}" ]; then
     _now > "$state/.subsuper-last-scan"
-    local event record rest endpoint ident rc
+    local event record rest endpoint ident rc exclude
+    exclude=$(status_scan_parent_channel_exclude "$state")
     for f in "$state"/*.status; do
       [ -e "$f" ] || [ -L "$f" ] || continue
+      [ "$f" = "$exclude" ] && continue
       task=$(basename "$f"); task="${task%.status}"
       record=$(status_span_first_actionable_record "$f" \
         "$(status_seen_offset "$state" "$task")")
@@ -1546,13 +1525,11 @@ should_force_self() {  # <reason>
 
 # A real watcher WAKE reason starts with one of these prefixes. Anything else on
 # the watcher child's stdout (e.g. "watcher: already running" on a singleton-lock
-# collision, reachable when a Stop-armed watcher or an orphaned watcher child
+# collision, reachable if the daemon was SIGKILL'd and its orphaned watcher child
 # still holds the #29 singleton lock) is a STATUS line, not a wake: handling it
 # as an unknown wake would flood the escalation buffer and restart the child with
-# no crash backoff. The main loop idles a non-wake line (log + sleep + continue)
-# while a live peer watcher holds the lock with a fresh beacon, and otherwise a
-# native launch hands supervision back, so a singleton collision cannot hot-loop
-# escalations.
+# no crash backoff. The main loop treats a non-wake line as idle (log + sleep +
+# continue), so a singleton collision cannot hot-loop escalations.
 is_wake_reason() {  # <reason>
   local reason=$1
   case "$reason" in
@@ -1567,8 +1544,8 @@ is_wake_reason() {  # <reason>
 # signal:<files> (bin/fm-watch.sh). Classify it as a signal so the capture file
 # is populated, suppression markers commit, and the digest names the decision
 # instead of "unknown wake:".
-handle_wake() {  # <reason> <state> [<wake-key>]
-  local reason=$1 state=$2 wake_key=${3:-} decision action distilled task last stale_detail
+handle_wake() {  # <reason> <state>
+  local reason=$1 state=$2 decision action distilled task last stale_detail
   local capture="$state/.subsuper-classified-end.$$" span_record='' span_rc='' endpoint ident rest sig marker
   local kind="" arg="" classification_failed=0 span_failure_repeat=0
   : > "$capture" || return 1
@@ -1634,15 +1611,6 @@ handle_wake() {  # <reason> <state> [<wake-key>]
                          || decision="escalate|${reason#stale: }"
                        ;;
                    esac ;;
-              esac
-              # A permission or question prompt waiting on screen (bin/fm-watch.sh
-              # prompt_waiting_check, or a herdr blocked push from
-              # bin/fm-push-transition-lib.sh) outranks even a
-              # declared wait: the declaration accounts for quiet, and nothing
-              # but an answer clears a question.
-              case "$stale_detail" in
-                'a permission or question prompt is waiting in the pane'*|'herdr: agent '*' - waiting on human'*)
-                  decision="escalate|${reason#stale: }" ;;
               esac ;;
     check:*)  decision=$(classify_check "$reason") ;;
     heartbeat|heartbeat:*) decision=$(classify_heartbeat) ;;
@@ -1659,7 +1627,7 @@ handle_wake() {  # <reason> <state> [<wake-key>]
   case "$action" in
     escalate)
       log "escalate: $reason -> $distilled"
-      if escalate_add "$state" "$distilled" "$wake_key"; then
+      if escalate_add "$state" "$distilled"; then
         # A terminal-stale escalate must not leave a persistence marker behind, or
         # housekeeping re-escalates the same pane as a false wedge later.
         [ "$kind" = "stale" ] && stale_marker_remove "$arg" "$state"
@@ -1720,7 +1688,7 @@ handle_wake() {  # <reason> <state> [<wake-key>]
 }
 
 handle_durable_wakes() {  # <watcher-reason> <state>
-  local fallback_reason=$1 state=$2 out err tab epoch sequence kind key payload rest wake_key
+  local fallback_reason=$1 state=$2 out err tab epoch sequence kind key payload rest
   local handled=0 failed=0 ack_through ack_generation
   out=$(mktemp "$state/.subsuper-wake-drain.XXXXXX") || return 1
   err=$(mktemp "$state/.subsuper-wake-drain.XXXXXX") || { rm -f "$out"; return 1; }
@@ -1735,9 +1703,7 @@ handle_durable_wakes() {  # <watcher-reason> <state>
     case "$epoch" in ''|*[!0-9]*) continue ;; esac
     case "$sequence" in ''|*[!0-9]*) continue ;; esac
     case "$kind" in signal|stale|check|heartbeat) ;; *) continue ;; esac
-    wake_key=
-    [ "$kind" = check ] && wake_key="check:$key"
-    handle_wake "$payload" "$state" "$wake_key" || failed=1
+    handle_wake "$payload" "$state" || failed=1
     handled=$((handled + 1))
   done < "$out"
   if [ "$handled" -eq 0 ]; then handle_wake "$fallback_reason" "$state" || failed=1; fi
@@ -1919,44 +1885,8 @@ fm_super_main() {
   }
   trap cleanup TERM INT
 
-  requeue_escalations() {
-    local buffer="$STATE/.subsuper-escalations" message
-    [ -s "$buffer" ] || return 0
-    message=$(awk 'NR > 1 { printf " | " } { printf "%s", $0 }' "$buffer") || return 1
-    [ -n "$message" ] || return 1
-    fm_wake_append signal away-daemon-handback "$message" || return 1
-    rm -f "$buffer" "$buffer.since"
-  }
-
-  fail_watcher_start() {
-    local detail=$1
-    printf 'error: away-mode supervision unavailable: %s; ordinary turn-end supervision must resume\n' "$detail" >&2
-    log "ERROR: away-mode supervision unavailable: $detail"
-    if [ -n "$WATCHER_PID" ]; then
-      kill "$WATCHER_PID" 2>/dev/null || true
-      wait "$WATCHER_PID" 2>/dev/null || true
-    fi
-    [ -z "$CUR_TMP" ] || rm -f "$CUR_TMP"
-    [ "${FM_DAEMON_HANDOFF:-0}" = 1 ] \
-      || wedge_alarm_notify "away-mode supervision handed back: $detail - see $LOG" "$LOG"
-    if ! requeue_escalations; then
-      printf 'error: could not requeue buffered escalations; they remain at %s/.subsuper-escalations\n' "$STATE" >&2
-      log "ERROR: could not requeue buffered escalations; they remain at $STATE/.subsuper-escalations"
-    fi
-    # The Claude Stop auto-arm skips every turn while this legacy daemon flag
-    # exists. Clear it under our daemon lock before relinquishing ownership;
-    # the confirmed away-posture record remains intact for the return brief.
-    if ! rm -f "$STATE/.afk"; then
-      printf 'error: could not clear away daemon flag at %s/.afk; Stop auto-arm remains gated\n' "$STATE" >&2
-      log "ERROR: could not clear away daemon flag at $STATE/.afk"
-    fi
-    fm_lock_release "$LOCK" 2>/dev/null || true
-    rm -f "$PIDFILE" 2>/dev/null || true
-    trap - TERM INT
-  }
-
   # --- crash-loop guard -----------------------------------------------------
-  local crash_times=() backoff_secs=$CRASH_NORMAL_SLEEP crash_alerted=0
+  local crash_times=() backoff_secs=$CRASH_NORMAL_SLEEP
   record_crash() {
     local now t
     now=$(_now)
@@ -1970,9 +1900,9 @@ fm_super_main() {
       log "ERROR: watcher crashed ${#crash_times[@]} times within ${CRASH_WINDOW}s; backing off ${CRASH_BACKOFF}s"
       crash_times=()
       backoff_secs=$CRASH_BACKOFF
-      return 1
+    else
+      backoff_secs=$CRASH_NORMAL_SLEEP
     fi
-    backoff_secs=$CRASH_NORMAL_SLEEP
   }
 
   start_watcher() {
@@ -1981,7 +1911,7 @@ fm_super_main() {
     WATCHER_PID=$!
   }
 
-  local rc reason start_retried=0
+  local rc reason
   while true; do
     # --- pane-gone guard (preserved) ---------------------------------------
     # With the #29 watcher's enqueue-before-suppress, a wake is no longer
@@ -2011,53 +1941,22 @@ fm_super_main() {
         fi
         CUR_TMP=""
         if [ "$rc" -ne 0 ] || [ -z "$reason" ]; then
-          WATCHER_PID=""
-          if ! record_crash; then
-            if daemon_launched_natively "$STATE"; then
-              fail_watcher_start "watcher crash loop (last rc=$rc)"
-              return 1
-            fi
-            if [ "$crash_alerted" = 0 ]; then
-              crash_alerted=1
-              wedge_alarm_notify "away-mode watcher crash-looping; daemon keeps retrying - see $LOG" "$LOG"
-            fi
-          fi
+          record_crash
           log "watcher exited rc=$rc reason='$reason'; restarting after ${backoff_secs}s"
+          WATCHER_PID=""
           sleep "$backoff_secs"
           continue
         fi
-        # A non-wake stdout line (notably a singleton collision) means this
-        # daemon does not own a watcher. A live peer watcher with a fresh beacon
-        # is still supervising, so idle and retry until it exits. With no live
-        # peer, retry the start once at once, because the peer may have released
-        # the lock after the collision. If that retry also fails, a native launch
-        # releases supervision instead of holding the Stop-hook path while queued
-        # rows cannot be handled; a terminal-launched daemon keeps idling.
+        # Non-wake stdout (e.g. a watcher singleton-collision "already running"
+        # status line) is NOT a wake: idling here prevents an escalation flood
+        # and a backoff-less child restart. record_crash is intentionally
+        # skipped (rc=0, this is normal idle, not a crash).
         if ! is_wake_reason "$reason"; then
-          if fm_watcher_healthy "$STATE" "$WATCH" "${FM_GUARD_GRACE:-$(fm_poll_derived_grace)}" "$FM_HOME"; then
-            log "watcher non-wake stdout while live peer pid $FM_WATCHER_HEALTHY_PID holds the watcher lock, idling: $reason"
-            start_retried=0
-            WATCHER_PID=""
-            sleep "${FM_HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}"
-            continue
-          fi
-          if [ "$start_retried" = 0 ]; then
-            log "watcher non-wake stdout with no live peer watcher, retrying start once: $reason"
-            start_retried=1
-            WATCHER_PID=""
-            continue
-          fi
-          if ! daemon_launched_natively "$STATE"; then
-            log "watcher non-wake stdout with no live peer watcher; terminal-launched daemon keeps supervising, idling: $reason"
-            WATCHER_PID=""
-            sleep "${FM_HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}"
-            continue
-          fi
-          fail_watcher_start "$reason"
-          return 1
+          log "watcher non-wake stdout, idling: $reason"
+          WATCHER_PID=""
+          sleep "${HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}"
+          continue
         fi
-        start_retried=0
-        crash_alerted=0
         log "wake: $reason"
         if ! handle_durable_wakes "$reason" "$STATE"; then
           log "durable wake handling was not acknowledged; restarting for recovery"
@@ -2076,10 +1975,6 @@ fm_super_main() {
     if [ "$(_file_age "$STATE/.subsuper-last-housekeep")" -ge "${FM_HOUSEKEEPING_TICK:-$HOUSEKEEPING_TICK_DEFAULT}" ]; then
       _now > "$STATE/.subsuper-last-housekeep"
       housekeeping "$STATE"
-      if [ "${FM_DAEMON_HANDOFF:-0}" = 1 ] && daemon_launched_natively "$STATE"; then
-        fail_watcher_start "escalation undeliverable past FM_MAX_DEFER_SECS"
-        return 1
-      fi
     fi
   done
 }

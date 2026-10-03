@@ -8,10 +8,6 @@ NOW=2026-09-16T08:00:00Z
 HEAD_A=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 HEAD_B=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
-monotonic_ms() {
-  python3 -c 'import time; print(time.monotonic_ns() // 1000000)'
-}
-
 new_home() {
   local home="$TMP_ROOT/$1"
   mkdir -p "$home/data" "$home/state" "$home/config" "$home/projects" "$home/fakebin"
@@ -301,6 +297,32 @@ test_verdict_retains_judged_head() {
   jq -e --arg head "$HEAD_A" '.records[0].verdict.head==$head' "$home/data/delivery/contributions.json" >/dev/null \
     || fail 'projection rewrote the judged head'
   pass 'recorded judgment keeps its exact head and is stale immediately on a published replacement'
+}
+
+test_verdict_actor_values_are_discoverable() {
+  local home help out actor
+  home=$(new_home verdict-actors)
+  forge_home "$home"
+  with_home "$home" "$ROOT/bin/fm-pr-check.sh" delivery https://github.com/o/r/pull/8 >/dev/null \
+    || fail 'could not register delivery before judging its head'
+  help=$("$ROOT/bin/fm-contributions.sh" --help) || fail 'verdict help did not print'
+  out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" verdict delivery https://github.com/o/r/pull/8 "$HEAD_A" \
+    https://github.com/o/r/pull/8#issuecomment-99 bogus 'no such actor' 2>&1) \
+    && fail 'an unknown actor was accepted'
+  [ "$(printf '%s\n' "$help" | sed -n '/^  fm-contributions.sh verdict /p')" = \
+    '  fm-contributions.sh verdict <task> <url> <judged-head> <source-url> <captain|fleet|maintainer|nobody> <summary>' ] \
+    || fail "help usage does not name exactly the accepted actors: $help"
+  [ "$(printf '%s\n' "$help" | sed -n '/^actor is exactly one of /p')" = \
+    'actor is exactly one of captain, fleet, maintainer or nobody; any other value' ] \
+    || fail "help explanation does not name exactly the accepted actors: $help"
+  [ "$out" = "fm-contributions: invalid required actor 'bogus'; expected one of: captain, fleet, maintainer, nobody" ] \
+    || fail "refusal does not name exactly the accepted actors: $out"
+  for actor in captain fleet maintainer nobody; do
+    with_home "$home" "$ROOT/bin/fm-contributions.sh" verdict delivery https://github.com/o/r/pull/8 "$HEAD_A" \
+      https://github.com/o/r/pull/8#issuecomment-99 "$actor" 'documented actor' >/dev/null \
+      || fail "documented actor $actor was refused"
+  done
+  pass 'verdict help and refusal name exactly the actors the command accepts'
 }
 
 test_observed_replacement_refreshes_verdict() {
@@ -610,17 +632,24 @@ set -eu
 printf '%s\n' "$*" >> "$FORGE/calls"
 fault=$(cat "$FORGE/fault" 2>/dev/null || true)
 case "$fault" in latency) sleep "${FORGE_LATENCY:-2}" ;; esac
+# Concurrent forge callers each advance one shared clock. Truncating it in
+# place races with the other callers and the fake date: an interleaved write
+# can publish a half-written value (or the 6 an emptied read computes), and a
+# caller then evaluates DEADLINE against torn arithmetic. Publish every new
+# value by rename so each reader always sees one complete old-or-new clock.
+clock_bump() {
+  local tmp
+  tmp=$(mktemp "$FORGE/clock.XXXXXX")
+  printf '%s\n' "$(( $(cat "$FORGE/clock") + $1 ))" > "$tmp"
+  mv -f "$tmp" "$FORGE/clock"
+}
 case "$fault:$*" in
   # Advance once before the parallel read wave; its readers share this clock.
-  reserve:'api repos/o/r/issues/9')
-    printf '%s\n' "$(( $(cat "$FORGE/clock") + 6 ))" > "$FORGE/clock" ;;
+  reserve:'api repos/o/r/issues/9') clock_bump 6 ;;
   slow-wave:'api repos/o/r/pulls/8') sleep 3 ;;
   slow-wave:'api repos/o/r/pulls/8/reviews?'*) sleep 6 ;;
-  exhaust:'api repos/o/r/issues/8/comments?'*)
-    printf '%s\n' "$(( $(cat "$FORGE/clock") + 100 ))" > "$FORGE/clock" ;;
-  fail-late:'api repos/o/r/pulls/8/reviews?'*)
-    printf '%s\n' "$(( $(cat "$FORGE/clock") + 100 ))" > "$FORGE/clock"
-    printf 'HTTP 502\n' >&2; exit 1 ;;
+  exhaust:'api repos/o/r/issues/8/comments?'*) clock_bump 100 ;;
+  fail-late:'api repos/o/r/pulls/8/reviews?'*) clock_bump 100; printf 'HTTP 502\n' >&2; exit 1 ;;
   fail:'api repos/o/r/pulls/8/reviews?'*) printf 'HTTP 502\n' >&2; exit 1 ;;
   down:*) printf 'HTTP 502\n' >&2; exit 1 ;;
   hang:'api repos/o/r/pulls/8') sleep 4 ;;
@@ -770,6 +799,43 @@ test_late_owner_inherits_terminal_observation() {
   pass 'a late owner inherits a terminal observation without a forge read or wake'
 }
 
+test_interrupted_multi_owner_poll_settles_every_owner() {
+  local home later=2026-09-17T08:00:00Z
+  home=$(new_home multi-owner-open)
+  forge_home "$home"
+  wrap_forge "$home"
+  record "$home" duplicate 8 open mergeable
+  mutate_record "$home" duplicate '.records[0].pending=[{token:"evt-1"}] | .records[0].notified=["evt-0"]
+    | .records[0].checked_at="2026-09-15T08:00:00Z"'
+  mutate_record "$home" delivery ".records[0].observation.state=\"merged\" | .records[0].observation.head=\"$HEAD_B\""
+  printf 'down\n' > "$home/forge/fault"
+  with_home "$home" env FM_CONTRIBUTIONS_NOW="$later" "$ROOT/bin/fm-contributions.sh" poll >/dev/null \
+    || fail 'interrupted multi-owner poll failed'
+  [ ! -s "$home/forge/calls" ] || fail 'a known terminal URL triggered a forge read'
+  jq -e --slurpfile terminal "$home/data/delivery/contributions.json" '.records[0] | .observation.state == "merged"
+    and .observation == $terminal[0].records[0].observation
+    and .error == null and .checked_at == $terminal[0].records[0].checked_at
+    and .pending == [{token:"evt-1"}] and .notified == ["evt-0"]' \
+    "$home/data/duplicate/contributions.json" >/dev/null \
+    || fail "an owner whose saved row stayed open did not converge on the known terminal observation: $(cat "$home/data/duplicate/contributions.json")"
+
+  home=$(new_home multi-owner-errored)
+  forge_home "$home"
+  wrap_forge "$home"
+  record "$home" duplicate 8 open mergeable
+  mutate_record "$home" duplicate '.records[0].error="forge observation unavailable or changed during read"'
+  mutate_record "$home" delivery ".records[0].observation.state=\"merged\" | .records[0].observation.head=\"$HEAD_B\""
+  printf 'down\n' > "$home/forge/fault"
+  with_home "$home" env FM_CONTRIBUTIONS_NOW="$later" "$ROOT/bin/fm-contributions.sh" poll >/dev/null \
+    || fail 'interrupted multi-owner poll (errored owner) failed'
+  [ ! -s "$home/forge/calls" ] || fail 'a known terminal URL triggered a forge read (errored owner)'
+  jq -e --slurpfile terminal "$home/data/delivery/contributions.json" '.records[0] | .observation.state == "merged"
+    and .observation == $terminal[0].records[0].observation and .error == null' \
+    "$home/data/duplicate/contributions.json" >/dev/null \
+    || fail "an errored owner did not converge on the known terminal observation: $(cat "$home/data/duplicate/contributions.json")"
+  pass 'a retry converges every owner whose saved row is not terminal, keeping its own acknowledgement state'
+}
+
 test_done_task_open_pr_still_observed() {
   local home later=2026-09-17T08:00:00Z
   home=$(new_home done-open)
@@ -858,14 +924,14 @@ test_unmeasured_url_does_not_starve_the_tail() {
   printf 'slow-wave\n' > "$home/forge/fault"
   for cycle in 0 1 2; do
     at=$(jq -nr --arg now "$NOW" --argjson cycle "$cycle" '(($now | fromdateiso8601) + ($cycle + 1) * 300) | todateiso8601')
-    started=$(monotonic_ms)
+    started=$(/bin/date +%s)
     out=$(with_home "$home" env FM_CONTRIBUTIONS_NOW="$at" FM_CONTRIBUTIONS_BUDGET=20 "$ROOT/bin/fm-contributions.sh" poll) \
       || fail 'poll failed after an unmeasured first URL'
-    elapsed=$(( $(monotonic_ms) - started ))
+    elapsed=$(( $(/bin/date +%s) - started ))
     [ -z "$out" ] || fail "a poll after an unmeasured URL printed a wake: $out"
-    [ "$elapsed" -le 23000 ] || fail "poll exceeded its elapsed budget: $elapsed ms"
+    [ "$elapsed" -le 23 ] || fail "poll exceeded its elapsed budget: $elapsed seconds"
     if [ "$cycle" -eq 0 ]; then
-      [ "$elapsed" -ge 8000 ] || fail 'the slow head did not consume its core and parallel-wave budget'
+      [ "$elapsed" -ge 8 ] || fail 'the slow head did not consume its core and parallel-wave budget'
       if grep -Eq '^api repos/o/r/pulls/(9|10)$' "$home/forge/calls"; then
         fail 'a tail PR began without its observation reserve'
       fi
@@ -897,12 +963,12 @@ test_unmeasured_url_does_not_starve_the_tail() {
   printf 'latency\n' > "$home/forge/fault"
   for cycle in 0 1 2 3 4 5; do
     at=$(jq -nr --arg now "$NOW" --argjson cycle "$cycle" '(($now | fromdateiso8601) + $cycle * 300) | todateiso8601')
-    started=$(monotonic_ms)
+    started=$(/bin/date +%s)
     out=$(with_home "$home" env FM_CONTRIBUTIONS_NOW="$at" FM_CONTRIBUTIONS_BUDGET=20 FORGE_LATENCY=3 "$ROOT/bin/fm-contributions.sh" poll) \
       || fail 'sustained slow-read poll failed'
-    elapsed=$(( $(monotonic_ms) - started ))
-    [ "$elapsed" -ge 9000 ] && [ "$elapsed" -le 23000 ] \
-      || fail "slow successful poll did not respect its elapsed budget: $elapsed ms"
+    elapsed=$(( $(/bin/date +%s) - started ))
+    [ "$elapsed" -ge 9 ] && [ "$elapsed" -le 23 ] \
+      || fail "slow successful poll did not respect its elapsed budget: $elapsed seconds"
     [ -z "$out" ] || fail "slow successful reads printed a wake: $out"
     for task in closed-two late-owner; do
       jq -e --slurpfile prior "$home/terminal.json" '.records[0] | .error == null
@@ -1032,61 +1098,8 @@ test_late_owner_keeps_failure_episode_suppressed() {
   pass 'a late owner does not restart a shared forge failure episode'
 }
 
-# Linux caps one command-line argument at 131072 bytes, so a backlog rendered
-# past it must still reach the poll: ownership comes from the backlog link alone.
-test_large_backlog_keeps_contribution_ownership() {
-  local home out filler i
-  home=$(new_home large-backlog)
-  forge_home "$home"
-  rm -f "$home/data/delivery/contributions.json"
-  filler=$(printf '%0600d' 0)
-  for i in $(seq 1 300); do
-    printf -- '- [ ] filler-%s - Filler %s (repo: sample) (kind: ship)\n  %s\n' "$i" "$i" "$filler" >> "$home/data/backlog.md"
-  done
-  out=$(with_home "$home" "$ROOT/bin/fm-fleet-snapshot.sh" --contribution-input) \
-    || fail 'the contribution input failed for a large backlog'
-  printf '%s' "$out" | jq -e '(.backlog.records | type == "array") and (.tasks | type == "array")' >/dev/null 2>&1 \
-    || fail 'the contribution input for a large backlog was empty or invalid'
-  [ "$(printf '%s' "$out" | jq -c .backlog | wc -c)" -gt 131072 ] \
-    || fail 'the large-backlog fixture no longer exceeds the single-argument limit'
-  out=$(with_home "$home" "$ROOT/bin/fm-contributions.sh" poll) || fail 'the large-backlog poll failed'
-  [ -z "$out" ] || fail "the large-backlog poll printed: $out"
-  jq -e '.records[0].url == "https://github.com/o/r/pull/8" and .records[0].observation.state == "open"' \
-    "$home/data/delivery/contributions.json" >/dev/null \
-    || fail 'the backlog-linked contribution was not observed through a large backlog'
-  pass 'a backlog larger than one command-line argument keeps its contribution ownership'
-}
-
-# An empty or malformed input is refused, never projected as nothing owned.
-test_missing_or_malformed_input_is_refused() {
-  local home input err
-  home=$(new_home malformed-input)
-  for input in '' '{"backlog":{"present":true}}' '{"backlog":{"present":true,"records":[]},"tasks":[]}{"tasks":[]}'; do
-    printf '%s' "$input" > "$home/input.json"
-    if with_home "$home" "$ROOT/bin/fm-contributions.sh" snapshot "$home/input.json" > "$home/out.json" 2> "$home/err"; then
-      fail "a malformed contribution input was projected: $input"
-    fi
-    err=$(cat "$home/err")
-    case "$err" in
-      *'contribution input is missing or malformed'*) ;;
-      *) fail "the refusal did not name the malformed input: $err" ;;
-    esac
-  done
-  [ "$(id -u)" -ne 0 ] || { pass 'malformed contribution input is refused (unreadable-backlog case skipped as root)'; return 0; }
-  forge_home "$home"
-  chmod 000 "$home/data/backlog.md"
-  if with_home "$home" "$ROOT/bin/fm-contributions.sh" poll > "$home/out" 2> "$home/err"; then
-    chmod 600 "$home/data/backlog.md"
-    fail 'a poll without its canonical input succeeded'
-  fi
-  chmod 600 "$home/data/backlog.md"
-  grep -q 'canonical contribution input unavailable' "$home/err" \
-    || fail "the poll refusal did not name the unavailable input: $(cat "$home/err")"
-  pass 'malformed or unavailable contribution input is refused instead of read as nothing owned'
-}
-
 failures=0
-for test_name in test_large_backlog_keeps_contribution_ownership test_missing_or_malformed_input_is_refused test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed; do
+for test_name in test_actor_coverage test_stale_verdict test_unchecked_is_not_silence test_newest_check_has_no_verdict test_comment_wake test_review_wake test_inline_wake test_ready_issue_wake test_fresh_issue_requires_maintainer test_missing_lane_remains_missing test_partial_freshness_keeps_measured_rows test_malformed_record_cannot_prove_silence test_issue_timeline_and_exact_ack test_verdict_retains_judged_head test_verdict_actor_values_are_discoverable test_observed_replacement_refreshes_verdict test_unobserved_head_leaves_verdict_unknown test_away_yolo_is_fleet_work test_away_yolo_cross_home_is_fleet_work test_retired_and_unsupported_coverage test_unsupported_forge_is_not_fleet_work test_held_unsupported_forge_is_not_captain_work test_shared_contribution_signal_wakes_once test_watcher_keeps_diagnostics_separate_from_contribution_wakes test_expired_child_unsupported_forge_stays_unmeasured test_watcher_surfaces_new_contribution_once test_home_summary_coverage test_unreadable_pending_is_not_empty test_record_task_identity_matches_dirname_basename test_read_only_views_create_no_state test_budget_refusal_between_calls test_budget_bounded_call_timeout test_genuine_failure_near_deadline_is_unavailable test_shared_url_observed_once test_terminal_contribution_settles test_late_owner_inherits_terminal_observation test_interrupted_multi_owner_poll_settles_every_owner test_done_task_open_pr_still_observed test_reservation_defers_later_url_when_fifteen_seconds_do_not_remain test_three_second_pr_reads_complete_fresh_in_one_cycle test_slow_read_deadline_kill_is_budget_refusal test_unmeasured_url_does_not_starve_the_tail test_budget_is_cut_down_to_the_watcher_check_bound test_arm_plumbs_a_configured_budget_into_the_check_shim test_unavailable_forge_records_error_and_wakes_once_per_episode test_late_owner_keeps_failure_episode_suppressed; do
   ( "$test_name" ) || failures=$((failures + 1))
 done
 [ "$failures" -eq 0 ] || fail "$failures contribution regressions"

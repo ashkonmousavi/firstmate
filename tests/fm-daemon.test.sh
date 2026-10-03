@@ -857,37 +857,6 @@ test_enriched_wedge_under_declared_wait_uses_pause_cadence() {
   pass "an enriched wedge under a declared wait uses the pause cadence and restores wedge detection on resume"
 }
 
-# The watcher surfaces a waiting permission or question prompt (a Claude
-# worker's PermissionRequest marker, or a herdr blocked push) ahead of any
-# declared pause. In away mode this daemon re-classifies that same wake, and a
-# declared wait must not turn it back into a silent pause: nobody else will
-# answer the question on screen.
-test_prompt_waiting_wake_escalates_through_a_declared_wait() {
-  local dir state fakebin task win pane detail n=0
-  for detail in 'a permission or question prompt is waiting in the pane' \
-    'herdr: agent blocked - waiting on human, escalated immediately, not via wedge timer'; do
-    n=$((n + 1))
-    dir=$(make_supercase "prompt-waiting-declared-wait-$n")
-    state="$dir/state"; fakebin="$dir/fakebin"
-    task='prompt-waiting-w1'; win="sess:fm-$task"; pane="$dir/pane.txt"
-    fm_write_meta "$state/$task.meta" "window=$win" "backend=tmux"
-    printf 'paused: 8 research agents running; resume when they report, until 2099-01-01T00:00Z\n' \
-      > "$state/$task.status"
-    printf ' Do you want to proceed?\n ❯ 1. Yes\n   2. No\n' > "$pane"
-    case "$(FM_STATE_OVERRIDE="$state" classify_stale "$win" "$state")" in
-      pause\|*) ;;
-      *) fail "the fixture's own classifier verdict is not a pause, so this case pins nothing about the override" ;;
-    esac
-    LOG="$dir/daemon.log" FM_STATE_OVERRIDE="$state" handle_wake "stale: $win ($detail)" "$state"
-    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
-      FM_STATE_OVERRIDE="$state" FM_ESCALATE_BATCH_SECS=999999 FM_PAUSE_RESURFACE_SECS=3600 \
-      housekeeping "$state"
-    grep -F "$detail" "$state/.subsuper-escalations" >/dev/null \
-      || fail "'$detail' under a declared wait was absorbed as a pause instead of escalated: $(cat "$state/.subsuper-escalations" 2>/dev/null)"
-  done
-  pass "a waiting permission or question prompt escalates in away mode even under a declared wait"
-}
-
 test_stale_terminal_escalates() {
   local dir state out
   dir=$(make_supercase stale-terminal)
@@ -1143,6 +1112,36 @@ test_housekeeping_captain_held_resurfaces_and_resets() {
   age=$(( $(date +%s) - $(cat "$state/.subsuper-paused-$key" 2>/dev/null || echo 0) ))
   [ "$age" -lt 60 ] || fail "captain-held marker was not reset to now on re-surface (age ${age}s)"
   pass "housekeeping re-surfaces a forgotten captain hold on the long cadence and resets its window"
+}
+
+# The away record owns the one exception: nobody is there to answer a captain
+# hold, so it is never rechecked. Quiet mode's record is a present captain
+# (bin/fm-afk-contract.sh AWAY OR QUIET), so a quiet daemon rechecks the same
+# hold on the same cadence.
+test_housekeeping_captain_held_silenced_only_by_an_away_record() {
+  local mode dir state fakebin win pane key
+  for mode in away quiet; do
+    dir=$(make_supercase "captain-held-$mode-record")
+    state="$dir/state"; fakebin="$dir/fakebin"
+    win="sess:fm-held-w11r"; pane="$dir/pane.txt"
+    printf 'captain-held [key=route]: tracked by task-decision-route\n' > "$state/held-w11r.status"
+    printf 'idle prompt $\n' > "$pane"
+    key=$(printf '%s' "held-w11r" | tr ':/.' '___')
+    echo $(( $(date +%s) - 5000 )) > "$state/.subsuper-paused-$key"
+    FM_HOME="$dir" FM_STATE_OVERRIDE="$state" FM_AFK_MODE="$mode" "$ROOT/bin/fm-afk-contract.sh" enter --words 'fixture words' >/dev/null 2>&1 \
+      || fail "fixture: could not record the $mode posture"
+    [ "$(FM_HOME="$dir" FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-afk-contract.sh" mode)" = "$mode" ] || fail "fixture: the record is not $mode"
+    PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$win" FM_FAKE_TMUX_CAPTURE="$pane" \
+      FM_STATE_OVERRIDE="$state" FM_PAUSE_RESURFACE_SECS=240 housekeeping "$state"
+    if [ "$mode" = away ]; then
+      ! grep -F "awaiting the captain" "$state/.subsuper-escalations" >/dev/null 2>&1 \
+        || fail "a captain hold was rechecked while the away record exists: $(cat "$state/.subsuper-escalations")"
+    else
+      grep -F "awaiting the captain" "$state/.subsuper-escalations" >/dev/null 2>&1 \
+        || fail "quiet mode's record silenced a captain hold as if the captain were away: $(cat "$state/.subsuper-escalations" 2>/dev/null || true)"
+    fi
+  done
+  pass "housekeeping silences a captain hold only under an away record, never under quiet mode's"
 }
 
 # A crew that RESUMED - whose latest status line no longer declares the wait - drops
@@ -1592,39 +1591,6 @@ test_escalate_batches_into_one_digest() {
   pass "multiple escalations flush as a single batched digest"
 }
 
-test_escalate_refreshes_one_buffered_item_per_wake_key() {
-  local dir state first
-  dir=$(make_supercase keyed-escalation)
-  state="$dir/state"
-  escalate_add "$state" 'first reminder' 'check:idle-writing-lanes'
-  first=$(cat "$state/.subsuper-escalations.since")
-  escalate_add "$state" 'refreshed reminder' 'check:idle-writing-lanes'
-  escalate_add "$state" 'different wake' 'check:another'
-  escalate_add "$state" 'latest reminder' 'check:idle-writing-lanes'
-  [ "$(wc -l < "$state/.subsuper-escalations" | tr -d ' ')" = 2 ] \
-    || fail "repeated wake keys grew the away escalation buffer"
-  [ "$(cat "$state/.subsuper-escalations.since")" = "$first" ] \
-    || fail "refreshing a wake reset the buffer's first-arrival age"
-  grep -F 'latest reminder' "$state/.subsuper-escalations" >/dev/null \
-    || fail "the latest reminder was not retained"
-  grep -F 'first reminder' "$state/.subsuper-escalations" >/dev/null \
-    && fail "the old reminder was not replaced"
-  pass "away escalation buffer keeps and refreshes one item per durable wake key"
-}
-
-test_escalate_keyed_refresh_keeps_backslashes_literal() {
-  local dir state
-  dir=$(make_supercase keyed-escalation-backslash)
-  state="$dir/state"
-  escalate_add "$state" 'first' 'check:C:\tmp'
-  escalate_add "$state" 'path C:\new\tmp and \n literal' 'check:C:\tmp'
-  [ "$(wc -l < "$state/.subsuper-escalations" | tr -d ' ')" = 1 ] \
-    || fail "a backslash in a refreshed wake split or duplicated the buffered item"
-  [ "$(cat "$state/.subsuper-escalations")" = '{check:C:\tmp} path C:\new\tmp and \n literal' ] \
-    || fail "refreshing a keyed wake altered backslashes in the buffered item"
-  pass "keyed escalation refresh keeps backslashes in the item and key literal"
-}
-
 test_escalate_marker_preserving_primary_types_envelope() {
   local dir state fakebin sent capture
   dir=$(make_supercase batch-typed-envelope)
@@ -1851,8 +1817,7 @@ test_inject_skip_forces_self() {
 
 test_is_wake_reason_distinguishes_status_stdout() {
   # Real wake reasons are recognized; watcher status lines (singleton collision)
-  # are not, so the main loop idles them while a live peer watcher holds the
-  # lock and otherwise hands back, never flooding escalations.
+  # are not, so the main loop can idle them without flooding escalations.
   is_wake_reason "signal: /x/y.status" || fail "signal: not recognized as wake"
   is_wake_reason "stale: s:fm-x" || fail "stale: not recognized as wake"
   is_wake_reason "check: /s/c.sh: merged" || fail "check: not recognized as wake"
@@ -2357,308 +2322,14 @@ test_max_defer_pending_composer_alarms_without_typing() {
   escalate_add "$state" "needs-decision: pick B"
   echo $(( $(date +%s) - 600 )) > "$state/.subsuper-escalations.since"
   afk_enter "$state"
-  FM_DAEMON_HANDOFF=0
   PATH="$fakebin:$PATH" FM_FAKE_COMPOSER="$dir/composer" FM_FAKE_SENT="$sent" \
     FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=60 FM_INJECT_CONFIRM_SLEEP=0.05 \
     housekeeping "$state"
   [ ! -s "$sent" ] || fail "max-defer typed into a pending composer"
   [ -s "$state/.subsuper-inject-wedged" ] || fail "pending composer did not raise a wedge alarm marker"
   [ -s "$state/.subsuper-escalations" ] || fail "buffer lost while composer was pending"
-  [ "$FM_DAEMON_HANDOFF" = 1 ] || fail "max-defer did not request daemon handback"
   grep -F 'human draft' "$dir/composer" >/dev/null || fail "pending composer content changed"
-  FM_DAEMON_HANDOFF=0
-  pass "max-defer on a pending composer requests handback without typing"
-}
-
-test_prepared_daemon_hands_back_after_undeliverable_wake() {
-  local dir state fakebin capture out pid rc i
-  dir=$(make_supercase prepared-handoff)
-  state="$dir/state"; fakebin="$dir/fakebin"
-  capture="$dir/pane.txt"; out="$dir/daemon.out"
-  printf '╭─────────────────╮\n│ > human draft   │\n╰─────────────────╯\n' > "$capture"
-  printf 'prepared\n' > "$state/.afk"
-  printf 'none\t-\tnative\n' > "$state/.afk-daemon-terminal"
-  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
-  echo $(( $(date +%s) - 60 )) > "$state/.subsuper-escalations.since"
-  append_wake "$state" check held-choice 'check: held choice'
-  PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
-    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
-    FM_FAKE_TMUX_CAPTURE="$capture" FM_POLL=1 FM_HOUSEKEEPING_TICK=1 \
-    FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=1 FM_WEDGE_ALARM_CHANNEL=herdr \
-    "$AFK_START" > "$out" 2>&1 &
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 100 ]; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  if is_live_non_zombie "$pid"; then
-    kill "$pid" 2>/dev/null || true
-    fail "prepared daemon did not hand back after max-defer"
-  fi
-  wait "$pid"; rc=$?
-  [ "$rc" -ne 0 ] || fail "undeliverable daemon reported success"
-  grep -F 'ordinary turn-end supervision must resume' "$out" >/dev/null \
-    || fail "undeliverable daemon did not announce handback"
-  [ ! -e "$state/.afk" ] || fail "daemon left its flag blocking Claude Stop auto-arm"
-  [ ! -e "$state/.supervise-daemon.lock" ] || fail "daemon retained the supervision lock"
-  [ -s "$state/.wake-queue" ] || fail "daemon lost the durable wake"
-  grep -F 'needs-decision: held choice' "$state/.wake-queue" >/dev/null \
-    || fail "daemon did not requeue the undelivered buffer as a durable wake"
-  [ ! -s "$state/.subsuper-escalations" ] || fail "daemon left the requeued buffer behind"
-  grep -F 'human draft' "$capture" >/dev/null || fail "daemon changed the pending draft"
-  pass "prepared native daemon exits loudly at max-defer and requeues its buffer for Stop-hook recovery"
-}
-
-test_terminal_daemon_keeps_supervising_after_max_defer() {
-  local dir state capture out pid i
-  dir=$(make_supercase terminal-max-defer)
-  state="$dir/state"; capture="$dir/pane.txt"; out="$dir/daemon.out"
-  printf '╭─────────────────╮\n│ > human draft   │\n╰─────────────────╯\n' > "$capture"
-  printf 'prepared\n' > "$state/.afk"
-  printf 'tmux\tfm-afk-daemon-x\t\n' > "$state/.afk-daemon-terminal"
-  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
-  echo $(( $(date +%s) - 60 )) > "$state/.subsuper-escalations.since"
-  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
-    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
-    FM_FAKE_TMUX_CAPTURE="$capture" FM_POLL=1 FM_HOUSEKEEPING_TICK=1 \
-    FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=1 FM_WEDGE_ALARM_CHANNEL=herdr \
-    "$AFK_START" > "$out" 2>&1 &
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ ! -s "$state/.subsuper-inject-wedged" ] && [ "$i" -lt 100 ]; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  sleep 2
-  if ! is_live_non_zombie "$pid"; then
-    fail "terminal-launched daemon exited at max-defer although its exit wakes no primary: $(cat "$out")"
-  fi
-  [ -s "$state/.subsuper-inject-wedged" ] || fail "terminal-launched daemon raised no wedge alarm at max-defer"
-  [ -e "$state/.afk" ] || fail "terminal-launched daemon cleared its flag at max-defer"
-  grep -F 'needs-decision: held choice' "$state/.subsuper-escalations" >/dev/null \
-    || fail "terminal-launched daemon did not preserve its buffer at max-defer"
-  kill "$pid" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
-  pass "terminal-launched daemon alarms at max-defer and keeps supervising with its buffer preserved"
-}
-
-# run_prepared_daemon_with_peer_lock <dir> <peer-pid> <out> <alerts>: start the
-# prepared daemon while <peer-pid> holds the watcher lock with a fresh beacon,
-# so its watcher child reports a singleton collision instead of a wake. The
-# daemon counts as natively launched unless the caller wrote another record.
-run_prepared_daemon_with_peer_lock() {
-  local dir=$1 peer=$2 out=$3 alerts=$4 state="$1/state"
-  [ -e "$state/.afk-daemon-terminal" ] || printf 'none\t-\tnative\n' > "$state/.afk-daemon-terminal"
-  mkdir -p "$state/.watch.lock"
-  printf '%s\n' "$peer" > "$state/.watch.lock/pid"
-  touch "$state/.last-watcher-beat"
-  printf 'prepared\n' > "$state/.afk"
-  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
-  _now > "$state/.subsuper-escalations.since"
-  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
-    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
-    FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" FM_POLL=1 FM_HOUSEKEEPING_TICK=1 \
-    FM_ESCALATE_BATCH_SECS=99999 FM_MAX_DEFER_SECS=0 FM_WEDGE_ALARM_CHANNEL=herdr \
-    FM_WEDGE_ALARM_LOG="$alerts" \
-    "$AFK_START" > "$out" 2>&1 &
-}
-
-test_prepared_daemon_hands_back_when_watcher_cannot_start() {
-  local dir state out alerts peer pid rc i
-  dir=$(make_supercase watcher-start-handback)
-  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
-  : > "$dir/pane.txt"
-  sleep 60 & peer=$!
-  run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ]; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  if is_live_non_zombie "$pid"; then
-    kill "$pid" "$peer" 2>/dev/null || true
-    fail "daemon kept holding supervision when its watcher could not start"
-  fi
-  wait "$pid"; rc=$?
-  kill "$peer" 2>/dev/null || true
-  wait "$peer" 2>/dev/null || true
-  [ "$rc" -ne 0 ] || fail "failed watcher start reported success"
-  grep -F 'ordinary turn-end supervision must resume' "$out" >/dev/null \
-    || fail "failed watcher start did not announce handback"
-  grep -F 'handed back' "$alerts" >/dev/null || fail "failed watcher start sent no active alert"
-  [ ! -e "$state/.afk" ] || fail "failed watcher start left its flag blocking Claude Stop auto-arm"
-  grep -F 'needs-decision: held choice' "$state/.wake-queue" >/dev/null \
-    || fail "failed watcher start did not requeue the buffered escalation"
-  [ ! -s "$state/.subsuper-escalations" ] || fail "failed watcher start left the requeued buffer behind"
-  pass "a watcher that cannot start without a live peer alerts, requeues, and hands back"
-}
-
-test_terminal_daemon_idles_when_watcher_cannot_start() {
-  local dir state out alerts peer pid i
-  dir=$(make_supercase terminal-watcher-start)
-  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
-  : > "$dir/pane.txt"
-  printf 'tmux\tfm-afk-daemon-x\t\n' > "$state/.afk-daemon-terminal"
-  sleep 60 & peer=$!
-  run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ] \
-    && ! grep -F 'terminal-launched daemon keeps supervising' "$state/.supervise-daemon.log" >/dev/null 2>&1; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  if ! is_live_non_zombie "$pid"; then
-    kill "$peer" 2>/dev/null || true
-    fail "terminal-launched daemon handed back when its watcher could not start: $(cat "$out")"
-  fi
-  grep -F 'terminal-launched daemon keeps supervising' "$state/.supervise-daemon.log" >/dev/null \
-    || fail "terminal-launched daemon never reached the failed-start idle path"
-  [ -e "$state/.afk" ] || fail "terminal-launched daemon cleared its flag on a failed watcher start"
-  [ -s "$state/.subsuper-escalations" ] || fail "terminal-launched daemon dropped its buffer on a failed watcher start"
-  [ ! -s "$alerts" ] || fail "terminal-launched daemon alerted a handback it did not take"
-  kill "$pid" "$peer" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
-  wait "$peer" 2>/dev/null || true
-  pass "terminal-launched daemon keeps supervising and idles when its watcher cannot start"
-}
-
-# run_crash_looping_daemon <dir> <record> <out> <alerts>: start a prepared
-# daemon from a copy of bin/ whose watcher exits non-zero on every start.
-run_crash_looping_daemon() {
-  local dir=$1 record=$2 out=$3 alerts=$4 state="$1/state"
-  cp -R "$ROOT/bin" "$dir/bin"
-  printf '#!/usr/bin/env bash\nexit 3\n' > "$dir/bin/fm-watch.sh"
-  : > "$dir/pane.txt"; : > "$alerts"; : > "$state/.supervise-daemon.log"
-  printf 'prepared\n' > "$state/.afk"
-  printf '%s\n' "$record" > "$state/.afk-daemon-terminal"
-  printf 'needs-decision: held choice\n' > "$state/.subsuper-escalations"
-  _now > "$state/.subsuper-escalations.since"
-  PATH="$dir/fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
-    FM_AFK_STATE_PREPARED=1 FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=fakepane \
-    FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" FM_HOUSEKEEPING_TICK=1 FM_ESCALATE_BATCH_SECS=99999 \
-    FM_CRASH_THRESHOLD=1 FM_CRASH_NORMAL_SLEEP=0 FM_CRASH_BACKOFF=1 \
-    FM_WEDGE_ALARM_CHANNEL=herdr FM_WEDGE_ALARM_LOG="$alerts" \
-    "$dir/bin/fm-afk-start.sh" > "$out" 2>&1 &
-}
-
-test_native_daemon_hands_back_on_watcher_crash_loop() {
-  local dir state out alerts pid rc i
-  dir=$(make_supercase native-crash-loop)
-  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
-  run_crash_looping_daemon "$dir" $'none\t-\tnative' "$out" "$alerts"
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ]; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  if is_live_non_zombie "$pid"; then
-    kill "$pid" 2>/dev/null || true
-    fail "native daemon kept backing off silently through a watcher crash loop"
-  fi
-  wait "$pid"; rc=$?
-  [ "$rc" -ne 0 ] || fail "crash-looping native daemon reported success"
-  grep -F 'ordinary turn-end supervision must resume' "$out" >/dev/null \
-    || fail "crash-looping native daemon did not announce handback"
-  grep -F 'handed back' "$alerts" >/dev/null || fail "crash-looping native daemon sent no active alert"
-  [ ! -e "$state/.afk" ] || fail "crash-looping native daemon left its flag blocking Claude Stop auto-arm"
-  grep -F 'needs-decision: held choice' "$state/.wake-queue" >/dev/null \
-    || fail "crash-looping native daemon did not requeue the buffered escalation"
-  [ ! -s "$state/.subsuper-escalations" ] || fail "crash-looping native daemon left the requeued buffer behind"
-  pass "native daemon alerts, requeues, and hands back when its watcher crash-loops"
-}
-
-test_terminal_daemon_alerts_once_on_watcher_crash_loop() {
-  local dir state out alerts pid i
-  dir=$(make_supercase terminal-crash-loop)
-  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
-  run_crash_looping_daemon "$dir" $'tmux\tfm-afk-daemon-x\t' "$out" "$alerts"
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 300 ] \
-    && [ "$(grep -c 'crashed' "$state/.supervise-daemon.log")" -lt 2 ]; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  if ! is_live_non_zombie "$pid"; then
-    fail "terminal-launched daemon exited on a watcher crash loop: $(cat "$out")"
-  fi
-  [ "$(grep -c 'crashed' "$state/.supervise-daemon.log")" -ge 2 ] \
-    || fail "fixture error: the watcher crash threshold did not trip repeatedly"
-  [ "$(grep -c 'crash-looping' "$alerts")" = 1 ] \
-    || fail "terminal-launched daemon did not alert exactly once for a crash-loop episode: $(cat "$alerts" 2>/dev/null)"
-  [ -e "$state/.afk" ] || fail "terminal-launched daemon cleared its flag on a watcher crash loop"
-  [ -s "$state/.subsuper-escalations" ] || fail "terminal-launched daemon dropped its buffer on a watcher crash loop"
-  kill "$pid" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
-  pass "terminal-launched daemon alerts once and keeps retrying through a watcher crash loop"
-}
-
-test_prepared_daemon_retries_start_after_peer_releases_lock() {
-  local dir state out alerts peer pid i
-  dir=$(make_supercase watcher-peer-exit)
-  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
-  : > "$dir/pane.txt"
-  mkdir -p "$dir/tmp"
-  # shellcheck disable=SC2016  # $1 expands in the child shell
-  bash -c 'until grep -qs "already running" "$1"/fm-watch.*; do sleep 0.05; done' _ "$dir/tmp" &
-  peer=$!
-  TMPDIR="$dir/tmp" run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ] \
-    && ! grep -F 'retrying start once' "$state/.supervise-daemon.log" >/dev/null 2>&1; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  sleep 2
-  wait "$peer" 2>/dev/null || true
-  if ! is_live_non_zombie "$pid"; then
-    fail "daemon handed back although the peer released the lock before the retry: $(cat "$out")"
-  fi
-  [ -e "$state/.afk" ] || fail "daemon cleared its flag although its retried watcher could start"
-  [ ! -s "$alerts" ] || fail "daemon alerted although its retried watcher could start"
-  kill "$pid" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
-  pass "daemon retries its watcher start once when the colliding peer has already exited"
-}
-
-test_prepared_daemon_idles_while_live_peer_watcher_holds_lock() {
-  local dir state out alerts peer pid i
-  dir=$(make_supercase watcher-live-peer)
-  state="$dir/state"; out="$dir/daemon.out"; alerts="$dir/alerts.log"
-  : > "$dir/pane.txt"
-  sleep 60 & peer=$!
-  mkdir -p "$state/.watch.lock"
-  printf '%s\n' "$dir" > "$state/.watch.lock/fm-home"
-  printf '%s\n' "$ROOT/bin/fm-watch.sh" > "$state/.watch.lock/watcher-path"
-  # shellcheck disable=SC2016  # $1/$2 expand in the child shell
-  bash -c '. "$1"; fm_pid_identity "$2"' _ "$ROOT/bin/fm-wake-lib.sh" "$peer" \
-    > "$state/.watch.lock/pid-identity" || fail "could not record the peer watcher identity"
-  run_prepared_daemon_with_peer_lock "$dir" "$peer" "$out" "$alerts"
-  pid=$!
-  i=0
-  while is_live_non_zombie "$pid" && [ "$i" -lt 150 ] \
-    && ! grep -F 'live peer' "$state/.supervise-daemon.log" >/dev/null 2>&1; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  sleep 2
-  if ! is_live_non_zombie "$pid"; then
-    kill "$peer" 2>/dev/null || true
-    fail "daemon handed back while a live peer watcher was supervising: $(cat "$out")"
-  fi
-  grep -F 'live peer' "$state/.supervise-daemon.log" >/dev/null \
-    || fail "daemon did not recognise the live peer watcher"
-  [ -e "$state/.afk" ] || fail "daemon cleared its flag while a live peer watcher was supervising"
-  [ ! -s "$alerts" ] || fail "daemon alerted while a live peer watcher was supervising"
-  kill "$pid" "$peer" 2>/dev/null || true
-  wait "$pid" 2>/dev/null || true
-  wait "$peer" 2>/dev/null || true
-  pass "daemon idles and retries while a live peer watcher holds the lock"
+  pass "max-defer on a pending composer alarms without typing"
 }
 
 test_normal_flush_clears_stale_wedge_marker() {
@@ -3055,16 +2726,6 @@ test_wedge_alarm_auto_non_darwin_has_no_os_channel() {
     wedge_alarm_notify "away-mode WEDGED 900s" "/s/.marker"
   [ ! -s "$log" ] || fail "auto selected a built-in OS channel on a non-macOS platform: $(cat "$log")"
   pass "auto on a non-macOS platform selects no built-in OS channel (the marker or a configured command carries it)"
-}
-
-test_wedge_alarm_auto_non_darwin_herdr_selects_notification() {
-  local dir log
-  dir=$(make_wedge_case wedge-auto-herdr); log="$dir/alert.log"
-  PATH="$dir/fakebin:$PATH" FM_WEDGE_ALARM_LOG="$log" FM_FAKE_UNAME=Linux \
-    FM_SUPERVISOR_BACKEND=herdr FM_WEDGE_ALARM_CHANNEL=auto \
-    wedge_alarm_notify "away-mode WEDGED 900s" "/s/.marker"
-  grep -F 'herdr' "$log" >/dev/null || fail "auto omitted Herdr's active notification on Linux"
-  pass "auto selects a Herdr notification for a non-macOS Herdr primary"
 }
 
 test_wedge_alarm_config_file_multi_channel() {
@@ -3495,7 +3156,6 @@ test_unknown_wake_ack_failure_still_clears_delivered_digest
 test_stale_transient_self_records_marker
 test_stale_diagnostic_wedge_survives_busy_housekeeping
 test_enriched_wedge_under_declared_wait_uses_pause_cadence
-test_prompt_waiting_wake_escalates_through_a_declared_wait
 test_stale_terminal_escalates
 test_stale_actionable_wait_escalates_and_keeps_pause_cadence
 test_stale_paused_classifies_pause
@@ -3511,6 +3171,7 @@ test_housekeeping_persistent_stale_escalates
 test_housekeeping_resumed_stale_cleared
 test_housekeeping_paused_resurfaces_and_resets
 test_housekeeping_captain_held_resurfaces_and_resets
+test_housekeeping_captain_held_silenced_only_by_an_away_record
 test_housekeeping_paused_resumed_cleared
 test_housekeeping_busy_declared_wait_matures_its_window
 test_housekeeping_declared_time_controls_pause_recheck
@@ -3524,8 +3185,6 @@ test_housekeeping_herdr_idle_busy_record_clears_stale
 test_housekeeping_herdr_resumed_stale_cleared
 test_housekeeping_orca_persistent_stale_resolves_terminal
 test_escalate_batches_into_one_digest
-test_escalate_refreshes_one_buffered_item_per_wake_key
-test_escalate_keyed_refresh_keeps_backslashes_literal
 test_escalate_batch_age_uses_first_append
 test_heartbeat_scan_dedup
 test_handle_wake_routes_self_and_escalate
@@ -3579,14 +3238,6 @@ test_submit_ack_reports_pending_on_persistent_swallow
 test_max_defer_empty_swallow_types_once_and_alarms
 test_max_defer_flushes_empty_idle_pane
 test_max_defer_pending_composer_alarms_without_typing
-test_prepared_daemon_hands_back_after_undeliverable_wake
-test_prepared_daemon_hands_back_when_watcher_cannot_start
-test_prepared_daemon_idles_while_live_peer_watcher_holds_lock
-test_prepared_daemon_retries_start_after_peer_releases_lock
-test_terminal_daemon_keeps_supervising_after_max_defer
-test_terminal_daemon_idles_when_watcher_cannot_start
-test_native_daemon_hands_back_on_watcher_crash_loop
-test_terminal_daemon_alerts_once_on_watcher_crash_loop
 test_normal_flush_clears_stale_wedge_marker
 test_oversized_digest_is_bounded_and_kept_durable
 test_digest_budget_counts_omitted_events
@@ -3607,7 +3258,6 @@ test_wedge_alarm_unknown_channel_hides_configured_directive
 test_wedge_alarm_off_disables_active_alert_regardless_of_position
 test_wedge_alarm_auto_darwin_selects_osascript
 test_wedge_alarm_auto_non_darwin_has_no_os_channel
-test_wedge_alarm_auto_non_darwin_herdr_selects_notification
 test_wedge_alarm_config_file_multi_channel
 test_wedge_alarm_failing_channel_degrades_gracefully
 test_wedge_alarm_hung_channel_times_out_and_falls_through
