@@ -159,6 +159,20 @@ git -C "$repo" config 'url.../../.insteadOf' "$alias_url/"
 run_check 0 "$repo" 7 'relative rewrite prefix with suffix'
 assert_equals "fresh base=$B head=$H tree=$T" "$output" 'rewrite directory separator preserved'
 git -C "$repo" config --unset-all 'url.../../.insteadOf'
+mkdir -p "$TMP_ROOT/pc/mirror"
+git clone -q --mirror "$TMP_ROOT/origin.git" "$TMP_ROOT/pc/mirror/.origin.git"
+git clone -q --mirror "$TMP_ROOT/other-origin.git" "$TMP_ROOT/pc/mirrororigin.git"
+replacement_prefix='../mirror/.'
+git -C "$repo" remote set-url origin "$alias_url:origin.git"
+git -C "$repo" config "url.$replacement_prefix.insteadOf" "$alias_url:"
+source_refs=$(git -C "$repo" ls-remote origin refs/heads/main refs/pull/7/head)
+assert_contains "$source_refs" "$B" 'partial prefix source selects intended main'
+assert_contains "$source_refs" "$H" 'partial prefix source selects intended PR'
+assert_equals "$other_base" "$(git -C "$TMP_ROOT/pc/mirrororigin.git" rev-parse refs/heads/main)" 'wrong prefix origin has distinct main'
+assert_equals "$other_head" "$(git -C "$TMP_ROOT/pc/mirrororigin.git" rev-parse refs/pull/7/head)" 'wrong prefix origin has distinct PR'
+run_check 0 "$repo" 7 'partial rewrite prefix selects source origin'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'literal prefix concatenation preserved'
+git -C "$repo" config --unset-all "url.$replacement_prefix.insteadOf"
 git -C "$repo" remote set-url origin "$alias_url"
 git -C "$repo" config "url.$TMP_ROOT/origin.git.insteadOf" "$alias_url"
 git -C "$repo" config --add remote.origin.url "$TMP_ROOT/other-origin.git"

@@ -64,26 +64,19 @@ try:
         if result.returncode:
             raise Refused(stage)
         return result.stdout
-    origin = checked('git', '-C', str(source), 'config', '--null', '--get-all',
-                     'remote.origin.url').split(b'\0')[0].decode()
+    origin = checked('git', '-C', str(source), 'ls-remote', '--get-url', 'origin').decode().rstrip('\n')
     if not origin:
         raise Refused(stage)
     # Resolve relative local remotes relative to the source, not scratch.
-    def local_url(value):
-        if ':' not in value and not Path(value).is_absolute():
-            return str((source / value).resolve()) + ('/' if not value or value.endswith('/') else '')
-        return value
+    if ':' not in origin and not Path(origin).is_absolute():
+        origin = str((source / origin).resolve())
     # Preserve the clone's supported transport authentication/config without
     # copying hooks, extensions, remote push settings or writing source refs.
     config = run('git', '-C', str(source), 'config', '--null', '--get-regexp',
-                 r'^(credential\.|http\.|url\..*\.insteadof$|core\.sshcommand$)')
+                 r'^(credential\.|http\.|core\.sshcommand$)')
     if config.returncode not in (0, 1):
         raise Refused(stage)
     settings = [entry.decode().split('\n', 1) for entry in config.stdout.split(b'\0') if entry]
-    if not any(key.startswith('url.') and key.endswith('.insteadof') and origin.startswith(value)
-               for key, value in settings):
-        origin = local_url(origin)
-        settings = [(key, value) for key, value in settings if not key.startswith('url.')]
     env = {key: value for key, value in env.items()
            if key != 'GIT_CONFIG' and not key.startswith('GIT_CONFIG_')}
     env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
@@ -95,8 +88,6 @@ try:
         repo = scratch / 'merge'
         checked('git', 'init', '-q', str(repo))
         for key, value in settings:
-            if key.startswith('url.') and key.endswith('.insteadof'):
-                key = 'url.' + local_url(key[4:-10]) + '.insteadof'
             checked('git', '-C', str(repo), 'config', '--add', key, value)
         def git(*args):
             return checked('git', '-C', str(repo), *args)
