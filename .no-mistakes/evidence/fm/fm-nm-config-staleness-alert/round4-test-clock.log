@@ -1,0 +1,71 @@
+sample 0 wall 1791132282.2266395 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode False
+sample 1 wall 1791132283.2735696 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 2 wall 1791132284.3199294 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 3 wall 1791132285.368882 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 4 wall 1791132286.419757 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 5 wall 1791132287.4684784 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 6 wall 1791132288.5155566 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 7 wall 1791132289.559967 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 8 wall 1791132290.6054301 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 9 wall 1791132291.6511905 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 10 wall 1791132292.7047467 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 11 wall 1791132293.7587998 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 12 wall 1791132294.8034093 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 13 wall 1791132295.8486252 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 14 wall 1791132296.8941028 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 15 wall 1791132297.9397743 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 16 wall 1791132298.9870677 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 17 wall 1791132300.0338695 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 18 wall 1791132301.078625 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 19 wall 1791132302.1255646 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 20 wall 1791132303.1749544 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 21 wall 1791132304.2492886 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 22 wall 1791132305.2990992 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 23 wall 1791132306.359699 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 24 wall 1791132307.406959 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 25 wall 1791132308.4548094 btime 1791085601 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 26 wall 1791132307.4977713 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 27 wall 1791132308.5775423 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 28 wall 1791132309.624828 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 29 wall 1791132310.6710076 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 30 wall 1791132311.7215266 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 31 wall 1791132312.772772 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 32 wall 1791132313.8176494 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 33 wall 1791132314.8630688 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 34 wall 1791132315.9096513 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 35 wall 1791132316.9558337 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 36 wall 1791132318.0028656 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 37 wall 1791132319.049529 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 38 wall 1791132320.095572 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 39 wall 1791132321.142483 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 40 wall 1791132322.1902602 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 41 wall 1791132323.2410367 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 42 wall 1791132324.2861784 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 43 wall 1791132325.331367 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 44 wall 1791132326.37759 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 45 wall 1791132327.4279974 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 46 wall 1791132328.478963 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 47 wall 1791132329.5258152 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 48 wall 1791132330.5716834 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 49 wall 1791132331.6176853 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 50 wall 1791132332.6612558 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 51 wall 1791132333.706123 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 52 wall 1791132334.7529066 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 53 wall 1791132335.7983136 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 54 wall 1791132336.842033 btime 1791085599 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 55 wall 1791132335.8038063 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 56 wall 1791132336.8485312 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 57 wall 1791132337.893622 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 58 wall 1791132338.9369812 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 59 wall 1791132339.984001 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 60 wall 1791132341.031079 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 61 wall 1791132342.0839021 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 62 wall 1791132343.1325114 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 63 wall 1791132344.1844678 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+sample 64 wall 1791132345.230904 btime 1791085597 pid 77356 ticks 4668011 fixed_record_config True status stale unchanged_episode True
+FRESH EPISODE AFTER CLOCK OBSERVATIONS
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes observation unavailable on: server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+PASS unchanged real daemon remains stale and deduplicated; observed btime values [1791085597, 1791085599, 1791085601]

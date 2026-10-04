@@ -1,0 +1,21 @@
+FM_TEST_BEGIN 2026-10-04T16:12:20Z tests/.round3-existing-staleness.test.sh family=unclassified expected_gate_skip=none
+ok - changed-file selection maps the server idle fixture to its owning test
+ok - strictly newer config is stale through public CLI
+ok - three-host comparisons, unchanged episodes, restart and partial failure
+server: pc and zenbook stdout observed at 0.037s; pending=health,metadata; check completed at 15.026s
+server-idle-watch: no-mistakes config newer than running daemon on: zenbook
+server-idle-watch: no-mistakes config newer than running daemon on: pc, zenbook
+server-idle-watch: no-mistakes observation unavailable on: server
+zenbook: pc and server stdout observed at 0.038s; pending=health,metadata; check completed at 15.027s
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+ok - both remote timeout paths preserve stale pc within the watcher deadline
+ok - distinct unknown cases never become current
+ok - existing A/B/D alerts survive through the full custom check
+ok - cleared episode warns again on new evidence and stays deduplicated
+ok - private byte registration and read-only collector
+FM_TEST_END 2026-10-04T16:13:03Z tests/.round3-existing-staleness.test.sh exit=0 duration_ms=43332 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=43373
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=43332 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/.round3-existing-staleness.test.sh duration_ms=43332

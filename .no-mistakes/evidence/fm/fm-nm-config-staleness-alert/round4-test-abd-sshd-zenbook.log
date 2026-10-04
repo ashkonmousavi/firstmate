@@ -1,0 +1,17 @@
+Server listening on 127.0.0.1 port 41483.
+Accepted publickey for tegris from 127.0.0.1 port 46614 ssh2: ED25519 SHA256:F1zdfhCLTVlqOZ7TJdKaOFrY5ssmpkP+ItBg9DYI/k4
+Received disconnect from 127.0.0.1 port 46614:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 46614
+Accepted publickey for tegris from 127.0.0.1 port 46632 ssh2: ED25519 SHA256:F1zdfhCLTVlqOZ7TJdKaOFrY5ssmpkP+ItBg9DYI/k4
+Accepted publickey for tegris from 127.0.0.1 port 46630 ssh2: ED25519 SHA256:F1zdfhCLTVlqOZ7TJdKaOFrY5ssmpkP+ItBg9DYI/k4
+Received disconnect from 127.0.0.1 port 46630:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 46630
+Received disconnect from 127.0.0.1 port 46632:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 46632
+Accepted publickey for tegris from 127.0.0.1 port 46652 ssh2: ED25519 SHA256:F1zdfhCLTVlqOZ7TJdKaOFrY5ssmpkP+ItBg9DYI/k4
+Accepted publickey for tegris from 127.0.0.1 port 46638 ssh2: ED25519 SHA256:F1zdfhCLTVlqOZ7TJdKaOFrY5ssmpkP+ItBg9DYI/k4
+Received disconnect from 127.0.0.1 port 46652:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 46652
+Received disconnect from 127.0.0.1 port 46638:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 46638
+Received signal 15; terminating.

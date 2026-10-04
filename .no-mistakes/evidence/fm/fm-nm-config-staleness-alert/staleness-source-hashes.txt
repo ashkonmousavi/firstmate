@@ -1,0 +1,2 @@
+9b15c32621f8eee38efa93a9bfeeccb350da6432a406c310fc69b99d60497906  bin/fm-nm-config-staleness-check.sh
+d296cef0b4e6f5599088f39743b1e9d752b00ae4d7a5983effd45d1d84013fea  tests/fixtures/server-idle-watch.check.sh

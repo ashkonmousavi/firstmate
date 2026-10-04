@@ -1,0 +1,25 @@
+Round 4 Test fix handoff
+Inventory consumed and retained before source edits: /home/tegris/.no-mistakes/evidence/01M43P3QK7WHEXNJJNX0D6ME6M/round4-class-inventory.md
+Original failing reproduction: round4-before-fix.log (owning suite failed clock-step assertion).
+Final focused verification: bash bin/fm-test-run.sh tests/fm-nm-config-staleness.test.sh
+Result: one suite passed, zero failures, zero skips, 45.643 seconds.
+Log: /home/tegris/.no-mistakes/evidence/01M43P3QK7WHEXNJJNX0D6ME6M/round4-owning-suite.log
+The owning suite executes the fixture-only --list --changed --base HEAD consumer inside a disposable git fixture and asserts the exact owning test selection.
+Verified through executable interfaces: older/equal timestamps, tolerance interior, 10-second equality, one nanosecond beyond tolerance, current btime crossing comparison boundary, clock-step identity stability, modern UTC/nanosecond record validation and legacy PID rejection, wall-time-independent episode evidence, sorted warnings, unchanged/clear/restart episodes, partial failure/malformed transport, malformed/dead/unreadable/symlink metadata, changed PID record/config/ticks, verified absence, read-only collector and byte registration, existing A/B/D alerts.
+Kernel PID-reuse regression changes the same PID's start tick by one between before/after samples through the public proc seam, independent of UTC. This replaces the prior platform-specific 500-to-800 text substitution with a deterministic one-tick change.
+Both hanging-remote fixtures verified warnings while health and metadata were alive: server 0.034s, completion 15.024s; zenbook 0.030s, completion 15.026s.
+Independent real-daemon probe: python3 /home/tegris/.no-mistakes/evidence/01M43P3QK7WHEXNJJNX0D6ME6M/round4-clock-probe.py
+Log: /home/tegris/.no-mistakes/evidence/01M43P3QK7WHEXNJJNX0D6ME6M/round4-clock-probe.log
+65 samples passed while btime took values 1791085618, 1791085620, 1791085621, 1791085623. PID, kernel start ticks, PID-record bytes, config mtime and episode digest stayed fixed; a fresh episode warned after the observed clock movement. Config was fixed 100 seconds beyond initial derived start, comfortably outside the authorized tolerance.
+All disposable daemon processes stopped and .round4-clock-lab removed; no dependencies were installed or removed.
+Sibling search: all btime/started_at/start-tick references in helper, owning suite, collector, docs/scripts.md and retained clock/live/namespace drivers reviewed. Only one tracked helper and one new collector are present. The collector already streams bounded parallel observations; no collector or selector edits were required. Only helper, owning test and docs changed.
+Remaining limitation: the record has no saved kernel ticks, so this interface cannot distinguish PID reuse completed before the first sample. Changed ticks during sampling are rejected. Clock movement can change comparison status near the explicit tolerance boundary, but cannot invalidate PID/tick identity.
+Blocked independent authenticated SSH/PID-namespace driver re-run: sshd is absent from PATH, and retained round3 drivers require removed .staleness-lab/ssh/usr/sbin/sshd. No host tool search, download or installation attempted. Current hanging-host proof is the public fixture interface; authenticated host-local integration remains prior evidence, not a fresh claim. Main owns actual PC/server/Zenbook installed registration and acceptance.
+No linters, formatters, static analyzers, broad suites, delivery phases or pipeline controls were invoked. Old no-go logs/scripts remain retained unchanged.
+Next Review must consume the exact retained inventory, verify each affected occurrence and regression result, and search for missed siblings within these fixes.
+SHA256 bin/fm-nm-config-staleness-check.sh: 811f245af8b4f8448cd7cce707b4a11ce056d6fe679d2a4c2ad386306b701afd
+SHA256 tests/fm-nm-config-staleness.test.sh: 85c04daebb0e7510144e3218be325d3eb2d2e886a01336f923169d49d30876da
+SHA256 tests/fixtures/server-idle-watch.check.sh: d296cef0b4e6f5599088f39743b1e9d752b00ae4d7a5983effd45d1d84013fea
+SHA256 docs/scripts.md: dd094c6d89fb87230ef2a201138c1723f48d5f946db0ab1bfd9eea5b25597a19
+Committed fix head: 4cf7eda699f11ae6df0abc0cd8be3291cf8a7b21
+Post-commit worktree status: clean; no transient test artifacts remain.

@@ -1,0 +1,13 @@
+AUTHENTICATED LOOPBACK SSH server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:47:15.695375+00:00", "pid": 79517, "process_start_ticks": 4684290, "config_mtime_ns": 1791132333900000000}
+AUTHENTICATED LOOPBACK SSH zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:47:15.889616+00:00", "pid": 79869, "process_start_ticks": 4684320, "config_mtime_ns": 1791132334200000000}
+registered: state/server-idle-watch.check.sh
+
+CHECK arm before pc replacement exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+
+CHECK real pc daemon replacement exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: server
+
+PASS real daemon replacement clears only pc
+RESULTS {"real daemon replacement clears only pc": "pass"}

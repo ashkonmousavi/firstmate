@@ -1,0 +1,11 @@
+Server listening on 127.0.0.1 port 56501.
+Accepted publickey for tegris from 127.0.0.1 port 59640 ssh2: ED25519 SHA256:1jDt21l3ykra8x7iQqVZmfeNNi/S0KnrZoR9FaDcQ1o
+Received disconnect from 127.0.0.1 port 59640:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 59640
+Accepted publickey for tegris from 127.0.0.1 port 59654 ssh2: ED25519 SHA256:1jDt21l3ykra8x7iQqVZmfeNNi/S0KnrZoR9FaDcQ1o
+Received disconnect from 127.0.0.1 port 59654:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 59654
+Accepted publickey for tegris from 127.0.0.1 port 59658 ssh2: ED25519 SHA256:1jDt21l3ykra8x7iQqVZmfeNNi/S0KnrZoR9FaDcQ1o
+Received disconnect from 127.0.0.1 port 59658:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 59658
+Received signal 15; terminating.

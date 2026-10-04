@@ -1,0 +1,8 @@
+Server listening on 127.0.0.1 port 42029.
+Accepted publickey for tegris from 127.0.0.1 port 41128 ssh2: ED25519 SHA256:/ghVc2OepFanObmCnW1aZD2kR4qGlzjvCXsfmdBvZQY
+Received disconnect from 127.0.0.1 port 41128:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41128
+Accepted publickey for tegris from 127.0.0.1 port 41132 ssh2: ED25519 SHA256:/ghVc2OepFanObmCnW1aZD2kR4qGlzjvCXsfmdBvZQY
+Received disconnect from 127.0.0.1 port 41132:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41132
+Received signal 15; terminating.

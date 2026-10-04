@@ -1,0 +1,16 @@
+FM_TEST_BEGIN 2026-10-04T15:32:53Z tests/fm-nm-config-staleness.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - changed-file selection maps the server idle fixture to its owning test
+ok - strictly newer config is stale through public CLI
+ok - three-host comparisons, unchanged episodes, restart and partial failure
+server: pc and zenbook stdout observed at 5.004s; pending=health,metadata; check completed at 15.027s
+server-idle-watch: no-mistakes observation unavailable on: server
+server-idle-watch: no-mistakes config newer than running daemon on: pc, zenbook
+zenbook: pc and server stdout observed at 5.004s; pending=health,metadata; check completed at 15.027s
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+server: confirmed stale stdout missing while both probes pending (observed 5.004s)
+zenbook: confirmed stale stdout missing while both probes pending (observed 5.004s)
+FM_TEST_END 2026-10-04T15:33:30Z tests/fm-nm-config-staleness.test.sh exit=1 duration_ms=36633 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=36674
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=36633 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-nm-config-staleness.test.sh duration_ms=36633

@@ -1,0 +1,4 @@
+Two valid PID/start records for the same actual daemon were atomically alternated during real procfs sampling.
+Observed statuses: {'stale': 9, 'unavailable': 31}
+Detected changing record: {'schema': 'fm-nm-config-age/1', 'machine': 'pc', 'status': 'unavailable', 'diagnostic': 'unverified_metadata', 'sampled_at': '2026-10-04T15:40:56.869047+00:00'}
+PASS changing identity record remains unavailable; no fake procfs or process seam used

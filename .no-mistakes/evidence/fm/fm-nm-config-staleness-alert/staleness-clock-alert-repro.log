@@ -1,0 +1,60 @@
+FRESH EPISODE 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes observation unavailable on: server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+sample 0 wall 1791128676.314014 monotonic 42818.200958256 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 1 wall 1791128677.337382 monotonic 42819.224326413 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 2 wall 1791128678.362256 monotonic 42820.249200191 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 3 wall 1791128679.3863838 monotonic 42821.273328069 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 4 wall 1791128680.4107676 monotonic 42822.297711632 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 5 wall 1791128681.434452 monotonic 42823.321396124 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 6 wall 1791128682.46308 monotonic 42824.350024185 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 7 wall 1791128683.486555 monotonic 42825.373499349 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 8 wall 1791128684.5106287 monotonic 42826.397572794 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 9 wall 1791128685.5340235 monotonic 42827.420967639 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 10 wall 1791128686.5566432 monotonic 42828.443587363 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 11 wall 1791128687.5794797 monotonic 42829.466424223 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 12 wall 1791128688.6029823 monotonic 42830.489926735 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 13 wall 1791128689.6260037 monotonic 42831.512947951 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 14 wall 1791128690.6500862 monotonic 42832.537030696 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 15 wall 1791128691.6731873 monotonic 42833.560131721 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 16 wall 1791128692.698094 monotonic 42834.585038151 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 17 wall 1791128693.721419 monotonic 42835.608363076 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 18 wall 1791128694.74468 monotonic 42836.631624076 btime 1791085858 record_start 2026-10-04T15:44:35Z birth_ns 1791128675900000000 delta_ns -900000000 comm no-mistakes status stale
+sample 19 wall 1791128693.8244505 monotonic 42837.658422797 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 20 wall 1791128694.8493075 monotonic 42838.683280183 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 21 wall 1791128695.874177 monotonic 42839.708149106 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 22 wall 1791128696.8988194 monotonic 42840.73279182 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 23 wall 1791128697.9221356 monotonic 42841.75610806 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 24 wall 1791128698.9450543 monotonic 42842.779026345 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 25 wall 1791128699.968328 monotonic 42843.802300097 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 26 wall 1791128700.9986527 monotonic 42844.832624823 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 27 wall 1791128702.0246205 monotonic 42845.858592682 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 28 wall 1791128703.0501528 monotonic 42846.884124948 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 29 wall 1791128704.0738006 monotonic 42847.907772734 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 30 wall 1791128705.099224 monotonic 42848.93319634 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 31 wall 1791128706.1242518 monotonic 42849.958224354 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 32 wall 1791128707.148568 monotonic 42850.982539892 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 33 wall 1791128708.1719642 monotonic 42852.005936555 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 34 wall 1791128709.1953037 monotonic 42853.029276097 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 35 wall 1791128710.2184596 monotonic 42854.052431776 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 36 wall 1791128711.2417214 monotonic 42855.075693426 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 37 wall 1791128712.2648153 monotonic 42856.09878743 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 38 wall 1791128713.290021 monotonic 42857.123993122 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 39 wall 1791128714.3154964 monotonic 42858.149468651 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 40 wall 1791128715.340312 monotonic 42859.174284612 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 41 wall 1791128716.363794 monotonic 42860.197766252 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 42 wall 1791128717.3880005 monotonic 42861.221972616 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 43 wall 1791128718.4121144 monotonic 42862.246086667 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 44 wall 1791128719.439313 monotonic 42863.273285179 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 45 wall 1791128720.4648137 monotonic 42864.298786119 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 46 wall 1791128721.4874575 monotonic 42865.321429838 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+sample 47 wall 1791128722.5092099 monotonic 42866.343182178 btime 1791085856 record_start 2026-10-04T15:44:35Z birth_ns 1791128673900000000 delta_ns 1100000000 comm no-mistakes status stale
+FRESH EPISODE 48 
+server-idle-watch: no-mistakes observation unavailable on: pc
+server-idle-watch: no-mistakes observation unavailable on: server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+sample 48 wall 1791128721.5096052 monotonic 42867.389613055 btime 1791085854 record_start 2026-10-04T15:44:35Z birth_ns 1791128671900000000 delta_ns 3100000000 comm no-mistakes status unavailable
+FAIL unchanged live daemon lost stale classification after clock/btime movement; PID record, kernel start ticks and config mtime all stayed fixed

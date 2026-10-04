@@ -1,0 +1,1 @@
+bind IPC: listen unix /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/abd/server/socket: bind: invalid argument

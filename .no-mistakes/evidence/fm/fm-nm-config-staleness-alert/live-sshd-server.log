@@ -1,0 +1,92 @@
+Server listening on 127.0.0.1 port 57045.
+Accepted publickey for tegris from 127.0.0.1 port 43866 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 43866:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 43866
+Accepted publickey for tegris from 127.0.0.1 port 43874 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 43884 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 43884:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 43884
+Received disconnect from 127.0.0.1 port 43874:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 43874
+Accepted publickey for tegris from 127.0.0.1 port 41472 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41486 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41472:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41472
+Received disconnect from 127.0.0.1 port 41486:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41486
+Accepted publickey for tegris from 127.0.0.1 port 41506 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41500 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41500:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41500
+Received disconnect from 127.0.0.1 port 41506:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41506
+Accepted publickey for tegris from 127.0.0.1 port 41520 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41534 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41534:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41534
+Received disconnect from 127.0.0.1 port 41520:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41520
+Accepted publickey for tegris from 127.0.0.1 port 41550 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41566 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41566:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41566
+Received disconnect from 127.0.0.1 port 41550:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41550
+Accepted publickey for tegris from 127.0.0.1 port 41570 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41580 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41580:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41580
+Received disconnect from 127.0.0.1 port 41570:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41570
+Accepted publickey for tegris from 127.0.0.1 port 41584 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41600 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41600:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41600
+Received disconnect from 127.0.0.1 port 41584:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41584
+Accepted publickey for tegris from 127.0.0.1 port 41604 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41612 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41612:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41612
+Received disconnect from 127.0.0.1 port 41604:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41604
+Accepted publickey for tegris from 127.0.0.1 port 41628 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 41614 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 41628:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41628
+Received disconnect from 127.0.0.1 port 41614:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 41614
+Accepted publickey for tegris from 127.0.0.1 port 42612 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 42624 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 42624:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 42624
+Received disconnect from 127.0.0.1 port 42612:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 42612
+Accepted publickey for tegris from 127.0.0.1 port 42646 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 42634 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 42634:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 42634
+Received disconnect from 127.0.0.1 port 42646:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 42646
+Accepted publickey for tegris from 127.0.0.1 port 42656 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 42672 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 42656:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 42656
+Received disconnect from 127.0.0.1 port 42672:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 42672
+Accepted publickey for tegris from 127.0.0.1 port 58392 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 58396 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 58396:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 58396
+Received disconnect from 127.0.0.1 port 58392:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 58392
+Accepted publickey for tegris from 127.0.0.1 port 34746 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Accepted publickey for tegris from 127.0.0.1 port 34740 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 34746:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 34746
+Received disconnect from 127.0.0.1 port 34740:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 34740
+Accepted publickey for tegris from 127.0.0.1 port 34752 ssh2: ED25519 SHA256:wkPU01DWyYALQjiCXL//YKPCXQXecZY6kQF+nO56A/Y
+Received disconnect from 127.0.0.1 port 34752:11: disconnected by user
+Disconnected from user tegris 127.0.0.1 port 34752
+Received signal 15; terminating.

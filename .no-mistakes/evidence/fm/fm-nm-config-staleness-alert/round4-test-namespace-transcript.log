@@ -1,0 +1,9 @@
+PC procfs rejects remote PID: server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:46:34.760047+00:00"}
+AUTHENTICATED HOST-LOCAL PROCFS: server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:46:34.953618+00:00", "pid": 2, "process_start_ticks": 4680005, "config_mtime_ns": 1792085593000000000}
+AUTHENTICATED HOST-LOCAL PROCFS: server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:46:35.145924+00:00", "pid": 2, "process_start_ticks": 4680005, "config_mtime_ns": 1790085593000000000}
+PC procfs rejects remote PID: zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:46:35.168133+00:00"}
+AUTHENTICATED HOST-LOCAL PROCFS: zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:46:35.361379+00:00", "pid": 2, "process_start_ticks": 4680035, "config_mtime_ns": 1792085593000000000}
+AUTHENTICATED HOST-LOCAL PROCFS: zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:46:35.550930+00:00", "pid": 2, "process_start_ticks": 4680035, "config_mtime_ns": 1790085593000000000}
+PASS independent real Linux PID namespaces reuse identical numeric daemon PID; authenticated host-local comparison succeeds, PC procfs comparison refused
+VERIFIED ABSENT DAEMON: {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "not_running", "diagnostic": "", "sampled_at": "2026-10-04T16:46:35.576129+00:00"}
+PASS namespace with no daemon is not_running rather than stale

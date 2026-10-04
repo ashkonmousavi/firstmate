@@ -1,0 +1,15 @@
+{
+  "strict newer equal older": "pass",
+  "sampler read only": "pass",
+  "untrusted metadata unavailable": "pass",
+  "changing config unavailable": "pass",
+  "registered check sorted dedup clear rewarning": "pass",
+  "real daemon replacement clears only pc": "pass",
+  "unknown remote preserves stale peers": "pass",
+  "prompt stdout pending server": "pass",
+  "prompt stdout pending zenbook": "pass",
+  "collector read only": "pass",
+  "unchanged daemon host clock": "pass",
+  "A/B alerts when a host has room": "untested: host has less than 7 GiB available; VM/fleet memory changes out of authority",
+  "D storm alert and dedup through live SSH and real workers": "pass"
+}

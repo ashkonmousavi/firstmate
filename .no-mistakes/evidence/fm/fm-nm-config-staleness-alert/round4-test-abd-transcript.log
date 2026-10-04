@@ -1,0 +1,13 @@
+AUTHENTICATED LOOPBACK SSH server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:48:03.360238+00:00", "pid": 4422, "process_start_ticks": 4689470, "config_mtime_ns": 1791132482359660911}
+AUTHENTICATED LOOPBACK SSH zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:48:03.561443+00:00", "pid": 4697, "process_start_ticks": 4689501, "config_mtime_ns": 1791132482663645792}
+registered: state/server-idle-watch.check.sh
+
+HOST MemAvailable integer GiB: 6 ; A/B need >6 GiB and cannot be forced by this disposable home
+REAL serving remote-job workers: 3
+CHECK three serving workers alert exit 0 
+server-idle-watch: remote message helpers jammed: server=3 (healthy is 1): stop sends, check the worker lock cookie, clear per learnings REMOTE WORKER STORM, then one send
+
+CHECK worker storm dedup exit 0 
+
+PASS D storm alert and dedup through live SSH and real workers
+RESULTS {"A/B alerts when a host has room": "untested: host has less than 7 GiB available; VM/fleet memory changes out of authority", "D storm alert and dedup through live SSH and real workers": "pass"}

@@ -1,0 +1,769 @@
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:29.971671+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:00:29.995142+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000000}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.018143+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129626999999999}
+PASS strict newer equal older
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.041942+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129626999999999}
+SAMPLE server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.064957+00:00", "pid": 24303, "started_at": "2026-10-04T16:00:28Z", "process_start_ticks": 4383829, "config_mtime_ns": 1791129629163140434}
+SAMPLE zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.089930+00:00", "pid": 25221, "started_at": "2026-10-04T16:00:28Z", "process_start_ticks": 4383865, "config_mtime_ns": 1791129629512753316}
+No OPEN/ACCESS/MODIFY inotify events on config or daemon control socket
+PASS sampler read only
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.131623+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.155373+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.178852+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.201995+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.228477+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.256920+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.279722+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.301892+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.327256+00:00"}
+PASS untrusted metadata unavailable
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.353337+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.383846+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.413809+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.438071+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.468593+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.490541+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.513400+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.535972+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.559666+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.595275+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:30.620630+00:00", "pid": 23328, "started_at": "2026-10-04T16:00:27Z", "process_start_ticks": 4383786, "config_mtime_ns": 1791129627000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T16:00:30.644935+00:00"}
+Racing metadata results: ['stale', 'unavailable', 'unavailable', 'unavailable', 'unavailable', 'stale', 'stale', 'unavailable', 'stale', 'stale', 'stale', 'unavailable']
+PASS changing config unavailable
+AUTHENTICATED LOOPBACK SSH server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:31.256994+00:00", "pid": 24303, "started_at": "2026-10-04T16:00:28Z", "process_start_ticks": 4383829, "config_mtime_ns": 1791129629163140434}
+AUTHENTICATED LOOPBACK SSH zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T16:00:31.457858+00:00", "pid": 25221, "started_at": "2026-10-04T16:00:28Z", "process_start_ticks": 4383865, "config_mtime_ns": 1791129629512753316}
+registered: state/server-idle-watch.check.sh
+
+CHECK pc stale server older zenbook equal exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+
+CHECK unchanged pc exit 0 
+
+CHECK server stale too exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+
+CHECK unchanged pc server exit 0 
+
+CHECK pc clear server retained exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: server
+
+CHECK unchanged retained server exit 0 
+
+CHECK all clear exit 0 
+
+CHECK later stale evidence exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+
+CHECK later unchanged exit 0 
+
+PASS registered check sorted dedup clear rewarning
+CHECK arm before pc replacement exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+
+CHECK real pc daemon replacement exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: server
+
+PASS real daemon replacement clears only pc
+CHECK zenbook unavailable exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+PASS unknown remote preserves stale peers
+HANG server: stdout 0.271s; live pending phases=['health', 'metadata']; complete 15.071s; exit=0
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, zenbook
+server-idle-watch: no-mistakes observation unavailable on: server
+
+PASS prompt stdout pending server
+HANG zenbook: stdout 0.247s; live pending phases=['health', 'metadata']; complete 15.071s; exit=0
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+PASS prompt stdout pending zenbook
+SSH command transcript:
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/server server
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; bash -c 'cd /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/home/state && for m in *.meta; do tail -n1 "${m%.meta}.status" 2>/dev/null | grep -Ec "^(working|validating)"; done' 2>/dev/null | awk '{s+=$1} END{print s+0}'; pgrep -u 1000 -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'
+read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G _ < /proc/stat;
+t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
+echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"; pgrep -u 1000 -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/bin/fm-nm-config-staleness-check.sh /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43P3QK7WHEXNJJNX0D6ME6M/.staleness-lab/zenbook zenbook
+
+Config bytes unchanged and SSH command log contains metadata/health reads only
+PASS collector read only
+CLOCK OBSERVATIONS
+[
+  {
+    "sample": 0,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:29.971670+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 1,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:30.997327+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 2,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:32.020562+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 3,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:33.046334+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 4,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:34.070418+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 5,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:35.094638+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 6,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:36.120231+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 7,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:37.144200+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 8,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:38.166569+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 9,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:39.191428+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 10,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:40.214264+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 11,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:41.240461+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 12,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:42.271824+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 13,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:43.294349+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 14,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:44.318655+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 15,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:45.342280+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 16,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:46.367153+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 17,
+    "btime": 1791085790,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:47.408913+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 18,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:47.733932+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 19,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:48.756544+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 20,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:49.779771+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 21,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:50.802289+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 22,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:51.824356+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 23,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:52.846870+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 24,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:53.869552+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 25,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:54.893051+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 26,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:55.915317+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 27,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:56.937888+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 28,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:57.960928+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 29,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:00:58.984676+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 30,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:01:00.006548+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 31,
+    "btime": 1791085789,
+    "status": "stale",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "stale",
+      "diagnostic": "",
+      "sampled_at": "2026-10-04T16:01:01.029583+00:00",
+      "pid": 26190,
+      "started_at": "2026-10-04T16:00:28Z",
+      "process_start_ticks": 4383899,
+      "config_mtime_ns": 1791129628000000001
+    }
+  },
+  {
+    "sample": 32,
+    "btime": 1791085787,
+    "status": "unavailable",
+    "identity_and_config_fixed": true,
+    "observation": {
+      "schema": "fm-nm-config-age/1",
+      "machine": "pc",
+      "status": "unavailable",
+      "diagnostic": "unverified_metadata",
+      "sampled_at": "2026-10-04T16:00:59.888694+00:00"
+    }
+  }
+]
+CLOCK FRESH EPISODE
+server-idle-watch: no-mistakes observation unavailable on: pc
+server-idle-watch: no-mistakes observation unavailable on: server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+RESULTS {"strict newer equal older": "pass", "sampler read only": "pass", "untrusted metadata unavailable": "pass", "changing config unavailable": "pass", "registered check sorted dedup clear rewarning": "pass", "real daemon replacement clears only pc": "pass", "unknown remote preserves stale peers": "pass", "prompt stdout pending server": "pass", "prompt stdout pending zenbook": "pass", "collector read only": "pass", "unchanged daemon host clock": "fail"}

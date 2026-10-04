@@ -1,0 +1,90 @@
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.503276+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.526934+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000000}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.548473+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128177999999999}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "current", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.570989+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128177999999999}
+SAMPLE server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.594285+00:00", "pid": 2962, "started_at": "2026-10-04T15:36:19Z", "process_start_ticks": 4228693, "config_mtime_ns": 1791128180807577875}
+SAMPLE zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.616562+00:00", "pid": 3295, "started_at": "2026-10-04T15:36:20Z", "process_start_ticks": 4228739, "config_mtime_ns": 1791128181253476980}
+READ-ONLY: no config/socket open, access or modify events; daemon PID and config bytes unchanged
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.660981+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.683071+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.704874+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.726951+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.750742+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.772157+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.797170+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.826246+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.850346+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.876805+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.898759+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.922164+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.944796+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:21.967341+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:21.988170+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.009083+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.031178+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.052934+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:22.076641+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.100597+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.127736+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000001}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.150666+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:36:22.171867+00:00"}
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.196616+00:00", "pid": 2618, "started_at": "2026-10-04T15:36:18Z", "process_start_ticks": 4228573, "config_mtime_ns": 1791128178000000002}
+RACING CONFIG: statuses ['stale', 'stale', 'unavailable', 'unavailable', 'unavailable', 'stale', 'stale', 'stale', 'stale', 'unavailable', 'stale', 'stale', 'stale', 'unavailable', 'stale']
+AUTHENTICATED SSH server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:22.839549+00:00", "pid": 2962, "started_at": "2026-10-04T15:36:19Z", "process_start_ticks": 4228693, "config_mtime_ns": 1791128180807577875}
+AUTHENTICATED SSH zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:36:23.037571+00:00", "pid": 3295, "started_at": "2026-10-04T15:36:20Z", "process_start_ticks": 4228739, "config_mtime_ns": 1791128181253476980}
+CHECK pc stale, server older, zenbook equal exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+
+CHECK unchanged episode exit 0 
+
+CHECK server becomes stale exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+
+CHECK unchanged two-machine episode exit 0 
+
+CHECK only pc clears exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: server
+
+CHECK remaining server unchanged exit 0 
+
+CHECK all clear exit 0 
+
+CHECK later config change exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+
+CHECK later episode unchanged exit 0 
+
+CHECK arm pc+server before restart exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+
+CHECK actual pc restart clears only pc exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: server
+
+LIVE SSH HANG server: confirmed stdout 0.248s, still pending=True, completion 15.071s
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, zenbook
+server-idle-watch: no-mistakes observation unavailable on: server
+
+LIVE SSH HANG zenbook: confirmed stdout 0.251s, still pending=True, completion 15.075s
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes config newer than running daemon on: pc, server
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+
+SAMPLE pc {"schema": "fm-nm-config-age/1", "machine": "pc", "status": "stale", "diagnostic": "", "sampled_at": "2026-10-04T15:37:04.791697+00:00", "pid": 9484, "started_at": "2026-10-04T15:36:33Z", "process_start_ticks": 4230226, "config_mtime_ns": 1791128193000000003}
+RECORD pc {"pid":9484,"started_at":"2026-10-04T15:36:33Z"}
+SAMPLE server {"schema": "fm-nm-config-age/1", "machine": "server", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:37:04.813939+00:00"}
+RECORD server {"pid":2962,"started_at":"2026-10-04T15:36:19Z"}
+SAMPLE zenbook {"schema": "fm-nm-config-age/1", "machine": "zenbook", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:37:04.836029+00:00"}
+RECORD zenbook {"pid":3295,"started_at":"2026-10-04T15:36:20Z"}
+CHECK unavailable zenbook preserves stale pc/server exit 0 
+server-idle-watch: no-mistakes config newer than running daemon on: pc
+server-idle-watch: no-mistakes observation unavailable on: zenbook
+server-idle-watch: no-mistakes observation unavailable on: server
+
+SERVER DIRECT SSH {"schema": "fm-nm-config-age/1", "machine": "server", "status": "unavailable", "diagnostic": "unverified_metadata", "sampled_at": "2026-10-04T15:37:06.304087+00:00"}
+
+Traceback (most recent call last):
+  File "/home/tegris/.no-mistakes/evidence/01M43P3QK7WHEXNJJNX0D6ME6M/staleness-live-driver.py", line 144, in <module>
+    out=checkrun('unavailable zenbook preserves stale pc/server'); print('SERVER DIRECT SSH',command(['ssh','-F',client,'-o','BatchMode=yes','fixture-server',f'{helper} {homes["server"]} server']).stdout,flush=True); assert warning+'pc, server' in out and 'observation unavailable on: zenbook' in out
+                                                                                                                                                                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
