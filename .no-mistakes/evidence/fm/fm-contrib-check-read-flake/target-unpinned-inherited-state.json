@@ -1,0 +1,78 @@
+[
+  {
+    "mode": "inherited",
+    "clock_trace": "ticking-fallback 1800000001\nticking-fallback 1800000002\n",
+    "calls": null,
+    "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.AVV7eF/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.AVV7eF/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.AVV7eF/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+    "prior_record": {
+      "schema": "fm-contributions.v1",
+      "task": "delivery",
+      "records": [
+        {
+          "url": "https://github.com/o/r/pull/8",
+          "kind": "pr",
+          "checked_at": "2026-09-15T08:00:00Z",
+          "error": null,
+          "pending": [],
+          "seen": [],
+          "verdict": null,
+          "observation": {
+            "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "state": "open",
+            "draft": false,
+            "mergeable": "mergeable",
+            "review_decision": "APPROVED",
+            "can_merge": false,
+            "checks": [
+              {
+                "name": "test",
+                "id": 1,
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-09-16T08:00:00Z"
+              }
+            ],
+            "reviews": [],
+            "events": []
+          }
+        }
+      ]
+    },
+    "current_record": {
+      "schema": "fm-contributions.v1",
+      "task": "delivery",
+      "records": [
+        {
+          "url": "https://github.com/o/r/pull/8",
+          "kind": "pr",
+          "checked_at": "2026-09-15T08:00:00Z",
+          "error": null,
+          "pending": [],
+          "seen": [],
+          "verdict": null,
+          "observation": {
+            "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "state": "open",
+            "draft": false,
+            "mergeable": "mergeable",
+            "review_decision": "APPROVED",
+            "can_merge": false,
+            "checks": [
+              {
+                "name": "test",
+                "id": 1,
+                "status": "completed",
+                "conclusion": "success",
+                "started_at": "2026-09-16T08:00:00Z"
+              }
+            ],
+            "reviews": [],
+            "events": []
+          }
+        }
+      ]
+    },
+    "prior_record_byte_identical": true,
+    "durable_wake": null
+  }
+]

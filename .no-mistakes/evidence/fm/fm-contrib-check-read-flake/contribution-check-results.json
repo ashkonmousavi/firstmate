@@ -1,0 +1,1478 @@
+[
+  {
+    "label": "target-baseline",
+    "exit_code": 0,
+    "elapsed_seconds": 3.912,
+    "stdout": "ok - generated checks enforce configured and inherited budgets at runtime\n",
+    "stderr": "",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": null,
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.yX8Yqf/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.yX8Yqf/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.yX8Yqf/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      },
+      {
+        "mode": "inherited",
+        "clock_trace": null,
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.yX8Yqf/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.yX8Yqf/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.yX8Yqf/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-ticking-1",
+    "exit_code": 0,
+    "elapsed_seconds": 4.34,
+    "stdout": "ok - generated checks enforce configured and inherited budgets at runtime\n",
+    "stderr": "",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "pinned 1791122531\npinned 1791122531\npinned 1791122531\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.2A73dK/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.2A73dK/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.2A73dK/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      },
+      {
+        "mode": "inherited",
+        "clock_trace": "pinned 1791122532\npinned 1791122532\npinned 1791122532\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.2A73dK/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.2A73dK/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.2A73dK/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-ticking-2",
+    "exit_code": 0,
+    "elapsed_seconds": 2.631,
+    "stdout": "ok - generated checks enforce configured and inherited budgets at runtime\n",
+    "stderr": "",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "pinned 1791122535\npinned 1791122535\npinned 1791122535\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.wy4uuK/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.wy4uuK/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.wy4uuK/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      },
+      {
+        "mode": "inherited",
+        "clock_trace": "pinned 1791122536\npinned 1791122536\npinned 1791122536\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.wy4uuK/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.wy4uuK/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.wy4uuK/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-ticking-3",
+    "exit_code": 0,
+    "elapsed_seconds": 2.552,
+    "stdout": "ok - generated checks enforce configured and inherited budgets at runtime\n",
+    "stderr": "",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "pinned 1791122538\npinned 1791122538\npinned 1791122538\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.pHhuFr/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.pHhuFr/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.pHhuFr/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      },
+      {
+        "mode": "inherited",
+        "clock_trace": "pinned 1791122539\npinned 1791122539\npinned 1791122539\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.pHhuFr/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.pHhuFr/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.pHhuFr/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-ticking-4",
+    "exit_code": 0,
+    "elapsed_seconds": 2.567,
+    "stdout": "ok - generated checks enforce configured and inherited budgets at runtime\n",
+    "stderr": "",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "pinned 1791122540\npinned 1791122540\npinned 1791122540\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.I3xwY3/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.I3xwY3/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.I3xwY3/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      },
+      {
+        "mode": "inherited",
+        "clock_trace": "pinned 1791122541\npinned 1791122541\npinned 1791122541\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.I3xwY3/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.I3xwY3/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.I3xwY3/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-ticking-5",
+    "exit_code": 0,
+    "elapsed_seconds": 2.584,
+    "stdout": "ok - generated checks enforce configured and inherited budgets at runtime\n",
+    "stderr": "",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "pinned 1791122543\npinned 1791122543\npinned 1791122543\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.KWODXB/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.KWODXB/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.KWODXB/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      },
+      {
+        "mode": "inherited",
+        "clock_trace": "pinned 1791122544\npinned 1791122544\npinned 1791122544\n",
+        "calls": "api repos/o/r/pulls/8\n",
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.KWODXB/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.KWODXB/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.KWODXB/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "base-ticking-configured",
+    "exit_code": 1,
+    "elapsed_seconds": 0.317,
+    "stdout": "",
+    "stderr": "grep: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.ErFTM1/arm-budget-configured/forge/calls: No such file or directory\nnot ok - generated check did not attempt a read\n",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "ticking-fallback 1800000001\nticking-fallback 1800000002\n",
+        "calls": null,
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.ErFTM1/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.ErFTM1/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.ErFTM1/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-unpinned-configured",
+    "exit_code": 1,
+    "elapsed_seconds": 0.311,
+    "stdout": "",
+    "stderr": "not ok - generated check did not attempt a read\n",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "ticking-fallback 1800000001\nticking-fallback 1800000002\n",
+        "calls": null,
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.tZIXMj/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.tZIXMj/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.tZIXMj/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-unlogged-configured",
+    "exit_code": 1,
+    "elapsed_seconds": 1.312,
+    "stdout": "",
+    "stderr": "not ok - generated check did not attempt a read\n",
+    "state": [
+      {
+        "mode": "configured",
+        "clock_trace": "pinned 1791122546\npinned 1791122546\npinned 1791122546\n",
+        "calls": null,
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.1Gu5lo/arm-budget-configured\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.1Gu5lo/arm-budget-configured/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.1Gu5lo/arm-budget-configured/data\nexport FM_CONTRIBUTIONS_BUDGET=1\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "base-ticking-inherited",
+    "exit_code": 1,
+    "elapsed_seconds": 0.358,
+    "stdout": "",
+    "stderr": "grep: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.p9uUri/arm-budget-inherited/forge/calls: No such file or directory\nnot ok - generated check did not attempt a read\n",
+    "state": [
+      {
+        "mode": "inherited",
+        "clock_trace": "ticking-fallback 1800000001\nticking-fallback 1800000002\n",
+        "calls": null,
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.p9uUri/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.p9uUri/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.p9uUri/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-unpinned-inherited",
+    "exit_code": 1,
+    "elapsed_seconds": 0.344,
+    "stdout": "",
+    "stderr": "not ok - generated check did not attempt a read\n",
+    "state": [
+      {
+        "mode": "inherited",
+        "clock_trace": "ticking-fallback 1800000001\nticking-fallback 1800000002\n",
+        "calls": null,
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.AVV7eF/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.AVV7eF/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.AVV7eF/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  },
+  {
+    "label": "target-unlogged-inherited",
+    "exit_code": 1,
+    "elapsed_seconds": 1.374,
+    "stdout": "",
+    "stderr": "not ok - generated check did not attempt a read\n",
+    "state": [
+      {
+        "mode": "inherited",
+        "clock_trace": "pinned 1791122548\npinned 1791122548\npinned 1791122548\n",
+        "calls": null,
+        "generated_check": "#!/usr/bin/env bash\nexport FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.seYz0d/arm-budget-inherited\nexport FM_STATE_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.seYz0d/arm-budget-inherited/state\nexport FM_DATA_OVERRIDE=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/.nm-contribution-validation/fm-contributions.seYz0d/arm-budget-inherited/data\nexec /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43JPN5CQXVHJPWPJ4KJAKEC/bin/fm-contributions.sh poll\n",
+        "prior_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "current_record": {
+          "schema": "fm-contributions.v1",
+          "task": "delivery",
+          "records": [
+            {
+              "url": "https://github.com/o/r/pull/8",
+              "kind": "pr",
+              "checked_at": "2026-09-15T08:00:00Z",
+              "error": null,
+              "pending": [],
+              "seen": [],
+              "verdict": null,
+              "observation": {
+                "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "state": "open",
+                "draft": false,
+                "mergeable": "mergeable",
+                "review_decision": "APPROVED",
+                "can_merge": false,
+                "checks": [
+                  {
+                    "name": "test",
+                    "id": 1,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": "2026-09-16T08:00:00Z"
+                  }
+                ],
+                "reviews": [],
+                "events": []
+              }
+            }
+          ]
+        },
+        "prior_record_byte_identical": true,
+        "durable_wake": null
+      }
+    ]
+  }
+]
