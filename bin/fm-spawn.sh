@@ -3286,7 +3286,29 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   {
     fm_brief_worker_role "$STATE" "$ID" &&
       printf '\n' &&
-      awk -v advisor="$ADVISOR_LINE" '$0 != advisor' "$SOURCE_BRIEF" &&
+      awk -v advisor="$ADVISOR_LINE" '
+        {
+          scan=$0; sub(/^ ? ? ?/, "", scan)
+          marker=substr(scan,1,1); size=0
+          if (marker == "`" || marker == "~") {
+            while (substr(scan,size+1,1) == marker) size++
+          }
+          was_fenced=fenced
+          if (size >= 3) {
+            if (!fenced) {
+              fenced=1; fence_marker=marker; fence_size=size
+            } else if (marker == fence_marker && size >= fence_size && substr(scan,size+1) ~ /^[[:space:]]*$/) {
+              fenced=0
+            }
+          }
+          if (!was_fenced && size < 3) {
+            if ($0 == "# Current no-mistakes intent contract") exit
+            if ($0 == "# Task preparation record") { preparation=1; next }
+            if ($0 ~ /^# /) preparation=0
+          }
+          if (!preparation && $0 != advisor) print
+        }
+      ' "$SOURCE_BRIEF" &&
       if [ "$HARNESS" = claude ]; then
         case "$MODEL" in
           ''|default|*[Ff][Aa][Bb][Ll][Ee]*) ;;

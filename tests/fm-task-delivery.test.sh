@@ -2713,6 +2713,189 @@ EOF
   pass "pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts"
 }
 
+test_prep_indented_and_escaped_literals() {
+  local indent input expected actual count slashes
+  for indent in '    ' $'\t' $'  \t'; do
+    input="${indent}grep -F '<!-- marker -->' output.html"$'\n\n'"${indent}<!-- literal code -->"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+    [ "$actual" = "$input" ] || fail "indented executable bytes changed: $actual"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ -z "$(printf '%s' "$actual" | tr -d '[:space:]')" ] || fail "indented example counted as prose: $actual"
+    input=$'Paragraph continues\n'"${indent}ordinary <!-- guide -->prose"
+    expected=$'Paragraph continues\n'"${indent}ordinary prose"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+    [ "$actual" = "$expected" ] || fail "paragraph continuation mistaken for code: $actual"
+  done
+  slashes=''
+  for count in 0 1 2 3 4; do
+    input="${slashes}<!-- marker --> 42 <!-- guide -->"
+    if [ "$((count % 2))" -eq 1 ]; then
+      expected="${slashes}<!-- marker --> 42 "
+    else
+      expected="${slashes} 42 "
+    fi
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "escaped opener parity $count changed: $actual"
+    slashes="${slashes}\\"
+  done
+  pass "indented executable blocks and odd escaped openers retain bytes; prose and real comments clean normally"
+}
+
+test_prep_indented_literal_handoff() {
+  local rec home proj fakebin prep section indent body accepted expected emitted out file field reason original
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  local table command
+  table=$(cat <<'EOF'
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| \<!-- outcome --> | \<!-- result --> | \<!-- check --> | \<!-- marker --> |
+EOF
+)
+  command="grep -F '<!-- marker -->' output.html"
+  rec=$(make_home indented-handoff)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" indented yes no
+  prep="$home/data/indented/prep.md"
+  fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "$table"
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    awk -v f="$field" 'index($0,"- " f ":") == 1 { print "- " f ": \\<!-- marker -->"; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  done
+  emitted=$(fm_brief_heading_body "$prep" '## Author checks' | fm_prep_body_text)
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    assert_contains "$emitted" "- $field: \\<!-- marker -->" "escaped author answer lost for $field"
+  done
+  expected="$FM_PREP_OUTCOMES_HEADING"$'\n'"$table"
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    if [ "$section" = '## 2. Behaviour spec' ]; then indent='    '; else indent=$'\t'; fi
+    body="${indent}${command}"$'\n\n'"${indent}<!-- literal code -->"$'\n\n''Check the marker only.<!-- guide -->'
+    fill_section "$prep" "$section" "$body"
+    expected+=$'\n\n'"$section"$'\n'"${body/Check the marker only.<!-- guide -->/Check the marker only.}"
+  done
+  fm_prep_unfilled_reason "$prep" && fail "literal prep refused"
+  accepted=$(fm_prep_accepted_spec "$prep")
+  [ "$accepted" = "$expected" ] || fail "indented/escaped specification bytes changed: $accepted"
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    emitted=$(fm_brief_heading_parse - "$section" body <<<"$accepted" | awk 'NF { print; exit }')
+    for file in marker absent; do
+      if [ "$file" = marker ]; then printf '%s\n' '<!-- marker -->' 'unrelated line'; else printf '%s\n' 'unrelated line'; fi > "$home/output.html"
+      out=$(cd "$home" && bash -c "$emitted"); reason=$?
+      if [ "$file" = marker ]; then
+        [ "$reason" -eq 0 ] && [ "$out" = '<!-- marker -->' ] || fail "emitted grep lost exact marker selection: $out"
+      else
+        [ "$reason" -eq 1 ] && [ -z "$out" ] || fail "emitted grep accepted marker-absent input: $out"
+      fi
+    done
+  done
+  original="$home/prep-original.md"
+  cp "$prep" "$original"
+  write_brief "$home" indented no-mistakes
+  out=$(run_spawn "$home" "$fakebin" indented "$proj" claude --mode no-mistakes --yolo off)
+  file="$home/data/indented/launch-brief.md"
+  assert_present "$file" "literal prep did not reach launch: $out"
+  emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+  [ "$emitted" = "$expected" ] || fail "spawn changed literal specification"
+  printf 'window=fm-indented\nkind=scout\nworktree=%s\n' "$proj" > "$home/state/indented.meta"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+    "$PROMOTE" indented --mode no-mistakes --yolo off 2>&1) || fail "literal promotion refused: $out"
+  for file in "$home/data/indented/ship-instructions.md" "$home/data/indented/brief.md"; do
+    emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+    [ "$emitted" = "$expected" ] || fail "promotion changed literal specification in $file"
+  done
+  cmp -s "$prep" "$original" || fail "literal handoff rewrote prep"
+  fill_section "$prep" '## 4. Blast radius' "    $command"
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' '<!-- marker -->' || fail "indented evidence lost"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "indented section became empty"
+  fill_section "$prep" '## 4. Blast radius' 'n/a: isolated fixture.'
+  for indent in '    ' $'\t' $'  \t'; do
+    body=$(printf '%s\n' "$table" | while IFS= read -r file; do printf '%s%s\n' "$indent" "$file"; done)
+    fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "$body"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "indented example outcome table admitted"
+    assert_contains "$reason" 'Expected outcomes' "indented example refusal unnamed: $reason"
+    [ -z "$(fm_prep_accepted_spec "$prep")" ] || fail "indented example certified"
+    fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "$table"$'\n\n'"$body"
+    reason=$(fm_prep_unfilled_reason "$prep") && fail "indented examples polluted substantive table: $reason"
+    emitted=$(fm_prep_accepted_spec "$prep" | fm_brief_heading_parse - "$FM_PREP_OUTCOMES_HEADING" body)
+    [ "$emitted" = "$table" ] || fail "indented example leaked into outcome specification: $emitted"
+  done
+  pass "literal specification survives public admission, execution, spawn and both promotion artifacts; indented tables cannot supply outcomes"
+}
+
+test_promotion_refreshes_relaunch_specification() {
+  local rec home proj fakebin mode state id prep out launch emitted count expected original captain
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  local table='| Count | Exact count observed | Fixture count check | 42 |'
+  for mode in no-mistakes direct-PR local-only; do
+    rec=$(make_home "promotion-refresh-$mode")
+    IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+    id="refresh-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
+    write_brief "$home" "$id"
+    prep="$home/data/$id/prep.md"
+    fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "| Outcome | Exact observable result | Where and how to check | Expected value |"$'\n''| --- | --- | --- | --- |'$'\n'"$table"
+    printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
+    out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1) || fail "promotion refused: $out"
+    original="$home/promoted-brief.md"
+    cp "$home/data/$id/brief.md" "$original"
+    cp "$prep" "$home/complete-prep.md"
+    cat > "$fakebin/tmux" <<'EOF'
+#!/bin/sh
+case "$1" in
+  list-windows) printf 'fm-%s\n' "$FM_REFRESH_ID" ;;
+  display-message)
+    case "$*" in
+      *pane_current_command*) printf 'bash\n' ;;
+      *) exit 1 ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+EOF
+    for state in changed incomplete missing; do
+      cp "$home/complete-prep.md" "$prep"
+      case "$state" in
+        changed) sed 's/| 42 |$/| 43 |/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        incomplete) sed '/^- Scope only as asked:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        missing) rm "$prep" ;;
+      esac
+      launch="$home/data/$id/launch-brief.md"
+      rm -f "$launch"
+      out=$(FM_REFRESH_ID="$id" run_spawn "$home" "$fakebin" "$id" --relaunch)
+      assert_present "$launch" "$mode $state relaunch failed before launch rendering: $out"
+      assert_grep '# Current ship Firstmate spec' "$launch" "relaunch lost promotion instructions"
+      assert_grep '# Current delivery mode contract' "$launch" "relaunch lost delivery contract"
+      captain=$(fm_brief_task_heading_body "$launch" "## Captain's intent")
+      [ "$captain" = 'Exercise the delivery contract.' ] || fail "relaunch changed captain words"
+      count=$(grep -c '^# Task preparation record$' "$launch" || true)
+      if [ "$state" = missing ]; then expected=0; else expected=1; fi
+      [ "$count" -eq "$expected" ] || fail "$mode $state relaunch has $count prep overlays"
+      if [ "$mode" = no-mistakes ]; then
+        count=$(grep -c '^# Current no-mistakes intent contract$' "$launch" || true)
+        [ "$count" -eq 1 ] || fail "$state relaunch has $count intent overlays"
+        captain=$(awk -v c="$captain_heading" '$0 == c { emit=1; next } emit { print }' "$launch")
+        [ "$captain" = 'Exercise the delivery contract.' ] || fail "relaunch mixed specification into captain tail: $captain"
+        count=$(grep -cFx "$accepted_heading" "$launch" || true)
+        if [ "$state" = changed ]; then
+          [ "$count" -eq 1 ] || fail "refreshed relaunch has $count accepted specifications"
+          emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
+          expected="$FM_PREP_OUTCOMES_HEADING"$'\n''| Outcome | Exact observable result | Where and how to check | Expected value |'$'\n''| --- | --- | --- | --- |'$'\n'"${table/42/43}"
+          [ "$emitted" = "$expected" ] || fail "relaunch retained old specification: $emitted"
+        else
+          [ "$count" -eq 0 ] || fail "relaunch certified $state prep"
+        fi
+      else
+        assert_no_grep '# Current no-mistakes intent contract' "$launch" "$mode relaunch added no-mistakes intent"
+      fi
+      cmp -s "$home/data/$id/brief.md" "$original" || fail "relaunch rewrote durable brief"
+    done
+  done
+  pass "promotion relaunch replaces generated overlays with current complete specification in every delivery mode"
+}
+
 test_prep_common_scaffolds() {
   local home="$TMP_ROOT/common-scaffolds" id prep reason format field
   mkdir -p "$home"
@@ -2736,6 +2919,9 @@ test_prep_common_scaffolds() {
   pass "both executable preparation scaffolds carry common author checks and outcomes"
 }
 
+test_prep_indented_and_escaped_literals
+test_prep_indented_literal_handoff
+test_promotion_refreshes_relaunch_specification
 test_prep_common_completeness
 test_prep_common_scaffolds
 test_prep_spec_substantive_text

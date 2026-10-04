@@ -580,7 +580,7 @@ fm_prep_body_text() {  # [<keep-fences>]
           if (size == inline_size) inline_size=0
         } else if (substr(s,1,4) == "<!--") {
           comment=1; s=substr(s,5)
-        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\") {
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\" || substr(s,1,2) == "\\<") {
           out=out substr(s,1,2); s=substr(s,3)
         } else if (substr(s,1,1) == "`") {
           match(s,/^`+/); size=RLENGTH
@@ -596,6 +596,19 @@ fm_prep_body_text() {  # [<keep-fences>]
     END {
       for (row=1; row<=NR; row++) {
         line=lines[row]
+        if (!fenced && !comment && !inline_size) {
+          if (line ~ /^[[:space:]]*$/) {
+            paragraph=0
+            print line
+            continue
+          }
+          if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
+            indented=1
+            if (keep_fences == "yes") print line
+            continue
+          }
+          indented=0
+        }
         scan=line
         spaces=0
         while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
@@ -605,6 +618,7 @@ fm_prep_body_text() {  # [<keep-fences>]
           while (substr(scan,marker_len+1,1) == marker) marker_len++
         }
         if (marker_len >= 3 && !comment && !inline_size) {
+          paragraph=0
           rest=substr(scan,marker_len+1)
           if (!fenced) {
             fenced=1; fence_marker=marker; fence_len=marker_len
@@ -619,6 +633,7 @@ fm_prep_body_text() {  # [<keep-fences>]
           continue
         }
         line=uncomment(line,row)
+        paragraph=(line !~ /^[[:space:]]*$/)
         if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
         print line
       }
