@@ -1012,7 +1012,7 @@ test_budget_is_cut_down_to_the_watcher_check_bound() {
 }
 
 test_arm_plumbs_a_configured_budget_into_the_check_shim() {
-  local home out mode attempt
+  local home out mode
   for mode in configured inherited; do
     home=$(new_home "arm-budget-$mode")
     forge_home "$home"
@@ -1034,12 +1034,6 @@ test_arm_plumbs_a_configured_budget_into_the_check_shim() {
         || fail 'inherited-budget check shim failed'
     fi
     [ -z "$out" ] || fail "generated check printed an unavailable wake: $out"
-    for attempt in $(seq 50); do
-      if [ -f "$home/forge/calls" ] && grep -Fxq 'api repos/o/r/pulls/8' "$home/forge/calls"; then
-        break
-      fi
-      sleep 0.1
-    done
     grep -Fxq 'api repos/o/r/pulls/8' "$home/forge/calls" 2>/dev/null \
       || fail 'generated check did not attempt a read'
     cmp -s "$home/prior.json" "$home/data/delivery/contributions.json" \
