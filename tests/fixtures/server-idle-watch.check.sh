@@ -29,16 +29,22 @@ timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
   "$probe; sudo -n -u qcrew bash -c 'cd /fixture-server/fm-home/state && for m in *.meta; do tail -n1 \"\${m%.meta}.status\" 2>/dev/null | grep -Ec \"^(working|validating)\"; done' 2>/dev/null | awk '{s+=\$1} END{print s+0}'; pgrep -u qcrew -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'" >"$tmp/s" 2>/dev/null &
 timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook "$probe; pgrep -u zcrew -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'" >"$tmp/z" 2>/dev/null &
 timeout -k 1 15 bash -c "$probe" >"$tmp/p" 2>/dev/null &
-(timeout -k 1 15 "$NM_HELPER" "$NM_HOME" pc > "$tmp/pc.nm" || : > "$tmp/pc.nm") &
-(timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
-  "sudo -n -u qcrew /fixture-server/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-server/.no-mistakes server" > "$tmp/server.nm" 2>/dev/null || : > "$tmp/server.nm") &
-(timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook \
-  "/fixture-zenbook/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-zenbook/.no-mistakes zenbook" > "$tmp/zenbook.nm" 2>/dev/null || : > "$tmp/zenbook.nm") &
-wait
-for machine in pc server zenbook; do
+observe() {
+  local machine=$1
+  shift
+  timeout -k 1 15 "$@" > "$tmp/$machine.nm" 2>/dev/null || : > "$tmp/$machine.nm"
   if [ -s "$tmp/$machine.nm" ]; then cat "$tmp/$machine.nm"
   else printf '{"schema":"fm-nm-config-age/1","machine":"%s","status":"unavailable"}\n' "$machine"; fi
-done | "$NM_HELPER" --episode "$ST/.server-idle-watch-nm-config-episode"
+}
+{
+  observe pc "$NM_HELPER" "$NM_HOME" pc &
+  observe server ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
+    "sudo -n -u qcrew /fixture-server/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-server/.no-mistakes server" &
+  observe zenbook ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook \
+    "/fixture-zenbook/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-zenbook/.no-mistakes zenbook" &
+  wait
+} | "$NM_HELPER" --episode "$ST/.server-idle-watch-nm-config-episode"
+wait
 
 roomy() { awk -v c="$1" -v m="$2" 'BEGIN{print (c!="" && m!="" && c<75 && m>6)?1:0}'; }
 read -r s_cpu s_mem < <(head -1 "$tmp/s"); s_work=$(sed -n 2p "$tmp/s")

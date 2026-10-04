@@ -4,7 +4,7 @@
 # Reads config filesystem metadata, PID/start record and local proc identity,
 # never config contents, process environment, run logs or pipeline databases.
 # --episode <private-marker>: consume exactly pc/server/zenbook JSON lines on
-# stdin, print diagnostics plus one sorted warning per changed stale episode.
+# stdin, print diagnostics and prompt sorted warnings as changed evidence arrives.
 # Call inside the existing check cadence BEFORE its early A/B/D returns.
 # Transport failures must supply an unavailable observation for that machine.
 # Markers contain only identity digests. Unknown preserves prior evidence;
@@ -88,7 +88,7 @@ def episode(marker):
     path=Path(marker)
     if path.is_symlink(): raise ValueError("unsafe_marker")
     old=json.loads(path.read_text()) if path.exists() else {}
-    new=dict(old); seen=set(); stale=[]
+    new=dict(old); seen=set(); stale=[]; reported=None
     for line in sys.stdin:
         try:
             r=json.loads(line); machine=r["machine"]
@@ -101,24 +101,26 @@ def episode(marker):
                     raise ValueError("invalid_observation")
             elif status not in ("unavailable","not_running"): raise ValueError("invalid_status")
         except (ValueError,KeyError,TypeError):
-            print("server-idle-watch: no-mistakes observation unavailable: malformed probe")
+            print("server-idle-watch: no-mistakes observation unavailable: malformed probe",flush=True)
             continue
         seen.add(machine)
         if status=="unavailable":
-            print("server-idle-watch: no-mistakes observation unavailable on: "+machine)
+            print("server-idle-watch: no-mistakes observation unavailable on: "+machine,flush=True)
         elif status=="stale":
             new[machine]=hashlib.sha256(json.dumps(evidence).encode()).hexdigest(); stale.append(machine)
         else: new.pop(machine,None)
+        confirmed={machine:new[machine] for machine in stale}
+        if stale and new!=old and confirmed!=reported:
+            print("server-idle-watch: no-mistakes config newer than running daemon on: "+", ".join(sorted(stale)),flush=True)
+            reported=confirmed
     for machine in sorted({"pc","server","zenbook"}-seen):
-        print("server-idle-watch: no-mistakes observation unavailable on: "+machine)
+        print("server-idle-watch: no-mistakes observation unavailable on: "+machine,flush=True)
     fd,tmp=tempfile.mkstemp(prefix=".nm-config-age-",dir=path.parent)
     try:
         with os.fdopen(fd,"w") as f: json.dump(new,f,sort_keys=True)
         os.replace(tmp,path)
     finally:
         if os.path.exists(tmp): os.unlink(tmp)
-    if stale and new!=old:
-        print("server-idle-watch: no-mistakes config newer than running daemon on: "+", ".join(sorted(stale)))
 
 try:
     if sys.argv[1]=="--episode": episode(sys.argv[2])

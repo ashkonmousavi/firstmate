@@ -41,7 +41,12 @@ cat > "$T/fakebin/ssh" <<'FAKE'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FIXTURE/commands"
 if [ -n "${NM_HANG_HOST:-}" ]; then
-  case "$*" in *"fixture-$NM_HANG_HOST"*) sleep 60;; esac
+  case "$*" in
+    *"fixture-$NM_HANG_HOST"*)
+      case "$*" in *fm-nm-config-staleness-check*) phase=metadata;; *) phase=health;; esac
+      printf '%s\n' "$$" > "$FIXTURE/pending-$NM_HANG_HOST-$phase"
+      sleep 60;;
+  esac
 fi
 case "$*" in
   *fm-nm-config-staleness-check*)
@@ -66,8 +71,22 @@ check() {
   PATH="$T/fakebin:$PATH" STATE="$T/home/state" NM_HOME="$T/nm" NM_HELPER="$HELPER" FM_NM_PROC_ROOT="$T/proc" \
     timeout -k 1 25 /bin/bash "$T/home/state/server-idle-watch.check.sh"
 }
+assert_episode_output() {
+  python3 - "$1" "$2" <<'PY'
+import sys
+prefix="server-idle-watch: no-mistakes config newer than running daemon on: "
+lines=[line for line in sys.argv[1].splitlines() if line.startswith(prefix)]
+if not lines or lines[-1]!=sys.argv[2]:
+    raise SystemExit("unexpected final stale set: "+sys.argv[1])
+for line in lines:
+    machines=line[len(prefix):].split(", ")
+    if machines!=sorted(set(machines)) or not set(machines)<={"pc","server","zenbook"}:
+        raise SystemExit("unsorted or invalid warning: "+line)
+PY
+}
 out=$(check)
-assert_contains "$out" 'config newer than running daemon on: pc' 'existing check must warn before early returns'
+assert_episode_output "$out" 'server-idle-watch: no-mistakes config newer than running daemon on: pc, server, zenbook'
+[ -z "$(check)" ] || fail 'unchanged three-host episode repeats'
 set_time() { python3 - "$T/$1/config.yaml" "$2" <<'PY'
 import os, sys
 n=int(sys.argv[2]); os.utime(sys.argv[1], ns=(n,n))
@@ -82,7 +101,7 @@ warning='server-idle-watch: no-mistakes config newer than running daemon on: pc'
 [ "$(check)" = "$warning" ] || fail 'first episode must name only pc'
 [ -z "$(check)" ] || fail 'unchanged episode repeats'
 set_time server 1791108002000000000
-[ "$(check)" = "$warning, server" ] || fail 'server change must create one sorted warning'
+assert_episode_output "$(check)" "$warning, server"
 cp "$T/nm/daemon.pid" "$T/record.good"
 cp "$T/proc/123/stat" "$T/stat.good"
 printf '{"pid":123,"started_at":"2026-10-04T10:00:03Z"}\n' > "$T/nm/daemon.pid"
@@ -114,13 +133,64 @@ assert_contains "$out" "$warning, server" 'malformed transport must not suppress
 pass 'three-host comparisons, unchanged episodes, restart and partial failure'
 
 cp "$T/server/daemon.pid" "$T/zenbook/daemon.pid"
-set_time zenbook 1791108000000000000
-for machine in server zenbook; do
-  rm "$T/home/state/.server-idle-watch-nm-config-episode"
-  out=$(NM_HANG_HOST="$machine" check) || fail "$machine timeout exceeded the check deadline"
-  assert_contains "$out" "observation unavailable on: $machine" 'timed-out host remains visible'
-  assert_contains "$out" "$warning" 'remote health and metadata timeouts must not suppress stale pc'
-done
+set_time zenbook 1791108001000000000
+python3 - "$T" <<'PY'
+import os, selectors, subprocess, sys, time
+from pathlib import Path
+
+root=Path(sys.argv[1]); errors=[]
+prefix="server-idle-watch: no-mistakes config newer than running daemon on: "
+for machine in ("server", "zenbook"):
+    available="zenbook" if machine=="server" else "server"
+    warning=(prefix+"pc, "+available).encode()
+    state=root/"home/state"
+    for name in (".server-idle-watch-last-run", ".server-idle-watch-nm-config-episode"):
+        (state/name).unlink(missing_ok=True)
+    env=dict(os.environ, PATH=str(root/"fakebin")+":"+os.environ["PATH"],
+             STATE=str(state), NM_HOME=str(root/"nm"), NM_HELPER=os.environ["HELPER"],
+             FM_NM_PROC_ROOT=str(root/"proc"), NM_HANG_HOST=machine)
+    started=time.monotonic()
+    proc=subprocess.Popen(["timeout", "-k", "1", "25", "/bin/bash", str(state/"server-idle-watch.check.sh")],
+                          env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    early=b""
+    while time.monotonic()-started<5:
+        try:
+            for phase in ("health", "metadata"):
+                os.kill(int((root/f"pending-{machine}-{phase}").read_text()), 0)
+            break
+        except (OSError, ValueError): time.sleep(0.01)
+    with selectors.DefaultSelector() as ready:
+        ready.register(proc.stdout, selectors.EVENT_READ)
+        while time.monotonic()-started<5 and warning+b"\n" not in early:
+            if ready.select(max(0, 5-(time.monotonic()-started))):
+                chunk=os.read(proc.stdout.fileno(), 4096)
+                if not chunk: break
+                early+=chunk
+    prompt=time.monotonic()-started
+    pending=[]
+    for phase in ("health", "metadata"):
+        try:
+            os.kill(int((root/f"pending-{machine}-{phase}").read_text()), 0)
+            pending.append(phase)
+        except (OSError, ValueError): pass
+    if warning+b"\n" not in early or len(pending)!=2 or proc.poll() is not None:
+        errors.append(f"{machine}: confirmed stale stdout missing while both probes pending (observed {prompt:.3f}s)")
+    rest,stderr=proc.communicate(timeout=30)
+    output=(early+rest).decode()
+    if proc.returncode!=0 or f"observation unavailable on: {machine}" not in output or warning.decode() not in output:
+        errors.append(f"{machine}: bounded completion lost warning or unavailable diagnostic: {output} {stderr.decode()}")
+    lines=[line for line in output.splitlines() if line.startswith(prefix)]
+    if not lines or lines[-1]!=warning.decode():
+        errors.append(f"{machine}: final warning lost the sorted affected set")
+    for line in lines:
+        names=line[len(prefix):].split(", ")
+        if names!=sorted(set(names)):
+            errors.append(f"{machine}: warning is not sorted: {line}")
+    print(f"{machine}: pc and {available} stdout observed at {prompt:.3f}s; pending={','.join(pending)}; check completed at {time.monotonic()-started:.3f}s", flush=True)
+    print(output, end="", flush=True)
+if errors:
+    raise SystemExit("\n".join(errors))
+PY
 pass 'both remote timeout paths preserve stale pc within the watcher deadline'
 
 expect_unknown() { assert_contains "$(sample)" '"status": "unavailable"' "$1 must be unavailable"; }
@@ -172,6 +242,12 @@ assert_contains "$(check)" 'resource waits over 10 min:' 'B alert survives new h
 rm "$T/home/state/lane.status"
 unset FIXTURE_MODE
 pass 'existing A/B/D alerts survive through the full custom check'
+set_time nm 1791108001000000000
+assert_episode_output "$(check)" "$warning"
+[ -z "$(check)" ] || fail 'unchanged episode after clear repeats'
+set_time nm 1791107999000000000
+[ -z "$(check)" ] || fail 'cleared episode must be quiet'
+pass 'cleared episode warns again on new evidence and stays deduplicated'
 
 # Exercise the registration/snapshot public interface on the proposed hook.
 FM_HOME="$T/home" "$ROOT/bin/fm-check-register.sh" server-idle-watch >/dev/null
