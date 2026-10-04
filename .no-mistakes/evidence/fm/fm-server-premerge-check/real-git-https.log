@@ -1,0 +1,10 @@
+allowed HTTPS github.com: fresh base=af07a1ef0b898ee4bfd99d2a52bd9794a828acca head=abf1c42bc4ccfde07315cca0aba84042e793a554 tree=62cf4e8e254d5f5487fd7d5afc67ae33753bd3a5
+allowed username prompt: fresh base=af07a1ef0b898ee4bfd99d2a52bd9794a828acca head=abf1c42bc4ccfde07315cca0aba84042e793a554 tree=62cf4e8e254d5f5487fd7d5afc67ae33753bd3a5
+missing login: plan check refused: fetch
+rejected credential: plan check refused: fetch
+cross-host redirect refusal: plan check refused: fetch
+HTTP authentication refusal: plan check refused: fetch
+different host: plan check refused: fetch
+deceptive suffix: plan check refused: fetch
+deceptive prefix: plan check refused: fetch
+deceptive userinfo: plan check refused: fetch

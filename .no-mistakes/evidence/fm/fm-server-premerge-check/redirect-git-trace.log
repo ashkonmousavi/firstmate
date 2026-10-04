@@ -1,0 +1,14 @@
+09:51:40.058921 git.c:463               trace: built-in: git ls-remote --get-url origin
+09:51:40.060635 git.c:463               trace: built-in: git rev-parse --show-toplevel
+09:51:40.061915 git.c:463               trace: built-in: git init -q --template= /tmp/fm-q-premerge-01yc6nyd/merge
+09:51:40.064445 git.c:463               trace: built-in: git fetch -q --no-tags -- https://github.com/origin.git +refs/heads/main:refs/heads/base +refs/pull/7/head:refs/heads/pr
+09:51:40.064545 run-command.c:659       trace: run_command: GIT_DIR=.git git remote-https https://github.com/origin.git https://github.com/origin.git
+09:51:40.065626 git.c:749               trace: exec: git-remote-https https://github.com/origin.git https://github.com/origin.git
+09:51:40.065639 run-command.c:659       trace: run_command: git-remote-https https://github.com/origin.git https://github.com/origin.git
+09:52:25.919552 git.c:463               trace: built-in: git ls-remote --get-url origin
+09:52:25.921085 git.c:463               trace: built-in: git rev-parse --show-toplevel
+09:52:25.922692 git.c:463               trace: built-in: git init -q --template= /tmp/fm-q-premerge-8x__jmkw/merge
+09:52:25.925535 git.c:463               trace: built-in: git fetch -q --no-tags -- https://github.com/origin.git +refs/heads/main:refs/heads/base +refs/pull/7/head:refs/heads/pr
+09:52:25.925638 run-command.c:659       trace: run_command: GIT_DIR=.git git remote-https https://github.com/origin.git https://github.com/origin.git
+09:52:25.926437 git.c:749               trace: exec: git-remote-https https://github.com/origin.git https://github.com/origin.git
+09:52:25.926452 run-command.c:659       trace: run_command: git-remote-https https://github.com/origin.git https://github.com/origin.git

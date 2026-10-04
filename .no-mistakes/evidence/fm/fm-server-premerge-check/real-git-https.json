@@ -1,0 +1,220 @@
+[
+  {
+    "scenario": "allowed HTTPS github.com",
+    "url": "https://github.com/origin.git",
+    "exit": 0,
+    "stdout": "fresh base=af07a1ef0b898ee4bfd99d2a52bd9794a828acca head=abf1c42bc4ccfde07315cca0aba84042e793a554 tree=62cf4e8e254d5f5487fd7d5afc67ae33753bd3a5\n",
+    "stderr": "",
+    "requests": [
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      },
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": true,
+        "accepted": true
+      },
+      {
+        "host": "github.com",
+        "method": "POST",
+        "authorization_present": true,
+        "accepted": true
+      }
+    ],
+    "gh_retrievals": [
+      "scoped github.com retrieval"
+    ],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "allowed username prompt",
+    "url": "https://user@github.com/origin.git",
+    "exit": 0,
+    "stdout": "fresh base=af07a1ef0b898ee4bfd99d2a52bd9794a828acca head=abf1c42bc4ccfde07315cca0aba84042e793a554 tree=62cf4e8e254d5f5487fd7d5afc67ae33753bd3a5\n",
+    "stderr": "",
+    "requests": [
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      },
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": true,
+        "accepted": true
+      },
+      {
+        "host": "github.com",
+        "method": "POST",
+        "authorization_present": true,
+        "accepted": true
+      }
+    ],
+    "gh_retrievals": [
+      "scoped github.com retrieval"
+    ],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "missing login",
+    "url": "https://github.com/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [
+      "scoped github.com retrieval"
+    ],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "rejected credential",
+    "url": "https://github.com/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      },
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": true,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [
+      "scoped github.com retrieval"
+    ],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "cross-host redirect refusal",
+    "url": "https://github.com/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "github.com",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "HTTP authentication refusal",
+    "url": "http://127.0.0.1:33085/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "127.0.0.1:33085",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "different host",
+    "url": "https://other.invalid/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "other.invalid",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "deceptive suffix",
+    "url": "https://github.com.evil.invalid/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "github.com.evil.invalid",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "deceptive prefix",
+    "url": "https://evilgithub.com/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "evilgithub.com",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  },
+  {
+    "scenario": "deceptive userinfo",
+    "url": "https://github.com@other.invalid/origin.git",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "plan check refused: fetch\n",
+    "requests": [
+      {
+        "host": "other.invalid",
+        "method": "GET",
+        "authorization_present": false,
+        "accepted": false
+      }
+    ],
+    "gh_retrievals": [],
+    "inherited_callback_called": false,
+    "source_unchanged": true
+  }
+]
