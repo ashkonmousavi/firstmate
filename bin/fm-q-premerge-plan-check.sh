@@ -2,9 +2,9 @@
 # Usage: fm-q-premerge-plan-check.sh <Q-clone-path> <positive-PR-number>
 # Read origin/main and the PR into private /tmp scratch; validate the simulated
 # merge with BASE-owned Q tools. Requires Git with merge-tree --write-tree and
-# Python 3.9+. HTTPS github.com uses gh login; SSH uses transport environment.
-# Source cookie/custom Git config is not copied. Commands are bounded at
-# 180 seconds. Exit 0: fresh with actual base/head/tree; 1: conflict or rejected
+# Python 3.9+. Only HTTPS github.com uses host-scoped gh tokens; SSH keys/agents work.
+# Inherited ASKPASS is cleared; source credential/cookie/custom Git config is not copied.
+# Commands are bounded at 180 seconds. Exit 0: fresh with actual base/head/tree; 1: conflict or rejected
 # plan; 2: unavailable/unverifiable. Diagnostics never expose transport output.
 # Manual-install warnings do not affect acceptance. Recheck if either ref moves;
 # this checks only, and never replaces fm-pr-merge.sh or its merge authority.
