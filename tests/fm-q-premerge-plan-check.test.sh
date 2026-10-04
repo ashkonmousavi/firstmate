@@ -77,7 +77,7 @@ PY
 printf 'good\n' > "$repo/mode"
 printf 'original\n' > "$repo/shared.txt"
 printf '\000\377\r\n' > "$repo/byte-witness.bin"
-printf '$Format:%%H$\r\noriginal\n' > "$repo/format-witness.txt"
+printf "\$Format:%%H\$\r\noriginal\n" > "$repo/format-witness.txt"
 chmod +x "$repo/format-witness.txt"
 ln -s format-witness.txt "$repo/safe-link"
 printf 'format-witness.txt export-subst\nbyte-witness.bin export-ignore\n' > "$repo/.gitattributes"
@@ -103,7 +103,7 @@ make_head() {
   git -C "$repo" checkout -q --detach "$O"
   printf '%s\n' "$1" > "$repo/mode"
   printf '%s\n' "$1" > "$repo/candidate.txt"
-  printf '$Format:%%H$\r\n%s\n' "$1" > "$repo/format-witness.txt"
+  printf "\$Format:%%H\$\r\n%s\n" "$1" > "$repo/format-witness.txt"
   git -C "$repo" add .
   git -C "$repo" commit -qm candidate
   H=$(git -C "$repo" rev-parse HEAD)
