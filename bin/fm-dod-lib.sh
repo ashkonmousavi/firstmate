@@ -598,12 +598,12 @@ fm_prep_body_text() {  # [<keep-fences>]
         line=lines[row]
         if (!fenced && !comment && !inline_size) {
           if (line ~ /^[[:space:]]*$/) {
-            paragraph=0
+            paragraph=0; table=0
             print line
             continue
           }
           if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
-            indented=1
+            indented=1; table=0
             if (keep_fences == "yes") print line
             continue
           }
@@ -618,7 +618,7 @@ fm_prep_body_text() {  # [<keep-fences>]
           while (substr(scan,marker_len+1,1) == marker) marker_len++
         }
         if (marker_len >= 3 && !comment && !inline_size) {
-          paragraph=0
+          paragraph=0; table=0
           rest=substr(scan,marker_len+1)
           if (!fenced) {
             fenced=1; fence_marker=marker; fence_len=marker_len
@@ -633,7 +633,9 @@ fm_prep_body_text() {  # [<keep-fences>]
           continue
         }
         line=uncomment(line,row)
-        paragraph=(line !~ /^[[:space:]]*$/)
+        scan=line; sub(/^ ? ? ?/, "", scan)
+        table=table_start(row) || (table && scan ~ /\|/)
+        paragraph=(line !~ /^[[:space:]]*$/ && scan !~ /^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)/ && !table)
         if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
         print line
       }
@@ -662,8 +664,8 @@ fm_prep_section_state() {  # <file> <heading> <placeholder>
 # Structural completeness only: prose truth and test evidence remain the
 # builder/verifier's responsibility. Ignore guide comments and fenced examples;
 # recognize whole-answer placeholders, never braces inside literal tool output.
-fm_prep_answer_complete() {  # <body> <allow-na>
-  printf '%s\n' "$1" | fm_prep_body_text | awk -v na="$2" '
+fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
+  printf '%s\n' "$1" | awk -v na="$2" '
     function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     { text=text $0 " " }
     END {
@@ -888,7 +890,7 @@ fm_prep_unfilled_reason() {  # <file>
   done <<EOF
 $FM_PREP_SECTIONS
 EOF
-  if ! fm_prep_answer_complete "$(fm_brief_heading_body "$file" '## 1. Intent and boxes')" no; then
+  if ! fm_prep_answer_complete "$(fm_brief_heading_body "$file" '## 1. Intent and boxes' | fm_prep_body_text)" no; then
     printf 'required ## 1. Intent and boxes must state substantive task intent\n'
     return 0
   fi

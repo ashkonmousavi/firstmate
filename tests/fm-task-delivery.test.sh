@@ -2498,7 +2498,7 @@ EOF
 
 test_prep_inline_delimiters() {
   local input expected actual code field rec home proj fakebin prep reason
-  for code in '`<!-- marker -->`' '``<!-- marker -->``' '`` `<!-- marker -->` ``' '```` `<!-- marker -->` ````' '\\`<!-- marker -->`'; do
+  for code in "\`<!-- marker -->\`" "\`\`<!-- marker -->\`\`" "\`\` \`<!-- marker -->\` \`\`" "\`\`\`\` \`<!-- marker -->\` \`\`\`\`" "\\\\\`<!-- marker -->\`"; do
     input="start<!-- guide --> $code <!-- more guide -->end"
     expected="start $code end"
     actual=$(printf '%s\n' "$input" | fm_prep_body_text)
@@ -2533,7 +2533,7 @@ EOF
     assert_contains "$actual" "- $field: \`grep -F '<!-- marker -->' output.html\`" "author command literal lost for $field"
   done
   reason=$(fm_prep_unfilled_reason "$prep") && fail "literal author commands refused: $reason"
-  fill_section "$prep" '## 4. Blast radius' '`<!-- GitNexus -->`'
+  fill_section "$prep" "## 4. Blast radius" "\`<!-- GitNexus -->\`"
   fm_prep_evidence_ok "$prep" '## 4. Blast radius' gitnexus || fail "literal inline evidence lost"
   [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "literal section became empty"
   fill_section "$prep" '## 4. Blast radius' '<!-- GitNexus -->'
@@ -2713,6 +2713,104 @@ EOF
   pass "pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts"
 }
 
+test_prep_block_transitions() {
+  local command="grep -F '<!-- marker -->' output.html" input expected actual indent prefix hashes spaces level
+  for indent in '    ' $'\t'; do
+    hashes=''
+    for level in 1 2 3 4 5 6; do
+      hashes+='#'
+      for spaces in '' ' ' '  ' '   '; do
+        prefix="$spaces$hashes Marker check"
+        input="$prefix"$'\n'"$indent$command"
+        actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+        [ "$actual" = "$input" ] || fail "ATX $level/$spaces lost code bytes: $actual"
+        actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+        [ "$actual" = "$prefix" ] || fail "ATX example counted as substantive prose: $actual"
+      done
+    done
+    for prefix in $'| Label | Value |\n| --- | --- |\n| Check | Marker |' \
+      $'Label | Value\n--- | ---\nCheck | Marker' \
+      $'  ````shell\nprintf literal\n  ```\n  `````' \
+      $'~~~shell\nprintf literal\n~~~'; do
+      input="$prefix"$'\n'"$indent$command"
+      actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+      [ "$actual" = "$input" ] || fail "block ending lost code bytes: $actual"
+    done
+    for prefix in '<!-- guide -->' $'<!-- guide\nmultiline guidance\n-->'; do
+      input="$prefix"$'\n'"$indent$command"
+      actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+      [ "$actual" = "$indent$command" ] || fail "guide block contaminated following command: $actual"
+    done
+    for prefix in 'Ordinary paragraph' '- List item' '1. List item' '#Not a heading' '####### Not a heading' \
+      '| Just pipe text |' $'| Not | Table |\n| nope | nope |' 'Escaped \| prose' \
+      $'Setext is not supported\n---'; do
+      input="$prefix"$'\n'"$indent ordinary <!-- guide -->prose"
+      expected="$prefix"$'\n'"$indent ordinary prose"
+      actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+      [ "$actual" = "$expected" ] || fail "paragraph/list continuation mistaken for code: $actual"
+    done
+    input=$'Paragraph <!-- inline guide -->\n'"$indent ordinary <!-- guide -->prose"
+    expected=$'Paragraph \n'"$indent ordinary prose"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+    [ "$actual" = "$expected" ] || fail "inline guide ended a substantive paragraph: $actual"
+  done
+  pass "supported headings, tables, fences and guide blocks end paragraphs; prose/list continuations retain context"
+}
+
+test_prep_author_continuation_context() {
+  local rec home proj fakebin prep baseline field indent value reason status out mode expected
+  rec=$(make_home author-continuations)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" continued yes no
+  prep="$home/data/continued/prep.md"
+  baseline="$home/valid-prep.md"
+  cp "$prep" "$baseline"
+  expected=$(fm_prep_accepted_spec "$prep")
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    for indent in ' ' '    ' $'\t'; do
+      for value in 'Exercise only the requested fixture.' "\`grep -F '<!-- marker -->' output.html\`"; do
+        FM_TEST_CONTINUATION="$indent$value" awk -v f="$field" '
+          index($0,"- " f ":") == 1 { print "- " f ":"; print ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+        ' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 1 ] && [ -z "$reason" ] || fail "$field continuation refused ($indent): $reason"
+      done
+      for value in '' '{UNFILLED}' '<reason>' 'TODO' 'example: use this' 'n/a' 'n/a: TBD' '<!-- guide only -->' \
+        $'\n    Example only.' $'\n\tExample only.' $'\n  ```text\nExample only.\n  ```'; do
+        FM_TEST_CONTINUATION="$indent$value" awk -v f="$field" '
+          index($0,"- " f ":") == 1 { print "- " f ":"; print ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+        ' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 0 ] || fail "$field invalid continuation admitted: $value"
+        assert_contains "$reason" "$field" "invalid continuation refusal named another field: $reason"
+      done
+    done
+  done
+  for value in '    Example only.' $'```text\nExample only.\n```' '<!-- guide only -->'; do
+    cp "$baseline" "$prep"
+    fill_section "$prep" '## 1. Intent and boxes' "$value"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "raw intent example/comment admitted: $value"
+    assert_contains "$reason" 'Intent and boxes' "raw intent refusal unnamed: $reason"
+  done
+  cp "$baseline" "$prep"
+  awk '
+    /^- (Captain rulings|Screen and region|Red-first proof|Fixture arithmetic|Data path reachability|Scope only as asked|Author gate check):/ {
+      sub(/:.*/, ":"); print; print "    Exercise only the requested fixture."; next
+    }
+    { print }
+  ' "$baseline" > "$prep"
+  [ "$(fm_prep_accepted_spec "$prep")" = "$expected" ] || fail "continued author fields omitted accepted specification"
+  for mode in no-mistakes direct-PR local-only; do
+    write_brief "$home" continued "$mode"
+    rm -f "$home/data/continued/launch-brief.md"
+    out=$(run_spawn "$home" "$fakebin" continued "$proj" claude --mode "$mode" --yolo off)
+    assert_present "$home/data/continued/launch-brief.md" "$mode continuation admission failed: $out"
+  done
+  pass "all author fields accept concrete/literal continuations and refuse incomplete values or examples; raw intent stays cleaned"
+}
+
 test_prep_indented_and_escaped_literals() {
   local indent input expected actual count slashes
   for indent in '    ' $'\t' $'  \t'; do
@@ -2742,7 +2840,7 @@ test_prep_indented_and_escaped_literals() {
 }
 
 test_prep_indented_literal_handoff() {
-  local rec home proj fakebin prep section indent body accepted expected emitted out file field reason original
+  local rec home proj fakebin prep section indent body accepted expected emitted out file field reason original cleaned
   local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
   local captain_heading='## Captain intent authorized for --intent'
   local table command
@@ -2770,24 +2868,26 @@ EOF
   expected="$FM_PREP_OUTCOMES_HEADING"$'\n'"$table"
   for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
     if [ "$section" = '## 2. Behaviour spec' ]; then indent='    '; else indent=$'\t'; fi
-    body="${indent}${command}"$'\n\n'"${indent}<!-- literal code -->"$'\n\n''Check the marker only.<!-- guide -->'
+    body="${indent}${command}"$'\n\n### Marker check\n'"${indent}${command}"$'\n\n| Label | Value |\n| --- | --- |\n| Check | Marker |\n'"${indent}${command}"$'\n\n~~~shell\nprintf literal\n~~~\n'"${indent}${command}"$'\n<!-- guide block -->\n'"${indent}${command}"$'\n\n'"${indent}<!-- literal code -->"$'\n\n''Check the marker only.<!-- guide -->'
     fill_section "$prep" "$section" "$body"
-    expected+=$'\n\n'"$section"$'\n'"${body/Check the marker only.<!-- guide -->/Check the marker only.}"
+    cleaned=${body/$'<!-- guide block -->\n'/}
+    expected+=$'\n\n'"$section"$'\n'"${cleaned/Check the marker only.<!-- guide -->/Check the marker only.}"
   done
   fm_prep_unfilled_reason "$prep" && fail "literal prep refused"
   accepted=$(fm_prep_accepted_spec "$prep")
   [ "$accepted" = "$expected" ] || fail "indented/escaped specification bytes changed: $accepted"
   for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
-    emitted=$(fm_brief_heading_parse - "$section" body <<<"$accepted" | awk 'NF { print; exit }')
-    for file in marker absent; do
-      if [ "$file" = marker ]; then printf '%s\n' '<!-- marker -->' 'unrelated line'; else printf '%s\n' 'unrelated line'; fi > "$home/output.html"
-      out=$(cd "$home" && bash -c "$emitted"); reason=$?
-      if [ "$file" = marker ]; then
-        [ "$reason" -eq 0 ] && [ "$out" = '<!-- marker -->' ] || fail "emitted grep lost exact marker selection: $out"
-      else
-        [ "$reason" -eq 1 ] && [ -z "$out" ] || fail "emitted grep accepted marker-absent input: $out"
-      fi
-    done
+    while IFS= read -r emitted; do
+      for file in marker absent restored; do
+        if [ "$file" != absent ]; then printf '%s\n' '<!-- marker -->' 'unrelated line'; else printf '%s\n' 'unrelated line'; fi > "$home/output.html"
+        out=$(cd "$home" && bash -c "$emitted"); reason=$?
+        if [ "$file" != absent ]; then
+          [ "$reason" -eq 0 ] && [ "$out" = '<!-- marker -->' ] || fail "emitted grep lost exact marker selection: $out"
+        else
+          [ "$reason" -eq 1 ] && [ -z "$out" ] || fail "emitted grep accepted marker-absent input: $out"
+        fi
+      done
+    done < <(fm_brief_heading_parse - "$section" body <<<"$accepted" | awk '/^(    |\t)grep / { print }')
   done
   original="$home/prep-original.md"
   cp "$prep" "$original"
@@ -2919,6 +3019,8 @@ test_prep_common_scaffolds() {
   pass "both executable preparation scaffolds carry common author checks and outcomes"
 }
 
+test_prep_block_transitions
+test_prep_author_continuation_context
 test_prep_indented_and_escaped_literals
 test_prep_indented_literal_handoff
 test_promotion_refreshes_relaunch_specification
