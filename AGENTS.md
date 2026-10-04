@@ -197,13 +197,13 @@ An unregistered project or absent registry resolves to `no-mistakes` with yolo o
 Record the resulting mode, `yolo` merge posture, and the one-line reason for any deviation in the backlog item note.
 
 Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work as soon as a writing lane is free when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
-Load `wayfinding` for shared-seam ownership, parallel batches and the reviewed-plan horizon; `bin/fm-dod-lib.sh` owns the preparation Size guide for splitting by behaviour.
+Load `wayfinding` for shared-seam ownership, parallel batches and the preparation horizon; `bin/fm-dod-lib.sh` owns the preparation Size guide for splitting by behaviour.
 Use as many isolated ship/scout lanes as this home's presequenced, currently parallel-safe work needs, up to seven; never create idle work to fill slots, and retain existing resource and ownership restrictions.
 Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB, no swap-in/out pressure, and current load strictly below available core count; missing or failing readings prevent that admission.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
-Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns completeness, surgical certainty and the separate server-install exemption.
-Unless that owner grants exemption, have a separately spawned prep-review scout review the full record on Opus and install its approved bytes.
-A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or, when review is owed, that lacks the separate review whose record `bin/fm-dod-lib.sh` owns.
+Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns the common author checks, outcome table, tier completeness and surgical certainty.
+The preparation author fills the common checks and explicit expected outcomes, then runs that owner's completeness gate on final bytes and records its actual result in the handoff; separate prep review is optional when explicitly requested.
+A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or whose common checks or outcome table fail the completeness contract in `bin/fm-dod-lib.sh`.
 When a secondmate already filled `data/nav-preps/<id>.md`, install that sheet into this home's `data/<id>/prep.md` with `bin/fm-prep-install.sh` before spawn; an empty local `--prep` scaffold must not hide a filled nav-prep.
 Write the task-specific brief under section 11 before spawning.
 Fill the task subsections according to section 11.

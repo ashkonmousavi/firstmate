@@ -11,12 +11,10 @@
 # sections.
 
 # fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>]
-# Writes an answered record for <id> under <data-dir>, plus the separate review
-# a non-exempt ship spawn requires (fm_test_prep_review). The tier header answers
-# default to three noes with the tier-1 sections and byte-bound review; pass yes to
+# Writes an answered record for <id> under <data-dir>. The tier header answers
+# default to three noes with the tier-1 sections; pass yes to
 # any of them to exercise a higher tier, where every section is answered.
-# Idempotent: an existing record, and an existing review of it, are left alone
-# so a test can write its own; a record with no review yet gets one.
+# Idempotent: an existing record is left alone so a test can write its own.
 # Returns non-zero if the scaffold fails.
 fm_test_prep_record() {
   local data=$1 id=$2 q1=${3:-no} q2=${4:-no} ui=${5:-no} root prep
@@ -28,27 +26,33 @@ fm_test_prep_record() {
       || return 1
     sed -e "s/{Q1}/$q1/" -e "s/{Q2}/$q2/" \
         -e "s/{UI_WIRING}/$ui, spawn fixture./" \
+        -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' \
         -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' "$prep" > "$prep.filled" \
       && mv "$prep.filled" "$prep" || return 1
+    fm_test_fill_prep_common "$prep" || return 1
+    if [ "$ui" = yes ]; then
+      sed 's/^- Screen and region:.*$/- Screen and region: Settings, configuration region, fixture design map./' "$prep" > "$prep.ui" \
+        && mv "$prep.ui" "$prep" || return 1
+    fi
   fi
-  [ -e "$data/$id/prep-review" ] && return 0
-  fm_test_prep_review "$data" "$id"
+  return 0
 }
 
-# fm_test_prep_review <data-dir> <id>
-# Writes the proof of a separate review that bin/fm-dod-lib.sh's
-# fm_prep_review_reason accepts: data/<id>/prep-review naming the reviewer
-# <id>-prep-review and author firstmate, and that reviewer's launch brief,
-# report, and reviewed-prep.md copied from the current prep.md. Always
-# refreshes, so a test that edits prep.md after review calls it again to
-# re-approve the edited record.
-fm_test_prep_review() {
-  local data=$1 id=$2 reviewer
-  reviewer="$id-prep-review"
-  [ -f "$data/$id/prep.md" ] || return 1
-  mkdir -p "$data/$reviewer" || return 1
-  printf 'reviewer=%s\nauthor=firstmate\n' "$reviewer" > "$data/$id/prep-review" || return 1
-  printf '# Current worker role contract\nPrep-review scout fixture.\n' > "$data/$reviewer/launch-brief.md" || return 1
-  printf '## Standards\nChecked project conventions.\n## Spec\nReviewed the preparation record for %s.\n## Architecture\nChecked shared seams.\n' "$id" > "$data/$reviewer/report.md" || return 1
-  cp "$data/$id/prep.md" "$data/$reviewer/reviewed-prep.md"
+# Fill the real scaffold's common fields with concrete fixture checks.
+fm_test_fill_prep_common() {  # <prep-file>
+  local prep=$1
+  awk '
+    { gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' "$prep" > "$prep.common" && mv "$prep.common" "$prep"
 }

@@ -1146,7 +1146,7 @@ test_ship_relaunch_ignores_the_crew_harness_config() {
 }
 
 # A ship spawn requires the task's preparation record (bin/fm-brief.sh --prep)
-# and a separate review of it, but --relaunch replaces the agent on a task that
+# but --relaunch replaces the agent on a task that
 # already exists, including every task dispatched before those gates existed.
 # add_ship_task writes no record, so this relaunch reaches the brief checks
 # without one and must still launch, and its launch brief must not point at a
@@ -1166,6 +1166,13 @@ test_relaunch_is_exempt_from_the_task_preparation_gate() {
   assert_absent "$dir/home/data/rl60/prep.md" "a relaunch fabricated a preparation record"
   assert_no_grep "# Task preparation record" "$dir/home/data/rl60/launch-brief.md" \
     "the launch brief points at a preparation record the task does not have"
+  # Old incomplete preparation remains recoverable and cannot supply validated spec.
+  printf '## Tier\n- Q1 alters behavior: no\n- Q2 shared contract: no\n- UI wiring: no, historical record.\n\n## 11. Definition of done\nOld unvalidated acceptance.\n' > "$dir/home/data/rl60/prep.md"
+  printf 'zsh' > "$dir/fake/command"
+  out=$(run_spawn "$dir" rl60 --relaunch)
+  assert_contains "$out" "spawned rl60" "historical incomplete prep blocked recovery"
+  assert_no_grep '## Accepted specification for --intent' "$dir/home/data/rl60/launch-brief.md" "relaunch certified incomplete historical prep"
+  assert_grep 'Old unvalidated acceptance.' "$dir/home/data/rl60/prep.md" "relaunch migrated old preparation"
   pass "fm-spawn --relaunch: a task dispatched before the preparation gate still relaunches"
 }
 

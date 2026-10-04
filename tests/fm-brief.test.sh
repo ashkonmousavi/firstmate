@@ -1194,7 +1194,7 @@ test_prep_scaffolds_the_preparation_record() {
     "prep record does not say a UI wiring yes forces tier 2"
   [ "$(grep -n '^## Tier$' "$prep" | cut -d: -f1)" -lt "$(grep -n '^## 1\.' "$prep" | cut -d: -f1)" ] \
     || fail "the tier header does not come before the sections it governs"
-  assert_grep 'All no: retain tier 1 sections and separate review' "$prep" \
+  assert_grep 'All no: retain tier 1 sections' "$prep" \
     "prep record does not retain sections and review for all-no full prep"
   assert_grep '## 1. Intent and boxes' "$prep" "prep record lost its intent section"
   assert_grep '## 2. Behaviour spec' "$prep" "prep record lost its behaviour spec"
@@ -1212,8 +1212,8 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
   assert_grep 'n/a: <one-line reason>' "$prep" \
     "prep record does not offer the n/a answer that keeps a small change small"
-  grep -c '^<!-- ' "$prep" | grep -qx 14 \
-    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, and each section"
+  grep -c '^<!-- ' "$prep" | grep -qx 22 \
+    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, each numbered section, and the common checks/table"
   assert_grep "task item this work completes in the project's own record" "$prep" \
     "prep record does not point at the project's own task record"
   assert_grep 'record and clear the pending integration' "$prep" \
@@ -1274,7 +1274,7 @@ EOF
     "--help does not say what tier 2 requires"
   assert_contains "$help_text" "tier 1 - sections 1, 4, 6, 8 and 11 only" \
     "--help does not say what tier 1 requires"
-  assert_contains "$help_text" "retain tier 1 sections and separate review" \
+  assert_contains "$help_text" "retain tier 1 sections" \
     "--help does not retain full sections and review for all-no"
   assert_contains "$help_text" "UI wiring yes     tier 2 - whatever Q1 and Q2 say" \
     "--help does not say a UI wiring yes forces tier 2"

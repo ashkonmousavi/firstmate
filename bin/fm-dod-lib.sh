@@ -67,7 +67,7 @@
 # This file is the one owner of the no-mistakes `--intent` contract: only the
 # brief's `## Captain's intent` subsection plus later captain words, never
 # `## Firstmate spec` and never the worker's own tradeoffs. The one addition is
-# the reviewed preparation record's sections 2 and 11, which
+# the complete preparation record's outcomes and applicable sections 2 and 11, which
 # fm_brief_intent_overlay hands a no-mistakes ship as accepted specification,
 # placed before the captain's words in the launch brief and appended after them
 # in --intent under a label that says they are not the captain's words, so the
@@ -97,30 +97,8 @@
 # cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# fm_prep_review_exempt permits complete surgical certificates and unchanged
-# server installs without review. Inside ## Tier, declare exactly:
-#   - Prep review exemption: server-install
-#   - Changes unit: no
-#   - Changes setting: no
-#   - Changes pin: no
-#   - Changes store version: no
-# Missing, malformed, conflicting or yes install answers retain review; these
-# optional author declarations do not affect tier and are not verified facts.
-# fm_prep_review_reason gates non-exempt ships on a separate agent review.
-# The proof is data/<task-id>/prep-review,
-# two key=value lines firstmate writes after the review scout reports:
-#   reviewer=<the prep-review scout's task id>
-#   author=<who wrote the record: firstmate, a task id, or secondmate:<home>>
-# The reviewer must be neither the ship nor the author, must have run as its own
-# spawned session (data/<reviewer>/launch-brief.md, which only bin/fm-spawn.sh
-# writes and teardown keeps), must have left a nonempty data/<reviewer>/report.md,
-# with Standards and Spec headings (Architecture too when Q2 is yes),
-# and must have written the complete record it approves to
-# data/<reviewer>/reviewed-prep/<task-id>.md, or legacy reviewed-prep.md when
-# no per-task artifact exists; firstmate installs those approved bytes as
-# data/<task-id>/prep.md, and the shipped record must stay byte-identical to it.
-# The author line is self-declared, because no record carries its author; that
-# is a stated limit rather than a check.
+# Both preparation formats owe common author checks and explicit outcomes.
+# Review artifacts and old server-install declarations do not affect admission.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
 # data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
 # spawn names that path when this home's data/<task-id>/prep.md is missing or
@@ -267,13 +245,13 @@ fm_brief_marked_captain_words() {  # <task-body>
   '
 }
 
-# fm_brief_intent_overlay <captain-intent> [<reviewed-prep-path>]
+# fm_brief_intent_overlay <captain-intent> [<complete-prep-path>]
 # The launch section that states the current --intent contract and ends with the
 # captain's words, so they stay the last section of the launch brief. With a
-# reviewed preparation record, its accepted specification (fm_prep_accepted_spec)
+# preparation record, its accepted specification (fm_prep_accepted_spec)
 # is placed before those words under its own heading, with the instruction to
 # append it after them in --intent.
-fm_brief_intent_overlay() {  # <captain-intent> [<reviewed-prep-path>]
+fm_brief_intent_overlay() {  # <captain-intent> [<complete-prep-path>]
   local spec=''
   [ -z "${2:-}" ] || spec=$(fm_prep_accepted_spec "$2")
   cat <<'EOF'
@@ -287,10 +265,10 @@ The Definition of done's rule that `--intent` must be self-sufficient still gove
 EOF
   if [ -n "$spec" ]; then
     cat <<'EOF'
-The one addition is the accepted specification below, which a separate agent reviewed in this task's preparation record: after the captain's words, add a blank line, then the line `Accepted specification from the reviewed preparation record (not the captain's words):`, then every heading and body under `## Accepted specification for --intent (reviewed preparation record, not the captain's words)` exactly as written, so the review checks the work against what the record promised.
+The one addition is the accepted specification below, from this task's complete preparation record: after the captain's words, add a blank line, then the line `Accepted specification from the preparation record (not the captain's words):`, then every heading and body under `## Accepted specification for --intent (preparation record, not the captain's words)` exactly as written, so the review checks the work against what the record promised.
 It is specification, not captain intent; `## Firstmate spec`, later Firstmate constraints, and your own decisions and tradeoffs still stay out.
 
-## Accepted specification for --intent (reviewed preparation record, not the captain's words)
+## Accepted specification for --intent (preparation record, not the captain's words)
 EOF
     printf '%s\n' "$spec"
   fi
@@ -335,7 +313,7 @@ fm_brief_task_content_valid() {  # <file>
 #                              still settles one that does not apply)
 #   Q1 no and Q2 yes        -> tier 1, sections 1, 4, 6, 8 and 11 only; the rest
 #                              may be omitted entirely
-#   both no                 -> full prep still owes tier-1 sections and review
+#   both no                 -> full prep still owes tier-1 sections
 #
 # The canonical section list lives here exactly once, with the tier each section
 # becomes required at, so the writer and the validator cannot drift: within a
@@ -410,7 +388,34 @@ C2|Impact lookup finds no caller outside the change and no shared module or cont
 C3|Stored data, security, permissions, money, install and server paths are untouched|Scope reason covering every exclusion.
 C4|The cause and the complete fix are known|Reproduced cause and concrete fix.
 C5|One focused regression covers the entire changed behaviour|Executable test seam and red-first reproduction.'
-FM_PREP_FULL_FALLBACK='full prep and separate review: delete the Preparation format line, answer every section the tier requires and obtain a separate prep review'
+FM_PREP_FULL_FALLBACK='full prep: delete the Preparation format line and answer every section the tier requires'
+
+# Common schema: label|placeholder|conditional n/a allowed|author guidance.
+# Both preparation formats owe these fields and the substantive outcome table.
+FM_PREP_AUTHOR_CHECKS='Captain rulings|CAPTAIN_RULINGS|yes|Quote relevant rulings and their source, or give reasoned n/a for no additional ruling; state task intent here when surgical, otherwise in section 1.
+Screen and region|SCREEN_AND_REGION|yes|For UI work name the exact screen, region and project map/design reference; otherwise give reasoned n/a.
+Red-first proof|RED_FIRST_PROOF|yes|For each planned behavioral test name the public seam, failing setup or mutation, exact expected failure and RED evidence to record before passing code; never invent an observed result; for each new or changed high-risk test, name the user-visible outcome, the independent source of its expected answer, the real production boundary it exercises, and one realistic fault witness that makes it fail; record baseline pass -> injected fault fails -> restored pass with the command; if no executable test applies, give the reason and alternative check.
+Fixture arithmetic|FIXTURE_ARITHMETIC|yes|For each calculated assertion give fixture inputs, recomputation command and derived expected value; otherwise give reasoned n/a.
+Data path reachability|DATA_PATH_REACHABILITY|yes|Trace source to consumer with paths and command/output or direct tracing evidence of reachability; otherwise give reasoned n/a.
+Scope only as asked|SCOPE_ONLY_AS_ASKED|no|Tie each proposed behavior to the quoted task intent and state the exclusions.
+Author gate check|AUTHOR_GATE_CHECK|no|Name the exact bash command sourcing bin/fm-dod-lib.sh and calling fm_prep_unfilled_reason on this record; run it on final bytes before handoff and paste the actual command, empty output and raw exit 1 into the handoff; reason with raw exit 0 refuses; execution evidence belongs in the handoff, not a recursive pass receipt here.'
+FM_PREP_OUTCOMES_HEADING='## Expected outcomes and how to check each'
+FM_PREP_OUTCOME_COLUMNS='Outcome|Exact observable result|Where and how to check|Expected value'
+
+fm_prep_common_template() {
+  local label placeholder conditional guide column
+  printf '\n## Author checks\n'
+  while IFS='|' read -r label placeholder conditional guide; do
+    printf '\n<!-- %s -->\n- %s: {%s}\n' "$guide" "$label" "$placeholder"
+  done <<EOF
+$FM_PREP_AUTHOR_CHECKS
+EOF
+  printf '\n%s\n' "$FM_PREP_OUTCOMES_HEADING"
+  printf '<!-- The author writes at least one substantive row; builders and post-implementation verifiers check every row against the same explicit result, concrete command/public seam or screen and region, and expected value; every cell is required; n/a and examples alone are not answers. -->\n'
+  printf '|'
+  while IFS= read -r column; do printf ' %s |' "$column"; done < <(printf '%s\n' "$FM_PREP_OUTCOME_COLUMNS" | tr '|' '\n')
+  printf '\n| --- | --- | --- | --- |\n| {OUTCOME} | {OBSERVABLE_RESULT} | {WHERE_AND_HOW} | {EXPECTED_VALUE} |\n'
+}
 
 fm_prep_tier_template() {  # <task-id> [surgical]
   local id=$1 q1_reason='' q2_reason=''
@@ -420,7 +425,7 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections and separate review; a complete surgical certificate replaces both, and the server-install exemption waives only the review. -->\n'
+  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
   printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
@@ -431,7 +436,9 @@ fm_prep_tier_template() {  # <task-id> [surgical]
 fm_prep_surgical_template() {  # <task-id>
   local field label evidence
   fm_prep_tier_template "$1" surgical
-  printf -- '- Preparation format: surgical\n\n## Certainty\n'
+  printf -- '- Preparation format: surgical\n'
+  fm_prep_common_template
+  printf '\n## Certainty\n'
   printf 'Every answer must be exactly yes with concrete evidence. Any no, unsure or incomplete answer requires %s.\n' "$FM_PREP_FULL_FALLBACK"
   while IFS='|' read -r field label evidence; do
     printf '\n- %s %s: {%s}\nEvidence: {%s_EVIDENCE}\n<!-- %s -->\n' "$field" "$label" "$field" "$field" "$evidence"
@@ -450,7 +457,8 @@ fm_prep_template() {
   # shellcheck disable=SC2016 # single quotes are deliberate: the backticks are literal template text
   printf 'Answer every section your tier requires. One that genuinely does not apply is answered `n/a: <one-line reason>`.\n'
   printf 'Use primary-source citations (documentation, source code or specification) beside every external fact; choices between options follow the project research-first decision procedure.\n'
-  printf 'This record is the specification beneath the brief: sections 2 and 11 are the acceptance criteria the reviewer holds the work to.\n'
+  printf 'This record is the specification beneath the brief: the expected-outcomes table and applicable sections 2 and 11 are the acceptance list for builders and post-implementation verifiers.\n'
+  fm_prep_common_template
   while IFS='|' read -r heading placeholder tier guide evidence; do
     [ -n "$heading" ] || continue
     guide=${guide//'<this task id>'/$id}
@@ -543,6 +551,125 @@ fm_prep_section_state() {  # <file> <heading> <placeholder>
   fi
 }
 
+# Structural completeness only: prose truth and test evidence remain the
+# builder/verifier's responsibility. Ignore guide comments and fenced examples;
+# recognize whole-answer placeholders, never braces inside literal tool output.
+fm_prep_answer_complete() {  # <body> <allow-na>
+  printf '%s\n' "$1" | awk -v na="$2" '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    /^```|^~~~/ { fenced=!fenced; next }
+    fenced { next }
+    {
+      s=$0
+      while (length(s)) {
+        if (comment) {
+          end=index(s, "-->")
+          if (!end) { s=""; break }
+          s=substr(s, end+3); comment=0
+        } else {
+          start=index(s, "<!--")
+          if (!start) { text=text s " "; break }
+          text=text substr(s,1,start-1) " "; s=substr(s,start+4); comment=1
+        }
+      }
+    }
+    END {
+      text=clean(text)
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+        if (text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/) exit 1
+      }
+    }'
+}
+
+fm_prep_common_reason() {  # <file>
+  local file=$1 label placeholder conditional guide body value reason
+  if ! fm_brief_heading_present "$file" '## Author checks'; then
+    printf 'required ## Author checks is missing\n'; return 0
+  fi
+  body=$(fm_brief_heading_body "$file" '## Author checks')
+  while IFS='|' read -r label placeholder conditional guide; do
+    # Continuations belong to the field up to the next bullet. Comment-only
+    # and fenced example bullets cannot supply a required answer.
+    value=$(printf '%s\n' "$body" | awk -v label="$label" '
+      /^```|^~~~/ { fenced=!fenced; next }
+      fenced { next }
+      {
+        line=$0
+        if (comment) {
+          end=index(line,"-->"); if (!end) next
+          line=substr(line,end+3); comment=0
+        }
+        while (index(line,"<!--")) {
+          start=index(line,"<!--"); tail=substr(line,start+4); end=index(tail,"-->")
+          if (!end) { line=substr(line,1,start-1); comment=1; break }
+          line=substr(line,1,start-1) substr(tail,end+3)
+        }
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    ')
+    if [ "$label" = 'Captain rulings' ] && fm_prep_surgical_declared "$file"; then conditional=no; fi
+    if [ "$label" = 'Screen and region' ] && [ "$(fm_prep_ui_wiring "$file")" = yes ]; then conditional=no; fi
+    if ! fm_prep_answer_complete "$value" "$conditional" || [[ "$value" == *'{INVALID_FIELD}'* ]]; then
+      printf 'Author checks requires one complete %s answer\n' "$label"; return 0
+    fi
+  done <<EOF
+$FM_PREP_AUTHOR_CHECKS
+EOF
+  if ! fm_brief_heading_present "$file" "$FM_PREP_OUTCOMES_HEADING"; then
+    printf 'required %s is missing\n' "$FM_PREP_OUTCOMES_HEADING"; return 0
+  fi
+  reason=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | awk -v columns="$FM_PREP_OUTCOME_COLUMNS" '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    BEGIN { split(columns, names, "|") }
+    /^```|^~~~/ { fenced=!fenced; next }
+    fenced { next }
+    {
+      line=$0
+      # Comments do not provide cells or rows, including multiline examples.
+      if (comment) {
+        end=index(line, "-->"); if (!end) next
+        line=substr(line,end+3); comment=0
+      }
+      while (index(line,"<!--")) {
+        start=index(line,"<!--"); tail=substr(line,start+4); end=index(tail,"-->")
+        if (!end) { line=substr(line,1,start-1); comment=1; break }
+        line=substr(line,1,start-1) substr(tail,end+3)
+      }
+      line=trim(line)
+      if (line == "") next
+      if (line !~ /^\|.*\|$/) { bad="table row"; next }
+      gsub(/\\\|/, "ESCAPED_PIPE", line)
+      n=split(line,cells,"|")
+      if (n != 6) { bad="four columns"; next }
+      if (!header) {
+        for (i=1;i<=4;i++) if (trim(cells[i+1]) != names[i]) bad="column " names[i]
+        header=1; next
+      }
+      if (!separator) {
+        for (i=2;i<=5;i++) if (trim(cells[i]) !~ /^:?-+(:)?$/) bad="separator"
+        separator=1; next
+      }
+      rows++
+      for (i=1;i<=4;i++) {
+        value=trim(cells[i+1])
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|example|e[.]g[.]|todo|tbd)([ :]|$)/) bad="row " rows " column " names[i]
+      }
+    }
+    END {
+      if (!header || !separator || !rows) bad="header, separator and at least one substantive row"
+      if (bad) print "Expected outcomes requires " bad
+    }')
+  if [ -n "$reason" ]; then printf '%s\n' "$reason"; return 0; fi
+  return 1
+}
+
 # fm_prep_evidence_ok <file> <heading> <token>...
 # True when a filled section that owes tool output carries it: its body names one
 # of the tool tokens, or answers `n/a: <reason>`. Deliberately the cheapest check
@@ -602,7 +729,6 @@ fm_prep_certainty_reason() {  # <file>
     return 0
   fi
   if fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
-    /^- Prep review exemption:/ { bad = 1 }
     /^- Changes (stored data|security|permissions|money|install|server|unit|setting|pin|store version):/ {
       value = $0; sub(/^.*:/, "", value); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
       if (value != "no") bad = 1
@@ -665,6 +791,10 @@ fm_prep_unfilled_reason() {  # <file>
       "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
+  if state=$(fm_prep_common_reason "$file"); then
+    printf '%s\n' "$state"
+    return 0
+  fi
   if fm_prep_surgical_declared "$file"; then
     fm_prep_certainty_reason "$file"
     return $?
@@ -690,122 +820,23 @@ fm_prep_unfilled_reason() {  # <file>
   done <<EOF
 $FM_PREP_SECTIONS
 EOF
-  return 1
-}
-
-# fm_prep_review_exempt <prep-path>
-# Completeness comes first; surgical certificates and unchanged server installs
-# need no separate review. Install fields are author declarations, not checks.
-# An exemption is never proof of review for the accepted-specification overlay.
-fm_prep_review_exempt() {  # <prep-path>
-  local file=$1
-  fm_prep_unfilled_reason "$file" >/dev/null && return 1
-  fm_prep_surgical_declared "$file" && return 0
-  # Optional install declarations do not participate in tier selection. Every
-  # occurrence must agree; an absent, malformed or conflicting field refuses.
-  fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
-    index($0, "- Prep review exemption:") == 1 {
-      value = substr($0, length("- Prep review exemption:") + 1)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
-      declared = 1
-      if (value != "server-install") invalid = 1
-    }
-    {
-      for (n = 1; n <= 4; n++) {
-        field = n == 1 ? "unit" : n == 2 ? "setting" : n == 3 ? "pin" : "store version"
-        if (index($0, "- Changes " field ":") != 1) continue
-        value = $0
-        sub(/^.*:/, "", value)
-        gsub(/[[:space:].]/, "", value)
-        seen[n] = 1
-        if (tolower(value) != "no") invalid = 1
-      }
-    }
-    END { exit !(declared && !invalid && seen[1] && seen[2] && seen[3] && seen[4]) }
-  '
-}
-
-# fm_prep_review_reason <data-dir> <task-id>
-# Prints the first refusal reason and exits 0; exits 1 when the task's
-# preparation record carries the proof of a separate review this file's header
-# defines. Exemption is checked separately, never returned as review proof.
-# Each refusal names the one piece that is missing or wrong.
-fm_prep_review_reason() {  # <data-dir> <task-id>
-  local data=$1 id=$2 record reviewer author dir artifact heading
-  if ! fm_pr_task_id_valid "$id"; then
-    printf 'task id %s is not a plain task id\n' "$id"
-    return 0
-  fi
-  record="$data/$id/prep-review"
-  if [ ! -f "$record" ] || [ ! -r "$record" ]; then
-    printf 'no review record at %s\n' "$record"
-    return 0
-  fi
-  reviewer=$(sed -n 's/^reviewer=//p' "$record" | head -n 1)
-  author=$(sed -n 's/^author=//p' "$record" | head -n 1)
-  if [ -z "$reviewer" ]; then
-    printf '%s names no reviewer=\n' "$record"
-    return 0
-  fi
-  if ! fm_pr_task_id_valid "$reviewer"; then
-    printf '%s reviewer=%s is not a plain task id\n' "$record" "$reviewer"
-    return 0
-  fi
-  if [ "$reviewer" = "$id" ]; then
-    printf '%s reviewer=%s is the ship task itself\n' "$record" "$reviewer"
-    return 0
-  fi
-  if [ -z "$author" ]; then
-    printf '%s names no author=\n' "$record"
-    return 0
-  fi
-  if [ "$reviewer" = "$author" ]; then
-    printf "%s reviewer=%s is also the record's author\n" "$record" "$reviewer"
-    return 0
-  fi
-  dir="$data/$reviewer"
-  if [ ! -f "$dir/launch-brief.md" ]; then
-    printf 'reviewer %s has no launch brief at %s, so it never ran as its own spawned session\n' \
-      "$reviewer" "$dir/launch-brief.md"
-    return 0
-  fi
-  if [ ! -f "$dir/report.md" ]; then
-    printf 'reviewer %s has no report at %s\n' "$reviewer" "$dir/report.md"
-    return 0
-  fi
-  if ! grep -q '[^[:space:]]' "$dir/report.md"; then
-    printf 'reviewer %s report at %s is empty\n' "$reviewer" "$dir/report.md"
-    return 0
-  fi
-  for heading in '## Standards' '## Spec' '## Architecture'; do
-    [ "$heading" != '## Architecture' ] || [ "$(fm_prep_answer "$data/$id/prep.md" Q2)" = yes ] || continue
-    if ! fm_brief_heading_present "$dir/report.md" "$heading"; then
-      printf 'reviewer %s report at %s requires %s\n' "$reviewer" "$dir/report.md" "$heading"
-      return 0
-    fi
-  done
-  artifact="$dir/reviewed-prep/$id.md"
-  [ -e "$artifact" ] || [ -L "$artifact" ] || artifact="$dir/reviewed-prep.md"
-  if [ ! -f "$artifact" ] || [ ! -r "$artifact" ]; then
-    printf 'reviewer %s wrote no readable reviewed record at %s\n' "$reviewer" "$artifact"
-    return 0
-  fi
-  if ! cmp -s "$data/$id/prep.md" "$artifact"; then
-    printf 'prep changed after review; install the reviewed record or review again (%s differs from %s)\n' \
-      "$data/$id/prep.md" "$artifact"
+  if ! fm_prep_answer_complete "$(fm_brief_heading_body "$file" '## 1. Intent and boxes')" no; then
+    printf 'required ## 1. Intent and boxes must state substantive task intent\n'
     return 0
   fi
   return 1
 }
 
 # fm_prep_accepted_spec <prep-path>
-# Prints the record's `## 2. Behaviour spec` and `## 11. Definition of done`,
-# each under its own heading with guide comments stripped, for
-# fm_brief_intent_overlay. A section that is absent, empty, still placeheld, or
-# answered n/a is left out, and an unreadable record prints nothing.
+# Prints the common outcome table plus substantive applicable sections 2 and 11.
+# Only a record passing current completeness supplies accepted specification;
+# legacy relaunch recovery does not certify incomplete historical preparation.
 fm_prep_accepted_spec() {  # <prep-path>
   local file=$1 heading placeholder required guide evidence body first sep=''
-  [ -n "$(fm_prep_tier "$file")" ] || return 0
+  fm_prep_unfilled_reason "$file" >/dev/null && return 0
+  body=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | sed 's/<!--.*-->//' | awk 'NF { started = 1 } started')
+  printf '%s\n%s\n' "$FM_PREP_OUTCOMES_HEADING" "$body"
+  sep=$'\n'
   while IFS='|' read -r heading placeholder required guide evidence; do
     case "$placeholder" in BEHAVIOUR_SPEC|DEFINITION_OF_DONE) ;; *) continue ;; esac
     [ "$(fm_prep_section_state "$file" "$heading" "$placeholder")" = filled ] || continue
@@ -828,7 +859,8 @@ fm_brief_prep_overlay() {  # <prep-path>
   cat <<'EOF'
 Read it in full before you plan or write anything: it is the specification beneath this brief, and it supersedes your own reconstruction of what the change should do.
 Its `## Tier` header decides how much the record says; a section it does not carry was ruled out there, not forgotten.
-Where the record carries `## 2. Behaviour spec` and `## 11. Definition of done`, those are the acceptance criteria the reviewer will hold this work to, alongside `## Captain's intent` above.
+Builders and post-implementation verifiers use `## Expected outcomes and how to check each` as the same explicit acceptance list, alongside the applicable `## 2. Behaviour spec`, `## 11. Definition of done` and `## Captain's intent` above.
+Check each outcome row with its named command/public seam or screen and region and expected value, and report actual evidence and unproven claims without promoting fixture proof into real launch or installed proof.
 A section answered `n/a: <reason>` is a decision already taken, not an invitation to fill the gap yourself.
 Write the tests named in Tests before their passing code, one slice at a time at the named public seams.
 If the record is wrong or incomplete for what you find in the code, say so through the status file rather than silently building something else.
@@ -891,7 +923,7 @@ ${pr_return_line}Whenever a drive call returns without a gate or an outcome - it
   cat <<EOF
 You drive no-mistakes by responding to its gates, not by implementing fixes.
 Follow the guidance no-mistakes itself provides for the mechanics: it loads when you invoke /no-mistakes, and \`no-mistakes axi run --help\` plus the \`help\` lines in each \`axi\` response are authoritative and version-matched to the installed binary.
-When starting no-mistakes, pass \`--intent\` as only this brief's \`## Captain's intent\` subsection body, not its heading, plus any later words the captain actually said, plus, when your launch brief carries one, the reviewed preparation record's accepted specification appended after them exactly as that launch section says.
+When starting no-mistakes, pass \`--intent\` as only this brief's \`## Captain's intent\` subsection body, not its heading, plus any later words the captain actually said, plus, when your launch brief carries one, the preparation record's accepted specification appended after them exactly as that launch section says.
 Preserve the actual words without adding speaker labels or direct address; the subsection heading supplies provenance outside the pipeline input.
 For a legacy brief with no such subsection, include only words on lines marked \`[captain] \`, excluding that metadata prefix; never copy its mixed \`# Task\` wholesale.
 If it has no provenance-marked captain words, stop and ask firstmate instead of starting no-mistakes.
