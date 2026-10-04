@@ -1,0 +1,127 @@
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-lab-home.sh create /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+[exit 0]
+
+$ tmux -S sock new-session -d -s fm-lab-prep -x 100 -y 30 "bash --noprofile --norc"
+[exit 0]
+
+$ tmux -S sock display-message -p #{socket_path}
+sock
+[exit 0]
+
+$ tmux -S sock display-message -p #{pid}
+27325
+[exit 0]
+
+$ git -C /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/projects/proj init -q
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-brief.sh refresh-no-mistakes --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-no-mistakes/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". \"$1/bin/fm-dod-lib.sh\"; fm_prep_unfilled_reason \"$2\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-no-mistakes/prep.md
+[exit 1]
+
+$ tmux -S sock new-window -d -t fm-lab-prep: -n fm-refresh-no-mistakes "bash --noprofile --norc"
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-promote.sh refresh-no-mistakes --mode no-mistakes --yolo off
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+warn: no registry at /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/projects.md; defaulting proj to no-mistakes off
+promoted refresh-no-mistakes to ship mode=no-mistakes yolo=off (teardown protection restored)
+wrote ship instructions for mode=no-mistakes: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-no-mistakes/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328 bin/fm-send.sh fm-refresh-no-mistakes "$(cat /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-no-mistakes/ship-instructions.md)"
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-no-mistakes --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-no-mistakes: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-no-mistakes
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-no-mistakes --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-no-mistakes: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-no-mistakes
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-no-mistakes --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-no-mistakes: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-no-mistakes
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-brief.sh refresh-direct-pr --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-direct-pr/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". \"$1/bin/fm-dod-lib.sh\"; fm_prep_unfilled_reason \"$2\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-direct-pr/prep.md
+[exit 1]
+
+$ tmux -S sock new-window -d -t fm-lab-prep: -n fm-refresh-direct-pr "bash --noprofile --norc"
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-promote.sh refresh-direct-pr --mode direct-PR --yolo off
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warn: no registry at /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/projects.md; defaulting proj to no-mistakes off
+promoted refresh-direct-pr to ship mode=direct-PR yolo=off (teardown protection restored)
+wrote ship instructions for mode=direct-PR: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-direct-pr/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328 bin/fm-send.sh fm-refresh-direct-pr "$(cat /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-direct-pr/ship-instructions.md)"
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-direct-pr --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-direct-pr: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-direct-pr
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-direct-pr --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-direct-pr: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-direct-pr
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-direct-pr --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-direct-pr: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-direct-pr
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-brief.sh refresh-local-only --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-local-only/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". \"$1/bin/fm-dod-lib.sh\"; fm_prep_unfilled_reason \"$2\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-local-only/prep.md
+[exit 1]
+
+$ tmux -S sock new-window -d -t fm-lab-prep: -n fm-refresh-local-only "bash --noprofile --norc"
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-promote.sh refresh-local-only --mode local-only --yolo off
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warn: no registry at /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/projects.md; defaulting proj to no-mistakes off
+promoted refresh-local-only to ship mode=local-only yolo=off (teardown protection restored)
+wrote ship instructions for mode=local-only: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-local-only/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328 bin/fm-send.sh fm-refresh-local-only "$(cat /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328/data/refresh-local-only/ship-instructions.md)"
+[exit 0]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-local-only --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-local-only: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-local-only
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-local-only --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-local-only: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-local-only
+[exit 1]
+
+$ bash /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-spawn.sh refresh-local-only --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-relaunch-l2hkj328
+error: branch mismatch for refresh-local-only: the brief says branch=fm/safety-stop but this spawn selected branch=fm/refresh-local-only
+[exit 1]
+
+$ tmux -S sock kill-server
+[exit 0]
+
+Private tmux server stopped; disposable home removed.

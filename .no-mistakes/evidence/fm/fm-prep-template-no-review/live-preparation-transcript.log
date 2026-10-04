@@ -1,0 +1,513 @@
+$ bash bin/fm-lab-home.sh create /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+[exit 0]
+
+$ git -C /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj init -q
+[exit 0]
+
+$ bash bin/fm-brief.sh all-no --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/all-no/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/all-no/prep.md
+its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/all-no/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/all-no/prep.md
+[exit 1]
+
+$ bash bin/fm-brief.sh tier1 --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier1/prep.md
+its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier1/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier1/prep.md
+[exit 1]
+
+$ bash bin/fm-brief.sh tier2 --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash bin/fm-brief.sh surgical --prep --surgical
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+its ## Tier header does not answer `UI wiring: yes, <the step and control the user meets>` or `UI wiring: no, <why the user never meets this change>` in /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Captain rulings answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Captain rulings answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Captain rulings answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Captain rulings answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Captain rulings answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Captain rulings answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Red-first proof answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Red-first proof answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Red-first proof answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Red-first proof answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Red-first proof answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Red-first proof answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Fixture arithmetic answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Fixture arithmetic answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Fixture arithmetic answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Fixture arithmetic answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Fixture arithmetic answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Fixture arithmetic answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Data path reachability answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Data path reachability answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Data path reachability answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Data path reachability answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Data path reachability answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Data path reachability answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Scope only as asked answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Scope only as asked answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Scope only as asked answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Scope only as asked answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Scope only as asked answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Scope only as asked answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Author gate check answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Author gate check answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Author gate check answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Author gate check answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Author gate check answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Author checks requires one complete Author gate check answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 1. Intent and boxes, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 2. Behaviour spec, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 3. UI/UX, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 4. Blast radius, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 5. Data and contracts, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 6. Tests, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 7. Records, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 8. Out of scope and follow-ups, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 9. Risks, dependencies, merge order, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 10. Demo receipt plan, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 11. Definition of done, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+tier 2 requires ## 12. Size, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Expected outcomes requires row 1 column Outcome
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Expected outcomes requires row 1 column Exact observable result
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Expected outcomes requires row 1 column Where and how to check
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Expected outcomes requires row 1 column Expected value
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+Expected outcomes requires header, separator and at least one substantive row
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/surgical/prep.md
+C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+[exit 1]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_accepted_spec \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/tier2/prep.md
+## Expected outcomes and how to check each
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| Marker selection | Only the marker line is selected | `grep -F '<!-- marker -->' output.html` | \<!-- marker --> |
+
+## 2. Behaviour spec
+### Marker check
+    grep -F '<!-- marker -->' output.html
+
+## 11. Definition of done
+### Marker check
+	grep -F '<!-- marker -->' output.html
+[exit 0]
+
+$ bash -c "cd \"$1\"; grep -F '<!-- marker -->' output.html" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+<!-- marker -->
+[exit 0]
+
+$ bash -c "cd \"$1\"; grep -F '<!-- marker -->' output.html" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+[exit 1]
+
+$ bash -c "cd \"$1\"; grep -F '<!-- marker -->' output.html" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+<!-- marker -->
+[exit 0]
+
+$ bash -c "cd \"$1\"; grep -F '<!-- marker -->' output.html" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+<!-- marker -->
+[exit 0]
+
+$ bash -c "cd \"$1\"; grep -F '<!-- marker -->' output.html" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+[exit 1]
+
+$ bash -c "cd \"$1\"; grep -F '<!-- marker -->' output.html" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+<!-- marker -->
+[exit 0]
+
+$ bash bin/fm-spawn.sh all-no /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for all-no: the brief says branch=fm/safety-stop but this spawn selected branch=fm/all-no
+[exit 1]
+
+$ bash bin/fm-spawn.sh all-no /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for all-no: the brief says branch=fm/safety-stop but this spawn selected branch=fm/all-no
+[exit 1]
+
+$ bash bin/fm-spawn.sh all-no /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for all-no: the brief says branch=fm/safety-stop but this spawn selected branch=fm/all-no
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier1 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for tier1: the brief says branch=fm/safety-stop but this spawn selected branch=fm/tier1
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier1 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for tier1: the brief says branch=fm/safety-stop but this spawn selected branch=fm/tier1
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier1 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for tier1: the brief says branch=fm/safety-stop but this spawn selected branch=fm/tier1
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier2 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for tier2: the brief says branch=fm/safety-stop but this spawn selected branch=fm/tier2
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier2 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for tier2: the brief says branch=fm/safety-stop but this spawn selected branch=fm/tier2
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier2 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for tier2: the brief says branch=fm/safety-stop but this spawn selected branch=fm/tier2
+[exit 1]
+
+$ bash bin/fm-spawn.sh surgical /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for surgical: the brief says branch=fm/safety-stop but this spawn selected branch=fm/surgical
+[exit 1]
+
+$ bash bin/fm-spawn.sh surgical /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for surgical: the brief says branch=fm/safety-stop but this spawn selected branch=fm/surgical
+[exit 1]
+
+$ bash bin/fm-spawn.sh surgical /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: branch mismatch for surgical: the brief says branch=fm/safety-stop but this spawn selected branch=fm/surgical
+[exit 1]
+
+$ bash bin/fm-spawn.sh tier2 /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/projects/proj claude --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl
+error: task tier2 cannot ship without its preparation record: Author checks requires one complete Scope only as asked answer; scaffold it with bin/fm-brief.sh tier2 --prep, then answer every section (a section that does not apply is answered 'n/a: <reason>')
+[exit 1]
+
+$ bash bin/fm-promote.sh promotion-no-mistakes --mode no-mistakes --yolo off
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+promoted promotion-no-mistakes to ship mode=no-mistakes yolo=off (teardown protection restored)
+wrote ship instructions for mode=no-mistakes: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/promotion-no-mistakes/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl bin/fm-send.sh fm-promotion-no-mistakes "$(cat /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/promotion-no-mistakes/ship-instructions.md)"
+[exit 0]
+
+$ bash bin/fm-promote.sh promotion-direct-pr --mode direct-PR --yolo off
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+promoted promotion-direct-pr to ship mode=direct-PR yolo=off (teardown protection restored)
+wrote ship instructions for mode=direct-PR: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/promotion-direct-pr/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl bin/fm-send.sh fm-promotion-direct-pr "$(cat /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/promotion-direct-pr/ship-instructions.md)"
+[exit 0]
+
+$ bash bin/fm-promote.sh promotion-local-only --mode local-only --yolo off
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+promoted promotion-local-only to ship mode=local-only yolo=off (teardown protection restored)
+wrote ship instructions for mode=local-only: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/promotion-local-only/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl bin/fm-send.sh fm-promotion-local-only "$(cat /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/promotion-local-only/ship-instructions.md)"
+[exit 0]
+
+$ bash bin/fm-prep-install.sh installed
+installed: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/installed/prep.md (from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/nav/data/nav-preps/installed.md)
+[exit 0]
+
+source/destination SHA-256: c89497b149c5ebf6acc092e2e340521f1dc6ea38f117c3d76b7d008ac371d3ea (byte-identical)
+
+$ bash bin/fm-prep-install.sh invalid-nav
+error: no filled nav-prep for invalid-nav (looked under each home= in /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl/data/secondmates.md for data/nav-preps/invalid-nav.md)
+[exit 1]
+
+Disposable home removed: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-preparation-wtyw01wl

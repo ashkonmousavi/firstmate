@@ -1,0 +1,9 @@
+$ bash bin/fm-brief.sh optional-review proj --scout --prep-review fixture-plan
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/data/optional-review/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+[exit 0]
+
+$ bash bin/fm-brief.sh forbidden-review proj --mode no-mistakes --prep-review fixture-plan
+error: --prep-review requires --scout and cannot combine with --prep
+[exit 1]
+
+Disposable home removed.

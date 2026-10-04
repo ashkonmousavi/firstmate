@@ -1,0 +1,11 @@
+[
+  "no-mistakes/changed: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "no-mistakes/incomplete: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "no-mistakes/missing: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "direct-PR/changed: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "direct-PR/incomplete: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "direct-PR/missing: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "local-only/changed: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "local-only/incomplete: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
+  "local-only/missing: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch"
+]

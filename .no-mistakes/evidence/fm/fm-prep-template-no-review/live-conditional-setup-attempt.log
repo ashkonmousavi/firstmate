@@ -1,0 +1,13 @@
+$ bash bin/fm-brief.sh ui --prep
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-conditional-k6gtztuu/data/ui/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-conditional-k6gtztuu/data/ui/prep.md
+Author checks requires one complete Screen and region answer
+[exit 0]
+
+$ bash -c ". bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\"" _ /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-conditional-k6gtztuu/data/ui/prep.md
+tier 2 requires ## 4. Blast radius to paste the tool output behind it, naming gitnexus or serena, or to answer `n/a: <reason>`, in /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-conditional-k6gtztuu/data/ui/prep.md
+[exit 0]
+
+Disposable home removed.
