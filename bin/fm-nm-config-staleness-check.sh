@@ -8,9 +8,11 @@
 # A PID reused before the first sample cannot be distinguished by this record.
 # --episode <private-marker>: consume exactly pc/server/zenbook JSON lines on
 # stdin, print diagnostics and prompt sorted warnings as changed evidence arrives.
+# A sweep may emit growing confirmed stale sets as independent probes finish.
 # Call inside the existing check cadence BEFORE its early A/B/D returns.
 # Transport failures must supply an unavailable observation for that machine.
-# Markers contain only identity digests. Unknown preserves prior evidence;
+# Markers store per-machine digests of label, PID, start ticks and config mtime;
+# unchanged episode evidence is quiet. Unknown preserves prior evidence;
 # verified current/not_running clears it. No daemon lifecycle is authorized.
 # Python 3 is required; unsupported/read-error samples remain unavailable.
 set -eu
