@@ -169,3 +169,14 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-voice-client.py`     | The laptop end of the spoken interface: capture, playback, and turn timing over SSH; audio devices unverified |
 | `fm_voice_frame.py`      | The wire format both machines share, copied to the laptop beside the client          |
 | `fm_voice_records.py`    | What a spoken answer may read, and the handover that queues real work                |
+
+### No-mistakes config observation
+
+[`fm-nm-config-staleness-check.sh`](../bin/fm-nm-config-staleness-check.sh) samples host-local metadata without reading configuration values or driving daemon lifecycle.
+Its header owns the CLI, observation schema and episode-marker mechanics.
+Python 3 and Linux procfs are required; unknown identity or transport failures remain unavailable.
+A newer config warns of potentially unconsumed configuration, without proving an active run's timeout because no-mistakes loads configuration at multiple lifecycle points.
+The existing private server-idle-watch owner calls the local sampler on each host through its authenticated transport, then calls `--episode` before the check's A/B/D early returns.
+The sanitized integration fixture in [`tests/fixtures/server-idle-watch.check.sh`](../tests/fixtures/server-idle-watch.check.sh) demonstrates that hook; replace its fixture host/home paths with the existing private probe paths and register the changed check through `fm-check-register.sh`.
+Install the helper on all three hosts before registering that hook; this adds no scheduler or automatic restart.
+Run `bin/fm-test-run.sh tests/fm-nm-config-staleness.test.sh` for the public metadata and registered-check regression.
