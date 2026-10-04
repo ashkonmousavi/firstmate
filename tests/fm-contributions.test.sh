@@ -1017,6 +1017,8 @@ test_arm_plumbs_a_configured_budget_into_the_check_shim() {
     home=$(new_home "arm-budget-$mode")
     forge_home "$home"
     wrap_forge "$home"
+    # Keep the one-second reservation from expiring before the first read.
+    /bin/date +%s > "$home/forge/clock"
     mutate_record "$home" delivery '.records[0].checked_at="2026-09-15T08:00:00Z"'
     cp "$home/data/delivery/contributions.json" "$home/prior.json"
     printf 'hang\n' > "$home/forge/fault"
@@ -1032,9 +1034,11 @@ test_arm_plumbs_a_configured_budget_into_the_check_shim() {
         || fail 'inherited-budget check shim failed'
     fi
     [ -z "$out" ] || fail "generated check printed an unavailable wake: $out"
-    grep -Fxq 'api repos/o/r/pulls/8' "$home/forge/calls" || fail 'generated check did not attempt a read'
+    grep -Fxq 'api repos/o/r/pulls/8' "$home/forge/calls" 2>/dev/null \
+      || fail 'generated check did not attempt a read'
     cmp -s "$home/prior.json" "$home/data/delivery/contributions.json" \
       || fail "generated check failed to preserve the $mode one-second budget"
+    [ ! -s "$home/state/.wake-queue" ] || fail "generated check enqueued a wake ($mode)"
   done
   pass 'generated checks enforce configured and inherited budgets at runtime'
 }
