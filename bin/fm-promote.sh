@@ -11,7 +11,11 @@
 # bin/fm-dod-lib.sh, the single owner an ordinary ship brief also uses - the
 # mode-specific Definition of done, so a promoted worker receives exactly the same
 # delivery contract as a briefed one, including the no-mistakes mode's stop-set
-# triage rule and --yes ban. The instructions also carry `# Task` with
+# triage rule and --yes ban.
+# They include a currently complete preparation record's acceptance handoff and
+# current intent overlay in no-mistakes mode, so promotion and later relaunch
+# retain the same specification boundary owned by bin/fm-dod-lib.sh.
+# The instructions also carry `# Task` with
 # `## Captain's intent` preserved from the scout brief and promotion's ship-time
 # instructions under `## Firstmate spec`; the scout-time spec remains context but
 # is not relabeled as the ship spec. Promotion refuses leftover `{TASK}` /

@@ -324,7 +324,8 @@ FM_PREP_TIER_HEADING='## Tier'
 # heading|placeholder|required-from-tier|guide|evidence-tokens
 # A row with evidence tokens owes tool output rather than prose: once that
 # section is filled it must name one of those tokens, or be answered n/a with a
-# reason. Rows without them are prose and are only checked for being answered.
+# reason. Rows without them are checked for being answered; section 1 also
+# requires substantive task intent rather than n/a or an unfinished answer.
 FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s words, and each task item this work completes in the project'"'"'s own record, verified against the current base with the command used as its instructions require.
 ## 2. Behaviour spec|BEHAVIOUR_SPEC|2|Every state (empty, loading, ready, running, refused, failed, terminal), every control and when it is enabled, every action and its result, the copy the user sees, restart and reopen behaviour.
 ## 3. UI/UX|UI_UX|2|START WITH THE COMPONENT CHECK: for each screen element this lane touches, name the matching component and its path in the project'"'"'s design system or UI record as its instructions name it. Then which step or screen, the journey walked as the user step by step, what done looks like on screen, responsiveness and accessibility notes.
@@ -662,8 +663,10 @@ fm_prep_section_state() {  # <file> <heading> <placeholder>
 }
 
 # Structural completeness only: prose truth and test evidence remain the
-# builder/verifier's responsibility. Ignore guide comments and fenced examples;
-# recognize whole-answer placeholders, never braces inside literal tool output.
+# builder/verifier's responsibility. Callers clean guide comments and examples
+# with fm_prep_body_text before extracting answers, preserving their surrounding
+# Markdown context; do not reclassify an isolated field's list continuation.
+# Recognize whole-answer placeholders, never braces inside literal tool output.
 fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
   printf '%s\n' "$1" | awk -v na="$2" '
     function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
