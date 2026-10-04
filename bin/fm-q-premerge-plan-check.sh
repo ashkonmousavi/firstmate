@@ -2,7 +2,7 @@
 # Usage: fm-q-premerge-plan-check.sh <Q-clone-path> <positive-PR-number>
 # Read origin/main and the PR into private /tmp scratch; validate the simulated
 # merge with BASE-owned Q tools. Requires Git with merge-tree --write-tree and
-# Python 3.12+ (safe archive extraction). Each external command is bounded at
+# Python 3.9+. Each external command is bounded at
 # 180 seconds. Exit 0: fresh with actual base/head/tree; 1: conflict or rejected
 # plan; 2: unavailable/unverifiable. Diagnostics never expose transport output.
 # Manual-install warnings do not affect acceptance. Recheck if either ref moves;
@@ -12,16 +12,18 @@ if [ "${1:-}" = --help ]; then
   sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 fi
-exec python3 - "$@" <<'PY'
+if ! command -v python3 >/dev/null 2>&1; then
+  printf 'plan check unavailable: python3\n' >&2
+  exit 2
+fi
+exec python3 -I - "$@" <<'PY'
 import fnmatch
-import io
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
-import tarfile
 import tempfile
 
 class Refused(Exception):
@@ -87,21 +89,52 @@ try:
         tree = merged.stdout.decode().splitlines()[0]
         if not re.fullmatch(r'[0-9a-f]{40}|[0-9a-f]{64}', tree):
             raise Refused(stage)
-        env.update(GIT_AUTHOR_NAME='Plan check', GIT_COMMITTER_NAME='Plan check',
-                   GIT_AUTHOR_EMAIL='plan-check@localhost', GIT_COMMITTER_EMAIL='plan-check@localhost')
+        identities = git('show', '-s', '--format=%an%x00%ae%x00%cn%x00%ce', base).decode().rstrip('\n').split('\0')
+        if len(identities) != 4 or any(not value.strip() or '\n' in value or '\r' in value for value in identities):
+            raise Refused(stage)
+        env.update(zip(('GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL'), identities))
         merge = git('commit-tree', tree, '-p', base, '-p', head, '-m', 'Scratch plan check').decode().strip()
         git('update-ref', 'HEAD', merge)
         def snapshot(ref, target):
             target.mkdir(parents=True, exist_ok=True)
-            data = git('archive', '--format=tar', ref)
-            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
-                archive.extractall(target, filter='data')
+            links = []
+            for entry in git('ls-tree', '-rz', '--full-tree', ref).split(b'\0'):
+                if not entry:
+                    continue
+                header, name = entry.split(b'\t', 1)
+                mode, kind, oid = header.split()
+                path = Path(os.fsdecode(name))
+                if (path.is_absolute() or path.as_posix() != os.fsdecode(name)
+                        or any(p in ('', '.', '..') or p.casefold() == '.git' for p in path.parts)
+                        or kind != b'blob' or mode not in (b'100644', b'100755', b'120000')):
+                    raise Refused(stage)
+                destination = target / path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                data = git('cat-file', 'blob', oid.decode('ascii'))
+                if mode == b'120000':
+                    links.append((destination, os.fsdecode(data)))
+                else:
+                    destination.write_bytes(data)
+                    destination.chmod(0o755 if mode == b'100755' else 0o644)
+            for destination, link in links:
+                if Path(link).is_absolute():
+                    raise Refused(stage)
+                destination.symlink_to(link)
+            for destination, _ in links:
+                try:
+                    resolved = destination.resolve()
+                    if (not resolved.is_relative_to(target)
+                            or any(p.casefold() == '.git' for p in resolved.relative_to(target).parts)):
+                        raise Refused(stage)
+                except RuntimeError:
+                    raise Refused(stage)
             return target
         stage = 'snapshot'
         snapshot(merge, repo)
         base_tree = snapshot(base, scratch / 'base')
         ancestor = git('merge-base', base, merge).decode().strip()
-        ancestor_tree = base_tree if ancestor == base else snapshot(ancestor, scratch / 'ancestor')
+        if ancestor != base:
+            raise Refused(stage)
         package = 'docs/ssot/q-v2'
         checker_path = f'{package}/tools/check_plan.py'
         closure_path = f'{package}/tools/tool-closure.json'
@@ -144,7 +177,7 @@ try:
                 raise Refused(stage)
         plan_command('freshness', 'check', '--root', str(repo / package), '--repo', str(repo))
         plan_command('union', 'check-union', '--base-repo', str(base_tree), '--head-repo', str(repo),
-                     '--ancestor-repo', str(ancestor_tree), '--history-repo', str(repo),
+                     '--ancestor-repo', str(base_tree), '--history-repo', str(repo),
                      '--base-ref', base, '--head-ref', merge)
         if declared:
             stage = 'views'
@@ -169,7 +202,7 @@ except Refused as exc:
     print(f'plan check refused: {exc.stage}', file=sys.stderr)
     sys.exit(exc.code)
 except (OSError, ValueError, TypeError, KeyError, IndexError, UnicodeError,
-        tarfile.TarError, subprocess.TimeoutExpired):
+        subprocess.TimeoutExpired):
     print(f'plan check unavailable: {stage}', file=sys.stderr)
     sys.exit(2)
 PY

@@ -11,17 +11,30 @@ package=docs/ssot/q-v2
 mkdir -p "$repo/$package/tools" "$repo/ops/bin" "$repo/ops/lib/q-v2"
 cat > "$repo/$package/tools/check_plan.py" <<'PY'
 import json, pathlib, sys
+import os, subprocess
 args = sys.argv
 repo = pathlib.Path(args[args.index('--repo') + 1]) if '--repo' in args else pathlib.Path(args[args.index('--head-repo') + 1])
 mode = (repo / 'mode').read_text().strip()
+def snapshot_bytes(root, ref):
+    for name in ('byte-witness.bin', 'format-witness.txt'):
+        expected = subprocess.check_output(['git', '-C', str(repo), 'show', f'{ref}:{name}'])
+        assert (root / name).read_bytes() == expected
+    assert os.access(root / 'format-witness.txt', os.X_OK)
+    assert (root / 'safe-link').is_symlink()
+    assert os.readlink(root / 'safe-link') == 'format-witness.txt'
+    assert (root / 'safe-link').read_bytes() == (root / 'format-witness.txt').read_bytes()
+snapshot_bytes(repo, 'HEAD')
 if args[1] == 'check-union':
     # Verify actual scratch history and snapshots, not just freshness output.
-    import subprocess
     base = args[args.index('--base-ref') + 1]
     head = args[args.index('--head-ref') + 1]
     assert subprocess.check_output(['git', '-C', str(repo), 'merge-base', base, head]).decode().strip() == base
+    identity_format = '--format=%an%x00%ae%x00%cn%x00%ce'
+    assert subprocess.check_output(['git', '-C', str(repo), 'show', '-s', identity_format, base]) == subprocess.check_output(['git', '-C', str(repo), 'show', '-s', identity_format, head])
     for flag in ('--base-repo', '--ancestor-repo'):
-        assert (pathlib.Path(args[args.index(flag)+1]) / 'mode').is_file()
+        root = pathlib.Path(args[args.index(flag)+1])
+        assert (root / 'mode').is_file()
+        snapshot_bytes(root, base)
     print(json.dumps({'fresh': mode != 'union'}))
     sys.exit(2 if mode == 'union' else 0)
 if mode == 'bad': print('not JSON "fresh": true'); sys.exit(0)
@@ -35,13 +48,20 @@ print(json.dumps({'fresh': mode != 'stale'}))
 sys.exit(1 if mode in ('stale', 'nonzero') else 0)
 PY
 cat > "$repo/$package/tools/build_plan_views.py" <<'PY'
-import pathlib, sys
+import pathlib, subprocess, sys
 repo = pathlib.Path(sys.argv[sys.argv.index('--repo')+1])
+for name in ('byte-witness.bin', 'format-witness.txt'):
+    assert (repo / name).read_bytes() == subprocess.check_output(['git', '-C', str(repo), 'show', f'HEAD:{name}'])
 print('plan views: fresh')
 sys.exit(2 if (repo / 'mode').read_text().strip() == 'view' else 0)
 PY
 printf 'good\n' > "$repo/mode"
 printf 'original\n' > "$repo/shared.txt"
+printf '\000\377\r\n' > "$repo/byte-witness.bin"
+printf '$Format:%%H$\r\noriginal\n' > "$repo/format-witness.txt"
+chmod +x "$repo/format-witness.txt"
+ln -s format-witness.txt "$repo/safe-link"
+printf 'format-witness.txt export-subst\nbyte-witness.bin export-ignore\n' > "$repo/.gitattributes"
 touch "$repo/$package/tools/build_current_baseline.py" "$repo/ops/bin/q-v2-tool-scopes" "$repo/ops/lib/q-v2/q_agent_api.py"
 python3 - "$repo/$package/tools/tool-closure.json" <<'PY'
 import json, sys
@@ -64,6 +84,7 @@ make_head() {
   git -C "$repo" checkout -q --detach "$O"
   printf '%s\n' "$1" > "$repo/mode"
   printf '%s\n' "$1" > "$repo/candidate.txt"
+  printf '$Format:%%H$\r\n%s\n' "$1" > "$repo/format-witness.txt"
   git -C "$repo" add .
   git -C "$repo" commit -qm candidate
   H=$(git -C "$repo" rev-parse HEAD)
@@ -83,6 +104,27 @@ assert_equals "fresh base=$B head=$H tree=$T" "$output" 'exact resolved identiti
 run_check 0 "$TMP_ROOT/server-Q" 7 portable
 assert_equals "fresh base=$B head=$H tree=$T" "$output" 'same result from independent home'
 pass 'portable valid merged tree'
+cat > "$repo/fnmatch.py" <<'PY'
+from pathlib import Path
+Path(__file__).with_name('candidate-imported').touch()
+raise SystemExit(0)
+PY
+(
+  cd "$repo"
+  run_check 0 "$repo" 7 'candidate cwd imports isolated'
+  assert_equals "fresh base=$B head=$H tree=$T" "$output" 'cwd shadow cannot skip checking'
+)
+PYTHONPATH="$repo" run_check 0 "$repo" 7 'ambient module imports isolated'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'PYTHONPATH shadow cannot skip checking'
+[ ! -e "$repo/candidate-imported" ] || fail 'candidate module executed'
+rm "$repo/fnmatch.py"
+mkdir "$TMP_ROOT/no-python"
+bash_bin=$(command -v bash)
+rc=0
+output=$(PATH="$TMP_ROOT/no-python" "$bash_bin" "$cli" "$repo" 7 2>&1) || rc=$?
+expect_code 2 "$rc" 'missing Python is unavailable'
+assert_equals 'plan check unavailable: python3' "$output" 'missing Python diagnostic'
+pass 'isolated bootstrap and missing interpreter refusal'
 for mode in stale nonzero bad quoted empty timeout union view; do
   make_head "$mode"
   expected=2
@@ -111,6 +153,20 @@ first=${counterexample%%$'\n'*}
 [ ${#first} = 40 ] || fail 'conflict still produces a tree hash'
 run_check 1 "$repo" 7 'conflict must precede freshness'
 pass 'real conflict tree hash does not imply success'
+for target in /outside ../../outside .git/config; do
+  make_head good
+  ln -s "$target" "$repo/unsafe-link"
+  git -C "$repo" add .
+  git -C "$repo" commit -qm unsafe-link
+  git -C "$repo" push -q --force origin HEAD:refs/pull/7/head
+  run_check 2 "$repo" 7 'unsafe snapshot symlink refused'
+done
+make_head good
+git -C "$repo" update-index --add --cacheinfo "160000,$O,unsupported-submodule"
+git -C "$repo" commit -qm unsupported-submodule
+git -C "$repo" push -q --force origin HEAD:refs/pull/7/head
+run_check 2 "$repo" 7 'unsupported snapshot entry refused'
+pass 'raw snapshots preserve bytes and refuse unsafe entries'
 make_head good
 # Each malformed BASE closure is published by the local fixture only.
 for fault in malformed escaped duplicate missing absent-checker; do
@@ -146,7 +202,7 @@ git -C "$repo" commit -qm second
 H8=$(git -C "$repo" rev-parse HEAD)
 git -C "$repo" push -q origin HEAD:refs/pull/8/head
 T8=$(git -C "$repo" merge-tree --write-tree "$B" "$H8")
-before=$(git -C "$repo" show-ref; git -C "$repo" status --porcelain; git -C "$repo" rev-parse HEAD)
+before=$(git -C "$repo" show-ref; git -C "$repo" status --porcelain; git -C "$repo" rev-parse HEAD; git -C "$repo" config --local --list)
 bash "$cli" "$repo" 7 > "$TMP_ROOT/seven" &
 p7=$!
 bash "$cli" "$repo" 8 > "$TMP_ROOT/eight" &
@@ -158,7 +214,7 @@ expect_code 0 "$rc7" 'concurrent seven exits'
 expect_code 0 "$rc8" 'concurrent eight exits'
 assert_equals "fresh base=$B head=$H7 tree=$T7" "$(cat "$TMP_ROOT/seven")" 'concurrent seven'
 assert_equals "fresh base=$B head=$H8 tree=$T8" "$(cat "$TMP_ROOT/eight")" 'concurrent eight'
-assert_equals "$before" "$(git -C "$repo" show-ref; git -C "$repo" status --porcelain; git -C "$repo" rev-parse HEAD)" 'parallel source unchanged'
+assert_equals "$before" "$(git -C "$repo" show-ref; git -C "$repo" status --porcelain; git -C "$repo" rev-parse HEAD; git -C "$repo" config --local --list)" 'parallel source unchanged'
 run_check 2 "$repo" 999 'missing PR'
 run_check 2 "$repo" '-7' 'invalid PR'
 run_check 2 "$repo" '7;echo secret' 'command-shaped PR'
@@ -179,6 +235,7 @@ git -C "$repo" remote set-url origin "file://$TMP_ROOT/origin.git"
 make_head good
 mkdir -p "$repo/ops/lib/q-v2"
 printf '{"backup_library":["candidate.txt"],"manual_only":[]}' > "$repo/ops/lib/q-v2/deploy.json"
+printf 'ops/lib/q-v2/deploy.json export-ignore\n' >> "$repo/.gitattributes"
 git -C "$repo" add .
 git -C "$repo" commit -qm manual-warning
 git -C "$repo" push -q --force origin HEAD:refs/pull/7/head
