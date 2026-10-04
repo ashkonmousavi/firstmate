@@ -3302,11 +3302,10 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
             }
           }
           if (!was_fenced && size < 3) {
-            if ($0 == "# Current no-mistakes intent contract") exit
-            if ($0 == "# Task preparation record") { preparation=1; next }
-            if ($0 ~ /^# /) preparation=0
+            if ($0 == "# Current no-mistakes intent contract" || $0 == "# Task preparation record") { overlay=1; next }
+            if ($0 ~ /^# / || $0 ~ /^## Progress note \(/) overlay=0
           }
-          if (!preparation && $0 != advisor) print
+          if (!overlay && $0 != advisor) print
         }
       ' "$SOURCE_BRIEF" &&
       if [ "$HARNESS" = claude ]; then
