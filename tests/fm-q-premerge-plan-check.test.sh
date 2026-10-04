@@ -114,6 +114,81 @@ assert_equals "fresh base=$B head=$H tree=$T" "$output" 'exact resolved identiti
 run_check 0 "$TMP_ROOT/server-Q" 7 portable
 assert_equals "fresh base=$B head=$H tree=$T" "$output" 'same result from independent home'
 pass 'portable valid merged tree'
+git clone -q --bare "$TMP_ROOT/origin.git" "$TMP_ROOT/other-origin.git"
+git -C "$repo" checkout -q --detach "$B"
+printf 'other base\n' > "$repo/other-base.txt"
+git -C "$repo" add .
+git -C "$repo" commit -qm other-base
+other_base=$(git -C "$repo" rev-parse HEAD)
+git -C "$repo" push -q "$TMP_ROOT/other-origin.git" HEAD:refs/heads/main
+git -C "$repo" checkout -q --detach "$H"
+printf 'other head\n' > "$repo/other-head.txt"
+git -C "$repo" add .
+git -C "$repo" commit -qm other-head
+other_head=$(git -C "$repo" rev-parse HEAD)
+git -C "$repo" push -q --force "$TMP_ROOT/other-origin.git" HEAD:refs/pull/7/head
+assert_not_contains "$other_base" "$B" 'origin main identities differ'
+assert_not_contains "$other_head" "$H" 'origin PR identities differ'
+alias_url='premerge-origin-alias'
+git -C "$repo" remote set-url origin "$alias_url"
+git -C "$repo" config "url.$TMP_ROOT/origin.git.insteadOf" "$alias_url"
+git -C "$repo" config "url.$TMP_ROOT/other-origin.git.insteadOf" "$TMP_ROOT/origin.git"
+source_refs=$(git -C "$repo" ls-remote origin refs/heads/main refs/pull/7/head)
+assert_contains "$source_refs" "$B" 'source fetch resolves intended main'
+assert_contains "$source_refs" "$H" 'source fetch resolves intended PR'
+run_check 0 "$repo" 7 'rewrite chain uses source origin'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'origin rewrites exactly once'
+git -C "$repo" remote set-url origin ../../origin.git
+source_refs=$(git -C "$repo" ls-remote origin refs/heads/main refs/pull/7/head)
+assert_contains "$source_refs" "$B" 'unrewritten relative origin resolves intended main'
+assert_contains "$source_refs" "$H" 'unrewritten relative origin resolves intended PR'
+run_check 0 "$repo" 7 'relative normalization cannot introduce a rewrite'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'unmatched rules cannot redirect normalized path'
+git -C "$repo" config --unset-all "url.$TMP_ROOT/origin.git.insteadOf"
+git -C "$repo" config --unset-all "url.$TMP_ROOT/other-origin.git.insteadOf"
+git -C "$repo" remote set-url origin ../../origin.git
+run_check 0 "$repo" 7 'relative local origin'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'relative origin uses source directory'
+git -C "$repo" remote set-url origin "$alias_url"
+git -C "$repo" config 'url.../../origin.git.insteadOf' "$alias_url"
+run_check 0 "$repo" 7 'relative rewrite destination'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'relative rewrite uses source directory'
+git -C "$repo" config --unset-all 'url.../../origin.git.insteadOf'
+git -C "$repo" remote set-url origin "$alias_url/origin.git"
+git -C "$repo" config 'url.../../.insteadOf' "$alias_url/"
+run_check 0 "$repo" 7 'relative rewrite prefix with suffix'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'rewrite directory separator preserved'
+git -C "$repo" config --unset-all 'url.../../.insteadOf'
+git -C "$repo" remote set-url origin "$alias_url"
+git -C "$repo" config "url.$TMP_ROOT/origin.git.insteadOf" "$alias_url"
+git -C "$repo" config --add remote.origin.url "$TMP_ROOT/other-origin.git"
+run_check 0 "$repo" 7 'first configured fetch URL'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'multiple URLs preserve first origin'
+git -C "$repo" config --unset-all remote.origin.url
+git -C "$repo" config --add remote.origin.url "$alias_url"
+git -C "$repo" config --unset-all "url.$TMP_ROOT/origin.git.insteadOf"
+git config --file "$TMP_ROOT/source-global" 'url.../../origin.git.insteadOf' "$alias_url"
+GIT_CONFIG_GLOBAL="$TMP_ROOT/source-global" run_check 0 "$repo" 7 'global relative rewrite rule'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'global rules retain source-relative semantics'
+GIT_CONFIG_NOSYSTEM=0 GIT_CONFIG_SYSTEM="$TMP_ROOT/source-global" \
+  run_check 0 "$repo" 7 'system relative rewrite rule'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'system rules retain source-relative semantics'
+git -C "$repo" config include.path "$TMP_ROOT/source-global"
+run_check 0 "$repo" 7 'included relative rewrite rule'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'included rules retain source-relative semantics'
+git -C "$repo" config --unset include.path
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0='url.../../origin.git.insteadOf' GIT_CONFIG_VALUE_0="$alias_url" \
+  run_check 0 "$repo" 7 'environment relative rewrite rule'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'environment rules retain source-relative semantics'
+GIT_CONFIG_PARAMETERS="'url.../../origin.git.insteadof=$alias_url'" \
+  run_check 0 "$repo" 7 'parameter relative rewrite rule'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'parameter rules retain source-relative semantics'
+GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0="url.$TMP_ROOT/origin.git.insteadOf" GIT_CONFIG_VALUE_0="$alias_url" \
+  GIT_CONFIG_KEY_1="url.$TMP_ROOT/other-origin.git.insteadOf" GIT_CONFIG_VALUE_1="$TMP_ROOT/origin.git" \
+  run_check 0 "$repo" 7 'environment rewrite chain'
+assert_equals "fresh base=$B head=$H tree=$T" "$output" 'environment rules expand exactly once'
+git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
+pass 'origin rewriting, relative paths and URL selection'
 cat > "$repo/fnmatch.py" <<'PY'
 from pathlib import Path
 Path(__file__).with_name('candidate-imported').touch()
