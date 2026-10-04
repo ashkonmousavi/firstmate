@@ -218,15 +218,13 @@ EOF
   assert_not_contains "$out" "fm-prep-install.sh filledok" \
     "a filled primary prep still printed the nav-prep install hint"
   assert_present "$home/data/filledok/launch-brief.md" \
-    "a filled, reviewed primary prep did not get past the preparation gates"
+    "a filled primary prep did not get past the preparation gates"
 
   pass "fm-spawn: names a filled nav-prep on prep refusal and never auto-installs"
 }
 
-# Installing a filled nav-prep is unchanged by the review gate: the install still
-# succeeds with no review behind it, and the ship spawn then refuses that task
-# for the missing review rather than for the record itself.
-test_installed_unreviewed_nav_prep_is_refused_for_its_review() {
+# A complete nav-prep installs byte-identically and is admitted without review.
+test_installed_nav_prep_admits_without_review() {
   local rec home proj fakebin sm id dest out status
   rec=$(make_spawn_world install-unreviewed)
   IFS='|' read -r home proj fakebin <<EOF
@@ -239,35 +237,25 @@ EOF
   write_registry "$home" "$sm"
   place_filled_nav_prep "$sm" "$id"
   dest="$home/data/$id/prep.md"
-  # This case owes review: all-no full preparation still owes review below.
-  sed 's/^- Q2 .*: no$/- Q2 does this change touch a shared contract: yes/' \
-    "$sm/data/nav-preps/$id.md" > "$sm/data/nav-preps/$id.edit"
-  mv "$sm/data/nav-preps/$id.edit" "$sm/data/nav-preps/$id.md"
-
   status=0
   out=$(FM_HOME="$home" "$INSTALL" "$id" 2>&1) || status=$?
-  expect_code 0 "$status" "install of a filled, unreviewed nav-prep"
-  cmp -s "$sm/data/nav-preps/$id.md" "$dest" || fail "installed prep.md did not match the nav-prep"
-  assert_absent "$home/data/$id/prep-review" "install fabricated a review record"
-
+  expect_code 0 "$status" "install filled nav-prep"
+  cmp -s "$sm/data/nav-preps/$id.md" "$dest" || fail "installed bytes differ"
+  assert_absent "$home/data/$id/prep-review" "install fabricated review"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
     > "$home/data/$id/brief.md"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  status=$?
-  [ "$status" -ne 0 ] || fail "a ship spawn with an installed, unreviewed nav-prep should exit non-zero"
-  assert_not_contains "$out" "cannot ship without its preparation record" \
-    "an installed, filled nav-prep was refused as unfilled"
-  assert_contains "$out" "cannot ship before a separate agent reviews its preparation record" \
-    "an installed, unreviewed nav-prep was not refused for its missing review"
-  assert_absent "$home/state/$id.meta" "a review-gated spawn wrote task metadata"
-
-  sed 's/^- Q2 .*: yes$/- Q2 does this change touch a shared contract: no/' "$dest" > "$dest.tiny"
-  mv "$dest.tiny" "$dest"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
-  assert_contains "$out" "cannot ship before a separate agent reviews" "all-no installed full prep bypassed review"
-  assert_absent "$home/data/$id/launch-brief.md" "unreviewed installed full record launched"
-  assert_absent "$home/data/$id/prep-review" "all-no installation fabricated review"
-  pass "fm-prep-install.sh: installation preserves full review requirements even with all-no tier answers"
+  assert_not_contains "$out" 'cannot ship without its preparation record' "installed prep refused: $out"
+  assert_present "$home/data/$id/launch-brief.md" "installed unreviewed prep did not reach rendering: $out"
+  assert_absent "$home/state/$id.meta" "fixture created real task"
+  cmp -s "$sm/data/nav-preps/$id.md" "$dest" || fail "spawn migrated installed bytes"
+  # A malformed new common field is refused through the executable install seam.
+  sed '/^- Scope only as asked:/d' "$dest" > "$sm/data/nav-preps/$id.md"
+  status=0
+  out=$(FM_HOME="$home" "$INSTALL" "$id" --force 2>&1) || status=$?
+  [ "$status" != 0 ] || fail "install accepted malformed common source"
+  assert_contains "$out" 'no filled nav-prep' "install failed for unrelated reason: $out"
+  pass "nav-prep: byte-identical complete preparation admits without review; malformed common fields do not install"
 }
 
 test_surgical_nav_prep_installation() {
@@ -284,6 +272,7 @@ test_surgical_nav_prep_installation() {
     -e 's/\{C[1-5]_EVIDENCE\}/bin\/own.sh:1; rg own returned only owned file; all excluded paths untouched; cause reproduced; bash tests\/own.test.sh red-first regression covers fix./' \
     "$sm/data/$id/prep.md" > "$src"
   dest="$task_home/data/$id/prep.md"
+  fm_test_fill_prep_common "$src" || fail "compact common fixture"
   out=$(FM_HOME="$task_home" "$INSTALL" "$id" 2>&1); rc=$?
   expect_code 0 "$rc" "complete compact nav installation"
   cmp -s "$src" "$dest" || fail "compact bytes changed during installation"
@@ -304,5 +293,5 @@ test_refuses_overwrite_of_filled_primary_without_force
 test_replaces_unfilled_primary_scaffold
 test_refuses_missing_or_unfilled_source
 test_spawn_names_filled_nav_prep_and_does_not_install
-test_installed_unreviewed_nav_prep_is_refused_for_its_review
+test_installed_nav_prep_admits_without_review
 echo "# all fm-prep-install tests passed"

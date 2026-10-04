@@ -19,7 +19,7 @@
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #        fm-brief.sh <task-id> --prep [--surgical]
 #   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
-#   nothing else, so it is written and reviewed before the brief exists. The
+#   nothing else, so the author fills and checks it before the brief exists. The
 #   record is the specification beneath the brief: what the change does, where it
 #   lands, and what done means, decided before a worker starts rather than
 #   discovered during review.
@@ -36,7 +36,7 @@
 #     UI wiring yes     tier 2 - whatever Q1 and Q2 say
 #     Q1 yes            tier 2 - every section below
 #     Q1 no, Q2 yes     tier 1 - sections 1, 4, 6, 8 and 11 only; delete the rest
-#     all three no      retain tier 1 sections and separate review
+#     all three no      retain tier 1 sections
 #   The sections are:
 #     1. Intent and boxes        7. Records
 #     2. Behaviour spec          8. Out of scope and follow-ups
@@ -45,10 +45,16 @@
 #     5. Data and contracts     11. Definition of done
 #     6. Tests                  12. Size
 #   Each carries a one-line guide, the tier it becomes required at, and one
-#   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
-#   is answered `n/a: <one-line reason>`; full records owe at least the five
-#   tier-1 sections, and only a tier-2 change costs a page.
-#   Sections 2 and 11 are the acceptance criteria the reviewer holds the work to.
+#   `{PLACEHOLDER}` to replace. Section 1 requires substantive task intent;
+#   other required sections that genuinely do not apply may use
+#   `n/a: <one-line reason>` under bin/fm-dod-lib.sh's completeness contract.
+#   Full records owe at least the five tier-1 sections.
+#   Both formats carry Author checks and Expected outcomes and how to check each.
+#   bin/fm-dod-lib.sh owns their common schema, conditional answers and table.
+#   The author writes the detailed outcome list; builders and post-implementation
+#   verifiers follow that list with applicable sections 2 and 11.
+#   Before handoff, the author runs the completeness gate on final bytes and
+#   pastes the actual command, empty reason and raw exit 1 into the handoff.
 #   Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
 #   result for every module touched and the Serena find_referencing_symbols
 #   counts for every symbol whose signature changes, reaching for claude-context
@@ -60,16 +66,16 @@
 #   bin/fm-spawn.sh refuses a ship launch whose record is missing, whose tier
 #   header is missing or leaves any of its three answers unanswered or outside
 #   its format, or where a section the declared tier requires is missing, still
-#   placeheld, or empty, naming that section, and then a non-exempt record no
-#   separate prep-review scout has approved; bin/fm-dod-lib.sh's header owns
-#   the surgical/server-install exemptions and review proof.
+#   placeheld, or empty, or a required common field/table row is malformed,
+#   naming that field or section; separate prep review is optional, and old
+#   server-install declarations do not bypass completeness.
 #   The guide lines for sections 1, 3, 7, and 10 point at the project's own
 #   task, design, UI, and verification records as its instructions name them.
 #   --prep --surgical emits a compact certainty certificate: every C1-C5 answer
-#   must be exactly yes with concrete evidence to skip separate review. Any no,
+#   must be exactly yes with concrete evidence to replace numbered sections. Any no,
 #   unsure, malformed or incomplete certificate is refused, never upgraded:
 #   convert it by deleting its Preparation format line, answering every section
-#   its tier requires, and obtaining a separate prep review.
+#   its tier requires, retaining common author checks and outcomes.
 #   Direct source lookup suffices for confined fixes; unknown impact is not empty.
 #   Shared, sensitive, install or server scope cannot certify surgical certainty.
 #   --surgical requires --prep. Preparation accepts no worker or delivery flags
@@ -78,11 +84,11 @@
 #   data/<task-id>/report.md (no branch, no push, no PR) and the worktree is scratch.
 #   It offers the Lavish review loop only when `fm-bootstrap.sh lavish-compatible`
 #   confirms the legacy board-compatibility floor; otherwise it asks for a text report.
-#   --prep-review <task-id> requires --scout and is repeatable for a batch.
+#   Optional --prep-review <task-id> requires --scout and is repeatable for a batch.
 #   Each id must be plain and distinct from the reviewer; the scout reviews the
 #   named preps along Standards and Spec, plus Architecture when Q2 is yes,
 #   and may write only their exact per-task approval paths outside its worktree.
-#   bin/fm-dod-lib.sh owns the review report and approved-byte proof.
+#   The generated optional review brief names its report and approved-byte paths.
 #   --secondmate writes a persistent secondmate charter. The project list
 #   is cloned into the secondmate home, while the natural-language scope
 #   tells the main firstmate when to route work there; routine churn stays in its own home;

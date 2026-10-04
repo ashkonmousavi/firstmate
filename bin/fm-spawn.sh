@@ -37,15 +37,15 @@
 #   of those sections. When that refusal
 #   fires and a filled secondmate nav-prep exists, stderr also names that
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
-#   installs it. A ship spawn then refuses a record no separate agent has
-#   reviewed unless its complete prep is exempt (bin/fm-dod-lib.sh owns
-#   exemptions and review proof). Scouts and secondmates are not gated, and --relaunch is
-#   exempt from both gates so tasks dispatched before them still relaunch.
+#   installs it. Common author checks and the outcome table must also pass
+#   bin/fm-dod-lib.sh's completeness contract; review receipts do not gate ships.
+#   Scouts and secondmates are not gated, and --relaunch preserves recovery for
+#   tasks dispatched before the current preparation contract.
 #   When the record exists, the launch brief points the worker at it as the
 #   specification beneath the brief.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
-#   intent, preceded by the reviewed record's accepted specification. A legacy
+#   intent, preceded by the complete record's accepted specification. A legacy
 #   mixed Task is accepted there only under bin/fm-dod-lib.sh's
 #   provenance-marking rules; unmarked legacy Tasks stop for migration rather
 #   than becoming intent. That library owns the parsing and intent rules. When
@@ -3259,20 +3259,11 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       exit 1
     fi
   fi
-  # A separate agent reviews non-exempt records before their ships
-  # start; bin/fm-dod-lib.sh's header owns what proves that review. Only a
-  # record whose review still holds is handed over as accepted specification,
-  # so a relaunched task with an unreviewed record gets none.
-  REVIEWED_PREP=
-  if [ "$KIND" = ship ]; then
-    if REVIEW_REASON=$(fm_prep_review_reason "$DATA" "$ID"); then
-      if [ "$RELAUNCH" -eq 0 ] && ! fm_prep_review_exempt "$PREP_FILE"; then
-        echo "error: task $ID cannot ship before a separate agent reviews its preparation record: $REVIEW_REASON; spawn a prep-review scout with --scout --prep-review $ID that writes data/<reviewer>/reviewed-prep/$ID.md (legacy data/<reviewer>/reviewed-prep.md is accepted only when that per-task artifact is absent) and its report, install that reviewed record as $PREP_FILE, then write $DATA/$ID/prep-review with the lines reviewer=<that scout's task id> and author=<who wrote the record>" >&2
-        exit 1
-      fi
-    else
-      REVIEWED_PREP=$PREP_FILE
-    fi
+  # Relaunch preserves legacy recovery, but only a currently complete record
+  # supplies preparation specification to the generated intent overlay.
+  ACCEPTED_PREP=
+  if [ "$KIND" = ship ] && ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+    ACCEPTED_PREP=$PREP_FILE
   fi
   if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
     if fm_brief_task_heading_present "$BRIEF" "## Captain's intent"; then
@@ -3295,7 +3286,28 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   {
     fm_brief_worker_role "$STATE" "$ID" &&
       printf '\n' &&
-      awk -v advisor="$ADVISOR_LINE" '$0 != advisor' "$SOURCE_BRIEF" &&
+      awk -v advisor="$ADVISOR_LINE" '
+        {
+          scan=$0; sub(/^ ? ? ?/, "", scan)
+          marker=substr(scan,1,1); size=0
+          if (marker == "`" || marker == "~") {
+            while (substr(scan,size+1,1) == marker) size++
+          }
+          was_fenced=fenced
+          if (size >= 3) {
+            if (!fenced) {
+              fenced=1; fence_marker=marker; fence_size=size
+            } else if (marker == fence_marker && size >= fence_size && substr(scan,size+1) ~ /^[[:space:]]*$/) {
+              fenced=0
+            }
+          }
+          if (!was_fenced && size < 3) {
+            if ($0 == "# Current no-mistakes intent contract" || $0 == "# Task preparation record") { overlay=1; next }
+            if ($0 ~ /^# / || $0 ~ /^## Progress note \(/) overlay=0
+          }
+          if (!overlay && $0 != advisor) print
+        }
+      ' "$SOURCE_BRIEF" &&
       if [ "$HARNESS" = claude ]; then
         case "$MODEL" in
           ''|default|*[Ff][Aa][Bb][Ll][Ee]*) ;;
@@ -3306,7 +3318,7 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
         fm_brief_prep_overlay "$PREP_FILE"
       fi &&
       if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
-        fm_brief_intent_overlay "$CAPTAIN_INTENT" "$REVIEWED_PREP"
+        fm_brief_intent_overlay "$CAPTAIN_INTENT" "$ACCEPTED_PREP"
       fi
   } >"$BRIEF_TMP" || {
     rm -f -- "$BRIEF_TMP"

@@ -11,7 +11,11 @@
 # bin/fm-dod-lib.sh, the single owner an ordinary ship brief also uses - the
 # mode-specific Definition of done, so a promoted worker receives exactly the same
 # delivery contract as a briefed one, including the no-mistakes mode's stop-set
-# triage rule and --yes ban. The instructions also carry `# Task` with
+# triage rule and --yes ban.
+# They include a currently complete preparation record's acceptance handoff and
+# current intent overlay in no-mistakes mode, so promotion and later relaunch
+# retain the same specification boundary owned by bin/fm-dod-lib.sh.
+# The instructions also carry `# Task` with
 # `## Captain's intent` preserved from the scout brief and promotion's ship-time
 # instructions under `## Firstmate spec`; the scout-time spec remains context but
 # is not relabeled as the ship spec. Promotion refuses leftover `{TASK}` /
@@ -229,6 +233,11 @@ fi
 # promoted no-mistakes worker that never received the stop-set triage rule or
 # the --yes ban is the delivery hole this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
+PROMOTION_PREP=
+PREP_FILE=$(fm_prep_path "$DATA" "$ID")
+if ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+  PROMOTION_PREP=$PREP_FILE
+fi
 PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
@@ -261,6 +270,12 @@ EOF
   fi
   printf '\n'
   fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE"
+  if [ -n "$PROMOTION_PREP" ]; then
+    fm_brief_prep_overlay "$PROMOTION_PREP"
+  fi
+  if [ "$MODE" = no-mistakes ]; then
+    fm_brief_intent_overlay "$INTENT_BODY" "$PROMOTION_PREP"
+  fi
 }
 mkdir -p "$DATA/$ID"
 [ ! -d "$INSTRUCTIONS" ] || { echo "error: ship instructions path is a directory: $INSTRUCTIONS" >&2; exit 1; }

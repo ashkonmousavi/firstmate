@@ -73,7 +73,7 @@ Multiple owners of one contract produce divergence that only appears at merge.
 
 ## Dispatching the frontier
 
-The dispatch-ready frontier is the set of nodes whose dependencies have cleared; the reviewed-plan horizon also includes bounded jobs whose blockers are expected to clear during the current wave.
+The dispatch-ready frontier is the set of nodes whose dependencies have cleared; the preparation horizon also includes bounded jobs whose blockers are expected to clear during the current wave.
 Recompute it whenever the graph changes: `AGENTS.md` section 10 owns when that happens after a teardown or heartbeat, and section 7 owns how many independent nodes may go at once and when to serialize.
 Do not restate either here, and never set how many lanes go at once or a cap those sections do not impose.
 That limit is about the count, not the shape: how the split is shaped and ordered is this skill's own to state.
@@ -87,15 +87,15 @@ An area's slices queue behind it, and finished work across every area merges one
 Every shared module is held by its single integration owner, which a lane asks rather than edits.
 Keep decisions on one shared record so a second lane never resolves what a first lane already settled.
 
-For L lanes warranted by actual authorized work and admitted under section 7, prepare one parallel-safe set of L jobs and a second set that can refill each lane once: the horizon is two times L reviewed plans.
+For L lanes warranted by actual authorized work and admitted under section 7, prepare one parallel-safe set of L jobs and a second set that can refill each lane once: the horizon is two times L prepared plans.
 When fewer eligible jobs exist, record the actual planning or dependency gap; never invent work to fill that horizon.
-Plan and review in parallel batches by area, keeping decisions in one authoritative place and every shared seam under one owner.
+Prepare plans in parallel batches by area, keeping decisions in one authoritative place and every shared seam under one owner.
 Design the shared interface first, then fan dependent plans out against it.
 A known blocker permits pre-staging, never premature dispatch; include bounded plans whose blocker is expected to clear during the current wave.
 Beyond the horizon, keep only a one-line sketch in the existing work board: outcome, dependencies, code area and kind of unknown.
 
-Before consuming a plan, compare its reviewed base and file/contract read set against merges since review, including changed shared dependencies even when the consumer's own files did not change.
-Refresh and review only an affected delta, then install updated approved bytes when changed; an untouched plan need not be planned again.
+Before consuming a plan, compare its inspected base and file/contract read set against merges since preparation, including changed shared dependencies even when the consumer's own files did not change.
+Refresh only an affected delta and run the preparation gate on the updated final bytes before handoff; an untouched plan need not be planned again.
 Expand the horizon if builders wait on planning; shorten it if repeated refreshes materially rewrite plans.
 
 What this skill adds is the accounting:

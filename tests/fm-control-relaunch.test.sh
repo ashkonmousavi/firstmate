@@ -1146,7 +1146,7 @@ test_ship_relaunch_ignores_the_crew_harness_config() {
 }
 
 # A ship spawn requires the task's preparation record (bin/fm-brief.sh --prep)
-# and a separate review of it, but --relaunch replaces the agent on a task that
+# but --relaunch replaces the agent on a task that
 # already exists, including every task dispatched before those gates existed.
 # add_ship_task writes no record, so this relaunch reaches the brief checks
 # without one and must still launch, and its launch brief must not point at a
@@ -1166,6 +1166,13 @@ test_relaunch_is_exempt_from_the_task_preparation_gate() {
   assert_absent "$dir/home/data/rl60/prep.md" "a relaunch fabricated a preparation record"
   assert_no_grep "# Task preparation record" "$dir/home/data/rl60/launch-brief.md" \
     "the launch brief points at a preparation record the task does not have"
+  # Old incomplete preparation remains recoverable and cannot supply validated spec.
+  printf '## Tier\n- Q1 alters behavior: no\n- Q2 shared contract: no\n- UI wiring: no, historical record.\n\n## 11. Definition of done\nOld unvalidated acceptance.\n' > "$dir/home/data/rl60/prep.md"
+  printf 'zsh' > "$dir/fake/command"
+  out=$(run_spawn "$dir" rl60 --relaunch)
+  assert_contains "$out" "spawned rl60" "historical incomplete prep blocked recovery"
+  assert_no_grep '## Accepted specification for --intent' "$dir/home/data/rl60/launch-brief.md" "relaunch certified incomplete historical prep"
+  assert_grep 'Old unvalidated acceptance.' "$dir/home/data/rl60/prep.md" "relaunch migrated old preparation"
   pass "fm-spawn --relaunch: a task dispatched before the preparation gate still relaunches"
 }
 
@@ -1271,7 +1278,7 @@ test_spawn_relaunch_of_promoted_scout_uses_the_recorded_branch() {
 }
 
 test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
-  local dir home id brief launch out mode rule
+  local dir home id brief launch out mode rule note recovery captain
   for mode in no-mistakes direct-PR local-only; do
     id="rl-promoted-${mode}"
     dir=$(new_case "promoted-scout-$mode" "$id")
@@ -1283,6 +1290,7 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
     sed 's/{TASK}/Fix the promotion relaunch contract./; s/{FIRSTMATE_SPEC}/Preserve the current delivery mode./' \
       "$brief" > "$brief.filled"
     mv "$brief.filled" "$brief"
+    fm_test_prep_record "$home/data" "$id" || fail "$mode: could not fill preparation"
     {
       echo "window=fmses:fm-$id"
       echo "endpoint_task_id=$id"
@@ -1305,8 +1313,7 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
     assert_grep 'Never push to any remote and never open a PR' "$brief" \
       "$mode: the reproduction fixture lost the stale scout prohibition"
 
-    printf 'zsh' > "$dir/fake/command"
-    out=$(run_spawn "$dir" "$id" --relaunch) \
+    out=$(run_control "$dir" "$id" relaunch --note 'reproduced the crash in parser.go') \
       || fail "$mode: promoted scout relaunch should succeed: $out"
     launch="$home/data/$id/launch-brief.md"
     assert_grep "This task is now kind=ship with mode=$mode" "$launch" \
@@ -1331,6 +1338,22 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
       "$mode: the replacement launch did not receive the carry-over boundary"
     assert_grep "Delivery contract: mode=$mode" "$launch" \
       "$mode: the replacement launch did not receive the actual ship delivery mode"
+    for note in 'reproduced the crash in parser.go' 'continue with the parser regression'; do
+      if [ "$note" = 'continue with the parser regression' ]; then
+        out=$(run_control "$dir" "$id" relaunch --note "$note") \
+          || fail "$mode: repeated promoted relaunch should succeed: $out"
+      fi
+      recovery=$(sed -n '/^## Progress note (/,$p' "$brief")
+      [ -n "$recovery" ] || fail "$mode: control did not append recovery instructions"
+      assert_contains "$(cat "$launch")" "$recovery" \
+        "$mode: replacement lost exact progress history or recovery instructions"
+      assert_grep "$note" "$launch" "$mode: replacement lost its progress note"
+      if [ "$mode" = no-mistakes ]; then
+        captain=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit { print }' "$launch")
+        [ "$captain" = 'Fix the promotion relaunch contract.' ] \
+          || fail "$mode: recovery instructions entered the captain intent tail"
+      fi
+    done
   done
   pass "fm-promote/fm-spawn --relaunch: the current ship contract supersedes stale scout delivery text"
 }
