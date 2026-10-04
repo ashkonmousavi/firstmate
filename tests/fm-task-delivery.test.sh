@@ -2321,7 +2321,7 @@ EOF
   reason=$(fm_prep_unfilled_reason "$prep"); status=$?
   [ "$status" = 1 ] && [ -z "$reason" ] || fail "valid common control refused: $status $reason"
   for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
-    for variant in missing blank placeholder comment example duplicate; do
+    for variant in missing blank placeholder comment example duplicate fenced fence-type fence-length fence-info; do
       awk -v f="$field" -v v="$variant" '
         index($0, "- " f ":") == 1 {
           if (v == "missing") next
@@ -2329,6 +2329,10 @@ EOF
           if (v == "placeholder") { print "- " f ": {UNFILLED}"; next }
           if (v == "comment") { print "- " f ": <!-- example only -->"; next }
           if (v == "example") { print "- " f ": Example: run a check"; next }
+          if (v == "fenced") { print "  ```markdown"; print; print "  ```"; next }
+          if (v == "fence-type") { print "  ````"; print "  ~~~"; print; print "  ````"; next }
+          if (v == "fence-length") { print "   ~~~~sh"; print "   ~~~"; print; print "   ~~~~"; next }
+          if (v == "fence-info") { print " ````"; print " ````text"; print; print " ````"; next }
           if (v == "duplicate") print
         } { print }' "$baseline" > "$prep"
       reason=$(fm_prep_unfilled_reason "$prep"); status=$?
@@ -2337,6 +2341,23 @@ EOF
         bad=1
       fi
     done
+  done
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability'; do
+    for variant in 'TODO' 'TBD' 'Example: a check' 'e.g. a check' '{UNFILLED}' '<reason>'; do
+      awk -v f="$field" -v v="$variant" '
+        index($0, "- " f ":") == 1 { print "- " f ": n/a: " v; next }
+        { print }' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      if [ "$status" != 0 ] || [[ "$reason" != *"$field"* ]]; then
+        printf 'not ok - unfinished n/a %s %s: exit=%s reason=%s\n' "$field" "$variant" "$status" "$reason" >&2
+        bad=1
+      fi
+    done
+    awk -v f="$field" '
+      index($0, "- " f ":") == 1 { print "- " f ": n/a: isolated shell fixture has no applicable product change."; next }
+      { print }' "$baseline" > "$prep"
+    reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+    [ "$status" = 1 ] && [ -z "$reason" ] || fail "finished n/a $field refused: $reason"
   done
   for cell in 1 2 3 4; do
     for variant in blank placeholder na comment example; do
@@ -2352,9 +2373,10 @@ EOF
       fi
     done
   done
-  for variant in no-rows missing-column missing-header malformed-separator na-table; do
+  for variant in no-rows missing-column missing-header malformed-separator na-table fenced-row; do
     awk -v v="$variant" '
       v == "no-rows" && /^\| Common refusal/ { next }
+      v == "fenced-row" && /^\| Common refusal/ { print "  ~~~~markdown"; print; print "  ~~~~~"; next }
       v == "missing-column" && /^\| Common refusal/ { sub(/\|[^|]*\|$/, "|") }
       v == "missing-header" && /^\| Outcome / { next }
       v == "malformed-separator" && /^\| --- / { print "| --- | --- | --- |"; next }
@@ -2377,6 +2399,10 @@ EOF
   fill_section "$prep" '## 1. Intent and boxes' 'n/a: no intent'
   reason=$(fm_prep_unfilled_reason "$prep"); status=$?
   if [ "$status" != 0 ] || [[ "$reason" != *'Intent and boxes'* ]]; then bad=1; printf 'not ok - absent substantive intent\n' >&2; fi
+  cp "$baseline" "$prep"
+  fill_section "$prep" '## 1. Intent and boxes' $'  ````markdown\n  ~~~\nExercise the fixture only.\n  ```\n  ````'
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  if [ "$status" != 0 ] || [[ "$reason" != *'Intent and boxes'* ]]; then bad=1; printf 'not ok - fenced-only intent\n' >&2; fi
   sed 's/^- Data path reachability:.*$/- Data path reachability: rg returned {"callers": []}; result uses <empty>; traced source to consumer./' "$baseline" > "$prep"
   reason=$(fm_prep_unfilled_reason "$prep"); status=$?
   [ "$status" = 1 ] && [ -z "$reason" ] || fail "literal tool output refused: $reason"
@@ -2388,6 +2414,79 @@ EOF
   assert_contains "$reason" 'Scope only as asked' "spawn omitted common refusal"
   assert_absent "$home/data/common/launch-brief.md" "incomplete common fields reached launch"
   pass "common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal"
+}
+
+test_prep_spec_substantive_text() {
+  local rec home proj fakebin prep reason status accepted expected launch out
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  rec=$(make_home substantive-spec)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" substantive yes no
+  prep="$home/data/substantive/prep.md"
+  awk '
+    /^\| Delivery admission / {
+      print "<!-- multiline guide"
+      print "| Hidden | Hidden | Hidden | Hidden |"
+      print "-->"
+      print "  ````markdown"
+      print "  ~~~"
+      print "| Fenced | Fenced | Fenced | Fenced |"
+      print "  ```"
+      print "| Still fenced | Still fenced | Still fenced | Still fenced |"
+      print "  ````text"
+      print "| Also fenced | Also fenced | Also fenced | Also fenced |"
+      print "  `````"
+      print "| <!-- first -->Recomputed<!-- last --> | <!-- first -->Result<!-- last --> | <!-- first -->`printf 42`<!-- last --> | <!-- fixture -->42<!-- recomputed --> |"
+      next
+    }
+    { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  fill_section "$prep" '## 2. Behaviour spec' "$(cat <<'EOF'
+<!-- context -->Return 42.<!-- detail -->
+<!-- multiline guide
+Example: return a different value.
+-->
+```bash
+printf '%s' '<!-- literal -->42<!-- literal -->'
+```
+EOF
+)"
+  fill_section "$prep" '## 11. Definition of done' "$(cat <<'EOF'
+<!-- first -->- Recomputed result is 42.<!-- last -->
+<!-- multiline guide
+Example: accept any result.
+-->
+EOF
+)"
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  [ "$status" = 1 ] && [ -z "$reason" ] || fail "substantive table refused: $status $reason"
+  expected=$(cat <<'EOF'
+## Expected outcomes and how to check each
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| Recomputed | Result | `printf 42` | 42 |
+
+## 2. Behaviour spec
+Return 42.
+```bash
+printf '%s' '<!-- literal -->42<!-- literal -->'
+```
+
+## 11. Definition of done
+- Recomputed result is 42.
+EOF
+)
+  accepted=$(fm_prep_accepted_spec "$prep")
+  [ "$accepted" = "$expected" ] || fail "accepted specification changed substantive bytes: $accepted"
+  write_brief "$home" substantive no-mistakes
+  out=$(run_spawn "$home" "$fakebin" substantive "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/substantive/launch-brief.md"
+  assert_present "$launch" "substantive preparation did not reach launch rendering: $out"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
+  [ "$accepted" = "$expected" ] || fail "launch specification changed substantive bytes: $accepted"
+  pass "preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments"
 }
 
 test_prep_common_scaffolds() {
@@ -2415,6 +2514,7 @@ test_prep_common_scaffolds() {
 
 test_prep_common_completeness
 test_prep_common_scaffolds
+test_prep_spec_substantive_text
 test_prep_requires_finalize_after_evidence
 test_optional_batch_artifacts_do_not_affect_handoff
 test_legacy_install_declarations_do_not_affect_admission

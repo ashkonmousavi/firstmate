@@ -532,6 +532,44 @@ fm_prep_tier() {  # <file>
   fi
 }
 
+fm_prep_body_text() {  # [<keep-fences>]
+  awk -v keep_fences="${1:-no}" '
+    {
+      line=$0
+      if (!fenced) {
+        if (comment) {
+          end=index(line,"-->"); if (!end) next
+          line=substr(line,end+3); comment=0
+        }
+        while (index(line,"<!--")) {
+          start=index(line,"<!--"); tail=substr(line,start+4); end=index(tail,"-->")
+          if (!end) { line=substr(line,1,start-1); comment=1; break }
+          line=substr(line,1,start-1) substr(tail,end+3)
+        }
+        if (line ~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*$/) next
+      }
+      scan=line
+      spaces=0
+      while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+      marker=substr(scan,1,1)
+      marker_len=0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan,marker_len+1,1) == marker) marker_len++
+      }
+      if (marker_len >= 3) {
+        rest=substr(scan,marker_len+1)
+        if (!fenced) {
+          fenced=1; fence_marker=marker; fence_len=marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced=0
+        }
+        if (keep_fences == "yes") print line
+        next
+      }
+      if (!fenced || keep_fences == "yes") print line
+    }'
+}
+
 # fm_prep_section_state <file> <heading> <placeholder>
 # Prints missing|unfilled|empty|filled for one section. Guide comments and blank
 # lines never count as an answer; an exact leftover placeholder is unfilled.
@@ -540,7 +578,7 @@ fm_prep_tier() {  # <file>
 fm_prep_section_state() {  # <file> <heading> <placeholder>
   local file=$1 heading=$2 placeholder=$3 body stripped
   fm_brief_heading_present "$file" "$heading" || { printf 'missing\n'; return 0; }
-  body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//')
+  body=$(fm_brief_heading_body "$file" "$heading" | fm_prep_body_text yes)
   stripped=$(printf '%s' "$body" | tr -d '[:space:]')
   if [ -z "$stripped" ]; then
     printf 'empty\n'
@@ -555,32 +593,16 @@ fm_prep_section_state() {  # <file> <heading> <placeholder>
 # builder/verifier's responsibility. Ignore guide comments and fenced examples;
 # recognize whole-answer placeholders, never braces inside literal tool output.
 fm_prep_answer_complete() {  # <body> <allow-na>
-  printf '%s\n' "$1" | awk -v na="$2" '
+  printf '%s\n' "$1" | fm_prep_body_text | awk -v na="$2" '
     function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
-    /^```|^~~~/ { fenced=!fenced; next }
-    fenced { next }
-    {
-      s=$0
-      while (length(s)) {
-        if (comment) {
-          end=index(s, "-->")
-          if (!end) { s=""; break }
-          s=substr(s, end+3); comment=0
-        } else {
-          start=index(s, "<!--")
-          if (!start) { text=text s " "; break }
-          text=text substr(s,1,start-1) " "; s=substr(s,start+4); comment=1
-        }
-      }
-    }
+    { text=text $0 " " }
     END {
       text=clean(text)
-      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
       if (tolower(text) ~ /^n\/a([ :]|$)/) {
         if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
         sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
-        if (text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/) exit 1
       }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
     }'
 }
 
@@ -589,24 +611,13 @@ fm_prep_common_reason() {  # <file>
   if ! fm_brief_heading_present "$file" '## Author checks'; then
     printf 'required ## Author checks is missing\n'; return 0
   fi
-  body=$(fm_brief_heading_body "$file" '## Author checks')
+  body=$(fm_brief_heading_body "$file" '## Author checks' | fm_prep_body_text)
   while IFS='|' read -r label placeholder conditional guide; do
     # Continuations belong to the field up to the next bullet. Comment-only
     # and fenced example bullets cannot supply a required answer.
     value=$(printf '%s\n' "$body" | awk -v label="$label" '
-      /^```|^~~~/ { fenced=!fenced; next }
-      fenced { next }
       {
         line=$0
-        if (comment) {
-          end=index(line,"-->"); if (!end) next
-          line=substr(line,end+3); comment=0
-        }
-        while (index(line,"<!--")) {
-          start=index(line,"<!--"); tail=substr(line,start+4); end=index(tail,"-->")
-          if (!end) { line=substr(line,1,start-1); comment=1; break }
-          line=substr(line,1,start-1) substr(tail,end+3)
-        }
         if (line ~ /^- /) {
           grab=index(line, "- " label ":") == 1
           if (grab) { seen++; print substr(line, length(label)+4) }
@@ -625,24 +636,11 @@ EOF
   if ! fm_brief_heading_present "$file" "$FM_PREP_OUTCOMES_HEADING"; then
     printf 'required %s is missing\n' "$FM_PREP_OUTCOMES_HEADING"; return 0
   fi
-  reason=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | awk -v columns="$FM_PREP_OUTCOME_COLUMNS" '
+  reason=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | fm_prep_body_text | awk -v columns="$FM_PREP_OUTCOME_COLUMNS" '
     function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
     BEGIN { split(columns, names, "|") }
-    /^```|^~~~/ { fenced=!fenced; next }
-    fenced { next }
     {
-      line=$0
-      # Comments do not provide cells or rows, including multiline examples.
-      if (comment) {
-        end=index(line, "-->"); if (!end) next
-        line=substr(line,end+3); comment=0
-      }
-      while (index(line,"<!--")) {
-        start=index(line,"<!--"); tail=substr(line,start+4); end=index(tail,"-->")
-        if (!end) { line=substr(line,1,start-1); comment=1; break }
-        line=substr(line,1,start-1) substr(tail,end+3)
-      }
-      line=trim(line)
+      line=trim($0)
       if (line == "") next
       if (line !~ /^\|.*\|$/) { bad="table row"; next }
       gsub(/\\\|/, "ESCAPED_PIPE", line)
@@ -678,7 +676,7 @@ EOF
 fm_prep_evidence_ok() {  # <file> <heading> <token>...
   local file=$1 heading=$2 body lowered token
   shift 2
-  body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//')
+  body=$(fm_brief_heading_body "$file" "$heading" | fm_prep_body_text yes)
   lowered=$(printf '%s' "$body" | tr '[:upper:]' '[:lower:]')
   # `n/a: <reason>` is a decision already taken, so it needs no tool output.
   printf '%s' "$lowered" | grep -q 'n/a:[[:space:]]*[^[:space:]]' && return 0
@@ -834,13 +832,13 @@ EOF
 fm_prep_accepted_spec() {  # <prep-path>
   local file=$1 heading placeholder required guide evidence body first sep=''
   fm_prep_unfilled_reason "$file" >/dev/null && return 0
-  body=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | sed 's/<!--.*-->//' | awk 'NF { started = 1 } started')
+  body=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | fm_prep_body_text | awk 'NF')
   printf '%s\n%s\n' "$FM_PREP_OUTCOMES_HEADING" "$body"
   sep=$'\n'
   while IFS='|' read -r heading placeholder required guide evidence; do
     case "$placeholder" in BEHAVIOUR_SPEC|DEFINITION_OF_DONE) ;; *) continue ;; esac
     [ "$(fm_prep_section_state "$file" "$heading" "$placeholder")" = filled ] || continue
-    body=$(fm_brief_heading_body "$file" "$heading" | sed 's/<!--.*-->//' | awk 'NF { started = 1 } started')
+    body=$(fm_brief_heading_body "$file" "$heading" | fm_prep_body_text yes | awk 'NF { started = 1 } started')
     first=$(printf '%s\n' "$body" | awk 'NF { sub(/^[[:space:]]+/, ""); print tolower($0); exit }')
     case "$first" in 'n/a'|'n/a:'*|'n/a '*) continue ;; esac
     printf '%s%s\n%s\n' "$sep" "$heading" "$body"
