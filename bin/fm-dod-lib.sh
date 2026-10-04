@@ -534,7 +534,25 @@ fm_prep_tier() {  # <file>
 
 fm_prep_body_text() {  # [<keep-fences>]
   awk -v keep_fences="${1:-no}" '
-    function closing_tick(s, size, row, probe) {
+    function table_start(row, header, delimiter, cells, count, i, cell) {
+      if (row >= NR) return 0
+      header=lines[row]; delimiter=lines[row+1]
+      sub(/^ ? ? ?/, "", header); sub(/^ ? ? ?/, "", delimiter)
+      if (header ~ /^[[:space:]]/ || delimiter ~ /^[[:space:]]/) return 0
+      gsub(/\\\|/, "", header)
+      if (header !~ /\|/) return 0
+      sub(/[[:space:]]+$/, "", header); sub(/[[:space:]]+$/, "", delimiter)
+      sub(/^\|/, "", header); sub(/\|$/, "", header)
+      sub(/^\|/, "", delimiter); sub(/\|$/, "", delimiter)
+      count=split(header,cells,"|")
+      if (!count || split(delimiter,cells,"|") != count) return 0
+      for (i=1; i<=count; i++) {
+        cell=cells[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell !~ /^:?-+:?$/) return 0
+      }
+      return 1
+    }
+    function closing_tick(s, size, row, probe, list_number) {
       while (1) {
         while (match(s, /`+/)) {
           if (RLENGTH == size) return 1
@@ -543,7 +561,9 @@ fm_prep_body_text() {  # [<keep-fences>]
         if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
         s=lines[row]
         probe=s; sub(/^ ? ? ?/, "", probe)
-        if (probe ~ /^```|^~~~|^\||^#+([[:space:]]|$)|^[-+*][[:space:]]|^[0-9]+[.)][[:space:]]|^<!--/) return 0
+        list_number=probe; sub(/[.)].*$/, "", list_number)
+        if (probe ~ /^[0-9]+[.)][[:space:]]+[^[:space:]]/ && length(list_number) <= 9 && list_number+0 == 1) return 0
+        if (table_start(row) || probe ~ /^```|^~~~|^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)|^[-+*][[:space:]]+[^[:space:]]|^<!--/) return 0
       }
     }
     function uncomment(s, row, out, end, size) {

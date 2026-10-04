@@ -119,7 +119,7 @@ answer_tier() {
 fill_section() {
   local prep=$1 heading=$2 text=$3
   blank_section "$prep" "$heading"
-  awk -v h="$heading" -v t="$text" '$0 == h { print; print t; next } { print }' "$prep" \
+  FM_TEST_SECTION_TEXT="$text" awk -v h="$heading" '$0 == h { print; print ENVIRON["FM_TEST_SECTION_TEXT"]; next } { print }' "$prep" \
     > "$prep.fill" && mv "$prep.fill" "$prep"
 }
 
@@ -2622,6 +2622,97 @@ EOF
   pass "promotion hands both artifacts the complete preparation in every mode without gating legacy records"
 }
 
+test_prep_inline_block_boundaries() {
+  local input expected actual table continuation boundary
+  for table in $'| Name | Value |\n| :--- | ---: |' $'Name | Value\n:--- | ---:' $'| Name |\n| --- |' $'  | Name \\| alias | Value |\n  | --- | --- |'; do
+    input='before `unmatched'$'\n'"$table"$'\n''<!-- guide --> last`'
+    expected='before `unmatched'$'\n'"$table"$'\n'' last`'
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "inline span crossed a real table: $actual"
+  done
+  for table in $'| Name | Value |\n| not a delimiter | row |' $'| Name | Value |\n| --- |' $'Name \\| Value\n---'; do
+    input='before `literal'$'\n'"$table"$'\n''end <!-- marker -->`<!-- guide -->'
+    expected=${input/'<!-- guide -->'/}
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "non-table pipe text erased a literal: $actual"
+  done
+  for continuation in '| grep -F literal' '####### text' '2. text' '0000000001. text' '- ' '+ ' '* ' '1. '; do
+    input='before `literal'$'\n'"$continuation"$'\n''end <!-- marker -->`<!-- guide -->'
+    expected=${input/'<!-- guide -->'/}
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "superficial block prefix erased a literal: $actual"
+  done
+  for boundary in '# heading' '###### heading' '- item' '+ item' '* item' '1. item' '0001) item' '000000001. item'; do
+    input='before `unmatched'$'\n'"$boundary"$'\n''<!-- guide --> last`'
+    expected='before `unmatched'$'\n'"$boundary"$'\n'' last`'
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "inline span crossed a real block: $actual"
+  done
+  pass "inline lookahead distinguishes structural tables and paragraph interruptions from literal command prefixes"
+}
+
+test_prep_pipeline_handoff() {
+  local rec pipeline_home pipeline_proj pipeline_fakebin prep original command section accepted emitted result fault file out field
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  command=$(cat <<'EOF'
+printf '%s\n' '<!-- marker -->' 'unrelated line' \
+| grep -F '<!-- marker -->'
+EOF
+)
+  rec=$(make_home pipeline-handoff)
+  IFS='|' read -r pipeline_home pipeline_proj pipeline_fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$pipeline_home" pipeline yes no
+  prep="$pipeline_home/data/pipeline/prep.md"
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    fill_section "$prep" "$section" "\`$command\`"
+  done
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    FM_TEST_PIPELINE="$command" awk -v f="$field" '
+      index($0,"- " f ":") == 1 { print "- " f ": `" ENVIRON["FM_TEST_PIPELINE"] "`"; next }
+      { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  done
+  original="$pipeline_home/prep-original.md"
+  cp "$prep" "$original"
+  fm_prep_unfilled_reason "$prep" && fail "pipeline preparation refused"
+  accepted=$(fm_prep_accepted_spec "$prep")
+  emitted=$(fm_brief_heading_body "$prep" '## Author checks' | fm_prep_body_text)
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    assert_contains "$emitted" "- $field: \`$command\`" "pipeline author bytes lost for $field"
+  done
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    emitted=$(fm_brief_heading_parse - "$section" body <<<"$accepted")
+    [ "$emitted" = "\`$command\`" ] || fail "pipeline specification bytes changed in $section: $emitted"
+    emitted=${emitted#\`}; emitted=${emitted%\`}
+    result=$(bash -c "$emitted") || fail "emitted pipeline failed"
+    [ "$result" = '<!-- marker -->' ] || fail "emitted pipeline selected unrelated rows: $result"
+    fault=${emitted/"'<!-- marker -->' 'unrelated line'"/"'no marker' 'unrelated line'"}
+    bash -c "$fault" >/dev/null && fail "pipeline check passed when input lost its marker"
+  done
+  write_brief "$pipeline_home" pipeline no-mistakes
+  out=$(run_spawn "$pipeline_home" "$pipeline_fakebin" pipeline "$pipeline_proj" claude --mode no-mistakes --yolo off)
+  file="$pipeline_home/data/pipeline/launch-brief.md"
+  assert_present "$file" "pipeline prep did not reach spawn rendering: $out"
+  emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+  [ "$emitted" = "$accepted" ] || fail "spawn changed pipeline acceptance bytes"
+  printf 'window=fm-pipeline\nkind=scout\nworktree=%s\n' "$pipeline_proj" > "$pipeline_home/state/pipeline.meta"
+  out=$(FM_HOME="$pipeline_home" FM_STATE_OVERRIDE="$pipeline_home/state" FM_DATA_OVERRIDE="$pipeline_home/data" FM_CONFIG_OVERRIDE="$pipeline_home/config" \
+    "$PROMOTE" pipeline --mode no-mistakes --yolo off 2>&1) || fail "pipeline promotion refused: $out"
+  for file in "$pipeline_home/data/pipeline/ship-instructions.md" "$pipeline_home/data/pipeline/brief.md"; do
+    emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+    [ "$emitted" = "$accepted" ] || fail "promotion changed pipeline acceptance bytes in $file"
+    emitted=$(awk -v c="$captain_heading" '$0 == c { emit=1; next } emit { print }' "$file")
+    [ "$emitted" = 'Exercise the delivery contract.' ] || fail "promotion mixed pipeline specification into captain intent"
+  done
+  cmp -s "$prep" "$original" || fail "pipeline handoff rewrote prep"
+  fill_section "$prep" '## 4. Blast radius' "\`$command\`"
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' '<!-- marker -->' || fail "pipeline literal evidence lost"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "pipeline section became empty"
+  pass "pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts"
+}
+
 test_prep_common_scaffolds() {
   local home="$TMP_ROOT/common-scaffolds" id prep reason format field
   mkdir -p "$home"
@@ -2649,6 +2740,8 @@ test_prep_common_completeness
 test_prep_common_scaffolds
 test_prep_spec_substantive_text
 test_prep_inline_delimiters
+test_prep_inline_block_boundaries
+test_prep_pipeline_handoff
 test_promotion_preparation_handoff
 test_prep_requires_finalize_after_evidence
 test_optional_batch_artifacts_do_not_affect_handoff
