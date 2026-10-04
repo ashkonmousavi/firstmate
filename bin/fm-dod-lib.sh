@@ -839,9 +839,9 @@ EOF
 
 # fm_prep_unfilled_reason <file>
 # Prints the first refusal reason and exits 0; exits 1 when the record answers
-# everything its declared tier requires. A missing file and an unreadable tier
-# header are refusals of their own; a section below the declared tier is not
-# checked at all, so omitting it entirely is legitimate rather than a hole.
+# the common checks and outcome table plus its tier requirements or surgical
+# certainty certificate. A missing file and an unreadable tier header are
+# refusals of their own; numbered sections below the declared tier may be omitted.
 fm_prep_unfilled_reason() {  # <file>
   local file=$1 tier heading placeholder required guide evidence state
   if [ ! -f "$file" ] || [ ! -r "$file" ]; then

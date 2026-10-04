@@ -45,9 +45,10 @@
 #     5. Data and contracts     11. Definition of done
 #     6. Tests                  12. Size
 #   Each carries a one-line guide, the tier it becomes required at, and one
-#   `{PLACEHOLDER}` to replace. A required section that genuinely does not apply
-#   is answered `n/a: <one-line reason>`; full records owe at least the five
-#   tier-1 sections, and only a tier-2 change costs a page.
+#   `{PLACEHOLDER}` to replace. Section 1 requires substantive task intent;
+#   other required sections that genuinely do not apply may use
+#   `n/a: <one-line reason>` under bin/fm-dod-lib.sh's completeness contract.
+#   Full records owe at least the five tier-1 sections.
 #   Both formats carry Author checks and Expected outcomes and how to check each.
 #   bin/fm-dod-lib.sh owns their common schema, conditional answers and table.
 #   The author writes the detailed outcome list; builders and post-implementation
