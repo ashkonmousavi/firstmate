@@ -22,6 +22,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -46,7 +47,18 @@ try:
         if limit <= 0:
             raise Refused(stage)
     def run(*args, cwd=None):
-        return subprocess.run(args, cwd=cwd, env=env, capture_output=True, timeout=limit)
+        with subprocess.Popen(args, cwd=cwd, env=env, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, start_new_session=True) as process:
+            try:
+                stdout, stderr = process.communicate(timeout=limit)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.communicate()
+                raise
+            return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
     def checked(*args, cwd=None):
         result = run(*args, cwd=cwd)
         if result.returncode:
@@ -190,7 +202,7 @@ try:
         if deploy.is_file():
             try:
                 config = json.loads(deploy.read_text())
-                changed = git('diff', '--name-only', '-z', base, merge).decode().split('\0')
+                changed = git('diff', '--no-renames', '--name-only', '-z', base, merge).decode().split('\0')
                 hits = [p for p in changed if p and (p in config['backup_library'] or
                         any(fnmatch.fnmatch(p, g.replace('**', '*')) for g in config['manual_only']))]
                 if hits:

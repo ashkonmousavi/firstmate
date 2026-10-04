@@ -15,6 +15,11 @@ import os, subprocess
 args = sys.argv
 repo = pathlib.Path(args[args.index('--repo') + 1]) if '--repo' in args else pathlib.Path(args[args.index('--head-repo') + 1])
 mode = (repo / 'mode').read_text().strip()
+if mode == 'hang-' + args[1]:
+    import time
+    subprocess.Popen([sys.executable, '-I', '-c', os.environ['FM_Q_PREMERGE_CHILD_CODE']])
+    print('{"fresh": true}', flush=True)
+    time.sleep(60)
 def snapshot_bytes(root, ref):
     for name in ('byte-witness.bin', 'format-witness.txt'):
         expected = subprocess.check_output(['git', '-C', str(repo), 'show', f'{ref}:{name}'])
@@ -48,8 +53,13 @@ print(json.dumps({'fresh': mode != 'stale'}))
 sys.exit(1 if mode in ('stale', 'nonzero') else 0)
 PY
 cat > "$repo/$package/tools/build_plan_views.py" <<'PY'
-import pathlib, subprocess, sys
+import os, pathlib, subprocess, sys
 repo = pathlib.Path(sys.argv[sys.argv.index('--repo')+1])
+if (repo / 'mode').read_text().strip() == 'hang-view':
+    import time
+    subprocess.Popen([sys.executable, '-I', '-c', os.environ['FM_Q_PREMERGE_CHILD_CODE']])
+    print('plan views: fresh', flush=True)
+    time.sleep(60)
 for name in ('byte-witness.bin', 'format-witness.txt'):
     assert (repo / name).read_bytes() == subprocess.check_output(['git', '-C', str(repo), 'show', f'HEAD:{name}'])
 print('plan views: fresh')
@@ -133,6 +143,50 @@ for mode in stale nonzero bad quoted empty timeout union view; do
 done
 make_head hang
 FM_Q_PREMERGE_TIMEOUT=2 run_check 2 "$repo" 7 'actual timeout with partial fresh output'
+child_code=$(cat <<'PY'
+import os, pathlib, signal, time
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+pathlib.Path(os.environ['FM_Q_PREMERGE_CHILD_PID']).write_text(str(os.getpid()))
+time.sleep(60)
+PY
+)
+assert_child_stopped() {
+  python3 -I - "$1" <<'PY'
+import os, pathlib, signal, subprocess, sys, time
+pid = int(pathlib.Path(sys.argv[1]).read_text())
+for _ in range(100):
+    result = subprocess.run(['ps', '-p', str(pid), '-o', 'stat='], capture_output=True, text=True)
+    state = result.stdout.strip()
+    if result.returncode or not state or state.startswith('Z'):
+        sys.exit(0)
+    time.sleep(0.01)
+os.kill(pid, signal.SIGKILL)
+sys.exit('timed-out descendant remains running')
+PY
+}
+for phase in check check-union view; do
+  make_head "hang-$phase"
+  FM_Q_PREMERGE_CHILD_CODE="$child_code" FM_Q_PREMERGE_CHILD_PID="$TMP_ROOT/child-$phase" \
+    FM_Q_PREMERGE_TIMEOUT=2 run_check 2 "$repo" 7 "$phase descendants bounded"
+  assert_not_contains "$output" 'fresh base=' "$phase timeout cannot produce receipt"
+  assert_child_stopped "$TMP_ROOT/child-$phase"
+done
+make_head good
+cat > "$TMP_ROOT/transport.py" <<'PY'
+import os, subprocess, sys, time
+subprocess.Popen([sys.executable, '-I', '-c', os.environ['FM_Q_PREMERGE_CHILD_CODE']])
+time.sleep(60)
+PY
+python_bin=$(command -v python3)
+git -C "$repo" config core.sshCommand "$python_bin -I $TMP_ROOT/transport.py"
+git -C "$repo" remote set-url origin "$(basename "$TMP_ROOT"):fixture"
+GIT_SSH_VARIANT=ssh FM_Q_PREMERGE_CHILD_CODE="$child_code" FM_Q_PREMERGE_CHILD_PID="$TMP_ROOT/child-fetch" \
+  FM_Q_PREMERGE_TIMEOUT=2 run_check 2 "$repo" 7 'fetch descendants bounded'
+assert_not_contains "$output" 'fresh base=' 'fetch timeout cannot produce receipt'
+assert_child_stopped "$TMP_ROOT/child-fetch"
+git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
+git -C "$repo" config --unset core.sshCommand
+pass 'timeouts terminate checker and transport descendants'
 pass 'every required checker condition refuses independently'
 make_head stale
 printf 'print("{\"fresh\": true}")\n' > "$repo/$package/tools/check_plan.py"
@@ -247,6 +301,52 @@ git -C "$repo" commit -qm warning-unavailable
 git -C "$repo" push -q --force origin HEAD:refs/pull/7/head
 run_check 0 "$repo" 7 'unavailable warning does not change acceptance'
 assert_contains "$output" 'MANUAL INSTALL warning unavailable' 'warning diagnostic'
+git -C "$repo" checkout -q --detach "$B"
+mkdir -p "$repo/ops/lib/q-v2" "$repo/backup" "$repo/manual"
+printf '{"backup_library":["backup/source.txt","backup/destination.txt"],"manual_only":["manual/*"]}' > "$repo/ops/lib/q-v2/deploy.json"
+for owner in backup manual; do
+  printf 'covered %s\n' "$owner" > "$repo/$owner/source.txt"
+  printf 'unlisted %s\n' "$owner" > "$repo/$owner-away.txt"
+done
+git -C "$repo" add .
+git -C "$repo" commit -qm warning-baseline
+warning_base=$(git -C "$repo" rev-parse HEAD)
+git -C "$repo" push -q --force origin HEAD:refs/heads/main
+for owner in backup manual; do
+  for action in rename-out rename-in delete modify add copy-out; do
+    git -C "$repo" checkout -q --detach "$warning_base"
+    expected_path="$owner/source.txt"
+    case "$action" in
+      rename-out) git -C "$repo" mv "$owner/source.txt" "$owner-renamed.txt";;
+      rename-in)
+        git -C "$repo" mv "$owner-away.txt" "$owner/destination.txt"
+        expected_path="$owner/destination.txt";;
+      delete) git -C "$repo" rm -q "$owner/source.txt";;
+      modify) printf 'changed\n' >> "$repo/$owner/source.txt";;
+      add)
+        printf 'new\n' > "$repo/$owner/destination.txt"
+        expected_path="$owner/destination.txt";;
+      copy-out) cp "$repo/$owner/source.txt" "$repo/$owner-copy.txt";;
+    esac
+    git -C "$repo" add .
+    git -C "$repo" commit -qm "$owner-$action"
+    H=$(git -C "$repo" rev-parse HEAD)
+    T=$(git -C "$repo" merge-tree --write-tree "$warning_base" "$H")
+    git -C "$repo" push -q --force origin HEAD:refs/pull/7/head
+    if [ "$action" = rename-out ] || [ "$action" = rename-in ]; then
+      assert_contains "$(git -C "$repo" diff --name-status --find-renames "$warning_base" "$H")" R100 'real rename witness'
+    fi
+    run_check 0 "$repo" 7 "$owner $action warning inventory"
+    assert_contains "$output" "fresh base=$warning_base head=$H tree=$T" 'warning preserves exact verdict'
+    if [ "$action" = copy-out ]; then
+      assert_not_contains "$output" 'MANUAL INSTALL after merge' 'unchanged covered source needs no warning'
+    else
+      assert_contains "$output" "MANUAL INSTALL after merge (pre-authorize fleet-ops root step): $expected_path" 'covered endpoint warns'
+    fi
+  done
+done
+git -C "$repo" push -q --force origin "$B:refs/heads/main"
+pass 'manual warnings cover both rename directions and change kinds'
 make_head good
 # The declared closure cannot silently degrade to the legacy path.
 git -C "$repo" checkout -q --detach "$B"
