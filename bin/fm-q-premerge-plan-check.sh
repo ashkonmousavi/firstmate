@@ -2,7 +2,7 @@
 # Usage: fm-q-premerge-plan-check.sh <Q-clone-path> <positive-PR-number>
 # Read origin/main and the PR into private /tmp scratch; validate the simulated
 # merge with BASE-owned Q tools. Requires Git with merge-tree --write-tree and
-# Python 3.9+. HTTPS uses existing gh login; SSH uses transport environment.
+# Python 3.9+. HTTPS github.com uses gh login; SSH uses transport environment.
 # Source cookie/custom Git config is not copied. Commands are bounded at
 # 180 seconds. Exit 0: fresh with actual base/head/tree; 1: conflict or rejected
 # plan; 2: unavailable/unverifiable. Diagnostics never expose transport output.
@@ -23,10 +23,12 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import signal
 import subprocess
 import sys
 import tempfile
+from urllib.parse import urlsplit
 
 class Refused(Exception):
     def __init__(self, stage, code=2):
@@ -72,8 +74,9 @@ try:
     if ':' not in origin and not Path(origin).is_absolute():
         origin = str((source / origin).resolve())
     env = {key: value for key, value in env.items()
-           if key != 'GIT_CONFIG' and not key.startswith('GIT_CONFIG_')}
-    env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
+           if key not in ('GIT_CONFIG', 'GIT_ASKPASS', 'SSH_ASKPASS', 'SSH_ASKPASS_REQUIRE')
+           and not key.startswith('GIT_CONFIG_')}
+    env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull, GIT_TERMINAL_PROMPT='0')
     with tempfile.TemporaryDirectory(prefix='fm-q-premerge-', dir='/tmp') as temporary:
         scratch = Path(temporary)
         stage = 'scratch'
@@ -81,16 +84,30 @@ try:
             raise Refused(stage)
         repo = scratch / 'merge'
         checked('git', 'init', '-q', '--template=', str(repo))
-        askpass = scratch / 'askpass'
-        askpass.write_text('''#!/bin/sh
-case "$1" in
-  *Username*) printf '%s\\n' x-access-token ;;
-  *Password*) exec gh auth token ;;
-  *) exit 1 ;;
-esac
+        destination = urlsplit(origin)
+        if destination.scheme == 'https' and destination.hostname == 'github.com':
+            askpass = scratch / 'askpass'
+            askpass.write_text(f'''#!/bin/sh
+exec {shlex.quote(sys.executable)} -I - "$@" <<'ASKPASS'
+import os, re, sys
+from urllib.parse import urlsplit
+match = re.fullmatch(r"(Username|Password) for '([^']+)': ?", sys.argv[1]) if len(sys.argv) == 2 else None
+if not match:
+    sys.exit(1)
+try:
+    destination = urlsplit(match[2])
+    if destination.scheme != 'https' or destination.hostname != 'github.com':
+        sys.exit(1)
+except ValueError:
+    sys.exit(1)
+if match[1] == 'Username':
+    print('x-access-token')
+else:
+    os.execvp('gh', ('gh', 'auth', 'token', '--hostname', 'github.com'))
+ASKPASS
 ''')
-        askpass.chmod(0o700)
-        env.update(GIT_ASKPASS=str(askpass), GIT_TERMINAL_PROMPT='0')
+            askpass.chmod(0o700)
+            env['GIT_ASKPASS'] = str(askpass)
         def git(*args):
             return checked('git', '-C', str(repo), *args)
         stage = 'fetch'

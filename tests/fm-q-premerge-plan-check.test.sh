@@ -215,7 +215,7 @@ pass 'origin rewriting, relative paths and URL selection'
 mkdir "$TMP_ROOT/auth-bin"
 cat > "$TMP_ROOT/auth-bin/gh" <<'SH'
 #!/bin/sh
-[ "$1 $2" = 'auth token' ] || exit 1
+[ "$1 $2 $3 $4" = 'auth token --hostname github.com' ] || exit 1
 printf 'called\n' >> "$FM_FIXTURE_GH_LOG"
 [ "${FM_FIXTURE_GH_FAIL:-}" != 1 ] || exit 1
 printf 'fixture-token\n'
@@ -228,6 +228,12 @@ case "$1" in
 esac
 SH
 chmod +x "$TMP_ROOT/auth-bin/gh" "$TMP_ROOT/auth-bin/fixture-helper"
+cat > "$TMP_ROOT/auth-bin/inherited-askpass" <<'SH'
+#!/bin/sh
+printf 'called\n' >> "$FM_FIXTURE_INHERITED_CALLS"
+printf 'fixture-token\n'
+SH
+chmod +x "$TMP_ROOT/auth-bin/inherited-askpass"
 cat > "$TMP_ROOT/auth-server.py" <<'PY'
 import base64, http.server, os, pathlib, subprocess, sys, urllib.parse
 root = pathlib.Path(sys.argv[1])
@@ -294,41 +300,122 @@ git config --file "$TMP_ROOT/auth-template/config" credential.helper "$TMP_ROOT/
 git config --file "$TMP_ROOT/auth-template/config" http.cookieFile "$TMP_ROOT/cookies"
 git config --file "$TMP_ROOT/auth-template/config" http.saveCookies true
 git config --file "$TMP_ROOT/auth-template/config" http.extraHeader 'Authorization: unwanted-template-header'
-for verdict in accepted rejected unavailable; do
-  expected=0
-  gh_fail=0
+for verdict in accepted rejected; do
   if [ "$verdict" = rejected ]; then
     touch "$TMP_ROOT/auth-reject"
-    expected=2
-  elif [ "$verdict" = unavailable ]; then
-    gh_fail=1
-    expected=2
   fi
   : > "$TMP_ROOT/gh-calls"
   : > "$TMP_ROOT/auth-events"
-  PATH="$TMP_ROOT/auth-bin:$PATH" GIT_TEMPLATE_DIR="$TMP_ROOT/auth-template" \
-    FM_FIXTURE_GH_FAIL="$gh_fail" FM_FIXTURE_STORE="$TMP_ROOT/credentials" \
-    FM_FIXTURE_GH_LOG="$TMP_ROOT/gh-calls" run_check "$expected" "$repo" 7 "$verdict HTTP authentication"
+  : > "$TMP_ROOT/inherited-calls"
+  prior=$(git -C "$repo" show-ref; git -C "$repo" status --porcelain; git -C "$repo" rev-parse HEAD)
+  rc=0
+  output=$(PATH="$TMP_ROOT/auth-bin:$PATH" GIT_TEMPLATE_DIR="$TMP_ROOT/auth-template" \
+    GIT_ASKPASS="$TMP_ROOT/auth-bin/inherited-askpass" SSH_ASKPASS="$TMP_ROOT/auth-bin/inherited-askpass" \
+    FM_FIXTURE_INHERITED_CALLS="$TMP_ROOT/inherited-calls" \
+    FM_FIXTURE_STORE="$TMP_ROOT/credentials" FM_FIXTURE_GH_LOG="$TMP_ROOT/gh-calls" \
+    bash "$cli" "$repo" 7 2>&1) || rc=$?
+  [ ! -s "$TMP_ROOT/auth-events" ] || fail 'HTTP transport received Authorization'
+  [ ! -s "$TMP_ROOT/gh-calls" ] || fail 'HTTP transport retrieved gh token'
+  [ ! -s "$TMP_ROOT/inherited-calls" ] || fail 'HTTP transport invoked inherited ASKPASS'
+  expect_code 2 "$rc" 'HTTP authentication refused without a token'
+  assert_equals "$prior" "$(git -C "$repo" show-ref; git -C "$repo" status --porcelain; git -C "$repo" rev-parse HEAD)" 'HTTP refusal leaves source state unchanged'
   cmp -s "$TMP_ROOT/auth-config-before" "$repo/.git/config" || fail "$verdict auth changed source config bytes"
   cmp -s "$TMP_ROOT/auth-store-before" "$TMP_ROOT/credentials" || fail "$verdict auth changed credential store bytes"
   cmp -s "$TMP_ROOT/auth-cookies-before" "$TMP_ROOT/cookies" || fail "$verdict auth changed cookie jar bytes"
-  [ -s "$TMP_ROOT/gh-calls" ] || fail "$verdict auth did not consume fake gh"
-  if [ "$verdict" != unavailable ]; then
-    assert_contains "$(cat "$TMP_ROOT/auth-events")" "$verdict" "$verdict credentials reached HTTP transport"
-  fi
-  if [ "$verdict" = accepted ]; then
-    assert_equals "fresh base=$B head=$H tree=$T" "$output" 'HTTP authentication fetches exact origin identities'
-  else
-    assert_not_contains "$output" 'fresh base=' 'rejected HTTP auth cannot produce receipt'
-    assert_not_contains "$output" 'fixture-token' 'password omitted from diagnostics'
-  fi
+  assert_not_contains "$output" 'fresh base=' 'HTTP auth cannot produce receipt'
+  assert_not_contains "$output" 'fixture-token' 'password omitted from diagnostics'
 done
 stop_auth_server
 git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
 git -C "$repo" config --unset credential.helper
 git -C "$repo" config --unset http.cookieFile
 git -C "$repo" config --unset http.saveCookies
-pass 'HTTP authentication leaves config, credentials and cookies unchanged'
+pass 'HTTP sends no Authorization and leaves auth state unchanged'
+real_git=$(command -v git)
+printf '#!%s -I\n' "$(command -v python3)" > "$TMP_ROOT/auth-bin/git"
+cat >> "$TMP_ROOT/auth-bin/git" <<'PY'
+import os, pathlib, subprocess, sys
+args = sys.argv[1:]
+if 'fetch' in args:
+    url_index = args.index('--') + 1
+    assert args[url_index] == os.environ['FM_FIXTURE_FETCH_URL']
+    assert not os.environ.get('SSH_ASKPASS')
+    askpass = os.environ.get('GIT_ASKPASS')
+    mode = os.environ['FM_FIXTURE_CALLBACK_MODE']
+    if mode == 'blocked':
+        assert not askpass
+    else:
+        assert askpass
+        username = subprocess.run([askpass, "Username for 'https://github.com': "], capture_output=True, timeout=5)
+        assert username.returncode == 0 and username.stdout == b'x-access-token\n'
+        result = subprocess.run([askpass, os.environ['FM_FIXTURE_PROMPT']], capture_output=True, timeout=5)
+        if mode in ('mismatch', 'unavailable'):
+            assert result.returncode != 0 and not result.stdout
+            pathlib.Path(os.environ['FM_FIXTURE_CALLBACK_RESULT']).write_text('refused')
+            sys.exit(1)
+        assert result.returncode == 0 and result.stdout == b'fixture-token\n'
+        if mode == 'rejected':
+            pathlib.Path(os.environ['FM_FIXTURE_CALLBACK_RESULT']).write_text('rejected')
+            sys.exit(1)
+    pathlib.Path(os.environ['FM_FIXTURE_CALLBACK_RESULT']).write_text('checked')
+    args[url_index] = os.environ['FM_FIXTURE_LOCAL_ORIGIN']
+os.execv(os.environ['FM_FIXTURE_REAL_GIT'], [os.environ['FM_FIXTURE_REAL_GIT'], *args])
+PY
+chmod +x "$TMP_ROOT/auth-bin/git"
+git -C "$repo" config credential.helper "$TMP_ROOT/auth-bin/fixture-helper"
+git -C "$repo" config http.cookieFile "$TMP_ROOT/cookies"
+git -C "$repo" config http.saveCookies true
+callback_case() {
+  local url=$1 mode=$2 expected_code=$3 prompt=$4 expected_result=$5 gh_fail=${6:-0}
+  git -C "$repo" remote set-url origin "$url"
+  cp "$repo/.git/config" "$TMP_ROOT/callback-config-before"
+  : > "$TMP_ROOT/gh-calls"
+  : > "$TMP_ROOT/inherited-calls"
+  : > "$TMP_ROOT/callback-result"
+  PATH="$TMP_ROOT/auth-bin:$PATH" GH_HOST=other.invalid \
+    GIT_ASKPASS="$TMP_ROOT/auth-bin/inherited-askpass" SSH_ASKPASS="$TMP_ROOT/auth-bin/inherited-askpass" \
+    SSH_ASKPASS_REQUIRE=force GIT_TEMPLATE_DIR="$TMP_ROOT/auth-template" \
+    FM_FIXTURE_REAL_GIT="$real_git" FM_FIXTURE_LOCAL_ORIGIN="$TMP_ROOT/origin.git" \
+    FM_FIXTURE_FETCH_URL="$url" FM_FIXTURE_CALLBACK_MODE="$mode" FM_FIXTURE_PROMPT="$prompt" \
+    FM_FIXTURE_CALLBACK_RESULT="$TMP_ROOT/callback-result" FM_FIXTURE_GH_FAIL="$gh_fail" \
+    FM_FIXTURE_INHERITED_CALLS="$TMP_ROOT/inherited-calls" FM_FIXTURE_STORE="$TMP_ROOT/credentials" \
+    FM_FIXTURE_GH_LOG="$TMP_ROOT/gh-calls" run_check "$expected_code" "$repo" 7 "$mode token destination"
+  assert_equals "$expected_result" "$(cat "$TMP_ROOT/callback-result")" 'executable callback was evaluated'
+  [ ! -s "$TMP_ROOT/inherited-calls" ] || fail 'inherited ASKPASS invoked'
+  cmp -s "$TMP_ROOT/callback-config-before" "$repo/.git/config" || fail 'callback changed source config bytes'
+  cmp -s "$TMP_ROOT/auth-store-before" "$TMP_ROOT/credentials" || fail 'callback changed credential store bytes'
+  cmp -s "$TMP_ROOT/auth-cookies-before" "$TMP_ROOT/cookies" || fail 'callback changed cookie jar bytes'
+  if [ "$mode" = blocked ] || [ "$mode" = mismatch ]; then
+    [ ! -s "$TMP_ROOT/gh-calls" ] || fail 'token retrieved for blocked destination'
+  else
+    [ -s "$TMP_ROOT/gh-calls" ] || fail 'allowed callback did not consume scoped fake gh'
+  fi
+  if [ "$expected_code" = 0 ]; then
+    assert_equals "fresh base=$B head=$H tree=$T" "$output" 'callback fixture fetches exact local identities'
+  else
+    assert_not_contains "$output" 'fresh base=' 'refused callback cannot produce receipt'
+  fi
+  assert_not_contains "$output" 'fixture-token' 'callback token omitted from diagnostics'
+}
+for url in 'http://github.com/Q.git' 'https://other.invalid/Q.git' 'https://github.com.evil.invalid/Q.git' \
+  'https://evilgithub.com/Q.git' 'https://github.com@other.invalid/Q.git' 'https://user@github.com.evil.invalid/Q.git'; do
+  callback_case "$url" blocked 0 '' checked
+done
+callback_case 'https://github.com/Q.git' allowed 0 "Password for 'https://github.com': " checked
+callback_case 'https://user@github.com/Q.git' allowed 0 "Password for 'https://user@github.com': " checked
+for prompt in "Password for 'http://github.com': " "Password for 'https://other.invalid': " \
+  "Password for 'https://github.com.evil.invalid': " "Password for 'https://github.com@other.invalid': " \
+  "Username for 'https://other.invalid': " \
+  'unexpected Password https://github.com'; do
+  callback_case 'https://github.com/Q.git' mismatch 2 "$prompt" refused
+done
+callback_case 'https://github.com/Q.git' rejected 2 "Password for 'https://github.com': " rejected
+callback_case 'https://github.com/Q.git' unavailable 2 "Password for 'https://github.com': " refused 1
+git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
+git -C "$repo" config --unset credential.helper
+git -C "$repo" config --unset http.cookieFile
+git -C "$repo" config --unset http.saveCookies
+pass 'token callback is restricted to exact HTTPS GitHub destinations'
 cat > "$repo/fnmatch.py" <<'PY'
 from pathlib import Path
 Path(__file__).with_name('candidate-imported').touch()
