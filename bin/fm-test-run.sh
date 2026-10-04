@@ -1689,6 +1689,9 @@ families_for_changed_path() {
       families_for_test_reference git-config-helpers.sh lib.sh herdr-test-safety.sh \
         || printf '%s\n' "__unmapped__:$path"
       ;;
+    tests/fixtures/server-idle-watch.check.sh)
+      printf '%s\n' '__script__:fm-nm-config-staleness.test.sh'
+      ;;
     tests/fixtures/*/*)
       # A fixture belongs to whichever suite reads its directory, found by the
       # same reference scan used for shared helpers. Keyed on the directory

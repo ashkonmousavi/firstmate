@@ -20,21 +20,21 @@ probe='read -r _ a b c d e f g _ < /proc/stat; sleep 1; read -r _ A B C D E F G 
 t=$(( (A+B+C+D+E+F+G) - (a+b+c+d+e+f+g) )); i=$(( (D+E) - (d+e) )); [ $t -gt 0 ] || t=1;
 echo "$(( 100 * (t - i) / t )) $(awk "/MemAvailable/{print int(\$2/1048576)}" /proc/meminfo)"'
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
-timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
-  "$probe; sudo -n -u qcrew bash -c 'cd /fixture-server/fm-home/state && for m in *.meta; do tail -n1 \"\${m%.meta}.status\" 2>/dev/null | grep -Ec \"^(working|validating)\"; done' 2>/dev/null | awk '{s+=\$1} END{print s+0}'; pgrep -u qcrew -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'" >"$tmp/s" 2>/dev/null &
-timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook "$probe; pgrep -u zcrew -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'" >"$tmp/z" 2>/dev/null &
-bash -c "$probe" >"$tmp/p" 2>/dev/null &
-wait
 
 # Proposed private hook: same authenticated hosts and existing cadence.
 # Keep this before A/B/D early returns. Main substitutes installed paths.
 NM_HELPER="${NM_HELPER:?installed helper required}"
 NM_HOME="${NM_HOME:?local no-mistakes home required}"
-"$NM_HELPER" "$NM_HOME" pc > "$tmp/pc.nm"
-timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
-  "sudo -n -u qcrew /fixture-server/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-server/.no-mistakes server" > "$tmp/server.nm" 2>/dev/null || : > "$tmp/server.nm"
-timeout 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook \
-  "/fixture-zenbook/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-zenbook/.no-mistakes zenbook" > "$tmp/zenbook.nm" 2>/dev/null || : > "$tmp/zenbook.nm"
+timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
+  "$probe; sudo -n -u qcrew bash -c 'cd /fixture-server/fm-home/state && for m in *.meta; do tail -n1 \"\${m%.meta}.status\" 2>/dev/null | grep -Ec \"^(working|validating)\"; done' 2>/dev/null | awk '{s+=\$1} END{print s+0}'; pgrep -u qcrew -fc '^/bin/bash /fixture-server/firstmate/bin/fm-remote-job-worker.sh --serve'" >"$tmp/s" 2>/dev/null &
+timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook "$probe; pgrep -u zcrew -fc '^/bin/bash /fixture-zenbook/firstmate/bin/fm-remote-job-worker.sh --serve'" >"$tmp/z" 2>/dev/null &
+timeout -k 1 15 bash -c "$probe" >"$tmp/p" 2>/dev/null &
+(timeout -k 1 15 "$NM_HELPER" "$NM_HOME" pc > "$tmp/pc.nm" || : > "$tmp/pc.nm") &
+(timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-server \
+  "sudo -n -u qcrew /fixture-server/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-server/.no-mistakes server" > "$tmp/server.nm" 2>/dev/null || : > "$tmp/server.nm") &
+(timeout -k 1 15 ssh -o BatchMode=yes -o ConnectTimeout=5 fixture-zenbook \
+  "/fixture-zenbook/firstmate/bin/fm-nm-config-staleness-check.sh /fixture-zenbook/.no-mistakes zenbook" > "$tmp/zenbook.nm" 2>/dev/null || : > "$tmp/zenbook.nm") &
+wait
 for machine in pc server zenbook; do
   if [ -s "$tmp/$machine.nm" ]; then cat "$tmp/$machine.nm"
   else printf '{"schema":"fm-nm-config-age/1","machine":"%s","status":"unavailable"}\n' "$machine"; fi

@@ -5,6 +5,16 @@ set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 T=$(fm_test_tmproot fm-nm-config-staleness)
 HELPER="${FM_NM_TEST_HELPER:-$ROOT/bin/fm-nm-config-staleness-check.sh}"
+fm_git_init_commit "$T/selection"
+mkdir -p "$T/selection/bin" "$T/selection/tests/fixtures"
+cp "$ROOT/bin/fm-test-run.sh" "$T/selection/bin/"
+cp "$ROOT/tests/fm-nm-config-staleness.test.sh" "$T/selection/tests/"
+git -C "$T/selection" add bin tests
+git -C "$T/selection" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm 'test selection baseline'
+cp "$ROOT/tests/fixtures/server-idle-watch.check.sh" "$T/selection/tests/fixtures/"
+selected=$(bash "$T/selection/bin/fm-test-run.sh" --list --changed --base HEAD)
+assert_equals 'tests/fm-nm-config-staleness.test.sh' "$selected" 'fixture-only change must select its owning test'
+pass 'changed-file selection maps the server idle fixture to its owning test'
 mkdir -p "$T/nm" "$T/proc/123"
 python3 - "$T" <<'PY'
 import json, os, sys
@@ -30,6 +40,9 @@ chmod 700 "$T/home/state/server-idle-watch.check.sh"
 cat > "$T/fakebin/ssh" <<'FAKE'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FIXTURE/commands"
+if [ -n "${NM_HANG_HOST:-}" ]; then
+  case "$*" in *"fixture-$NM_HANG_HOST"*) sleep 60;; esac
+fi
 case "$*" in
   *fm-nm-config-staleness-check*)
     case "$*" in *fixture-server*) machine=server;; *) machine=zenbook;; esac
@@ -51,7 +64,7 @@ export FIXTURE="$T" HELPER
 check() {
   rm -f "$T/home/state/.server-idle-watch-last-run"
   PATH="$T/fakebin:$PATH" STATE="$T/home/state" NM_HOME="$T/nm" NM_HELPER="$HELPER" FM_NM_PROC_ROOT="$T/proc" \
-    /bin/bash "$T/home/state/server-idle-watch.check.sh"
+    timeout -k 1 25 /bin/bash "$T/home/state/server-idle-watch.check.sh"
 }
 out=$(check)
 assert_contains "$out" 'config newer than running daemon on: pc' 'existing check must warn before early returns'
@@ -99,6 +112,16 @@ out=$(NM_BAD_PROBE=1 check)
 assert_contains "$out" 'observation unavailable on: zenbook' 'malformed transport remains visible'
 assert_contains "$out" "$warning, server" 'malformed transport must not suppress stale machines'
 pass 'three-host comparisons, unchanged episodes, restart and partial failure'
+
+cp "$T/server/daemon.pid" "$T/zenbook/daemon.pid"
+set_time zenbook 1791108000000000000
+for machine in server zenbook; do
+  rm "$T/home/state/.server-idle-watch-nm-config-episode"
+  out=$(NM_HANG_HOST="$machine" check) || fail "$machine timeout exceeded the check deadline"
+  assert_contains "$out" "observation unavailable on: $machine" 'timed-out host remains visible'
+  assert_contains "$out" "$warning" 'remote health and metadata timeouts must not suppress stale pc'
+done
+pass 'both remote timeout paths preserve stale pc within the watcher deadline'
 
 expect_unknown() { assert_contains "$(sample)" '"status": "unavailable"' "$1 must be unavailable"; }
 for record in '123' '{"pid":-1,"started_at":"2026-10-04T10:00:00Z"}' '{"pid":123,"started_at":"invalid"}' '{"pid":999,"started_at":"2026-10-04T10:00:00Z"}' '{"pid":123,"started_at":"2026-10-04T09:00:00Z"}'; do
