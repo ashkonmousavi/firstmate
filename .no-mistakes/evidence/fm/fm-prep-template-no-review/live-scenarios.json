@@ -1,0 +1,42 @@
+[
+  {
+    "scenario": "Valid all-no record admits to launch rendering without review",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Valid tier-one record admits to launch rendering without review",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Valid tier-two record admits to launch rendering without review",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Valid surgical record admits to launch rendering without review",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Incomplete common fields and malformed outcomes refuse public admission",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Author continuations, surgical certainty and legacy install boundary",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Exact literals survive ordinary and promoted handoff in all modes; emitted check fails on missing marker",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "scenario": "Nav-prep installs exact bytes and refuses incomplete source without rewriting destination",
+    "result": "pass",
+    "live": true
+  }
+]

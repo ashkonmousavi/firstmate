@@ -1,0 +1,5 @@
+ok - nav-prep: complete compact bytes install unchanged; uncertainty does not install
+ok - fm-prep-install.sh: copies a filled nav-prep into data/<id>/prep.md
+ok - fm-prep-install.sh: refuses a missing or unfilled source
+ok - fm-spawn: names a filled nav-prep on prep refusal and never auto-installs
+ok - nav-prep: byte-identical complete preparation admits without review; malformed common fields do not install

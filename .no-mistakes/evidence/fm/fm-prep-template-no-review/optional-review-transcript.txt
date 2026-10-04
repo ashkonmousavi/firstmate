@@ -1,0 +1,12 @@
+$ bash bin/fm-brief.sh reviewer repo --scout --prep-review task-a --prep-review task-b
+scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/reviewer/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-brief.sh bad-reviewer repo --mode direct-PR --prep-review task-a
+error: --prep-review requires --scout and cannot combine with --prep
+
+raw exit: 1
+$ bash bin/fm-brief.sh reviewer repo --scout --prep-review ../bad
+error: --prep-review needs a plain task id (got '../bad')
+
+raw exit: 1

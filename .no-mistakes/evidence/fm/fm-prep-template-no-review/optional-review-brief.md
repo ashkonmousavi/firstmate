@@ -20,7 +20,8 @@ Flag missing, partial, unasked or wrong behavior against the accepted criteria.
 For each Q2 yes record, apply the deletion test to every module its Blast radius names and list shallow modules or leaking seams the change would deepen; otherwise write n/a: Q2 no.
 The batch report carries each owed heading once, naming each record and its verdict under it.
 Approve only complete records; copy the approved bytes byte-identical to the exact path below, without silently rewriting the specification.
-Review `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/data/fixture-plan/prep.md`; approved record: `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/data/optional-review/reviewed-prep/fixture-plan.md`.
+Review `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/task-a/prep.md`; approved record: `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/reviewer/reviewed-prep/task-a.md`.
+Review `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/task-b/prep.md`; approved record: `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/reviewer/reviewed-prep/task-b.md`.
 
 # Herdr lifecycle declaration - NOT ENABLED
 **HARD SAFETY GATE:** this scaffold cannot inspect the task text filled in above.
@@ -28,17 +29,17 @@ If the task will start, stop, delete, restart, profile, or otherwise drive Herdr
 Do not add Herdr lifecycle commands to this unguarded brief by hand.
 
 # Setup
-You are in a disposable git worktree of proj, at a detached HEAD on a clean default branch.
+You are in a disposable git worktree of repo, at a detached HEAD on a clean default branch.
 This is a SCOUT task: the deliverable is a written report, not a PR.
 The worktree is your laboratory - install, run, edit, and make scratch commits freely; all of it is discarded at teardown.
 The report is the only thing that survives, so anything worth keeping must be in it.
 
 # Rules
 1. Never push to any remote and never open a PR.
-2. Stay inside this worktree; the only files you may write outside it are the report and status file below, and these exact approved-record paths: `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/data/optional-review/reviewed-prep/fixture-plan.md`
+2. Stay inside this worktree; the only files you may write outside it are the report and status file below, and these exact approved-record paths: `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/reviewer/reviewed-prep/task-a.md` `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/reviewer/reviewed-prep/task-b.md`
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
 4. Report status by appending one line:
-   `echo "{state} [at=<epoch>]: {one short line}" >> '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/state/optional-review.status' && { [ ! -e '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/config/fleet-ledger' ] || '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/bin/fm-fleet-ledger.sh' appended '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/config' '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/state/optional-review.status' >/dev/null 2>&1 || true; }`
+   `echo "{state} [at=<epoch>]: {one short line}" >> '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/state/reviewer.status' && { [ ! -e '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/config/fleet-ledger' ] || '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/bin/fm-fleet-ledger.sh' appended '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/config' '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/state/reviewer.status' >/dev/null 2>&1 || true; }`
    States: working, needs-decision, blocked, paused, done, failed.
    Substitute `<epoch>` with the current Unix time in seconds - run `date +%s` and write the number it printed; a stamp that is not plain digits records no time at all.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
@@ -86,14 +87,14 @@ The report is the only thing that survives, so anything worth keeping must be in
    `blocked [at=<epoch>]: {what you need}` and stop; firstmate arranges it.
 
 # Firstmate instruction inbox
-Firstmate steers you through durable message files in '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/state/optional-review.inbox'.
-When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/state/optional-review.inbox'/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/state/optional-review.inbox'/NNN.msg '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/state/optional-review.inbox'/handled/`.
+Firstmate steers you through durable message files in '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/state/reviewer.inbox'.
+When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/state/reviewer.inbox'/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: `mv '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/state/reviewer.inbox'/NNN.msg '/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/state/reviewer.inbox'/handled/`.
 The move IS the acknowledgement: without it firstmate rings again and eventually treats you as stuck. An empty or absent inbox needs no action.
 
 # Definition of done
-Write your findings to `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.live-optional-alme295v/data/optional-review/report.md`.
+Write your findings to `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.test-phase/optional-review-home/data/reviewer/report.md`.
 The report must stand alone: what you did, what you found, the evidence (commands run, output, file:line references), and what you recommend.
 If your deliverable is a visual artifact the captain will review and iterate on, use the lavish-axi rule: arm your board with bin/fm-procevent-lavish.sh arm <artifact.html> --for <task-id>; never run lavish-axi poll yourself. Re-arm with the reply after each nonterminal round to acknowledge it, route the board feedback through your steering inbox, write needs-decision [key=board-review] with the live board URL when the captain owes a decision, and stop at session_ended or an empty End without re-arming - acknowledge that final round with bin/fm-procevent.sh handled <source-id> <sequence> to conclude and retire your board.
-Before reporting done, read and follow `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M42JD1EGCXV3KJW39JC23GXS/.agents/skills/captain-hold-lifecycle/SKILL.md` and pass its shared completion gate for the report and any visual review.
+Before reporting done, read and follow `/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M43C5X37ANEHYTB6YAW1JDX1/.agents/skills/captain-hold-lifecycle/SKILL.md` and pass its shared completion gate for the report and any visual review.
 When the report is complete, append `done [at=<epoch>]: {one-line conclusion}` to the status file and stop.
 If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.

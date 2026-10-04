@@ -1,0 +1,2 @@
+test_relaunch_is_exempt_from_the_task_preparation_gate
+test_promoted_scout_relaunch_receives_the_current_delivery_contract

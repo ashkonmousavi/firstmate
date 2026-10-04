@@ -1,11 +1,47 @@
 [
-  "no-mistakes/changed: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "no-mistakes/incomplete: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "no-mistakes/missing: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "direct-PR/changed: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "direct-PR/incomplete: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "direct-PR/missing: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "local-only/changed: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "local-only/incomplete: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch",
-  "local-only/missing: real relaunch rendered current contract; stale/incomplete specification excluded; source/meta unchanged; branch guard stopped before worker launch"
+  {
+    "mode": "no-mistakes",
+    "prep": "changed",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "no-mistakes",
+    "prep": "incomplete",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "no-mistakes",
+    "prep": "missing",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "direct-PR",
+    "prep": "changed",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "direct-PR",
+    "prep": "incomplete",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "direct-PR",
+    "prep": "missing",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "local-only",
+    "prep": "changed",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "local-only",
+    "prep": "incomplete",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  },
+  {
+    "mode": "local-only",
+    "prep": "missing",
+    "result": "current contract rendered then controlled delivery mismatch refused"
+  }
 ]

@@ -1,0 +1,3 @@
+ok - surgical prep: compact scaffold, evidence and closed flag combinations
+ok - fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one
+ok - fm-brief: batch prep reviewers get two axes and exact approval write paths
