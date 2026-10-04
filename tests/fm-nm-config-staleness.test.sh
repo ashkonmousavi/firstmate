@@ -34,6 +34,13 @@ sample() { FM_NM_PROC_ROOT="$T/proc" "$HELPER" "$T/nm" "${1:-pc}"; }
 out=$(sample)
 assert_contains "$out" '"status": "stale"' 'newer config must be stale'
 pass 'strictly newer config is stale through public CLI'
+# Wall-clock steps change btime, not the live process or its PID record.
+for boot in 1791107992 1791107998; do
+  printf 'btime %s\n' "$boot" > "$T/proc/stat"
+  assert_contains "$(sample)" '"status": "stale"' 'clock movement must preserve the unchanged daemon observation'
+done
+printf 'btime 1791107995\n' > "$T/proc/stat"
+pass 'forward and backward clock steps preserve stale daemon evidence'
 mkdir -p "$T/home/state" "$T/fakebin"
 cp "$ROOT/tests/fixtures/server-idle-watch.check.sh" "$T/home/state/server-idle-watch.check.sh"
 chmod 700 "$T/home/state/server-idle-watch.check.sh"
