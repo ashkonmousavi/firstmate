@@ -534,39 +534,74 @@ fm_prep_tier() {  # <file>
 
 fm_prep_body_text() {  # [<keep-fences>]
   awk -v keep_fences="${1:-no}" '
-    {
-      line=$0
-      if (!fenced) {
+    function closing_tick(s, size, row, probe) {
+      while (1) {
+        while (match(s, /`+/)) {
+          if (RLENGTH == size) return 1
+          s=substr(s,RSTART+RLENGTH)
+        }
+        if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
+        s=lines[row]
+        probe=s; sub(/^ ? ? ?/, "", probe)
+        if (probe ~ /^```|^~~~|^\||^#+([[:space:]]|$)|^[-+*][[:space:]]|^[0-9]+[.)][[:space:]]|^<!--/) return 0
+      }
+    }
+    function uncomment(s, row, out, end, size) {
+      out=""
+      while (length(s)) {
         if (comment) {
-          end=index(line,"-->"); if (!end) next
-          line=substr(line,end+3); comment=0
+          end=index(s,"-->"); if (!end) return out
+          s=substr(s,end+3); comment=0
+        } else if (inline_size) {
+          if (!match(s,/`+/)) return out s
+          size=RLENGTH
+          out=out substr(s,1,RSTART+size-1)
+          s=substr(s,RSTART+size)
+          if (size == inline_size) inline_size=0
+        } else if (substr(s,1,4) == "<!--") {
+          comment=1; s=substr(s,5)
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\") {
+          out=out substr(s,1,2); s=substr(s,3)
+        } else if (substr(s,1,1) == "`") {
+          match(s,/^`+/); size=RLENGTH
+          out=out substr(s,1,size); s=substr(s,size+1)
+          if (closing_tick(s,size,row)) inline_size=size
+        } else {
+          out=out substr(s,1,1); s=substr(s,2)
         }
-        while (index(line,"<!--")) {
-          start=index(line,"<!--"); tail=substr(line,start+4); end=index(tail,"-->")
-          if (!end) { line=substr(line,1,start-1); comment=1; break }
-          line=substr(line,1,start-1) substr(tail,end+3)
+      }
+      return out
+    }
+    { lines[NR]=$0 }
+    END {
+      for (row=1; row<=NR; row++) {
+        line=lines[row]
+        scan=line
+        spaces=0
+        while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+        marker=substr(scan,1,1)
+        marker_len=0
+        if (marker == "`" || marker == "~") {
+          while (substr(scan,marker_len+1,1) == marker) marker_len++
         }
-        if (line ~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*$/) next
-      }
-      scan=line
-      spaces=0
-      while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
-      marker=substr(scan,1,1)
-      marker_len=0
-      if (marker == "`" || marker == "~") {
-        while (substr(scan,marker_len+1,1) == marker) marker_len++
-      }
-      if (marker_len >= 3) {
-        rest=substr(scan,marker_len+1)
-        if (!fenced) {
-          fenced=1; fence_marker=marker; fence_len=marker_len
-        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
-          fenced=0
+        if (marker_len >= 3 && !comment && !inline_size) {
+          rest=substr(scan,marker_len+1)
+          if (!fenced) {
+            fenced=1; fence_marker=marker; fence_len=marker_len
+          } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+            fenced=0
+          }
+          if (keep_fences == "yes") print line
+          continue
         }
-        if (keep_fences == "yes") print line
-        next
+        if (fenced) {
+          if (keep_fences == "yes") print line
+          continue
+        }
+        line=uncomment(line,row)
+        if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
+        print line
       }
-      if (!fenced || keep_fences == "yes") print line
     }'
 }
 

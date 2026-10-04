@@ -229,6 +229,11 @@ fi
 # promoted no-mistakes worker that never received the stop-set triage rule or
 # the --yes ban is the delivery hole this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
+PROMOTION_PREP=
+PREP_FILE=$(fm_prep_path "$DATA" "$ID")
+if ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+  PROMOTION_PREP=$PREP_FILE
+fi
 PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
@@ -261,6 +266,12 @@ EOF
   fi
   printf '\n'
   fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE"
+  if [ -n "$PROMOTION_PREP" ]; then
+    fm_brief_prep_overlay "$PROMOTION_PREP"
+  fi
+  if [ "$MODE" = no-mistakes ]; then
+    fm_brief_intent_overlay "$INTENT_BODY" "$PROMOTION_PREP"
+  fi
 }
 mkdir -p "$DATA/$ID"
 [ ! -d "$INSTRUCTIONS" ] || { echo "error: ship instructions path is a directory: $INSTRUCTIONS" >&2; exit 1; }

@@ -450,16 +450,13 @@ STUB
       assert_no_grep 'Firstmate will then instruct you' "$payload" "$mode promotion kept an implementation-only stop"
     fi
 
-    # Compare the public outputs of both real generation paths. The promoted
-    # payload ends at its Definition of done, as does an ordinary generated
-    # brief, so identical suffixes prove both workers receive the same contract.
     rm "$home/data/$id/brief.md"
     FM_HOME="$home" "$BRIEF" "$id" fixture-project --mode "$mode" >/dev/null 2>&1 \
       || fail "$mode: ordinary ship brief generation should succeed"
     brief_dod="$TMP_ROOT/promote-dod/brief-dod-$id"
     delivered_dod="$TMP_ROOT/promote-dod/delivered-dod-$id"
-    awk '/^# Definition of done$/ { emit=1 } emit' "$home/data/$id/brief.md" > "$brief_dod"
-    awk '/^# Definition of done$/ { emit=1 } emit' "$payload" > "$delivered_dod"
+    printf '%s\n' "$(fm_brief_heading_body "$home/data/$id/brief.md" '# Definition of done')" > "$brief_dod"
+    printf '%s\n' "$(fm_brief_heading_body "$payload" '# Definition of done')" > "$delivered_dod"
     cmp -s "$brief_dod" "$delivered_dod" \
       || fail "$mode: promotion and ordinary brief generation delivered different Definitions of done"
   done
@@ -2070,13 +2067,11 @@ STUB
   assert_no_grep 'done [at=<epoch>]: PR {url} checks green' "$payload" \
     "the promoted worker was still told to report a PR with green checks"
 
-  # Both real generation paths must end in the same contract, as they do for every
-  # mode: a promoted worker is never handed a weaker one than a briefed worker.
   rm "$home/data/$id/brief.md"
   FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes --forge gerrit >/dev/null 2>&1 \
     || fail "ordinary gerrit ship brief generation should succeed"
-  awk '/^# Definition of done$/ { emit=1 } emit' "$home/data/$id/brief.md" > "$TMP_ROOT/forge-promote/brief-dod"
-  awk '/^# Definition of done$/ { emit=1 } emit' "$payload" > "$TMP_ROOT/forge-promote/delivered-dod"
+  printf '%s\n' "$(fm_brief_heading_body "$home/data/$id/brief.md" '# Definition of done')" > "$TMP_ROOT/forge-promote/brief-dod"
+  printf '%s\n' "$(fm_brief_heading_body "$payload" '# Definition of done')" > "$TMP_ROOT/forge-promote/delivered-dod"
   cmp -s "$TMP_ROOT/forge-promote/brief-dod" "$TMP_ROOT/forge-promote/delivered-dod" \
     || fail "promotion and ordinary brief generation delivered different gerrit contracts"
   pass "fm-promote: a promoted worker receives the project's registered forge contract with no flag to remember"
@@ -2417,7 +2412,7 @@ EOF
 }
 
 test_prep_spec_substantive_text() {
-  local rec home proj fakebin prep reason status accepted expected launch out
+  local rec home proj fakebin prep reason status accepted expected launch out check result
   local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
   local captain_heading='## Captain intent authorized for --intent'
   rec=$(make_home substantive-spec)
@@ -2440,11 +2435,13 @@ EOF
       print "| Also fenced | Also fenced | Also fenced | Also fenced |"
       print "  `````"
       print "| <!-- first -->Recomputed<!-- last --> | <!-- first -->Result<!-- last --> | <!-- first -->`printf 42`<!-- last --> | <!-- fixture -->42<!-- recomputed --> |"
+      print "| Literal `<!-- outcome -->` | Select `<!-- visible -->` | <!-- guide -->`grep -F '\''<!-- marker -->'\'' output.html`<!-- guide --> | `<!-- marker -->` |"
       next
     }
     { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   fill_section "$prep" '## 2. Behaviour spec' "$(cat <<'EOF'
 <!-- context -->Return 42.<!-- detail -->
+Run `grep -F '<!-- marker -->' output.html`.
 <!-- multiline guide
 Example: return a different value.
 -->
@@ -2455,6 +2452,7 @@ EOF
 )"
   fill_section "$prep" '## 11. Definition of done' "$(cat <<'EOF'
 <!-- first -->- Recomputed result is 42.<!-- last -->
+- Marker output is `<!-- marker -->`.
 <!-- multiline guide
 Example: accept any result.
 -->
@@ -2467,19 +2465,28 @@ EOF
 | Outcome | Exact observable result | Where and how to check | Expected value |
 | --- | --- | --- | --- |
 | Recomputed | Result | `printf 42` | 42 |
+| Literal `<!-- outcome -->` | Select `<!-- visible -->` | `grep -F '<!-- marker -->' output.html` | `<!-- marker -->` |
 
 ## 2. Behaviour spec
 Return 42.
+Run `grep -F '<!-- marker -->' output.html`.
 ```bash
 printf '%s' '<!-- literal -->42<!-- literal -->'
 ```
 
 ## 11. Definition of done
 - Recomputed result is 42.
+- Marker output is `<!-- marker -->`.
 EOF
 )
   accepted=$(fm_prep_accepted_spec "$prep")
   [ "$accepted" = "$expected" ] || fail "accepted specification changed substantive bytes: $accepted"
+  check=$(printf '%s\n' "$accepted" | awk -F '|' '/^\| Literal / { s=$4; sub(/^[[:space:]]*`/, "", s); sub(/`[[:space:]]*$/, "", s); print s }')
+  printf '%s\n' '<!-- marker -->' 'unrelated line' > "$home/output.html"
+  result=$(cd "$home" && bash -c "$check") || fail "emitted grep check failed"
+  [ "$result" = '<!-- marker -->' ] || fail "emitted check selected unrelated output: $result"
+  printf '%s\n' 'unrelated line' > "$home/output.html"
+  (cd "$home" && bash -c "$check" >/dev/null) && fail "emitted grep check passed without the marker"
   write_brief "$home" substantive no-mistakes
   out=$(run_spawn "$home" "$fakebin" substantive "$proj" claude --mode no-mistakes --yolo off)
   launch="$home/data/substantive/launch-brief.md"
@@ -2487,6 +2494,132 @@ EOF
   accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
   [ "$accepted" = "$expected" ] || fail "launch specification changed substantive bytes: $accepted"
   pass "preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments"
+}
+
+test_prep_inline_delimiters() {
+  local input expected actual code field rec home proj fakebin prep reason
+  for code in '`<!-- marker -->`' '``<!-- marker -->``' '`` `<!-- marker -->` ``' '```` `<!-- marker -->` ````' '\\`<!-- marker -->`'; do
+    input="start<!-- guide --> $code <!-- more guide -->end"
+    expected="start $code end"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "inline delimiter literal lost: $actual"
+  done
+  input=$'check ``first\n`inner` <!-- marker -->\nlast`` tail<!-- guide -->'
+  expected=$'check ``first\n`inner` <!-- marker -->\nlast`` tail'
+  actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+  [ "$actual" = "$expected" ] || fail "multiline inline literal lost: $actual"
+  for input in '`unfinished <!-- guide --> end' '\`escaped <!-- guide --> end'; do
+    expected="${input/'<!-- guide -->'/}"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "unmatched or escaped backtick hid a guide comment: $actual"
+  done
+  input=$'before `unmatched\n  ```markdown\n<!-- example -->\n  ```\nafter ` literal'
+  expected=$'before `unmatched\nafter ` literal'
+  actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+  [ "$actual" = "$expected" ] || fail "inline lookahead admitted a fenced example: $actual"
+  rec=$(make_home inline-author)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_prep "$home" inline-author no yes
+  prep="$home/data/inline-author/prep.md"
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    awk -v f="$field" '
+      index($0, "- " f ":") == 1 { print "- " f ": `grep -F '\''<!-- marker -->'\'' output.html`<!-- guide -->"; next }
+      { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  done
+  actual=$(fm_brief_heading_body "$prep" '## Author checks' | fm_prep_body_text)
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    assert_contains "$actual" "- $field: \`grep -F '<!-- marker -->' output.html\`" "author command literal lost for $field"
+  done
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "literal author commands refused: $reason"
+  fill_section "$prep" '## 4. Blast radius' '`<!-- GitNexus -->`'
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' gitnexus || fail "literal inline evidence lost"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "literal section became empty"
+  fill_section "$prep" '## 4. Blast radius' '<!-- GitNexus -->'
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' gitnexus && fail "guide comment supplied evidence"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = empty ] || fail "guide-only section counted as filled"
+  pass "inline code preserves literal comment bytes across delimiter forms and preparation readers"
+}
+
+test_promotion_preparation_handoff() {
+  local rec home proj fakebin mode state id prep artifact out expected accepted captain source_intent status
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  source_intent=$'Ship the literal marker check.\n\n### Required behavior\nPreserve the exact marker.'
+  expected=$(cat <<'EOF'
+## Expected outcomes and how to check each
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| Promotion check | Exact marker selected | `grep -F '<!-- marker -->' output.html` | `<!-- marker -->` |
+
+## 2. Behaviour spec
+Refuse the launch and name the missing review.
+
+### Copy
+The refusal names the record.
+
+## 11. Definition of done
+- Every tier is gated.
+- The relaunch stays exempt.
+EOF
+)
+  for mode in no-mistakes direct-PR local-only; do
+    for state in complete incomplete missing; do
+      rec=$(make_home "prep-promote-$mode-$state")
+      IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+      id="prep-promote-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')-$state"
+      write_brief "$home" "$id"
+      prep="$home/data/$id/prep.md"
+      fill_section "$home/data/$id/brief.md" "## Captain's intent" "$source_intent"
+      printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
+      case "$state" in
+        complete)
+          rm "$prep"
+          write_spec_prep "$home" "$id" yes no
+          awk '/^\| Delivery admission / { print "| Promotion check | Exact marker selected | `grep -F '\''<!-- marker -->'\'' output.html` | `<!-- marker -->` |"; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          ;;
+        incomplete) printf '## Tier\n- UI wiring: no, historical prep.\n' > "$prep" ;;
+        missing) rm "$prep" ;;
+      esac
+      [ ! -f "$prep" ] || cp "$prep" "$home/prep-original.md"
+      out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+        "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1)
+      status=$?
+      expect_code 0 "$status" "$mode $state preparation changed promotion admission: $out"
+      assert_grep 'kind=ship' "$home/state/$id.meta" "$mode $state promotion did not publish ship state"
+      if [ "$state" = missing ]; then
+        assert_absent "$prep" "promotion fabricated missing prep"
+      else
+        cmp -s "$prep" "$home/prep-original.md" || fail "promotion rewrote $state prep"
+      fi
+      for artifact in "$home/data/$id/ship-instructions.md" "$home/data/$id/brief.md"; do
+        captain=$(fm_brief_task_heading_body "$artifact" "## Captain's intent")
+        [ "$captain" = "$source_intent" ] || fail "promotion changed source captain intent: $captain"
+        if [ "$state" = complete ]; then
+          assert_grep 'Builders and post-implementation verifiers use' "$artifact" "$mode omitted common acceptance directions"
+          assert_contains "$(cat "$artifact")" "$prep" "$mode points at another preparation record"
+        else
+          assert_no_grep '^# Task preparation record$' "$artifact" "$mode certified $state prep"
+        fi
+        if [ "$mode" = no-mistakes ]; then
+          captain=$(awk -v h="$captain_heading" '$0 == h { emit=1; next } emit { print }' "$artifact")
+          [ "$captain" = "$source_intent" ] || fail "promotion intent tail includes specification: $captain"
+          if [ "$state" = complete ]; then
+            accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$artifact")
+            [ "$accepted" = "$expected" ] || fail "promotion lost accepted specification in $artifact: $accepted"
+          else
+            assert_no_grep '^## Accepted specification for --intent' "$artifact" "promotion certified $state preparation"
+          fi
+        else
+          assert_no_grep '^# Current no-mistakes intent contract$' "$artifact" "$mode received no-mistakes intent directions"
+        fi
+      done
+    done
+  done
+  pass "promotion hands both artifacts the complete preparation in every mode without gating legacy records"
 }
 
 test_prep_common_scaffolds() {
@@ -2515,6 +2648,8 @@ test_prep_common_scaffolds() {
 test_prep_common_completeness
 test_prep_common_scaffolds
 test_prep_spec_substantive_text
+test_prep_inline_delimiters
+test_promotion_preparation_handoff
 test_prep_requires_finalize_after_evidence
 test_optional_batch_artifacts_do_not_affect_handoff
 test_legacy_install_declarations_do_not_affect_admission
