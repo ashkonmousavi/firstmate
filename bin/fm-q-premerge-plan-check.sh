@@ -2,14 +2,15 @@
 # Usage: fm-q-premerge-plan-check.sh <Q-clone-path> <positive-PR-number>
 # Read origin/main and the PR into private /tmp scratch; validate the simulated
 # merge with BASE-owned Q tools. Requires Git with merge-tree --write-tree and
-# Python 3.9+. Each external command is bounded at
+# Python 3.9+. HTTPS uses existing gh login; SSH uses transport environment.
+# Source cookie/custom Git config is not copied. Commands are bounded at
 # 180 seconds. Exit 0: fresh with actual base/head/tree; 1: conflict or rejected
 # plan; 2: unavailable/unverifiable. Diagnostics never expose transport output.
 # Manual-install warnings do not affect acceptance. Recheck if either ref moves;
 # this checks only, and never replaces fm-pr-merge.sh or its merge authority.
 set -euo pipefail
 if [ "${1:-}" = --help ]; then
-  sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
   exit 0
 fi
 if ! command -v python3 >/dev/null 2>&1; then
@@ -70,13 +71,6 @@ try:
     # Resolve relative local remotes relative to the source, not scratch.
     if ':' not in origin and not Path(origin).is_absolute():
         origin = str((source / origin).resolve())
-    # Preserve the clone's supported transport authentication/config without
-    # copying hooks, extensions, remote push settings or writing source refs.
-    config = run('git', '-C', str(source), 'config', '--null', '--get-regexp',
-                 r'^(credential\.|http\.|core\.sshcommand$)')
-    if config.returncode not in (0, 1):
-        raise Refused(stage)
-    settings = [entry.decode().split('\n', 1) for entry in config.stdout.split(b'\0') if entry]
     env = {key: value for key, value in env.items()
            if key != 'GIT_CONFIG' and not key.startswith('GIT_CONFIG_')}
     env.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
@@ -86,13 +80,22 @@ try:
         if run('git', '-C', str(scratch), 'rev-parse', '--show-toplevel').returncode == 0:
             raise Refused(stage)
         repo = scratch / 'merge'
-        checked('git', 'init', '-q', str(repo))
-        for key, value in settings:
-            checked('git', '-C', str(repo), 'config', '--add', key, value)
+        checked('git', 'init', '-q', '--template=', str(repo))
+        askpass = scratch / 'askpass'
+        askpass.write_text('''#!/bin/sh
+case "$1" in
+  *Username*) printf '%s\\n' x-access-token ;;
+  *Password*) exec gh auth token ;;
+  *) exit 1 ;;
+esac
+''')
+        askpass.chmod(0o700)
+        env.update(GIT_ASKPASS=str(askpass), GIT_TERMINAL_PROMPT='0')
         def git(*args):
             return checked('git', '-C', str(repo), *args)
         stage = 'fetch'
-        git('fetch', '-q', '--no-tags', '--', origin,
+        git('-c', 'credential.helper=', '-c', 'http.saveCookies=false',
+            'fetch', '-q', '--no-tags', '--', origin,
             '+refs/heads/main:refs/heads/base', f'+refs/pull/{pr}/head:refs/heads/pr')
         base = git('rev-parse', '--verify', 'refs/heads/base^{commit}').decode().strip()
         head = git('rev-parse', '--verify', 'refs/heads/pr^{commit}').decode().strip()

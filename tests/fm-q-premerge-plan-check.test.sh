@@ -4,6 +4,15 @@ set -euo pipefail
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 TMP_ROOT=$(fm_test_tmproot fm-q-premerge)
+auth_server_pid=''
+stop_auth_server() {
+  if [ -n "$auth_server_pid" ]; then
+    kill "$auth_server_pid" 2>/dev/null || true
+    wait "$auth_server_pid" 2>/dev/null || true
+    auth_server_pid=''
+  fi
+}
+trap 'stop_auth_server; fm_test_cleanup' EXIT
 fm_git_identity
 repo="$TMP_ROOT/pc/Q"
 fm_git_init_commit "$repo"
@@ -203,6 +212,123 @@ GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0="url.$TMP_ROOT/origin.git.insteadOf" GIT_CON
 assert_equals "fresh base=$B head=$H tree=$T" "$output" 'environment rules expand exactly once'
 git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
 pass 'origin rewriting, relative paths and URL selection'
+mkdir "$TMP_ROOT/auth-bin"
+cat > "$TMP_ROOT/auth-bin/gh" <<'SH'
+#!/bin/sh
+[ "$1 $2" = 'auth token' ] || exit 1
+printf 'called\n' >> "$FM_FIXTURE_GH_LOG"
+[ "${FM_FIXTURE_GH_FAIL:-}" != 1 ] || exit 1
+printf 'fixture-token\n'
+SH
+cat > "$TMP_ROOT/auth-bin/fixture-helper" <<'SH'
+#!/bin/sh
+case "$1" in
+  get) printf 'username=x-access-token\npassword=fixture-token\n';;
+  store|erase) printf '%s\n' "$1" >> "$FM_FIXTURE_STORE";;
+esac
+SH
+chmod +x "$TMP_ROOT/auth-bin/gh" "$TMP_ROOT/auth-bin/fixture-helper"
+cat > "$TMP_ROOT/auth-server.py" <<'PY'
+import base64, http.server, os, pathlib, subprocess, sys, urllib.parse
+root = pathlib.Path(sys.argv[1])
+expected = 'Basic ' + base64.b64encode(b'x-access-token:fixture-token').decode()
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+    def serve(self):
+        auth = self.headers.get('Authorization')
+        if auth != expected or (root / 'auth-reject').exists():
+            if auth:
+                with (root / 'auth-events').open('a') as stream:
+                    stream.write('rejected\n')
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', 'Basic realm="fixture"')
+            self.end_headers()
+            return
+        with (root / 'auth-events').open('a') as stream:
+            stream.write('accepted\n')
+        url = urllib.parse.urlsplit(self.path)
+        env = dict(os.environ, GIT_PROJECT_ROOT=str(root), GIT_HTTP_EXPORT_ALL='1',
+                   PATH_INFO=url.path, QUERY_STRING=url.query, REQUEST_METHOD=self.command,
+                   CONTENT_TYPE=self.headers.get('Content-Type', ''),
+                   CONTENT_LENGTH=self.headers.get('Content-Length', '0'), REMOTE_USER='fixture')
+        data = self.rfile.read(int(env['CONTENT_LENGTH']))
+        result = subprocess.run(['git', 'http-backend'], input=data, env=env, capture_output=True)
+        if result.returncode:
+            self.send_error(500, 'fixture backend failed')
+            return
+        headers, body = result.stdout.split(b'\r\n\r\n', 1)
+        fields = [line.decode().split(': ', 1) for line in headers.split(b'\r\n')]
+        status = next((int(value.split()[0]) for name, value in fields if name == 'Status'), 200)
+        self.send_response(status)
+        for name, value in fields:
+            if name != 'Status':
+                self.send_header(name, value)
+        self.send_header('Set-Cookie', 'fixture_cookie=received; Path=/')
+        self.end_headers()
+        self.wfile.write(body)
+    do_GET = serve
+    do_POST = serve
+server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+(root / 'auth-url').write_text(f'http://{server.server_address[0]}:{server.server_address[1]}/origin.git')
+server.serve_forever()
+PY
+python3 -I "$TMP_ROOT/auth-server.py" "$TMP_ROOT" > "$TMP_ROOT/auth-server.log" 2>&1 &
+auth_server_pid=$!
+for ((attempt=0; attempt<500; attempt++)); do
+  [ -s "$TMP_ROOT/auth-url" ] && break
+  sleep 0.02
+done
+[ -s "$TMP_ROOT/auth-url" ] || fail 'authenticated fixture server did not start'
+git -C "$repo" remote set-url origin "$(cat "$TMP_ROOT/auth-url")"
+git -C "$repo" config credential.helper "$TMP_ROOT/auth-bin/fixture-helper"
+git -C "$repo" config http.cookieFile "$TMP_ROOT/cookies"
+git -C "$repo" config http.saveCookies true
+printf 'fixture-store-original\n' > "$TMP_ROOT/credentials"
+printf '# Netscape HTTP Cookie File\n' > "$TMP_ROOT/cookies"
+cp "$repo/.git/config" "$TMP_ROOT/auth-config-before"
+cp "$TMP_ROOT/credentials" "$TMP_ROOT/auth-store-before"
+cp "$TMP_ROOT/cookies" "$TMP_ROOT/auth-cookies-before"
+mkdir "$TMP_ROOT/auth-template"
+git config --file "$TMP_ROOT/auth-template/config" credential.helper "$TMP_ROOT/auth-bin/fixture-helper"
+git config --file "$TMP_ROOT/auth-template/config" http.cookieFile "$TMP_ROOT/cookies"
+git config --file "$TMP_ROOT/auth-template/config" http.saveCookies true
+git config --file "$TMP_ROOT/auth-template/config" http.extraHeader 'Authorization: unwanted-template-header'
+for verdict in accepted rejected unavailable; do
+  expected=0
+  gh_fail=0
+  if [ "$verdict" = rejected ]; then
+    touch "$TMP_ROOT/auth-reject"
+    expected=2
+  elif [ "$verdict" = unavailable ]; then
+    gh_fail=1
+    expected=2
+  fi
+  : > "$TMP_ROOT/gh-calls"
+  : > "$TMP_ROOT/auth-events"
+  PATH="$TMP_ROOT/auth-bin:$PATH" GIT_TEMPLATE_DIR="$TMP_ROOT/auth-template" \
+    FM_FIXTURE_GH_FAIL="$gh_fail" FM_FIXTURE_STORE="$TMP_ROOT/credentials" \
+    FM_FIXTURE_GH_LOG="$TMP_ROOT/gh-calls" run_check "$expected" "$repo" 7 "$verdict HTTP authentication"
+  cmp -s "$TMP_ROOT/auth-config-before" "$repo/.git/config" || fail "$verdict auth changed source config bytes"
+  cmp -s "$TMP_ROOT/auth-store-before" "$TMP_ROOT/credentials" || fail "$verdict auth changed credential store bytes"
+  cmp -s "$TMP_ROOT/auth-cookies-before" "$TMP_ROOT/cookies" || fail "$verdict auth changed cookie jar bytes"
+  [ -s "$TMP_ROOT/gh-calls" ] || fail "$verdict auth did not consume fake gh"
+  if [ "$verdict" != unavailable ]; then
+    assert_contains "$(cat "$TMP_ROOT/auth-events")" "$verdict" "$verdict credentials reached HTTP transport"
+  fi
+  if [ "$verdict" = accepted ]; then
+    assert_equals "fresh base=$B head=$H tree=$T" "$output" 'HTTP authentication fetches exact origin identities'
+  else
+    assert_not_contains "$output" 'fresh base=' 'rejected HTTP auth cannot produce receipt'
+    assert_not_contains "$output" 'fixture-token' 'password omitted from diagnostics'
+  fi
+done
+stop_auth_server
+git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
+git -C "$repo" config --unset credential.helper
+git -C "$repo" config --unset http.cookieFile
+git -C "$repo" config --unset http.saveCookies
+pass 'HTTP authentication leaves config, credentials and cookies unchanged'
 cat > "$repo/fnmatch.py" <<'PY'
 from pathlib import Path
 Path(__file__).with_name('candidate-imported').touch()
@@ -267,14 +393,13 @@ subprocess.Popen([sys.executable, '-I', '-c', os.environ['FM_Q_PREMERGE_CHILD_CO
 time.sleep(60)
 PY
 python_bin=$(command -v python3)
-git -C "$repo" config core.sshCommand "$python_bin -I $TMP_ROOT/transport.py"
 git -C "$repo" remote set-url origin "$(basename "$TMP_ROOT"):fixture"
-GIT_SSH_VARIANT=ssh FM_Q_PREMERGE_CHILD_CODE="$child_code" FM_Q_PREMERGE_CHILD_PID="$TMP_ROOT/child-fetch" \
+GIT_SSH_COMMAND="$python_bin -I $TMP_ROOT/transport.py" GIT_SSH_VARIANT=ssh \
+  FM_Q_PREMERGE_CHILD_CODE="$child_code" FM_Q_PREMERGE_CHILD_PID="$TMP_ROOT/child-fetch" \
   FM_Q_PREMERGE_TIMEOUT=2 run_check 2 "$repo" 7 'fetch descendants bounded'
 assert_not_contains "$output" 'fresh base=' 'fetch timeout cannot produce receipt'
 assert_child_stopped "$TMP_ROOT/child-fetch"
 git -C "$repo" remote set-url origin "$TMP_ROOT/origin.git"
-git -C "$repo" config --unset core.sshCommand
 pass 'timeouts terminate checker and transport descendants'
 pass 'every required checker condition refuses independently'
 make_head stale
