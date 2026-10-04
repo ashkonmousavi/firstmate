@@ -23,7 +23,7 @@ from pathlib import Path
 p=Path(sys.argv[1]); start=1791108000
 (p/'nm/daemon.pid').write_text(json.dumps({'pid':123,'started_at':'2026-10-04T10:00:00Z'}))
 (p/'nm/config.yaml').write_text('DO NOT READ CONFIG VALUES\n')
-os.utime(p/'nm/config.yaml', ns=((start+1)*10**9,)*2)
+os.utime(p/'nm/config.yaml', ns=((start+20)*10**9,)*2)
 (p/'proc/stat').write_text('btime '+str(start-5)+'\n')
 fields=['S']+['0']*18+[str(5*os.sysconf('SC_CLK_TCK'))]
 (p/'proc/123/stat').write_text('123 (no-mistakes) '+' '.join(fields)+'\n')
@@ -32,8 +32,30 @@ fields=['S']+['0']*18+[str(5*os.sysconf('SC_CLK_TCK'))]
 PY
 sample() { FM_NM_PROC_ROOT="$T/proc" "$HELPER" "$T/nm" "${1:-pc}"; }
 out=$(sample)
-assert_contains "$out" '"status": "stale"' 'newer config must be stale'
-pass 'strictly newer config is stale through public CLI'
+assert_contains "$out" '"status": "stale"' 'config beyond tolerance must be stale'
+pass 'config beyond tolerance is stale through public CLI'
+# Public comparison boundaries use derived process start, not record wall time.
+FM_NM_PROC_ROOT="$T/proc" python3 - "$T/nm/config.yaml" "$HELPER" "$T/nm" <<'PY'
+import json, os, subprocess, sys
+from pathlib import Path
+config=Path(sys.argv[1]); start=1791108000*10**9
+for delta,expected in ((-1,'current'),(0,'current'),(1,'current'),
+                       (10*10**9-1,'current'),(10*10**9,'current'),(10*10**9+1,'stale')):
+    os.utime(config, ns=(start+delta,)*2)
+    observed=json.loads(subprocess.check_output([sys.argv[2],sys.argv[3],'pc'], text=True))
+    assert observed['status']==expected, (delta,observed)
+# btime affects only the comparison, including when it crosses the tolerance.
+os.utime(config, ns=(start+10*10**9+1,)*2)
+proc=Path(os.environ['FM_NM_PROC_ROOT'])
+for boot,expected in ((1791107996,'current'),(1791107994,'stale')):
+    (proc/'stat').write_text(f'btime {boot}\n')
+    observed=json.loads(subprocess.check_output([sys.argv[2],sys.argv[3],'pc'], text=True))
+    assert observed['status']==expected and observed['pid']==123
+    assert observed['process_start_ticks']==5*os.sysconf('SC_CLK_TCK')
+(proc/'stat').write_text('btime 1791107995\n')
+os.utime(config, ns=(start+20*10**9,)*2)
+PY
+pass 'older, equal, inside tolerance and exact 10-second boundary are current'
 # Wall-clock steps change btime, not the live process or its PID record.
 for boot in 1791107992 1791107998; do
   printf 'btime %s\n' "$boot" > "$T/proc/stat"
@@ -41,6 +63,37 @@ for boot in 1791107992 1791107998; do
 done
 printf 'btime 1791107995\n' > "$T/proc/stat"
 pass 'forward and backward clock steps preserve stale daemon evidence'
+# Clock movement and valid record wall time do not alter episode identity.
+FM_NM_PROC_ROOT="$T/proc" python3 - "$T" "$HELPER" <<'PY'
+import json, os, subprocess, sys
+from pathlib import Path
+root=Path(sys.argv[1]); helper=sys.argv[2]; marker=root/'clock-episode'
+original=(root/'nm/daemon.pid').read_bytes(); ticks=None; digest=None
+try:
+    for boot,record_time in ((1791107995,'2026-10-04T10:00:00Z'),
+                             (1791107992,'2026-10-04T10:00:00Z'),
+                             (1791107998,'2026-10-04T10:00:00Z'),
+                             (1791107995,'2026-10-04T09:00:00Z'),
+                             (1791107995,'2026-10-04T11:00:00.123456789Z')):
+        (root/'proc/stat').write_text(f'btime {boot}\n')
+        (root/'nm/daemon.pid').write_text(json.dumps(dict(pid=123,started_at=record_time)))
+        r=json.loads(subprocess.check_output([helper,str(root/'nm'),'pc'], text=True))
+        assert r['status']=='stale',r
+        if ticks is None: ticks=r['process_start_ticks']
+        assert r['pid']==123 and r['process_start_ticks']==ticks
+        observations=json.dumps(r)+'\n'+''.join(json.dumps(dict(schema='fm-nm-config-age/1',machine=m,status='current',pid=123,process_start_ticks=ticks,config_mtime_ns=0))+'\n' for m in ('server','zenbook'))
+        output=subprocess.check_output([helper,'--episode',str(marker)], input=observations, text=True)
+        if digest is None:
+            assert output.strip()=='server-idle-watch: no-mistakes config newer than running daemon on: pc'
+            digest=marker.read_bytes()
+        else:
+            assert output=='',output
+            assert marker.read_bytes()==digest
+finally:
+    (root/'nm/daemon.pid').write_bytes(original)
+    (root/'proc/stat').write_text('btime 1791107995\n')
+PY
+pass 'clock steps and record wall time preserve PID/tick episode deduplication'
 mkdir -p "$T/home/state" "$T/fakebin"
 cp "$ROOT/tests/fixtures/server-idle-watch.check.sh" "$T/home/state/server-idle-watch.check.sh"
 chmod 700 "$T/home/state/server-idle-watch.check.sh"
@@ -107,15 +160,15 @@ rm -f "$T/home/state/.server-idle-watch-nm-config-episode"
 warning='server-idle-watch: no-mistakes config newer than running daemon on: pc'
 [ "$(check)" = "$warning" ] || fail 'first episode must name only pc'
 [ -z "$(check)" ] || fail 'unchanged episode repeats'
-set_time server 1791108002000000000
+set_time server 1791108021000000000
 assert_episode_output "$(check)" "$warning, server"
 cp "$T/nm/daemon.pid" "$T/record.good"
 cp "$T/proc/123/stat" "$T/stat.good"
-printf '{"pid":123,"started_at":"2026-10-04T10:00:03Z"}\n' > "$T/nm/daemon.pid"
+printf '{"pid":123,"started_at":"2026-10-04T10:00:20Z"}\n' > "$T/nm/daemon.pid"
 python3 - "$T/proc/123/stat" <<'PY'
 import os,sys
 from pathlib import Path
-p=Path(sys.argv[1]); f=p.read_text().split(); f[-1]=str(8*os.sysconf('SC_CLK_TCK')); p.write_text(' '.join(f))
+p=Path(sys.argv[1]); f=p.read_text().split(); f[-1]=str(25*os.sysconf('SC_CLK_TCK')); p.write_text(' '.join(f))
 PY
 # Remote observations retain their own independent process/start identity.
 # Give each remote PID metadata its own matching synthetic process.
@@ -126,7 +179,7 @@ for pair in server:124 zenbook:125; do
   printf '{"pid":%s,"started_at":"2026-10-04T10:00:00Z"}\n' "$pid" > "$T/$machine/daemon.pid"
 done
 [ "$(check)" = 'server-idle-watch: no-mistakes config newer than running daemon on: server' ] || fail 'new pc identity must clear only pc'
-set_time zenbook 1791108001000000000
+set_time zenbook 1791108020000000000
 # A bad remote record does not suppress independently confirmed stale pc.
 cp "$T/record.good" "$T/nm/daemon.pid"; cp "$T/stat.good" "$T/proc/123/stat"
 printf 'legacy-pid\n' > "$T/zenbook/daemon.pid"
@@ -140,7 +193,7 @@ assert_contains "$out" "$warning, server" 'malformed transport must not suppress
 pass 'three-host comparisons, unchanged episodes, restart and partial failure'
 
 cp "$T/server/daemon.pid" "$T/zenbook/daemon.pid"
-set_time zenbook 1791108001000000000
+set_time zenbook 1791108020000000000
 python3 - "$T" <<'PY'
 import os, selectors, subprocess, sys, time
 from pathlib import Path
@@ -201,8 +254,8 @@ PY
 pass 'both remote timeout paths preserve stale pc within the watcher deadline'
 
 expect_unknown() { assert_contains "$(sample)" '"status": "unavailable"' "$1 must be unavailable"; }
-for record in '123' '{"pid":-1,"started_at":"2026-10-04T10:00:00Z"}' '{"pid":123,"started_at":"invalid"}' '{"pid":999,"started_at":"2026-10-04T10:00:00Z"}' '{"pid":123,"started_at":"2026-10-04T09:00:00Z"}'; do
-  printf '%s\n' "$record" > "$T/nm/daemon.pid"; expect_unknown 'bad record/dead or reused PID'
+for record in '123' '{"pid":-1,"started_at":"2026-10-04T10:00:00Z"}' '{"pid":123,"started_at":"invalid"}' '{"pid":999,"started_at":"2026-10-04T10:00:00Z"}'; do
+  printf '%s\n' "$record" > "$T/nm/daemon.pid"; expect_unknown 'malformed record or dead PID'
 done
 cp "$T/record.good" "$T/nm/daemon.pid"
 chmod 000 "$T/nm/config.yaml"; expect_unknown 'unreadable config'; chmod 600 "$T/nm/config.yaml"
@@ -211,9 +264,9 @@ ln -s "$T/config.good" "$T/nm/config.yaml"; expect_unknown 'symlink config'
 rm "$T/nm/config.yaml"; cp "$T/config.good" "$T/nm/config.yaml"
 # FIFO supplies two different kernel identities at the public proc-reader seam.
 rm "$T/proc/123/stat" "$T/proc/123/comm"; mkfifo "$T/proc/123/stat" "$T/proc/123/comm"
-( printf 'no-mistakes\n' > "$T/proc/123/comm"; cat "$T/stat.good" > "$T/proc/123/stat"; printf 'no-mistakes\n' > "$T/proc/123/comm"; sed 's/500$/800/' "$T/stat.good" > "$T/proc/123/stat" ) &
+( printf 'no-mistakes\n' > "$T/proc/123/comm"; cat "$T/stat.good" > "$T/proc/123/stat"; printf 'no-mistakes\n' > "$T/proc/123/comm"; awk '{$NF=$NF+1; print}' "$T/stat.good" > "$T/proc/123/stat" ) &
 writer=$!
-expect_unknown 'changed process identity'; wait "$writer"
+expect_unknown 'PID reused with changed kernel start ticks during sampling'; wait "$writer"
 rm "$T/proc/123/stat" "$T/proc/123/comm"; cp "$T/stat.good" "$T/proc/123/stat"; printf 'no-mistakes\n' > "$T/proc/123/comm"
 # PID record changes between identity reads, independently of process identity.
 rm "$T/proc/123/stat" "$T/proc/123/comm"; mkfifo "$T/proc/123/stat" "$T/proc/123/comm"
@@ -249,7 +302,7 @@ assert_contains "$(check)" 'resource waits over 10 min:' 'B alert survives new h
 rm "$T/home/state/lane.status"
 unset FIXTURE_MODE
 pass 'existing A/B/D alerts survive through the full custom check'
-set_time nm 1791108001000000000
+set_time nm 1791108020000000000
 assert_episode_output "$(check)" "$warning"
 [ -z "$(check)" ] || fail 'unchanged episode after clear repeats'
 set_time nm 1791107999000000000

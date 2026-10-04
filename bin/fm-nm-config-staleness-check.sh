@@ -3,6 +3,9 @@
 # Prints one fm-nm-config-age/1 JSON observation; unknown is unavailable.
 # Reads config filesystem metadata, PID/start record and local proc identity,
 # never config contents, process environment, run logs or pipeline databases.
+# Identity is PID plus kernel start ticks, checked before and after sampling.
+# Config is stale only beyond current btime + ticks/CLK_TCK + 10 seconds.
+# A PID reused before the first sample cannot be distinguished by this record.
 # --episode <private-marker>: consume exactly pc/server/zenbook JSON lines on
 # stdin, print diagnostics and prompt sorted warnings as changed evidence arrives.
 # Call inside the existing check cadence BEFORE its early A/B/D returns.
@@ -38,10 +41,8 @@ def record(path):
     text=r["started_at"]
     if not isinstance(text,str) or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,9})?Z",text):
         raise ValueError("invalid_start")
-    # Preserve Go timestamp nanoseconds rather than truncating to microseconds.
-    base, _, fraction=text[:-1].partition(".")
-    seconds=int(dt.datetime.fromisoformat(base).replace(tzinfo=dt.timezone.utc).timestamp())
-    return raw, pid, seconds*10**9+int((fraction+"000000000")[:9])
+    dt.datetime.fromisoformat(text[:-1])
+    return raw, pid
 
 def identity(proc,pid):
     p=proc/str(pid)
@@ -68,21 +69,18 @@ def sample(home,machine):
                 except FileNotFoundError: pass
         if path.exists() or path.is_symlink(): raise ValueError("changed_record")
         emit(machine,"not_running"); return
-    raw,pid,start=record(path)
+    raw,pid=record(path)
     ticks=identity(proc,pid)
     boot=int(next(line.split()[1] for line in (proc/"stat").read_text().splitlines() if line.startswith("btime ")))
     birth=boot*10**9+ticks*10**9//os.sysconf("SC_CLK_TCK")
-    # The native PID writer uses ps lstart (whole seconds). Allow its two-
-    # second identity tolerance plus proc tick precision; never use PID-file mtime.
-    if abs(start-birth)>2*10**9: raise ValueError("reused_pid")
     config=Path(home)/"config.yaml"
     s=regular(config)
-    if identity(proc,pid)!=ticks or record(path)!=(raw,pid,start): raise ValueError("changed_identity")
+    if identity(proc,pid)!=ticks or record(path)[0]!=raw: raise ValueError("changed_identity")
     end=regular(config)
     if (s.st_dev,s.st_ino,s.st_mtime_ns,s.st_ctime_ns)!=(end.st_dev,end.st_ino,end.st_mtime_ns,end.st_ctime_ns):
         raise ValueError("changed_config")
-    emit(machine,"stale" if s.st_mtime_ns>start else "current",pid=pid,
-         started_at=json.loads(raw)["started_at"],process_start_ticks=ticks,config_mtime_ns=s.st_mtime_ns)
+    emit(machine,"stale" if s.st_mtime_ns>birth+10*10**9 else "current",pid=pid,
+         process_start_ticks=ticks,config_mtime_ns=s.st_mtime_ns)
 
 def episode(marker):
     path=Path(marker)
@@ -96,7 +94,7 @@ def episode(marker):
                 raise ValueError("invalid_observation")
             status=r["status"]
             if status in ("stale","current"):
-                evidence=[machine,r["pid"],r["started_at"],r["process_start_ticks"],r["config_mtime_ns"]]
+                evidence=[machine,r["pid"],r["process_start_ticks"],r["config_mtime_ns"]]
                 if any(type(r[k]) is not int or r[k]<0 for k in ("pid","process_start_ticks","config_mtime_ns")) or r["pid"]==0:
                     raise ValueError("invalid_observation")
             elif status not in ("unavailable","not_running"): raise ValueError("invalid_status")
