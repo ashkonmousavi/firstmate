@@ -1278,7 +1278,7 @@ EOF
     "--help does not retain full sections and review for all-no"
   assert_contains "$help_text" "UI wiring yes     tier 2 - whatever Q1 and Q2 say" \
     "--help does not say a UI wiring yes forces tier 2"
-  assert_contains "$help_text" "full records owe at least the five" \
+  assert_contains "$help_text" "Full records owe at least the five" \
     "--help does not state the minimum full-record cost"
   assert_contains "$help_text" "Blast radius is TOOL OUTPUT, not prose" \
     "--help does not say the blast radius owes tool output"
