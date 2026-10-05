@@ -101,7 +101,7 @@
 # Both preparation formats owe an authored Delivery depth with same-line reason,
 # common author checks and explicit outcomes.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
-# fresh spawn compares it to direct-PR/no-mistakes before task allocation.
+# bin/fm-spawn.sh's header owns fresh-ship depth admission and recovery.
 # Review artifacts and old server-install declarations do not affect admission.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
 # data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
@@ -478,6 +478,8 @@ $FM_PREP_SECTIONS
 EOF
 }
 
+# Clean the whole document before selecting Tier so a comment opened before
+# its heading cannot expose a commented-out preparation as the active record.
 fm_prep_tier_read() {
   local file=$1 mode=${2:-body} body
   [ -f "$file" ] && [ -r "$file" ] || { [ "$mode" = body ]; return; }
@@ -485,7 +487,7 @@ fm_prep_tier_read() {
   fm_brief_heading_parse - "$FM_PREP_TIER_HEADING" "$mode" <<< "$body"
 }
 
-# fm_prep_ui_wiring_line <file> - raw text after the tier header's UI wiring
+# fm_prep_ui_wiring_line <file> - cleaned text after the active Tier's UI wiring
 # label, including leading space. Empty when the line is missing.
 fm_prep_ui_wiring_line() {  # <file>
   fm_prep_tier_read "$1" | awk '

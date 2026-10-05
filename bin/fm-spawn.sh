@@ -25,7 +25,7 @@
 #   A ship spawn additionally requires the task's preparation record at
 #   data/<task-id>/prep.md (bin/fm-brief.sh --prep), which is tiered by its own
 #   `## Tier` header. The spawn refuses a record that is absent, whose tier
-#   header is missing or leaves any of its three answers (Q1, Q2, UI wiring)
+#   header is missing or leaves Q1, Q2 or UI wiring
 #   unanswered or outside its format, or where a section THAT TIER REQUIRES is
 #   missing, still carries a `{PLACEHOLDER}`, or is empty, naming
 #   that section; a section below the declared tier may be omitted entirely, and
