@@ -199,7 +199,7 @@ Record the resulting mode, `yolo` merge posture, and the one-line reason for any
 Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work as soon as a writing lane is free when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
 Load `wayfinding` for shared-seam ownership, parallel batches and the preparation horizon; `bin/fm-dod-lib.sh` owns the preparation Size guide for splitting by behaviour.
 Use as many isolated ship/scout lanes as this home's presequenced, currently parallel-safe work needs, up to seven; never create idle work to fill slots, and retain existing resource and ownership restrictions.
-Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB, no swap-in/out pressure, and current load strictly below available core count; missing or failing readings prevent that admission.
+Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB and no sustained swap-in or memory pressure; load average and busy cores never refuse admission, and missing or failing readings prevent it.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
 Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns the common author checks, outcome table, tier completeness and surgical certainty.
 The preparation author fills the common checks and explicit expected outcomes, then runs that owner's completeness gate on final bytes and records its actual result in the handoff; separate prep review is optional when explicitly requested.
@@ -241,9 +241,9 @@ The path's worker, automated gates, and captain approval remain authoritative:
 
 Delivery mode and `yolo` are orthogonal.
 `yolo` governs merge authority only: with it off, the captain approves every PR merge and every local-only landing; with it on, firstmate merges green, in-scope work itself.
-Never merge a red PR, or one with a required check that has not reported, under either setting unless a current explicit captain instruction names the GitHub check to waive; `bin/fm-pr-merge.sh`'s header owns the attended-only waiver mechanics and remaining guards.
+Never merge a red PR, or one with a required check that has not reported, under either setting unless a current explicit captain instruction names the GitHub check to waive or the project's registry entry records a captain-granted standing waiver that covers it; `bin/fm-pr-merge.sh`'s header owns the attended-only waiver mechanics and remaining guards.
 Destructive, irreversible, and security-sensitive merges still escalate.
-Without a current explicit captain instruction that states the concrete merge, the green default stands, and standing `yolo` cannot authorize a red merge; section 1 owns when such an instruction overrides a Firstmate-written standing rule within its exact scope.
+Without a current explicit captain instruction that states the concrete merge or a recorded standing waiver that covers it, the green default stands, and `yolo` alone cannot authorize a red merge; section 1 owns when such an instruction overrides a Firstmate-written standing rule within its exact scope.
 Load `ask-user-authority` and `validation-supervision` before deciding an escalated finding; `bin/fm-dod-lib.sh` owns worker triage, autonomous batch fixes and stop-set escalation.
 Use `bin/fm-pr-merge.sh` for every task PR merge so merge metadata is recorded and an unproved merge is refused instead of reported as landed, and use `bin/fm-merge-local.sh` for approved local-only landing; never call a lower-level merge command around their guards.
 After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that `ship-landing` requires before the task counts as landed; a local-only landing gives only the local-main outcome.
@@ -433,7 +433,7 @@ The instruction must be specific and recent: it must identify the concrete actio
 Never infer an override, broaden its scope, apply it by analogy, carry it to another object or action, or convert one request into standing authority.
 Ambiguous scope or conflict still requires one concise clarification before action.
 Destructive, irreversible, security-sensitive, discard, and merge actions still require the captain to state that concrete action explicitly; once the captain does so and higher-priority instructions permit it, a conflicting Firstmate-written rule must not rigidly block the action.
-Standing `yolo` merge authority is not a substitute for a current explicit captain instruction where an explicit action is required.
+Standing `yolo` merge authority is not a substitute for a current explicit captain instruction where an explicit action is required; a captain-granted standing waiver recorded in the project's registry entry is that instruction for the merges it covers.
 
 ## Maintaining this file
 
