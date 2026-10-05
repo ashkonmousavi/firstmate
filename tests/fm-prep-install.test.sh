@@ -285,6 +285,81 @@ test_surgical_nav_prep_installation() {
   pass "nav-prep: complete compact bytes install unchanged; uncertainty does not install"
 }
 
+test_large_prep_pipefail() (
+  set -o pipefail
+  . "$ROOT/bin/fm-dod-lib.sh"
+  local task_home sm id src dest out rc format position mode full
+  task_home=$(make_primary large-prep)
+  sm="$TMP_ROOT/large-prep/secondmate"
+  mkdir -p "$sm/data/nav-preps"
+  write_registry "$task_home" "$sm"
+  fm_test_prep_record "$sm/data" large-full yes no no direct-PR || fail "large full fixture"
+  full="$sm/data/large-full/prep.md"
+  awk 'BEGIN { for (i = 0; i < 65536; i++) print "regression pass" }' > "$TMP_ROOT/regression-output"
+  for format in full surgical; do
+    for position in appendix tier; do
+      id="large-$format-$position"
+      src="$sm/data/nav-preps/$id.md"
+      if [ "$format" = full ]; then
+        cp "$full" "$src"
+      else
+        FM_HOME="$sm" "$ROOT/bin/fm-brief.sh" "$id" --prep --surgical >/dev/null || fail "large compact scaffold"
+        sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{Q[12]_REASON\}/Confined output inspected./' \
+          -e 's/\{UI_WIRING\}/no, confined output./' -e 's/\{C[1-5]\}/yes/' \
+          -e 's/\{C[1-5]_EVIDENCE\}/bin\/own.sh:1; rg own found only owned code; excluded paths untouched; cause reproduced; bash tests\/own.test.sh covers the fix./' \
+          "$sm/data/$id/prep.md" > "$src"
+        fm_test_fill_prep_common "$src" direct-PR || fail "large compact common fields"
+      fi
+      if [ "$position" = appendix ]; then
+        printf '\n## Regression output\n' >> "$src"
+        cat "$TMP_ROOT/regression-output" >> "$src"
+      else
+        awk -v output="$TMP_ROOT/regression-output" '
+          /^## Tier$/ { tier = 1 }
+          tier && /^## / && $0 != "## Tier" {
+            while ((getline line < output) > 0) print line
+            close(output); tier = 0
+          }
+          { print }
+        ' "$src" > "$src.large"
+        mv "$src.large" "$src"
+      fi
+      for mode in direct-PR no-mistakes; do
+        fm_test_prep_depth "$src" "$mode" || fail "large prep depth"
+        out=$(fm_prep_delivery_mode "$src"); rc=$?
+        expect_code 0 "$rc" "$id depth reader with pipefail"
+        [ "$out" = "$mode" ] || fail "$id read wrong depth: $out"
+        out=$(fm_prep_ui_wiring_line "$src"); rc=$?
+        expect_code 0 "$rc" "$id UI reader with pipefail"
+        assert_contains "$out" 'no,' "$id UI answer"
+        [ "$(fm_prep_tier "$src")" = 2 ] || fail "$id wrong tier"
+        out=$(fm_prep_unfilled_reason "$src"); rc=$?
+        expect_code 1 "$rc" "$id $mode completeness with pipefail (got: $out)"
+        [ -z "$out" ] || fail "$id unexpectedly incomplete: $out"
+      done
+      dest="$task_home/data/$id/prep.md"
+      out=$(FM_HOME="$task_home" "$INSTALL" "$id" 2>&1); rc=$?
+      expect_code 0 "$rc" "$id public nav installation (got: $out)"
+      cmp -s "$src" "$dest" || fail "$id installed bytes changed"
+      if [ "$format" = surgical ]; then
+        cp "$dest" "$src.installed"
+        awk '/^## [0-9]+\./ { sections = 1 } sections { print }' "$full" >> "$src"
+        sed 's/^- C2 .*: yes$/- C2 unknown: unsure/' "$src" > "$src.uncertain"
+        mv "$src.uncertain" "$src"
+        out=$(fm_prep_unfilled_reason "$src"); rc=$?
+        expect_code 0 "$rc" "$id must retain surgical gate with full sections"
+        assert_contains "$out" 'C2' "$id invalid certificate was rescued by numbered sections"
+        out=$(FM_HOME="$task_home" "$INSTALL" "$id" --force 2>&1); rc=$?
+        expect_code 1 "$rc" "$id invalid hybrid installation"
+        assert_contains "$out" 'no filled nav-prep' "$id invalid source accepted"
+        cmp -s "$src.installed" "$dest" || fail "$id rejected source replaced installed bytes"
+      fi
+      pass "$id: pipefail preserves both depths, tier, completeness and installation"
+    done
+  done
+)
+
+test_large_prep_pipefail || exit 1
 test_surgical_nav_prep_installation
 
 test_script_parses

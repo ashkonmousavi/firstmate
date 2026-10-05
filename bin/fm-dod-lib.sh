@@ -479,16 +479,17 @@ EOF
 }
 
 fm_prep_tier_read() {
-  local file=$1 mode=${2:-body}
+  local file=$1 mode=${2:-body} body
   [ -f "$file" ] && [ -r "$file" ] || { [ "$mode" = body ]; return; }
-  fm_prep_body_text < "$file" | fm_brief_heading_parse - "$FM_PREP_TIER_HEADING" "$mode"
+  body=$(fm_prep_body_text < "$file") || return
+  fm_brief_heading_parse - "$FM_PREP_TIER_HEADING" "$mode" <<< "$body"
 }
 
 # fm_prep_ui_wiring_line <file> - raw text after the tier header's UI wiring
 # label, including leading space. Empty when the line is missing.
 fm_prep_ui_wiring_line() {  # <file>
   fm_prep_tier_read "$1" | awk '
-    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+    index($0, "- UI wiring:") == 1 && !seen { print substr($0, length("- UI wiring:") + 1); seen = 1 }
   '
 }
 
@@ -812,7 +813,7 @@ fm_prep_evidence_ok() {  # <file> <heading> <token>...
 
 # A format declaration selects the compact gate even when malformed or duplicated.
 fm_prep_surgical_declared() {  # <file>
-  fm_prep_tier_read "$1" | grep -q '^- Preparation format:'
+  fm_prep_tier_read "$1" | grep '^- Preparation format:' >/dev/null
 }
 
 # fm_prep_certainty_reason <file>: same reason exit convention as completeness.
