@@ -1,0 +1,848 @@
+[
+  {
+    "case": "full scaffold CLI",
+    "exit": 0,
+    "stdout": "scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M45A310MS8SHF58HQB9BSH73/.prep-validation-bb6mz8lw/data/prep-full/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full complete prep admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full Still valid blank refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid placeholder refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid bare-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid reasoned-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid example refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid comment refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid missing refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid duplicate refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid fenced refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Still valid comment-block refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named blank refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named placeholder refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named bare-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named reasoned-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named example refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named comment refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named missing refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named duplicate refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named fenced refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Siblings named comment-block refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "full Validation route blank refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route placeholder refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route bare-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route reasoned-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route example refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route comment refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route missing refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route duplicate refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route fenced refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full Validation route comment-block refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "full refresh: newer design refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full covered: work completed refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full superseded: new owner refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full blocked: unresolved dependency refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full proceed: refused",
+    "exit": 0,
+    "stdout": "Still valid requires proceed: with current evidence",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full proceed: {EVIDENCE} refused",
+    "exit": 0,
+    "stdout": "Still valid requires proceed: with current evidence",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full proceed: n/a refused",
+    "exit": 0,
+    "stdout": "Still valid requires proceed: with current evidence",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "full explicit siblings Searched isolated task records and delivery inventory, none found. admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full explicit siblings Not a defect; checked related admission work and its existing owner. admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full multiline substantive proceed admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full accepted specification rendered",
+    "exit": 0,
+    "stdout": "# Current no-mistakes intent contract\nThis section supersedes every earlier brief instruction about constructing `--intent`, but not later clarifications actually supplied by the captain.\nUse everything under `## Captain intent authorized for --intent` through the end of this brief, including any nested subheadings but excluding that heading, plus any later words the captain actually supplied as `--intent`; never include Firstmate specification or other mixed Task content.\nPreserve those words without adding speaker labels or direct address.\nFirstmate-authored constraints, acceptance criteria, implementation details, decisions, and tradeoffs are specification, not captain intent.\nThe Definition of done's rule that `--intent` must be self-sufficient still governs the string you pass: resolve any report, decision, or PR the intent below refers to into its substance rather than passing the pointer.\nThe one addition is the accepted specification below, from this task's complete preparation record: after the captain's words, add a blank line, then the line `Accepted specification from the preparation record (not the captain's words):`, then every heading and body under `## Accepted specification for --intent (preparation record, not the captain's words)` exactly as written, so the review checks the work against what the record promised.\nIt is specification, not captain intent; `## Firstmate spec`, later Firstmate constraints, and your own decisions and tradeoffs still stay out.\n\n## Accepted specification for --intent (preparation record, not the captain's words)\n## Expected outcomes and how to check each\n| Outcome | Exact observable result | Where and how to check | Expected value |\n| --- | --- | --- | --- |\n| O1: A researcher opens the assigned study, saves the comparison and reopens it | The researcher starting from the study page selects both candidates, saves their comparison, returns home and reopens the same saved comparison with both candidates retained. | Execution owner: test phase; disposable local home; fixture evidence class; inspect generated prep and accepted-spec overlay, then cite actual observation in the existing evidence directory. | The independently requested task is to retain both candidates after reopen; actual walked observation belongs in delivery evidence, with permitted console and network diagnosis on failure. |\n\n## Captain intent authorized for --intent\nWalk the assigned study and reopen its saved comparison.",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "O1: A researcher opens the assigned study, saves the comparison and reopens it",
+    "pass": true
+  },
+  {
+    "case": "surgical scaffold CLI",
+    "exit": 0,
+    "stdout": "scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M45A310MS8SHF58HQB9BSH73/.prep-validation-bb6mz8lw/data/prep-surgical/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical complete prep admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid blank refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid placeholder refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid bare-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid reasoned-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid example refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid comment refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid missing refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid duplicate refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid fenced refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Still valid comment-block refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Still valid answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named blank refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named placeholder refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named bare-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named reasoned-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named example refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named comment refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named missing refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named duplicate refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named fenced refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Siblings named comment-block refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Siblings named answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Siblings named",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route blank refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route placeholder refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route bare-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route reasoned-na refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route example refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route comment refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route missing refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route duplicate refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route fenced refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical Validation route comment-block refused",
+    "exit": 0,
+    "stdout": "Author checks requires one complete Validation route answer",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Validation route",
+    "pass": true
+  },
+  {
+    "case": "surgical refresh: newer design refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical covered: work completed refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical superseded: new owner refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical blocked: unresolved dependency refused",
+    "exit": 0,
+    "stdout": "Still valid must be proceed: before ready or dispatch",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical proceed: refused",
+    "exit": 0,
+    "stdout": "Still valid requires proceed: with current evidence",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical proceed: {EVIDENCE} refused",
+    "exit": 0,
+    "stdout": "Still valid requires proceed: with current evidence",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical proceed: n/a refused",
+    "exit": 0,
+    "stdout": "Still valid requires proceed: with current evidence",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "Still valid",
+    "pass": true
+  },
+  {
+    "case": "surgical explicit siblings Searched isolated task records and delivery inventory, none found. admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical explicit siblings Not a defect; checked related admission work and its existing owner. admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical multiline substantive proceed admitted",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical accepted specification rendered",
+    "exit": 0,
+    "stdout": "# Current no-mistakes intent contract\nThis section supersedes every earlier brief instruction about constructing `--intent`, but not later clarifications actually supplied by the captain.\nUse everything under `## Captain intent authorized for --intent` through the end of this brief, including any nested subheadings but excluding that heading, plus any later words the captain actually supplied as `--intent`; never include Firstmate specification or other mixed Task content.\nPreserve those words without adding speaker labels or direct address.\nFirstmate-authored constraints, acceptance criteria, implementation details, decisions, and tradeoffs are specification, not captain intent.\nThe Definition of done's rule that `--intent` must be self-sufficient still governs the string you pass: resolve any report, decision, or PR the intent below refers to into its substance rather than passing the pointer.\nThe one addition is the accepted specification below, from this task's complete preparation record: after the captain's words, add a blank line, then the line `Accepted specification from the preparation record (not the captain's words):`, then every heading and body under `## Accepted specification for --intent (preparation record, not the captain's words)` exactly as written, so the review checks the work against what the record promised.\nIt is specification, not captain intent; `## Firstmate spec`, later Firstmate constraints, and your own decisions and tradeoffs still stay out.\n\n## Accepted specification for --intent (preparation record, not the captain's words)\n## Expected outcomes and how to check each\n| Outcome | Exact observable result | Where and how to check | Expected value |\n| --- | --- | --- | --- |\n| O1: A researcher opens the assigned study, saves the comparison and reopens it | The researcher starting from the study page selects both candidates, saves their comparison, returns home and reopens the same saved comparison with both candidates retained. | Execution owner: test phase; disposable local home; fixture evidence class; inspect generated prep and accepted-spec overlay, then cite actual observation in the existing evidence directory. | The independently requested task is to retain both candidates after reopen; actual walked observation belongs in delivery evidence, with permitted console and network diagnosis on failure. |\n\n## Captain intent authorized for --intent\nWalk the assigned study and reopen its saved comparison.",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": "O1: A researcher opens the assigned study, saves the comparison and reopens it",
+    "pass": true
+  },
+  {
+    "case": "ship scaffold CLI",
+    "exit": 0,
+    "stdout": "scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M45A310MS8SHF58HQB9BSH73/.prep-validation-bb6mz8lw/data/walk-ship/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "ship initial task placeholders detected",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "ship FIRSTMATE_SPEC alone detected",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "ship complete task placeholders cleared",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "scout scaffold CLI",
+    "exit": 0,
+    "stdout": "scaffolded: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M45A310MS8SHF58HQB9BSH73/.prep-validation-bb6mz8lw/data/walk-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "scout initial task placeholders detected",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "scout FIRSTMATE_SPEC alone detected",
+    "exit": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "scout complete task placeholders cleared",
+    "exit": 1,
+    "stdout": "",
+    "stderr": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  }
+]

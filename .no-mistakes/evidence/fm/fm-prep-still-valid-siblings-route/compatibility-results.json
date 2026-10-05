@@ -1,0 +1,202 @@
+[
+  {
+    "case": "all-no tier-1 complete control",
+    "exit": 1,
+    "reason": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "Q2 shared-contract tier-1 control",
+    "exit": 1,
+    "reason": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "tier 1 may omit section 2",
+    "exit": 1,
+    "reason": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "Q1 yes must carry section 2",
+    "exit": 0,
+    "reason": "tier 2 requires ## 2. Behaviour spec, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M45A310MS8SHF58HQB9BSH73/.prep-compatibility-b2_oquxy/prep.md",
+    "expected_exit": 0,
+    "expected_reason": "Behaviour spec",
+    "pass": true
+  },
+  {
+    "case": "UI wiring yes requires concrete screen evidence",
+    "exit": 0,
+    "reason": "Author checks requires one complete Screen and region answer",
+    "expected_exit": 0,
+    "expected_reason": "Screen and region",
+    "pass": true
+  },
+  {
+    "case": "surgical C1 'no' refused",
+    "exit": 0,
+    "reason": "C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C1",
+    "pass": true
+  },
+  {
+    "case": "surgical C1 'unsure' refused",
+    "exit": 0,
+    "reason": "C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C1",
+    "pass": true
+  },
+  {
+    "case": "surgical C1 '' refused",
+    "exit": 0,
+    "reason": "C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C1",
+    "pass": true
+  },
+  {
+    "case": "surgical C2 'no' refused",
+    "exit": 0,
+    "reason": "C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C2",
+    "pass": true
+  },
+  {
+    "case": "surgical C2 'unsure' refused",
+    "exit": 0,
+    "reason": "C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C2",
+    "pass": true
+  },
+  {
+    "case": "surgical C2 '' refused",
+    "exit": 0,
+    "reason": "C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C2",
+    "pass": true
+  },
+  {
+    "case": "surgical C3 'no' refused",
+    "exit": 0,
+    "reason": "C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C3",
+    "pass": true
+  },
+  {
+    "case": "surgical C3 'unsure' refused",
+    "exit": 0,
+    "reason": "C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C3",
+    "pass": true
+  },
+  {
+    "case": "surgical C3 '' refused",
+    "exit": 0,
+    "reason": "C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C3",
+    "pass": true
+  },
+  {
+    "case": "surgical C4 'no' refused",
+    "exit": 0,
+    "reason": "C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C4",
+    "pass": true
+  },
+  {
+    "case": "surgical C4 'unsure' refused",
+    "exit": 0,
+    "reason": "C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C4",
+    "pass": true
+  },
+  {
+    "case": "surgical C4 '' refused",
+    "exit": 0,
+    "reason": "C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C4",
+    "pass": true
+  },
+  {
+    "case": "surgical C5 'no' refused",
+    "exit": 0,
+    "reason": "C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C5",
+    "pass": true
+  },
+  {
+    "case": "surgical C5 'unsure' refused",
+    "exit": 0,
+    "reason": "C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C5",
+    "pass": true
+  },
+  {
+    "case": "surgical C5 '' refused",
+    "exit": 0,
+    "reason": "C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires",
+    "expected_exit": 0,
+    "expected_reason": "C5",
+    "pass": true
+  },
+  {
+    "case": "surgical complete certificate control",
+    "exit": 1,
+    "reason": "",
+    "expected_exit": 1,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full missing outcome refused",
+    "exit": 0,
+    "reason": "Expected outcomes requires header, separator and at least one substantive row",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "full blank outcome cell refused",
+    "exit": 0,
+    "reason": "Expected outcomes requires row 1 column Exact observable result",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical missing outcome refused",
+    "exit": 0,
+    "reason": "Expected outcomes requires header, separator and at least one substantive row",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  },
+  {
+    "case": "surgical blank outcome cell refused",
+    "exit": 0,
+    "reason": "Expected outcomes requires row 1 column Exact observable result",
+    "expected_exit": 0,
+    "expected_reason": null,
+    "pass": true
+  }
+]

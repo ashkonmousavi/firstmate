@@ -1,0 +1,1148 @@
+FM_TEST_BEGIN 2026-10-05T06:17:34Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines
+ok - fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions
+ok - both prep formats require current-work checks and only substantive proceed is dispatchable
+ok - supported headings, tables, fences and guide blocks end paragraphs; prose/list continuations retain context
+ok - all author fields accept concrete/literal continuations and refuse incomplete values or examples; raw intent stays cleaned
+ok - indented executable blocks and odd escaped openers retain bytes; prose and real comments clean normally
+ok - literal specification survives public admission, execution, spawn and both promotion artifacts; indented tables cannot supply outcomes
+ok - promotion relaunch replaces generated overlays with current complete specification in every delivery mode
+ok - common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal
+ok - both executable preparation scaffolds carry common author checks and outcomes
+ok - preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments
+ok - inline code preserves literal comment bytes across delimiter forms and preparation readers
+ok - inline lookahead distinguishes structural tables and paragraph interruptions from literal command prefixes
+ok - pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts
+ok - promotion hands both artifacts the complete preparation in every mode without gating legacy records
+ok - fm-spawn: section 8 owes sentinel grep evidence or an explicit n/a reason
+ok - optional batch receipts and stale artifacts never select the accepted specification
+ok - legacy install declarations have no admission effect and cannot bypass completeness
+ok - surgical certainty: complete evidence admits with outcomes; uncertainty and contradictions fail closed
+ok - fm-spawn: a ship spawn requires a valid explicit mode and yolo before anything is created
+ok - fm-spawn: scout and secondmate spawns refuse ship delivery flags
+ok - fm-spawn: the brief's recorded mode and the spawn's explicit mode must agree
+ok - fm-spawn: a rigor downgrade against the registered posture is announced, never blocked
+ok - fm-spawn: a scout spawn resolves no delivery posture from the registry
+ok - fm-promote: promotion requires the delivery contract and records it exactly once
+ok - fm-promote: a symlinked task record is refused and its target is left untouched
+ok - fm-promote: a promoted worker receives the same mode-specific delivery contract a briefed one does
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ok - fm-promote: a selected branch prefix reaches both worker instructions and durable task state
+Switched to a new branch '$(touch${IFS}/tmp/fm-task-delivery.fbGY1l/promote-branch-shell-safe-marker)/promote-branch-safe-e3'
+ok - fm-promote: ref-format-valid shell metacharacters stay literal in promotion branch commands
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ok - fm-merge-local: a registry change cannot redirect an in-flight local-only task
+ok - fm-project-mode: the registry lookup matches a whole multi-word name, not just its first token
+ok - fm-project-mode: the conditional policy is accepted, mapped for mechanical callers, and readable raw
+ok - fm-project-mode: the forge binds from its own token and is reported only through --forge
+ok - fm-project-mode: only a malformed forge binding refuses; every other token keeps its old tolerance
+ok - forge=gerrit: yolo is refused with its reason, never silently dropped
+ok - forge=gerrit: no-mistakes runs with its forge steps skipped, recovers its fixes, then publishes one change
+ok - forge=gerrit: direct-PR publishes one squashed change and a stack is refused with its reason
+ok - fm-spawn: a registered forge must reach the worker's brief
+ok - fm-spawn: the brief must carry the spawn's selected ship branch, and the selection is validated before anything is created
+ok - fm-spawn: a ship branch that deviates from the registered prefix is announced, never blocked
+ok - fm-spawn: a registry forge token the parser refuses stops the launch, reason included
+ok - fm-promote: a promoted worker receives the project's registered forge contract with no flag to remember
+ok - fm-spawn/fm-promote: leftover Task placeholders are refused until both subsections are filled
+ok - fm-spawn: a ship launch requires an answered task preparation record, and a scout never is
+ok - fm-spawn: every mode and tier admits complete preparation without review receipts
+ok - fm-spawn: a no-mistakes launch brief hands over the outcome table, behaviour spec and definition of done apart from, and before, the captain's words
+ok - fm-project-mode: --branch-prefix resolves order-independently and defaults to the legacy fm/ prefix
+# all fm-task-delivery tests passed
+FM_TEST_END 2026-10-05T06:22:57Z tests/fm-task-delivery.test.sh exit=0 duration_ms=322884 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T06:22:57Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract
+ok - surgical prep: compact scaffold, evidence and closed flag combinations
+ok - fm-brief: both PR paths finish only with current-head green non-draft forge URL
+ok - ship and scout artifacts deliver conditional complete journeys, actual results and diagnostics without hiding placeholders
+ok - fm-brief: batch prep reviewers get two axes and exact approval write paths
+ok - fm-brief.sh: bash -n succeeds
+/tmp/fm-brief.rKBhl5/heredoc-in-substitution.sh:2
+ok - fm-brief.sh: no heredoc is nested inside a command substitution (Bash 3.2 parse-safe)
+ok - fm-brief.sh: --help renders the complete header
+ok - fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly
+ok - fm-brief.sh: ship --mode is required and closed-set validated
+ok - fm-brief.sh: the explicit ship mode wins over the registered posture
+ok - fm-brief.sh: --yolo and scout/secondmate --mode are refused, never silently dropped
+ok - fm-brief.sh: faster paths use configured authority without stacked review
+ok - fm-brief.sh: no-mistakes DOD keeps its apostrophe prose and bans --yes outright
+ok - fm-brief.sh: no-mistakes DOD detects a green PR from the drive call, not a status poll
+ok - fm-brief.sh: PR-based done requires a non-draft PR; a deliberate draft declares a wait
+ok - fm-brief.sh: no-mistakes stop-set findings use one event plus a verbatim snapshot
+ok - fm-brief.sh: ship project-memory wording bounds edits to corrections of wrong information
+ok - fm-brief.sh: --herdr-lab emits the complete hard safety contract
+ok - fm-brief.sh: --herdr-lab uses its quoted Firstmate-owned helper path
+ok - fm-brief.sh: ship and scout scaffolds make omitted Herdr intent fail-visible
+ok - fm-brief.sh: the documented {TASK} and {FIRSTMATE_SPEC} fills cannot corrupt the Herdr safety gate
+ok - fm-brief.sh: Herdr lab contract covers scouts and rejects secondmate misuse
+ok - fm-brief.sh: --no-projects scaffolds a project-less charter and guards misuse
+ok - fm-brief.sh: marked requests avoid generic acknowledgements and preserve material reporting
+ok - fm-brief.sh: relative directory inputs ignore CDPATH, render stable absolute charter paths, or fail loudly
+ok - fm-brief.sh: custom pause verb renders in every scaffold
+ok - fm-brief.sh: ship and scout scaffolds declare a validation-round pause once, then hold it
+ok - fm-brief.sh: investigation and visual-review completions load the shared decision policy
+ok - fm-brief: scout and secondmate code paths still scaffold well-formed briefs
+ok - fm-brief.sh: scout Lavish hosting follows the bootstrap lavish-axi floor
+ok - fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one
+ok - fm-brief.sh: --help lists the tier rules and every section the record scaffolds
+ok - fm-brief.sh: --prep refuses brief flags and extra positionals
+ok - fm-brief: workers end the turn on a decision, wait in one bounded shell command, and never poll
+ok - fm-brief: without config/wait-no-turns the brief and drive text stay as they were
+ok - fm-brief.sh: the home brief include lands last on ship and scout, verbatim, and fails closed
+ok - fm-brief.sh: --branch-prefix omitted defaults every ship mode to fm/<task-id>
+ok - fm-brief.sh: a --branch-prefix override renders identically across every generated section
+ok - fm-brief.sh: an empty --branch-prefix override resolves to a bare <task-id> branch
+ok - fm-brief.sh: --branch-prefix is refused on scout and secondmate scaffolds
+ok - fm-brief.sh: --branch-prefix value is validated against embedded spaces and a leading dash
+Switched to a new branch '$(touch${IFS}/tmp/fm-brief.rKBhl5/branch-prefix-shell-safe-marker)brief-branch-safe-g3'
+ok - fm-brief.sh: ref-format-valid shell metacharacters stay literal in generated branch commands
+ok - fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool
+FM_TEST_END 2026-10-05T06:23:09Z tests/fm-brief.test.sh exit=0 duration_ms=11360 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T06:23:09Z tests/fm-control-relaunch.test.sh family=backend-dispatch expected_gate_skip=none
+ok - fm-control relaunch: a same-harness relaunch replaces the agent in the same endpoint and worktree
+ok - fm-control relaunch: pending composer text refuses before the exit command is typed
+ok - fm-control relaunch: an unreadable composer fails safe before the exit command is typed
+ok - fm-control relaunch: a linked spawning home preserves committed and unfinished work in the recorded copy
+ok - fm-control relaunch: durable task metadata survives replacement launch publication
+ok - fm-control relaunch: delivery and concurrent task metadata publication serialize
+ok - fm-control relaunch: disabling tracing clears metadata and pane context
+ok - fm-control relaunch: progress and the Firstmate-worktree worker identity reach the replacement
+ok - fm-control relaunch: a ship task refuses without the progress note its replacement needs
+ok - fm-control relaunch: switching harness is one ordinary relaunch, and the old wiring goes with the old agent
+ok - fm-control relaunch: a harness switch resets model and effort unless they are named too
+ok - fm-control relaunch: a prefixed recorded harness can switch adapters transactionally
+ok - fm-control relaunch: a prefixed command requires an explicit replacement harness
+ok - fm-control relaunch: a same-harness relaunch keeps the profile axes it was running with
+ok - native Ultra relaunch preserves its profile and rejects an unsupported model before stopping
+ok - fm-control relaunch: a signed-out worker account pin refuses before the old agent stops
+ok - fm-control relaunch: the replacement follows the home's current worker account pin
+ok - fm-control relaunch: explicit model and effort win over the recorded ones
+ok - fm-control relaunch: refuses to relaunch onto an adapter with no verified mechanics
+ok - fm-control relaunch: the retired incarnation's global turn-end token is revoked
+ok - fm-control relaunch: wiring cleanup failure refuses replacement arming
+ok - fm-control-lib: one owner resolves each harness's turn-end registry entry, and refuses a malformed token
+ok - fm-control relaunch: a secondmate relaunch re-resolves its durable configured harness pin
+ok - fm-control relaunch: invalid configured effort is ignored before stop
+ok - fm-control relaunch: an adapter unverified for this task kind refuses before the agent is stopped
+ok - fm-control relaunch: explicit secondmate harness resets unnamed profile axes
+ok - fm-control relaunch: a ship task keeps its recorded harness instead of re-reading crew config
+ok - fm-spawn --relaunch: with no explicit harness it reuses the task's recorded one, never the crew default
+ok - fm-spawn --relaunch: the dispatch table is re-checked only when the profile changes
+ok - fm-control relaunch: a profile switch the dispatch table refuses is refused before the agent is stopped
+ok - fm-control relaunch: a profile change is checked against the task's recorded dispatch rule
+ok - fm-spawn --relaunch: a task dispatched before the preparation gate still relaunches
+ok - fm-spawn --relaunch: a promoted scout with a recorded custom branch relaunches on it instead of being refused
+ok - fm-promote/fm-spawn --relaunch: the current ship contract supersedes stale scout delivery text
+ok - fm-spawn --relaunch: wiring armed under a prefixed harness name is still retired
+ok - fm-spawn --relaunch: switching away from muse retires its session binding
+ok - fm-spawn --relaunch: switching away from cursor retires its session binding
+ok - fm-control relaunch: an unaccountable local copy refuses before the agent is touched
+ok - fm-control relaunch: a worker with nothing to work from is never launched
+ok - fm-control relaunch: a refusal before the agent is stopped leaves the durable record untouched
+ok - fm-control relaunch: checkpoint inspection failures refuse before stopping
+ok - fm-control relaunch: a launch failure after the stop keeps the prior record and reports the real state
+ok - fm-control relaunch: unpublished rollback keeps concurrent durable metadata
+ok - fm-control relaunch: post-publication failure keeps the new durable record
+ok - fm-control relaunch: lost stop acknowledgement reconciles a provably dead agent
+ok - fm-control relaunch: lost stop acknowledgement waits for an agent still shutting down
+ok - fm-control relaunch: failed journal replacement preserves durable phase
+ok - fm-spawn relaunch: prepublication abort removes replacement state
+ok - fm-control relaunch: the checkpoint records the exact unlanded work it preserved
+ok - fm-control relaunch: a secondmate's child work is accounted for and its charter is left alone
+ok - fm-control relaunch: a secondmate home that is not this secondmate's is refused
+ok - fm-control relaunch: unreadable child records fail checkpoint
+ok - fm-control relaunch: unlistable state fails checkpoint
+ok - fm-control relaunch: a vanished watcher scratch file does not fail the child-record checkpoint
+ok - fm-control relaunch: two control actions on one task serialize instead of interleaving
+ok - fm-spawn relaunch: direct entry participates in lifecycle serialization
+ok - fm-promote: promotion participates in lifecycle serialization
+ok - fm-spawn --relaunch: refuses to launch a second agent into a live endpoint
+ok - fm-spawn --relaunch: symlinked records refuse before inspection
+ok - fm-spawn --relaunch: keeps its early meta lock continuous
+ok - fm-spawn --relaunch: pending closes refuse before replacement begins
+ok - fm-spawn --relaunch: every identity axis comes from the record, and a contradicting flag refuses
+ok - fm-spawn --relaunch: an unrecorded task is refused
+ok - fm-spawn --relaunch: refuses to start a replacement outside the copy holding its work
+ok - tmux: a window absent from its session refuses both verbs rather than being assumed gone
+ok - tmux: an unfindable session refuses both verbs, so a live agent is never duplicated
+ok - tmux: a dead server on this socket refuses both verbs rather than proving absence
+ok - tmux: exit proves absence only from a successful process read showing no tmux process
+ok - tmux: relaunch re-creates a proven-gone window in the recorded copy and republishes its endpoint
+ok - reclaim: an unclassifiable endpoint is still refused, so two agents cannot share one
+ok - fm-spawn --relaunch: resumes the bound Pi session only for a Pi registration
+ok - reclaim: a herdr pane that outlived its stopped server is adopted, never orphaned beside a new tab
+ok - fm-control exit: a herdr pane that outlived its stopped server is already-stopped, not gone
+ok - reclaim: a herdr rebind is created in the session the record names, never the ambient one
+ok - reclaim: a herdr agent that came back with its server refuses, so one worktree keeps one agent
+ok - reclaim: a herdr reclaim rebinds the endpoint and leaves the whole rest of the task alone
+ok - reclaim: a herdr secondmate whose endpoint is gone is sent to its own respawn owner
+ok - reclaim: a rebind refused from a plain shell reports the real cause, not a fabricated session mismatch
+ok - relaunch re-reads the backlog item instead of blindly re-running the transition
+ok - relaunch heals an item that drifted out of In flight while the task stayed live
+ok - fm-control relaunch: config/claude-worker-settings.json reaches the replacement claude launch
+ok - fm-spawn --relaunch: an unclaimed pool copy is claimed for the relaunched task
+ok - relaunch: a copy claimed by a finished scout is re-claimed with one line naming it, directly and through fm-control
+ok - fm-spawn --relaunch: a copy claimed by a ship, a scout without a report, an unclassifiable scout, or an unknown task refuses
+ok - fm-spawn --relaunch: a held Treehouse project lock refuses a pool-copy relaunch
+ok - fm-control relaunch: the project lock is released as soon as the copy is claimed
+ok - fm-control relaunch: a copy another task holds refuses before the old agent is stopped
+ok - fm-control relaunch: a held project lock refuses before the old agent is stopped
+ok - tmux: two tasks are reclaimed in sequence after a restart, against the server the first one recorded
+ok - tmux: after a restart, tasks are reclaimed against the server a fresh spawn started first
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrule-25432/home/state/rl73.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/explicit-3950/home/state/rl7.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/note-20057/home/state/rl2.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-scout-23896/home/state/rl71.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-direct-PR-14201/home/state/rl-promoted-direct-PR.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/spawnharness-12502/home/state/rl21.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/dispatchrelaunch-27761/home/state/rl71.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/acct-21294/home/state/rl-acct.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/journal-16572/home/state/rl14.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-local-only-20148/home/state/rl-promoted-local-only.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/musewiring-5988/home/state/rl31.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/completejournal-13975/home/state/rl27.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/drifted-6034/home/state/rl41.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/trace-off-14844/home/state/rl33.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/grokauth-26591/home/state/rl9.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixcontrol-31882/home/state/rl32.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-rebind-18510/home/state/rl66.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/durable-meta-18151/home/state/rl19.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/continuous-meta-lock-19027/home/state/rl38.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopslow-9117/home/state/rl29.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smexplicit-28256/home/state/sm4.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-work-10066/home/state/rl75.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/crewcfg-3467/home/state/rl20.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/profile-18352/home/state/rl5.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/metadata-race-11046/home/state/rl28.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promoted-scout-no-mistakes-28732/home/state/rl-promoted-no-mistakes.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-claim-absent-20378/home/state/rl70.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-pi-14873/home/state/resume-pi.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/invalid-effort-24326/home/state/sm6.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/worker-settings-12139/home/state/rl50.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/keepprofile-18212/home/state/rl6.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt2.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-two-reclaims-10341/home/state/rt1.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepgate-28183/home/state/rl60.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/stopfail-22291/home/state/rl25.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/native-ultra-25683/home/state/rl-ultra.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/cursorwiring-8819/home/state/rl35.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru1.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/rux.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/tmux-spawn-first-11548/home/state/ru2.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smfindrace-32472/home/state/sm6.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-pin-29111/home/state/rl73.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/promotebranch-723/home/state/rl42.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-lock-8250/home/state/rl75.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/switch-9848/home/state/rl4.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/resume-claude-10380/home/state/resume-claude.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/reverify-3579/home/state/rl40.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/gone-herdr-31375/home/state/rl68.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/sm-29062/home/state/sm1.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prefixwiring-32532/home/state/rl30.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/same-14144/home/state/rl1.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/prepublishcleanup-21595/home/state/rl28.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/published-4838/home/state/rl24.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/pool-control-claim-scout-1716/home/state/rl78.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/smpin-11235/home/state/sm3.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control-relaunch.hSoEua/linked-home-14905/home/state/rl42.git-hooks/pre-applypatch': Permission denied
+FM_TEST_END 2026-10-05T06:26:22Z tests/fm-control-relaunch.test.sh exit=0 duration_ms=193091 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T06:26:22Z tests/fm-control.test.sh family=backend-dispatch expected_gate_skip=none
+ok - fm-control exit: every verified harness gets its own verified exit command
+ok - fm-control interrupt: every verified harness gets its own verified key and repeat count
+ok - fm-control Devin interrupt: second press only after the armed hint, then busy invalidated without fabricating idle
+ok - fm-control Devin interrupt: an idle agent gets one Escape and reports not-running
+ok - fm-control Devin exit: a busy record whose turn already ended never opens the revert picker
+ok - fm-control Devin interrupt: a revert picker a press opened is closed with Escape, never Enter
+ok - fm-control Devin: an open revert picker refuses every typed command
+ok - fm-control interrupt: opencode needs a double Escape, claude a single one
+ok - fm-control: a harness with no verified control mechanics is refused, not guessed at
+ok - fm-control-lib: a recorded harness resolves to its verified adapter without guessing
+ok - fm-control-lib: only a runtime's own recorded session has a relaunch resume form
+ok - fm-control: prefixed recorded harnesses reach interrupt and exit mechanics
+ok - fm-control-lib: the backend key matrix matches each adapter's real send-key surface
+ok - fm-control-lib: adapter capability is per task kind, not per adapter alone
+ok - fm-control interrupt: a backend that cannot deliver the harness's key refuses instead of sending another
+ok - fm-control: a backend that cannot prove an agent stopped refuses exit and relaunch
+ok - fm-control-lib: stop-proving verbs are gated on the backends that really classify agent state
+ok - fm-control: a legacy window label is refused and the exact task id is named
+ok - fm-control: an explicit backend endpoint is never a control target
+ok - fm-control: an unrecorded task id is refused
+ok - fm-control: a record whose endpoint identity names another task is refused
+ok - fm-control: a remotely placed secondmate is refused by placement, not by a metadata complaint
+ok - fm-control: interrupt and exit lock before task-state resolution
+ok - fm-control: the verb list is closed - no raw keys, arbitrary text, or clear verb
+ok - fm-control: resume is refused with the determinism reason and the alternative
+ok - fm-control: profile and note flags belong to relaunch only
+ok - fm-control exit: an already-stopped agent is idempotent success with no bytes sent
+ok - fm-control exit: an unprovable tmux endpoint refuses instead of claiming the agent stopped
+ok - fm-control interrupt: refuses when no agent is running rather than keying a shell
+ok - fm-control exit: an endpoint whose process cannot be attributed refuses
+ok - fm-control exit: a busy agent receives interrupt delivery before the exit command
+ok - fm-control exit: an idle agent goes straight to its exit command
+ok - fm-control interrupt: unconfirmed delivery preserves observed busy state
+ok - fm-control interrupt: muse confirms cancellation from its session log
+ok - fm-control interrupt: postconditions are revalidated after acknowledgement polling
+ok - fm-control exit: an interrupt-stopped agent satisfies the gone-state postcondition
+ok - fm-control exit: a stubborn agent reports delivered input and an unconfirmed exit
+ok - fm-control interrupt: grok reports delivery without claiming cancellation
+ok - fm-control interrupt: grok's idle footer does not confirm cancellation
+ok - fm-control relaunch: grok's open usage picker stops on its interrupt key and switches runtime without typing
+ok - fm-control relaunch: a grok usage picker that survives C-c is stopped by SIGTERM to its pane's agent and the runtime switches
+ok - fm-control relaunch: after grok's usage picker is dismissed, an unknown composer beside the limit notice still switches runtime without typing
+ok - fm-control relaunch: genuine grok pending text refuses even with the usage-limit notice visible
+ok - fm-control relaunch: grok typed text reading pending-unproven refuses even with the usage-limit notice visible
+ok - fm-control relaunch: an unknown grok composer without the usage-limit notice still refuses
+ok - fm-control relaunch: a grok usage picker agent with nothing to signal refuses and keeps the prior record
+ok - fm-control: a lifecycle command to a secondmate is unmarked and opens no reply expectation
+ok - fm-control's arrival leaves fm-send's from-firstmate marking untouched
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-interrupt-7961/home/state/t1.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-dismissed-24042/home/state/t1.git-hooks/pre-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/pre-auto-gc': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/post-merge': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/prepare-commit-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/post-checkout': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/post-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/pre-push': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/post-rewrite': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/pre-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/applypatch-msg': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/post-applypatch': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/pre-merge-commit': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/sendemail-validate': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/pre-rebase': Permission denied
+rm: cannot remove '/tmp/fm-control.RoUfMc/picker-sigterm-16429/home/state/t1.git-hooks/pre-applypatch': Permission denied
+FM_TEST_END 2026-10-05T06:27:30Z tests/fm-control.test.sh exit=0 duration_ms=68594 gate_skip=false
+FM_TEST_SUMMARY total=4 failed=0 skipped_gate=0 duration_ms=596039
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=2 duration_ms=261685 failed=0
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=2 duration_ms=334244 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=322884
+FM_TEST_SLOWEST rank=2 script=tests/fm-control-relaunch.test.sh duration_ms=193091
+FM_TEST_SLOWEST rank=3 script=tests/fm-control.test.sh duration_ms=68594
+FM_TEST_SLOWEST rank=4 script=tests/fm-brief.test.sh duration_ms=11360
+fm-test-run: wrote timing artifact: /home/tegris/.no-mistakes/evidence/01M45A310MS8SHF58HQB9BSH73/targeted-tests.json

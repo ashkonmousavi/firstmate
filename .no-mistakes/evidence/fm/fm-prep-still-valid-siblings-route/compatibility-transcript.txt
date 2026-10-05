@@ -1,0 +1,25 @@
+all-no tier-1 complete control: raw exit=1; reason=''; expected exit=1; result=PASS
+Q2 shared-contract tier-1 control: raw exit=1; reason=''; expected exit=1; result=PASS
+tier 1 may omit section 2: raw exit=1; reason=''; expected exit=1; result=PASS
+Q1 yes must carry section 2: raw exit=0; reason='tier 2 requires ## 2. Behaviour spec, which is missing from /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M45A310MS8SHF58HQB9BSH73/.prep-compatibility-b2_oquxy/prep.md'; expected exit=0; result=PASS
+UI wiring yes requires concrete screen evidence: raw exit=0; reason='Author checks requires one complete Screen and region answer'; expected exit=0; result=PASS
+surgical C1 'no' refused: raw exit=0; reason='C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C1 'unsure' refused: raw exit=0; reason='C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C1 '' refused: raw exit=0; reason='C1 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C2 'no' refused: raw exit=0; reason='C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C2 'unsure' refused: raw exit=0; reason='C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C2 '' refused: raw exit=0; reason='C2 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C3 'no' refused: raw exit=0; reason='C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C3 'unsure' refused: raw exit=0; reason='C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C3 '' refused: raw exit=0; reason='C3 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C4 'no' refused: raw exit=0; reason='C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C4 'unsure' refused: raw exit=0; reason='C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C4 '' refused: raw exit=0; reason='C4 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C5 'no' refused: raw exit=0; reason='C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C5 'unsure' refused: raw exit=0; reason='C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical C5 '' refused: raw exit=0; reason='C5 requires one exact yes and nonempty concrete evidence; use full prep: delete the Preparation format line and answer every section the tier requires'; expected exit=0; result=PASS
+surgical complete certificate control: raw exit=1; reason=''; expected exit=1; result=PASS
+full missing outcome refused: raw exit=0; reason='Expected outcomes requires header, separator and at least one substantive row'; expected exit=0; result=PASS
+full blank outcome cell refused: raw exit=0; reason='Expected outcomes requires row 1 column Exact observable result'; expected exit=0; result=PASS
+surgical missing outcome refused: raw exit=0; reason='Expected outcomes requires header, separator and at least one substantive row'; expected exit=0; result=PASS
+surgical blank outcome cell refused: raw exit=0; reason='Expected outcomes requires row 1 column Exact observable result'; expected exit=0; result=PASS
