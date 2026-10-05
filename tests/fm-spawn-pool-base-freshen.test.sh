@@ -394,6 +394,7 @@ test_direct_pr_and_scout_refresh_before_launch() {
     if [ "$contract" = scout ]; then
       out=$(run_spawn "$id" --scout)
     else
+      fm_test_prep_depth "$HOME_DIR/data/$id/prep.md" direct-PR || fail "direct-PR prep fixture"
       out=$(run_spawn "$id" --mode direct-PR --yolo off)
     fi
     status=$?

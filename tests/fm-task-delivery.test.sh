@@ -38,7 +38,9 @@ make_home() {  # <name> [<registry-line>...]
   fakebin="$TMP_ROOT/$name/bin"
   mkdir -p "$home/data" "$home/state" "$home/config" "$projects/proj" "$fakebin"
   git -C "$projects/proj" init -q || fail "could not initialize project fixture"
-  printf '#!/bin/sh\nexit 1\n' > "$fakebin/tmux"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' "$fakebin" > "$fakebin/tmux"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' "$fakebin" > "$fakebin/treehouse"
+  chmod +x "$fakebin/treehouse"
   chmod +x "$fakebin/tmux"
   if [ "$#" -gt 0 ]; then
     printf '%s\n' "$@" > "$home/data/projects.md"
@@ -53,14 +55,17 @@ write_brief() {  # <home> <id> [<recorded-mode>]
     printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
     [ -z "$mode" ] || printf 'Delivery contract: mode=%s\n' "$mode"
   } > "$home/data/$id/brief.md"
-  write_prep "$home" "$id"
+  case "$mode" in
+    no-mistakes) write_prep "$home" "$id" no no no no-mistakes ;;
+    *) write_prep "$home" "$id" ;;
+  esac
 }
 
 # The preparation record a ship spawn requires, so these delivery cases reach
 # the checks they are about instead of stopping at the prep gate. All-no answers
 # by default, with the tier-1 sections and common author checks.
-write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>]
-  fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" "${5:-no}" \
+write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>] [<depth-mode>]
+  fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" "${5:-no}" "${6:-direct-PR}" \
     || fail "prep record scaffold failed for $2"
 }
 
@@ -77,7 +82,7 @@ assert_spawn_clears_prep_gates() {
   assert_present "$home/data/$id/launch-brief.md" "$label: spawn did not get past the preparation gate"
 }
 
-# write_spec_prep <home> <id> <q1> <q2>: scaffold a record whose behaviour spec
+# write_spec_prep <home> <id> <q1> <q2> [<depth-mode>]: scaffold a record whose behaviour spec
 # and definition of done carry real answers under their guide comments, with
 # every other section answered n/a, at the tier the two answers declare.
 write_spec_prep() {
@@ -98,7 +103,7 @@ write_spec_prep() {
     $0 == "{INTENT_AND_BOXES}" { print "Exercise the delivery contract in an isolated fixture."; next }
     /^\{[A-Z0-9_]*\}$/ { print "n/a: fixture."; next }
     { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
-  fm_test_fill_prep_common "$prep" || fail "common spec fields"
+  fm_test_fill_prep_common "$prep" "${5:-no-mistakes}" || fail "common spec fields"
   answer_tier "$prep" "$3" "$4"
 }
 
@@ -157,6 +162,196 @@ run_spawn() {  # <home> <fakebin> <spawn-args...>
     FM_PROJECTS_OVERRIDE="$TMP_ROOT/projects-unused" FM_CONFIG_OVERRIDE="$home/config" \
     FM_SPAWN_NO_GUARD=1 FM_BACKEND=tmux PATH="$fakebin:$PATH" \
     "$SPAWN" "$@" 2>&1
+}
+
+test_depth_mode_matrix() {
+  local rec home proj fakebin selected declared id out status depth
+  rec=$(make_home depth-matrix)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for selected in direct-PR no-mistakes local-only; do
+    for declared in direct-PR no-mistakes; do
+      id="depth-$selected-$declared"
+      write_brief "$home" "$id" "$selected"
+      fm_test_prep_depth "$home/data/$id/prep.md" "$declared" || fail "depth fixture"
+      rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$selected" --yolo off)
+      status=$?
+      [ "$status" -ne 0 ] || fail "refusing fixture backend unexpectedly launched"
+      if [ "$selected" != local-only ] && [ "$selected" != "$declared" ]; then
+        case "$declared" in
+          direct-PR) depth='checks-only (direct-PR)' ;;
+          no-mistakes) depth='checks + AI review (no-mistakes)' ;;
+        esac
+        assert_contains "$out" "--mode $selected" "depth contradiction lost selected mode"
+        assert_contains "$out" "$depth" "depth contradiction lost declared depth"
+        assert_contains "$out" "$id" "depth contradiction lost task id"
+        assert_contains "$out" "reconcile" "depth contradiction omitted author repair"
+        assert_absent "$home/data/$id/launch-brief.md" "depth contradiction published launch brief"
+        assert_absent "$home/state/$id.meta" "depth contradiction published metadata"
+        assert_absent "$fakebin/tmux.calls" "depth contradiction reached endpoint backend"
+        assert_absent "$fakebin/treehouse.calls" "depth contradiction reached worktree allocator"
+        [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "depth contradiction allocated a task lock"
+      else
+        assert_present "$home/data/$id/launch-brief.md" "matched depth did not render launch brief: $out"
+        assert_present "$fakebin/tmux.calls" "matched depth did not reach refusing backend: $out"
+        assert_not_contains "$out" 'Delivery depth' "matched depth refused"
+      fi
+    done
+  done
+  pass "delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend"
+}
+
+test_depth_commented_tier() {
+  local format=$1 declared=$2 check rec home proj fakebin id prep baseline old_mode depth selected out status reason
+  [ "$#" -gt 2 ] || set -- "$@" reader missing malformed mismatch matched local
+  for check in "${@:3}"; do
+    id="commented-$format-$declared-$check"
+    rec=$(make_home "$id")
+    IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+    case "$declared" in
+      direct-PR) old_mode=no-mistakes; depth='checks-only (direct-PR)' ;;
+      no-mistakes) old_mode=direct-PR; depth='checks + AI review (no-mistakes)' ;;
+    esac
+    selected=$declared
+    [ "$check" != mismatch ] || selected=$old_mode
+    [ "$check" != local ] || selected=local-only
+    write_brief "$home" "$id" "$selected"
+    prep="$home/data/$id/prep.md"
+    if [ "$format" = surgical ]; then
+      rm "$prep"
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+      sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
+        -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
+        -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/owned.sh:12; callers confined; cause reproduced; regression covers output; no sensitive paths./' \
+        "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      fm_test_fill_prep_common "$prep" "$declared" || fail "surgical common fields"
+    fi
+    fm_test_prep_depth "$prep" "$declared" || fail "live depth fixture"
+    baseline="$home/live.prep"
+    cp "$prep" "$baseline"
+    {
+      printf '<!-- Previous preparation example\n## Tier\n'
+      if [ "$format" = surgical ]; then printf '%s\n' '- Preparation format: surgical'; fi
+      printf '%s\n' '- Q1 does this change alter what a user sees or can do: no' 'Reason: old confined output example.' \
+        '- Q2 does this change touch a shared module or a contract: no' 'Reason: old isolated owner example.' \
+        '- UI wiring: no, old isolated example.'
+      if [ "$old_mode" = direct-PR ]; then
+        printf '%s\n' '- Delivery depth: checks-only (direct-PR), old low-harm example.'
+      else
+        printf '%s\n' '- Delivery depth: checks + AI review (no-mistakes), old shared example.'
+      fi
+      printf '\n-->\n'
+      case "$check" in
+        missing) sed '/^- Delivery depth:/d' "$baseline" ;;
+        malformed) sed 's/^- Delivery depth:.*$/- Delivery depth: unknown, live invalid choice./' "$baseline" ;;
+        *) cat "$baseline" ;;
+      esac
+    } > "$prep"
+    case "$check" in
+      reader)
+        out=$(fm_prep_delivery_mode "$prep"); status=$?
+        [ "$status" -eq 0 ] && [ "$out" = "$declared" ] || fail "$format commented $old_mode/live $declared read $out (exit $status)"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 1 ] && [ -z "$reason" ] || fail "$format live complete Tier refused: $reason"
+        ;;
+      missing|malformed)
+        out=$(fm_prep_delivery_mode "$prep"); status=$?
+        [ "$status" -ne 0 ] && [ -z "$out" ] || fail "$format commented $old_mode rescued $check live depth: $out"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 0 ] || fail "$format $check live depth passed completeness"
+        assert_contains "$reason" 'Delivery depth' "$format $check live depth refusal unnamed"
+        ;;
+      mismatch|matched|local)
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$selected" --yolo off); status=$?
+        [ "$status" -ne 0 ] || fail "refusing backend unexpectedly launched"
+        if [ "$check" = mismatch ]; then
+          assert_contains "$out" "--mode $selected" "$format contradiction lost selected mode"
+          assert_contains "$out" "$depth" "$format contradiction lost LIVE depth"
+          assert_contains "$out" "$id" "$format contradiction lost task id"
+          assert_contains "$out" 'reconcile' "$format contradiction omitted repair"
+          assert_absent "$home/data/$id/launch-brief.md" "$format contradiction published brief"
+          assert_absent "$home/state/$id.meta" "$format contradiction published metadata"
+          assert_absent "$fakebin/tmux.calls" "$format contradiction reached backend"
+          assert_absent "$fakebin/treehouse.calls" "$format contradiction allocated worktree"
+          [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "$format contradiction acquired lock"
+        else
+          assert_present "$home/data/$id/launch-brief.md" "$format $check live depth refused: $out"
+          assert_present "$fakebin/tmux.calls" "$format $check missed refusing backend: $out"
+          assert_grep '.' "$fakebin/tmux.calls" "$format $check backend log empty"
+          assert_not_contains "$out" 'Delivery depth' "$format $check depth refused"
+        fi
+        ;;
+    esac
+    pass "$format commented $old_mode/live $declared: $check"
+  done
+}
+
+test_depth_required_full_and_surgical() {
+  local rec home proj fakebin format id prep baseline change reason out declared status
+  rec=$(make_home depth-fields)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for format in full surgical; do
+    id="depth-fields-$format"
+    write_brief "$home" "$id" direct-PR
+    prep="$home/data/$id/prep.md"
+    if [ "$format" = surgical ]; then
+      rm "$prep"
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+      sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
+        -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
+        -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/owned.sh:12; callers confined; cause reproduced; regression covers output; no sensitive paths./' \
+        "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      fm_test_fill_prep_common "$prep"
+    fi
+    fm_test_prep_depth "$prep" direct-PR
+    baseline="$home/$format.baseline"
+    cp "$prep" "$baseline"
+    for change in absent empty placeholder unknown both duplicate conflict no-reason placeholder-reason na continuation fenced indented comment; do
+      awk -v c="$change" '
+        /^- Delivery depth:/ {
+          if (c == "absent") next
+          if (c == "empty") { print "- Delivery depth:"; next }
+          if (c == "placeholder") { print "- Delivery depth: {DELIVERY_DEPTH}"; next }
+          if (c == "unknown") { print "- Delivery depth: fast, fixture reason"; next }
+          if (c == "both") { print $0 " checks + AI review (no-mistakes)"; next }
+          if (c == "no-reason" || c == "continuation") { print "- Delivery depth: checks-only (direct-PR),"; if (c == "continuation") print "  reason on next line"; next }
+          if (c == "placeholder-reason") { print "- Delivery depth: checks-only (direct-PR), {REASON}"; next }
+          if (c == "na") { print "- Delivery depth: n/a: fixture"; next }
+          if (c == "fenced") { print "```"; print; print "```"; next }
+          if (c == "indented") { print ""; print "    " $0; next }
+          if (c == "comment") { print "<!-- " $0 " -->"; next }
+          print
+          if (c == "duplicate") print
+          if (c == "conflict") print "- Delivery depth: checks + AI review (no-mistakes), other reason"
+          next
+        }
+        { print }
+      ' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep") || fail "$format $change depth accepted"
+      assert_contains "$reason" 'Delivery depth' "$format $change refusal did not name depth"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+      status=$?
+      [ "$status" -ne 0 ] || fail "$format $change spawn admitted"
+      assert_contains "$out" 'Delivery depth' "$format $change spawn refusal did not name depth"
+      assert_absent "$home/data/$id/launch-brief.md" "$format $change published launch brief"
+      assert_absent "$home/state/$id.meta" "$format $change published metadata"
+      assert_absent "$fakebin/tmux.calls" "$format $change reached backend"
+      assert_absent "$fakebin/treehouse.calls" "$format $change reached allocator"
+      cp "$baseline" "$prep"
+      for declared in direct-PR no-mistakes; do
+        fm_test_prep_depth "$prep" "$declared"
+        reason=$(fm_prep_unfilled_reason "$prep") && fail "$format valid depth refused: $reason"
+        [ -z "$reason" ] || fail "successful gate printed reason"
+      done
+    done
+  done
+  pass "delivery depth: full and surgical malformed declarations refuse; canonical restored answers pass"
 }
 
 # A ship spawn must stop when its delivery contract was never decided or cannot be
@@ -225,6 +420,7 @@ test_spawn_refuses_a_brief_mode_mismatch() {
 $rec
 EOF
   write_brief "$home" delivery-mismatch-b1 no-mistakes
+  fm_test_prep_depth "$home/data/delivery-mismatch-b1/prep.md" direct-PR
   out=$(run_spawn "$home" "$fakebin" delivery-mismatch-b1 "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a brief/spawn mode mismatch should exit non-zero"
@@ -659,6 +855,7 @@ EOF
   id=delivery-unfilled-ship
   FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes >/dev/null 2>&1 \
     || fail "unfilled ship brief should still scaffold"
+  write_prep "$home" "$id" no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "spawn of an unfilled ship brief should exit non-zero"
@@ -717,7 +914,7 @@ Do not copy this Firstmate-authored constraint into intent.
 Delivery contract: mode=no-mistakes
 Pass the entire Task as --intent.
 EOF
-  write_prep "$home" "$id"
+  write_prep "$home" "$id" no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_not_contains "$out" "has no provenance-marked captain words" \
     "legacy no-mistakes spawn rejected explicitly marked captain words"
@@ -749,7 +946,7 @@ Preserve the existing compatibility path.
 Delivery contract: mode=no-mistakes
 Pass the entire Task and every Firstmate requirement as --intent.
 EOF
-  write_prep "$home" "$id"
+  write_prep "$home" "$id" no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_present "$home/data/$id/launch-brief.md" \
     "migrated subsection brief did not receive the current launch contract"
@@ -784,7 +981,7 @@ Unrelated notes must not become task intent.
 ## Firstmate spec
 Unrelated notes must not satisfy task validation.
 EOF
-  write_prep "$home" "$id"
+  write_prep "$home" "$id" no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "unmarked legacy no-mistakes spawn should require provenance"
@@ -987,7 +1184,7 @@ EOF
   FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes >/dev/null 2>&1 \
     || fail "intent brief should scaffold"
   fill_brief_subsections "$home/data/$id/brief.md" "$words" 'This build constraint must not become intent.'
-  write_prep "$home" "$id"
+  write_prep "$home" "$id" no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_present "$home/data/$id/launch-brief.md" "plain intent was not serialized"
   authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit { print }' "$home/data/$id/launch-brief.md")
@@ -1071,7 +1268,7 @@ EOF
     cp "$proj/AGENTS.md" "$proj/agents-before"
     for kind in no-mistakes direct-PR local-only scout; do
       id="roles-$project_kind-$kind"
-      write_brief "$home" "$id"
+      write_brief "$home" "$id" "$kind"
       if [ "$kind" = scout ]; then
         out=$(run_spawn "$home" "$fakebin" "$id" "$proj" codex --scout)
       else
@@ -1249,6 +1446,7 @@ EOF
   prep="$home/data/$id/prep.md"
   FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
     || fail "prep scaffold failed"
+  fm_test_prep_depth "$prep" direct-PR
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a ship spawn with an unanswered tier header should exit non-zero"
@@ -1278,7 +1476,7 @@ EOF
   # Q1 yes is tier 2: every section is required, so the placeheld ones are
   # refused one by one, by name.
   answer_tier "$prep" yes no
-  fm_test_fill_prep_common "$prep" || fail "common fields for numbered controls"
+  fm_test_fill_prep_common "$prep" direct-PR || fail "common fields for numbered controls"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a tier-2 spawn with placeheld sections should exit non-zero"
@@ -1330,7 +1528,7 @@ EOF
   prep="$home/data/$id/prep.md"
   sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   answer_tier "$prep" no yes
-  fm_test_fill_prep_common "$prep" || fail "blast common fields"
+  fm_test_fill_prep_common "$prep" direct-PR || fail "blast common fields"
   fill_section "$prep" "## 4. Blast radius" "I read the code and nothing else changes."
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   status=$?
@@ -1373,7 +1571,7 @@ EOF
   prep="$home/data/$id/prep.md"
   sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   answer_tier "$prep" no no yes
-  fm_test_fill_prep_common "$prep" || fail "UI common fields"
+  fm_test_fill_prep_common "$prep" direct-PR || fail "UI common fields"
   sed 's/^- Screen and region:.*$/- Screen and region: Settings, configuration region, fixture design map./' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   blank_section "$prep" "## 2. Behaviour spec"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
@@ -1398,7 +1596,7 @@ EOF
   prep="$home/data/$id/prep.md"
   awk '/^## [0-9]+\. / { exit } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   answer_tier "$prep" no no
-  fm_test_fill_prep_common "$prep" || fail "legacy common fields"
+  fm_test_fill_prep_common "$prep" direct-PR || fail "legacy common fields"
   assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   assert_contains "$out" "tier 1 requires ## 1. Intent and boxes" "legacy header-only record bypassed completeness"
@@ -1456,7 +1654,7 @@ EOF
       [ "$tier" != 1 ] || q2=yes
       [ "$tier" != 2 ] || q1=yes
       id="no-review-$mode-$tier"
-      write_prep "$home" "$id" "$q1" "$q2"
+      write_prep "$home" "$id" "$q1" "$q2" no "${mode/local-only/direct-PR}"
       write_brief "$home" "$id" "$mode"
       assert_absent "$home/data/$id/prep-review" "fixture manufactured compulsory review"
       out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
@@ -1556,7 +1754,7 @@ EOF
 
   # The mandatory outcome table survives even when numbered sections are n/a.
   id='spec-both-na'
-  write_prep "$home" "$id" yes no
+  write_prep "$home" "$id" yes no no no-mistakes
   write_brief "$home" "$id" no-mistakes
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   launch="$home/data/$id/launch-brief.md"
@@ -1569,7 +1767,7 @@ EOF
   # Only a no-mistakes worker builds --intent, so the other modes carry none.
   for mode in direct-PR local-only; do
     id="spec-$mode"
-    write_spec_prep "$home" "$id" yes no
+    write_spec_prep "$home" "$id" yes no direct-PR
     write_brief "$home" "$id" "$mode"
     out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
     launch="$home/data/$id/launch-brief.md"
@@ -1737,7 +1935,7 @@ EOF
     || fail "a gerrit ship brief should scaffold"
   fill_brief_subsections "$home/data/forge-yolo-s1/brief.md" \
     "Run the review loop on the Gerrit project." "Ship the review pass."
-  write_prep "$home" forge-yolo-s1
+  write_prep "$home" forge-yolo-s1 no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" forge-yolo-s1 "$proj" claude --mode no-mistakes --yolo on 2>&1)
   status=$?
   [ "$status" -ne 0 ] || fail "a spawn with --yolo on launched on a gerrit-forge project"
@@ -1878,7 +2076,7 @@ EOF
   FM_HOME="$home" "$BRIEF" forge-agree-a3 proj --mode no-mistakes --forge gerrit >/dev/null \
     || fail "a gerrit ship brief should scaffold"
   fill_brief_subsections "$home/data/forge-agree-a3/brief.md" "Run the review loop." "Ship it."
-  write_prep "$home" forge-agree-a3
+  write_prep "$home" forge-agree-a3 no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" forge-agree-a3 "$proj" claude --mode no-mistakes --yolo off 2>&1)
   assert_not_contains "$out" "forge mismatch" "an agreeing brief and registry were reported as drift"
 
@@ -1904,7 +2102,7 @@ EOF
   FM_HOME="$home" "$BRIEF" forge-agree-a5 proj --mode no-mistakes --forge gerrit >/dev/null \
     || fail "a gerrit ship brief should scaffold"
   fill_brief_subsections "$home/data/forge-agree-a5/brief.md" "Run the review loop." "Ship it."
-  write_prep "$home" forge-agree-a5
+  write_prep "$home" forge-agree-a5 no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" forge-agree-a5 "$proj" claude --mode no-mistakes --yolo off 2>&1)
   status=$?
   [ "$status" -ne 0 ] || fail "a gerrit brief launched on a project with no registered forge"
@@ -1933,7 +2131,7 @@ EOF
   FM_HOME="$home" "$BRIEF" branch-agree-a1 proj --mode no-mistakes --branch-prefix fix/ >/dev/null \
     || fail "a fix/-prefixed brief should scaffold"
   fill_brief_subsections "$home/data/branch-agree-a1/brief.md" "Run the review loop." "Ship it."
-  write_prep "$home" branch-agree-a1
+  write_prep "$home" branch-agree-a1 no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" branch-agree-a1 "$proj" claude --mode no-mistakes --yolo off --branch-prefix contrib/)
   status=$?
   [ "$status" -ne 0 ] || fail "a spawn selecting a different prefix than its brief records was accepted"
@@ -1959,7 +2157,7 @@ EOF
   FM_HOME="$home" "$BRIEF" branch-agree-a4 proj --mode no-mistakes --branch-prefix fix/ >/dev/null \
     || fail "a second fix/-prefixed brief should scaffold"
   fill_brief_subsections "$home/data/branch-agree-a4/brief.md" "Run the review loop." "Ship it."
-  write_prep "$home" branch-agree-a4
+  write_prep "$home" branch-agree-a4 no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" branch-agree-a4 "$proj" claude --mode no-mistakes --yolo off --branch-prefix fix/)
   assert_not_contains "$out" "branch mismatch" "an agreeing brief and selection were reported as drift"
   assert_not_contains "$out" "records no ship branch" "an agreeing spawn reported the brief as legacy"
@@ -2009,7 +2207,7 @@ EOF
   FM_HOME="$home" "$BRIEF" prefix-dev-a2 proj --mode no-mistakes --branch-prefix fix/ >/dev/null \
     || fail "a fix/-prefixed brief should scaffold"
   fill_brief_subsections "$home/data/prefix-dev-a2/brief.md" "Run the review loop." "Ship it."
-  write_prep "$home" prefix-dev-a2
+  write_prep "$home" prefix-dev-a2 no no no no-mistakes
   out=$(run_spawn "$home" "$fakebin" prefix-dev-a2 "$proj" claude --mode no-mistakes --yolo off --branch-prefix fix/)
   assert_not_contains "$out" "registers the ship-branch prefix" \
     "a spawn matching the registered prefix was announced as a deviation"
@@ -2218,6 +2416,7 @@ EOF
   assert_grep '| Delivery admission |' "$home/data/$id/launch-brief.md" "install lost accepted outcome table"
   assert_no_grep 'which a separate agent reviewed' "$home/data/$id/launch-brief.md" "install falsely claimed review"
   write_brief "$home" "$id" direct-PR
+  fm_test_prep_depth "$prep.valid" direct-PR || fail "legacy checks-only fixture"
   for field in unit setting pin 'store version'; do
     for variant in yes missing malformed conflict; do
       case "$variant" in
@@ -2262,7 +2461,7 @@ EOF
   mkdir -p "$home/data/$reviewer/reviewed-prep"
   printf 'Old optional review.\n' > "$home/data/$reviewer/launch-brief.md"
   for id in batch-a batch-b; do
-    write_prep "$home" "$id" yes yes
+    write_prep "$home" "$id" yes yes no no-mistakes
     write_brief "$home" "$id" no-mistakes
     printf 'reviewer=%s\nauthor=firstmate\n' "$reviewer" > "$home/data/$id/prep-review"
     artifact="$home/data/$reviewer/reviewed-prep/$id.md"
@@ -2833,6 +3032,7 @@ EOF
   ' "$baseline" > "$prep"
   [ "$(fm_prep_accepted_spec "$prep")" = "$expected" ] || fail "continued author fields omitted accepted specification"
   for mode in no-mistakes direct-PR local-only; do
+    fm_test_prep_depth "$prep" "${mode/local-only/direct-PR}" || fail "continued depth fixture"
     write_brief "$home" continued "$mode"
     rm -f "$home/data/continued/launch-brief.md"
     out=$(run_spawn "$home" "$fakebin" continued "$proj" claude --mode "$mode" --yolo off)
@@ -3134,6 +3334,12 @@ test_prep_requires_finalize_after_evidence
 test_optional_batch_artifacts_do_not_affect_handoff
 test_legacy_install_declarations_do_not_affect_admission
 test_surgical_certainty_and_admission
+test_depth_commented_tier full direct-PR
+test_depth_commented_tier full no-mistakes
+test_depth_commented_tier surgical direct-PR
+test_depth_commented_tier surgical no-mistakes
+test_depth_mode_matrix
+test_depth_required_full_and_surgical
 test_ship_spawn_requires_a_valid_delivery_contract
 test_scout_and_secondmate_refuse_delivery_flags
 test_spawn_refuses_a_brief_mode_mismatch

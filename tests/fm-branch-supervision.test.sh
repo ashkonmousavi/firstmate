@@ -762,6 +762,7 @@ test_main_owned_actions_refuse_the_branch_actor() {
   home="$TMP_ROOT/partition-home"
   root="$TMP_ROOT/partition-root"
   mkdir -p "$home/state" "$root"
+  fm_test_prep_record "$home/data" task-new || fail "partition prep fixture failed"
   git init -q -b main "$root"
   git -C "$root" commit -q --allow-empty -m init
   ln -s "$ROOT/bin" "$root/bin"
@@ -1275,6 +1276,7 @@ test_away_record_relocates_main_owned_actions_to_the_branch() {
   home="$TMP_ROOT/away-home"
   root="$TMP_ROOT/away-root"
   mkdir -p "$home/state" "$root"
+  fm_test_prep_record "$home/data" task-new || fail "away prep fixture failed"
   git init -q -b main "$root"
   git -C "$root" commit -q --allow-empty -m init
   ln -s "$ROOT/bin" "$root/bin"
@@ -1386,10 +1388,13 @@ WRAPPER
 }
 
 test_away_branch_spawn_requires_queued_dispatchable_work() {
-  local home root out status
+  local home root out status id
   home="$TMP_ROOT/away-queued-home"
   root="$TMP_ROOT/away-queued-root"
   mkdir -p "$home/state" "$home/data" "$home/config" "$root"
+  for id in task-arbitrary task-queued task-inflight; do
+    fm_test_prep_record "$home/data" "$id" || fail "queued-work prep fixture failed for $id"
+  done
   git init -q -b main "$root"
   git -C "$root" commit -q --allow-empty -m init
   ln -s "$ROOT/bin" "$root/bin"
@@ -1474,6 +1479,7 @@ test_quiet_record_never_caps_a_present_captains_spawn() {
   home="$TMP_ROOT/quiet-spend-home"
   root="$TMP_ROOT/quiet-spend-root"
   mkdir -p "$home/state" "$root/bin"
+  fm_test_prep_record "$home/data" task-new || fail "quiet prep fixture failed"
   git init -q -b main "$root"
   git -C "$root" commit -q --allow-empty -m init
   FM_AFK_MODE=quiet FM_HOME="$home" "$ROOT/bin/fm-afk-contract.sh" enter --spend 1 >/dev/null || fail "quiet entry failed"
@@ -1492,6 +1498,7 @@ test_away_spend_cap_is_rechecked_under_the_task_set_lock() {
   home="$TMP_ROOT/away-cap-lock-home"
   root="$TMP_ROOT/away-cap-lock-root"
   mkdir -p "$home/state" "$home/data" "$home/config" "$root/bin"
+  fm_test_prep_record "$home/data" task-q1 || fail "spend-cap prep fixture failed"
   git init -q -b main "$root"
   git -C "$root" commit -q --allow-empty -m init
   for f in "$ROOT/bin"/*; do

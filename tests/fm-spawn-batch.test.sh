@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Behavior tests for fm-spawn.sh batch dispatch (`id=repo` pairs).
 #
-# These exercise argument routing only: each spawn attempt fails fast at the
-# missing-brief check, which is reached before any tmux/treehouse side effect, so
+# These exercise argument routing only: each spawn attempt fails fast at a
+# missing-prep or missing-brief check, before any tmux/treehouse side effect, so
 # the tests create no windows or worktrees. FM_SPAWN_NO_GUARD=1 keeps them off the
 # live watcher guard / state. Parser and path-scoping cases are table-driven; the
 # only behavior asserted on its own is "a multi-pair batch does not stop after the
@@ -84,6 +84,7 @@ test_projects_path_scoping() {
     home="$TMP_ROOT/$id home"
     projects="$TMP_ROOT/$id projects"
     mkdir -p "$home/data" "$projects/alpha"
+    fm_test_prep_record "$home/data" "$id" || fail "$label: could not fill prep"
     git -C "$projects/alpha" init -q || fail "$label: could not initialize project fixture"
     if [ "$use_override" = yes ]; then
       out=$(FM_ROOT_OVERRIDE='' FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' FM_CONFIG_OVERRIDE='' \

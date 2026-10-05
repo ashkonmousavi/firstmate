@@ -855,6 +855,7 @@ test_native_pi_ultra_is_explicit_and_model_scoped() {
       id="ultra-$harness-$mode"
       rec=$(make_spawn_case "$id" "$harness" "$id")
       read_case_record "$rec"
+      fm_test_prep_depth "$HOME_DIR/data/$id/prep.md" "$mode" || fail "native Ultra depth fixture failed"
       out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
         --harness "$harness" --model codex-native/gpt-6-astra --effort ultra --mode "$mode" --yolo off)
       expect_code 0 "$?" "native Ultra spawn failed: $out"
@@ -1778,8 +1779,12 @@ test_worker_launch_delivers_role_scope() {
     fi
     # A ship launch is prep-gated, so every kind but scout owes a record here;
     # fm_test_spawn_brief already wrote one for the briefs it authored.
-    [ "$kind" = scout ] || fm_test_prep_record "$HOME_DIR/data" "$id" \
-      || fail "prep record scaffold failed for $id"
+    if [ "$kind" != scout ]; then
+      fm_test_prep_record "$HOME_DIR/data" "$id" || fail "prep record scaffold failed for $id"
+      if [ "$kind" = direct-PR ]; then
+        fm_test_prep_depth "$HOME_DIR/data/$id/prep.md" direct-PR || fail "depth fixture failed for $id"
+      fi
+    fi
     cp "$HOME_DIR/data/$id/brief.md" "$CASE_DIR/brief-before"
     cat > "$FAKEBIN_DIR/codex" <<'SH'
 #!/usr/bin/env bash
