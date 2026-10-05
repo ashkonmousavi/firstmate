@@ -93,8 +93,9 @@
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
 # This file also renders and validates the task preparation record that
 # bin/fm-brief.sh --prep scaffolds and bin/fm-spawn.sh gates a ship launch on.
-# The canonical section list lives here once so the writer and the validator
-# cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
+# The canonical sections, common checks and outcome guidance live here once
+# so rendering and validation cannot drift; bin/fm-brief.sh's header owns
+# scaffold usage.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
 # Both preparation formats owe common author checks and explicit outcomes.
@@ -299,9 +300,9 @@ fm_brief_task_content_valid() {  # <file>
 }
 
 # Task preparation record (bin/fm-brief.sh --prep). This file renders the
-# template and validates a filled one; bin/fm-brief.sh's header owns the prose
-# contract for what belongs in each section, and bin/fm-spawn.sh refuses a ship
-# launch whose record is missing or unanswered.
+# template and validates a filled one under the schema and guidance below.
+# bin/fm-brief.sh's header owns scaffold usage, and bin/fm-spawn.sh refuses a
+# ship launch whose record is missing or unanswered.
 #
 # The record is TIERED, never flat, so preparation costs what the change is
 # worth. Its `## Tier` header answers Q1, Q2 and UI wiring. Without a
