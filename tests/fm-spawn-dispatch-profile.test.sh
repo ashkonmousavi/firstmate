@@ -66,6 +66,7 @@ make_spawn_case() {
   launchlog="$case_dir/launch.log"
   fakebin=$(make_spawn_fakebin "$case_dir/fake")
   fm_test_spawn_home "$home" "$harness"
+  fm_test_global_rules "$home/user-home/AGENTS.md"
   fm_git_worktree "$proj" "$wt" "wt-$name"
   for id in "$@"; do
     fm_test_spawn_brief "$home" "$id"
@@ -2211,6 +2212,95 @@ test_non_claude_harness_ignores_claude_worker_settings() {
   pass "config/claude-worker-settings.json changes claude launches only"
 }
 
+test_cursor_global_rules_exact_and_rerendered() {
+  local kind rec id out status launch delivered
+  for kind in ship scout; do
+    id="global-cursor-$kind-z28"
+    rec=$(make_spawn_case "global-cursor-$kind" cursor "$id")
+    read_case_record "$rec"
+    if [ "$kind" = ship ]; then
+      out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    else
+      out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" --scout)
+    fi
+    status=$?
+    expect_code 0 "$status" "cursor $kind launch should succeed: $out"
+    launch=$(cat "$LAUNCH_LOG")
+    delivered="$CASE_DIR/delivered.md"
+    # Execute the encoded positional transport through a capture-only CLI.
+    cat > "$FAKEBIN_DIR/cursor-agent" <<'SH'
+#!/usr/bin/env bash
+printf '%s' "${@: -1}" | "$FM_CAPTURE_ROOT/bin/fm-operational-input.sh" body > "$FM_CAPTURE_BODY"
+SH
+    chmod +x "$FAKEBIN_DIR/cursor-agent"
+    FM_CAPTURE_ROOT="$ROOT" FM_CAPTURE_BODY="$delivered" bash -c "$launch" || fail "cursor transport capture failed"
+    fm_test_assert_global_rules "$HOME_DIR/user-home/AGENTS.md" "$delivered"
+    # A stopped endpoint relaunch regenerates from the source, not the overlay.
+    out=$(FM_FAKE_PANE_COMMAND=bash run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" --relaunch)
+    status=$?
+    expect_code 0 "$status" "cursor $kind relaunch should succeed: $out"
+    fm_test_assert_global_rules "$HOME_DIR/user-home/AGENTS.md" "$HOME_DIR/data/$id/launch-brief.md"
+  done
+  pass "cursor ship/scout positional delivery and relaunch contain exact canonical rules once"
+}
+
+test_global_rules_unavailable_refuses_target() {
+  local state rec id out status
+  for state in missing unreadable; do
+    id="global-unavailable-$state-z29"
+    rec=$(make_spawn_case "global-unavailable-$state" cursor "$id")
+    read_case_record "$rec"
+    rm "$HOME_DIR/user-home/AGENTS.md"
+    if [ "$state" = unreadable ]; then
+      fm_test_global_rules "$HOME_DIR/user-home/AGENTS.md"
+      chmod 000 "$HOME_DIR/user-home/AGENTS.md"
+    fi
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+    status=$?
+    [ "$status" -ne 0 ] || fail "$state canonical rules must refuse target launch"
+    assert_contains "$out" 'canonical global rules unavailable' "refusal must name source failure"
+    assert_absent "$HOME_DIR/data/$id/launch-brief.md" "refusal published launch artifact"
+    assert_absent "$HOME_DIR/state/$id.meta" "refusal published worker metadata"
+    [ ! -s "$LAUNCH_LOG" ] || fail "refusal launched worker"
+    chmod 600 "$HOME_DIR/user-home/AGENTS.md" 2>/dev/null || true
+  done
+  pass "missing/unreadable canonical rules refuse before target launch publication"
+}
+
+test_non_target_does_not_require_global_rules() {
+  local rec id out status
+  id=global-nontarget-z30
+  rec=$(make_spawn_case global-nontarget codex "$id")
+  read_case_record "$rec"
+  rm "$HOME_DIR/user-home/AGENTS.md"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
+  status=$?
+  expect_code 0 "$status" "non-target launch should ignore unavailable rules: $out"
+  assert_not_contains "$(cat "$HOME_DIR/data/$id/launch-brief.md")" '# Account-local global rules' "non-target acquired rule overlay"
+  pass "non-target worker retains its launch payload without canonical rules"
+}
+
+test_cursor_secondmate_keeps_charter_without_global_rules() {
+  local rec id sm out status
+  id=global-secondmate-z31
+  rec=$(make_spawn_case global-secondmate cursor "$id")
+  read_case_record "$rec"
+  rm "$HOME_DIR/user-home/AGENTS.md"
+  printf 'cursor\n' > "$HOME_DIR/config/secondmate-harness"
+  sm="$CASE_DIR/secondmate-home"
+  make_seeded_secondmate_home "$sm" "$id"
+  out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
+  status=$?
+  expect_code 0 "$status" "Cursor secondmate must not require worker rules: $out"
+  assert_absent "$HOME_DIR/data/$id/launch-brief.md" "secondmate received worker overlay"
+  assert_contains "$(cat "$LAUNCH_LOG")" "< '$sm/data/charter.md'" "secondmate lost its charter payload"
+  pass "Cursor secondmate keeps its charter without canonical worker rules"
+}
+
+test_cursor_secondmate_keeps_charter_without_global_rules
+test_cursor_global_rules_exact_and_rerendered
+test_global_rules_unavailable_refuses_target
+test_non_target_does_not_require_global_rules
 test_worker_launch_delivers_role_scope
 test_advisor_line_follows_resolved_worker
 test_no_profile_keeps_claude_profile_defaults
