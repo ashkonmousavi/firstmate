@@ -1,0 +1,48 @@
+$ bash bin/fm-lab-home.sh create /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye
+/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye
+
+raw exit: 0
+$ git -C /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/projects/proj init -q
+
+raw exit: 0
+$ bash bin/fm-brief.sh local-full-missing proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-full-missing/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh local-full-missing /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye
+error: task local-full-missing cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-full-missing/prep.md; scaffold with bin/fm-brief.sh local-full-missing --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: local-only cannot bypass depth syntax or create a third choice; no launch brief, task metadata or task lock.
+$ bash bin/fm-brief.sh local-full-third-answer proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-full-third-answer/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh local-full-third-answer /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye
+error: task local-full-third-answer cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-full-third-answer/prep.md; scaffold with bin/fm-brief.sh local-full-third-answer --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: local-only cannot bypass depth syntax or create a third choice; no launch brief, task metadata or task lock.
+$ bash bin/fm-brief.sh local-surgical-missing proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-surgical-missing/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh local-surgical-missing /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye
+error: task local-surgical-missing cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-surgical-missing/prep.md; scaffold with bin/fm-brief.sh local-surgical-missing --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: local-only cannot bypass depth syntax or create a third choice; no launch brief, task metadata or task lock.
+$ bash bin/fm-brief.sh local-surgical-third-answer proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-surgical-third-answer/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh local-surgical-third-answer /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye
+error: task local-surgical-third-answer cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.ur2fcnye/data/local-surgical-third-answer/prep.md; scaffold with bin/fm-brief.sh local-surgical-third-answer --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: local-only cannot bypass depth syntax or create a third choice; no launch brief, task metadata or task lock.
+CLEANUP: disposable marked home removed.

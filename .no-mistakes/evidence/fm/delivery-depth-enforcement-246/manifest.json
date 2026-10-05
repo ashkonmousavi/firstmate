@@ -1,0 +1,2358 @@
+{
+  "run_id": "01M45JNGXNRJ522PPBNYHJF1VA",
+  "created_utc": "2026-10-05T10:16:33.507603+00:00",
+  "base_head": "6d1948996f1493a42e63a9e4119899fdb162b6a8",
+  "tested_source_binding": {
+    "bin/fm-dod-lib.sh": "e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862",
+    "bin/fm-spawn.sh": "ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7",
+    "tests/fm-task-delivery.test.sh": "23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7",
+    "tests/fm-brief.test.sh": "8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d",
+    "tests/prep-record-helper.sh": "41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1"
+  },
+  "accepted_verification_plan_sha256": "20bd33075259aed0ac76d6824d3f7456fa01ef94652ce6a61b05d62290bf66d7",
+  "retained_intent_and_original_authored_source": "unchanged; original caller/local authored source not reopened",
+  "verification": "Final canonical five-subject run raw exit 0; baseline/fault/restored receipts show expected pass/fail/pass; every temporary fault restored to identical fixed bytes; git unmerged index empty.",
+  "external_gap": "Next normal Review consumption cannot be executed or attested from this assigned Fix phase. Outer executor must provide this exact manifest and record consumed paths/digests in that Review. New commit binding likewise belongs to the outer executor.",
+  "artifacts": [
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/brief-driver.sh",
+      "purpose": "Executed evidence probe implementation or explicitly labelled reconstruction",
+      "sha256": "e724a93b1edf3790e104cd0cbfa1727a063865b84fa85551dcbe06f51f3b3e2c",
+      "provenance": "Probe scripts executed within this worktree and retained as test evidence. initial-green-driver-reconstructed.sh is newly reconstructed from retained inputs, as qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-mismatch.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "c3ed538269882756646ba9cdafdc5a0b85d932ff4561cd59bd4634f87e8cc04d",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-mismatch.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "0a2047db146e1940df31480fd2a239f90fba7209ca0becc74da0c19b3cf37d1a",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-mismatch.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-mismatch.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "002c88092afd33c02bae3caa340eba7046d219cde72c801bf8d883897e529d23",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-mismatch.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "90115e72ee94117a32622a85563fd889dad8d5e2d2dd44bf7d93183e75d5409e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-reader.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "c17017c8f3145139fdf9cab145ae33d16cc4073e981b0218f8611ddd53ab64d2",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-reader.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "1396fe5ea6cc21d99b73dc937a5f1b900d83016a74deddc215f133cf982901a6",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "034e968075d96ce112af06da92a6dad0364438ea73bcafabcf25a0b51132c160",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "55b9831626f98c428eaefcace160173b54d3af91a6361c5a65381b4d9e007426",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "490b3414505bec9c9c628028b6be7754af9a39c5d7f8956a0eb87128ef6d2354",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "d6527fe90404af6446a95a23fbbed04c52eb0814ea33e918e1022cdc12c79297",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-reader.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "b1891186bb65af7a38cba050a33124c0709a6161194d18feb483b9840fec2157",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-reader.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "aee0af0a78d416cbe67ddfb8a9f98b71d69115bf28cfb519a88234b9ce175f73",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e1af9b3d924800cd2b617480ff55bd8f93b433e1e7c866d1f6ed71ac3287d665",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "47c4aa47844bae55537d150d9b2edbc79cf2a155d422e95bccbaa7f220e80afc",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "cc7fc2a3b0d7beabadb801ad111fc6ec531fadfdfcbac8155325d3ab02991761",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "a722f69528695fc23356441944ae6fec7da5d34330b04381cc56670386df8223",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "280abbcb7ab542ed323bef66078b22984fb46e7c595d931c2a908514e0404789",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "3e66b1413e14856d1e9f5bc211c5c3b45e245f9ced2e3e420b168ab5447f845e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e13200530ac8ac3b30c47fede8b117854c929f9110a7798ec331cd37bebd4a82",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "3c9efe3e9a2b451a0d09f7dd0b2c9a8392ebcfecec6bc4c916df56ccb3261a9a",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed-completeness.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "ee8ef5b71ff1a08e5c3dedc34f2db3f588ff1d6f37932e9285757e5c0a357ea4",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed-completeness.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "27361c71f5a5b00356392deca0666db05542430529f127d426d8555217609d92",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "ee8ef5b71ff1a08e5c3dedc34f2db3f588ff1d6f37932e9285757e5c0a357ea4",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "97bfe2725ce836c84538779ec4dc48f8786aa328516683ab71cba11457bbacdd",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-mismatch.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "c3ed538269882756646ba9cdafdc5a0b85d932ff4561cd59bd4634f87e8cc04d",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-mismatch.input.md.launch-brief.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "3a8a4ef22c996e581de28c35cc475d3092570409afd1fed350d25d688c20e966",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-mismatch.input.md.locks",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-mismatch.input.md.tmux.calls",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "e4bab25305aac0b15e62a050afe09f6b001c53b39bf1af7c24fa294305607d61",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-mismatch.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "da08cb51cd2cc8fc126f43caef921df0ed1125a046e209a86094da00e6481ecb",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing-completeness.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "646add0346900085554d4bbd22c3727d3afd74aa908d8530f0428560a48bf03a",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing-completeness.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "0426c17601114edab8dfff6aca7c9f0e94de04de6b38d650679e3bb363f40f1c",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "646add0346900085554d4bbd22c3727d3afd74aa908d8530f0428560a48bf03a",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "ec2b2af9366670301494e92d5cd07f6df37d64886507526b4bd2aa038b36b528",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-reader.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "c17017c8f3145139fdf9cab145ae33d16cc4073e981b0218f8611ddd53ab64d2",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-reader.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "7a5f266419b1673010ef740608e3872b8308c5f2dba93e0c7412ac46172174b9",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed-completeness.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "a632c0a31fc5933905e13504ea68948f167a41f92ba311fce0b90700affdb025",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed-completeness.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "a34c56ab2fd5bbdc0c4ccf119148ade09178e2545eb111d5c6a5ef0162c6f746",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "a632c0a31fc5933905e13504ea68948f167a41f92ba311fce0b90700affdb025",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "67ddc4b1f4574e78d9e404e822dd077581cad6c82eae802a34bf8fa2796d37a0",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-mismatch.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "034e968075d96ce112af06da92a6dad0364438ea73bcafabcf25a0b51132c160",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-mismatch.input.md.launch-brief.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "04821c9803cf2b1f82f6140d31a0ff73bd207b7a28e7bacd9c6790103184ee03",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-mismatch.input.md.locks",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-mismatch.input.md.tmux.calls",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "51b4cf9589ab5a9f67f1f84682770af524220762d8bdd6e9b395859152bb145b",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-mismatch.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "accc5709ff3ccba749d1db1683cb7fc66da2a0dd5cf5ef80ef036fffcae7a452",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing-completeness.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "0982bbdae31fc310139b52291993c696e3a71acd4a0a2168c3f40f76e679f13d",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing-completeness.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "38911b494a58ab80a7a8ab196b7c4e1a9decb7edbeed7097ccd516b7d4b66690",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "0982bbdae31fc310139b52291993c696e3a71acd4a0a2168c3f40f76e679f13d",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "e178fcf0eaf380e8f7a104cc1c63fc1e88b4b4cafed1d428169dccb2208b36a5",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-reader.input.md",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "b1891186bb65af7a38cba050a33124c0709a6161194d18feb483b9840fec2157",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-reader.log",
+      "purpose": "Corrected surgical RED: public depth/completeness/admission with fully answered commented old Tier",
+      "sha256": "c8837c551d37d257efe41a42c932289c176e081d62aa9fbb88237e2251064116",
+      "provenance": "Original production bytes verified against 6d1948996f1493a42e63a9e4119899fdb162b6a8; corrected dirty test fixture; correction-and-rebase-receipts.txt records commands and raw exits.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e1af9b3d924800cd2b617480ff55bd8f93b433e1e7c866d1f6ed71ac3287d665",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "ac9252b9813f200eb22a8827c2482d3207cc7fa852466f1df16e918bb970fc6d",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "cf4145d8452df996f936f29711f5e2e3fd2149b41b41905a9a019aee6bfb1059",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "2f176ec015645697cead23a82e95697a545ff9ee1625b2eaa7e9bdc03e434db0",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "280abbcb7ab542ed323bef66078b22984fb46e7c595d931c2a908514e0404789",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "18db5b6964948e536087b26237b3f1051f25d153a9027ebbac6d92f4b29e0d13",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "b3f00df23f68e85c233fd01c9cd59b345507cb6ec8c3a7594ccc63bb72d885e2",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "1c589e0640e03d939c37ef94a8d98efee787eeb780b9f80101116dcab597ff52",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/correction-and-rebase-receipts.txt",
+      "purpose": "Exact executable commands, UTC timestamps, raw exits, log paths and tested source hashes",
+      "sha256": "1f6f9cfffaf84718bfc867841a90046bdf6402d040559e348139949fbfdfba2e",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "558eda3a8af92d3901c6f586c017ad14402227d7c0c74ff459725838f5d51e40",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "44e584778b9646965b5d3f4a204a7f866bb3c712ded132ab943a95f300567100",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "630b77e72ca891e38b6c791c74f80ea87a2c1c559a8495f37137d57584c6ce73",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "bf3d91a4d5ec93beb73746b368ce23b2a82ede24634ef4468b1976db45aa9e17",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "fdf85636c8793d97b7a117b881297a5bd71ce38f2fe5907b449c4fed8e45c26e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "cac78b263ef245243183878dd46d0f0e9c2c21e6e99d3347251063dbfe4af19a",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "0ac008df8459a59ef20028855e21eda0a37255b4597e5ca2ebd5f44206d97eef",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "8f62dbb9665218e1961d85ddaeb4e9481b4e4d85d009f9e4a1c8e6d7debe8960",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-mismatch.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "558eda3a8af92d3901c6f586c017ad14402227d7c0c74ff459725838f5d51e40",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-mismatch.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f60616d062304bf1708d88c3af0c3a0efa87391660c4b6722bcaab6471f17095",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-mismatch.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-mismatch.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "7e20fb091799da1ccc15a5093af43c4b66713c352eb548f2decfe138988fd982",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-mismatch.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "bdc31b5b4cd754f6f06479bde712efda07950ad6f9686c9ae19da3771f128391",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-reader.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "6acce4ac5d248e9c14c16ccfcf0899c4e3cfeab4d9b46084c91a076a393ed1e1",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-reader.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "5b0022db1d2cabcae00ee75abfc75979c3aa9a4ed1ce3fcd73ce7f32a760bde0",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-mismatch.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "fdf85636c8793d97b7a117b881297a5bd71ce38f2fe5907b449c4fed8e45c26e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-mismatch.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "74d40c3bbd9c0ba06307c9d2a0f39cf754ee374bf3b552117aa9da378281bff9",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-mismatch.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-mismatch.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "898cdbb55855ef0053e3a09dbd7abaeae9711b64a91af2de41abeb5115ef42ef",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-mismatch.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "71d72146e7cbe7b4cc0c9845a2efac12a0ad3477a42597186c79d154090ca361",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-reader.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "c8af3e76237019b5c0ba5b4b4f7b8461b93e73379b7d9e34b802f6e517ad2e87",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-reader.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f3f1c41610a7f4a0375650c8d7ba73f3e0af27d3ef556f7cd2e3b648430eccc2",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-mismatch.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "5922d207812581570890698ea2d1612165a4610aa32812a297644e07f033aece",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-mismatch.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-mismatch.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "41cf8eb604462a7533108b3697963eb7305c2b33c06b8f35d95da4bf26b95be7",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-reader.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f90c5753a92e4e2f78d69baddaa7074bb27a3d25692ec8633b5422e4441895fc",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-reader.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "0c73c1a8e2c1e4905f18f94e0ff9e116345955548b5a5cb5602fed1218aa8d5d",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-mismatch.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "acad299d7845e16b0c0ba641a0342494d0138ca9bd3024287c9335091d5ef64b",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-mismatch.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-mismatch.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "ce460c201769365be3da86e2750aaea0b4c9e226a33b8769b5d58512cc42041c",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-reader.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "ab78389f1538ab14d5c77f74f2181b7ad9ecb9ebdadfb6480dd46b56100b676f",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-reader.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "4b9c797320a5efb736aa4c94400240f19c35a71e755f17cb89232867d047976d",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context.patch",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "6be9fb0059f25c5fc9a796eecb36c7c5a4a1c269d6b0185538449f57b4eb82e9",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-guide-count.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f5d8e33d2e5846738b03b79a8094b46404a1e77810d687208311fa68f103167d",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-DELIVERY_DEPTH.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f5cb9d4c8af1d33376eb97d881bb191655cb8709eb6b34a6addc41761ff61178",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-DELIVERY_DEPTH.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "48f738d8e59c8ff1846ea7cbdfe804af061c835322a80ae0f743e191cb7c4400",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-SIBLINGS_NAMED.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "6a7bf2c4d2eb9ae1aaf48ed2bae15a2f5f5bda57335d0bf693e167c493484d27",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-SIBLINGS_NAMED.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "9030222e3c18d2baa51b9317c1a45b38717ba4a1a16e2688b567c0df85335af6",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-STILL_VALID.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "593ac7190b221fc18d5153e90cbcf6acff3f92e3d0a422cb6302aea06b65cb58",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-STILL_VALID.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "d2343daaf04786de891d2673b4ecf8bccf1099301721d60ec676f56ec3bc0d8f",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-VALIDATION_ROUTE.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "a17033585ec85134bbcee486b31e869b496b726d953af2285e238e15ee36975c",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-VALIDATION_ROUTE.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "3696cb51d5b947d746121de67c7eda3b54b0cfd73677e17cbc42dc203f3da8dc",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-forwarding.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e60712c4c8527275b0948e9e33e3c3f88e1c4501cb6df5190f596834e849c6c9",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-forwarding.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "b24dfd153fa72e1f48ecb97001383b56f67ad209fb2cf77cba667507a89badc4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-required-depth.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "6233cc695d3a0fdf3a0ef2fe52ae0422de714fea1c3c2d910ea5a819a4fb83af",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/final-review.patch",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "580c05462a070d983821ab72ac2ec86708d54dbda27bccf157a7612f05cf1809",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/final-source-binding.txt",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "c05b44e66098a6fbfcc0e655a4b520e155b04fedb1aa30ec6b4af771bcc2374b",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fixed-head-receipts.txt",
+      "purpose": "Exact executable commands, UTC timestamps, raw exits, log paths and tested source hashes",
+      "sha256": "c70240bffe2cbdf2080c6719ed704b2af9ce0d78d0ed21e6a2984ce053d9f895",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fixture-correction.txt",
+      "purpose": "Before-edit invariant/caller inventory, post-fix trace or correction provenance",
+      "sha256": "44133705383d48c1001a14c5f03f4aef7bfe822d0e39b175c62d964f3ed6f6f9",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.ancestor",
+      "purpose": "Preserved Git object file bytes for rebase conflict reconstruction",
+      "sha256": "ce99ce9afb6264cb2847fccf5ad8866c7e77722abe333c9bef3f3732e9b2d53e",
+      "provenance": "git show 24be0cf91eab4b4e40445a484a8463b6c2d5dc72:tests/fm-brief.test.sh",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.authored",
+      "purpose": "Preserved Git object file bytes for rebase conflict reconstruction",
+      "sha256": "557d2e0d7dd364badd7cd38b5dec5bb7b4b0969f47798f9cfeac97dee5cb7d69",
+      "provenance": "git show 4bdcad3c7e0240cb90872fa6a608d35944b3ba7c:tests/fm-brief.test.sh",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.fixed",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.reconstructed-conflict",
+      "purpose": "Newly reconstructed conflict inventory and raw merge-file output",
+      "sha256": "660a196aa97be01a17f89136f2906c6fa757d8de6e9a71ee3a13d408c3aaae12",
+      "provenance": "New reconstruction from the three Git object snapshots; not a historical Rebase receipt. Exact objects, commands, UTC time and raw exits in rebase-inventory.txt.",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.upstream",
+      "purpose": "Preserved Git object file bytes for rebase conflict reconstruction",
+      "sha256": "9e30f85a3bddf4c7be1cfe4b919b78e8d978fc0e37cdd8449baa7aebf1dd1d70",
+      "provenance": "git show 60cf89d451784d16623b4dbfa78ffedcde1bd871:tests/fm-brief.test.sh",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-dod-lib.sh.fixed",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-spawn.sh.fixed",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-task-delivery.test.sh.fixed",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-diff-check.log",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-runner-help.txt",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "8b6deb7a191617bbe20f45b1e8fc856641b3011276a80fa3f55623e1117d8b75",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-syntax.log",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-test-syntax.log",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "cf226b1c16e9ec482553f19a75f4b7246fdc29a13f72243815dd46502d83b8c9",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-tests.json",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "bcf4c82ce6b2f74816ce307a17c13162292dbe5125ed5fe7515b904f7ec593ef",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-tests.log",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "c8526671d618281d275fe454e8c853af6dda2f12bb027b3ab149875558828497",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-verification.txt",
+      "purpose": "Final bounded canonical verification: five affected subjects, syntax or diff checks",
+      "sha256": "1a1b47ecc647bd8824e75e8bc0dc9ed86728bdee965ebea0c2dfa134491ca6a9",
+      "provenance": "focused-verification.txt records commands/raw exits; focused-test-syntax.log clarifies the separate changed-test syntax check. focused-tests.json is real runner output.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-driver.sh",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "ebc538c6c7d03285209c51d7b4840fa9071534833f2a0dedbc52f30ff5590c64",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "9a7060c053ec8aa47e9fbc6e2eb255386a4248dc6929bde09d998d772ed74897",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "dee82a15ad908a1b80c1cea7580a2d77ae0359d53c7c808e97bb96d8fa6bc75a",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "ba52b05b64574e3d372735b10e6802f44e4f572b10e8385ccfd34d01be9424d8",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "b03b1064d393b953448997c5cb65bccba9646e369fcf0c5413e78f862e3c1f01",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "df8d5754be8f26397818652436dbca10fa71ea065dc06c4d3510a3904c555125",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "8a15270fb94c62937db998099cc573d22117c998c906c8b5919bb2690edafae3",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "6cb4be504ccf1f0e5b53670a576f9b63641168d82ebdc2fab7e732a905a1cd72",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "9e23039851c1077c69356247a0abbdb786ef81345c0bccaa302ae13202ccdadf",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-guide-count.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "2f3fe45707609968e14d93ca1e153b3469547e81a21cb82e707e641fa127f471",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-helper-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f050fec1e0c5d896d05d84bd0b304dc691b182d9d55f2bac8fe2aeaab9619cf4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-helper-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "1231f8be418101c68ee3d7449d4a5a54cf1cc313a924eea62e75bbd2bc4ef2af",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-helper-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e60712c4c8527275b0948e9e33e3c3f88e1c4501cb6df5190f596834e849c6c9",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-helper-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "d9b70b68cc2db977253854cb881b293c5b0edcd0d6aae53150656dcb326a5470",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f98897ecbcc845486b3da9eb6c8e20b20282b333299ee882361f486f2c2e2e66",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "aa9986af718d19b451f808bc725d3e9152a3d83a3e1465d323ebf0d144c82517",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "15258149d7863ad7c67a9e0a48def296a667589e0dbc4c0f8130a5f58a094d49",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "27943f79b8fa290483075eed94a9b43286ce92bb3cadbacb7f9a66066ac93463",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-required-fields.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "207f2eeb16efe5ed3a2921c647fbb294e4a0e87908f488a5542955ed176d4865",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-required-fields.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-required-fields.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "b719d0a4967a6b1bace43cdb72192ab3752a330a58412bb3916a0976e7a0aecf",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "4a220a097814b43b3156152353a7c30032974902610a2501a92fb2b5bf9cec14",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "a51eec005b0563069e1e57ff38f88aa34ca5e729ee6b76840b9a514c4026756c",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "29033e0909abd405f3b22360078c5237497e510ca84cb3e9a0f5fd322941fd67",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "81e2a36de1e5004d7f7100b00957cc5a9a5f7ffed5ad621300a51baf60300d06",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "2e8a8d82d3da3b61bf1bc882a3fc68515cf058ac9de007664ad6f2dcb3b72276",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "5ac27f387cec15dbe6df348c75237c72340ab0b00100391e6cb1af5d4a8d5669",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e0036448c5a78ffb8fc7fdec8e9df59791f185782e3c7aa4225d606b81910861",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "58620c6a6f6296025922eec596ce5f784e8b949632a953c5c11d23cac1322781",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/initial-green-driver-reconstructed.sh",
+      "purpose": "Executed evidence probe implementation or explicitly labelled reconstruction",
+      "sha256": "3b04a4845635be27b0352646e1ddb6b0ed2dee6c876e7407a946c4cd28e67e17",
+      "provenance": "Probe scripts executed within this worktree and retained as test evidence. initial-green-driver-reconstructed.sh is newly reconstructed from retained inputs, as qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/post-fix-trace.txt",
+      "purpose": "Before-edit invariant/caller inventory, post-fix trace or correction provenance",
+      "sha256": "4687320e6a90840712f51646958572d7f6b1a118af323eb31fb6c1f0d50cd296",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.ancestor",
+      "purpose": "Preserved Git object file bytes for rebase conflict reconstruction",
+      "sha256": "61887e3d10f3ee08f4701637f886c88f2c361eeecc83167e6d59ee69b9d67775",
+      "provenance": "git show 24be0cf91eab4b4e40445a484a8463b6c2d5dc72:tests/prep-record-helper.sh",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.authored",
+      "purpose": "Preserved Git object file bytes for rebase conflict reconstruction",
+      "sha256": "ffee07f05b2616c52ad20bf8433002aceceeb5c23992be46e26be4e6ef5d0b10",
+      "provenance": "git show 4bdcad3c7e0240cb90872fa6a608d35944b3ba7c:tests/prep-record-helper.sh",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.fixed",
+      "purpose": "Final working-tree source snapshot, diff or byte-level head binding",
+      "sha256": "41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1",
+      "provenance": "Actual corrected working-tree bytes; SHA-256 bound to base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8; outer executor has not yet committed this fix.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.reconstructed-conflict",
+      "purpose": "Newly reconstructed conflict inventory and raw merge-file output",
+      "sha256": "4fc8b9a1c2d1b8b636c110228ade5de82f89381416a1cf81cfcda6ea3e9646c3",
+      "provenance": "New reconstruction from the three Git object snapshots; not a historical Rebase receipt. Exact objects, commands, UTC time and raw exits in rebase-inventory.txt.",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.upstream",
+      "purpose": "Preserved Git object file bytes for rebase conflict reconstruction",
+      "sha256": "065bc98837e1cab70285d66facd623bd421e823cd4682505e09dec1f56ab7ebc",
+      "provenance": "git show 60cf89d451784d16623b4dbfa78ffedcde1bd871:tests/prep-record-helper.sh",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/rebase-inventory.txt",
+      "purpose": "Newly reconstructed conflict inventory and raw merge-file output",
+      "sha256": "20e01dc7bf3fe08098133ab0c2f5d20151cdbfdd1632c6855780d3d554d7ad2c",
+      "provenance": "New reconstruction from the three Git object snapshots; not a historical Rebase receipt. Exact objects, commands, UTC time and raw exits in rebase-inventory.txt.",
+      "tested_heads": []
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-driver.sh",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "fb12377932f3cf0f2158f0d31a7f790227d77a52902782944bd83aed24ab0aa8",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "66e5dfd1c43f946c4ba41bc40053440abf420375dfa78770c2288eba01f4bc7c",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "70bafabd9e87443eb98167f317444ce4f7ced7f5a8749cacd07484927f653106",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-mismatch.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "558eda3a8af92d3901c6f586c017ad14402227d7c0c74ff459725838f5d51e40",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-mismatch.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "45dab1f2997ecfae8131adbb1ba99ab23d2c3f1278f19ac27cb2ba680eac4534",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "3550f647826d7bc21b733800da20e5f00c4820d07e96846847885afef5efffcc",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "469ac7d782bee032d5115d124df9090245fa1be2e47da8c64f21944e88de7346",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-reader.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "6acce4ac5d248e9c14c16ccfcf0899c4e3cfeab4d9b46084c91a076a393ed1e1",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-reader.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "eaa68750f5c2b27ccdf2dc1b3906b4c9b2b1aa97a69225e44d3f3331730d6b72",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "fd4d01776287735a44d0bdf67752b75e00416993379fa034d0b45876033fe757",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "37775513c497c470b415f574e7ce218699a939dd18a40cbd7472b46dfda75cf5",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-mismatch.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "fdf85636c8793d97b7a117b881297a5bd71ce38f2fe5907b449c4fed8e45c26e",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-mismatch.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "ee896a181044e053d9517ce6c0bb2e130a16ba9c86e53545f9d361746384e613",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "a19ce4aaed9bb56a0cd06b61b4b9f56e9571f621a38a9c32e2e9e34159fecf37",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "a447ce67de9605924e0a62a57ab10bcc25bda4d965ab53caa394307cde6db5a0",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-reader.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "c8af3e76237019b5c0ba5b4b4f7b8461b93e73379b7d9e34b802f6e517ad2e87",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-reader.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "24f81b4a81a1be869aa98f2295b09580c688bcddceaf89af82f2c57ccd3e3a41",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-production.sh",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-receipts.txt",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "c08c5084e44e58475583fe159914a6d16e85967b0954fcb5ea50d7c9abf6e0ce",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "d97902b5680b3888201e1b2c57eea2ea0a7c5ef86a93db61f1efc858a573d654",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "6dcf478cb00ee3f6e1c19fb205fb122e39da9c9c108fe40f586e6f715b00b507",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "e2183d580f963ac8ab294535ade94fd8ec3c874dbffd909b8263b7a04a517fd8",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-mismatch.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "5922d207812581570890698ea2d1612165a4610aa32812a297644e07f033aece",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-mismatch.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "bb119813e95b4b7b00fe7b17bc82afe27692d79079f2dda554a99c8eae21e678",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "f192038a7c130cb94f6fe7dab007906c50db31c3001b60cc398ace3a51b3c323",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "f7afd5e744c91e87f8bc4928e8b9bd54017f6b8fbf1cf5de1aff02ae3ff7a754",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "a3c0fc9901653efacb03f980fc1d7b6033c43a592bc906d87c5720e7d010a277",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-reader.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "f90c5753a92e4e2f78d69baddaa7074bb27a3d25692ec8633b5422e4441895fc",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-reader.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "20f3e59f93f610c9772ed4bd4f46317c230386b7e6710656a53348383cd14de5",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "c0d85e5a0b6ce0452a5fb3c2f601d0d9fcda3b12556edf22c244e8e11aa0d001",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "fc56e33c80655c3c6a1f7369ed5c13ae386f6a40ad47e49ae34cd37a084358c1",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "e78f9b3440adf960016139dc991452386b892e0b59fbcc93d825d426de600770",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-mismatch.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "acad299d7845e16b0c0ba641a0342494d0138ca9bd3024287c9335091d5ef64b",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-mismatch.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "75298d62b672844111ea1656e297e672d6d1a4432ab29d78a9e65e810daaea1c",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.completeness.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "6c045615c9498bc1573c0f52ba5ff89f484b3b90272d1146c309b1520643a98b",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "63c06edc4eef61a5c625d5c8debe9e904fa8b71b433c9da727622ae2ce15f3b6",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "9ca70ea9906b131b7c76fecd11b85ac6ae5f7a689d0803cdec78ed345ae87f69",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-reader.input.md",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "ab78389f1538ab14d5c77f74f2181b7ad9ecb9ebdadfb6480dd46b56100b676f",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-reader.log",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "9df5ec5bf77abaf0da235ce74700e4021d26c806a82a948227e67759a85fe462",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-tests.sh",
+      "purpose": "Initial RED input, public-interface trace or starting source snapshot",
+      "sha256": "74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b",
+      "provenance": "Starting production 6d1948996f1493a42e63a9e4119899fdb162b6a8 with dirty tests in red-tests.sh; red-receipts.txt. Initial surgical completeness is qualified in witness-probe-errors.txt and superseded by corrected-red receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "9a7060c053ec8aa47e9fbc6e2eb255386a4248dc6929bde09d998d772ed74897",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "aabf74d21bac31f5cc9f8e68460e76b27f69c8009522537b8427ff35382edc8b",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e1977d2edc57c8a20ca92c9012786ddebd2e30f6192f9f69f33ce38fe3c7ed1e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "a6262c0663bdbd0f14f4e36e0edb71c35e7726333d4dfc57905db4959b53a8fb",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "df8d5754be8f26397818652436dbca10fa71ea065dc06c4d3510a3904c555125",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "fcecc3e0a7e8e5c97863d11af5b6a10c4362173e746b970e4281df28673c59dd",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "b8ea0e9777479ab4b9e4b1307818d550bb5bb2845331a4708b06001e0ab2485f",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "326d13163d4626fbd56ba196c36b0138ab34b2f19b1fb9cf8d4438281b6188f2",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-direct-PR.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "4a220a097814b43b3156152353a7c30032974902610a2501a92fb2b5bf9cec14",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-direct-PR.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "1eaf87743fd7109f4d4b0778e08e05be610d03f2a2849bc171186e6cd9ef2214",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-direct-PR.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-direct-PR.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "73c9a52c5a80b462951431c0c5a7b25cbf5d0917de48f63d3f9cf881397b62fb",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-direct-PR.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "fe4f7b3bcc8c9bba6611c6a4acb6550c1f35991e7faf401c62d643375f15cc3b",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-no-mistakes.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "2e8a8d82d3da3b61bf1bc882a3fc68515cf058ac9de007664ad6f2dcb3b72276",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-no-mistakes.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "fbb6168816f0a9cb4462c8f1cbbf3af90668f1d8841d118a6f720cbcd58a744f",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-no-mistakes.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-no-mistakes.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "3b581a6c7d18ff7a0263802c1ed2389a7e6f4db10e3fef9e2eaff034f9df9f8c",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-no-mistakes.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "be93229f59624e9f61b814cc89d3727e6c22a2ef3e735617224b42de1a3965d5",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-guide-count.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "d645e553d149e7dcd698d532215e07152ac9dd0196f88e366be0cc2d66c87ee7",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-DELIVERY_DEPTH.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f050fec1e0c5d896d05d84bd0b304dc691b182d9d55f2bac8fe2aeaab9619cf4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-DELIVERY_DEPTH.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "edffc2b37eb05e1fef880317d7bbec366f3fdfb40daf9297d2c0032c74a0b216",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-SIBLINGS_NAMED.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f050fec1e0c5d896d05d84bd0b304dc691b182d9d55f2bac8fe2aeaab9619cf4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-SIBLINGS_NAMED.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "4dad152ffc2f0a40fdd7508ae036809f537774791b9ae2d70914c307b5676fa3",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-STILL_VALID.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f050fec1e0c5d896d05d84bd0b304dc691b182d9d55f2bac8fe2aeaab9619cf4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-STILL_VALID.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "d106f608f7a2dc8e4f79d6ecf5890e38800fafbeb9ebdc2cfa25ecc23e373837",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-VALIDATION_ROUTE.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f050fec1e0c5d896d05d84bd0b304dc691b182d9d55f2bac8fe2aeaab9619cf4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-VALIDATION_ROUTE.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "dd69d55f73b4e00fc92c9c5f64f97b4083738d8a33dcad2073b8252355da53dd",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-forwarding.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f050fec1e0c5d896d05d84bd0b304dc691b182d9d55f2bac8fe2aeaab9619cf4",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-forwarding.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "bda4155d1b11a964135e53e8a8b94055701e1d18ab9fd9bcab0e5b1f91278897",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-mode-matrix.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "f98897ecbcc845486b3da9eb6c8e20b20282b333299ee882361f486f2c2e2e66",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-mode-matrix.input.md.launch-brief.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "c8e7459526c24fe5722d0db891fd34e09951c0678b4ab86d1c86b2d41fb65f9e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-mode-matrix.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-mode-matrix.input.md.tmux.calls",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "c6d61ed44302d4de7fa87ec137ff97a63cd455798a242e7fea17b9bd4b8c5057",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-mode-matrix.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "04ae4b0c7000d2c2c9d3f233e62728081c6ff2165d30fff69938a5ad2517f1b0",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-required-fields.input.md",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "207f2eeb16efe5ed3a2921c647fbb294e4a0e87908f488a5542955ed176d4865",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-required-fields.input.md.locks",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-required-fields.log",
+      "purpose": "Public baseline/fault/restored witness input, raw output or observed allocation artifact",
+      "sha256": "373028d3b2fbf818c0b8f41be389e26d24e53a456deeb7f833a460034b86387e",
+      "provenance": "fixed-head-receipts.txt or correction-and-rebase-receipts.txt binds commands, raw exits and source hashes. Initial witness probe interruption is qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/review-correction-evidence.py",
+      "purpose": "Executed evidence probe implementation or explicitly labelled reconstruction",
+      "sha256": "ff3dccff29d8f96ae0fa8c115871e45c19d0107a182a19772e41e230e66bee7a",
+      "provenance": "Probe scripts executed within this worktree and retained as test evidence. initial-green-driver-reconstructed.sh is newly reconstructed from retained inputs, as qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/review-evidence.py",
+      "purpose": "Executed evidence probe implementation or explicitly labelled reconstruction",
+      "sha256": "589b85f97f68a0cab8efd753782ad862dfe8b2be0965e25c97dbeb3cba1b3583",
+      "provenance": "Probe scripts executed within this worktree and retained as test evidence. initial-green-driver-reconstructed.sh is newly reconstructed from retained inputs, as qualified in witness-probe-errors.txt.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/review-handoff.md",
+      "purpose": "Exact native evidence handoff to the next normal Review, with consumption boundary",
+      "sha256": "3c73fccf8551fc11e3c4fb56805afdfa2fe4f8c61e5cdfcd4846daf545c370f8",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/tier-inventory.txt",
+      "purpose": "Before-edit invariant/caller inventory, post-fix trace or correction provenance",
+      "sha256": "1d126c520c3932b6bdab817a860ab4be3c41b7418340990d168a542b530e0fda",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/witness-probe-errors.txt",
+      "purpose": "Transparent record of probe construction errors, reconstruction and masked observations",
+      "sha256": "a51d9751f6c024920f799bd3b6ceb6c11151f59d0256a8a1de5978644384ad94",
+      "provenance": "Observed in this Fix phase; exact command and per-file bindings are in the named receipts.",
+      "tested_heads": [
+        "6d1948996f1493a42e63a9e4119899fdb162b6a8 plus the working-tree file hashes in the associated receipts"
+      ]
+    }
+  ]
+}

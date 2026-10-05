@@ -1,0 +1,54 @@
+UTC 2026-10-05T09:30:17.744097+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+Dirty status:
+ M tests/fm-task-delivery.test.sh
+?? tests/.review-depth-probe.sh
+Preliminary probe accidentally invoked two existing top-level tests before its selected probe; interrupted exit 130. New driver removes those invocations; receipts below are focused.
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'reader']
+Raw exit 1; log red-full-direct-PR-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'missing']
+Raw exit 1; log red-full-direct-PR-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'malformed']
+Raw exit 1; log red-full-direct-PR-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'mismatch']
+Raw exit 1; log red-full-direct-PR-mismatch.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'reader']
+Raw exit 1; log red-full-no-mistakes-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'missing']
+Raw exit 1; log red-full-no-mistakes-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'malformed']
+Raw exit 1; log red-full-no-mistakes-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'mismatch']
+Raw exit 1; log red-full-no-mistakes-mismatch.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'reader']
+Raw exit 1; log red-surgical-direct-PR-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'missing']
+Raw exit 1; log red-surgical-direct-PR-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'malformed']
+Raw exit 1; log red-surgical-direct-PR-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'mismatch']
+Raw exit 1; log red-surgical-direct-PR-mismatch.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'reader']
+Raw exit 1; log red-surgical-no-mistakes-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'missing']
+Raw exit 1; log red-surgical-no-mistakes-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'malformed']
+Raw exit 1; log red-surgical-no-mistakes-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'mismatch']
+Raw exit 1; log red-surgical-no-mistakes-mismatch.log

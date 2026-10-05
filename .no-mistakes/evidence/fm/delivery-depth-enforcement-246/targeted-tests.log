@@ -1,0 +1,84 @@
+FM_TEST_BEGIN 2026-10-05T10:46:23Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract
+ok - fm-brief: full and surgical scaffolds ask for one authored Delivery depth
+ok - surgical prep: compact scaffold, evidence and closed flag combinations
+ok - fm-brief: both PR paths finish only with current-head green non-draft forge URL
+ok - ship and scout artifacts deliver conditional complete journeys, actual results and diagnostics without hiding placeholders
+ok - fm-brief: batch prep reviewers get two axes and exact approval write paths
+ok - fm-brief.sh: bash -n succeeds
+/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/tmp/fm-test-run.zQ6tNM/w1/tmp/fm-brief.qF33Qi/heredoc-in-substitution.sh:2
+ok - fm-brief.sh: no heredoc is nested inside a command substitution (Bash 3.2 parse-safe)
+ok - fm-brief.sh: --help renders the complete header
+ok - fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly
+ok - fm-brief.sh: ship --mode is required and closed-set validated
+ok - fm-brief.sh: the explicit ship mode wins over the registered posture
+ok - fm-brief.sh: --yolo and scout/secondmate --mode are refused, never silently dropped
+ok - fm-brief.sh: faster paths use configured authority without stacked review
+ok - fm-brief.sh: no-mistakes DOD keeps its apostrophe prose and bans --yes outright
+ok - fm-brief.sh: no-mistakes DOD detects a green PR from the drive call, not a status poll
+ok - fm-brief.sh: PR-based done requires a non-draft PR; a deliberate draft declares a wait
+ok - fm-brief.sh: no-mistakes stop-set findings use one event plus a verbatim snapshot
+ok - fm-brief.sh: ship project-memory wording bounds edits to corrections of wrong information
+ok - fm-brief.sh: --herdr-lab emits the complete hard safety contract
+ok - fm-brief.sh: --herdr-lab uses its quoted Firstmate-owned helper path
+ok - fm-brief.sh: ship and scout scaffolds make omitted Herdr intent fail-visible
+ok - fm-brief.sh: the documented {TASK} and {FIRSTMATE_SPEC} fills cannot corrupt the Herdr safety gate
+ok - fm-brief.sh: Herdr lab contract covers scouts and rejects secondmate misuse
+ok - fm-brief.sh: --no-projects scaffolds a project-less charter and guards misuse
+ok - fm-brief.sh: marked requests avoid generic acknowledgements and preserve material reporting
+ok - fm-brief.sh: relative directory inputs ignore CDPATH, render stable absolute charter paths, or fail loudly
+ok - fm-brief.sh: custom pause verb renders in every scaffold
+ok - fm-brief.sh: ship and scout scaffolds declare a validation-round pause once, then hold it
+ok - fm-brief.sh: investigation and visual-review completions load the shared decision policy
+ok - fm-brief: scout and secondmate code paths still scaffold well-formed briefs
+ok - fm-brief.sh: scout Lavish hosting follows the bootstrap lavish-axi floor
+ok - fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one
+ok - fm-brief.sh: --help lists the tier rules and every section the record scaffolds
+ok - fm-brief.sh: --prep refuses brief flags and extra positionals
+ok - fm-brief: workers end the turn on a decision, wait in one bounded shell command, and never poll
+ok - fm-brief: without config/wait-no-turns the brief and drive text stay as they were
+ok - fm-brief.sh: the home brief include lands last on ship and scout, verbatim, and fails closed
+ok - fm-brief.sh: --branch-prefix omitted defaults every ship mode to fm/<task-id>
+ok - fm-brief.sh: a --branch-prefix override renders identically across every generated section
+ok - fm-brief.sh: an empty --branch-prefix override resolves to a bare <task-id> branch
+ok - fm-brief.sh: --branch-prefix is refused on scout and secondmate scaffolds
+ok - fm-brief.sh: --branch-prefix value is validated against embedded spaces and a leading dash
+not ok - a ref-format-valid metacharacter prefix should scaffold safely
+FM_TEST_END 2026-10-05T10:47:09Z tests/fm-brief.test.sh exit=1 duration_ms=45549 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T10:47:09Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines
+ok - fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions
+ok - both prep formats require current-work checks and only substantive proceed is dispatchable
+ok - supported headings, tables, fences and guide blocks end paragraphs; prose/list continuations retain context
+ok - all author fields accept concrete/literal continuations and refuse incomplete values or examples; raw intent stays cleaned
+ok - indented executable blocks and odd escaped openers retain bytes; prose and real comments clean normally
+ok - literal specification survives public admission, execution, spawn and both promotion artifacts; indented tables cannot supply outcomes
+ok - promotion relaunch replaces generated overlays with current complete specification in every delivery mode
+ok - common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal
+ok - both executable preparation scaffolds carry common author checks and outcomes
+ok - preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments
+ok - inline code preserves literal comment bytes across delimiter forms and preparation readers
+ok - inline lookahead distinguishes structural tables and paragraph interruptions from literal command prefixes
+ok - pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts
+FM_TEST_END 2026-10-05T10:57:17Z tests/fm-task-delivery.test.sh exit=143 duration_ms=608234 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T10:57:17Z tests/fm-prep-install.test.sh family=unclassified expected_gate_skip=none
+ok - large-full-appendix: pipefail preserves both depths, tier, completeness and installation
+ok - large-full-tier: pipefail preserves both depths, tier, completeness and installation
+ok - large-surgical-appendix: pipefail preserves both depths, tier, completeness and installation
+ok - large-surgical-tier: pipefail preserves both depths, tier, completeness and installation
+ok - nav-prep: complete compact bytes install unchanged; uncertainty does not install
+ok - fm-prep-install.sh: bash -n succeeds
+ok - fm-prep-install.sh: copies a filled nav-prep into data/<id>/prep.md
+ok - fm-prep-install.sh: refuses a filled destination unless --force
+ok - fm-prep-install.sh: replaces an empty local --prep scaffold
+ok - fm-prep-install.sh: refuses a missing or unfilled source
+ok - fm-spawn: names a filled nav-prep on prep refusal and never auto-installs
+ok - nav-prep: byte-identical complete preparation admits without review; malformed common fields do not install
+# all fm-prep-install tests passed
+FM_TEST_END 2026-10-05T11:04:21Z tests/fm-prep-install.test.sh exit=0 duration_ms=423846 gate_skip=false
+FM_TEST_SUMMARY total=3 failed=2 skipped_gate=0 duration_ms=1078221
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=2 duration_ms=653783 failed=2
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=423846 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=608234
+FM_TEST_SLOWEST rank=2 script=tests/fm-prep-install.test.sh duration_ms=423846
+FM_TEST_SLOWEST rank=3 script=tests/fm-brief.test.sh duration_ms=45549

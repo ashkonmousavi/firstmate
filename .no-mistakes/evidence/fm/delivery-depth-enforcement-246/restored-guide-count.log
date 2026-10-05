@@ -1,0 +1,203 @@
+ok - fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one
++ test_prep_scaffolds_the_preparation_record
++ local home prep out status term
++ home=/tmp/fm-brief.ySWaoE/prep-scaffold
++ mkdir -p /tmp/fm-brief.ySWaoE/prep-scaffold/data
++ prep=/tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
+++ FM_HOME=/tmp/fm-brief.ySWaoE/prep-scaffold
+++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh prep-a1 --prep
++ out='scaffolded: /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)'
++ status=0
++ expect_code 0 0 '--prep should scaffold (got: scaffolded: /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes))'
++ local expected=0 actual=0 'label=--prep should scaffold (got: scaffolded: /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes))'
++ '[' 0 = 0 ']'
++ assert_present /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md '--prep wrote no preparation record'
++ '[' -e /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md ']'
++ assert_absent /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/brief.md '--prep also wrote a brief'
++ '[' '!' -e /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/brief.md ']'
++ assert_contains 'scaffolded: /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)' prep-a1/prep.md '--prep did not name the record it wrote'
++ case "$1" in
++ :
++ assert_grep '## Tier' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its tier header'
++ grep -F -- '## Tier' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '- Q1 does this change alter what a user sees or can do: {Q1}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record'\''s tier header does not ask Q1 with a placeholder to answer'
++ grep -F -- '- Q1 does this change alter what a user sees or can do: {Q1}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '- Q2 does this change touch a shared module or a contract: {Q2}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record'\''s tier header does not ask Q2 with a placeholder to answer'
++ grep -F -- '- Q2 does this change touch a shared module or a contract: {Q2}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '- UI wiring: {UI_WIRING}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record'\''s tier header does not ask the UI wiring question with a placeholder to answer'
++ grep -F -- '- UI wiring: {UI_WIRING}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_no_grep 'Reason: {Q' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'full prep emitted surgical reason placeholders no gate validates'
++ grep -F -- 'Reason: {Q' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'yes, <the step and control the user meets>' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not give the UI wiring answer its required yes format'
++ grep -F -- 'yes, <the step and control the user meets>' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'no, <why the user never meets this change>' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not give the UI wiring answer its required no format'
++ grep -F -- 'no, <why the user never meets this change>' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'lets a user configure or choose something is always yes' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not give the worked example of a UI wiring yes'
++ grep -F -- 'lets a user configure or choose something is always yes' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'a yes is tier 2 whatever Q1 and Q2 say' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not say a UI wiring yes forces tier 2'
++ grep -F -- 'a yes is tier 2 whatever Q1 and Q2 say' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
+++ grep -n '^## Tier$' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
+++ cut -d: -f1
+++ cut -d: -f1
+++ grep -n '^## 1\.' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ '[' 3 -lt 54 ']'
++ assert_grep 'All no: retain tier 1 sections' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not retain sections and review for all-no full prep'
++ grep -F -- 'All no: retain tier 1 sections' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 1. Intent and boxes' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its intent section'
++ grep -F -- '## 1. Intent and boxes' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 2. Behaviour spec' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its behaviour spec'
++ grep -F -- '## 2. Behaviour spec' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 3. UI/UX' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its UI/UX section'
++ grep -F -- '## 3. UI/UX' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 4. Blast radius' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its blast radius'
++ grep -F -- '## 4. Blast radius' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 5. Data and contracts' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its data and contracts'
++ grep -F -- '## 5. Data and contracts' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 6. Tests' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its tests section'
++ grep -F -- '## 6. Tests' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 7. Records' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its records section'
++ grep -F -- '## 7. Records' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 8. Out of scope and follow-ups' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its out-of-scope section'
++ grep -F -- '## 8. Out of scope and follow-ups' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 9. Risks, dependencies, merge order' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its risks section'
++ grep -F -- '## 9. Risks, dependencies, merge order' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 10. Demo receipt plan' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its demo receipt plan'
++ grep -F -- '## 10. Demo receipt plan' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 11. Definition of done' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its definition of done'
++ grep -F -- '## 11. Definition of done' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 12. Size' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record lost its size section'
++ grep -F -- '## 12. Size' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '{INTENT_AND_BOXES}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record section 1 carries no placeholder to replace'
++ grep -F -- '{INTENT_AND_BOXES}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '{BEHAVIOUR_SPEC}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record section 2 carries no placeholder to replace'
++ grep -F -- '{BEHAVIOUR_SPEC}' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'n/a: <one-line reason>' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not offer the n/a answer that keeps a small change small'
++ grep -F -- 'n/a: <one-line reason>' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ grep -c '^<!-- ' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ grep -qx 26
++ assert_grep 'task item this work completes in the project'\''s own record' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not point at the project'\''s own task record'
++ grep -F -- 'task item this work completes in the project'\''s own record' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'record and clear the pending integration' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not account for components that land before their consumer'
++ grep -F -- 'record and clear the pending integration' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'START WITH THE COMPONENT CHECK' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not open the UI/UX section with the component check'
++ grep -F -- 'START WITH THE COMPONENT CHECK' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'matching component and its path in the project'\''s design system or UI record' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not ask the UI/UX section to name the matching component and its path'
++ grep -F -- 'matching component and its path in the project'\''s design system or UI record' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'project'\''s required visual comparison and states' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not ask for the project'\''s own visual receipt'
++ grep -F -- 'project'\''s required visual comparison and states' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep V4 /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: V4'
++ grep -F -- V4 /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep traveling-layer /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: traveling-layer'
++ grep -F -- traveling-layer /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep 'Explain on' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: Explain on'
++ grep -F -- 'Explain on' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep 'Explain off' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: Explain off'
++ grep -F -- 'Explain off' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep 'Change box' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: Change box'
++ grep -F -- 'Change box' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep log-book /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: log-book'
++ grep -F -- log-book /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep unwired-export /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: unwired-export'
++ grep -F -- unwired-export /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in V4 traveling-layer 'Explain on' 'Explain off' 'Change box' log-book unwired-export kit
++ assert_no_grep kit /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record still carries project-specific vocabulary: kit'
++ grep -F -- kit /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'PASTE TOOL OUTPUT, not prose' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not tell the author the blast radius is tool output'
++ grep -F -- 'PASTE TOOL OUTPUT, not prose' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'gitnexus impact' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not name the impact tool the blast radius owes'
++ grep -F -- 'gitnexus impact' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep find_referencing_symbols /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not name the caller tool a signature change owes'
++ grep -F -- find_referencing_symbols /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'claude-context semantic search only when a name is unknown' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not bound when semantic search replaces the two tools'
++ grep -F -- 'claude-context semantic search only when a name is unknown' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'primary-source citations' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing primary-source citations'
++ grep -F -- 'primary-source citations' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep module /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing module'
++ grep -F -- module /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'public seams' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing public seams'
++ grep -F -- 'public seams' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'deletion test' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing deletion test'
++ grep -F -- 'deletion test' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'changed-file/test-module mapping' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing changed-file/test-module mapping'
++ grep -F -- 'changed-file/test-module mapping' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'real installation' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing real installation'
++ grep -F -- 'real installation' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'already on the base' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing already on the base'
++ grep -F -- 'already on the base' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'agent instructions/skills/tool docs' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing agent instructions/skills/tool docs'
++ grep -F -- 'agent instructions/skills/tool docs' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'journeys/user docs' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing journeys/user docs'
++ grep -F -- 'journeys/user docs' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep reference/help/changelog /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing reference/help/changelog'
++ grep -F -- reference/help/changelog /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep FINALIZE-AFTER /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing FINALIZE-AFTER'
++ grep -F -- FINALIZE-AFTER /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'evidence class' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing evidence class'
++ grep -F -- 'evidence class' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ for term in 'primary-source citations' 'module' 'public seams' 'deletion test' 'changed-file/test-module mapping' 'real installation' 'already on the base' 'agent instructions/skills/tool docs' 'journeys/user docs' 'reference/help/changelog' 'FINALIZE-AFTER' 'evidence class' 'no marker whose trigger has landed'
++ assert_grep 'no marker whose trigger has landed' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep guide missing no marker whose trigger has landed'
++ grep -F -- 'no marker whose trigger has landed' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '<!-- tier 1+.' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record sections do not say which tier requires them'
++ grep -F -- '<!-- tier 1+.' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '<!-- tier 2+.' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md 'prep record does not mark its tier-2-only sections'
++ grep -F -- '<!-- tier 2+.' /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md
+++ FM_HOME=/tmp/fm-brief.ySWaoE/prep-scaffold
+++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh prep-a1 --prep
++ out='error: /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md already exists'
++ status=1
++ '[' 1 -ne 0 ']'
++ assert_contains 'error: /tmp/fm-brief.ySWaoE/prep-scaffold/data/prep-a1/prep.md already exists' 'already exists' '--prep overwrite refusal did not say why'
++ case "$1" in
++ :
++ pass 'fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one'
++ printf 'ok - %s\n' 'fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one'
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3377843.3yWd0R ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3377843.3yWd0R
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3377843.BlQDH4 ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3377843.BlQDH4
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3377843.j56ViU ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-brief.ySWaoE ']'
++ fm_test_remove_tree /tmp/fm-brief.ySWaoE
++ local dir=/tmp/fm-brief.ySWaoE
++ '[' -d /tmp/fm-brief.ySWaoE ']'
++ '[' '!' -L /tmp/fm-brief.ySWaoE ']'
++ find /tmp/fm-brief.ySWaoE -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-brief.ySWaoE
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3377843.j56ViU

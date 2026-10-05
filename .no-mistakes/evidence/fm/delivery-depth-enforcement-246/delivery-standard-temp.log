@@ -1,0 +1,94 @@
+FM_TEST_BEGIN 2026-10-05T10:57:11Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines
+ok - fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions
+ok - both prep formats require current-work checks and only substantive proceed is dispatchable
+ok - supported headings, tables, fences and guide blocks end paragraphs; prose/list continuations retain context
+ok - all author fields accept concrete/literal continuations and refuse incomplete values or examples; raw intent stays cleaned
+ok - indented executable blocks and odd escaped openers retain bytes; prose and real comments clean normally
+ok - literal specification survives public admission, execution, spawn and both promotion artifacts; indented tables cannot supply outcomes
+ok - promotion relaunch replaces generated overlays with current complete specification in every delivery mode
+ok - common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal
+ok - both executable preparation scaffolds carry common author checks and outcomes
+ok - preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments
+ok - inline code preserves literal comment bytes across delimiter forms and preparation readers
+ok - inline lookahead distinguishes structural tables and paragraph interruptions from literal command prefixes
+ok - pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts
+ok - promotion hands both artifacts the complete preparation in every mode without gating legacy records
+ok - fm-spawn: section 8 owes sentinel grep evidence or an explicit n/a reason
+ok - optional batch receipts and stale artifacts never select the accepted specification
+ok - legacy install declarations have no admission effect and cannot bypass completeness
+ok - surgical certainty: complete evidence admits with outcomes; uncertainty and contradictions fail closed
+ok - full commented no-mistakes/live direct-PR: reader
+ok - full commented no-mistakes/live direct-PR: missing
+ok - full commented no-mistakes/live direct-PR: malformed
+ok - full commented no-mistakes/live direct-PR: mismatch
+ok - full commented no-mistakes/live direct-PR: matched
+ok - full commented no-mistakes/live direct-PR: local
+ok - full commented direct-PR/live no-mistakes: reader
+ok - full commented direct-PR/live no-mistakes: missing
+ok - full commented direct-PR/live no-mistakes: malformed
+ok - full commented direct-PR/live no-mistakes: mismatch
+ok - full commented direct-PR/live no-mistakes: matched
+ok - full commented direct-PR/live no-mistakes: local
+ok - surgical commented no-mistakes/live direct-PR: reader
+ok - surgical commented no-mistakes/live direct-PR: missing
+ok - surgical commented no-mistakes/live direct-PR: malformed
+ok - surgical commented no-mistakes/live direct-PR: mismatch
+ok - surgical commented no-mistakes/live direct-PR: matched
+ok - surgical commented no-mistakes/live direct-PR: local
+ok - surgical commented direct-PR/live no-mistakes: reader
+ok - surgical commented direct-PR/live no-mistakes: missing
+ok - surgical commented direct-PR/live no-mistakes: malformed
+ok - surgical commented direct-PR/live no-mistakes: mismatch
+ok - surgical commented direct-PR/live no-mistakes: matched
+ok - surgical commented direct-PR/live no-mistakes: local
+ok - delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend
+ok - delivery depth: full and surgical malformed declarations refuse; canonical restored answers pass
+ok - fm-spawn: a ship spawn requires a valid explicit mode and yolo before anything is created
+ok - fm-spawn: scout and secondmate spawns refuse ship delivery flags
+ok - fm-spawn: the brief's recorded mode and the spawn's explicit mode must agree
+ok - fm-spawn: a rigor downgrade against the registered posture is announced, never blocked
+ok - fm-spawn: a scout spawn resolves no delivery posture from the registry
+ok - fm-promote: promotion requires the delivery contract and records it exactly once
+ok - fm-promote: a symlinked task record is refused and its target is left untouched
+ok - fm-promote: a promoted worker receives the same mode-specific delivery contract a briefed one does
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ok - fm-promote: a selected branch prefix reaches both worker instructions and durable task state
+Switched to a new branch '$(touch${IFS}/tmp/fm-task-delivery.YMF17y/promote-branch-shell-safe-marker)/promote-branch-safe-e3'
+ok - fm-promote: ref-format-valid shell metacharacters stay literal in promotion branch commands
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ok - fm-merge-local: a registry change cannot redirect an in-flight local-only task
+ok - fm-project-mode: the registry lookup matches a whole multi-word name, not just its first token
+ok - fm-project-mode: the conditional policy is accepted, mapped for mechanical callers, and readable raw
+ok - fm-project-mode: the forge binds from its own token and is reported only through --forge
+ok - fm-project-mode: only a malformed forge binding refuses; every other token keeps its old tolerance
+ok - forge=gerrit: yolo is refused with its reason, never silently dropped
+ok - forge=gerrit: no-mistakes runs with its forge steps skipped, recovers its fixes, then publishes one change
+ok - forge=gerrit: direct-PR publishes one squashed change and a stack is refused with its reason
+ok - fm-spawn: a registered forge must reach the worker's brief
+ok - fm-spawn: the brief must carry the spawn's selected ship branch, and the selection is validated before anything is created
+ok - fm-spawn: a ship branch that deviates from the registered prefix is announced, never blocked
+ok - fm-spawn: a registry forge token the parser refuses stops the launch, reason included
+ok - fm-promote: a promoted worker receives the project's registered forge contract with no flag to remember
+ok - fm-spawn/fm-promote: leftover Task placeholders are refused until both subsections are filled
+ok - fm-spawn: a ship launch requires an answered task preparation record, and a scout never is
+ok - fm-spawn: every mode and tier admits complete preparation without review receipts
+ok - fm-spawn: a no-mistakes launch brief hands over the outcome table, behaviour spec and definition of done apart from, and before, the captain's words
+ok - fm-project-mode: --branch-prefix resolves order-independently and defaults to the legacy fm/ prefix
+# all fm-task-delivery tests passed
+FM_TEST_END 2026-10-05T11:18:18Z tests/fm-task-delivery.test.sh exit=0 duration_ms=1267352 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=1267575
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=1 duration_ms=1267352 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=1267352

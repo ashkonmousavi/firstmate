@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-10-05T10:33:14.440717+00:00",
+  "head": "c0e4a75f94f248edeedb3892e3b381a995fcb8cc",
+  "status": " M bin/fm-dod-lib.sh\n M tests/fm-prep-install.test.sh\n",
+  "red": {
+    "command": "bash tests/.pipefail-probe.sh",
+    "raw_exit": 1,
+    "production": "starting-production.sh",
+    "dirty_test": "tested-install-subject.sh",
+    "output": "red.txt"
+  },
+  "surgical_red": {
+    "command": "bash tests/.pipefail-probe.sh",
+    "script": "surgical-reproduction.sh",
+    "raw_exit": 0,
+    "observed_valid_install_exit": 1,
+    "observed_invalid_completeness_exit": 1,
+    "observed_invalid_install_exit": 0,
+    "output": "surgical-red.txt"
+  },
+  "focused_green": {
+    "command": "bash bin/fm-test-run.sh tests/fm-prep-install.test.sh",
+    "production": "tested-library.sh",
+    "subject": "tested-install-subject.sh",
+    "output": "green.txt",
+    "raw_exit_file": "green.exit",
+    "note": "Canonical execution covered 1 MiB streams and all existing subject cases before adding the explicit parent-exit guard; tested-install-subject.sh binds those exact test bytes."
+  },
+  "prior_manifest_sha256": "b184a0ed5c843c5de06f916cca918ed0d91f535f2910403fca1c518c0d4a7460",
+  "accepted_verification_plan_sha256": "20bd33075259aed0ac76d6824d3f7456fa01ef94652ce6a61b05d62290bf66d7",
+  "fault": {
+    "command": "bash tests/fm-prep-install.test.sh",
+    "production": "fault-library.sh",
+    "subject": "final-install-subject.sh",
+    "output": "fault.txt",
+    "raw_exit_file": "fault.exit",
+    "mutation": "Restore only the cleaner-to-heading pipe; retain both draining consumers."
+  },
+  "restored": {
+    "command": "bash tests/.pipefail-probe.sh",
+    "script": "final-focused-probe.sh",
+    "production": "tested-library.sh",
+    "subject": "final-install-subject.sh",
+    "output": "restored.txt",
+    "raw_exit_file": "restored.exit",
+    "stream_size_bytes": 131072,
+    "note": "Same regression function and explicit failure guard; reduced stream size remains larger than pipe capacity. Library restored byte for byte."
+  }
+}

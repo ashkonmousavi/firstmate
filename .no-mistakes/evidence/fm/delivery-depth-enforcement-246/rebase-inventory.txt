@@ -1,0 +1,23 @@
+New reconstruction, not historical observation. UTC 2026-10-05T09:26:32.293291+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+Authored 4bdcad3c7e0240cb90872fa6a608d35944b3ba7c
+Original parent 24be0cf91eab4b4e40445a484a8463b6c2d5dc72
+Rebase target 60cf89d451784d16623b4dbfa78ffedcde1bd871
+Accepted prep SHA-256 20bd33075259aed0ac76d6824d3f7456fa01ef94652ce6a61b05d62290bf66d7
+Command ['git', 'show', '60cf89d451784d16623b4dbfa78ffedcde1bd871:tests/fm-brief.test.sh']; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.upstream; SHA-256 9e30f85a3bddf4c7be1cfe4b919b78e8d978fc0e37cdd8449baa7aebf1dd1d70
+Command ['git', 'show', '24be0cf91eab4b4e40445a484a8463b6c2d5dc72:tests/fm-brief.test.sh']; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.ancestor; SHA-256 ce99ce9afb6264cb2847fccf5ad8866c7e77722abe333c9bef3f3732e9b2d53e
+Command ['git', 'show', '4bdcad3c7e0240cb90872fa6a608d35944b3ba7c:tests/fm-brief.test.sh']; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.authored; SHA-256 557d2e0d7dd364badd7cd38b5dec5bb7b4b0969f47798f9cfeac97dee5cb7d69
+Command ['git', 'merge-file', '-p', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.upstream', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.ancestor', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.authored']; raw exit 1; stderr ''; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.reconstructed-conflict
+tests/fm-brief.test.sh: 1 conflict hunk(s)
+  marker 1234: <<<<<<< /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.upstream
+  marker 1237: =======
+  marker 1240: >>>>>>> /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fm-brief.test.sh.authored
+Command ['git', 'show', '60cf89d451784d16623b4dbfa78ffedcde1bd871:tests/prep-record-helper.sh']; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.upstream; SHA-256 065bc98837e1cab70285d66facd623bd421e823cd4682505e09dec1f56ab7ebc
+Command ['git', 'show', '24be0cf91eab4b4e40445a484a8463b6c2d5dc72:tests/prep-record-helper.sh']; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.ancestor; SHA-256 61887e3d10f3ee08f4701637f886c88f2c361eeecc83167e6d59ee69b9d67775
+Command ['git', 'show', '4bdcad3c7e0240cb90872fa6a608d35944b3ba7c:tests/prep-record-helper.sh']; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.authored; SHA-256 ffee07f05b2616c52ad20bf8433002aceceeb5c23992be46e26be4e6ef5d0b10
+Command ['git', 'merge-file', '-p', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.upstream', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.ancestor', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.authored']; raw exit 1; stderr ''; output /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.reconstructed-conflict
+tests/prep-record-helper.sh: 1 conflict hunk(s)
+  marker 42: <<<<<<< /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.upstream
+  marker 50: =======
+  marker 62: >>>>>>> /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/prep-record-helper.sh.authored
+Current git ls-files -u:

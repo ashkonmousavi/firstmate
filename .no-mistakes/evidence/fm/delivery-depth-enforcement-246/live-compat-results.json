@@ -1,0 +1,86 @@
+[
+  {
+    "name": "large-full-direct-PR-tier",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 137611 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-full-direct-PR-appendix",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 137624 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-full-no-mistakes-tier",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 137620 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-full-no-mistakes-appendix",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 137633 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-surgical-direct-PR-tier",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 134228 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-surgical-direct-PR-appendix",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 134241 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-surgical-no-mistakes-tier",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 134237 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "large-surgical-no-mistakes-appendix",
+    "result": "pass",
+    "live": true,
+    "detail": "Reader and completeness survive pipefail on 134250 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep."
+  },
+  {
+    "name": "Scout omits prep and reaches real backend",
+    "result": "pass",
+    "live": true,
+    "detail": "No preparation exists; scout renders launch brief then real tmux refuses only its absent private socket."
+  },
+  {
+    "name": "Scout still rejects ship mode flags",
+    "result": "pass",
+    "live": true,
+    "detail": "Existing explicit --mode refusal remains unchanged."
+  },
+  {
+    "name": "Secondmate bypasses depth and retains role and home guards",
+    "result": "pass",
+    "live": true,
+    "detail": "With no prep, --mode refuses as ship-only; without it the existing in-repository home restriction refuses, rather than new depth validation."
+  },
+  {
+    "name": "Recorded direct-PR recovery omits prep",
+    "result": "pass",
+    "live": true,
+    "detail": "Real tmux reports an agent-free shell; relaunch preserves recorded mode and renders launch brief without prep or accepted-spec overlay, then existing primary-copy isolation guard refuses before any agent launch."
+  },
+  {
+    "name": "Recorded no-mistakes recovery omits prep",
+    "result": "pass",
+    "live": true,
+    "detail": "Real tmux reports an agent-free shell; relaunch preserves recorded mode and renders launch brief without prep or accepted-spec overlay, then existing primary-copy isolation guard refuses before any agent launch."
+  },
+  {
+    "name": "Recorded local-only recovery omits prep",
+    "result": "pass",
+    "live": true,
+    "detail": "Real tmux reports an agent-free shell; relaunch preserves recorded mode and renders launch brief without prep or accepted-spec overlay, then existing primary-copy isolation guard refuses before any agent launch."
+  }
+]

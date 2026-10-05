@@ -1,0 +1,334 @@
+
+red-receipts.txt
+UTC 2026-10-05T09:30:17.744097+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+Dirty status:
+ M tests/fm-task-delivery.test.sh
+?? tests/.review-depth-probe.sh
+Preliminary probe accidentally invoked two existing top-level tests before its selected probe; interrupted exit 130. New driver removes those invocations; receipts below are focused.
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'reader']
+Raw exit 1; log red-full-direct-PR-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'missing']
+Raw exit 1; log red-full-direct-PR-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-missing.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'malformed']
+Raw exit 1; log red-full-direct-PR-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-malformed.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'direct-PR', 'mismatch']
+Raw exit 1; log red-full-direct-PR-mismatch.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'reader']
+Raw exit 1; log red-full-no-mistakes-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'missing']
+Raw exit 1; log red-full-no-mistakes-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-missing.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'malformed']
+Raw exit 1; log red-full-no-mistakes-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-malformed.input.md']
+Raw exit 1; output ''; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'full', 'no-mistakes', 'mismatch']
+Raw exit 1; log red-full-no-mistakes-mismatch.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'reader']
+Raw exit 1; log red-surgical-direct-PR-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'missing']
+Raw exit 1; log red-surgical-direct-PR-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-missing.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'malformed']
+Raw exit 1; log red-surgical-direct-PR-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-malformed.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'direct-PR', 'mismatch']
+Raw exit 1; log red-surgical-direct-PR-mismatch.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'reader']
+Raw exit 1; log red-surgical-no-mistakes-reader.log
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'missing']
+Raw exit 1; log red-surgical-no-mistakes-missing.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-missing.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'malformed']
+Raw exit 1; log red-surgical-no-mistakes-malformed.log
+['bash', '-c', '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"', '_', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md']
+Raw exit 0; output 'tier 1 requires ## 1. Intent and boxes, which is missing from /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-malformed.input.md\n'; expected exit 0 names Delivery depth
+['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-surgical-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'surgical', 'no-mistakes', 'mismatch']
+Raw exit 1; log red-surgical-no-mistakes-mismatch.log
+
+
+fixed-head-receipts.txt
+UTC 2026-10-05T09:33:39.489033+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+Dirty status:
+ M bin/fm-dod-lib.sh
+ M tests/fm-task-delivery.test.sh
+?? tests/.review-brief-probe.sh
+?? tests/.review-depth-probe.sh
+UTC 2026-10-05T09:33:50.498686+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'direct-PR']
+Raw exit 0; expected 0; log green-full-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:34:03.724678+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-full-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'no-mistakes']
+Raw exit 0; expected 0; log green-full-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:34:12.271077+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR']
+Raw exit 0; expected 0; log green-surgical-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:34:22.977797+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-surgical-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes']
+Raw exit 0; expected 0; log green-surgical-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:34:37.695300+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_mode_matrix']
+Raw exit 0; expected 0; log green-mode-matrix.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:37.991423+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-required-fields.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_required_full_and_surgical']
+Raw exit 0; expected 0; log green-required-fields.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:38.788530+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-guide-count.input.md', 'bash', 'tests/.review-brief-probe.sh', 'test_prep_scaffolds_the_preparation_record']
+Raw exit 0; expected 0; log green-guide-count.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:39.964726+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-helper-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 0; expected 0; log green-helper-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:41.189854+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-helper-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'no-mistakes']
+Raw exit 0; expected 0; log green-helper-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:41.765289+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'direct-PR', 'reader']
+Raw exit 1; expected 1; log fault-context-full-direct-PR-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:46.921784+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'direct-PR', 'mismatch']
+Raw exit 1; expected 1; log fault-context-full-direct-PR-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:47.432581+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'no-mistakes', 'reader']
+Raw exit 1; expected 1; log fault-context-full-no-mistakes-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:51.527010+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-full-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'no-mistakes', 'mismatch']
+Raw exit 1; expected 1; log fault-context-full-no-mistakes-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:52.259574+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'reader']
+Raw exit 1; expected 1; log fault-context-surgical-direct-PR-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:55.011132+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'mismatch']
+Raw exit 1; expected 1; log fault-context-surgical-direct-PR-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:55.919721+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'reader']
+Raw exit 1; expected 1; log fault-context-surgical-no-mistakes-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:35:58.215681+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-context-surgical-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'mismatch']
+Raw exit 1; expected 1; log fault-context-surgical-no-mistakes-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:36:07.327375+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'direct-PR']
+Raw exit 0; expected 0; log restored-context-full-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:36:19.720337+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-full-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'no-mistakes']
+Raw exit 0; expected 0; log restored-context-full-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:36:35.267401+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR']
+Raw exit 0; expected 0; log restored-context-surgical-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:36:48.528756+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-context-surgical-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes']
+Raw exit 0; expected 0; log restored-context-surgical-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:36:54.711169+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'direct-PR', 'mismatch']
+Raw exit 1; expected 1; log fault-comparison-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': '4c8f73a17d946bc8d4ab356c50147bddcb65e19d2c53d0e6767912f9a96e4cba', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:36:58.122149+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-comparison-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'full', 'no-mistakes', 'mismatch']
+Raw exit 1; expected 1; log fault-comparison-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': '4c8f73a17d946bc8d4ab356c50147bddcb65e19d2c53d0e6767912f9a96e4cba', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:37:13.493621+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-mode-matrix.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_mode_matrix']
+Raw exit 0; expected 0; log restored-mode-matrix.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:37:14.875919+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-required-depth.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_required_full_and_surgical']
+Raw exit 1; expected 1; log fault-required-depth.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '683567857a774ae091a7fba58834842e783caeeb00ffc9faf2d674d81dea01aa', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:38:22.988111+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-required-fields.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_required_full_and_surgical']
+Raw exit 0; expected 0; log restored-required-fields.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+Final restored SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+All original fixed bytes restored: True
+Unexpected outcomes: []
+
+
+correction-and-rebase-receipts.txt
+UTC 2026-10-05T09:40:12.682321+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+Dirty status:
+ M bin/fm-dod-lib.sh
+ M tests/fm-task-delivery.test.sh
+?? tests/.review-brief-probe.sh
+?? tests/.review-depth-probe.sh
+UTC 2026-10-05T09:40:13.354001+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'reader']
+Raw exit 1; expected 1; log corrected-red-surgical-direct-PR-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:13.962536+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'missing']
+Raw exit 1; expected 1; log corrected-red-surgical-direct-PR-missing.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:14.745388+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing-completeness.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_completeness_input', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md']
+Raw exit 1; expected 1; log corrected-red-surgical-direct-PR-missing-completeness.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:15.356420+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'malformed']
+Raw exit 1; expected 1; log corrected-red-surgical-direct-PR-malformed.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:16.096219+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed-completeness.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_completeness_input', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-malformed.input.md']
+Raw exit 1; expected 1; log corrected-red-surgical-direct-PR-malformed-completeness.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:24.866265+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'mismatch']
+Raw exit 1; expected 1; log corrected-red-surgical-direct-PR-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:25.650878+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'reader']
+Raw exit 1; expected 1; log corrected-red-surgical-no-mistakes-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:26.453999+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'missing']
+Raw exit 1; expected 1; log corrected-red-surgical-no-mistakes-missing.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:27.952624+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing-completeness.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_completeness_input', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-missing.input.md']
+Raw exit 1; expected 1; log corrected-red-surgical-no-mistakes-missing-completeness.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:29.314473+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'malformed']
+Raw exit 1; expected 1; log corrected-red-surgical-no-mistakes-malformed.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:31.005333+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed-completeness.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_completeness_input', '/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-malformed.input.md']
+Raw exit 1; expected 1; log corrected-red-surgical-no-mistakes-malformed-completeness.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:35.107699+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'mismatch']
+Raw exit 1; expected 1; log corrected-red-surgical-no-mistakes-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '2dc523b84bb633831173016e35e2287e994a89ebc18b6f3ae718c31edaf44720', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:40:46.193084+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR']
+Raw exit 0; expected 0; log corrected-green-surgical-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:05.119316+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-green-surgical-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes']
+Raw exit 0; expected 0; log corrected-green-surgical-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:06.127277+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'reader']
+Raw exit 1; expected 1; log corrected-fault-context-surgical-direct-PR-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:15.001330+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-direct-PR-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR', 'mismatch']
+Raw exit 1; expected 1; log corrected-fault-context-surgical-direct-PR-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:16.324435+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-reader.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'reader']
+Raw exit 1; expected 1; log corrected-fault-context-surgical-no-mistakes-reader.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:20.538171+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes', 'mismatch']
+Raw exit 1; expected 1; log corrected-fault-context-surgical-no-mistakes-mismatch.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': '79ccba4a2ad9a762ddd97a45ea482dec8787ffe713f7a16a119ed1fd41f42d0a', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:33.371381+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-direct-PR.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'direct-PR']
+Raw exit 0; expected 0; log corrected-restored-surgical-direct-PR.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:47.731815+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-restored-surgical-no-mistakes.input.md', 'bash', 'tests/.review-depth-probe.sh', 'test_depth_commented_tier', 'surgical', 'no-mistakes']
+Raw exit 0; expected 0; log corrected-restored-surgical-no-mistakes.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:48.218741+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-guide-count.input.md', 'bash', 'tests/.review-brief-probe.sh', 'test_prep_scaffolds_the_preparation_record']
+Raw exit 1; expected 1; log fault-guide-count.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'c57aa16cae65587d364429f81e9696e83667e88623b86c4d67fa27dc1bb68248', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:49.760092+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-guide-count.input.md', 'bash', 'tests/.review-brief-probe.sh', 'test_prep_scaffolds_the_preparation_record']
+Raw exit 0; expected 0; log restored-guide-count.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:51.157807+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-STILL_VALID.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 1; expected 1; log fault-helper-STILL_VALID.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': 'acef7354177437e774d7b4ac66a14730e7e4a3090a7a1d320653ce1b4d8ee592', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:53.300878+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-STILL_VALID.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 0; expected 0; log restored-helper-STILL_VALID.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:55.446186+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-SIBLINGS_NAMED.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 1; expected 1; log fault-helper-SIBLINGS_NAMED.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': 'e8e7d76ff42049daaec109158f492ad60fd343cb569a28afdbc26f63f3aa3c12', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:57.758232+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-SIBLINGS_NAMED.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 0; expected 0; log restored-helper-SIBLINGS_NAMED.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:41:58.458698+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-VALIDATION_ROUTE.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 1; expected 1; log fault-helper-VALIDATION_ROUTE.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': 'e49baac6b729877d4a965cafeb32d8eeee34863e2e9d402e91edf2e25ee7562d', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:42:00.071007+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-VALIDATION_ROUTE.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 0; expected 0; log restored-helper-VALIDATION_ROUTE.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:42:00.865115+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-DELIVERY_DEPTH.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 1; expected 1; log fault-helper-DELIVERY_DEPTH.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '0c6e200d1bb402b52eb1d757ce3042da44b13d4af90338130d5c1c114f52b1f6', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:42:02.229622+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-DELIVERY_DEPTH.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 0; expected 0; log restored-helper-DELIVERY_DEPTH.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:42:02.704807+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-forwarding.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 1; expected 1; log fault-helper-forwarding.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': 'a2816eb1b5fb16907f3e146ef16a42c888ba2b177d5d5a4f5f7565a83e7e6c59', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+UTC 2026-10-05T09:42:03.881302+00:00
+Command ['env', 'REVIEW_INPUT=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/restored-helper-forwarding.input.md', 'bash', 'tests/.review-depth-probe.sh', 'review_helper', 'direct-PR']
+Raw exit 0; expected 0; log restored-helper-forwarding.log
+Production/fixture SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+Final restored SHA-256 {'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d'}
+All original fixed bytes restored: True
+Unexpected outcomes: []
+
+fault-comparison-direct-PR.log
++ printf 'not ok - %s\n' 'full contradiction lost selected mode (missing: '\''--mode no-mistakes'\'')
+not ok - full contradiction lost selected mode (missing: '--mode no-mistakes')
+fault-comparison-no-mistakes.log
++ printf 'not ok - %s\n' 'full contradiction lost selected mode (missing: '\''--mode direct-PR'\'')
+not ok - full contradiction lost selected mode (missing: '--mode direct-PR')
+restored-mode-matrix.log
+ok - delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend
+fault-required-depth.log
++ printf 'not ok - %s\n' 'full absent depth accepted'
+not ok - full absent depth accepted
+restored-required-fields.log
+ok - delivery depth: full and surgical malformed declarations refuse; canonical restored answers pass
+Current tested HEAD: eee9ff3fce1221916ac9c1beeac5296bf214205b
+bin/fm-dod-lib.sh current SHA-256 323f497ca40054644de9927768f9750a2e34b410265be53df4b74015deee9278
+bin/fm-spawn.sh current SHA-256 ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7
+tests/fm-task-delivery.test.sh current SHA-256 23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7
+tests/fm-brief.test.sh current SHA-256 8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d
+tests/prep-record-helper.sh current SHA-256 41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1

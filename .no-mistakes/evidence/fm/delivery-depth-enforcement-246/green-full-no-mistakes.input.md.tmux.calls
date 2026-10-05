@@ -1,0 +1,5 @@
+has-session -t firstmate
+list-sessions
+new-session -d -s firstmate
+list-windows -t firstmate -F #{window_name}
+new-window -dP -F #{window_id} -t firstmate: -n fm-commented-full-no-mistakes-local -c /tmp/fm-task-delivery.qlgcCs/commented-full-no-mistakes-local/projects/proj

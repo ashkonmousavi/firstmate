@@ -1,0 +1,722 @@
+ok - delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend
++ test_depth_mode_matrix
++ local rec home proj fakebin selected declared id out status depth
+++ make_home depth-matrix
+++ local name=depth-matrix home projects fakebin
+++ shift
+++ home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
+++ projects=/tmp/fm-task-delivery.gDTchl/depth-matrix/projects
+++ fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
+++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state /tmp/fm-task-delivery.gDTchl/depth-matrix/home/config /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj /tmp/fm-task-delivery.gDTchl/depth-matrix/bin
+++ git -C /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj init -q
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' /tmp/fm-task-delivery.gDTchl/depth-matrix/bin
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' /tmp/fm-task-delivery.gDTchl/depth-matrix/bin
+++ chmod +x /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse
+++ chmod +x /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux
+++ '[' 0 -gt 0 ']'
+++ printf '%s\n' '/tmp/fm-task-delivery.gDTchl/depth-matrix/home|/tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj|/tmp/fm-task-delivery.gDTchl/depth-matrix/bin'
++ rec='/tmp/fm-task-delivery.gDTchl/depth-matrix/home|/tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj|/tmp/fm-task-delivery.gDTchl/depth-matrix/bin'
++ IFS='|'
++ read -r home proj fakebin
++ for selected in direct-PR no-mistakes local-only
++ for declared in direct-PR no-mistakes
++ id=depth-direct-PR-direct-PR
++ write_brief /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-direct-PR-direct-PR direct-PR
++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home id=depth-direct-PR-direct-PR mode=direct-PR
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z direct-PR ']'
++ printf 'Delivery contract: mode=%s\n' direct-PR
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-direct-PR-direct-PR
++ fm_test_prep_record /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data depth-direct-PR-direct-PR no no no direct-PR
++ local data=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data id=depth-direct-PR-direct-PR q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR
++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh depth-direct-PR-direct-PR --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md.filled /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md.common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ '[' no = yes ']'
++ return 0
++ fm_test_prep_depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md depth
++ case "$2" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md.depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md
++ rm -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls
+++ run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-direct-PR-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode direct-PR --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-direct-PR-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode direct-PR --yolo off
++++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.gDTchl/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh depth-direct-PR-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode direct-PR --yolo off
+++ result='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-direct-PR-direct-PR
+notice: depth-direct-PR-direct-PR ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.launch-brief.md
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-direct-PR-direct-PR.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.tmux.calls
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ printf '%s\n' 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-direct-PR-direct-PR
+notice: depth-direct-PR-direct-PR ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ return 1
++ out='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-direct-PR-direct-PR
+notice: depth-direct-PR-direct-PR ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' direct-PR '!=' local-only ']'
++ '[' direct-PR '!=' direct-PR ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md 'matched depth did not render launch brief: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-direct-PR-direct-PR
+notice: depth-direct-PR-direct-PR ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls 'matched depth did not reach refusing backend: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-direct-PR-direct-PR
+notice: depth-direct-PR-direct-PR ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
++ assert_not_contains 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-direct-PR-direct-PR
+notice: depth-direct-PR-direct-PR ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state' 'Delivery depth' 'matched depth refused'
++ case "$1" in
++ :
++ for declared in direct-PR no-mistakes
++ id=depth-direct-PR-no-mistakes
++ write_brief /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-direct-PR-no-mistakes direct-PR
++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home id=depth-direct-PR-no-mistakes mode=direct-PR
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z direct-PR ']'
++ printf 'Delivery contract: mode=%s\n' direct-PR
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-direct-PR-no-mistakes
++ fm_test_prep_record /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data depth-direct-PR-no-mistakes no no no direct-PR
++ local data=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data id=depth-direct-PR-no-mistakes q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes
++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh depth-direct-PR-no-mistakes --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md.filled /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md.common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ '[' no = yes ']'
++ return 0
++ fm_test_prep_depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md depth
++ case "$2" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md.depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md
++ rm -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls
+++ run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-direct-PR-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode direct-PR --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-direct-PR-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode direct-PR --yolo off
++++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.gDTchl/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh depth-direct-PR-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode direct-PR --yolo off
+++ result='error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/launch-brief.md ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-direct-PR-no-mistakes.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ printf '%s\n' 'error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn'
+++ return 1
++ out='error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' direct-PR '!=' local-only ']'
++ '[' direct-PR '!=' no-mistakes ']'
++ case "$declared" in
++ depth='checks + AI review (no-mistakes)'
++ assert_contains 'error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn' '--mode direct-PR' 'depth contradiction lost selected mode'
++ case "$1" in
++ :
++ assert_contains 'error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn' 'checks + AI review (no-mistakes)' 'depth contradiction lost declared depth'
++ case "$1" in
++ :
++ assert_contains 'error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn' depth-direct-PR-no-mistakes 'depth contradiction lost task id'
++ case "$1" in
++ :
++ assert_contains 'error: task depth-direct-PR-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn' reconcile 'depth contradiction omitted author repair'
++ case "$1" in
++ :
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/launch-brief.md 'depth contradiction published launch brief'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-direct-PR-no-mistakes/launch-brief.md ']'
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-direct-PR-no-mistakes.meta 'depth contradiction published metadata'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-direct-PR-no-mistakes.meta ']'
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls 'depth contradiction reached endpoint backend'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls 'depth contradiction reached worktree allocator'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ wc -l
++ '[' 0 -eq 0 ']'
++ for selected in direct-PR no-mistakes local-only
++ for declared in direct-PR no-mistakes
++ id=depth-no-mistakes-direct-PR
++ write_brief /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-no-mistakes-direct-PR no-mistakes
++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home id=depth-no-mistakes-direct-PR mode=no-mistakes
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z no-mistakes ']'
++ printf 'Delivery contract: mode=%s\n' no-mistakes
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-no-mistakes-direct-PR no no no no-mistakes
++ fm_test_prep_record /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data depth-no-mistakes-direct-PR no no no no-mistakes
++ local data=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data id=depth-no-mistakes-direct-PR q1=no q2=no ui=no depth_mode=no-mistakes root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR
++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh depth-no-mistakes-direct-PR --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md.filled /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md.common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ '[' no = yes ']'
++ return 0
++ fm_test_prep_depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md depth
++ case "$2" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md.depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md
++ rm -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls
+++ run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-no-mistakes-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode no-mistakes --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-no-mistakes-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode no-mistakes --yolo off
++++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.gDTchl/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh depth-no-mistakes-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode no-mistakes --yolo off
+++ result='error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/launch-brief.md ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-no-mistakes-direct-PR.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ printf '%s\n' 'error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn'
+++ return 1
++ out='error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' no-mistakes '!=' local-only ']'
++ '[' no-mistakes '!=' direct-PR ']'
++ case "$declared" in
++ depth='checks-only (direct-PR)'
++ assert_contains 'error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn' '--mode no-mistakes' 'depth contradiction lost selected mode'
++ case "$1" in
++ :
++ assert_contains 'error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn' 'checks-only (direct-PR)' 'depth contradiction lost declared depth'
++ case "$1" in
++ :
++ assert_contains 'error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn' depth-no-mistakes-direct-PR 'depth contradiction lost task id'
++ case "$1" in
++ :
++ assert_contains 'error: task depth-no-mistakes-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn' reconcile 'depth contradiction omitted author repair'
++ case "$1" in
++ :
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/launch-brief.md 'depth contradiction published launch brief'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-direct-PR/launch-brief.md ']'
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-no-mistakes-direct-PR.meta 'depth contradiction published metadata'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-no-mistakes-direct-PR.meta ']'
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls 'depth contradiction reached endpoint backend'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
++ assert_absent /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls 'depth contradiction reached worktree allocator'
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ wc -l
++ '[' 0 -eq 0 ']'
++ for declared in direct-PR no-mistakes
++ id=depth-no-mistakes-no-mistakes
++ write_brief /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-no-mistakes-no-mistakes no-mistakes
++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home id=depth-no-mistakes-no-mistakes mode=no-mistakes
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z no-mistakes ']'
++ printf 'Delivery contract: mode=%s\n' no-mistakes
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-no-mistakes-no-mistakes no no no no-mistakes
++ fm_test_prep_record /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data depth-no-mistakes-no-mistakes no no no no-mistakes
++ local data=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data id=depth-no-mistakes-no-mistakes q1=no q2=no ui=no depth_mode=no-mistakes root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes
++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh depth-no-mistakes-no-mistakes --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md.filled /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md.common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ '[' no = yes ']'
++ return 0
++ fm_test_prep_depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md depth
++ case "$2" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md.depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md
++ rm -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls
+++ run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-no-mistakes-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode no-mistakes --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-no-mistakes-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode no-mistakes --yolo off
++++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.gDTchl/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh depth-no-mistakes-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode no-mistakes --yolo off
+++ result='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-no-mistakes-no-mistakes'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.launch-brief.md
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-no-mistakes-no-mistakes.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.tmux.calls
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ printf '%s\n' 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-no-mistakes-no-mistakes'
+++ return 1
++ out='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-no-mistakes-no-mistakes'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' no-mistakes '!=' local-only ']'
++ '[' no-mistakes '!=' no-mistakes ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md 'matched depth did not render launch brief: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-no-mistakes-no-mistakes'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls 'matched depth did not reach refusing backend: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-no-mistakes-no-mistakes'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
++ assert_not_contains 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-no-mistakes-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-no-mistakes-no-mistakes' 'Delivery depth' 'matched depth refused'
++ case "$1" in
++ :
++ for selected in direct-PR no-mistakes local-only
++ for declared in direct-PR no-mistakes
++ id=depth-local-only-direct-PR
++ write_brief /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-local-only-direct-PR local-only
++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home id=depth-local-only-direct-PR mode=local-only
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z local-only ']'
++ printf 'Delivery contract: mode=%s\n' local-only
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-local-only-direct-PR
++ fm_test_prep_record /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data depth-local-only-direct-PR no no no direct-PR
++ local data=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data id=depth-local-only-direct-PR q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR
++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh depth-local-only-direct-PR --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md.filled /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md.common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ '[' no = yes ']'
++ return 0
++ fm_test_prep_depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md depth
++ case "$2" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md.depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md
++ rm -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls
+++ run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-local-only-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode local-only --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-local-only-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode local-only --yolo off
++++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.gDTchl/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh depth-local-only-direct-PR /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode local-only --yolo off
+++ result='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-direct-PR
+notice: depth-local-only-direct-PR ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.launch-brief.md
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-local-only-direct-PR.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.tmux.calls
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ printf '%s\n' 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-direct-PR
+notice: depth-local-only-direct-PR ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ return 1
++ out='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-direct-PR
+notice: depth-local-only-direct-PR ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' local-only '!=' local-only ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md 'matched depth did not render launch brief: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-direct-PR
+notice: depth-local-only-direct-PR ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls 'matched depth did not reach refusing backend: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-direct-PR
+notice: depth-local-only-direct-PR ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
++ assert_not_contains 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-direct-PR/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-direct-PR
+notice: depth-local-only-direct-PR ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state' 'Delivery depth' 'matched depth refused'
++ case "$1" in
++ :
++ for declared in direct-PR no-mistakes
++ id=depth-local-only-no-mistakes
++ write_brief /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-local-only-no-mistakes local-only
++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home id=depth-local-only-no-mistakes mode=local-only
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z local-only ']'
++ printf 'Delivery contract: mode=%s\n' local-only
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.gDTchl/depth-matrix/home depth-local-only-no-mistakes
++ fm_test_prep_record /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data depth-local-only-no-mistakes no no no direct-PR
++ local data=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data id=depth-local-only-no-mistakes q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes
++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh depth-local-only-no-mistakes --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md.filled /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md.common /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ '[' no = yes ']'
++ return 0
++ fm_test_prep_depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md depth
++ case "$2" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ mv /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md.depth /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md
++ rm -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls
+++ run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-local-only-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode local-only --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.gDTchl/depth-matrix/home /tmp/fm-task-delivery.gDTchl/depth-matrix/bin depth-local-only-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode local-only --yolo off
++++ local home=/tmp/fm-task-delivery.gDTchl/depth-matrix/home fakebin=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.gDTchl/depth-matrix/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.gDTchl/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.gDTchl/depth-matrix/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.gDTchl/depth-matrix/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh depth-local-only-no-mistakes /tmp/fm-task-delivery.gDTchl/depth-matrix/projects/proj claude --mode local-only --yolo off
+++ result='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-no-mistakes
+notice: depth-local-only-no-mistakes ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.launch-brief.md
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state/depth-local-only-no-mistakes.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
+++ cp /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/green-mode-matrix.input.md.tmux.calls
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.gDTchl/depth-matrix/home/state -name '*lock*'
+++ printf '%s\n' 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-no-mistakes
+notice: depth-local-only-no-mistakes ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ return 1
++ out='warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-no-mistakes
+notice: depth-local-only-no-mistakes ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' local-only '!=' local-only ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md 'matched depth did not render launch brief: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-no-mistakes
+notice: depth-local-only-no-mistakes ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md ']'
++ assert_present /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls 'matched depth did not reach refusing backend: warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-no-mistakes
+notice: depth-local-only-no-mistakes ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ '[' -e /tmp/fm-task-delivery.gDTchl/depth-matrix/bin/tmux.calls ']'
++ assert_not_contains 'warning: /tmp/fm-task-delivery.gDTchl/depth-matrix/home/data/depth-local-only-no-mistakes/launch-brief.md records no ship branch; defaulting to legacy branch fm/depth-local-only-no-mistakes
+notice: depth-local-only-no-mistakes ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state' 'Delivery depth' 'matched depth refused'
++ case "$1" in
++ :
++ pass 'delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend'
++ printf 'ok - %s\n' 'delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend'
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3188826.KTjg0V ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3188826.KTjg0V
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3188826.UGBCbJ ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3188826.UGBCbJ
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3188826.8pSqTm ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-task-delivery.gDTchl ']'
++ fm_test_remove_tree /tmp/fm-task-delivery.gDTchl
++ local dir=/tmp/fm-task-delivery.gDTchl
++ '[' -d /tmp/fm-task-delivery.gDTchl ']'
++ '[' '!' -L /tmp/fm-task-delivery.gDTchl ']'
++ find /tmp/fm-task-delivery.gDTchl -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-task-delivery.gDTchl
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3188826.8pSqTm

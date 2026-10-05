@@ -1,0 +1,80 @@
+UTC 2026-10-05T09:26:32.433546+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+Before source/test edits. git status --short:
+
+Search ['rg', '-n', 'fm_prep_(ui_wiring_line|labelled|answer|ui_wiring|tier|delivery_mode|surgical_declared|certainty_reason|unfilled_reason|accepted_spec)|FM_PREP_TIER_HEADING', 'bin/fm-dod-lib.sh', 'bin/fm-spawn.sh', 'bin/fm-prep-install.sh', 'bin/fm-promote.sh']; raw exit 0
+bin/fm-promote.sh:238:if ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+bin/fm-dod-lib.sh:99:# fm_prep_unfilled_reason checks the tier header, required sections, and
+bin/fm-dod-lib.sh:103:# fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
+bin/fm-dod-lib.sh:255:# preparation record, its accepted specification (fm_prep_accepted_spec)
+bin/fm-dod-lib.sh:260:  [ -z "${2:-}" ] || spec=$(fm_prep_accepted_spec "$2")
+bin/fm-dod-lib.sh:313:# required; a declared surgical record owes fm_prep_certainty_reason's
+bin/fm-dod-lib.sh:327:FM_PREP_TIER_HEADING='## Tier'
+bin/fm-dod-lib.sh:381:    if fm_prep_unfilled_reason "$candidate" >/dev/null; then
+bin/fm-dod-lib.sh:409:Author gate check|AUTHOR_GATE_CHECK|no|Name the exact bash command sourcing bin/fm-dod-lib.sh and calling fm_prep_unfilled_reason on this record; run it on final bytes before handoff and paste the actual command, empty output and raw exit 1 into the handoff; reason with raw exit 0 refuses; execution evidence belongs in the handoff, not a recursive pass receipt here.'
+bin/fm-dod-lib.sh:428:fm_prep_tier_template() {  # <task-id> [surgical]
+bin/fm-dod-lib.sh:435:  printf '%s\n' "$FM_PREP_TIER_HEADING"
+bin/fm-dod-lib.sh:448:  fm_prep_tier_template "$1" surgical
+bin/fm-dod-lib.sh:465:  fm_prep_tier_template "$id"
+bin/fm-dod-lib.sh:481:# fm_prep_ui_wiring_line <file> - raw text after the tier header's UI wiring
+bin/fm-dod-lib.sh:483:fm_prep_ui_wiring_line() {  # <file>
+bin/fm-dod-lib.sh:484:  fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | awk '
+bin/fm-dod-lib.sh:489:# fm_prep_labelled <file> <heading> <id> - the text after `- <id> ` on every
+bin/fm-dod-lib.sh:492:fm_prep_labelled() {  # <file> <heading> <id>
+bin/fm-dod-lib.sh:496:# fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
+bin/fm-dod-lib.sh:499:fm_prep_answer() {  # <file> <Q1|Q2>
+bin/fm-dod-lib.sh:501:  answer=$(fm_prep_labelled "$file" "$FM_PREP_TIER_HEADING" "$question" | awk -F: 'NF > 1 && !done { print $NF; done = 1 }' \
+bin/fm-dod-lib.sh:509:# fm_prep_ui_wiring <file> - yes or no when the tier header's UI wiring line
+bin/fm-dod-lib.sh:514:fm_prep_ui_wiring() {  # <file>
+bin/fm-dod-lib.sh:516:  line=$(fm_prep_ui_wiring_line "$file")
+bin/fm-dod-lib.sh:527:# fm_prep_tier <file> - the declared tier (0, 1 or 2), or empty when the header
+bin/fm-dod-lib.sh:532:fm_prep_tier() {  # <file>
+bin/fm-dod-lib.sh:534:  fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING" || { printf '\n'; return 0; }
+bin/fm-dod-lib.sh:535:  q1=$(fm_prep_answer "$file" Q1)
+bin/fm-dod-lib.sh:536:  q2=$(fm_prep_answer "$file" Q2)
+bin/fm-dod-lib.sh:537:  ui=$(fm_prep_ui_wiring "$file")
+bin/fm-dod-lib.sh:679:fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
+bin/fm-dod-lib.sh:695:fm_prep_delivery_mode() {  # <file>
+bin/fm-dod-lib.sh:697:  value=$(fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | fm_prep_body_text | awk '
+bin/fm-dod-lib.sh:709:  fm_prep_answer_complete "$reason" no || return 1
+bin/fm-dod-lib.sh:732:    if [ "$label" = 'Captain rulings' ] && fm_prep_surgical_declared "$file"; then conditional=no; fi
+bin/fm-dod-lib.sh:733:    if [ "$label" = 'Screen and region' ] && [ "$(fm_prep_ui_wiring "$file")" = yes ]; then conditional=no; fi
+bin/fm-dod-lib.sh:734:    if ! fm_prep_answer_complete "$value" "$conditional" || [[ "$value" == *'{INVALID_FIELD}'* ]]; then
+bin/fm-dod-lib.sh:741:          if ! fm_prep_answer_complete "${value#proceed:}" no; then
+bin/fm-dod-lib.sh:804:fm_prep_surgical_declared() {  # <file>
+bin/fm-dod-lib.sh:805:  fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | grep -q '^- Preparation format:'
+bin/fm-dod-lib.sh:808:# fm_prep_certainty_reason <file>: same reason exit convention as completeness.
+bin/fm-dod-lib.sh:810:fm_prep_certainty_reason() {  # <file>
+bin/fm-dod-lib.sh:812:  if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+bin/fm-dod-lib.sh:819:  if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+bin/fm-dod-lib.sh:839:  if [ "$(fm_prep_answer "$file" Q2)" != no ]; then
+bin/fm-dod-lib.sh:843:  if fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+bin/fm-dod-lib.sh:855:    answer=$(fm_prep_labelled "$file" '## Certainty' "$field")
+bin/fm-dod-lib.sh:879:# fm_prep_unfilled_reason <file>
+bin/fm-dod-lib.sh:884:fm_prep_unfilled_reason() {  # <file>
+bin/fm-dod-lib.sh:890:  if ! fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING"; then
+bin/fm-dod-lib.sh:891:    printf 'its %s header is missing from %s\n' "$FM_PREP_TIER_HEADING" "$file"
+bin/fm-dod-lib.sh:894:  if [ -z "$(fm_prep_ui_wiring "$file")" ]; then
+bin/fm-dod-lib.sh:897:      "$FM_PREP_TIER_HEADING" "$file"
+bin/fm-dod-lib.sh:900:  tier=$(fm_prep_tier "$file")
+bin/fm-dod-lib.sh:903:      "$FM_PREP_TIER_HEADING" "$file"
+bin/fm-dod-lib.sh:906:  if ! fm_prep_delivery_mode "$file" >/dev/null; then
+bin/fm-dod-lib.sh:907:    printf 'its %s requires one canonical Delivery depth choice and a substantive same-line reason in %s\n' "$FM_PREP_TIER_HEADING" "$file"
+bin/fm-dod-lib.sh:914:  if fm_prep_surgical_declared "$file"; then
+bin/fm-dod-lib.sh:915:    fm_prep_certainty_reason "$file"
+bin/fm-dod-lib.sh:939:  if ! fm_prep_answer_complete "$(fm_brief_heading_body "$file" '## 1. Intent and boxes' | fm_prep_body_text)" no; then
+bin/fm-dod-lib.sh:946:# fm_prep_accepted_spec <prep-path>
+bin/fm-dod-lib.sh:950:fm_prep_accepted_spec() {  # <prep-path>
+bin/fm-dod-lib.sh:952:  fm_prep_unfilled_reason "$file" >/dev/null && return 0
+bin/fm-spawn.sh:1677:  if ! PREP_DEPTH_MODE=$(fm_prep_delivery_mode "$PREP_FILE"); then
+bin/fm-spawn.sh:3277:    if PREP_REASON=$(fm_prep_unfilled_reason "$PREP_FILE"); then
+bin/fm-spawn.sh:3288:  if [ "$KIND" = ship ] && ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+bin/fm-prep-install.sh:7:#   <home>/data/nav-preps/<task-id>.md that passes fm_prep_unfilled_reason as
+bin/fm-prep-install.sh:76:if ! fm_prep_unfilled_reason "$DEST" >/dev/null; then
+
+Invariant: every Tier decision must read active document content with whole-document comment context preserved.
+Affected Tier boundaries: ui_wiring_line; labelled(Tier) -> answer(Q1/Q2); tier presence; delivery_mode (both canonical choices); surgical_declared; certainty_reason (format, reasons, sensitive scope); unfilled_reason presence/UI/tier/depth; common_reason UI conditional.
+Consumers: fresh ship spawn depth/read/comparison before task locks; later full/surgical completeness, local-only completeness, accepted specification; nav-prep eligibility and install; promotion accepted overlay; briefing generated templates and public fixtures.
+Literal accepted-spec extraction must retain existing code/fences/indentation and literal comment bytes; generic heading readers and non-Tier extraction are outside this correction.
+Search scope: named production files, all changed paths from git diff and named test subjects/helpers; existing review reports no other material issues across eight changed paths. This is bounded negative evidence, not a whole-repository safety assertion.
+Evidence invariant: retained inventories and executable receipts must be independently consumable from exact paths with real provenance. No historical receipts are present in the named run directory; reconstructed hunks are newly generated from preserved objects.

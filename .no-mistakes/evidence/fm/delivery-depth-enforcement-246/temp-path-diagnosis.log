@@ -1,0 +1,9 @@
+hidden-worktree-temp
+input literal prefix: $(touch${IFS}/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/marker)
+raw exit: 1
+error: --branch-prefix and task id must form a valid git branch (got '$(touch${IFS}/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/marker)hidden-worktree-temp')
+
+standard-toolchain-temp
+input literal prefix: $(touch${IFS}/tmp/fm-brief-ephemeral-marker)
+raw exit: 0
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/prefix-repro.8i8aky6x/data/standard-toolchain-temp/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})

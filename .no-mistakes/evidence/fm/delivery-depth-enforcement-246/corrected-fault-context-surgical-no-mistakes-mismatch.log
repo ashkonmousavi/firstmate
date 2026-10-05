@@ -1,0 +1,213 @@
++ test_depth_commented_tier surgical no-mistakes mismatch
++ local format=surgical declared=no-mistakes check rec home proj fakebin id prep baseline old_mode depth selected out status reason
++ '[' 3 -gt 2 ']'
++ for check in "${@:3}"
++ id=commented-surgical-no-mistakes-mismatch
+++ make_home commented-surgical-no-mistakes-mismatch
+++ local name=commented-surgical-no-mistakes-mismatch home projects fakebin
+++ shift
+++ home=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home
+++ projects=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects
+++ fakebin=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin
+++ mkdir -p /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/state /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/config /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin
+++ git -C /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj init -q
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin
+++ chmod +x /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin/treehouse
+++ chmod +x /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin/tmux
+++ '[' 0 -gt 0 ']'
+++ printf '%s\n' '/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home|/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj|/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin'
++ rec='/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home|/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj|/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin'
++ IFS='|'
++ read -r home proj fakebin
++ case "$declared" in
++ old_mode=direct-PR
++ depth='checks + AI review (no-mistakes)'
++ selected=no-mistakes
++ '[' mismatch '!=' mismatch ']'
++ selected=direct-PR
++ '[' mismatch '!=' local ']'
++ write_brief /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home commented-surgical-no-mistakes-mismatch direct-PR
++ local home=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home id=commented-surgical-no-mistakes-mismatch mode=direct-PR
++ mkdir -p /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z direct-PR ']'
++ printf 'Delivery contract: mode=%s\n' direct-PR
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home commented-surgical-no-mistakes-mismatch
++ fm_test_prep_record /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data commented-surgical-no-mistakes-mismatch no no no direct-PR
++ local data=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data id=commented-surgical-no-mistakes-mismatch q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch
++ FM_HOME=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh commented-surgical-no-mistakes-mismatch --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ mv /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md.filled /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ mv /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md.common /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ '[' no = yes ']'
++ return 0
++ prep=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ '[' surgical = surgical ']'
++ rm /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ FM_HOME=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh commented-surgical-no-mistakes-mismatch --prep --surgical
++ sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' -e 's/\{Q[12]_REASON\}/Inspected confined output./' -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/owned.sh:12; callers confined; cause reproduced; regression covers output; no sensitive paths./' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ mv /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md.f /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ mv /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md.common /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ fm_test_prep_depth /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md no-mistakes
++ local prep=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md depth
++ case "$2" in
++ depth='checks + AI review (no-mistakes)'
++ awk -v 'depth=checks + AI review (no-mistakes)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ mv /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md.depth /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md
++ baseline=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/live.prep
++ cp /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/live.prep
++ printf '<!-- Previous preparation example\n## Tier\n'
++ '[' surgical = surgical ']'
++ printf '%s\n' '- Preparation format: surgical'
++ printf '%s\n' '- Q1 does this change alter what a user sees or can do: no' 'Reason: old confined output example.' '- Q2 does this change touch a shared module or a contract: no' 'Reason: old isolated owner example.' '- UI wiring: no, old isolated example.'
++ '[' direct-PR = direct-PR ']'
++ printf '%s\n' '- Delivery depth: checks-only (direct-PR), old low-harm example.'
++ printf '\n-->\n'
++ case "$check" in
++ cat /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/live.prep
++ case "$check" in
+++ run_spawn /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin commented-surgical-no-mistakes-mismatch /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj claude --mode direct-PR --yolo off
+++ local result code item
+++ cp /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md
++++ review_original_run_spawn /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin commented-surgical-no-mistakes-mismatch /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj claude --mode direct-PR --yolo off
++++ local home=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home fakebin=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin
++++ shift 2
++++ FM_ROOT_OVERRIDE=
++++ FM_HOME=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home
++++ FM_STATE_OVERRIDE=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/state
++++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data
++++ FM_PROJECTS_OVERRIDE=/tmp/fm-task-delivery.jlTtrt/projects-unused
++++ FM_CONFIG_OVERRIDE=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/config
++++ FM_SPAWN_NO_GUARD=1
++++ FM_BACKEND=tmux
++++ PATH=/tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.codex/tmp/arg0/codex-arg0WBi1TG:/home/zcrew/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/home/zcrew/.local/bin:/home/zcrew/.local/bin:/home/zcrew/.npm-global/bin:/usr/local/bin:/home/zcrew/.local/bin:/home/zcrew/go/bin:/home/zcrew/.cargo/bin:/home/zcrew/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin
++++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-spawn.sh commented-surgical-no-mistakes-mismatch /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/projects/proj claude --mode direct-PR --yolo off
+++ result='warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ code=1
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md ']'
+++ cp /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md.launch-brief.md
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/state/commented-surgical-no-mistakes-mismatch.meta ']'
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin/tmux.calls ']'
+++ cp /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin/tmux.calls /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-fault-context-surgical-no-mistakes-mismatch.input.md.tmux.calls
+++ for item in "$1/data/$3/launch-brief.md" "$1/state/$3.meta" "$2/tmux.calls" "$2/treehouse.calls"
+++ '[' -f /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/bin/treehouse.calls ']'
+++ find /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/state -name '*lock*'
+++ printf '%s\n' 'warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+++ return 1
++ out='warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ status=1
++ '[' 1 -ne 0 ']'
++ '[' mismatch = mismatch ']'
++ assert_contains 'warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state' '--mode direct-PR' 'surgical contradiction lost selected mode'
++ case "$1" in
++ fail 'surgical contradiction lost selected mode (missing: '\''--mode direct-PR'\'')
+--- output ---
+warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
++ printf 'not ok - %s\n' 'surgical contradiction lost selected mode (missing: '\''--mode direct-PR'\'')
+--- output ---
+warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain'\''s standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state'
+not ok - surgical contradiction lost selected mode (missing: '--mode direct-PR')
+--- output ---
+warning: /tmp/fm-task-delivery.jlTtrt/commented-surgical-no-mistakes-mismatch/home/data/commented-surgical-no-mistakes-mismatch/launch-brief.md records no ship branch; defaulting to legacy branch fm/commented-surgical-no-mistakes-mismatch
+notice: commented-surgical-no-mistakes-mismatch ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
++ exit 1
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3367835.9XcFCE ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3367835.9XcFCE
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3367835.m6qhgE ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3367835.m6qhgE
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3367835.jc2xMK ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-task-delivery.jlTtrt ']'
++ fm_test_remove_tree /tmp/fm-task-delivery.jlTtrt
++ local dir=/tmp/fm-task-delivery.jlTtrt
++ '[' -d /tmp/fm-task-delivery.jlTtrt ']'
++ '[' '!' -L /tmp/fm-task-delivery.jlTtrt ']'
++ find /tmp/fm-task-delivery.jlTtrt -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-task-delivery.jlTtrt
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3367835.jc2xMK

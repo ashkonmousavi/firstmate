@@ -1,0 +1,4 @@
+UTC 2026-10-05T09:44:36.007708+00:00
+Base HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+{'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'bin/fm-spawn.sh': 'ec22382b15b750dab9523a235971956a65f4e18c7ddaa8a9c69205a19e9661e7', 'tests/fm-task-delivery.test.sh': '23b5f8ac44b40a6ad723f2f4b0b0b93a8f5ae896bc5d286cda17c933a12febb7', 'tests/fm-brief.test.sh': '8fe0bd932309247eb50108f84b639a18beba69e66bb8f8561e8563e74b2e1a6d', 'tests/prep-record-helper.sh': '41a575f5b9853d15a681fea6c996c494c2dc5f9bfe0bb2358b96ba099bc29db1'}
+The tested fix is the dirty working tree bound by these hashes, not an already-created new commit. The outer executor owns commit creation and subsequent pipeline phases.

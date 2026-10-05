@@ -1,0 +1,111 @@
++ test_prep_scaffolds_the_preparation_record
++ local home prep out status term
++ home=/tmp/fm-brief.YBd4Ym/prep-scaffold
++ mkdir -p /tmp/fm-brief.YBd4Ym/prep-scaffold/data
++ prep=/tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
+++ FM_HOME=/tmp/fm-brief.YBd4Ym/prep-scaffold
+++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh prep-a1 --prep
++ out='scaffolded: /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)'
++ status=0
++ expect_code 0 0 '--prep should scaffold (got: scaffolded: /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes))'
++ local expected=0 actual=0 'label=--prep should scaffold (got: scaffolded: /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes))'
++ '[' 0 = 0 ']'
++ assert_present /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md '--prep wrote no preparation record'
++ '[' -e /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md ']'
++ assert_absent /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/brief.md '--prep also wrote a brief'
++ '[' '!' -e /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/brief.md ']'
++ assert_contains 'scaffolded: /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)' prep-a1/prep.md '--prep did not name the record it wrote'
++ case "$1" in
++ :
++ assert_grep '## Tier' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its tier header'
++ grep -F -- '## Tier' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '- Q1 does this change alter what a user sees or can do: {Q1}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record'\''s tier header does not ask Q1 with a placeholder to answer'
++ grep -F -- '- Q1 does this change alter what a user sees or can do: {Q1}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '- Q2 does this change touch a shared module or a contract: {Q2}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record'\''s tier header does not ask Q2 with a placeholder to answer'
++ grep -F -- '- Q2 does this change touch a shared module or a contract: {Q2}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '- UI wiring: {UI_WIRING}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record'\''s tier header does not ask the UI wiring question with a placeholder to answer'
++ grep -F -- '- UI wiring: {UI_WIRING}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_no_grep 'Reason: {Q' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'full prep emitted surgical reason placeholders no gate validates'
++ grep -F -- 'Reason: {Q' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'yes, <the step and control the user meets>' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record does not give the UI wiring answer its required yes format'
++ grep -F -- 'yes, <the step and control the user meets>' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'no, <why the user never meets this change>' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record does not give the UI wiring answer its required no format'
++ grep -F -- 'no, <why the user never meets this change>' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'lets a user configure or choose something is always yes' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record does not give the worked example of a UI wiring yes'
++ grep -F -- 'lets a user configure or choose something is always yes' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'a yes is tier 2 whatever Q1 and Q2 say' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record does not say a UI wiring yes forces tier 2'
++ grep -F -- 'a yes is tier 2 whatever Q1 and Q2 say' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
+++ grep -n '^## Tier$' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
+++ cut -d: -f1
+++ cut -d: -f1
+++ grep -n '^## 1\.' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ '[' 3 -lt 53 ']'
++ assert_grep 'All no: retain tier 1 sections' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record does not retain sections and review for all-no full prep'
++ grep -F -- 'All no: retain tier 1 sections' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 1. Intent and boxes' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its intent section'
++ grep -F -- '## 1. Intent and boxes' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 2. Behaviour spec' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its behaviour spec'
++ grep -F -- '## 2. Behaviour spec' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 3. UI/UX' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its UI/UX section'
++ grep -F -- '## 3. UI/UX' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 4. Blast radius' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its blast radius'
++ grep -F -- '## 4. Blast radius' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 5. Data and contracts' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its data and contracts'
++ grep -F -- '## 5. Data and contracts' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 6. Tests' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its tests section'
++ grep -F -- '## 6. Tests' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 7. Records' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its records section'
++ grep -F -- '## 7. Records' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 8. Out of scope and follow-ups' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its out-of-scope section'
++ grep -F -- '## 8. Out of scope and follow-ups' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 9. Risks, dependencies, merge order' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its risks section'
++ grep -F -- '## 9. Risks, dependencies, merge order' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 10. Demo receipt plan' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its demo receipt plan'
++ grep -F -- '## 10. Demo receipt plan' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 11. Definition of done' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its definition of done'
++ grep -F -- '## 11. Definition of done' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '## 12. Size' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record lost its size section'
++ grep -F -- '## 12. Size' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '{INTENT_AND_BOXES}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record section 1 carries no placeholder to replace'
++ grep -F -- '{INTENT_AND_BOXES}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep '{BEHAVIOUR_SPEC}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record section 2 carries no placeholder to replace'
++ grep -F -- '{BEHAVIOUR_SPEC}' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ assert_grep 'n/a: <one-line reason>' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md 'prep record does not offer the n/a answer that keeps a small change small'
++ grep -F -- 'n/a: <one-line reason>' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ grep -c '^<!-- ' /tmp/fm-brief.YBd4Ym/prep-scaffold/data/prep-a1/prep.md
++ grep -qx 26
++ fail 'prep record does not carry a guide line for the tier header, its UI wiring and Delivery depth answers, each numbered section, and the common checks/table'
++ printf 'not ok - %s\n' 'prep record does not carry a guide line for the tier header, its UI wiring and Delivery depth answers, each numbered section, and the common checks/table'
+not ok - prep record does not carry a guide line for the tier header, its UI wiring and Delivery depth answers, each numbered section, and the common checks/table
++ exit 1
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3377738.sNeDKr ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3377738.sNeDKr
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3377738.wTcKvF ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3377738.wTcKvF
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3377738.BDHHqD ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-brief.YBd4Ym ']'
++ fm_test_remove_tree /tmp/fm-brief.YBd4Ym
++ local dir=/tmp/fm-brief.YBd4Ym
++ '[' -d /tmp/fm-brief.YBd4Ym ']'
++ '[' '!' -L /tmp/fm-brief.YBd4Ym ']'
++ find /tmp/fm-brief.YBd4Ym -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-brief.YBd4Ym
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3377738.BDHHqD

@@ -1,0 +1,73 @@
+UTC 2026-10-05T10:26:39.546553+00:00
+HEAD c0e4a75f94f248edeedb3892e3b381a995fcb8cc
+Before source/test edits; status:
+Command ['rg', '-n', 'fm_prep_tier_read|fm_prep_(tier|answer|ui_wiring|delivery_mode|surgical_declared|certainty_reason|unfilled_reason|accepted_spec)', 'bin/fm-dod-lib.sh', 'bin/fm-spawn.sh', 'bin/fm-promote.sh', 'bin/fm-prep-install.sh']
+Raw exit 0
+bin/fm-prep-install.sh:7:#   <home>/data/nav-preps/<task-id>.md that passes fm_prep_unfilled_reason as
+bin/fm-prep-install.sh:76:if ! fm_prep_unfilled_reason "$DEST" >/dev/null; then
+bin/fm-promote.sh:238:if ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+bin/fm-dod-lib.sh:99:# fm_prep_unfilled_reason checks the tier header, required sections, and
+bin/fm-dod-lib.sh:103:# fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
+bin/fm-dod-lib.sh:255:# preparation record, its accepted specification (fm_prep_accepted_spec)
+bin/fm-dod-lib.sh:260:  [ -z "${2:-}" ] || spec=$(fm_prep_accepted_spec "$2")
+bin/fm-dod-lib.sh:313:# required; a declared surgical record owes fm_prep_certainty_reason's
+bin/fm-dod-lib.sh:381:    if fm_prep_unfilled_reason "$candidate" >/dev/null; then
+bin/fm-dod-lib.sh:409:Author gate check|AUTHOR_GATE_CHECK|no|Name the exact bash command sourcing bin/fm-dod-lib.sh and calling fm_prep_unfilled_reason on this record; run it on final bytes before handoff and paste the actual command, empty output and raw exit 1 into the handoff; reason with raw exit 0 refuses; execution evidence belongs in the handoff, not a recursive pass receipt here.'
+bin/fm-dod-lib.sh:428:fm_prep_tier_template() {  # <task-id> [surgical]
+bin/fm-dod-lib.sh:448:  fm_prep_tier_template "$1" surgical
+bin/fm-dod-lib.sh:465:  fm_prep_tier_template "$id"
+bin/fm-dod-lib.sh:481:fm_prep_tier_read() {
+bin/fm-dod-lib.sh:487:# fm_prep_ui_wiring_line <file> - raw text after the tier header's UI wiring
+bin/fm-dod-lib.sh:489:fm_prep_ui_wiring_line() {  # <file>
+bin/fm-dod-lib.sh:490:  fm_prep_tier_read "$1" | awk '
+bin/fm-dod-lib.sh:500:    fm_prep_tier_read "$1"
+bin/fm-dod-lib.sh:506:# fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
+bin/fm-dod-lib.sh:509:fm_prep_answer() {  # <file> <Q1|Q2>
+bin/fm-dod-lib.sh:519:# fm_prep_ui_wiring <file> - yes or no when the tier header's UI wiring line
+bin/fm-dod-lib.sh:524:fm_prep_ui_wiring() {  # <file>
+bin/fm-dod-lib.sh:526:  line=$(fm_prep_ui_wiring_line "$file")
+bin/fm-dod-lib.sh:537:# fm_prep_tier <file> - the declared tier (0, 1 or 2), or empty when the header
+bin/fm-dod-lib.sh:542:fm_prep_tier() {  # <file>
+bin/fm-dod-lib.sh:544:  fm_prep_tier_read "$file" present || { printf '\n'; return 0; }
+bin/fm-dod-lib.sh:545:  q1=$(fm_prep_answer "$file" Q1)
+bin/fm-dod-lib.sh:546:  q2=$(fm_prep_answer "$file" Q2)
+bin/fm-dod-lib.sh:547:  ui=$(fm_prep_ui_wiring "$file")
+bin/fm-dod-lib.sh:689:fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
+bin/fm-dod-lib.sh:705:fm_prep_delivery_mode() {  # <file>
+bin/fm-dod-lib.sh:707:  value=$(fm_prep_tier_read "$1" | awk '
+bin/fm-dod-lib.sh:719:  fm_prep_answer_complete "$reason" no || return 1
+bin/fm-dod-lib.sh:742:    if [ "$label" = 'Captain rulings' ] && fm_prep_surgical_declared "$file"; then conditional=no; fi
+bin/fm-dod-lib.sh:743:    if [ "$label" = 'Screen and region' ] && [ "$(fm_prep_ui_wiring "$file")" = yes ]; then conditional=no; fi
+bin/fm-dod-lib.sh:744:    if ! fm_prep_answer_complete "$value" "$conditional" || [[ "$value" == *'{INVALID_FIELD}'* ]]; then
+bin/fm-dod-lib.sh:751:          if ! fm_prep_answer_complete "${value#proceed:}" no; then
+bin/fm-dod-lib.sh:814:fm_prep_surgical_declared() {  # <file>
+bin/fm-dod-lib.sh:815:  fm_prep_tier_read "$1" | grep -q '^- Preparation format:'
+bin/fm-dod-lib.sh:818:# fm_prep_certainty_reason <file>: same reason exit convention as completeness.
+bin/fm-dod-lib.sh:820:fm_prep_certainty_reason() {  # <file>
+bin/fm-dod-lib.sh:822:  if ! fm_prep_tier_read "$file" | awk '
+bin/fm-dod-lib.sh:829:  if ! fm_prep_tier_read "$file" | awk '
+bin/fm-dod-lib.sh:849:  if [ "$(fm_prep_answer "$file" Q2)" != no ]; then
+bin/fm-dod-lib.sh:853:  if fm_prep_tier_read "$file" | awk '
+bin/fm-dod-lib.sh:889:# fm_prep_unfilled_reason <file>
+bin/fm-dod-lib.sh:894:fm_prep_unfilled_reason() {  # <file>
+bin/fm-dod-lib.sh:900:  if ! fm_prep_tier_read "$file" present; then
+bin/fm-dod-lib.sh:904:  if [ -z "$(fm_prep_ui_wiring "$file")" ]; then
+bin/fm-dod-lib.sh:910:  tier=$(fm_prep_tier "$file")
+bin/fm-dod-lib.sh:916:  if ! fm_prep_delivery_mode "$file" >/dev/null; then
+bin/fm-dod-lib.sh:924:  if fm_prep_surgical_declared "$file"; then
+bin/fm-dod-lib.sh:925:    fm_prep_certainty_reason "$file"
+bin/fm-dod-lib.sh:949:  if ! fm_prep_answer_complete "$(fm_brief_heading_body "$file" '## 1. Intent and boxes' | fm_prep_body_text)" no; then
+bin/fm-dod-lib.sh:956:# fm_prep_accepted_spec <prep-path>
+bin/fm-dod-lib.sh:960:fm_prep_accepted_spec() {  # <prep-path>
+bin/fm-dod-lib.sh:962:  fm_prep_unfilled_reason "$file" >/dev/null && return 0
+bin/fm-spawn.sh:1677:  if ! PREP_DEPTH_MODE=$(fm_prep_delivery_mode "$PREP_FILE"); then
+bin/fm-spawn.sh:3277:    if PREP_REASON=$(fm_prep_unfilled_reason "$PREP_FILE"); then
+bin/fm-spawn.sh:3288:  if [ "$KIND" = ship ] && ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+
+Invariant: Tier readers and every consuming pipeline must return semantic results independently of document size and caller pipefail settings.
+Root cause: document cleaner writes to a heading parser which exits at the next heading. UI wiring awk exits after the first matching answer; surgical grep -q exits after the first format line. These latter two consumers can also break a large selected Tier stream even after buffering whole-document cleaning.
+Shared correction: materialize cleaned document before heading selection; UI and format consumers drain their input while retaining first-answer/existence semantics.
+Axes: body/presence; full/surgical; direct-PR/no-mistakes; large appendix/large Tier; valid certificate/invalid certificate with complete numbered sections; pipefail on/off.
+Affected sibling readers: tier presence, UI line/value/conditional, labelled(Tier)->Q1/Q2, delivery mode (both canonical choices), surgical declaration, certainty format/Q reasons/C2/sensitive scope, completeness depth.
+Consumers: early fresh-ship admission, later ship/local-only completeness and accepted overlays, nav-prep discovery and executable install, promotion overlay, execution intent. Scout/secondmate/relaunch predicates and generic literal accepted-spec extraction remain unchanged.
+Search scope: listed source owners and existing install/delivery test subjects; no whole-repository or external-checkout claim. Previous round's manifest is preserved unchanged, and the latest Review reports consuming its 262 artifacts.

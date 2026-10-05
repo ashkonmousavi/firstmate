@@ -1,0 +1,6 @@
+UTC 2026-10-05T09:39:02.785979+00:00
+HEAD 6d1948996f1493a42e63a9e4119899fdb162b6a8
+
+Before correcting tests: surgical commented example lacks Preparation format and Q reasons. Original surgical completeness RED is masked by a missing-full-section refusal, not sufficient evidence for Delivery depth completeness. Public depth reader and mismatch RED failures remain valid, but corrected probes must fill that old surgical header. Final Tier boundary is unchanged; only fixture completeness is corrected.
+Initial witness driver exited 1 because its guide-line mutation selector matched no source line. This is a probe construction failure; all fixed source bytes were restored in finally. The guide/helper witnesses are still pending and will be executed with the correct selector.
+{'bin/fm-dod-lib.sh': 'e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862', 'tests/fm-task-delivery.test.sh': '74a01a1bf55e24b12affdf5f85425240fad5fd1eeb3ac6326da7d0257aa2a50b'}

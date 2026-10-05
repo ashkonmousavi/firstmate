@@ -1,0 +1,61 @@
+$ bash bin/fm-lab-home.sh create /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x
+/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x
+
+raw exit: 0
+$ bash bin/fm-brief.sh immutable-full-direct-PR proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-full-direct-PR/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh immutable-full-direct-PR proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x
+error: task immutable-full-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: prep and source brief retain identical SHA-256: 03a36067137c0f41da75ad90f2a23f0402cabf2b582b0eade31fd4a61170af70, ff6efe13f76944502ed8d29e8234611482f89552f94105bb4b9d268e4aff0fe7
+$ bash -c . bin/fm-dod-lib.sh; fm_prep_accepted_spec "$1" _ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-full-direct-PR/prep.md
+
+raw exit: 0
+POSTCONDITION: historical prep lacking depth contributes no accepted specification.
+$ bash bin/fm-brief.sh immutable-full-no-mistakes proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-full-no-mistakes/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh immutable-full-no-mistakes proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x
+error: task immutable-full-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: prep and source brief retain identical SHA-256: 865c1eb9bd9fec44ba014ebd78fa6a1a69f0c692369bd0e3bb7c1a4f107d6513, 9daf07fba378b265e8d498ed839086b45219aea1afba8b82901af99c4a342422
+$ bash -c . bin/fm-dod-lib.sh; fm_prep_accepted_spec "$1" _ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-full-no-mistakes/prep.md
+
+raw exit: 0
+POSTCONDITION: historical prep lacking depth contributes no accepted specification.
+$ bash bin/fm-brief.sh immutable-surgical-direct-PR proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-surgical-direct-PR/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh immutable-surgical-direct-PR proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x
+error: task immutable-surgical-direct-PR selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: prep and source brief retain identical SHA-256: 3f497600a101eaed9c9041307253dce8a500936fe1b0c1589bb4c878629dcfd5, df326bc8d772288ee2b3adedb456d39d2a3ae00155ddb0c9a5363da08eec414a
+$ bash -c . bin/fm-dod-lib.sh; fm_prep_accepted_spec "$1" _ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-surgical-direct-PR/prep.md
+
+raw exit: 0
+POSTCONDITION: historical prep lacking depth contributes no accepted specification.
+$ bash bin/fm-brief.sh immutable-surgical-no-mistakes proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-surgical-no-mistakes/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+$ bash bin/fm-spawn.sh immutable-surgical-no-mistakes proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x
+error: task immutable-surgical-no-mistakes selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: prep and source brief retain identical SHA-256: 8a8e8d833a679e06ae1e7ed465ba598a7ec2bd4ebbd99ea9bb170681d5174d3d, 9fcf0efb126a102e35691db7a35ca7ddd657d043c57b35211352c0181469d4d2
+$ bash -c . bin/fm-dod-lib.sh; fm_prep_accepted_spec "$1" _ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.jy2p2x1x/data/immutable-surgical-no-mistakes/prep.md
+
+raw exit: 0
+POSTCONDITION: historical prep lacking depth contributes no accepted specification.
+CLEANUP: disposable marked home removed.

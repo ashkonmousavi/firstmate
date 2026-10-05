@@ -1,0 +1,5 @@
+Valid surgical install: raw exit 1
+error: no filled nav-prep for surgical-nav (looked under each home= in /tmp/fm-prep-install.8MKFJa/surgical-nav/home/data/secondmates.md for data/nav-preps/surgical-nav.md)
+Invalid surgical with full sections: completeness raw exit 1; reason <>
+Invalid surgical install: raw exit 0
+installed: /tmp/fm-prep-install.8MKFJa/surgical-nav/home/data/surgical-nav/prep.md (from /tmp/fm-prep-install.8MKFJa/surgical-nav/secondmate/data/nav-preps/surgical-nav.md)

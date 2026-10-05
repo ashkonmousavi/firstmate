@@ -1,0 +1,8 @@
+Observed probe-construction issues, not product failures:
+Initial RED probe driver unintentionally invoked two existing top-level tests before its chosen probe. Interrupted with Ctrl-C; outer raw exit 130 (KeyboardInterrupt). Only the first public reader result completed. RED was repeated with those invocations removed and its exact commands/results retained in red-receipts.txt.
+Command: python3 -u .no-mistakes/review-evidence.py
+Raw exit: 1
+Traceback: line 98, assert s!=original[f].decode(), AssertionError
+Cause: guide fault selector looked for a non-existent line prefix and changed no bytes. Existing baseline/fault/restored receipts remain real, but this execution did not run guide/helper faults. Its finally restored all fixed bytes. review-correction-evidence.py then ran the correct guide/helper faults and restored controls, raw exit 0.
+The initial green-driver.sh snapshot was replaced when constructing the corrected fixture driver. initial-green-driver-reconstructed.sh is explicitly a new reconstruction from retained red-tests.sh and the exact executed review-evidence.py suffix, not a historical saved file. Its historical execution source hashes remain in fixed-head-receipts.txt. The current green-driver.sh is the corrected driver.
+Initial surgical missing/malformed completeness receipts are masked by a different full-format section refusal. Use corrected-red-surgical-*-completeness.log and correction-and-rebase-receipts.txt for that guarantee; those probes verified original production bytes equal git show 6d1948996f1493a42e63a9e4119899fdb162b6a8:bin/fm-dod-lib.sh before execution.

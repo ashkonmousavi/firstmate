@@ -1,0 +1,200 @@
+FM_TEST_BEGIN 2026-10-05T09:42:40Z tests/fm-brief.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract
+ok - fm-brief: full and surgical scaffolds ask for one authored Delivery depth
+ok - surgical prep: compact scaffold, evidence and closed flag combinations
+ok - fm-brief: both PR paths finish only with current-head green non-draft forge URL
+ok - ship and scout artifacts deliver conditional complete journeys, actual results and diagnostics without hiding placeholders
+ok - fm-brief: batch prep reviewers get two axes and exact approval write paths
+ok - fm-brief.sh: bash -n succeeds
+/tmp/fm-test-run.K64Pun/w1/tmp/fm-brief.dsFrAZ/heredoc-in-substitution.sh:2
+ok - fm-brief.sh: no heredoc is nested inside a command substitution (Bash 3.2 parse-safe)
+ok - fm-brief.sh: --help renders the complete header
+ok - fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly
+ok - fm-brief.sh: ship --mode is required and closed-set validated
+ok - fm-brief.sh: the explicit ship mode wins over the registered posture
+ok - fm-brief.sh: --yolo and scout/secondmate --mode are refused, never silently dropped
+ok - fm-brief.sh: faster paths use configured authority without stacked review
+ok - fm-brief.sh: no-mistakes DOD keeps its apostrophe prose and bans --yes outright
+ok - fm-brief.sh: no-mistakes DOD detects a green PR from the drive call, not a status poll
+ok - fm-brief.sh: PR-based done requires a non-draft PR; a deliberate draft declares a wait
+ok - fm-brief.sh: no-mistakes stop-set findings use one event plus a verbatim snapshot
+ok - fm-brief.sh: ship project-memory wording bounds edits to corrections of wrong information
+ok - fm-brief.sh: --herdr-lab emits the complete hard safety contract
+ok - fm-brief.sh: --herdr-lab uses its quoted Firstmate-owned helper path
+ok - fm-brief.sh: ship and scout scaffolds make omitted Herdr intent fail-visible
+ok - fm-brief.sh: the documented {TASK} and {FIRSTMATE_SPEC} fills cannot corrupt the Herdr safety gate
+ok - fm-brief.sh: Herdr lab contract covers scouts and rejects secondmate misuse
+ok - fm-brief.sh: --no-projects scaffolds a project-less charter and guards misuse
+ok - fm-brief.sh: marked requests avoid generic acknowledgements and preserve material reporting
+ok - fm-brief.sh: relative directory inputs ignore CDPATH, render stable absolute charter paths, or fail loudly
+ok - fm-brief.sh: custom pause verb renders in every scaffold
+ok - fm-brief.sh: ship and scout scaffolds declare a validation-round pause once, then hold it
+ok - fm-brief.sh: investigation and visual-review completions load the shared decision policy
+ok - fm-brief: scout and secondmate code paths still scaffold well-formed briefs
+ok - fm-brief.sh: scout Lavish hosting follows the bootstrap lavish-axi floor
+ok - fm-brief.sh: --prep scaffolds a complete, placeheld preparation record and never overwrites one
+ok - fm-brief.sh: --help lists the tier rules and every section the record scaffolds
+ok - fm-brief.sh: --prep refuses brief flags and extra positionals
+ok - fm-brief: workers end the turn on a decision, wait in one bounded shell command, and never poll
+ok - fm-brief: without config/wait-no-turns the brief and drive text stay as they were
+ok - fm-brief.sh: the home brief include lands last on ship and scout, verbatim, and fails closed
+ok - fm-brief.sh: --branch-prefix omitted defaults every ship mode to fm/<task-id>
+ok - fm-brief.sh: a --branch-prefix override renders identically across every generated section
+ok - fm-brief.sh: an empty --branch-prefix override resolves to a bare <task-id> branch
+ok - fm-brief.sh: --branch-prefix is refused on scout and secondmate scaffolds
+ok - fm-brief.sh: --branch-prefix value is validated against embedded spaces and a leading dash
+Switched to a new branch '$(touch${IFS}/tmp/fm-test-run.K64Pun/w1/tmp/fm-brief.dsFrAZ/branch-prefix-shell-safe-marker)brief-branch-safe-g3'
+ok - fm-brief.sh: ref-format-valid shell metacharacters stay literal in generated branch commands
+ok - fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool
+FM_TEST_END 2026-10-05T09:43:44Z tests/fm-brief.test.sh exit=0 duration_ms=64567 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T09:43:44Z tests/fm-task-delivery.test.sh family=pure-contract-unit expected_gate_skip=none
+ok - fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines
+ok - fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions
+ok - both prep formats require current-work checks and only substantive proceed is dispatchable
+ok - supported headings, tables, fences and guide blocks end paragraphs; prose/list continuations retain context
+ok - all author fields accept concrete/literal continuations and refuse incomplete values or examples; raw intent stays cleaned
+ok - indented executable blocks and odd escaped openers retain bytes; prose and real comments clean normally
+ok - literal specification survives public admission, execution, spawn and both promotion artifacts; indented tables cannot supply outcomes
+ok - promotion relaunch replaces generated overlays with current complete specification in every delivery mode
+ok - common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal
+ok - both executable preparation scaffolds carry common author checks and outcomes
+ok - preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments
+ok - inline code preserves literal comment bytes across delimiter forms and preparation readers
+ok - inline lookahead distinguishes structural tables and paragraph interruptions from literal command prefixes
+ok - pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts
+ok - promotion hands both artifacts the complete preparation in every mode without gating legacy records
+ok - fm-spawn: section 8 owes sentinel grep evidence or an explicit n/a reason
+ok - optional batch receipts and stale artifacts never select the accepted specification
+ok - legacy install declarations have no admission effect and cannot bypass completeness
+ok - surgical certainty: complete evidence admits with outcomes; uncertainty and contradictions fail closed
+ok - full commented no-mistakes/live direct-PR: reader
+ok - full commented no-mistakes/live direct-PR: missing
+ok - full commented no-mistakes/live direct-PR: malformed
+ok - full commented no-mistakes/live direct-PR: mismatch
+ok - full commented no-mistakes/live direct-PR: matched
+ok - full commented no-mistakes/live direct-PR: local
+ok - full commented direct-PR/live no-mistakes: reader
+ok - full commented direct-PR/live no-mistakes: missing
+ok - full commented direct-PR/live no-mistakes: malformed
+ok - full commented direct-PR/live no-mistakes: mismatch
+ok - full commented direct-PR/live no-mistakes: matched
+ok - full commented direct-PR/live no-mistakes: local
+ok - surgical commented no-mistakes/live direct-PR: reader
+ok - surgical commented no-mistakes/live direct-PR: missing
+ok - surgical commented no-mistakes/live direct-PR: malformed
+ok - surgical commented no-mistakes/live direct-PR: mismatch
+ok - surgical commented no-mistakes/live direct-PR: matched
+ok - surgical commented no-mistakes/live direct-PR: local
+ok - surgical commented direct-PR/live no-mistakes: reader
+ok - surgical commented direct-PR/live no-mistakes: missing
+ok - surgical commented direct-PR/live no-mistakes: malformed
+ok - surgical commented direct-PR/live no-mistakes: mismatch
+ok - surgical commented direct-PR/live no-mistakes: matched
+ok - surgical commented direct-PR/live no-mistakes: local
+ok - delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend
+ok - delivery depth: full and surgical malformed declarations refuse; canonical restored answers pass
+ok - fm-spawn: a ship spawn requires a valid explicit mode and yolo before anything is created
+ok - fm-spawn: scout and secondmate spawns refuse ship delivery flags
+ok - fm-spawn: the brief's recorded mode and the spawn's explicit mode must agree
+ok - fm-spawn: a rigor downgrade against the registered posture is announced, never blocked
+ok - fm-spawn: a scout spawn resolves no delivery posture from the registry
+ok - fm-promote: promotion requires the delivery contract and records it exactly once
+ok - fm-promote: a symlinked task record is refused and its target is left untouched
+ok - fm-promote: a promoted worker receives the same mode-specific delivery contract a briefed one does
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ok - fm-promote: a selected branch prefix reaches both worker instructions and durable task state
+Switched to a new branch '$(touch${IFS}/tmp/fm-test-run.K64Pun/w2/tmp/fm-task-delivery.FkR92K/promote-branch-shell-safe-marker)/promote-branch-safe-e3'
+ok - fm-promote: ref-format-valid shell metacharacters stay literal in promotion branch commands
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ok - fm-merge-local: a registry change cannot redirect an in-flight local-only task
+ok - fm-project-mode: the registry lookup matches a whole multi-word name, not just its first token
+ok - fm-project-mode: the conditional policy is accepted, mapped for mechanical callers, and readable raw
+ok - fm-project-mode: the forge binds from its own token and is reported only through --forge
+ok - fm-project-mode: only a malformed forge binding refuses; every other token keeps its old tolerance
+ok - forge=gerrit: yolo is refused with its reason, never silently dropped
+ok - forge=gerrit: no-mistakes runs with its forge steps skipped, recovers its fixes, then publishes one change
+ok - forge=gerrit: direct-PR publishes one squashed change and a stack is refused with its reason
+ok - fm-spawn: a registered forge must reach the worker's brief
+ok - fm-spawn: the brief must carry the spawn's selected ship branch, and the selection is validated before anything is created
+ok - fm-spawn: a ship branch that deviates from the registered prefix is announced, never blocked
+ok - fm-spawn: a registry forge token the parser refuses stops the launch, reason included
+ok - fm-promote: a promoted worker receives the project's registered forge contract with no flag to remember
+ok - fm-spawn/fm-promote: leftover Task placeholders are refused until both subsections are filled
+ok - fm-spawn: a ship launch requires an answered task preparation record, and a scout never is
+ok - fm-spawn: every mode and tier admits complete preparation without review receipts
+ok - fm-spawn: a no-mistakes launch brief hands over the outcome table, behaviour spec and definition of done apart from, and before, the captain's words
+ok - fm-project-mode: --branch-prefix resolves order-independently and defaults to the legacy fm/ prefix
+# all fm-task-delivery tests passed
+FM_TEST_END 2026-10-05T10:09:19Z tests/fm-task-delivery.test.sh exit=0 duration_ms=1534345 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T10:09:19Z tests/fm-spawn-pool-base-freshen.test.sh family=standalone expected_gate_skip=none
+ok - a remote-seeded secondmate home allocates and launches from its Treehouse pool
+ok - a Treehouse slot claim names the launched task, refuses when unclaimable, and is dropped by a locked abort
+ok - linked spawning home: primary preserves the primary before any refresh
+ok - linked spawning home: primary-alias preserves the primary before any refresh
+ok - linked spawning home: spawning preserves the primary before any refresh
+ok - linked spawning home: scout preserves the primary before any refresh
+ok - a stale pooled worktree refreshes to current origin/main before a crew branch is created
+ok - a stale pooled worktree resolves and refreshes a non-main default branch
+ok - direct-PR ships and scouts both refresh stale pooled worktrees before launch
+ok - a dirty pooled worktree is refused without discarding its local work
+ok - an unresolved remote default branch refuses the pooled worktree
+ok - an unreachable origin refuses a potentially stale pooled worktree
+ok - an origin-less pooled worktree launches as-is, skipping the freshness gate
+ok - a dirty origin-less pooled worktree is refused without discarding its local work
+ok - an origin configuration without a URL refuses the pooled worktree
+ok - an empty origin configuration section refuses the pooled worktree
+ok - an empty-only included origin section documents the accepted detection boundary
+ok - an inactive conditional origin include leaves the pooled worktree origin-less
+ok - an origin-less pool with a stale submodule pin refuses while naming both pins and no remedy
+ok - an unpushed submodule commit keeps the uncommitted-work refusal and survives it
+ok - work inside a submodule is still refused as uncommitted work, not called stale
+ok - a stale pin carrying real work is refused conservatively, never called stale
+ok - a stale pin beside other dirt yields the conservative refusal alone, with no stale-pin line
+# all fm-spawn-pool-base-freshen tests passed
+FM_TEST_END 2026-10-05T10:13:41Z tests/fm-spawn-pool-base-freshen.test.sh exit=0 duration_ms=261882 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T10:13:41Z tests/fm-prep-install.test.sh family=unclassified expected_gate_skip=none
+ok - nav-prep: complete compact bytes install unchanged; uncertainty does not install
+ok - fm-prep-install.sh: bash -n succeeds
+ok - fm-prep-install.sh: copies a filled nav-prep into data/<id>/prep.md
+ok - fm-prep-install.sh: refuses a filled destination unless --force
+ok - fm-prep-install.sh: replaces an empty local --prep scaffold
+ok - fm-prep-install.sh: refuses a missing or unfilled source
+ok - fm-spawn: names a filled nav-prep on prep refusal and never auto-installs
+ok - nav-prep: byte-identical complete preparation admits without review; malformed common fields do not install
+# all fm-prep-install tests passed
+FM_TEST_END 2026-10-05T10:14:04Z tests/fm-prep-install.test.sh exit=0 duration_ms=23088 gate_skip=false
+FM_TEST_BEGIN 2026-10-05T10:14:04Z tests/fm-fleet-ledger.test.sh family=unclassified expected_gate_skip=none
+ok - flag on: dispatch, polled status lines, the local merge after its task's pending lines, and cleanup are recorded in order
+reminder: https://github.com/acme/sample/pull/7 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+ok - flag on: a PR merge is recorded once, after the task's pending status lines
+ok - flag on: registering a PR records task.pr_ready with its full URL after the task's pending status lines, and the merge-time re-record adds nothing
+ok - flag on: a worker's status command records its line at once, and the watcher backstop does not record it again
+ok - flag on, state override outside the home: the worker's status command records its line at once
+ok - flag on, relative config override: a worker running elsewhere still records its line at once
+ok - append failing: the worker's status command exits nonzero and records nothing
+ok - ledger failing: the worker's status line still lands exactly, quietly, and the backstop records it later
+ok - flag off: the worker's status command is a plain append and leaves no ledger file, offset, or lock
+ok - flag off: the whole lifecycle leaves no ledger file, offset, or lock
+FM_TEST_END 2026-10-05T10:15:13Z tests/fm-fleet-ledger.test.sh exit=0 duration_ms=68710 gate_skip=false
+FM_TEST_SUMMARY total=5 failed=0 skipped_gate=0 duration_ms=1953830
+FM_TEST_SUMMARY_FAMILY family=pure-contract-unit count=2 duration_ms=1598912 failed=0
+FM_TEST_SUMMARY_FAMILY family=standalone count=1 duration_ms=261882 failed=0
+FM_TEST_SUMMARY_FAMILY family=unclassified count=2 duration_ms=91798 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-task-delivery.test.sh duration_ms=1534345
+FM_TEST_SLOWEST rank=2 script=tests/fm-spawn-pool-base-freshen.test.sh duration_ms=261882
+FM_TEST_SLOWEST rank=3 script=tests/fm-fleet-ledger.test.sh duration_ms=68710
+FM_TEST_SLOWEST rank=4 script=tests/fm-brief.test.sh duration_ms=64567
+FM_TEST_SLOWEST rank=5 script=tests/fm-prep-install.test.sh duration_ms=23088
+fm-test-run: wrote timing artifact: /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/focused-tests.json

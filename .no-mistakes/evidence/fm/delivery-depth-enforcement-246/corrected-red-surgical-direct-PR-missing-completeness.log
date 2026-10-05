@@ -1,0 +1,2851 @@
+Completeness raw exit 1; output: 
++ review_completeness_input /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++ local reason status
+++ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md tier heading placeholder required guide evidence state
+++ '[' '!' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ '[' '!' -r /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ fm_brief_heading_present /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' present
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=present input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Tier' -v mode=present '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ fm_prep_ui_wiring /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md line verdict reason
+++++ fm_prep_ui_wiring_line /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ awk '
+    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+  '
++++ line=' no, old isolated example.'
+++++ printf %s ' no, old isolated example.'
+++++ sed 's/,.*//'
+++++ tr -d '[:space:].'
+++++ tr '[:upper:]' '[:lower:]'
++++ verdict=no
+++++ printf %s ' no, old isolated example.'
+++++ sed 's/^[^,]*,*//'
+++++ tr -d '[:space:].'
++++ reason=oldisolatedexample
++++ case "$verdict" in
++++ '[' -n oldisolatedexample ']'
++++ printf '%s\n' no
+++ '[' -z no ']'
++++ fm_prep_tier /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md q1 q2 ui
++++ fm_brief_heading_present /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' present
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=present input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Tier' -v mode=present '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ fm_prep_answer /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md Q1
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md question=Q1 answer
++++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' Q1
++++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
++++++ awk -v q=Q1 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
++++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++++ tr -d '[:space:].'
++++++ awk -F: 'NF > 1 && !done { print $NF; done = 1 }'
++++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++++ tr '[:upper:]' '[:lower:]'
++++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ answer=no
+++++ case "$answer" in
+++++ printf '%s\n' no
++++ q1=no
+++++ fm_prep_answer /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md Q2
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md question=Q2 answer
++++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' Q2
++++++ awk -F: 'NF > 1 && !done { print $NF; done = 1 }'
++++++ tr -d '[:space:].'
++++++ tr '[:upper:]' '[:lower:]'
++++++ awk -v q=Q2 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
++++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
++++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ answer=no
+++++ case "$answer" in
+++++ printf '%s\n' no
++++ q2=no
+++++ fm_prep_ui_wiring /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md line verdict reason
++++++ fm_prep_ui_wiring_line /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
++++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ awk '
+    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+  '
+++++ line=' no, old isolated example.'
++++++ printf %s ' no, old isolated example.'
++++++ sed 's/,.*//'
++++++ tr -d '[:space:].'
++++++ tr '[:upper:]' '[:lower:]'
+++++ verdict=no
++++++ printf %s ' no, old isolated example.'
++++++ sed 's/^[^,]*,*//'
++++++ tr -d '[:space:].'
+++++ reason=oldisolatedexample
+++++ case "$verdict" in
+++++ '[' -n oldisolatedexample ']'
+++++ printf '%s\n' no
++++ ui=no
++++ '[' -z no ']'
++++ '[' -z no ']'
++++ '[' -z no ']'
++++ '[' no = yes ']'
++++ '[' no = yes ']'
++++ '[' no = yes ']'
++++ printf '0\n'
+++ tier=0
+++ '[' -z 0 ']'
+++ fm_prep_delivery_mode /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ cp /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing-completeness.input.md
+++ review_original_delivery_mode /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ local value reason mode
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ fm_prep_body_text
++++ awk '
+    /^- Delivery depth:/ { seen++; value=substr($0,19) }
+    END { if (seen == 1) print value }
+  '
++++ awk -v keep_fences=no '
+    function table_start(row, header, delimiter, cells, count, i, cell) {
+      if (row >= NR) return 0
+      header=lines[row]; delimiter=lines[row+1]
+      sub(/^ ? ? ?/, "", header); sub(/^ ? ? ?/, "", delimiter)
+      if (header ~ /^[[:space:]]/ || delimiter ~ /^[[:space:]]/) return 0
+      gsub(/\\\|/, "", header)
+      if (header !~ /\|/) return 0
+      sub(/[[:space:]]+$/, "", header); sub(/[[:space:]]+$/, "", delimiter)
+      sub(/^\|/, "", header); sub(/\|$/, "", header)
+      sub(/^\|/, "", delimiter); sub(/\|$/, "", delimiter)
+      count=split(header,cells,"|")
+      if (!count || split(delimiter,cells,"|") != count) return 0
+      for (i=1; i<=count; i++) {
+        cell=cells[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell !~ /^:?-+:?$/) return 0
+      }
+      return 1
+    }
+    function closing_tick(s, size, row, probe, list_number) {
+      while (1) {
+        while (match(s, /`+/)) {
+          if (RLENGTH == size) return 1
+          s=substr(s,RSTART+RLENGTH)
+        }
+        if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
+        s=lines[row]
+        probe=s; sub(/^ ? ? ?/, "", probe)
+        list_number=probe; sub(/[.)].*$/, "", list_number)
+        if (probe ~ /^[0-9]+[.)][[:space:]]+[^[:space:]]/ && length(list_number) <= 9 && list_number+0 == 1) return 0
+        if (table_start(row) || probe ~ /^```|^~~~|^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)|^[-+*][[:space:]]+[^[:space:]]|^<!--/) return 0
+      }
+    }
+    function uncomment(s, row, out, end, size) {
+      out=""
+      while (length(s)) {
+        if (comment) {
+          end=index(s,"-->"); if (!end) return out
+          s=substr(s,end+3); comment=0
+        } else if (inline_size) {
+          if (!match(s,/`+/)) return out s
+          size=RLENGTH
+          out=out substr(s,1,RSTART+size-1)
+          s=substr(s,RSTART+size)
+          if (size == inline_size) inline_size=0
+        } else if (substr(s,1,4) == "<!--") {
+          comment=1; s=substr(s,5)
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\" || substr(s,1,2) == "\\<") {
+          out=out substr(s,1,2); s=substr(s,3)
+        } else if (substr(s,1,1) == "`") {
+          match(s,/^`+/); size=RLENGTH
+          out=out substr(s,1,size); s=substr(s,size+1)
+          if (closing_tick(s,size,row)) inline_size=size
+        } else {
+          out=out substr(s,1,1); s=substr(s,2)
+        }
+      }
+      return out
+    }
+    { lines[NR]=$0 }
+    END {
+      for (row=1; row<=NR; row++) {
+        line=lines[row]
+        if (!fenced && !comment && !inline_size) {
+          if (line ~ /^[[:space:]]*$/) {
+            paragraph=0; table=0
+            print line
+            continue
+          }
+          if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
+            indented=1; table=0
+            if (keep_fences == "yes") print line
+            continue
+          }
+          indented=0
+        }
+        scan=line
+        spaces=0
+        while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+        marker=substr(scan,1,1)
+        marker_len=0
+        if (marker == "`" || marker == "~") {
+          while (substr(scan,marker_len+1,1) == marker) marker_len++
+        }
+        if (marker_len >= 3 && !comment && !inline_size) {
+          paragraph=0; table=0
+          rest=substr(scan,marker_len+1)
+          if (!fenced) {
+            fenced=1; fence_marker=marker; fence_len=marker_len
+          } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+            fenced=0
+          }
+          if (keep_fences == "yes") print line
+          continue
+        }
+        if (fenced) {
+          if (keep_fences == "yes") print line
+          continue
+        }
+        line=uncomment(line,row)
+        scan=line; sub(/^ ? ? ?/, "", scan)
+        table=table_start(row) || (table && scan ~ /\|/)
+        paragraph=(line !~ /^[[:space:]]*$/ && scan !~ /^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)/ && !table)
+        if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
+        print line
+      }
+    }'
+++ value='checks + AI review (no-mistakes), old shared example.'
+++ case "$value" in
+++ mode=no-mistakes
+++ reason='old shared example.'
+++ case "$reason" in
+++ fm_prep_answer_complete 'old shared example.' no
+++ printf '%s\n' 'old shared example.'
+++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
+++ printf '%s\n' no-mistakes
++++ fm_prep_common_reason /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md label placeholder conditional guide body value reason
++++ fm_brief_heading_present /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Author checks'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Author checks' present
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Author checks' mode=present input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Author checks' -v mode=present '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Author checks'
+++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Author checks' body
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Author checks' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++++ fm_prep_body_text
+++++ awk -v 'heading=## Author checks' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ awk -v keep_fences=no '
+    function table_start(row, header, delimiter, cells, count, i, cell) {
+      if (row >= NR) return 0
+      header=lines[row]; delimiter=lines[row+1]
+      sub(/^ ? ? ?/, "", header); sub(/^ ? ? ?/, "", delimiter)
+      if (header ~ /^[[:space:]]/ || delimiter ~ /^[[:space:]]/) return 0
+      gsub(/\\\|/, "", header)
+      if (header !~ /\|/) return 0
+      sub(/[[:space:]]+$/, "", header); sub(/[[:space:]]+$/, "", delimiter)
+      sub(/^\|/, "", header); sub(/\|$/, "", header)
+      sub(/^\|/, "", delimiter); sub(/\|$/, "", delimiter)
+      count=split(header,cells,"|")
+      if (!count || split(delimiter,cells,"|") != count) return 0
+      for (i=1; i<=count; i++) {
+        cell=cells[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell !~ /^:?-+:?$/) return 0
+      }
+      return 1
+    }
+    function closing_tick(s, size, row, probe, list_number) {
+      while (1) {
+        while (match(s, /`+/)) {
+          if (RLENGTH == size) return 1
+          s=substr(s,RSTART+RLENGTH)
+        }
+        if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
+        s=lines[row]
+        probe=s; sub(/^ ? ? ?/, "", probe)
+        list_number=probe; sub(/[.)].*$/, "", list_number)
+        if (probe ~ /^[0-9]+[.)][[:space:]]+[^[:space:]]/ && length(list_number) <= 9 && list_number+0 == 1) return 0
+        if (table_start(row) || probe ~ /^```|^~~~|^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)|^[-+*][[:space:]]+[^[:space:]]|^<!--/) return 0
+      }
+    }
+    function uncomment(s, row, out, end, size) {
+      out=""
+      while (length(s)) {
+        if (comment) {
+          end=index(s,"-->"); if (!end) return out
+          s=substr(s,end+3); comment=0
+        } else if (inline_size) {
+          if (!match(s,/`+/)) return out s
+          size=RLENGTH
+          out=out substr(s,1,RSTART+size-1)
+          s=substr(s,RSTART+size)
+          if (size == inline_size) inline_size=0
+        } else if (substr(s,1,4) == "<!--") {
+          comment=1; s=substr(s,5)
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\" || substr(s,1,2) == "\\<") {
+          out=out substr(s,1,2); s=substr(s,3)
+        } else if (substr(s,1,1) == "`") {
+          match(s,/^`+/); size=RLENGTH
+          out=out substr(s,1,size); s=substr(s,size+1)
+          if (closing_tick(s,size,row)) inline_size=size
+        } else {
+          out=out substr(s,1,1); s=substr(s,2)
+        }
+      }
+      return out
+    }
+    { lines[NR]=$0 }
+    END {
+      for (row=1; row<=NR; row++) {
+        line=lines[row]
+        if (!fenced && !comment && !inline_size) {
+          if (line ~ /^[[:space:]]*$/) {
+            paragraph=0; table=0
+            print line
+            continue
+          }
+          if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
+            indented=1; table=0
+            if (keep_fences == "yes") print line
+            continue
+          }
+          indented=0
+        }
+        scan=line
+        spaces=0
+        while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+        marker=substr(scan,1,1)
+        marker_len=0
+        if (marker == "`" || marker == "~") {
+          while (substr(scan,marker_len+1,1) == marker) marker_len++
+        }
+        if (marker_len >= 3 && !comment && !inline_size) {
+          paragraph=0; table=0
+          rest=substr(scan,marker_len+1)
+          if (!fenced) {
+            fenced=1; fence_marker=marker; fence_len=marker_len
+          } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+            fenced=0
+          }
+          if (keep_fences == "yes") print line
+          continue
+        }
+        if (fenced) {
+          if (keep_fences == "yes") print line
+          continue
+        }
+        line=uncomment(line,row)
+        scan=line; sub(/^ ? ? ?/, "", scan)
+        table=table_start(row) || (table && scan ~ /\|/)
+        paragraph=(line !~ /^[[:space:]]*$/ && scan !~ /^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)/ && !table)
+        if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
+        print line
+      }
+    }'
++++ body='
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Captain rulings' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).'
++++ '[' 'Captain rulings' = 'Captain rulings' ']'
++++ fm_prep_surgical_declared /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ grep -q '^- Preparation format:'
++++ conditional=no
++++ '[' 'Captain rulings' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).' no
++++ printf '%s\n' ' Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).'
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  Intent: exercise delivery admission; ruling: use an isolated fixture (test brief). == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Captain rulings' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Still valid' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.'
++++ '[' 'Still valid' = 'Captain rulings' ']'
++++ '[' 'Still valid' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.' no
++++ printf '%s\n' ' proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.'
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Still valid' = 'Still valid' ']'
++++ value='proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.'
++++ case "$value" in
++++ fm_prep_answer_complete ' inspected fixture base and task sources; delivery admission remains needed with no dependency.' no
++++ printf '%s\n' ' inspected fixture base and task sources; delivery admission remains needed with no dependency.'
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Siblings named' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' Not a defect; searched fixture task records and delivery owners, none found.'
++++ '[' 'Siblings named' = 'Captain rulings' ']'
++++ '[' 'Siblings named' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' Not a defect; searched fixture task records and delivery owners, none found.' no
++++ printf '%s\n' ' Not a defect; searched fixture task records and delivery owners, none found.'
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  Not a defect; searched fixture task records and delivery owners, none found. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Siblings named' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Screen and region' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' n/a: no product screen is changed.'
++++ '[' 'Screen and region' = 'Captain rulings' ']'
++++ '[' 'Screen and region' = 'Screen and region' ']'
+++++ fm_prep_ui_wiring /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md line verdict reason
++++++ fm_prep_ui_wiring_line /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
++++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
++++++ awk '
+    index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
+  '
++++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ line=' no, old isolated example.'
++++++ printf %s ' no, old isolated example.'
++++++ sed 's/,.*//'
++++++ tr -d '[:space:].'
++++++ tr '[:upper:]' '[:lower:]'
+++++ verdict=no
++++++ printf %s ' no, old isolated example.'
++++++ sed 's/^[^,]*,*//'
++++++ tr -d '[:space:].'
+++++ reason=oldisolatedexample
+++++ case "$verdict" in
+++++ '[' -n oldisolatedexample ']'
+++++ printf '%s\n' no
++++ '[' no = yes ']'
++++ fm_prep_answer_complete ' n/a: no product screen is changed.' yes
++++ printf '%s\n' ' n/a: no product screen is changed.'
++++ awk -v na=yes '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  n/a: no product screen is changed. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Screen and region' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Red-first proof' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.'
++++ '[' 'Red-first proof' = 'Captain rulings' ']'
++++ '[' 'Red-first proof' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.' yes
++++ printf '%s\n' ' bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.'
++++ awk -v na=yes '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Red-first proof' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Fixture arithmetic' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' n/a: no calculated assertions.'
++++ '[' 'Fixture arithmetic' = 'Captain rulings' ']'
++++ '[' 'Fixture arithmetic' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' n/a: no calculated assertions.' yes
++++ printf '%s\n' ' n/a: no calculated assertions.'
++++ awk -v na=yes '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  n/a: no calculated assertions. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Fixture arithmetic' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Data path reachability' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.'
++++ '[' 'Data path reachability' = 'Captain rulings' ']'
++++ '[' 'Data path reachability' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.' yes
++++ printf '%s\n' ' brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.'
++++ awk -v na=yes '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Data path reachability' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Scope only as asked' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' Exercise the requested delivery admission only; real endpoints and product changes are outside scope.'
++++ '[' 'Scope only as asked' = 'Captain rulings' ']'
++++ '[' 'Scope only as asked' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' Exercise the requested delivery admission only; real endpoints and product changes are outside scope.' no
++++ printf '%s\n' ' Exercise the requested delivery admission only; real endpoints and product changes are outside scope.'
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  Exercise the requested delivery admission only; real endpoints and product changes are outside scope. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Scope only as asked' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
+++++ awk -v 'label=Validation route' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
++++ value=' bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.'
++++ '[' 'Validation route' = 'Captain rulings' ']'
++++ '[' 'Validation route' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.' no
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ printf '%s\n' ' bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.'
++++ [[  bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression. == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Validation route' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
+++++ awk -v 'label=Author gate check' '
+      {
+        line=$0
+        if (line ~ /^- /) {
+          grab=index(line, "- " label ":") == 1
+          if (grab) { seen++; print substr(line, length(label)+4) }
+        } else if (grab) print line
+      }
+      END { if (seen != 1) print "{INVALID_FIELD}" }
+    '
+++++ printf '%s\n' '
+- Captain rulings: Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).
+
+- Still valid: proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.
+
+- Siblings named: Not a defect; searched fixture task records and delivery owners, none found.
+
+- Screen and region: n/a: no product screen is changed.
+
+- Red-first proof: bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.
+
+- Fixture arithmetic: n/a: no calculated assertions.
+
+- Data path reachability: brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.
+
+- Scope only as asked: Exercise the requested delivery admission only; real endpoints and product changes are outside scope.
+
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.
+
+- Author gate check: bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
++++ value=' bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
++++ '[' 'Author gate check' = 'Captain rulings' ']'
++++ '[' 'Author gate check' = 'Screen and region' ']'
++++ fm_prep_answer_complete ' bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).' no
++++ printf '%s\n' ' bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).'
++++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
++++ [[  bash -c ' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1" ' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses). == *\{\I\N\V\A\L\I\D\_\F\I\E\L\D\}* ]]
++++ '[' 'Author gate check' = 'Still valid' ']'
++++ IFS='|'
++++ read -r label placeholder conditional guide
++++ fm_brief_heading_present /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Expected outcomes and how to check each'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Expected outcomes and how to check each' present
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Expected outcomes and how to check each' mode=present input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Expected outcomes and how to check each' -v mode=present '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Expected outcomes and how to check each'
+++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Expected outcomes and how to check each' body
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Expected outcomes and how to check each' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++++ fm_prep_body_text
+++++ awk -v 'heading=## Expected outcomes and how to check each' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ awk -v keep_fences=no '
+    function table_start(row, header, delimiter, cells, count, i, cell) {
+      if (row >= NR) return 0
+      header=lines[row]; delimiter=lines[row+1]
+      sub(/^ ? ? ?/, "", header); sub(/^ ? ? ?/, "", delimiter)
+      if (header ~ /^[[:space:]]/ || delimiter ~ /^[[:space:]]/) return 0
+      gsub(/\\\|/, "", header)
+      if (header !~ /\|/) return 0
+      sub(/[[:space:]]+$/, "", header); sub(/[[:space:]]+$/, "", delimiter)
+      sub(/^\|/, "", header); sub(/\|$/, "", header)
+      sub(/^\|/, "", delimiter); sub(/\|$/, "", delimiter)
+      count=split(header,cells,"|")
+      if (!count || split(delimiter,cells,"|") != count) return 0
+      for (i=1; i<=count; i++) {
+        cell=cells[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell !~ /^:?-+:?$/) return 0
+      }
+      return 1
+    }
+    function closing_tick(s, size, row, probe, list_number) {
+      while (1) {
+        while (match(s, /`+/)) {
+          if (RLENGTH == size) return 1
+          s=substr(s,RSTART+RLENGTH)
+        }
+        if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
+        s=lines[row]
+        probe=s; sub(/^ ? ? ?/, "", probe)
+        list_number=probe; sub(/[.)].*$/, "", list_number)
+        if (probe ~ /^[0-9]+[.)][[:space:]]+[^[:space:]]/ && length(list_number) <= 9 && list_number+0 == 1) return 0
+        if (table_start(row) || probe ~ /^```|^~~~|^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)|^[-+*][[:space:]]+[^[:space:]]|^<!--/) return 0
+      }
+    }
+    function uncomment(s, row, out, end, size) {
+      out=""
+      while (length(s)) {
+        if (comment) {
+          end=index(s,"-->"); if (!end) return out
+          s=substr(s,end+3); comment=0
+        } else if (inline_size) {
+          if (!match(s,/`+/)) return out s
+          size=RLENGTH
+          out=out substr(s,1,RSTART+size-1)
+          s=substr(s,RSTART+size)
+          if (size == inline_size) inline_size=0
+        } else if (substr(s,1,4) == "<!--") {
+          comment=1; s=substr(s,5)
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\" || substr(s,1,2) == "\\<") {
+          out=out substr(s,1,2); s=substr(s,3)
+        } else if (substr(s,1,1) == "`") {
+          match(s,/^`+/); size=RLENGTH
+          out=out substr(s,1,size); s=substr(s,size+1)
+          if (closing_tick(s,size,row)) inline_size=size
+        } else {
+          out=out substr(s,1,1); s=substr(s,2)
+        }
+      }
+      return out
+    }
+    { lines[NR]=$0 }
+    END {
+      for (row=1; row<=NR; row++) {
+        line=lines[row]
+        if (!fenced && !comment && !inline_size) {
+          if (line ~ /^[[:space:]]*$/) {
+            paragraph=0; table=0
+            print line
+            continue
+          }
+          if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
+            indented=1; table=0
+            if (keep_fences == "yes") print line
+            continue
+          }
+          indented=0
+        }
+        scan=line
+        spaces=0
+        while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+        marker=substr(scan,1,1)
+        marker_len=0
+        if (marker == "`" || marker == "~") {
+          while (substr(scan,marker_len+1,1) == marker) marker_len++
+        }
+        if (marker_len >= 3 && !comment && !inline_size) {
+          paragraph=0; table=0
+          rest=substr(scan,marker_len+1)
+          if (!fenced) {
+            fenced=1; fence_marker=marker; fence_len=marker_len
+          } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+            fenced=0
+          }
+          if (keep_fences == "yes") print line
+          continue
+        }
+        if (fenced) {
+          if (keep_fences == "yes") print line
+          continue
+        }
+        line=uncomment(line,row)
+        scan=line; sub(/^ ? ? ?/, "", scan)
+        table=table_start(row) || (table && scan ~ /\|/)
+        paragraph=(line !~ /^[[:space:]]*$/ && scan !~ /^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)/ && !table)
+        if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
+        print line
+      }
+    }'
+++++ awk -v 'columns=Outcome|Exact observable result|Where and how to check|Expected value' '
+    function trim(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    BEGIN { split(columns, names, "|") }
+    {
+      line=trim($0)
+      if (line == "") next
+      if (line !~ /^\|.*\|$/) { bad="table row"; next }
+      gsub(/\\\|/, "ESCAPED_PIPE", line)
+      n=split(line,cells,"|")
+      if (n != 6) { bad="four columns"; next }
+      if (!header) {
+        for (i=1;i<=4;i++) if (trim(cells[i+1]) != names[i]) bad="column " names[i]
+        header=1; next
+      }
+      if (!separator) {
+        for (i=2;i<=5;i++) if (trim(cells[i]) !~ /^:?-+(:)?$/) bad="separator"
+        separator=1; next
+      }
+      rows++
+      for (i=1;i<=4;i++) {
+        value=trim(cells[i+1])
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|example|e[.]g[.]|todo|tbd)([ :]|$)/) bad="row " rows " column " names[i]
+      }
+    }
+    END {
+      if (!header || !separator || !rows) bad="header, separator and at least one substantive row"
+      if (bad) print "Expected outcomes requires " bad
+    }'
++++ reason=
++++ '[' -n '' ']'
++++ return 1
+++ state=
+++ fm_prep_surgical_declared /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ grep -q '^- Preparation format:'
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ fm_prep_certainty_reason /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md field label evidence answer
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ awk '
+    /^- Preparation format:/ { n++; if ($0 != "- Preparation format: surgical") bad = 1 }
+    END { exit !(n == 1 && !bad) }
+  '
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk '
+    /^- Q[12] / {
+      if (awaiting) bad = 1
+      q = substr($0, 3, 2); seen[q]++; awaiting = 1
+      next
+    }
+    awaiting {
+      if ($0 ~ /^[[:space:]]*$/) next
+      if (index($0, "Reason:") != 1) bad = 1
+      value = substr($0, length("Reason:") + 1)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/) bad = 1
+      awaiting = 0
+    }
+    /^- UI wiring:/ { ui++ }
+    END { exit !(seen["Q1"] == 1 && seen["Q2"] == 1 && ui == 1 && !bad && !awaiting) }
+  '
+++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ fm_prep_answer /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md Q2
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md question=Q2 answer
+++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' Q2
+++++ awk -F: 'NF > 1 && !done { print $NF; done = 1 }'
+++++ tr -d '[:space:].'
+++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++++ tr '[:upper:]' '[:lower:]'
+++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
+++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++++ awk -v q=Q2 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
+++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ answer=no
++++ case "$answer" in
++++ printf '%s\n' no
+++ '[' no '!=' no ']'
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Tier' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Tier' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ awk '
+    /^- Changes (stored data|security|permissions|money|install|server|unit|setting|pin|store version):/ {
+      value = $0; sub(/^.*:/, "", value); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+      if (value != "no") bad = 1
+    }
+    END { exit !bad }
+  '
+++ IFS='|'
+++ read -r field label evidence
++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' C1
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ awk -v q=C1 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ answer='Exact changed files and line locations are known: yes'
+++ case "$answer" in
+++ answer=' yes'
++++ printf %s ' yes'
++++ sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+++ answer=yes
+++ '[' yes '!=' yes ']'
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v f=C1 '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
+      awaiting {
+        if ($0 ~ /^[[:space:]]*$/) next
+++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        if (index($0, "Evidence:") != 1) bad = 1
+        value = substr($0, length("Evidence:") + 1)
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|unknown|unavailable|todo|tbd)([ :]|$)/) bad = 1
+        awaiting = 0
+      }
+      END { exit !(n == 1 && !bad && !awaiting) }
+          fence_marker = marker
+          fence_len = marker_len
+    '
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ IFS='|'
+++ read -r field label evidence
++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' C2
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v q=C2 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
++++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ answer='Impact lookup finds no caller outside the change and no shared module or contract: yes'
+++ case "$answer" in
+++ answer=' yes'
++++ printf %s ' yes'
++++ sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+++ answer=yes
+++ '[' yes '!=' yes ']'
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
+++ awk -v f=C2 '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
+      awaiting {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if (index($0, "Evidence:") != 1) bad = 1
+        value = substr($0, length("Evidence:") + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|unknown|unavailable|todo|tbd)([ :]|$)/) bad = 1
+        awaiting = 0
+      }
+      END { exit !(n == 1 && !bad && !awaiting) }
+    '
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ IFS='|'
+++ read -r field label evidence
++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' C3
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ awk -v q=C3 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
+++ answer='Stored data, security, permissions, money, install and server paths are untouched: yes'
+++ case "$answer" in
+++ answer=' yes'
++++ printf %s ' yes'
++++ sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+++ answer=yes
+++ '[' yes '!=' yes ']'
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
+++ awk -v f=C3 '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
+      awaiting {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if (index($0, "Evidence:") != 1) bad = 1
+        value = substr($0, length("Evidence:") + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|unknown|unavailable|todo|tbd)([ :]|$)/) bad = 1
+        awaiting = 0
+      }
+      END { exit !(n == 1 && !bad && !awaiting) }
+    '
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ IFS='|'
+++ read -r field label evidence
++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' C4
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
++++ awk -v q=C4 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ answer='The cause and the complete fix are known: yes'
+++ case "$answer" in
+++ answer=' yes'
++++ sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
++++ printf %s ' yes'
+++ answer=yes
+++ '[' yes '!=' yes ']'
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ awk -v f=C4 '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
+      awaiting {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if (index($0, "Evidence:") != 1) bad = 1
+        value = substr($0, length("Evidence:") + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|unknown|unavailable|todo|tbd)([ :]|$)/) bad = 1
+        awaiting = 0
+      }
+      END { exit !(n == 1 && !bad && !awaiting) }
+    '
+++ IFS='|'
+++ read -r field label evidence
++++ fm_prep_labelled /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' C5
++++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
++++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
++++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
++++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
++++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
++++ awk -v q=C5 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
++++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ answer='One focused regression covers the entire changed behaviour: yes'
+++ case "$answer" in
+++ answer=' yes'
++++ printf %s ' yes'
++++ sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+++ answer=yes
+++ '[' yes '!=' yes ']'
+++ fm_brief_heading_body /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty'
+++ fm_brief_heading_parse /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md '## Certainty' body
+++ local file=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md 'heading=## Certainty' mode=body input=/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ '[' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md = - ']'
+++ '[' -f /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md ']'
+++ awk -v 'heading=## Certainty' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/corrected-red-surgical-direct-PR-missing.input.md
+++ awk -v f=C5 '
+      index($0, "- " f) == 1 { n++; awaiting = 1; next }
+      awaiting {
+        if ($0 ~ /^[[:space:]]*$/) next
+        if (index($0, "Evidence:") != 1) bad = 1
+        value = substr($0, length("Evidence:") + 1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        if (value == "" || value ~ /^[{][A-Z0-9_]+[}]$/ || value ~ /^<[^>]+>$/ || tolower(value) ~ /^(n\/a|unknown|unavailable|todo|tbd)([ :]|$)/) bad = 1
+        awaiting = 0
+      }
+      END { exit !(n == 1 && !bad && !awaiting) }
+    '
+++ IFS='|'
+++ read -r field label evidence
+++ return 1
+++ return 1
++ reason=
++ status=1
++ printf 'Completeness raw exit %s; output: %s
+' 1 ''
++ '[' 1 = 0 ']'
++ fail 'commented depth rescued live missing/malformed answer'
++ printf 'not ok - %s\n' 'commented depth rescued live missing/malformed answer'
+not ok - commented depth rescued live missing/malformed answer
++ exit 1
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3336629.zP5t4a ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3336629.zP5t4a
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3336629.cz5s9B ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3336629.cz5s9B
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3336629.Db1cOK ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-task-delivery.byf0De ']'
++ fm_test_remove_tree /tmp/fm-task-delivery.byf0De
++ local dir=/tmp/fm-task-delivery.byf0De
++ '[' -d /tmp/fm-task-delivery.byf0De ']'
++ '[' '!' -L /tmp/fm-task-delivery.byf0De ']'
++ find /tmp/fm-task-delivery.byf0De -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-task-delivery.byf0De
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3336629.Db1cOK

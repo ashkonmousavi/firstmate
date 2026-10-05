@@ -1,0 +1,277 @@
++ review_helper direct-PR
++ local mode=direct-PR rec home proj fakebin prep out code
+++ make_home helper-direct-PR
+++ local name=helper-direct-PR home projects fakebin
+++ shift
+++ home=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home
+++ projects=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/projects
+++ fakebin=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin
+++ mkdir -p /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/state /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/config /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/projects/proj /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin
+++ git -C /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/projects/proj init -q
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin
+++ chmod +x /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin/treehouse
+++ chmod +x /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin/tmux
+++ '[' 0 -gt 0 ']'
+++ printf '%s\n' '/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home|/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/projects/proj|/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin'
++ rec='/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home|/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/projects/proj|/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/bin'
++ IFS='|'
++ read -r home proj fakebin
++ fm_test_prep_record /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data helper no no no direct-PR
++ local data=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data id=helper q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper
++ FM_HOME=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh helper --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
++ mv /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md.filled /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{UNUSED_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
++ mv /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md.common /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
++ '[' no = yes ']'
++ return 0
++ prep=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
+++ fm_prep_delivery_mode /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
+++ cp /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/fault-helper-DELIVERY_DEPTH.input.md
+++ review_original_delivery_mode /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
+++ local value reason mode
++++ fm_prep_tier_read /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md
++++ local file=/tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md mode=body
++++ '[' -f /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md ']'
++++ '[' -r /tmp/fm-task-delivery.Zv1GSz/helper-direct-PR/home/data/helper/prep.md ']'
++++ awk '
+    /^- Delivery depth:/ { seen++; value=substr($0,19) }
+    END { if (seen == 1) print value }
+  '
++++ fm_prep_body_text
++++ awk -v keep_fences=no '
+    function table_start(row, header, delimiter, cells, count, i, cell) {
+      if (row >= NR) return 0
+      header=lines[row]; delimiter=lines[row+1]
+      sub(/^ ? ? ?/, "", header); sub(/^ ? ? ?/, "", delimiter)
+      if (header ~ /^[[:space:]]/ || delimiter ~ /^[[:space:]]/) return 0
+      gsub(/\\\|/, "", header)
+      if (header !~ /\|/) return 0
+      sub(/[[:space:]]+$/, "", header); sub(/[[:space:]]+$/, "", delimiter)
+      sub(/^\|/, "", header); sub(/\|$/, "", header)
+      sub(/^\|/, "", delimiter); sub(/\|$/, "", delimiter)
+      count=split(header,cells,"|")
+      if (!count || split(delimiter,cells,"|") != count) return 0
+      for (i=1; i<=count; i++) {
+        cell=cells[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell !~ /^:?-+:?$/) return 0
+      }
+      return 1
+    }
+    function closing_tick(s, size, row, probe, list_number) {
+      while (1) {
+        while (match(s, /`+/)) {
+          if (RLENGTH == size) return 1
+          s=substr(s,RSTART+RLENGTH)
+        }
+        if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
+        s=lines[row]
+        probe=s; sub(/^ ? ? ?/, "", probe)
+        list_number=probe; sub(/[.)].*$/, "", list_number)
+        if (probe ~ /^[0-9]+[.)][[:space:]]+[^[:space:]]/ && length(list_number) <= 9 && list_number+0 == 1) return 0
+        if (table_start(row) || probe ~ /^```|^~~~|^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)|^[-+*][[:space:]]+[^[:space:]]|^<!--/) return 0
+      }
+    }
+    function uncomment(s, row, out, end, size) {
+      out=""
+      while (length(s)) {
+        if (comment) {
+          end=index(s,"-->"); if (!end) return out
+          s=substr(s,end+3); comment=0
+        } else if (inline_size) {
+          if (!match(s,/`+/)) return out s
+          size=RLENGTH
+          out=out substr(s,1,RSTART+size-1)
+          s=substr(s,RSTART+size)
+          if (size == inline_size) inline_size=0
+        } else if (substr(s,1,4) == "<!--") {
+          comment=1; s=substr(s,5)
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\" || substr(s,1,2) == "\\<") {
+          out=out substr(s,1,2); s=substr(s,3)
+        } else if (substr(s,1,1) == "`") {
+          match(s,/^`+/); size=RLENGTH
+          out=out substr(s,1,size); s=substr(s,size+1)
+          if (closing_tick(s,size,row)) inline_size=size
+        } else {
+          out=out substr(s,1,1); s=substr(s,2)
+        }
+      }
+      return out
+    }
+    { lines[NR]=$0 }
+    END {
+      for (row=1; row<=NR; row++) {
+        line=lines[row]
+        if (!fenced && !comment && !inline_size) {
+          if (line ~ /^[[:space:]]*$/) {
+            paragraph=0; table=0
+            print line
+            continue
+          }
+          if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
+            indented=1; table=0
+            if (keep_fences == "yes") print line
+            continue
+          }
+          indented=0
+        }
+        scan=line
+        spaces=0
+        while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+        marker=substr(scan,1,1)
+        marker_len=0
+        if (marker == "`" || marker == "~") {
+          while (substr(scan,marker_len+1,1) == marker) marker_len++
+        }
+        if (marker_len >= 3 && !comment && !inline_size) {
+          paragraph=0; table=0
+          rest=substr(scan,marker_len+1)
+          if (!fenced) {
+            fenced=1; fence_marker=marker; fence_len=marker_len
+          } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+            fenced=0
+          }
+          if (keep_fences == "yes") print line
+          continue
+        }
+        if (fenced) {
+          if (keep_fences == "yes") print line
+          continue
+        }
+        line=uncomment(line,row)
+        scan=line; sub(/^ ? ? ?/, "", scan)
+        table=table_start(row) || (table && scan ~ /\|/)
+        paragraph=(line !~ /^[[:space:]]*$/ && scan !~ /^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)/ && !table)
+        if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
+        print line
+      }
+    }'
++++ fm_brief_heading_parse - '## Tier' body
++++ local file=- 'heading=## Tier' mode=body input=-
++++ '[' - = - ']'
++++ input=/dev/stdin
++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /dev/stdin
+++ value='{DELIVERY_DEPTH}'
+++ case "$value" in
+++ return 1
++ out=
++ code=1
++ '[' 1 = 0 ']'
++ fail 'helper lost explicit direct-PR:  (exit 1)'
++ printf 'not ok - %s\n' 'helper lost explicit direct-PR:  (exit 1)'
+not ok - helper lost explicit direct-PR:  (exit 1)
++ exit 1
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3380037.HlGl5w ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3380037.HlGl5w
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3380037.cvAdrT ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3380037.cvAdrT
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3380037.Sca1dY ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-task-delivery.Zv1GSz ']'
++ fm_test_remove_tree /tmp/fm-task-delivery.Zv1GSz
++ local dir=/tmp/fm-task-delivery.Zv1GSz
++ '[' -d /tmp/fm-task-delivery.Zv1GSz ']'
++ '[' '!' -L /tmp/fm-task-delivery.Zv1GSz ']'
++ find /tmp/fm-task-delivery.Zv1GSz -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-task-delivery.Zv1GSz
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3380037.Sca1dY

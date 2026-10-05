@@ -1,0 +1,194 @@
+
+$ bash bin/fm-lab-home.sh create /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+
+raw exit: 0
+
+$ git -C /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/projects/proj init -q
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-direct-PR-tier.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-direct-PR-tier.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-full-direct-PR-tier
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-full-direct-PR-tier/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-direct-PR-tier.md)
+
+raw exit: 0
+OBSERVATION large-full-direct-PR-tier: Reader and completeness survive pipefail on 137611 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-direct-PR-appendix.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-direct-PR-appendix.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-full-direct-PR-appendix
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-full-direct-PR-appendix/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-direct-PR-appendix.md)
+
+raw exit: 0
+OBSERVATION large-full-direct-PR-appendix: Reader and completeness survive pipefail on 137624 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-no-mistakes-tier.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-no-mistakes-tier.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-full-no-mistakes-tier
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-full-no-mistakes-tier/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-no-mistakes-tier.md)
+
+raw exit: 0
+OBSERVATION large-full-no-mistakes-tier: Reader and completeness survive pipefail on 137620 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-no-mistakes-appendix.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-no-mistakes-appendix.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-full-no-mistakes-appendix
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-full-no-mistakes-appendix/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-full-no-mistakes-appendix.md)
+
+raw exit: 0
+OBSERVATION large-full-no-mistakes-appendix: Reader and completeness survive pipefail on 137633 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-direct-PR-tier.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-direct-PR-tier.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-surgical-direct-PR-tier
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-surgical-direct-PR-tier/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-direct-PR-tier.md)
+
+raw exit: 0
+OBSERVATION large-surgical-direct-PR-tier: Reader and completeness survive pipefail on 134228 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-direct-PR-appendix.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-direct-PR-appendix.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-surgical-direct-PR-appendix
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-surgical-direct-PR-appendix/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-direct-PR-appendix.md)
+
+raw exit: 0
+OBSERVATION large-surgical-direct-PR-appendix: Reader and completeness survive pipefail on 134241 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-no-mistakes-tier.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-no-mistakes-tier.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-surgical-no-mistakes-tier
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-surgical-no-mistakes-tier/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-no-mistakes-tier.md)
+
+raw exit: 0
+OBSERVATION large-surgical-no-mistakes-tier: Reader and completeness survive pipefail on 134237 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-no-mistakes-appendix.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-no-mistakes-appendix.md
+
+raw exit: 1
+
+$ bash bin/fm-prep-install.sh large-surgical-no-mistakes-appendix
+installed: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/large-surgical-no-mistakes-appendix/prep.md (from /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav/data/nav-preps/large-surgical-no-mistakes-appendix.md)
+
+raw exit: 0
+OBSERVATION large-surgical-no-mistakes-appendix: Reader and completeness survive pipefail on 134250 bytes; the real prep-install consumer copies identical bytes from isolated nav-prep.
+
+$ bash bin/fm-brief.sh live-scout proj --scout
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/live-scout/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-scout /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/projects/proj codex --scout
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION Scout omits prep and reaches real backend: No preparation exists; scout renders launch brief then real tmux refuses only its absent private socket.
+
+$ bash bin/fm-spawn.sh live-scout /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/projects/proj codex --scout --mode direct-PR
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+error: --mode applies only to ship spawns; a scout delivers a report and a secondmate records its own fixed posture
+
+raw exit: 1
+OBSERVATION Scout still rejects ship mode flags: Existing explicit --mode refusal remains unchanged.
+
+$ bash bin/fm-spawn.sh live-secondmate /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav codex --secondmate --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+error: --mode applies only to ship spawns; a scout delivers a report and a secondmate records its own fixed posture
+
+raw exit: 1
+
+$ bash bin/fm-spawn.sh live-secondmate /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav codex --secondmate
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+error: secondmate home cannot be inside the active firstmate home: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/nav
+
+raw exit: 1
+OBSERVATION Secondmate bypasses depth and retains role and home guards: With no prep, --mode refuses as ship-only; without it the existing in-repository home restriction refuses, rather than new depth validation.
+
+$ tmux -L fm-lab -f /dev/null new-session -d -s fm-lab-compat -n fm-recovery -x 120 -y 40 -c /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/projects/proj bash --noprofile --norc
+
+raw exit: 0
+
+$ tmux -L fm-lab display-message -p -t fm-lab-compat:fm-recovery #{socket_path},#{pid},0
+/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/tmux/tmux-1001/fm-lab,1319181,0
+
+raw exit: 0
+
+$ bash bin/fm-brief.sh recorded-direct-PR proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw/data/recorded-direct-PR/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh recorded-direct-PR --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/l.ahvxcdgw
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: tmux endpoint 'fm-lab-compat:fm-recovery' is malformed or does not belong to task recorded-direct-PR; preserving task state.
+
+raw exit: 1
+
+$ tmux -L fm-lab kill-server
+
+raw exit: 0
+Private fm-lab server stopped: 0
+CLEANUP: disposable home, project, nav-preps and private tmux socket removed.

@@ -1,0 +1,4 @@
+ok - large-full-appendix: pipefail preserves both depths, tier, completeness and installation
+ok - large-full-tier: pipefail preserves both depths, tier, completeness and installation
+ok - large-surgical-appendix: pipefail preserves both depths, tier, completeness and installation
+ok - large-surgical-tier: pipefail preserves both depths, tier, completeness and installation

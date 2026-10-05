@@ -1,0 +1,934 @@
+
+$ bash bin/fm-lab-home.sh create /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+
+raw exit: 0
+
+$ git -C /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj init -q
+
+raw exit: 0
+Isolation: marked FM_HOME, no FM_*_OVERRIDE, no FM_GATE_REFUSE_BYPASS or FM_TEST_SEAM; real system tmux addressed only through an absent private socket.
+
+$ bash bin/fm-brief.sh live-full proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-brief.sh live-full --prep
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+
+raw exit: 0
+
+$ bash -c . tests/prep-record-helper.sh; fm_test_fill_prep_common "$1" direct-PR _ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 1
+OBSERVATION full canonical checks-only completeness: Empty reason and raw exit 1 on the fully answered generated record.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-full proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-full ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full matching direct-PR continues to real backend: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-full proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full contradicting no-mistakes refuses direct-PR: Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts.
+
+$ bash bin/fm-brief.sh live-full proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-full ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full local-only accepts authored direct-PR: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-full proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full matching no-mistakes continues to real backend: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-full proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full contradicting direct-PR refuses no-mistakes: Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts.
+
+$ bash bin/fm-brief.sh live-full proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-full ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full local-only accepts authored no-mistakes: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-full proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full missing depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full empty depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full placeholder depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full unknown depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full both depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full duplicate depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full conflicting depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full reasonless depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full placeholder-reason depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full na depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full na-reason depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full continuation depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full fenced depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full indented depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full comment-only depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-full proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full retired no-mistakes Tier cannot override active direct-PR: Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation.
+
+$ bash bin/fm-brief.sh live-full proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-full ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full retired Tier matching active direct-PR admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-full proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-full ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full retired Tier local-only with direct-PR admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full retired Tier cannot rescue missing active direct-PR: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full retired Tier cannot rescue malformed active direct-PR: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-full proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full retired direct-PR Tier cannot override active no-mistakes: Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation.
+
+$ bash bin/fm-brief.sh live-full proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full retired Tier matching active no-mistakes admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-full proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-full ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION full retired Tier local-only with no-mistakes admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full retired Tier cannot rescue missing active no-mistakes: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-full /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-full cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-full/prep.md; scaffold with bin/fm-brief.sh live-full --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION full retired Tier cannot rescue malformed active no-mistakes: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-brief.sh live-surgical --prep --surgical
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+
+raw exit: 0
+
+$ bash -c . tests/prep-record-helper.sh; fm_test_fill_prep_common "$1" direct-PR _ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 1
+OBSERVATION surgical canonical checks-only completeness: Empty reason and raw exit 1 on the fully answered generated record.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-surgical proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-surgical ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical matching direct-PR continues to real backend: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical contradicting no-mistakes refuses direct-PR: Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-surgical ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical local-only accepts authored direct-PR: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-surgical proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical matching no-mistakes continues to real backend: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical contradicting direct-PR refuses no-mistakes: Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-surgical ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical local-only accepts authored no-mistakes: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical missing depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical empty depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical placeholder depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical unknown depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical both depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical duplicate depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical conflicting depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical reasonless depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical placeholder-reason depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical na depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical na-reason depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical continuation depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical fenced depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical indented depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical comment-only depth refuses: Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+direct-PR
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-surgical proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical retired no-mistakes Tier cannot override active direct-PR: Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-surgical ships mode=direct-PR while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical retired Tier matching active direct-PR admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-surgical ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical retired Tier local-only with direct-PR admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical retired Tier cannot rescue missing active direct-PR: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical retired Tier cannot rescue malformed active direct-PR: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_delivery_mode /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+no-mistakes
+
+raw exit: 0
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 1
+
+$ bash bin/fm-brief.sh live-surgical proj --mode direct-PR
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode direct-PR --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical selected --mode direct-PR but declared Delivery depth: checks + AI review (no-mistakes); reconcile the flag and preparation before spawn
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical retired direct-PR Tier cannot override active no-mistakes: Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode no-mistakes
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical retired Tier matching active no-mistakes admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash bin/fm-brief.sh live-surgical proj --mode local-only
+scaffolded: /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode local-only --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+notice: live-surgical ships mode=local-only while the standing posture for proj is no-mistakes - less rigor than the captain's standing posture; proceed only on a current explicit captain instruction or an intake judgment you can state
+error connecting to .test-phase/absent-private-socket (No such file or directory)
+
+raw exit: 1
+OBSERVATION surgical retired Tier local-only with no-mistakes admits: Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical retired Tier cannot rescue missing active no-mistakes: Commented canonical answer cannot certify missing or malformed active depth.
+
+$ bash -c set -o pipefail; . bin/fm-dod-lib.sh; "$1" "$2" _ fm_prep_unfilled_reason /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+its ## Tier requires one canonical Delivery depth choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md
+
+raw exit: 0
+
+$ bash bin/fm-spawn.sh live-surgical /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/projects/proj codex --mode no-mistakes --yolo off
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk
+error: task live-surgical cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/.test-phase/fm-lab.i837_esk/data/live-surgical/prep.md; scaffold with bin/fm-brief.sh live-surgical --prep and answer Delivery depth
+
+raw exit: 1
+POSTCONDITION: no launch brief, task metadata, task lock, worktree allocation or private endpoint
+OBSERVATION surgical retired Tier cannot rescue malformed active no-mistakes: Commented canonical answer cannot certify missing or malformed active depth.
+
+CLEANUP: disposable marked home and project removed.

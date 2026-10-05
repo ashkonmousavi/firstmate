@@ -1,0 +1,450 @@
+[
+  {
+    "name": "full canonical checks-only completeness",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Empty reason and raw exit 1 on the fully answered generated record."
+  },
+  {
+    "name": "full matching direct-PR continues to real backend",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full contradicting no-mistakes refuses direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts."
+  },
+  {
+    "name": "full local-only accepts authored direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full matching no-mistakes continues to real backend",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full contradicting direct-PR refuses no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts."
+  },
+  {
+    "name": "full local-only accepts authored no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full missing depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full empty depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full placeholder depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full unknown depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full both depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full duplicate depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full conflicting depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full reasonless depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full placeholder-reason depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full na depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full na-reason depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full continuation depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full fenced depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full indented depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full comment-only depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "full retired no-mistakes Tier cannot override active direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation."
+  },
+  {
+    "name": "full retired Tier matching active direct-PR admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full retired Tier local-only with direct-PR admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full retired Tier cannot rescue missing active direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "full retired Tier cannot rescue malformed active direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "full retired direct-PR Tier cannot override active no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation."
+  },
+  {
+    "name": "full retired Tier matching active no-mistakes admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full retired Tier local-only with no-mistakes admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "full retired Tier cannot rescue missing active no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "full retired Tier cannot rescue malformed active no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "surgical canonical checks-only completeness",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Empty reason and raw exit 1 on the fully answered generated record."
+  },
+  {
+    "name": "surgical matching direct-PR continues to real backend",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical contradicting no-mistakes refuses direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts."
+  },
+  {
+    "name": "surgical local-only accepts authored direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical matching no-mistakes continues to real backend",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical contradicting direct-PR refuses no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Diagnostic names task, selected flag, declared depth and reconciliation; refusal leaves no allocation artifacts."
+  },
+  {
+    "name": "surgical local-only accepts authored no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical missing depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical empty depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical placeholder depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical unknown depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical both depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical duplicate depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical conflicting depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical reasonless depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical placeholder-reason depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical na depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical na-reason depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical continuation depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical fenced depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical indented depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical comment-only depth refuses",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Library reason/raw exit 0 and executable refusal both name Delivery depth; no allocation artifacts."
+  },
+  {
+    "name": "surgical retired no-mistakes Tier cannot override active direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation."
+  },
+  {
+    "name": "surgical retired Tier matching active direct-PR admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical retired Tier local-only with direct-PR admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical retired Tier cannot rescue missing active direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "surgical retired Tier cannot rescue malformed active direct-PR",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "surgical retired direct-PR Tier cannot override active no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Whole-document comment context selects the live declaration and refuses its contradictory flag without allocation."
+  },
+  {
+    "name": "surgical retired Tier matching active no-mistakes admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical retired Tier local-only with no-mistakes admits",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Admission rendered the launch brief and reached the real tmux client; only the intentionally absent private socket refused. No agent or model was substituted or launched."
+  },
+  {
+    "name": "surgical retired Tier cannot rescue missing active no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  },
+  {
+    "name": "surgical retired Tier cannot rescue malformed active no-mistakes",
+    "result": "pass",
+    "live": true,
+    "raw_exit": 1,
+    "detail": "Commented canonical answer cannot certify missing or malformed active depth."
+  }
+]

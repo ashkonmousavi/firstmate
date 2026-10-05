@@ -1,0 +1,329 @@
++ test_depth_commented_tier full direct-PR reader
++ local format=full declared=direct-PR check rec home proj fakebin id prep baseline old_mode depth selected out status reason
++ '[' 3 -gt 2 ']'
++ for check in "${@:3}"
++ id=commented-full-direct-PR-reader
+++ make_home commented-full-direct-PR-reader
+++ local name=commented-full-direct-PR-reader home projects fakebin
+++ shift
+++ home=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home
+++ projects=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/projects
+++ fakebin=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin
+++ mkdir -p /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/state /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/config /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/projects/proj /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin
+++ git -C /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/projects/proj init -q
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin
+++ printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin
+++ chmod +x /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin/treehouse
+++ chmod +x /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin/tmux
+++ '[' 0 -gt 0 ']'
+++ printf '%s\n' '/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home|/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/projects/proj|/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin'
++ rec='/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home|/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/projects/proj|/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/bin'
++ IFS='|'
++ read -r home proj fakebin
++ case "$declared" in
++ old_mode=no-mistakes
++ depth='checks-only (direct-PR)'
++ selected=direct-PR
++ '[' reader '!=' mismatch ']'
++ '[' reader '!=' local ']'
++ write_brief /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home commented-full-direct-PR-reader direct-PR
++ local home=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home id=commented-full-direct-PR-reader mode=direct-PR
++ mkdir -p /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader
++ printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
++ '[' -z direct-PR ']'
++ printf 'Delivery contract: mode=%s\n' direct-PR
++ case "$mode" in
++ write_prep /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home commented-full-direct-PR-reader
++ fm_test_prep_record /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data commented-full-direct-PR-reader no no no direct-PR
++ local data=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data id=commented-full-direct-PR-reader q1=no q2=no ui=no depth_mode=direct-PR root prep
++++ dirname tests/prep-record-helper.sh
+++ cd tests/..
+++ pwd
++ root=/home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA
++ prep=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ '[' '!' -e /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md ']'
++ mkdir -p /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader
++ FM_HOME=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data
++ FM_DATA_OVERRIDE=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data
++ /home/zcrew/.no-mistakes/worktrees/5124444c5bba/01M45JNGXNRJ522PPBNYHJF1VA/bin/fm-brief.sh commented-full-direct-PR-reader --prep
++ sed -e 's/{Q1}/no/' -e 's/{Q2}/no/' -e 's/{UI_WIRING}/no, spawn fixture./' -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ mv /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md.filled /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ fm_test_fill_prep_common /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md depth
++ case "${2:-no-mistakes}" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
+      gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
+      gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
+      gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
+      gsub(/\{DATA_PATH_REACHABILITY\}/, "brief --prep writes data/id/prep.md; spawn reads that path; launch rendering is the fixture witness.")
+      gsub(/\{SCOPE_ONLY_AS_ASKED\}/, "Exercise the requested delivery admission only; real endpoints and product changes are outside scope.")
+      gsub(/\{AUTHOR_GATE_CHECK\}/, "bash -c '\'' . bin/fm-dod-lib.sh; fm_prep_unfilled_reason \"$1\" '\'' _ data/id/prep.md; run on final bytes before handoff and paste empty output and raw exit 1 (reason with exit 0 refuses).")
+      gsub(/\{OUTCOME\}/, "Delivery admission")
+      gsub(/\{OBSERVABLE_RESULT\}/, "Launch brief exists before the refusing backend")
+      gsub(/\{WHERE_AND_HOW\}/, "bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md")
+      gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
+      print
+    }' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ mv /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md.common /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ '[' no = yes ']'
++ return 0
++ prep=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ '[' full = surgical ']'
++ fm_test_prep_depth /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md direct-PR
++ local prep=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md depth
++ case "$2" in
++ depth='checks-only (direct-PR)'
++ awk -v 'depth=checks-only (direct-PR)' '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ mv /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md.depth /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++ baseline=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/live.prep
++ cp /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/live.prep
++ printf '<!-- Previous preparation example\n## Tier\n'
++ printf '%s\n' '- Q1 does this change alter what a user sees or can do: no' '- Q2 does this change touch a shared module or a contract: no' '- UI wiring: no, old isolated example.'
++ '[' no-mistakes = direct-PR ']'
++ printf '%s\n' '- Delivery depth: checks + AI review (no-mistakes), old shared example.'
++ printf '\n-->\n'
++ case "$check" in
++ cat /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/live.prep
++ case "$check" in
+++ fm_prep_delivery_mode /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
+++ cp /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md /home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/red-full-direct-PR-reader.input.md
+++ review_original_delivery_mode /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
+++ local value reason mode
++++ fm_brief_heading_body /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md '## Tier'
++++ fm_brief_heading_parse /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md '## Tier' body
++++ local file=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md 'heading=## Tier' mode=body input=/tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++++ '[' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md = - ']'
++++ '[' -f /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md ']'
++++ awk -v 'heading=## Tier' -v mode=body '
+    BEGIN {
+      target_level = 0
+      while (substr(heading, target_level + 1, 1) == "#") target_level++
+    }
+    {
+      line = $0
+      scan = line
+      spaces = 0
+      while (spaces < 3 && substr(scan, 1, 1) == " ") {
+        scan = substr(scan, 2)
+        spaces++
+      }
+      marker = substr(scan, 1, 1)
+      marker_len = 0
+      if (marker == "`" || marker == "~") {
+        while (substr(scan, marker_len + 1, 1) == marker) marker_len++
+      }
+      is_fence = marker_len >= 3
+      was_fenced = fenced
+
+      if (is_fence) {
+        rest = substr(scan, marker_len + 1)
+        if (!fenced) {
+          fenced = 1
+          fence_marker = marker
+          fence_len = marker_len
+        } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+          fenced = 0
+        }
+      }
+
+      if (!found && !was_fenced && line == heading) {
+        found = 1
+        if (mode == "present") next
+        grab = 1
+        next
+      }
+      if (mode == "present" || !grab) next
+      if (is_fence || was_fenced) {
+        print line
+        next
+      }
+
+      level = 0
+      while (substr(scan, level + 1, 1) == "#") level++
+      if (level > 0 && level <= target_level && substr(scan, level + 1, 1) ~ /^[[:space:]]?$/) exit
+      print line
+    }
+    END {
+      if (mode == "present" && !found) exit 1
+    }
+  ' /tmp/fm-task-delivery.AF5siP/commented-full-direct-PR-reader/home/data/commented-full-direct-PR-reader/prep.md
++++ awk '
+    /^- Delivery depth:/ { seen++; value=substr($0,19) }
+    END { if (seen == 1) print value }
+  '
++++ fm_prep_body_text
++++ awk -v keep_fences=no '
+    function table_start(row, header, delimiter, cells, count, i, cell) {
+      if (row >= NR) return 0
+      header=lines[row]; delimiter=lines[row+1]
+      sub(/^ ? ? ?/, "", header); sub(/^ ? ? ?/, "", delimiter)
+      if (header ~ /^[[:space:]]/ || delimiter ~ /^[[:space:]]/) return 0
+      gsub(/\\\|/, "", header)
+      if (header !~ /\|/) return 0
+      sub(/[[:space:]]+$/, "", header); sub(/[[:space:]]+$/, "", delimiter)
+      sub(/^\|/, "", header); sub(/\|$/, "", header)
+      sub(/^\|/, "", delimiter); sub(/\|$/, "", delimiter)
+      count=split(header,cells,"|")
+      if (!count || split(delimiter,cells,"|") != count) return 0
+      for (i=1; i<=count; i++) {
+        cell=cells[i]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", cell)
+        if (cell !~ /^:?-+:?$/) return 0
+      }
+      return 1
+    }
+    function closing_tick(s, size, row, probe, list_number) {
+      while (1) {
+        while (match(s, /`+/)) {
+          if (RLENGTH == size) return 1
+          s=substr(s,RSTART+RLENGTH)
+        }
+        if (++row > NR || lines[row] ~ /^[[:space:]]*$/) return 0
+        s=lines[row]
+        probe=s; sub(/^ ? ? ?/, "", probe)
+        list_number=probe; sub(/[.)].*$/, "", list_number)
+        if (probe ~ /^[0-9]+[.)][[:space:]]+[^[:space:]]/ && length(list_number) <= 9 && list_number+0 == 1) return 0
+        if (table_start(row) || probe ~ /^```|^~~~|^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)|^[-+*][[:space:]]+[^[:space:]]|^<!--/) return 0
+      }
+    }
+    function uncomment(s, row, out, end, size) {
+      out=""
+      while (length(s)) {
+        if (comment) {
+          end=index(s,"-->"); if (!end) return out
+          s=substr(s,end+3); comment=0
+        } else if (inline_size) {
+          if (!match(s,/`+/)) return out s
+          size=RLENGTH
+          out=out substr(s,1,RSTART+size-1)
+          s=substr(s,RSTART+size)
+          if (size == inline_size) inline_size=0
+        } else if (substr(s,1,4) == "<!--") {
+          comment=1; s=substr(s,5)
+        } else if (substr(s,1,2) == "\\`" || substr(s,1,2) == "\\\\" || substr(s,1,2) == "\\<") {
+          out=out substr(s,1,2); s=substr(s,3)
+        } else if (substr(s,1,1) == "`") {
+          match(s,/^`+/); size=RLENGTH
+          out=out substr(s,1,size); s=substr(s,size+1)
+          if (closing_tick(s,size,row)) inline_size=size
+        } else {
+          out=out substr(s,1,1); s=substr(s,2)
+        }
+      }
+      return out
+    }
+    { lines[NR]=$0 }
+    END {
+      for (row=1; row<=NR; row++) {
+        line=lines[row]
+        if (!fenced && !comment && !inline_size) {
+          if (line ~ /^[[:space:]]*$/) {
+            paragraph=0; table=0
+            print line
+            continue
+          }
+          if (line ~ /^(    | ? ? ?\t)/ && (indented || !paragraph)) {
+            indented=1; table=0
+            if (keep_fences == "yes") print line
+            continue
+          }
+          indented=0
+        }
+        scan=line
+        spaces=0
+        while (spaces < 3 && substr(scan,1,1) == " ") { scan=substr(scan,2); spaces++ }
+        marker=substr(scan,1,1)
+        marker_len=0
+        if (marker == "`" || marker == "~") {
+          while (substr(scan,marker_len+1,1) == marker) marker_len++
+        }
+        if (marker_len >= 3 && !comment && !inline_size) {
+          paragraph=0; table=0
+          rest=substr(scan,marker_len+1)
+          if (!fenced) {
+            fenced=1; fence_marker=marker; fence_len=marker_len
+          } else if (marker == fence_marker && marker_len >= fence_len && rest ~ /^[[:space:]]*$/) {
+            fenced=0
+          }
+          if (keep_fences == "yes") print line
+          continue
+        }
+        if (fenced) {
+          if (keep_fences == "yes") print line
+          continue
+        }
+        line=uncomment(line,row)
+        scan=line; sub(/^ ? ? ?/, "", scan)
+        table=table_start(row) || (table && scan ~ /\|/)
+        paragraph=(line !~ /^[[:space:]]*$/ && scan !~ /^#[#]?[#]?[#]?[#]?[#]?([[:space:]]|$)/ && !table)
+        if (line ~ /^[[:space:]]*$/ && lines[row] !~ /^[[:space:]]*$/) continue
+        print line
+      }
+    }'
+++ value='checks + AI review (no-mistakes), old shared example.'
+++ case "$value" in
+++ mode=no-mistakes
+++ reason='old shared example.'
+++ case "$reason" in
+++ fm_prep_answer_complete 'old shared example.' no
+++ printf '%s\n' 'old shared example.'
+++ awk -v na=no '
+    function clean(s) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", s); return s }
+    { text=text $0 " " }
+    END {
+      text=clean(text)
+      if (tolower(text) ~ /^n\/a([ :]|$)/) {
+        if (na != "yes" || text !~ /^[nN]\/[aA]:[[:space:]]*[^[:space:]]/) exit 1
+        sub(/^[nN]\/[aA]:[[:space:]]*/, "", text)
+      }
+      if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
+    }'
+++ printf '%s\n' no-mistakes
++ out=no-mistakes
++ status=0
++ '[' 0 -eq 0 ']'
++ '[' no-mistakes = direct-PR ']'
++ fail 'full commented no-mistakes/live direct-PR read no-mistakes (exit 0)'
++ printf 'not ok - %s\n' 'full commented no-mistakes/live direct-PR read no-mistakes (exit 0)'
+not ok - full commented no-mistakes/live direct-PR read no-mistakes (exit 0)
++ exit 1
++ fm_test_cleanup
++ local d
++ fm_test_reap_watchers
++ local state lock_home 'seen=
+'
++ '[' -f /tmp/.fm-test-watcher.3083685.rYJm1J ']'
++ IFS=
++ read -r state
++ rm -f /tmp/.fm-test-watcher.3083685.rYJm1J
++ fm_test_reap_procevent_homes
++ local home claim_root 'seen=
+'
++ '[' -f /tmp/.fm-test-procevent.3083685.c2zaIc ']'
++ IFS='	'
++ read -r home claim_root
++ rm -f /tmp/.fm-test-procevent.3083685.c2zaIc
++ for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"
++ '[' -n '' ']'
++ '[' -f /tmp/.fm-test-cleanup.3083685.jCO6m8 ']'
++ IFS=
++ read -r d
++ '[' -n /tmp/fm-task-delivery.AF5siP ']'
++ fm_test_remove_tree /tmp/fm-task-delivery.AF5siP
++ local dir=/tmp/fm-task-delivery.AF5siP
++ '[' -d /tmp/fm-task-delivery.AF5siP ']'
++ '[' '!' -L /tmp/fm-task-delivery.AF5siP ']'
++ find /tmp/fm-task-delivery.AF5siP -type d -exec chmod u+rwx '{}' +
++ rm -rf /tmp/fm-task-delivery.AF5siP
++ IFS=
++ read -r d
++ rm -f /tmp/.fm-test-cleanup.3083685.jCO6m8

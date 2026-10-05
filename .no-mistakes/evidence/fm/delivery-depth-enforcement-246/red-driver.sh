@@ -1,0 +1,3322 @@
+#!/usr/bin/env bash
+# Behavior tests for the explicit per-task delivery contract (AGENTS.md section 7)
+# across bin/fm-spawn.sh, bin/fm-promote.sh, and bin/fm-project-mode.sh.
+#
+# A ship task's delivery mode and yolo posture are firstmate's decision at intake,
+# so the tools refuse to guess: the spawn and a scout promotion require both flags,
+# validate them against a closed set, and the spawn additionally refuses to launch
+# when the brief it is about to hand the worker records a different mode. Scout
+# spawns carry no delivery posture at all. The registry keeps only the captain's
+# standing posture, for the mechanical consumers and for one advisory notice.
+#
+# Every spawn case here stops before any endpoint exists: the delivery checks run
+# ahead of backend creation, and a fake `tmux` that exits non-zero backstops the
+# cases that are meant to get past them, so no window or worktree is ever created.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+SPAWN="$ROOT/bin/fm-spawn.sh"
+BRIEF="$ROOT/bin/fm-brief.sh"
+PROMOTE="$ROOT/bin/fm-promote.sh"
+PROJECT_MODE="$ROOT/bin/fm-project-mode.sh"
+MERGE_LOCAL="$ROOT/bin/fm-merge-local.sh"
+# shellcheck source=bin/fm-dod-lib.sh
+. "$ROOT/bin/fm-dod-lib.sh"
+
+TMP_ROOT=$(fm_test_tmproot fm-task-delivery)
+
+# A home with one registered project, one project directory, and a fake tmux that
+# refuses, so a spawn that clears the delivery checks still creates nothing.
+# Echoes "<home>|<project-dir>|<fakebin>".
+make_home() {  # <name> [<registry-line>...]
+  local name=$1 home projects fakebin
+  shift
+  home="$TMP_ROOT/$name/home"
+  projects="$TMP_ROOT/$name/projects"
+  fakebin="$TMP_ROOT/$name/bin"
+  mkdir -p "$home/data" "$home/state" "$home/config" "$projects/proj" "$fakebin"
+  git -C "$projects/proj" init -q || fail "could not initialize project fixture"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' "$fakebin" > "$fakebin/tmux"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' "$fakebin" > "$fakebin/treehouse"
+  chmod +x "$fakebin/treehouse"
+  chmod +x "$fakebin/tmux"
+  if [ "$#" -gt 0 ]; then
+    printf '%s\n' "$@" > "$home/data/projects.md"
+  fi
+  printf '%s\n' "$home|$projects/proj|$fakebin"
+}
+
+write_brief() {  # <home> <id> [<recorded-mode>]
+  local home=$1 id=$2 mode=${3:-}
+  mkdir -p "$home/data/$id"
+  {
+    printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the delivery contract.\n\n## Firstmate spec\nVerify the selected delivery behavior.\n\n# Definition of done\n'
+    [ -z "$mode" ] || printf 'Delivery contract: mode=%s\n' "$mode"
+  } > "$home/data/$id/brief.md"
+  case "$mode" in
+    no-mistakes) write_prep "$home" "$id" no no no no-mistakes ;;
+    *) write_prep "$home" "$id" ;;
+  esac
+}
+
+# The preparation record a ship spawn requires, so these delivery cases reach
+# the checks they are about instead of stopping at the prep gate. All-no answers
+# by default, with the tier-1 sections and common author checks.
+write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>] [<depth-mode>]
+  fm_test_prep_record "$1/data" "$2" "${3:-no}" "${4:-no}" "${5:-no}" "${6:-direct-PR}" \
+    || fail "prep record scaffold failed for $2"
+}
+
+# assert_spawn_clears_prep_gates <home> <fakebin> <id> <proj> <label>: a
+# direct-PR ship spawn gets past the preparation gate,
+# proven by the launch brief spawn renders only after preparation validation (the fake tmux still
+# stops it before any endpoint exists).
+assert_spawn_clears_prep_gates() {
+  local home=$1 fakebin=$2 id=$3 proj=$4 label=$5 out
+  rm -f "$home/data/$id/launch-brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" "$label: refused by the preparation gate"
+  assert_not_contains "$out" "cannot ship before a separate agent reviews" "$label: refused by the review gate"
+  assert_present "$home/data/$id/launch-brief.md" "$label: spawn did not get past the preparation gate"
+}
+
+# write_spec_prep <home> <id> <q1> <q2> [<depth-mode>]: scaffold a record whose behaviour spec
+# and definition of done carry real answers under their guide comments, with
+# every other section answered n/a, at the tier the two answers declare.
+write_spec_prep() {
+  local home=$1 id=$2 prep
+  prep="$home/data/$id/prep.md"
+  mkdir -p "$home/data/$id"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "spec prep scaffold failed for $id"
+  awk '
+    $0 == "{BEHAVIOUR_SPEC}" {
+      print "Refuse the launch and name the missing review."
+      print ""
+      print "### Copy"
+      print "The refusal names the record."
+      next
+    }
+    $0 == "{DEFINITION_OF_DONE}" { print "- Every tier is gated."; print "- The relaunch stays exempt."; next }
+    $0 == "{INTENT_AND_BOXES}" { print "Exercise the delivery contract in an isolated fixture."; next }
+    /^\{[A-Z0-9_]*\}$/ { print "n/a: fixture."; next }
+    { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  fm_test_fill_prep_common "$prep" "${5:-no-mistakes}" || fail "common spec fields"
+  answer_tier "$prep" "$3" "$4"
+}
+
+# answer_tier <prep-file> <q1> <q2>: set or reset both tier answers in place.
+# answer_tier <prep-file> <q1> <q2> [<ui-wiring>]: rewrite the tier header's
+# answers. The greedy match before the final colon works because no tier
+# question carries a colon of its own, which is also what fm_prep_answer relies
+# on; the UI wiring line keeps the reason its own format requires.
+answer_tier() {
+  local prep=$1 q1=$2 q2=$3 ui=${4:-no}
+  sed -E -e "s/^(- Q1 .*): .*$/\\1: $q1/" -e "s/^(- Q2 .*): .*$/\\1: $q2/" \
+    -e "s/^- UI wiring: .*$/- UI wiring: $ui, test fixture./" \
+    "$prep" > "$prep.tier" && mv "$prep.tier" "$prep"
+}
+
+# fill_section <prep-file> <heading> <text>: replace a section's whole answer,
+# guide comment included, with one line of text.
+fill_section() {
+  local prep=$1 heading=$2 text=$3
+  blank_section "$prep" "$heading"
+  FM_TEST_SECTION_TEXT="$text" awk -v h="$heading" '$0 == h { print; print ENVIRON["FM_TEST_SECTION_TEXT"]; next } { print }' "$prep" \
+    > "$prep.fill" && mv "$prep.fill" "$prep"
+}
+
+# blank_section <prep-file> <heading>: keep the heading, remove its answer.
+blank_section() {
+  local prep=$1 heading=$2
+  awk -v h="$heading" '$0 == h { print; blank = 1; next }
+    blank && /^$/ { next }
+    blank && !/^## / { next }
+    blank { print ""; blank = 0 }
+    { print }' "$prep" > "$prep.blank" && mv "$prep.blank" "$prep"
+}
+
+# drop_section <prep-file> <heading> <next-heading-prefix>: delete it entirely.
+drop_section() {
+  local prep=$1 heading=$2 next=$3
+  awk -v h="$heading" -v n="$next" '$0 == h { skip = 1 }
+    index($0, n) == 1 { skip = 0 }
+    !skip' "$prep" > "$prep.drop" && mv "$prep.drop" "$prep"
+}
+
+fill_brief_subsections() {  # <file> <intent> <spec>
+  local file=$1 intent=$2 spec=$3 content
+  content=$(cat "$file")
+  content=${content//'{TASK}'/$intent}
+  content=${content//'{FIRSTMATE_SPEC}'/$spec}
+  printf '%s\n' "$content" > "$file"
+}
+
+run_spawn() {  # <home> <fakebin> <spawn-args...>
+  local home=$1 fakebin=$2
+  shift 2
+  FM_ROOT_OVERRIDE='' FM_HOME="$home" \
+    FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
+    FM_PROJECTS_OVERRIDE="$TMP_ROOT/projects-unused" FM_CONFIG_OVERRIDE="$home/config" \
+    FM_SPAWN_NO_GUARD=1 FM_BACKEND=tmux PATH="$fakebin:$PATH" \
+    "$SPAWN" "$@" 2>&1
+}
+
+test_depth_mode_matrix() {
+  local rec home proj fakebin selected declared id out status depth
+  rec=$(make_home depth-matrix)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for selected in direct-PR no-mistakes local-only; do
+    for declared in direct-PR no-mistakes; do
+      id="depth-$selected-$declared"
+      write_brief "$home" "$id" "$selected"
+      fm_test_prep_depth "$home/data/$id/prep.md" "$declared" || fail "depth fixture"
+      rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$selected" --yolo off)
+      status=$?
+      [ "$status" -ne 0 ] || fail "refusing fixture backend unexpectedly launched"
+      if [ "$selected" != local-only ] && [ "$selected" != "$declared" ]; then
+        case "$declared" in
+          direct-PR) depth='checks-only (direct-PR)' ;;
+          no-mistakes) depth='checks + AI review (no-mistakes)' ;;
+        esac
+        assert_contains "$out" "--mode $selected" "depth contradiction lost selected mode"
+        assert_contains "$out" "$depth" "depth contradiction lost declared depth"
+        assert_contains "$out" "$id" "depth contradiction lost task id"
+        assert_contains "$out" "reconcile" "depth contradiction omitted author repair"
+        assert_absent "$home/data/$id/launch-brief.md" "depth contradiction published launch brief"
+        assert_absent "$home/state/$id.meta" "depth contradiction published metadata"
+        assert_absent "$fakebin/tmux.calls" "depth contradiction reached endpoint backend"
+        assert_absent "$fakebin/treehouse.calls" "depth contradiction reached worktree allocator"
+        [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "depth contradiction allocated a task lock"
+      else
+        assert_present "$home/data/$id/launch-brief.md" "matched depth did not render launch brief: $out"
+        assert_present "$fakebin/tmux.calls" "matched depth did not reach refusing backend: $out"
+        assert_not_contains "$out" 'Delivery depth' "matched depth refused"
+      fi
+    done
+  done
+  pass "delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend"
+}
+
+test_depth_commented_tier() {
+  local format=$1 declared=$2 check rec home proj fakebin id prep baseline old_mode depth selected out status reason
+  [ "$#" -gt 2 ] || set -- "$@" reader missing malformed mismatch matched local
+  for check in "${@:3}"; do
+    id="commented-$format-$declared-$check"
+    rec=$(make_home "$id")
+    IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+    case "$declared" in
+      direct-PR) old_mode=no-mistakes; depth='checks-only (direct-PR)' ;;
+      no-mistakes) old_mode=direct-PR; depth='checks + AI review (no-mistakes)' ;;
+    esac
+    selected=$declared
+    [ "$check" != mismatch ] || selected=$old_mode
+    [ "$check" != local ] || selected=local-only
+    write_brief "$home" "$id" "$selected"
+    prep="$home/data/$id/prep.md"
+    if [ "$format" = surgical ]; then
+      rm "$prep"
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+      sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
+        -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
+        -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/owned.sh:12; callers confined; cause reproduced; regression covers output; no sensitive paths./' \
+        "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      fm_test_fill_prep_common "$prep" "$declared" || fail "surgical common fields"
+    fi
+    fm_test_prep_depth "$prep" "$declared" || fail "live depth fixture"
+    baseline="$home/live.prep"
+    cp "$prep" "$baseline"
+    {
+      printf '<!-- Previous preparation example\n## Tier\n'
+      printf '%s\n' '- Q1 does this change alter what a user sees or can do: no' \
+        '- Q2 does this change touch a shared module or a contract: no' '- UI wiring: no, old isolated example.'
+      if [ "$old_mode" = direct-PR ]; then
+        printf '%s\n' '- Delivery depth: checks-only (direct-PR), old low-harm example.'
+      else
+        printf '%s\n' '- Delivery depth: checks + AI review (no-mistakes), old shared example.'
+      fi
+      printf '\n-->\n'
+      case "$check" in
+        missing) sed '/^- Delivery depth:/d' "$baseline" ;;
+        malformed) sed 's/^- Delivery depth:.*$/- Delivery depth: unknown, live invalid choice./' "$baseline" ;;
+        *) cat "$baseline" ;;
+      esac
+    } > "$prep"
+    case "$check" in
+      reader)
+        out=$(fm_prep_delivery_mode "$prep"); status=$?
+        [ "$status" -eq 0 ] && [ "$out" = "$declared" ] || fail "$format commented $old_mode/live $declared read $out (exit $status)"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 1 ] && [ -z "$reason" ] || fail "$format live complete Tier refused: $reason"
+        ;;
+      missing|malformed)
+        out=$(fm_prep_delivery_mode "$prep"); status=$?
+        [ "$status" -ne 0 ] && [ -z "$out" ] || fail "$format commented $old_mode rescued $check live depth: $out"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 0 ] || fail "$format $check live depth passed completeness"
+        assert_contains "$reason" 'Delivery depth' "$format $check live depth refusal unnamed"
+        ;;
+      mismatch|matched|local)
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$selected" --yolo off); status=$?
+        [ "$status" -ne 0 ] || fail "refusing backend unexpectedly launched"
+        if [ "$check" = mismatch ]; then
+          assert_contains "$out" "--mode $selected" "$format contradiction lost selected mode"
+          assert_contains "$out" "$depth" "$format contradiction lost LIVE depth"
+          assert_contains "$out" "$id" "$format contradiction lost task id"
+          assert_contains "$out" 'reconcile' "$format contradiction omitted repair"
+          assert_absent "$home/data/$id/launch-brief.md" "$format contradiction published brief"
+          assert_absent "$home/state/$id.meta" "$format contradiction published metadata"
+          assert_absent "$fakebin/tmux.calls" "$format contradiction reached backend"
+          assert_absent "$fakebin/treehouse.calls" "$format contradiction allocated worktree"
+          [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "$format contradiction acquired lock"
+        else
+          assert_present "$home/data/$id/launch-brief.md" "$format $check live depth refused: $out"
+          assert_present "$fakebin/tmux.calls" "$format $check missed refusing backend: $out"
+          assert_grep '.' "$fakebin/tmux.calls" "$format $check backend log empty"
+          assert_not_contains "$out" 'Delivery depth' "$format $check depth refused"
+        fi
+        ;;
+    esac
+    pass "$format commented $old_mode/live $declared: $check"
+  done
+}
+
+test_depth_required_full_and_surgical() {
+  local rec home proj fakebin format id prep baseline change reason out declared status
+  rec=$(make_home depth-fields)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for format in full surgical; do
+    id="depth-fields-$format"
+    write_brief "$home" "$id" direct-PR
+    prep="$home/data/$id/prep.md"
+    if [ "$format" = surgical ]; then
+      rm "$prep"
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+      sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
+        -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
+        -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/owned.sh:12; callers confined; cause reproduced; regression covers output; no sensitive paths./' \
+        "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      fm_test_fill_prep_common "$prep"
+    fi
+    fm_test_prep_depth "$prep" direct-PR
+    baseline="$home/$format.baseline"
+    cp "$prep" "$baseline"
+    for change in absent empty placeholder unknown both duplicate conflict no-reason placeholder-reason na continuation fenced indented comment; do
+      awk -v c="$change" '
+        /^- Delivery depth:/ {
+          if (c == "absent") next
+          if (c == "empty") { print "- Delivery depth:"; next }
+          if (c == "placeholder") { print "- Delivery depth: {DELIVERY_DEPTH}"; next }
+          if (c == "unknown") { print "- Delivery depth: fast, fixture reason"; next }
+          if (c == "both") { print $0 " checks + AI review (no-mistakes)"; next }
+          if (c == "no-reason" || c == "continuation") { print "- Delivery depth: checks-only (direct-PR),"; if (c == "continuation") print "  reason on next line"; next }
+          if (c == "placeholder-reason") { print "- Delivery depth: checks-only (direct-PR), {REASON}"; next }
+          if (c == "na") { print "- Delivery depth: n/a: fixture"; next }
+          if (c == "fenced") { print "```"; print; print "```"; next }
+          if (c == "indented") { print ""; print "    " $0; next }
+          if (c == "comment") { print "<!-- " $0 " -->"; next }
+          print
+          if (c == "duplicate") print
+          if (c == "conflict") print "- Delivery depth: checks + AI review (no-mistakes), other reason"
+          next
+        }
+        { print }
+      ' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep") || fail "$format $change depth accepted"
+      assert_contains "$reason" 'Delivery depth' "$format $change refusal did not name depth"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+      status=$?
+      [ "$status" -ne 0 ] || fail "$format $change spawn admitted"
+      assert_contains "$out" 'Delivery depth' "$format $change spawn refusal did not name depth"
+      assert_absent "$home/data/$id/launch-brief.md" "$format $change published launch brief"
+      assert_absent "$home/state/$id.meta" "$format $change published metadata"
+      assert_absent "$fakebin/tmux.calls" "$format $change reached backend"
+      assert_absent "$fakebin/treehouse.calls" "$format $change reached allocator"
+      cp "$baseline" "$prep"
+      for declared in direct-PR no-mistakes; do
+        fm_test_prep_depth "$prep" "$declared"
+        reason=$(fm_prep_unfilled_reason "$prep") && fail "$format valid depth refused: $reason"
+        [ -z "$reason" ] || fail "successful gate printed reason"
+      done
+    done
+  done
+  pass "delivery depth: full and surgical malformed declarations refuse; canonical restored answers pass"
+}
+
+# A ship spawn must stop when its delivery contract was never decided or cannot be
+# a task mode, and must leave no task metadata behind when it does.
+test_ship_spawn_requires_a_valid_delivery_contract() {
+  local rec home proj fakebin label flags expect out status n=0
+  rec=$(make_home required)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  while IFS='|' read -r label flags expect; do
+    [ -n "$label" ] || continue
+    n=$((n + 1))
+    write_brief "$home" "delivery-required-$n" no-mistakes
+    # shellcheck disable=SC2086  # flags is an intentional word-split arg list
+    out=$(run_spawn "$home" "$fakebin" "delivery-required-$n" "$proj" claude $flags)
+    status=$?
+    [ "$status" -ne 0 ] || fail "$label: expected a non-zero exit"
+    assert_contains "$out" "$expect" "$label: refusal did not explain the contract"
+    assert_absent "$home/state/delivery-required-$n.meta" "$label: refused spawn wrote task metadata"
+  done <<'ROWS'
+missing both flags||ship spawns require --mode
+missing --yolo|--mode no-mistakes|ship spawns require --yolo
+missing --mode|--yolo off|ship spawns require --mode
+unknown mode|--mode nope --yolo off|must be one of no-mistakes, direct-PR, local-only
+unknown yolo|--mode no-mistakes --yolo maybe|--yolo must be on or off
+conditional policy as a task mode|--mode no-mistakes-prod-only --yolo off|classify this task's surface
+ROWS
+  pass "fm-spawn: a ship spawn requires a valid explicit mode and yolo before anything is created"
+}
+
+# A scout has no merge to govern and a secondmate's posture is fixed, so the flags
+# are refused rather than accepted and quietly ignored.
+test_scout_and_secondmate_refuse_delivery_flags() {
+  local rec home proj fakebin out status
+  rec=$(make_home refused)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_brief "$home" delivery-scout-a1
+
+  out=$(run_spawn "$home" "$fakebin" delivery-scout-a1 "$proj" claude --scout --mode direct-PR)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a scout spawn carrying --mode should exit non-zero"
+  assert_contains "$out" "--mode applies only to ship spawns" "scout spawn did not refuse --mode"
+
+  out=$(run_spawn "$home" "$fakebin" delivery-scout-a1 "$proj" claude --scout --yolo on)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a scout spawn carrying --yolo should exit non-zero"
+  assert_contains "$out" "--yolo applies only to ship spawns" "scout spawn did not refuse --yolo"
+
+  out=$(run_spawn "$home" "$fakebin" delivery-sm-a2 "$home" --secondmate --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a secondmate spawn carrying delivery flags should exit non-zero"
+  assert_contains "$out" "applies only to ship spawns" "secondmate spawn did not refuse the delivery flags"
+  pass "fm-spawn: scout and secondmate spawns refuse ship delivery flags"
+}
+
+# The brief is what the worker actually follows, so a spawn whose explicit mode
+# disagrees with the brief's recorded contract must refuse instead of launching a
+# worker whose instructions contradict the recorded task delivery.
+test_spawn_refuses_a_brief_mode_mismatch() {
+  local rec home proj fakebin out status
+  rec=$(make_home agreement)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_brief "$home" delivery-mismatch-b1 no-mistakes
+  fm_test_prep_depth "$home/data/delivery-mismatch-b1/prep.md" direct-PR
+  out=$(run_spawn "$home" "$fakebin" delivery-mismatch-b1 "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a brief/spawn mode mismatch should exit non-zero"
+  assert_contains "$out" "delivery mismatch for delivery-mismatch-b1" "mismatch refusal did not name the task"
+  assert_contains "$out" "the brief says mode=no-mistakes but this spawn passed --mode direct-PR" \
+    "mismatch refusal did not show both sides of the disagreement"
+  assert_absent "$home/state/delivery-mismatch-b1.meta" "mismatched spawn wrote task metadata"
+
+  # The agreeing case clears the check and only fails later, at the refusing tmux.
+  write_brief "$home" delivery-agree-b2 direct-PR
+  out=$(run_spawn "$home" "$fakebin" delivery-agree-b2 "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "delivery mismatch" "an agreeing mode was reported as a mismatch"
+
+  # A brief scaffolded before the contract line existed warns once and continues.
+  write_brief "$home" delivery-legacy-b3
+  out=$(run_spawn "$home" "$fakebin" delivery-legacy-b3 "$proj" claude --mode local-only --yolo off)
+  assert_contains "$out" "records no delivery contract line" "a legacy brief did not warn about its missing contract"
+  assert_not_contains "$out" "delivery mismatch" "a legacy brief was treated as a mismatch"
+  pass "fm-spawn: the brief's recorded mode and the spawn's explicit mode must agree"
+}
+
+# The registry is the captain's standing posture, so dropping below its rigor is
+# allowed but never silent, while matching or exceeding it stays quiet. An
+# unregistered project resolves to the same no-mistakes standing default
+# (AGENTS.md section 7), so a downgrade there is announced too. A conditional
+# policy is excluded because both of its legs are legitimate classifications.
+test_spawn_notices_a_rigor_downgrade_against_the_registry() {
+  local rec home proj fakebin out label mode registry expect registered n=0
+  while IFS='|' read -r label registry mode expect registered; do
+    [ -n "$label" ] || continue
+    n=$((n + 1))
+    rec=$(make_home "deviation-$n" "$registry")
+    IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+    write_brief "$home" "delivery-dev-$n" "$mode"
+    out=$(run_spawn "$home" "$fakebin" "delivery-dev-$n" "$proj" claude --mode "$mode" --yolo off)
+    case "$expect" in
+      notice)
+        assert_contains "$out" "less rigor than the captain's standing posture" \
+          "$label: no deviation notice for a rigor downgrade"
+        assert_contains "$out" "the standing posture for proj is $registered" \
+          "$label: notice did not name the standing posture it compared against" ;;
+      quiet)
+        assert_not_contains "$out" "less rigor than the captain's standing posture" \
+          "$label: printed a deviation notice that is not a downgrade" ;;
+    esac
+  done <<'ROWS'
+no-mistakes project shipped direct-PR|- proj [no-mistakes] - fixture (added 2026-01-01)|direct-PR|notice|no-mistakes
+no-mistakes project shipped local-only|- proj [no-mistakes] - fixture (added 2026-01-01)|local-only|notice|no-mistakes
+no-mistakes project shipped no-mistakes|- proj [no-mistakes] - fixture (added 2026-01-01)|no-mistakes|quiet|no-mistakes
+local-only project shipped no-mistakes|- proj [local-only] - fixture (added 2026-01-01)|no-mistakes|quiet|local-only
+conditional policy shipped direct-PR|- proj [no-mistakes-prod-only] - fixture (added 2026-01-01)|direct-PR|quiet|no-mistakes-prod-only
+unregistered project resolves to the no-mistakes standing default|- other [no-mistakes] - fixture (added 2026-01-01)|direct-PR|notice|no-mistakes
+ROWS
+  pass "fm-spawn: a rigor downgrade against the registered posture is announced, never blocked"
+}
+
+# A scout's deliverable is a report, so it records no delivery posture at all;
+# teardown already treats an absent mode as the most protective one.
+test_scout_records_no_delivery_posture() {
+  local rec home proj fakebin out
+  rec=$(make_home scout-meta "- proj [direct-PR] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_brief "$home" delivery-scoutmeta-c1
+  out=$(run_spawn "$home" "$fakebin" delivery-scoutmeta-c1 "$proj" claude --scout)
+  assert_not_contains "$out" "less rigor" "a scout spawn consulted the registered delivery posture"
+  assert_not_contains "$out" "delivery mismatch" "a scout spawn checked a delivery contract it does not carry"
+  pass "fm-spawn: a scout spawn resolves no delivery posture from the registry"
+}
+
+# Promotion is where a scout's ship contract is finally decided, so it requires the
+# same explicit values and writes them into the task's durable record.
+test_promote_requires_and_records_the_delivery_contract() {
+  local home meta out status blocked_data instructions_path
+  home="$TMP_ROOT/promote/home"
+  mkdir -p "$home/state"
+  meta="$home/state/promote-d1.meta"
+  write_brief "$home" promote-d1
+
+  write_scout_meta() {
+    printf 'window=fm-promote-d1\nkind=scout\nworktree=/tmp/wt\n' > "$meta"
+  }
+
+  write_scout_meta
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-d1 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion without --mode should exit non-zero"
+  assert_contains "$out" "promotion requires --mode" "promote refusal did not name the missing mode"
+  assert_grep 'kind=scout' "$meta" "refused promotion still changed the task record"
+
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-d1 --mode direct-PR 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion without --yolo should exit non-zero"
+  assert_contains "$out" "promotion requires --yolo" "promote refusal did not name the missing merge posture"
+
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-d1 --mode no-mistakes-prod-only --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion on a conditional policy should exit non-zero"
+  assert_contains "$out" "classify this task's surface" "promote did not refuse the conditional policy as a task mode"
+
+  blocked_data="$home/data-blocked"
+  printf 'not a directory\n' > "$blocked_data"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$blocked_data" \
+    "$PROMOTE" promote-d1 --mode direct-PR --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion without writable instruction storage should exit non-zero"
+  assert_grep 'kind=scout' "$meta" "failed instruction publication still promoted the task"
+  assert_no_grep '^mode=' "$meta" "failed instruction publication recorded a delivery mode"
+  assert_no_grep '^yolo=' "$meta" "failed instruction publication recorded a merge posture"
+
+  instructions_path="$home/data/promote-d1/ship-instructions.md"
+  mkdir -p "$instructions_path"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    "$PROMOTE" promote-d1 --mode direct-PR --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion over an instruction directory should exit non-zero"
+  assert_contains "$out" "ship instructions path is a directory" \
+    "promotion did not explain the invalid instruction destination"
+  assert_grep 'kind=scout' "$meta" "invalid instruction destination still promoted the task"
+  assert_no_grep '^mode=' "$meta" "invalid instruction destination recorded a delivery mode"
+  assert_no_grep '^yolo=' "$meta" "invalid instruction destination recorded a merge posture"
+  rmdir "$instructions_path"
+
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" promote-d1 --mode direct-PR --yolo on 2>&1)
+  status=$?
+  expect_code 0 "$status" "a promotion carrying both flags should succeed"
+  assert_grep 'kind=ship' "$meta" "promotion did not restore ship teardown protection"
+  assert_grep 'mode=direct-PR' "$meta" "promotion did not record the decided delivery mode"
+  assert_grep 'yolo=on' "$meta" "promotion did not record the decided merge posture"
+  assert_contains "$out" "ship instructions for mode=direct-PR" "promotion hint did not carry the decided mode"
+  [ "$(grep -c '^mode=' "$meta")" = 1 ] || fail "promotion left more than one mode= line in the task record"
+  pass "fm-promote: promotion requires the delivery contract and records it exactly once"
+}
+
+# A symlink at state/<id>.meta is the containment hazard the shared publisher
+# refuses: promotion must not rewrite the symlink target in place.
+test_promote_refuses_a_symlinked_task_record() {
+  local home meta target original out status leftover
+  home="$TMP_ROOT/promote-symlink/home"
+  mkdir -p "$home/state"
+  meta="$home/state/promote-sym.meta"
+  target="$TMP_ROOT/promote-symlink/foreign-task-record"
+  original="$TMP_ROOT/promote-symlink/foreign-task-record.expected"
+  printf '%s\n' 'window=fm-promote-sym' 'kind=scout' 'worktree=/tmp/wt' > "$target"
+  cp "$target" "$original"
+  ln -s "$target" "$meta"
+
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
+    "$PROMOTE" promote-sym --mode direct-PR --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion through a symlink record should refuse"
+  assert_contains "$out" "task record" "promotion did not identify the unpublished task record"
+  [ -L "$meta" ] || fail "promotion replaced or removed the symlink record"
+  cmp -s "$target" "$original" \
+    || fail "promotion rewrote the symlink target in place"
+  assert_absent "$home/data/promote-sym/ship-instructions.md" \
+    "refused promotion published ship instructions"
+  leftover=$(find "$home/state" -maxdepth 1 -name '.*.meta.promote.*' -print 2>/dev/null || true)
+  [ -z "$leftover" ] || fail "promotion left a staging file after a refused publish: $leftover"
+  pass "fm-promote: a symlinked task record is refused and its target is left untouched"
+}
+
+# The delivery contract only protects a worker that actually receives it. A promoted
+# scout used to get a free-form hint instead of the mode-specific Definition of done,
+# so it never saw the stop-set triage rule or the --yes ban that every briefed
+# no-mistakes worker gets. This drives the real promotion path, then runs the delivery command it
+# prints against a capturing fm-send.sh, and asserts on the message the worker would
+# actually receive - for every supported mode.
+test_promotion_delivers_the_real_definition_of_done() {
+  local home meta out sendroot payload mode id brief_dod delivered_dod
+  home="$TMP_ROOT/promote-dod/home"
+  sendroot="$TMP_ROOT/promote-dod/sendroot"
+  mkdir -p "$home/state" "$sendroot/bin"
+  cat > "$sendroot/bin/fm-send.sh" <<'STUB'
+#!/usr/bin/env bash
+# Capture the message a promoted worker would receive, instead of steering one.
+printf '%s' "$2" > "$FM_TEST_CAPTURE"
+STUB
+  chmod +x "$sendroot/bin/fm-send.sh"
+
+  for mode in no-mistakes direct-PR local-only; do
+    id="promote-dod-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
+    meta="$home/state/$id.meta"
+    printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+    FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 \
+      || fail "$mode: scout brief generation should succeed"
+    fill_brief_subsections "$home/data/$id/brief.md" \
+      "Ship the delivery-contract change." "Preserve the selected delivery mode."
+    out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1) \
+      || fail "$mode: promotion should succeed"
+
+    payload="$TMP_ROOT/promote-dod/payload-$id"
+    # Run the delivery command promotion printed, so the assertions below are made
+    # against the message the worker receives rather than the script's own text.
+    ( cd "$sendroot" \
+      && FM_TEST_CAPTURE="$payload" \
+         eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
+      || fail "$mode: promotion's delivery command did not run"
+    assert_present "$payload" "$mode: promotion delivered no message to the worker"
+
+    grep -qx "Delivery contract: mode=$mode" "$payload" \
+      || fail "$mode: promoted worker did not receive the machine-readable delivery contract"
+    assert_grep "# Definition of done" "$payload" \
+      "$mode: promoted worker did not receive a Definition of done"
+    assert_grep "pwd -P" "$payload" \
+      "$mode: promoted worker was not told to verify its physical worktree"
+    assert_grep "git rev-parse --show-toplevel" "$payload" \
+      "$mode: promoted worker was not told to verify its repository root"
+    assert_grep "If either does not resolve to the worktree you were launched in, stop and escalate to firstmate" "$payload" \
+      "$mode: promoted worker was not told to stop for any wrong worktree"
+    assert_grep "git checkout -b fm/$id --" "$payload" \
+      "$mode: promoted worker was not told to leave the scratch base for its ship branch"
+    assert_grep "## Captain's intent" "$payload" \
+      "$mode: promoted worker did not receive the Captain's intent subsection"
+    assert_grep "## Firstmate spec" "$payload" \
+      "$mode: promoted worker did not receive the Firstmate spec subsection"
+
+    if [ "$mode" != local-only ]; then
+      assert_grep 'PR {full https URL from the forge} checks green' "$payload" "$mode promotion lost green PR completion"
+      assert_no_grep 'Firstmate will then instruct you' "$payload" "$mode promotion kept an implementation-only stop"
+    fi
+
+    rm "$home/data/$id/brief.md"
+    FM_HOME="$home" "$BRIEF" "$id" fixture-project --mode "$mode" >/dev/null 2>&1 \
+      || fail "$mode: ordinary ship brief generation should succeed"
+    brief_dod="$TMP_ROOT/promote-dod/brief-dod-$id"
+    delivered_dod="$TMP_ROOT/promote-dod/delivered-dod-$id"
+    printf '%s\n' "$(fm_brief_heading_body "$home/data/$id/brief.md" '# Definition of done')" > "$brief_dod"
+    printf '%s\n' "$(fm_brief_heading_body "$payload" '# Definition of done')" > "$delivered_dod"
+    cmp -s "$brief_dod" "$delivered_dod" \
+      || fail "$mode: promotion and ordinary brief generation delivered different Definitions of done"
+  done
+
+  payload="$TMP_ROOT/promote-dod/payload-promote-dod-no-mistakes"
+  assert_grep "Every other finding, ask-user ones included, is yours to batch-fix" "$payload" \
+    "promoted no-mistakes worker did not receive the stop-set triage rule"
+  assert_grep "write only the stop-set findings, verbatim and unparaphrased (id, severity, file, line, description, authority), naming the stop category" "$payload" \
+    "promoted no-mistakes worker did not receive the stop-set-only snapshot contract"
+  # shellcheck disable=SC2016  # single quotes are deliberate: the placeholders must stay literal
+  assert_grep 'needs-decision [at=<epoch>] [key=nm-<run>-<step>]: escalated findings=<id1>,<id2>,... file='"$home/data/promote-dod-no-mistakes/nm-<run>-findings.txt" "$payload" \
+    "promoted no-mistakes worker did not receive the structured escalation event"
+  assert_grep "NEVER pass \`--yes\` (or \`-y\`)" "$payload" \
+    "promoted no-mistakes worker did not receive the --yes prohibition"
+  assert_grep "It is banned fleet-wide" "$payload" \
+    "promoted no-mistakes worker did not receive the fleet-wide ban wording"
+
+  payload="$TMP_ROOT/promote-dod/payload-promote-dod-direct-pr"
+  assert_grep "supersede the scout delivery rules and report-based Definition of done" "$payload" \
+    "promoted worker retained the scout delivery contract"
+  assert_grep "status protocol; the instruction inbox and its acknowledgement; the escalation rules, including the stop set; and every safety rule" "$payload" \
+    "promoted worker lost the scout protocols and safety rules that still apply"
+
+  # The faster paths keep their own contracts rather than inheriting the pipeline's.
+  assert_grep "Do NOT run /no-mistakes" "$payload" \
+    "promoted direct-PR worker lost its no-pipeline contract"
+  assert_grep "Do NOT push, do NOT open a PR, do NOT merge" "$TMP_ROOT/promote-dod/payload-promote-dod-local-only" \
+    "promoted local-only worker lost its no-remote contract"
+  assert_no_grep "no-mistakes axi respond" "$TMP_ROOT/promote-dod/payload-promote-dod-direct-pr" \
+    "promoted direct-PR worker received the pipeline gate contract"
+  pass "fm-promote: a promoted worker receives the same mode-specific delivery contract a briefed one does"
+}
+
+test_promotion_persists_the_selected_ship_branch() {
+  local home id meta instructions out
+  home="$TMP_ROOT/promote-branch/home"
+  id=promote-branch-e1
+  meta="$home/state/$id.meta"
+  mkdir -p "$home/state"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 \
+    || fail "branch-prefix promotion scout brief should scaffold"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Promote the branch-prefix fixture." "Use the configured branch exactly."
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" \
+    --mode local-only --yolo off --branch-prefix fix/) \
+    || fail "branch-prefix promotion should succeed"
+  instructions="$home/data/$id/ship-instructions.md"
+  assert_grep "branch=fix/$id" "$meta" \
+    "promotion did not persist the selected full ship branch"
+  assert_grep "git checkout -b fix/$id --" "$instructions" \
+    "promotion did not deliver the selected branch-creation command"
+  assert_grep "Ship branch: fix/$id" "$instructions" \
+    "promotion did not deliver the selected immutable branch contract"
+  assert_contains "$out" "promoted $id to ship" "branch-prefix promotion did not complete normally"
+  pass "fm-promote: a selected branch prefix reaches both worker instructions and durable task state"
+}
+
+# The promotion instructions embed the branch in the `git checkout -b` command
+# the worker executes, so a ref-format-valid metacharacter prefix must stay
+# literal there, exactly as it does in a generated ship brief.
+test_promotion_branch_command_is_shell_safe() {
+  local home id prefix marker meta instructions command repo branch
+  home="$TMP_ROOT/promote-branch-shell-safe/home"
+  marker="$TMP_ROOT/promote-branch-shell-safe-marker"
+  id=promote-branch-safe-e3
+  prefix="\$(touch\${IFS}$marker)/"
+  meta="$home/state/$id.meta"
+  mkdir -p "$home/state"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 \
+    || fail "shell-safe promotion scout brief should scaffold"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Promote the shell-safe fixture." "Use the configured branch exactly."
+  FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" \
+    --mode local-only --yolo off --branch-prefix "$prefix" >/dev/null 2>&1 \
+    || fail "a ref-format-valid metacharacter prefix should promote safely"
+  instructions="$home/data/$id/ship-instructions.md"
+  # shellcheck disable=SC2016  # Single quotes are required: the sed expression holds literal backticks.
+  command=$(sed -n 's/.*create your branch: `\(.*\)`\.$/\1/p' "$instructions")
+  [ -n "$command" ] || fail "promotion instructions exposed no branch-creation command"
+  repo="$TMP_ROOT/promote-branch-shell-safe-repo"
+  git init -q "$repo" || fail "could not initialize shell-safety fixture repository"
+  ( cd "$repo" && eval "$command" ) || fail "promotion branch-creation command did not run"
+  assert_absent "$marker" "promotion branch command executed the prefix's command substitution"
+  branch=$(git -C "$repo" branch --show-current)
+  [ "$branch" = "$prefix$id" ] \
+    || fail "promotion branch command did not create the literal configured branch (got '$branch')"
+  pass "fm-promote: ref-format-valid shell metacharacters stay literal in promotion branch commands"
+}
+
+test_local_merge_uses_the_recorded_ship_branch() {
+  local home proj id main fix out
+  home="$TMP_ROOT/local-merge-branch/home"
+  proj="$TMP_ROOT/local-merge-branch/proj"
+  id=local-merge-branch-e2
+  mkdir -p "$home/state" "$home/data" "$proj"
+  git -C "$proj" init -q || fail "could not initialize local-merge branch fixture"
+  git -C "$proj" config user.email test@example.com
+  git -C "$proj" config user.name test
+  printf 'base\n' > "$proj/base"
+  git -C "$proj" add base || fail "could not stage local-merge branch fixture base"
+  git -C "$proj" commit -qm base || fail "could not commit local-merge branch fixture base"
+  main=$(git -C "$proj" branch --show-current)
+  git -C "$proj" checkout -qb "fix/$id" || fail "could not create recorded branch fixture"
+  printf 'change\n' > "$proj/change"
+  git -C "$proj" add change || fail "could not stage recorded branch fixture"
+  git -C "$proj" commit -qm change || fail "could not commit recorded branch fixture"
+  fix=$(git -C "$proj" rev-parse HEAD)
+  git -C "$proj" checkout -q "$main" || fail "could not restore fixture default branch"
+  cat > "$home/data/projects.md" <<EOF
+- $(basename "$proj") [local-only branch=contrib/] - changed after task intake (added 2026-01-01)
+EOF
+  printf 'project=%s\nmode=local-only\nbranch=fix/%s\n' "$proj" "$id" > "$home/state/$id.meta"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$MERGE_LOCAL" "$id") \
+    || fail "local merge did not use the branch recorded at task intake: $out"
+  [ "$(git -C "$proj" rev-parse HEAD)" = "$fix" ] \
+    || fail "local merge did not fast-forward the default branch to the recorded ship branch"
+  assert_contains "$out" "merged fix/$id into local $main" \
+    "local merge did not report the immutable recorded branch"
+  pass "fm-merge-local: a registry change cannot redirect an in-flight local-only task"
+}
+
+# A registered name may contain spaces, and the lookup must match the whole
+# name rather than only its first whitespace-delimited token (issue #1977).
+# The longer "foo bar" row is listed before the "foo" row so a leading-prefix
+# match would pick the wrong row if the fix regressed.
+test_project_mode_matches_whole_multiword_names() {
+  local home out err
+  home="$TMP_ROOT/project-mode-multiword/home"
+  mkdir -p "$home/data"
+  cat > "$home/data/projects.md" <<'EOF'
+- 048. Blast- Lease summary drafter [local-only] - fixture (added 2026-01-01)
+- foo bar [local-only +yolo branch=x/] - fixture (added 2026-01-01)
+- foo [direct-PR] - fixture (added 2026-01-01)
+- controlproj [direct-PR] - fixture (added 2026-01-01)
+EOF
+  out=$(FM_HOME="$home" "$PROJECT_MODE" "048. Blast- Lease summary drafter" 2>/dev/null)
+  [ "$out" = "local-only off" ] || fail "a multi-word registered name did not resolve to its own row (got '$out')"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" "048. Blast- Lease summary drafter" 2>&1 >/dev/null)
+  [ -z "$err" ] || fail "a multi-word registered name still warned as not in the registry: $err"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" foo 2>/dev/null)
+  [ "$out" = "direct-PR off" ] || fail "a single-word name matched a longer name it prefixes (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" "foo bar" 2>/dev/null)
+  [ "$out" = "local-only on" ] || fail "a longer multi-word name did not resolve to its own row (got '$out')"
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix "foo bar" 2>/dev/null)
+  [ "$out" = "x/" ] || fail "a multi-word name's registered branch prefix did not resolve (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" controlproj 2>/dev/null)
+  [ "$out" = "direct-PR off" ] || fail "a single-word control name regressed (got '$out')"
+  pass "fm-project-mode: the registry lookup matches a whole multi-word name, not just its first token"
+}
+
+# The registry parser survives for the mechanical consumers only. It accepts the
+# conditional policy, maps it to its most rigorous leg for them, and exposes the
+# raw annotation for the one caller that must tell a policy from a flat mode.
+test_project_mode_maps_the_conditional_policy() {
+  local home out err
+  home="$TMP_ROOT/project-mode/home"
+  mkdir -p "$home/data"
+  cat > "$home/data/projects.md" <<'EOF'
+- prodproj [no-mistakes-prod-only] - fixture (added 2026-01-01)
+- yoloproj [no-mistakes-prod-only +yolo] - fixture (added 2026-01-01)
+- flatproj [direct-PR] - fixture (added 2026-01-01)
+- typoproj [no-mistakez] - fixture (added 2026-01-01)
+EOF
+  out=$(FM_HOME="$home" "$PROJECT_MODE" prodproj 2>/dev/null)
+  [ "$out" = "no-mistakes off" ] || fail "conditional policy did not map to its most rigorous leg (got '$out')"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" prodproj 2>&1 >/dev/null)
+  [ -z "$err" ] || fail "a registered conditional policy still warned as unknown: $err"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" yoloproj 2>/dev/null)
+  [ "$out" = "no-mistakes on" ] || fail "conditional policy dropped its +yolo posture (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --raw prodproj 2>/dev/null)
+  [ "$out" = "no-mistakes-prod-only off" ] || fail "--raw did not expose the registered annotation (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --raw flatproj 2>/dev/null)
+  [ "$out" = "direct-PR off" ] || fail "--raw altered a flat registered mode (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" typoproj 2>/dev/null)
+  [ "$out" = "no-mistakes off" ] || fail "a typo'd mode no longer falls back to the most rigorous default"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" typoproj 2>&1 >/dev/null)
+  assert_contains "$err" "unknown mode" "a typo'd registry mode stopped warning"
+  pass "fm-project-mode: the conditional policy is accepted, mapped for mechanical callers, and readable raw"
+}
+
+# Spawn and promotion refuse leftover Task-subsection placeholders through the
+# public brief/spawn/promote path. Filling both subsections lets the spawn
+# delivery checks proceed (the fake tmux still fails later).
+test_spawn_and_promote_require_filled_task_subsections() {
+  local rec home proj fakebin out status id brief meta intent_body spec_body authorized
+  rec=$(make_home subsections)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  id=delivery-unfilled-ship
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes >/dev/null 2>&1 \
+    || fail "unfilled ship brief should still scaffold"
+  write_prep "$home" "$id" no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn of an unfilled ship brief should exit non-zero"
+  assert_contains "$out" "still contains {TASK} or {FIRSTMATE_SPEC}" \
+    "unfilled ship spawn did not name the leftover placeholders"
+  assert_contains "$out" "## Captain's intent" \
+    "unfilled ship spawn did not name the intent subsection to fill"
+  assert_absent "$home/state/$id.meta" "unfilled ship spawn wrote task metadata"
+
+  id=delivery-filled-ship
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode direct-PR >/dev/null 2>&1 \
+    || fail "filled-ship brief should scaffold"
+  write_prep "$home" "$id"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Fix replacement of \`{TASK}\` in Herdr briefs." \
+    "Keep literal \`{FIRSTMATE_SPEC}\` examples intact."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "still contains {TASK} or {FIRSTMATE_SPEC}" \
+    "a filled ship brief mentioning placeholder tokens was refused as unfilled"
+  assert_not_contains "$out" "must contain nonempty" \
+    "a filled ship brief mentioning placeholder tokens failed content validation"
+
+  id=delivery-legacy-fenced-headings
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+You are a crewmate.
+
+# Task
+Preserve this legacy task containing a format example.
+
+```markdown
+## Captain's intent
+Example intent
+## Firstmate spec
+Example specification
+```
+
+# Definition of done
+Delivery contract: mode=direct-PR
+EOF
+  write_prep "$home" "$id"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "must contain nonempty" \
+    "fenced example headings made a filled legacy Task fail validation"
+  assert_not_contains "$out" "still contains {TASK} or {FIRSTMATE_SPEC}" \
+    "fenced example headings made a filled legacy Task look unfilled"
+
+  id=delivery-legacy-no-mistakes
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+[captain] Fix the legacy dispatch boundary.
+Do not copy this Firstmate-authored constraint into intent.
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+Pass the entire Task as --intent.
+EOF
+  write_prep "$home" "$id" no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_not_contains "$out" "has no provenance-marked captain words" \
+    "legacy no-mistakes spawn rejected explicitly marked captain words"
+  assert_present "$home/data/$id/launch-brief.md" \
+    "marked legacy spawn did not render a current launch contract"
+  assert_grep "supersedes every earlier brief instruction about constructing \`--intent\`" \
+    "$home/data/$id/launch-brief.md" \
+    "marked legacy spawn did not override its stale intent instruction"
+  assert_grep "plus any later words the captain actually supplied" \
+    "$home/data/$id/launch-brief.md" \
+    "marked legacy launch contract excluded later captain clarifications"
+  authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit && /^$/ { exit } emit { print }' "$home/data/$id/launch-brief.md")
+  assert_contains "$authorized" "Fix the legacy dispatch boundary." \
+    "marked legacy launch contract omitted captain words"
+  assert_not_contains "$authorized" "Firstmate-authored constraint" \
+    "marked legacy launch contract included mixed Task specification"
+
+  id=delivery-migrated-stale-no-mistakes
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Fix the migrated dispatch boundary.
+
+## Firstmate spec
+Preserve the existing compatibility path.
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+Pass the entire Task and every Firstmate requirement as --intent.
+EOF
+  write_prep "$home" "$id" no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" \
+    "migrated subsection brief did not receive the current launch contract"
+  authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit && /^$/ { exit } emit { print }' "$home/data/$id/launch-brief.md")
+  assert_contains "$authorized" "Fix the migrated dispatch boundary." \
+    "migrated launch contract omitted Captain's intent"
+  assert_not_contains "$authorized" "Preserve the existing compatibility path." \
+    "migrated launch contract included Firstmate spec in intent"
+  assert_grep "supersedes every earlier brief instruction about constructing \`--intent\`" \
+    "$home/data/$id/launch-brief.md" \
+    "migrated launch contract did not supersede its stale mixed-Task DoD"
+  assert_grep "plus any later words the captain actually supplied" \
+    "$home/data/$id/launch-brief.md" \
+    "migrated launch contract excluded later captain clarifications"
+  assert_grep "The Definition of done's rule that \`--intent\` must be self-sufficient still governs" \
+    "$home/data/$id/launch-brief.md" \
+    "migrated launch contract's overlay dropped the self-sufficiency pointer"
+
+  id=delivery-legacy-unmarked-no-mistakes
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+Fix the legacy dispatch boundary.
+Do not copy this Firstmate-authored constraint into intent.
+
+# Definition of done
+Delivery contract: mode=no-mistakes
+
+# Notes
+## Captain's intent
+Unrelated notes must not become task intent.
+## Firstmate spec
+Unrelated notes must not satisfy task validation.
+EOF
+  write_prep "$home" "$id" no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "unmarked legacy no-mistakes spawn should require provenance"
+  assert_contains "$out" "has no provenance-marked captain words" \
+    "unmarked legacy no-mistakes spawn did not explain the missing intent provenance"
+  assert_contains "$out" "[captain]" "missing-provenance refusal did not name the replacement marker"
+  assert_not_contains "$out" "Captain:" "missing-provenance refusal still prescribes operator address"
+  assert_absent "$home/data/$id/launch-brief.md" "unmarked legacy no-mistakes spawn serialized unauthorized intent"
+  assert_absent "$home/state/$id.meta" "unmarked legacy no-mistakes spawn wrote task metadata"
+
+  id=delivery-unfilled-scout
+  FM_HOME="$home" "$BRIEF" "$id" proj --scout >/dev/null 2>&1 \
+    || fail "unfilled scout brief should still scaffold"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --scout)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn of an unfilled scout brief should exit non-zero"
+  assert_contains "$out" "still contains {TASK} or {FIRSTMATE_SPEC}" \
+    "unfilled scout spawn did not name the leftover placeholders"
+  assert_absent "$home/state/$id.meta" "unfilled scout spawn wrote task metadata"
+
+  id=delivery-empty-ship
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode direct-PR >/dev/null 2>&1 \
+    || fail "empty-ship brief should scaffold"
+  write_prep "$home" "$id"
+  fill_brief_subsections "$home/data/$id/brief.md" "" ""
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "spawn of empty Task subsections should exit non-zero"
+  assert_contains "$out" "must contain nonempty ## Captain's intent and ## Firstmate spec" \
+    "empty Task subsections were not rejected semantically"
+  assert_absent "$home/state/$id.meta" "empty-subsection spawn wrote task metadata"
+
+  id=promote-unfilled-e1
+  meta="$home/state/$id.meta"
+  mkdir -p "$home/state"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" proj --scout >/dev/null 2>&1 \
+    || fail "unfilled promote scout brief should scaffold"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion of an unfilled scout brief should exit non-zero"
+  assert_contains "$out" "preserve the original ask in ## Captain's intent" \
+    "unfilled promotion did not preserve the original captain ask boundary"
+  assert_contains "$out" "promotion generates a separate ship-time spec" \
+    "unfilled promotion did not distinguish scout and ship Firstmate specs"
+  assert_grep 'kind=scout' "$meta" "unfilled promotion still changed the task record"
+
+  id=promote-missing-brief
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion without a scout brief should exit non-zero"
+  assert_contains "$out" "must contain nonempty" \
+    "promotion without a scout brief did not reject missing task content"
+  assert_absent "$home/data/$id/ship-instructions.md" \
+    "promotion without a scout brief fabricated ship instructions"
+  assert_grep 'kind=scout' "$meta" "missing-brief promotion changed the task record"
+
+  id=promote-unmarked-legacy
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+Investigate the unmarked legacy failure.
+Keep this Firstmate constraint out of captain intent.
+
+# Notes
+## Captain's intent
+Unrelated notes are not the original ask.
+## Firstmate spec
+Unrelated notes are not the task specification.
+EOF
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion without provenance-marked captain intent should fail"
+  assert_contains "$out" "has no provenance-marked Captain's intent" \
+    "unmarked legacy promotion did not explain the missing intent provenance"
+  assert_absent "$home/data/$id/ship-instructions.md" \
+    "unmarked legacy promotion published empty captain intent"
+  assert_grep 'kind=scout' "$meta" "unmarked legacy promotion changed the task record"
+
+  id=promote-filled-e2
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" proj --scout >/dev/null 2>&1 \
+    || fail "filled promote scout brief should scaffold"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Investigate why the identity check is failing." \
+    "Ship the identity-check fix without adding a classifier."
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode no-mistakes --yolo off 2>&1)
+  status=$?
+  expect_code 0 "$status" "promotion of a filled scout brief should succeed"
+  assert_grep 'kind=ship' "$meta" "filled promotion did not restore ship teardown protection"
+  brief="$home/data/$id/ship-instructions.md"
+  assert_grep "Investigate why the identity check is failing." "$brief" \
+    "promotion did not preserve the original Captain's intent"
+  assert_no_grep "Ship the identity-check fix without adding a classifier." "$brief" \
+    "promotion reused the scout-time Firstmate spec as ship instructions"
+  spec_body=$(awk '$0 == "## Firstmate spec" { emit=1; next } emit && /^# / { exit } emit { print }' "$brief")
+  assert_contains "$spec_body" "Verify isolation before anything else" \
+    "promotion did not place its ship-time instructions in Firstmate spec"
+  assert_no_grep "SCOUT task" "$brief" \
+    "promotion copied the scout Setup/Rules contract into Firstmate spec"
+  assert_no_grep "# Setup" "$brief" \
+    "promotion copied a later brief section into a Task subsection"
+
+  id=promote-nested-spec
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+# Task
+## Captain's intent
+Ship the parser without losing detailed requirements.
+
+## Firstmate spec
+Keep this opening requirement.
+
+### Acceptance criteria
+Keep this nested requirement too.
+
+```markdown
+# This example heading is fenced content.
+```
+
+Keep this closing requirement.
+
+# Setup
+This scout-only setup must not become the spec.
+EOF
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1)
+  status=$?
+  expect_code 0 "$status" "promotion with nested and fenced spec content should succeed"
+  brief="$home/data/$id/ship-instructions.md"
+  assert_grep "Ship the parser without losing detailed requirements." "$brief" \
+    "promotion discarded Captain's intent while replacing the scout spec"
+  assert_no_grep "### Acceptance criteria" "$brief" \
+    "promotion reused nested scout acceptance criteria as ship instructions"
+  assert_no_grep "# This example heading is fenced content." "$brief" \
+    "promotion reused a fenced scout-spec example as ship instructions"
+  assert_no_grep "Keep this closing requirement." "$brief" \
+    "promotion reused trailing scout spec as ship instructions"
+  assert_no_grep "This scout-only setup must not become the spec." "$brief" \
+    "promotion copied the following top-level section into Firstmate spec"
+
+  id=promote-legacy-e3
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$meta"
+  mkdir -p "$home/data/$id"
+  cat > "$home/data/$id/brief.md" <<'EOF'
+You are a crewmate.
+
+# Task
+[captain] Investigate the fold's session-floor refusal.
+[captain] Preserve the existing successful session behavior.
+
+Reproduce the refusal before changing code.
+Ship the narrow session-floor fix with a regression test.
+
+# Setup
+This is a SCOUT task: the deliverable is a written report, not a PR.
+EOF
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo on 2>&1)
+  status=$?
+  expect_code 0 "$status" "promotion of a pre-subsection scout brief should succeed"
+  brief="$home/data/$id/ship-instructions.md"
+  intent_body=$(awk '$0 == "## Captain'\''s intent" { emit=1; next } emit && /^## / { exit } emit { print }' "$brief")
+  spec_body=$(awk '$0 == "## Firstmate spec" { emit=1; next } emit && /^# / { exit } emit { print }' "$brief")
+  assert_contains "$intent_body" "Investigate the fold's session-floor refusal." \
+    "legacy promotion discarded provenance-marked captain words"
+  assert_contains "$intent_body" "Preserve the existing successful session behavior." \
+    "legacy promotion truncated multiline provenance-marked captain words"
+  assert_not_contains "$intent_body" "Reproduce the refusal" \
+    "legacy promotion classified unmarked mixed Task text as captain intent"
+  assert_not_contains "$spec_body" "Reproduce the refusal before changing code." \
+    "legacy promotion reused the scout-time mixed Task as ship instructions"
+  assert_not_contains "$spec_body" "Ship the narrow session-floor fix with a regression test." \
+    "legacy promotion reused old build instructions as the ship spec"
+  assert_contains "$spec_body" "Verify isolation before anything else" \
+    "legacy promotion did not place promotion ship instructions in Firstmate spec"
+  assert_not_contains "$spec_body" "This is a SCOUT task" \
+    "legacy promotion copied the scout Setup section into Firstmate spec"
+  pass "fm-spawn/fm-promote: leftover Task placeholders are refused until both subsections are filled"
+}
+
+# Exercise the serialized input a worker is told to pass to no-mistakes, not
+# just the presence of words somewhere in its much larger launch brief.
+# No live model or pipeline is needed: spawn publishes this exact input before
+# the fixture backend refuses to create an endpoint.
+test_authorized_intent_keeps_words_without_composed_address() {
+  local rec home proj fakebin id words authorized out status marker n=0
+  rec=$(make_home intent-emission)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  id='intent-plain'
+  words=$(printf '%s\n' 'Keep the original request intact.' '' "Preserve its provenance, punctuation, and \`literal code\`.")
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes >/dev/null 2>&1 \
+    || fail "intent brief should scaffold"
+  fill_brief_subsections "$home/data/$id/brief.md" "$words" 'This build constraint must not become intent.'
+  write_prep "$home" "$id" no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "plain intent was not serialized"
+  authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit { print }' "$home/data/$id/launch-brief.md")
+  [ "$authorized" = "$words" ] || fail "authorized --intent must contain exactly the request, without headings, address, or contract prose: $authorized"
+
+  # The request itself may discuss an address spelling. It is data, not an
+  # invitation to scrub the user's words or synthesize a different request.
+  words=$(printf '%s\n' "Keep the literal example \`Captain, hello\` in the documentation." \
+    "Stop composing Captain:, Captain's words:, Captain's ask:, and Captain's intent: into PR bodies.")
+  write_brief "$home" intent-literal no-mistakes
+  printf '# Task\n## Captain'"'"'s intent\n%s\n\n## Firstmate spec\nDo not paraphrase.\n\n# Definition of done\nDelivery contract: mode=no-mistakes\n' "$words" > "$home/data/intent-literal/brief.md"
+  out=$(run_spawn "$home" "$fakebin" intent-literal "$proj" claude --mode no-mistakes --yolo off)
+  assert_not_contains "$out" "operator-address line" "labels mentioned mid-line were refused as address"
+  authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit { print }' "$home/data/intent-literal/launch-brief.md")
+  [ "$authorized" = "$words" ] || fail "literal words in the request were scrubbed"
+
+  # A body line that opens with operator address is refused, never rewritten.
+  for marker in 'Captain:' "Captain's words:" "Captain's ask:" "Captain's intent:" 'Captain,'; do
+    n=$((n + 1))
+    id="intent-addressed-$n"
+    write_brief "$home" "$id" no-mistakes
+    printf '# Task\n## Captain'"'"'s intent\nKeep the original request intact.\n  %s preserve its provenance.\n\n## Firstmate spec\nDo not paraphrase.\n\n# Definition of done\nDelivery contract: mode=no-mistakes\n' \
+      "$marker" > "$home/data/$id/brief.md"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+    status=$?
+    [ "$status" -ne 0 ] || fail "$marker: addressed intent should be refused"
+    assert_contains "$out" "operator-address line:   $marker preserve its provenance." \
+      "$marker: refusal did not name the offending line"
+    assert_contains "$out" "write the captain's actual words without a Captain label or address" \
+      "$marker: refusal did not say what to write instead"
+    assert_absent "$home/data/$id/launch-brief.md" "$marker: addressed intent was serialized"
+    assert_absent "$home/state/$id.meta" "$marker: addressed intent spawn wrote task metadata"
+    assert_grep "  $marker preserve its provenance." "$home/data/$id/brief.md" "$marker: refusal rewrote the brief"
+  done
+
+  id='intent-addressed-promote'
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$home/state/$id.meta"
+  write_brief "$home" "$id"
+  printf '# Task\n## Captain'"'"'s intent\nCaptain: investigate the refusal.\n\n## Firstmate spec\nReproduce it first.\n' > "$home/data/$id/brief.md"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode no-mistakes --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "promotion of addressed intent should be refused"
+  assert_contains "$out" "operator-address line: Captain: investigate the refusal." \
+    "promotion refusal did not name the offending line"
+  assert_absent "$home/data/$id/ship-instructions.md" "promotion published addressed intent"
+  assert_grep 'kind=scout' "$home/state/$id.meta" "refused promotion changed the task record"
+
+  # New legacy briefs use neutral provenance. Previously stored labels remain
+  # readable without encouraging their use in newly composed pipeline input.
+  for marker in '[captain]' 'Captain:' "Captain's words:" "Captain's ask:" "Captain's intent:"; do
+    n=$((n + 1))
+    id="intent-marked-$n"
+    write_brief "$home" "$id" no-mistakes
+    printf '# Task\n%s %s\nDo not include this build constraint.\n%s %s\n\n# Definition of done\nDelivery contract: mode=no-mistakes\n' \
+      "$marker" 'Keep the original request intact.' "$marker" 'Preserve its provenance.' > "$home/data/$id/brief.md"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+    assert_present "$home/data/$id/launch-brief.md" "$marker: provenance was not accepted"
+    authorized=$(awk '$0 == "## Captain intent authorized for --intent" { emit=1; next } emit { print }' "$home/data/$id/launch-brief.md")
+    words=$(printf '%s\n' 'Keep the original request intact.' 'Preserve its provenance.')
+    [ "$authorized" = "$words" ] || fail "$marker: legacy intent changed words or included provenance/build prose"
+  done
+  pass "fm-spawn/fm-promote: authorized intent preserves exact words and refuses operator-address lines"
+}
+
+test_spawn_refreshes_legacy_worker_roles() {
+  local rec home proj fakebin kind id out brief project_kind first_line role_line supervisor_line
+  rec=$(make_home worker-roles)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  # AGENTS.md and its import are instruction inputs, not implementation-source
+  # assertions: launching a worker must never rewrite either project's files.
+  cp "$ROOT/AGENTS.md" "$home/AGENTS.md"
+  for project_kind in firstmate unrelated; do
+    if [ "$project_kind" = firstmate ]; then
+      cp "$ROOT/AGENTS.md" "$proj/AGENTS.md"
+    else
+      printf 'Use this project coding standard.\n' > "$proj/AGENTS.md"
+    fi
+    printf '@AGENTS.md\n' > "$proj/CLAUDE.md"
+    cp "$proj/AGENTS.md" "$proj/agents-before"
+    for kind in no-mistakes direct-PR local-only scout; do
+      id="roles-$project_kind-$kind"
+      write_brief "$home" "$id" "$kind"
+      if [ "$kind" = scout ]; then
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" codex --scout)
+      else
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" codex --mode "$kind" --yolo off)
+      fi
+      assert_not_contains "$out" 'could not render' "worker role rendering failed"
+      brief="$home/data/$id/launch-brief.md"
+      assert_present "$brief" "$project_kind $kind did not refresh the legacy launch brief"
+      first_line=$(sed -n '1p' "$brief")
+      [ "$first_line" = '# Current worker role contract' ] ||
+        fail "$project_kind $kind did not put worker identity first"
+      assert_grep 'follow this brief instead of that supervisor contract' "$brief" "$project_kind $kind omitted worker authority"
+      assert_grep "$home/state/$id.inbox" "$brief" "$project_kind $kind omitted its exact steering inbox"
+      assert_grep 'When this task works on Firstmate itself' "$brief" "$project_kind $kind made the exception unconditional"
+      assert_grep 'Project instructions still govern the work wherever they do not conflict with this worker identity' "$brief" "$project_kind $kind displaced project guidance"
+      ! grep -q '^This section supersedes every earlier brief instruction about your role' "$brief" ||
+        fail "$project_kind $kind revoked the brief's own role for a task that is not Firstmate"
+      assert_no_grep '# Current worker role contract' "$home/data/$id/brief.md" "spawn rewrote the source brief"
+      cmp -s "$proj/agents-before" "$proj/AGENTS.md" || fail "spawn changed project AGENTS.md"
+      [ "$(cat "$proj/CLAUDE.md")" = '@AGENTS.md' ] || fail "spawn changed the project import"
+    done
+  done
+  role_line=$(grep -n 'A ship or scout worker launched by Firstmate into a worktree of this repository' "$ROOT/AGENTS.md" | cut -d: -f1)
+  supervisor_line=$(grep -n '^You are the first mate\.$' "$ROOT/AGENTS.md" | head -1 | cut -d: -f1)
+  [ -n "$role_line" ] && [ "$role_line" -lt "$supervisor_line" ] ||
+    fail "Firstmate AGENTS.md does not disambiguate a launched worker before assigning the supervisor identity"
+  cmp -s "$ROOT/AGENTS.md" "$home/AGENTS.md" || fail "worker spawn changed the primary contract"
+  pass "fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions"
+}
+
+# Placeholder tokens are literal data, never extended regular expressions.
+fill_current_work_fixture() {  # <prep-file> [<q1>]
+  local prep=$1 q1=${2:-no} content check line
+  content=$(cat "$prep")
+  content=${content//"{Q1}"/$q1}
+  content=${content//"{Q2}"/no}
+  content=${content//"{UI_WIRING}"/no, confined CLI output.}
+  content=${content//"{Q1_REASON}"/Inspected confined output.}
+  content=${content//"{Q2_REASON}"/Inspected confined output.}
+  for check in C1 C2 C3 C4 C5; do
+    content=${content//"{$check}"/yes}
+    content=${content//"{${check}_EVIDENCE}"/bin\/owned.sh:12; rg callers returned only owned file; stored data, security, permissions, money, install and server paths untouched; cause reproduced by bash tests\/owned.test.sh; fix output; red-first regression covers behaviour.}
+  done
+  content=${content//"{INTENT_AND_BOXES}"/Exercise fixture admission.}
+  while IFS= read -r line; do
+    if [[ "$line" == \{*\} ]]; then line='n/a: isolated fixture.'; fi
+    printf '%s\n' "$line"
+  done <<<"$content" > "$prep"
+}
+
+test_surgical_certainty_and_admission() {
+  local rec task_home proj fakebin id prep baseline field change reason out
+  rec=$(make_home surgical-admission)
+  IFS='|' read -r task_home proj fakebin <<EOF
+$rec
+EOF
+  id=surgical-certain
+  write_brief "$task_home" "$id" no-mistakes
+  rm -f "$task_home/data/$id/prep.md" "$task_home/data/$id/prep-review"
+  FM_HOME="$task_home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+  prep="$task_home/data/$id/prep.md"
+  fill_current_work_fixture "$prep" yes
+  fm_test_fill_prep_common "$prep" || fail "surgical common fixture"
+  baseline="$task_home/certain.md"
+  cp "$prep" "$baseline"
+  fm_prep_unfilled_reason "$prep" && fail "complete certificate refused"
+  out=$(run_spawn "$task_home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$task_home/data/$id/launch-brief.md" "certain surgical record did not launch"
+  assert_grep 'Accepted specification for --intent' "$task_home/data/$id/launch-brief.md" "surgical outcomes were not handed off"
+  # A retired review declaration cannot change otherwise valid certainty.
+  awk '$0 == "## Tier" { print; print "- Prep review exemption: obsolete"; next } { print }' "$baseline" > "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "obsolete review declaration changed certainty: $reason"
+  # Certainty validates filled evidence, not the syntax of quoted tool output.
+  awk '/^Evidence:/ { print "Evidence: owned.sh:12; direct lookup returned {\"callers\": []}; test output uses <empty>; scope exclusions and reproduced cause recorded."; next } { print }' \
+    "$baseline" > "$prep"
+  fm_prep_unfilled_reason "$prep" && fail "literal tool-output evidence mistaken for placeholders"
+  for field in C1 C2 C3 C4 C5; do
+    for change in no unsure absent placeholder malformed duplicate conflicting evidence; do
+      awk -v f="$field" -v c="$change" '
+        index($0, "- " f " ") == 1 {
+          if (c == "absent") { skip = 1; next }
+          if (c == "no" || c == "unsure" || c == "placeholder" || c == "malformed") {
+            sub(/: yes$/, ": " (c == "placeholder" ? "{" f "}" : c == "malformed" ? "YES." : c))
+          }
+          print
+          if (c == "duplicate") print
+          if (c == "conflicting") { sub(/: yes$/, ": no"); print }
+          if (c == "evidence") skip = 1
+          next
+        }
+        skip && /^Evidence:/ { skip = 0; next }
+        { print }
+      ' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep") || fail "$field $change accepted as complete"
+      assert_contains "$reason" "$field" "$field $change refusal did not identify field"
+      assert_contains "$reason" 'full prep:' "$field $change no fallback"
+      ! fm_prep_unfilled_reason "$prep" >/dev/null && fail "$field $change exempted"
+    done
+  done
+  for change in 1 2; do
+    awk -v n="$change" '/^Reason:/ && ++seen == n { next } { print }' "$baseline" > "$prep"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "certificate missing reason $change accepted"
+    assert_contains "$reason" 'concrete reasons' "missing reason $change refusal not named"
+    ! fm_prep_unfilled_reason "$prep" >/dev/null && fail "certificate missing reason $change exempted"
+  done
+  for change in reason duplicate-q duplicate-format; do
+    awk -v c="$change" '
+      c == "reason" && /^Reason:/ { next }
+      { print }
+      c == "duplicate-q" && /^- Q2 / { sub(/: no$/, ": yes"); print }
+      c == "duplicate-format" && /^- Preparation format:/ { print }
+    ' "$baseline" > "$prep"
+    ! fm_prep_unfilled_reason "$prep" >/dev/null && fail "$change certificate exempted"
+  done
+  # Tier answers keep the shared reader's legacy normalization on a certificate.
+  sed 's/^\(- Q2 .*\): no$/\1: No./' "$baseline" > "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "normalized tier answer refused: $reason"
+  sed 's/^\(- Q2 .*\): no$/\1: maybe/' "$baseline" > "$prep"
+  fm_prep_unfilled_reason "$prep" >/dev/null || fail "malformed tier answer certified"
+  cp "$baseline" "$prep"
+  answer_tier "$prep" yes yes
+  reason=$(fm_prep_unfilled_reason "$prep") || fail "shared declaration certified"
+  assert_contains "$reason" C2 "shared contradiction not named"
+  for field in 'stored data' security permissions money install server; do
+    cp "$baseline" "$prep"
+    sed "/^- Preparation format:/a\\
+- Changes $field: yes" "$baseline" > "$prep"
+    ! fm_prep_unfilled_reason "$prep" >/dev/null && fail "$field declaration certified"
+  done
+  # A refused certificate names its explicit conversion; converted,
+  # it ships as a full record rather than as an upgraded certificate.
+  sed 's/^\(- C4 .*\): yes$/\1: unsure/' "$baseline" > "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") || fail "unsure certificate accepted"
+  assert_contains "$reason" 'delete the Preparation format line' "unsure refusal did not name the conversion"
+  FM_HOME="$task_home" "$BRIEF" surgical-full --prep >/dev/null || fail "full scaffold for conversion"
+  {
+    grep -v '^- Preparation format:' "$prep"
+    awk '/^## [0-9]+\. / { emit = 1 } emit' "$task_home/data/surgical-full/prep.md" | sed -e 's/^{INTENT_AND_BOXES}$/Exercise the confined output change./' -e 's/^{[A-Z0-9_]*}$/n\/a: converted fixture./'
+  } > "$prep.f" && mv "$prep.f" "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "converted full record refused: $reason"
+  rm -f "$task_home/data/$id/launch-brief.md"
+  out=$(run_spawn "$task_home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$task_home/data/$id/launch-brief.md" "converted full record did not launch: $out"
+  pass "surgical certainty: complete evidence admits with outcomes; uncertainty and contradictions fail closed"
+}
+
+# The task preparation record gates a ship launch, and the record is tiered by
+# its own ## Tier header, so the gate costs what the change is worth: a launch
+# with no record or an unanswered header is refused, a header-only all-no
+# record remains incomplete, and a section is required only from the tier that declares it - a
+# tier-2 record owes every section, while a tier-1 record legitimately omits the
+# ones below it. A scout is not gated. tests/fm-control-relaunch.test.sh owns the
+# --relaunch exemption, where a relaunch reaches this check with a live endpoint.
+test_ship_spawn_requires_the_task_preparation_record() {
+  local rec home proj fakebin id prep out status
+  rec=$(make_home prep-gate)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  id="prep-absent"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn without a preparation record should exit non-zero"
+  assert_contains "$out" "cannot ship without its preparation record" \
+    "the prep-gate refusal did not say what was missing"
+  assert_contains "$out" "--prep" "the prep-gate refusal did not name the command that writes the record"
+  assert_absent "$home/state/$id.meta" "a prep-gated spawn wrote task metadata"
+
+  # A freshly scaffolded record answers nothing, so the tier itself is unknown
+  # and the gate refuses on the header rather than guessing a tier.
+  prep="$home/data/$id/prep.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "prep scaffold failed"
+  fm_test_prep_depth "$prep" direct-PR
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with an unanswered tier header should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
+    "the prep-gate refusal did not name the unanswered UI wiring question"
+  assert_absent "$home/state/$id.meta" "an unanswered-header spawn wrote task metadata"
+
+  # UI wiring takes a verdict AND a reason, so a bare yes is still unanswered:
+  # the answer cannot be given without having looked at the interface.
+  sed 's/{UI_WIRING}/yes/' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a bare UI wiring yes with no reason should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
+    "the prep-gate accepted a UI wiring verdict with no reason behind it"
+
+  # With UI wiring answered in full, the two remaining questions are what is
+  # still unanswered, and the refusal moves on to name them.
+  sed 's/^- UI wiring: .*$/- UI wiring: no, a fixture no user meets./' "$prep" > "$prep.f" \
+    && mv "$prep.f" "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with unanswered Q1 and Q2 should exit non-zero"
+  assert_contains "$out" "## Tier header does not answer both Q1 and Q2" \
+    "the prep-gate refusal did not name the unanswered tier questions"
+
+  # Q1 yes is tier 2: every section is required, so the placeheld ones are
+  # refused one by one, by name.
+  answer_tier "$prep" yes no
+  fm_test_fill_prep_common "$prep" direct-PR || fail "common fields for numbered controls"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a tier-2 spawn with placeheld sections should exit non-zero"
+  assert_contains "$out" "tier 2 requires ## 1. Intent and boxes" \
+    "the prep-gate refusal did not name the unanswered section and its tier"
+  assert_contains "$out" "placeholder" "the prep-gate refusal did not say the section was never filled"
+
+  # One section left blank is refused by name even when every other one is answered.
+  sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  blank_section "$prep" "## 3. UI/UX"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a ship spawn with an empty required section should exit non-zero"
+  assert_contains "$out" "tier 2 requires ## 3. UI/UX, which is empty" \
+    "the prep-gate refusal did not name the empty section"
+  assert_absent "$home/state/$id.meta" "an empty-section-prep spawn wrote task metadata"
+
+  # At tier 2 a deleted section is as refusable as an unanswered one: the gate is
+  # not escapable by removing the heading the author does not want to answer.
+  drop_section "$prep" "## 3. UI/UX" "## 4."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a tier-2 spawn with a deleted section should exit non-zero"
+  assert_contains "$out" "tier 2 requires ## 3. UI/UX, which is missing" \
+    "the prep-gate refusal did not name the deleted section"
+
+  # The SAME record at tier 1 launches: section 3 is below that tier, so deleting
+  # it was a decision the tier authorizes rather than a hole in the record.
+  answer_tier "$prep" no yes
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a tier-1 record refused for a section only tier 2 requires"
+
+  # Tier 1 still owes its own five sections, so blanking one is refused by name.
+  blank_section "$prep" "## 6. Tests"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a tier-1 spawn with an empty required section should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 6. Tests, which is empty" \
+    "the prep-gate refusal did not name the empty tier-1 section"
+
+  # The blast radius is the one section that owes tool output rather than prose,
+  # so an answer that ran no tool is refused at every tier that requires it.
+  id="prep-blast"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "blast-radius prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no yes
+  fm_test_fill_prep_common "$prep" direct-PR || fail "blast common fields"
+  fill_section "$prep" "## 4. Blast radius" "I read the code and nothing else changes."
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a blast radius answered from memory should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
+    "the prep-gate refusal did not say the blast radius owes tool output"
+  assert_contains "$out" "gitnexus or serena" \
+    "the prep-gate refusal did not name the tools that answer the blast radius"
+
+  # Naming the tool that was run is the whole check: it reads what was run, never
+  # whether the output is right.
+  fill_section "$prep" "## 4. Blast radius" "gitnexus impact bin/fm-dod-lib.sh: 3 modules, 0 callers outside."
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a blast radius carrying impact output"
+
+  # Serena answers it too, and case never matters.
+  fill_section "$prep" "## 4. Blast radius" "Serena find_referencing_symbols: 4 callers, all in tests/."
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "a blast radius carrying caller counts"
+
+  # A decision already taken needs no tool output, but a bare n/a is not one.
+  fill_section "$prep" "## 4. Blast radius" "n/a: this change crosses no module boundary."
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "an n/a blast radius with a reason"
+  fill_section "$prep" "## 4. Blast radius" "n/a"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a bare n/a blast radius with no reason should exit non-zero"
+  assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
+    "the prep-gate accepted a blast radius dismissed without a reason"
+
+  # UI wiring yes forces tier 2 whatever Q1 and Q2 say: a change the user meets
+  # owes its behaviour spec even when it looks small from the code's side.
+  id="prep-ui-wiring"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "UI-wiring prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no no yes
+  fm_test_fill_prep_common "$prep" direct-PR || fail "UI common fields"
+  sed 's/^- Screen and region:.*$/- Screen and region: Settings, configuration region, fixture design map./' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  blank_section "$prep" "## 2. Behaviour spec"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a UI wiring yes did not force tier 2 over two no answers"
+  assert_contains "$out" "tier 2 requires ## 2. Behaviour spec, which is empty" \
+    "a UI wiring yes did not require the behaviour spec"
+
+  # Answering the same record's behaviour spec launches it, so the refusal above
+  # was the missing section rather than the UI wiring answer itself.
+  fill_section "$prep" "## 2. Behaviour spec" "The user sees a new button."
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
+    "an answered UI-wiring record"
+
+  # Legacy header-only all-no records now owe the tier-1 sections.
+  id="prep-tier0"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
+    || fail "tier-0 prep scaffold failed"
+  prep="$home/data/$id/prep.md"
+  awk '/^## [0-9]+\. / { exit } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  answer_tier "$prep" no no
+  fm_test_fill_prep_common "$prep" direct-PR || fail "legacy common fields"
+  assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" "tier 1 requires ## 1. Intent and boxes" "legacy header-only record bypassed completeness"
+  assert_absent "$home/data/$id/launch-brief.md" "header-only legacy record launched"
+
+  # An answered record is a complete answer: the launch proceeds past the gate
+  # (the fake tmux still stops it before any endpoint exists) and the worker's
+  # launch brief points at the record as the specification.
+  id="prep-answered"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
+    > "$home/data/$id/brief.md"
+  write_prep "$home" "$id" yes no
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "an answered tier-2 preparation record was refused"
+  assert_present "$home/data/$id/launch-brief.md" "an answered-prep spawn rendered no launch contract"
+  assert_grep "# Task preparation record" "$home/data/$id/launch-brief.md" \
+    "the launch brief does not point the worker at the preparation record"
+  assert_grep "$home/data/$id/prep.md" "$home/data/$id/launch-brief.md" \
+    "the launch brief does not name the preparation record path"
+  assert_grep "same explicit acceptance list" \
+    "$home/data/$id/launch-brief.md" \
+    "the launch brief does not make the behaviour spec and definition of done the acceptance criteria"
+  assert_grep "a section it does not carry was ruled out there, not forgotten" \
+    "$home/data/$id/launch-brief.md" \
+    "the launch brief does not tell the worker the tier decides which sections exist"
+
+  # A scout produces knowledge rather than a change, so it is never prep-gated.
+  id="prep-scout"
+  mkdir -p "$home/data/$id"
+  printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nInvestigate.\n\n## Firstmate spec\nReport.\n' \
+    > "$home/data/$id/brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --scout)
+  assert_not_contains "$out" "cannot ship without its preparation record" \
+    "a scout spawn was refused for having no preparation record"
+  assert_not_contains "$out" "cannot ship before a separate agent reviews" \
+    "a scout spawn was refused for having no reviewed preparation record"
+  assert_no_grep "# Task preparation record" "$home/data/$id/launch-brief.md" \
+    "a scout launch brief carried the ship-only preparation-record overlay"
+
+  pass "fm-spawn: a ship launch requires an answered task preparation record, and a scout never is"
+}
+
+# Review artifacts are optional and never participate in ship admission.
+test_ship_spawn_admission_is_independent_of_review() {
+  local rec home proj fakebin mode tier id q1 q2 out
+  rec=$(make_home prep-review-independent)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for mode in no-mistakes direct-PR local-only; do
+    for tier in 0 1 2; do
+      q1=no; q2=no
+      [ "$tier" != 1 ] || q2=yes
+      [ "$tier" != 2 ] || q1=yes
+      id="no-review-$mode-$tier"
+      write_prep "$home" "$id" "$q1" "$q2" no "${mode/local-only/direct-PR}"
+      write_brief "$home" "$id" "$mode"
+      assert_absent "$home/data/$id/prep-review" "fixture manufactured compulsory review"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
+      assert_present "$home/data/$id/launch-brief.md" "filled $mode tier $tier failed admission: $out"
+      assert_absent "$home/state/$id.meta" "admission fixture created a real task"
+      printf 'reviewer=../malformed\nauthor=unknown\n' > "$home/data/$id/prep-review"
+      rm "$home/data/$id/launch-brief.md"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
+      assert_present "$home/data/$id/launch-brief.md" "optional receipt changed admission: $out"
+    done
+  done
+  pass "fm-spawn: every mode and tier admits complete preparation without review receipts"
+}
+
+# A no-mistakes ship hands the worker the complete record's outcome table, behaviour spec and
+# definition of done as accepted specification for --intent, under a heading that
+# marks them as not the captain's words and that sits before the captain's words,
+# so the captain's words stay the last section of the launch brief. A section
+# that is absent or answered n/a is left out, a complete all-no record hands over
+# its owed sections like any other tier, and the other delivery modes carry no
+# --intent at all.
+test_no_mistakes_launch_brief_hands_over_the_accepted_specification() {
+  local rec home proj fakebin id out launch accepted expected authorized heading_line spec_line done_line captain_line mode
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  local outcome_spec
+  outcome_spec=$(printf '%s\n' '## Expected outcomes and how to check each' \
+    '| Outcome | Exact observable result | Where and how to check | Expected value |' \
+    '| --- | --- | --- | --- |' \
+    '| Delivery admission | Launch brief exists before the refusing backend | bash tests/fm-task-delivery.test.sh; fixture spawn and launch-brief.md | Brief present; no real endpoint created |')
+  rec=$(make_home accepted-spec)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  id='spec-tier2'
+  write_spec_prep "$home" "$id" yes no
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a complete tier-2 no-mistakes spawn rendered no launch brief"
+  heading_line=$(grep -nxF "$accepted_heading" "$launch" | cut -d: -f1)
+  spec_line=$(grep -nxF '## 2. Behaviour spec' "$launch" | cut -d: -f1)
+  done_line=$(grep -nxF '## 11. Definition of done' "$launch" | cut -d: -f1)
+  captain_line=$(grep -nxF "$captain_heading" "$launch" | cut -d: -f1)
+  [ -n "$heading_line" ] || fail "the launch brief carries no accepted-specification heading"
+  [ -n "$spec_line" ] && [ -n "$done_line" ] && [ -n "$captain_line" ] ||
+    fail "the launch brief lost a section heading: spec=$spec_line done=$done_line captain=$captain_line"
+  [ "$heading_line" -lt "$spec_line" ] && [ "$spec_line" -lt "$done_line" ] && [ "$done_line" -lt "$captain_line" ] ||
+    fail "the accepted specification must sit before the captain's words: heading=$heading_line spec=$spec_line done=$done_line captain=$captain_line"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  expected=$(printf '%s\n' "$outcome_spec" '' '## 2. Behaviour spec' 'Refuse the launch and name the missing review.' '' '### Copy' \
+    'The refusal names the record.' '' '## 11. Definition of done' '- Every tier is gated.' '- The relaunch stays exempt.')
+  [ "$accepted" = "$expected" ] ||
+    fail "the accepted specification must carry the two section bodies without guide comments: $accepted"
+  authorized=$(awk -v c="$captain_heading" '$0 == c { emit = 1; next } emit { print }' "$launch")
+  [ "$authorized" = 'Exercise the delivery contract.' ] ||
+    fail "the captain's words must stay the whole tail of the launch brief: $authorized"
+  assert_grep "Accepted specification from the preparation record (not the captain's words):" "$launch" \
+    "the launch brief does not give the label that keeps the specification apart in --intent"
+
+  # Tier 1 may omit the behaviour spec, and then only the definition of done is handed over.
+  id='spec-tier1'
+  write_spec_prep "$home" "$id" no yes
+  drop_section "$home/data/$id/prep.md" "## 2. Behaviour spec" "## 3."
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a complete tier-1 no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  expected=$(printf '%s\n' "$outcome_spec" '' '## 11. Definition of done' '- Every tier is gated.' '- The relaunch stays exempt.')
+  [ "$accepted" = "$expected" ] || fail "a tier-1 record without a behaviour spec must hand over only its definition of done: $accepted"
+
+  # A section answered n/a is a decision, not specification, so it is left out.
+  id='spec-na'
+  write_spec_prep "$home" "$id" yes no
+  fill_section "$home/data/$id/prep.md" "## 2. Behaviour spec" "n/a: nothing a user meets changes."
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a complete n/a-section no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  [ "$accepted" = "$expected" ] || fail "a behaviour spec answered n/a must be left out: $accepted"
+
+  # A complete all-no record owes the tier-1 sections, so its
+  # definition of done reaches --intent too.
+  id='spec-tier0'
+  write_spec_prep "$home" "$id" no no
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "a complete all-no no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit = 1; next } $0 == c { exit } emit { print }' "$launch")
+  expected=$(printf '%s\n' "$outcome_spec" '' '## 2. Behaviour spec' 'Refuse the launch and name the missing review.' '' '### Copy' \
+    'The refusal names the record.' '' '## 11. Definition of done' '- Every tier is gated.' '- The relaunch stays exempt.')
+  [ "$accepted" = "$expected" ] || fail "a complete all-no record dropped its accepted specification: $accepted"
+
+  # The mandatory outcome table survives even when numbered sections are n/a.
+  id='spec-both-na'
+  write_prep "$home" "$id" yes no no no-mistakes
+  write_brief "$home" "$id" no-mistakes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/$id/launch-brief.md"
+  assert_present "$launch" "$id: a complete no-mistakes spawn rendered no launch brief"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
+  [ "$accepted" = "$outcome_spec" ] || fail "n/a numbered sections lost mandatory outcomes: $accepted"
+  authorized=$(awk -v c="$captain_heading" '$0 == c { emit = 1; next } emit { print }' "$launch")
+  [ "$authorized" = 'Exercise the delivery contract.' ] || fail "$id: the captain's words changed: $authorized"
+
+  # Only a no-mistakes worker builds --intent, so the other modes carry none.
+  for mode in direct-PR local-only; do
+    id="spec-$mode"
+    write_spec_prep "$home" "$id" yes no direct-PR
+    write_brief "$home" "$id" "$mode"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
+    launch="$home/data/$id/launch-brief.md"
+    assert_present "$launch" "$mode: a complete spawn rendered no launch brief"
+    assert_no_grep "Accepted specification" "$launch" "$mode: the launch brief handed over an --intent specification"
+  done
+
+  pass "fm-spawn: a no-mistakes launch brief hands over the outcome table, behaviour spec and definition of done apart from, and before, the captain's words"
+}
+
+# The forge binding is orthogonal to the mode and to +yolo, exactly as +yolo is
+# orthogonal to the mode: it is read from its own `forge=` token wherever that
+# token sits in the annotation, and it is never derived from the mode. It is
+# asked for explicitly with --forge, so the default output stays the same two
+# words for every project, bound or not, and no existing caller sees a change.
+test_project_mode_binds_the_forge_orthogonally() {
+  local home out err status label registry expect forge
+  home="$TMP_ROOT/forge-binding/home"
+  mkdir -p "$home/data"
+  while IFS='|' read -r label registry expect forge; do
+    [ -n "$label" ] || continue
+    printf '%s\n' "$registry" > "$home/data/projects.md"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>/dev/null)
+    [ "$out" = "$expect" ] || fail "$label: expected default output '$expect', got '$out'"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" --forge fp 2>/dev/null)
+    [ "$out" = "$forge" ] || fail "$label: expected --forge '$forge', got '$out'"
+  done <<'ROWS'
+no annotation at all|- fp - fixture (added 2026-01-01)|no-mistakes off|none
+mode only|- fp [direct-PR] - fixture (added 2026-01-01)|direct-PR off|none
+forge beside a mode|- fp [no-mistakes forge=gerrit] - fixture (added 2026-01-01)|no-mistakes off|gerrit
+forge as the only token leaves the default mode|- fp [forge=gerrit] - fixture (added 2026-01-01)|no-mistakes off|gerrit
+forge before yolo on a direct-PR project|- fp [direct-PR forge=gerrit +yolo] - fixture (added 2026-01-01)|direct-PR off|gerrit
+forge under the conditional policy|- fp [no-mistakes-prod-only forge=gerrit] - fixture (added 2026-01-01)|no-mistakes off|gerrit
+a project with no forge keeps yolo|- fp [direct-PR +yolo] - fixture (added 2026-01-01)|direct-PR on|none
+a keyed token that is not the forge is ignored|- fp [direct-PR owner=me] - fixture (added 2026-01-01)|direct-PR off|none
+an unregistered project|- other [direct-PR] - fixture (added 2026-01-01)|no-mistakes off|none
+ROWS
+
+  printf '%s\n' '- fp [no-mistakes-prod-only forge=gerrit] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --raw fp 2>/dev/null)
+  [ "$out" = "no-mistakes-prod-only off" ] \
+    || fail "--raw on a bound project did not keep the two-word annotation (got '$out')"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null)
+  [ -z "$err" ] || fail "a registered forge warned as unknown: $err"
+
+  # A forge describes what a mode publishes, and local-only publishes nothing, so
+  # the pair is refused rather than kept as an inert annotation: that mode's
+  # landing would fast-forward local main with content the server never saw.
+  printf '%s\n' '- fp [local-only forge=gerrit] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  for flag in "" --forge; do
+    # shellcheck disable=SC2086 # An empty flag must expand to nothing.
+    out=$(FM_HOME="$home" "$PROJECT_MODE" $flag fp 2>/dev/null)
+    status=$?
+    [ "$status" -eq 3 ] || fail "local-only with a forge did not refuse${flag:+ under $flag} (status $status, got '$out')"
+    [ -z "$out" ] || fail "a refused local-only forge still handed the caller a posture: '$out'"
+  done
+  err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null) || true
+  assert_contains "$err" 'local-only publishes nothing' "the refusal did not say why local-only takes no forge"
+  pass "fm-project-mode: the forge binds from its own token and is reported only through --forge"
+}
+
+# The registry keeps its old tolerance: a token the parser does not know is
+# ignored, keyed or not, and an unknown mode falls back to the most rigorous
+# default with a warning. The one exception is a malformed forge binding - a
+# `forge=` value that is empty or outside the closed set - because resolving it
+# to "no registered forge" would hand a Gerrit project the pull-request contract.
+# Those refuse, naming the token, in both output forms. A key one or two edits
+# from `forge` keeps the old result and only warns.
+test_project_mode_refuses_only_a_malformed_forge_binding() {
+  local home out err status label registry token flag expect
+  home="$TMP_ROOT/forge-token/home"
+  mkdir -p "$home/data"
+  while IFS='|' read -r label registry token; do
+    [ -n "$label" ] || continue
+    printf '%s\n' "$registry" > "$home/data/projects.md"
+    for flag in "" --forge; do
+      # shellcheck disable=SC2086 # An empty flag must expand to nothing.
+      out=$(FM_HOME="$home" "$PROJECT_MODE" $flag fp 2>/dev/null)
+      status=$?
+      [ "$status" -eq 3 ] || fail "$label: did not refuse${flag:+ under $flag} (status $status, got '$out')"
+      [ -z "$out" ] || fail "$label: a refused binding still handed the caller a posture: '$out'"
+    done
+    err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null) || true
+    assert_contains "$err" "\"$token\"" "$label: the refusal did not name the token it could not read"
+    assert_contains "$err" 'forge=gerrit' "$label: the refusal did not name the accepted binding"
+  done <<'ROWS'
+an unknown forge value|- fp [no-mistakes forge=gitlab] - fixture (added 2026-01-01)|gitlab
+a misspelled forge value|- fp [no-mistakes forge=gerit] - fixture (added 2026-01-01)|gerit
+an empty forge value|- fp [no-mistakes +yolo forge=] - fixture (added 2026-01-01)|forge=
+ROWS
+
+  while IFS='|' read -r label registry; do
+    [ -n "$label" ] || continue
+    printf '%s\n' "$registry" > "$home/data/projects.md"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>/dev/null) \
+      || fail "$label: a token the parser never read became a refusal"
+    [ "$out" = "no-mistakes off" ] || fail "$label: expected the old tolerant 'no-mistakes off', got '$out'"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" --forge fp 2>/dev/null) \
+      || fail "$label: --forge refused a token the parser never read"
+    [ "$out" = none ] || fail "$label: an ignored token bound a forge ('$out')"
+  done <<'ROWS'
+an unknown token beside the mode|- fp [no-mistakes +tomorrow] - fixture (added 2026-01-01)
+the forge key with a space|- fp [no-mistakes forge gerrit] - fixture (added 2026-01-01)
+a bare forge value in the mode slot|- fp [gerrit] - fixture (added 2026-01-01)
+a keyed token in the mode slot|- fp [owner=me] - fixture (added 2026-01-01)
+an annotation the line never closes|- fp [no-mistakes - fixture (added 2026-01-01)
+ROWS
+  printf '%s\n' '- fp [gerrit] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null)
+  assert_contains "$err" "unknown mode" "a forge value in the mode slot stopped warning as an unknown mode"
+  printf '%s\n' '- fp [owner=me] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null)
+  assert_contains "$err" 'unknown mode "owner=me"' "a keyed token in the mode slot stopped warning as an unknown mode"
+  printf '%s\n' '- fp [direct-PR owner=me] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null)
+  [ -z "$err" ] || fail "a keyed token that is not near the forge key warned: $err"
+
+  # A near miss of the forge key keeps the old stdout and exit status; only
+  # stderr gains one warning that names the token and the right spelling.
+  while IFS='|' read -r label registry token expect; do
+    [ -n "$label" ] || continue
+    printf '%s\n' "$registry" > "$home/data/projects.md"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>/dev/null) \
+      || fail "$label: a near-miss key became a refusal"
+    [ "$out" = "$expect" ] || fail "$label: expected '$expect', got '$out'"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" --forge fp 2>/dev/null) \
+      || fail "$label: --forge refused a near-miss key"
+    [ "$out" = none ] || fail "$label: a near-miss key bound a forge ('$out')"
+    err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null)
+    [ "$(printf '%s\n' "$err" | grep -c .)" -eq 1 ] || fail "$label: expected one warning line, got: $err"
+    assert_contains "$err" "\"$token\"" "$label: the warning did not name the token"
+    assert_contains "$err" 'forge=gerrit' "$label: the warning did not name the forge=gerrit spelling"
+  done <<'ROWS'
+a dropped character in the key|- fp [no-mistakes forg=gerrit] - fixture (added 2026-01-01)|forg=gerrit|no-mistakes off
+a swapped pair in the key|- fp [direct-PR froge=gerrit +yolo] - fixture (added 2026-01-01)|froge=gerrit|direct-PR on
+a transposed key|- fp [no-mistakes frge=gerrit] - fixture (added 2026-01-01)|frge=gerrit|no-mistakes off
+a capitalized key|- fp [no-mistakes Forge=gerrit] - fixture (added 2026-01-01)|Forge=gerrit|no-mistakes off
+ROWS
+  pass "fm-project-mode: only a malformed forge binding refuses; every other token keeps its old tolerance"
+}
+
+# Yolo is inactive for the Gerrit forge on the captain's decision of 2026-09-15,
+# because a Code-Review+2 is a positive attributed claim that a named human
+# approved. Every path that could carry merge authority to such a project must
+# say so out loud: the registry parser reports yolo=off with the reason instead of
+# the registered +yolo, and a spawn or promotion asked for it outright refuses.
+test_forge_gerrit_refuses_yolo() {
+  local home out err rec proj fakebin status meta
+  home="$TMP_ROOT/forge-yolo/home"
+  mkdir -p "$home/data"
+  printf '%s\n' '- fp [no-mistakes +yolo forge=gerrit] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  out=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>/dev/null)
+  [ "$out" = "no-mistakes off" ] \
+    || fail "a registered +yolo survived the gerrit forge (got '$out')"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>&1 >/dev/null)
+  assert_contains "$err" "refused" "the dropped yolo posture was a silent no-op"
+  assert_contains "$err" "attributed claim that a named human approved" \
+    "the refusal did not carry the reason yolo is inactive for this forge"
+
+  rec=$(make_home forge-yolo-spawn "- proj [no-mistakes forge=gerrit] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  FM_HOME="$home" "$BRIEF" forge-yolo-s1 proj --mode no-mistakes --forge gerrit >/dev/null \
+    || fail "a gerrit ship brief should scaffold"
+  fill_brief_subsections "$home/data/forge-yolo-s1/brief.md" \
+    "Run the review loop on the Gerrit project." "Ship the review pass."
+  write_prep "$home" forge-yolo-s1 no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" forge-yolo-s1 "$proj" claude --mode no-mistakes --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a spawn with --yolo on launched on a gerrit-forge project"
+  assert_contains "$out" "--yolo on is refused" "the spawn refusal did not name the refused flag"
+  assert_contains "$out" "attributed claim that a named human approved" \
+    "the spawn refusal did not carry the captain's reason"
+  assert_absent "$home/state/forge-yolo-s1.meta" "the refused spawn still recorded a task"
+
+  meta="$home/state/forge-yolo-p1.meta"
+  printf 'window=fm-forge-yolo-p1\nkind=scout\nworktree=/tmp/wt\nproject=%s\n' "$proj" > "$meta"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" forge-yolo-p1 --mode no-mistakes --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a promotion with --yolo on was accepted for the gerrit-forge project"
+  assert_contains "$out" "--yolo on is refused" "the promotion refusal did not name the refused flag"
+  grep -qx 'kind=scout' "$meta" || fail "the refused promotion still flipped the task record"
+  pass "forge=gerrit: yolo is refused with its reason, never silently dropped"
+}
+
+# The point of binding the forge is that it changes what no-mistakes MEANS for the
+# worker. The brief must carry the per-run skip vocabulary, must keep every step
+# that does the reviewing, must require custody recovery before the worker may
+# report ready, and must end at a ready branch instead of a PR with green checks -
+# while the forge-independent half of the pipeline contract is unchanged.
+test_forge_gerrit_changes_what_no_mistakes_means() {
+  local home brief plain
+  home="$TMP_ROOT/forge-dod/home"
+  mkdir -p "$home/data" "$home/state"
+  FM_HOME="$home" "$BRIEF" forge-dod-g1 review-server-project --mode no-mistakes --forge gerrit >/dev/null \
+    || fail "a gerrit no-mistakes brief should scaffold"
+  brief="$home/data/forge-dod-g1/brief.md"
+  grep -qx "Delivery contract: mode=no-mistakes forge=gerrit shape=squash" "$brief" \
+    || fail "the brief did not record the machine-readable forge in its delivery contract"
+
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Pass `--skip push,pr,ci` on every `no-mistakes axi run` for this task' "$brief" \
+    "the worker was not given the skip vocabulary the forge requires"
+  assert_grep 'skip nothing else' "$brief" "nothing stopped the worker skipping the review itself"
+  assert_grep 'branch_sync.next_action' "$brief" \
+    "the worker was not told where to read whether custody must be recovered"
+  assert_grep 'recover_custody' "$brief" "the worker was not told which state requires recovery"
+  assert_grep 'no-mistakes axi sync --recover' "$brief" \
+    "the worker was not given the recovery command"
+  assert_grep 'You may not publish until you have closed that gap' "$brief" \
+    "custody recovery was offered as advice rather than required before publishing"
+  assert_grep 'how the UNFIXED code reaches review' "$brief" \
+    "the brief did not say what skipping the recovery actually ships"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Run `gerrit-axi publish --squash --json`' "$brief" \
+    "the worker was not told to publish through the forge tool"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Never pass `--stack`' "$brief" "the worker was not kept off an unwatchable stack"
+  assert_grep 'done [at=<epoch>]: PR {change url} published for review' "$brief" \
+    "the gerrit contract did not end at a published change"
+  assert_grep 'note [at=<epoch>]: pipeline changes: {finding} - {fix it made}' "$brief" \
+    "the gerrit worker was not told to report each pipeline fix the squash hides"
+  assert_grep 'pipeline changes: none' "$brief" \
+    "the gerrit worker was not told what to report when the pipeline fixed nothing"
+  assert_no_grep 'done [at=<epoch>]: PR {url} checks green' "$brief" \
+    "the gerrit contract still demands a PR with green checks this forge cannot produce"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Never run `gerrit-axi submit`, never vote or review a change by any path' "$brief" \
+    "the gerrit worker was not kept from submitting or voting"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Run `no-mistakes doctor`' "$brief" \
+    "the gerrit worker lost the pipeline initialization step no-mistakes still needs"
+
+  # The forge changes the contract's head and tail only: how the pipeline is
+  # driven, what --intent may carry, and the two firstmate-specific rules are the
+  # same text a GitHub-forge worker receives.
+  assert_grep 'Every other finding, ask-user ones included, is yours to batch-fix' "$brief" \
+    "the gerrit worker lost the stop-set triage rule"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'NEVER pass `--yes` (or `-y`)' "$brief" "the gerrit worker lost the --yes ban"
+  FM_HOME="$home" "$BRIEF" forge-dod-n1 other-project --mode no-mistakes >/dev/null \
+    || fail "a default-forge no-mistakes brief should scaffold"
+  plain="$home/data/forge-dod-n1/brief.md"
+  assert_grep 'bypassing the stop-set authority boundary.' "$brief" \
+    "the gerrit driving block lost its authority-boundary terminator"
+  assert_grep 'bypassing the stop-set authority boundary.' "$plain" \
+    "the default driving block lost its authority-boundary terminator"
+  awk '/^You drive no-mistakes by responding to its gates/ { emit = 1 }
+       emit { print }
+       emit && /bypassing the stop-set authority boundary\.$/ { exit }' "$brief" > "$TMP_ROOT/forge-dod/gerrit-middle"
+  awk '/^You drive no-mistakes by responding to its gates/ { emit = 1 }
+       emit { print }
+       emit && /bypassing the stop-set authority boundary\.$/ { exit }' "$plain" > "$TMP_ROOT/forge-dod/plain-middle"
+  [ -s "$TMP_ROOT/forge-dod/gerrit-middle" ] || fail "the gerrit brief carries no pipeline-driving section to compare"
+  # Only the two statements about a green PR differ: the ci step is skipped on
+  # this forge, so there is no checks-passed return to wait for.
+  grep -q "reports the green PR" "$TMP_ROOT/forge-dod/plain-middle" \
+    || fail "the default contract lost the green-PR return statement the comparison removes"
+  assert_no_grep "checks-passed" "$TMP_ROOT/forge-dod/gerrit-middle" \
+    "the gerrit worker was told to wait for a checks-passed return its skipped ci step never gives"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  grep -v "reports the green PR" "$TMP_ROOT/forge-dod/plain-middle" \
+    | sed 's/; once checks are green it returns `checks-passed` immediately, and if it refuses/; if it refuses/' \
+    > "$TMP_ROOT/forge-dod/plain-middle-no-pr"
+  cmp -s "$TMP_ROOT/forge-dod/gerrit-middle" "$TMP_ROOT/forge-dod/plain-middle-no-pr" \
+    || fail "the forge changed the forge-independent half of the pipeline contract"
+  pass "forge=gerrit: no-mistakes runs with its forge steps skipped, recovers its fixes, then publishes one change"
+}
+
+# A registered forge is the captain's binding, so the spawn refuses a brief that
+# disagrees with it in either direction: a Gerrit project launched on a brief that
+# does not carry the forge would tell the worker to open a pull request and report
+# green checks on a server that has neither, and a Gerrit brief on an unbound
+# project would publish to a forge the project is not. Both publishing modes
+# compose with the forge; local-only, which publishes nothing, cannot carry it.
+test_spawn_requires_the_brief_to_carry_the_registered_forge() {
+  local rec home proj fakebin out status
+  rec=$(make_home forge-agree-gerrit "- proj [no-mistakes forge=gerrit] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_brief "$home" forge-agree-a1 no-mistakes
+  out=$(run_spawn "$home" "$fakebin" forge-agree-a1 "$proj" claude --mode no-mistakes --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a gerrit project launched on a brief that records no forge"
+  assert_contains "$out" "forge mismatch for forge-agree-a1" "the refusal did not name the drift it caught"
+  assert_contains "$out" "remove $home/data/forge-agree-a1/brief.md" \
+    "the refusal did not name the authored brief the re-scaffold must replace"
+  assert_not_contains "$out" "remove $home/data/forge-agree-a1/launch-brief.md" \
+    "the refusal named the generated launch brief instead of the authored one"
+  assert_contains "$out" "fm-brief.sh forge-agree-a1 proj --mode no-mistakes --forge gerrit" \
+    "the refusal did not print a re-scaffold command that can actually run"
+  assert_contains "$out" "Captain's intent" \
+    "the refusal did not say to preserve the filled subsections the re-scaffold discards"
+  assert_absent "$home/state/forge-agree-a1.meta" "the refused spawn still recorded a task"
+
+  FM_HOME="$home" "$BRIEF" forge-agree-a2 proj --mode direct-PR --forge gerrit >/dev/null \
+    || fail "a gerrit direct-PR brief should scaffold"
+  fill_brief_subsections "$home/data/forge-agree-a2/brief.md" "Publish the change." "Ship it."
+  write_prep "$home" forge-agree-a2
+  out=$(run_spawn "$home" "$fakebin" forge-agree-a2 "$proj" claude --mode direct-PR --yolo off 2>&1)
+  assert_not_contains "$out" "forge mismatch" "a gerrit direct-PR brief was reported as drift"
+  assert_not_contains "$out" "cannot ship" "direct-PR was refused on the forge it publishes to"
+
+  FM_HOME="$home" "$BRIEF" forge-agree-a3 proj --mode no-mistakes --forge gerrit >/dev/null \
+    || fail "a gerrit ship brief should scaffold"
+  fill_brief_subsections "$home/data/forge-agree-a3/brief.md" "Run the review loop." "Ship it."
+  write_prep "$home" forge-agree-a3 no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" forge-agree-a3 "$proj" claude --mode no-mistakes --yolo off 2>&1)
+  assert_not_contains "$out" "forge mismatch" "an agreeing brief and registry were reported as drift"
+
+  # local-only publishes nothing and cannot carry the forge, so a bound project
+  # has no local-only brief that agrees with its registry: landing one would
+  # fast-forward local main with content the review server never saw.
+  FM_HOME="$home" "$BRIEF" forge-agree-a4 proj --mode local-only >/dev/null \
+    || fail "a local-only ship brief should scaffold without a forge"
+  fill_brief_subsections "$home/data/forge-agree-a4/brief.md" "Land it locally." "Stop at a ready branch."
+  write_prep "$home" forge-agree-a4
+  out=$(run_spawn "$home" "$fakebin" forge-agree-a4 "$proj" claude --mode local-only --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a local-only launch on a gerrit-bound project was accepted"
+  assert_contains "$out" "forge mismatch for forge-agree-a4" "the local-only refusal did not name the drift"
+  assert_absent "$home/state/forge-agree-a4.meta" "the refused local-only spawn still recorded a task"
+
+  # The other direction is refused too: a brief that publishes to Gerrit on a
+  # project the captain never bound would send the worker to a forge it is not.
+  rec=$(make_home forge-agree-unbound "- proj [no-mistakes] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  FM_HOME="$home" "$BRIEF" forge-agree-a5 proj --mode no-mistakes --forge gerrit >/dev/null \
+    || fail "a gerrit ship brief should scaffold"
+  fill_brief_subsections "$home/data/forge-agree-a5/brief.md" "Run the review loop." "Ship it."
+  write_prep "$home" forge-agree-a5 no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" forge-agree-a5 "$proj" claude --mode no-mistakes --yolo off 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a gerrit brief launched on a project with no registered forge"
+  assert_contains "$out" "forge mismatch for forge-agree-a5" "the unbound-project refusal did not name the drift"
+  assert_contains "$out" "fm-brief.sh forge-agree-a5 proj --mode no-mistakes" \
+    "the refusal did not print the unbound re-scaffold command"
+  assert_absent "$home/state/forge-agree-a5.meta" "the refused spawn still recorded a task"
+
+  pass "fm-spawn: a registered forge must reach the worker's brief"
+}
+
+# The ship branch is immutable once the task record exists (state/<id>.meta
+# branch=), so the spawn is the last checkpoint where a drift between the branch
+# selected at intake (the brief's "Ship branch:" line) and the branch this spawn
+# would create can be caught: the worktree, the record, review-diff, and the
+# local merge all inherit the recorded name. A mismatch is refused before any
+# record exists, and a brief from before briefs recorded a ship branch is only
+# acceptable on the legacy default, which warns.
+test_spawn_requires_the_brief_to_carry_the_selected_branch() {
+  local rec home proj fakebin out status
+  rec=$(make_home branch-agree "- proj [no-mistakes] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  FM_HOME="$home" "$BRIEF" branch-agree-a1 proj --mode no-mistakes --branch-prefix fix/ >/dev/null \
+    || fail "a fix/-prefixed brief should scaffold"
+  fill_brief_subsections "$home/data/branch-agree-a1/brief.md" "Run the review loop." "Ship it."
+  write_prep "$home" branch-agree-a1 no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a1 "$proj" claude --mode no-mistakes --yolo off --branch-prefix contrib/)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a spawn selecting a different prefix than its brief records was accepted"
+  assert_contains "$out" "branch mismatch for branch-agree-a1" "the refusal did not name the drift it caught"
+  assert_contains "$out" "the brief says branch=fix/branch-agree-a1 but this spawn selected branch=contrib/branch-agree-a1" \
+    "the refusal did not name both sides of the drift"
+  assert_absent "$home/state/branch-agree-a1.meta" "the refused spawn still recorded a task"
+
+  write_brief "$home" branch-agree-a2 no-mistakes
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a2 "$proj" claude --mode no-mistakes --yolo off --branch-prefix contrib/)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a non-legacy spawn on a brief that records no ship branch was accepted"
+  assert_contains "$out" "records no ship branch; regenerate it with --branch-prefix" \
+    "the legacy-brief refusal did not name the repair"
+  assert_absent "$home/state/branch-agree-a2.meta" "the refused legacy-brief spawn still recorded a task"
+
+  write_brief "$home" branch-agree-a3 no-mistakes
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a3 "$proj" claude --mode no-mistakes --yolo off)
+  assert_contains "$out" "records no ship branch; defaulting to legacy branch fm/branch-agree-a3" \
+    "the legacy default did not warn about the brief's missing ship branch"
+  assert_not_contains "$out" "branch mismatch" "the legacy default was refused as drift"
+
+  FM_HOME="$home" "$BRIEF" branch-agree-a4 proj --mode no-mistakes --branch-prefix fix/ >/dev/null \
+    || fail "a second fix/-prefixed brief should scaffold"
+  fill_brief_subsections "$home/data/branch-agree-a4/brief.md" "Run the review loop." "Ship it."
+  write_prep "$home" branch-agree-a4 no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a4 "$proj" claude --mode no-mistakes --yolo off --branch-prefix fix/)
+  assert_not_contains "$out" "branch mismatch" "an agreeing brief and selection were reported as drift"
+  assert_not_contains "$out" "records no ship branch" "an agreeing spawn reported the brief as legacy"
+
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a5 "$proj" claude --relaunch --branch-prefix fix/)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a relaunch carrying --branch-prefix was accepted"
+  assert_contains "$out" "--relaunch reuses the task's recorded ship branch; --branch-prefix cannot override it" \
+    "the relaunch refusal did not name the immutability it protects"
+
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a6 "$proj" claude --scout --branch-prefix fix/)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a scout spawn carrying --branch-prefix was accepted"
+  assert_contains "$out" "--branch-prefix applies only to ship spawns" \
+    "the scout refusal did not name the flag it refused"
+
+  out=$(run_spawn "$home" "$fakebin" branch-agree-a7 "$proj" claude --mode no-mistakes --yolo off --branch-prefix "has space")
+  status=$?
+  [ "$status" -ne 0 ] || fail "a spawn whose prefix and task id compose an invalid branch was accepted"
+  assert_contains "$out" "--branch-prefix and task id must form a valid git branch (got 'has spacebranch-agree-a7')" \
+    "the ref-format refusal did not name the branch it refused"
+  assert_absent "$home/state/branch-agree-a7.meta" "the refused spawn still recorded a task"
+
+  pass "fm-spawn: the brief must carry the spawn's selected ship branch, and the selection is validated before anything is created"
+}
+
+# The registered ship-branch prefix exists so a third-party project's branches and
+# PRs do not read as firstmate-authored, but a spawn that deviates from it breaks
+# no contract: the brief-vs-spawn agreement above already guarantees the worker's
+# instructions match the branch this spawn selected. So the deviation is announced
+# and the spawn proceeds, while matching the registry (or its fm/ default) stays
+# quiet.
+test_spawn_notices_a_ship_branch_against_the_registry_prefix() {
+  local rec home proj fakebin out
+  rec=$(make_home prefix-deviation "- proj [no-mistakes branch=fix/] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+
+  write_brief "$home" prefix-dev-a1 no-mistakes
+  out=$(run_spawn "$home" "$fakebin" prefix-dev-a1 "$proj" claude --mode no-mistakes --yolo off)
+  assert_contains "$out" "ships branch=fm/prefix-dev-a1 while proj registers the ship-branch prefix 'fix/'" \
+    "no deviation notice for shipping the legacy prefix past a registered override"
+  assert_contains "$out" "will read as firstmate-authored" \
+    "the deviation notice did not name the cost of the drift"
+
+  FM_HOME="$home" "$BRIEF" prefix-dev-a2 proj --mode no-mistakes --branch-prefix fix/ >/dev/null \
+    || fail "a fix/-prefixed brief should scaffold"
+  fill_brief_subsections "$home/data/prefix-dev-a2/brief.md" "Run the review loop." "Ship it."
+  write_prep "$home" prefix-dev-a2 no no no no-mistakes
+  out=$(run_spawn "$home" "$fakebin" prefix-dev-a2 "$proj" claude --mode no-mistakes --yolo off --branch-prefix fix/)
+  assert_not_contains "$out" "registers the ship-branch prefix" \
+    "a spawn matching the registered prefix was announced as a deviation"
+
+  pass "fm-spawn: a ship branch that deviates from the registered prefix is announced, never blocked"
+}
+
+# The registry is hand-edited markdown, so a one-character typo in the forge token
+# is the likeliest way it goes wrong. Such an entry must stop the spawn with the
+# parser's own reason in front of the operator: resolving it to "no registered
+# forge" would drop every guard at once - yolo, the direct-PR refusal, and the
+# brief agreement - and launch a worker onto a review server with the
+# pull-request contract.
+test_spawn_refuses_a_registry_forge_it_cannot_read() {
+  local rec home proj fakebin out status
+  rec=$(make_home forge-typo "- proj [no-mistakes forge=gerit] - fixture (added 2026-01-01)")
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_brief "$home" forge-typo-a1 no-mistakes
+  out=$(run_spawn "$home" "$fakebin" forge-typo-a1 "$proj" claude --mode no-mistakes --yolo on 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a spawn launched on a registry entry whose forge token does not resolve"
+  assert_contains "$out" 'unknown forge "gerit"' \
+    "the parser's refusal never reached the operator running the spawn"
+  assert_contains "$out" "does not resolve to a delivery posture" \
+    "the spawn did not say why it refused to launch"
+  assert_absent "$home/state/forge-typo-a1.meta" "the refused spawn still recorded a task"
+  pass "fm-spawn: a registry forge token the parser refuses stops the launch, reason included"
+}
+
+# Promotion renders the same single owner an ordinary brief does, so a promoted
+# worker on a bound forge must receive that forge's contract rather than the PR
+# one. Promotion decides the mode and yolo itself, but the forge is the project's
+# binding, so promotion takes it from the registry with no flag to remember, and
+# refuses a flag that contradicts it.
+test_promotion_carries_the_forge_binding() {
+  local home sendroot meta out payload id
+  home="$TMP_ROOT/forge-promote/home"
+  sendroot="$TMP_ROOT/forge-promote/sendroot"
+  mkdir -p "$home/state" "$home/data" "$home/projects/proj" "$sendroot/bin"
+  printf '%s\n' '- proj [no-mistakes forge=gerrit] - fixture (added 2026-01-01)' > "$home/data/projects.md"
+  cat > "$sendroot/bin/fm-send.sh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s' "$2" > "$FM_TEST_CAPTURE"
+STUB
+  chmod +x "$sendroot/bin/fm-send.sh"
+
+  id="forge-promote-g1"
+  meta="$home/state/$id.meta"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\nproject=%s\n' "$id" "$home/projects/proj" > "$meta"
+  FM_HOME="$home" "$BRIEF" "$id" proj --scout >/dev/null 2>&1 \
+    || fail "scout brief generation should succeed"
+  fill_brief_subsections "$home/data/$id/brief.md" \
+    "Fix what the investigation found on the Gerrit project." "Carry over only the fix."
+
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode no-mistakes --yolo off 2>&1) \
+    || fail "promotion should take the registered forge with no flag to remember"
+  payload="$TMP_ROOT/forge-promote/payload"
+  ( cd "$sendroot" \
+    && FM_TEST_CAPTURE="$payload" \
+       eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
+    || fail "promotion's delivery command did not run"
+  assert_present "$payload" "promotion delivered no message to the worker"
+  grep -qx "Delivery contract: mode=no-mistakes forge=gerrit shape=squash" "$payload" \
+    || fail "the promoted worker did not receive the forge in its delivery contract"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Pass `--skip push,pr,ci` on every `no-mistakes axi run` for this task' "$payload" \
+    "the promoted worker was not given the skip vocabulary the forge requires"
+  assert_grep 'You may not publish until you have closed that gap' "$payload" \
+    "the promoted worker was not required to recover custody before publishing"
+  assert_no_grep 'done [at=<epoch>]: PR {url} checks green' "$payload" \
+    "the promoted worker was still told to report a PR with green checks"
+
+  rm "$home/data/$id/brief.md"
+  FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes --forge gerrit >/dev/null 2>&1 \
+    || fail "ordinary gerrit ship brief generation should succeed"
+  printf '%s\n' "$(fm_brief_heading_body "$home/data/$id/brief.md" '# Definition of done')" > "$TMP_ROOT/forge-promote/brief-dod"
+  printf '%s\n' "$(fm_brief_heading_body "$payload" '# Definition of done')" > "$TMP_ROOT/forge-promote/delivered-dod"
+  cmp -s "$TMP_ROOT/forge-promote/brief-dod" "$TMP_ROOT/forge-promote/delivered-dod" \
+    || fail "promotion and ordinary brief generation delivered different gerrit contracts"
+  pass "fm-promote: a promoted worker receives the project's registered forge contract with no flag to remember"
+}
+
+# direct-PR composes with the forge: the mode still means "publish without the
+# pipeline", and on Gerrit publishing is one gerrit-axi call rather than a push
+# plus a pull request. The worker reports the published change, never submits or
+# votes, and is kept to the one squashed shape the merge watch can follow.
+test_forge_gerrit_direct_pr_publishes_one_change() {
+  local home brief out status
+  home="$TMP_ROOT/forge-direct/home"
+  mkdir -p "$home/data" "$home/state"
+  FM_HOME="$home" "$BRIEF" forge-direct-g1 review-server-project --mode direct-PR --forge gerrit >/dev/null \
+    || fail "a gerrit direct-PR brief should scaffold"
+  brief="$home/data/forge-direct-g1/brief.md"
+  grep -qx "Delivery contract: mode=direct-PR forge=gerrit shape=squash" "$brief" \
+    || fail "the brief did not record the forge and shape in its delivery contract"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Run `gerrit-axi publish --squash --json`' "$brief" \
+    "the direct-PR worker was not told to publish through the forge tool"
+  assert_grep 'done [at=<epoch>]: PR {change url} published for review' "$brief" \
+    "the direct-PR contract did not end at a published change"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_no_grep 'open a PR with `gh-axi`' "$brief" \
+    "the gerrit direct-PR worker was still told to open a pull request"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_no_grep 'Pass `--skip push,pr,ci`' "$brief" \
+    "the direct-PR worker was given pipeline vocabulary for a pipeline it never runs"
+  # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
+  assert_grep 'Never run `gerrit-axi submit`' "$brief" "the direct-PR worker was not kept from submitting"
+  assert_grep 'Do NOT run /no-mistakes.' "$brief" "the direct-PR worker was not kept off the pipeline"
+  assert_no_grep 'pipeline changes:' "$brief" \
+    "the direct-PR worker was asked to report pipeline fixes from a pipeline it never runs"
+
+  # A stack is several changes and the merge watch follows one, so the shape is
+  # refused with that reason until pinned-membership watching exists.
+  out=$(FM_HOME="$home" "$BRIEF" forge-direct-g2 review-server-project --mode direct-PR --forge gerrit --shape stack 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a stack-shaped gerrit brief scaffolded"
+  assert_contains "$out" "--shape stack is refused" "the stack refusal did not name the refused shape"
+  assert_contains "$out" "pinned when its watch is armed" "the stack refusal did not carry its reason"
+  assert_absent "$home/data/forge-direct-g2/brief.md" "the refused stack brief was still written"
+  out=$(FM_HOME="$home" "$BRIEF" forge-direct-g3 review-server-project --mode direct-PR --shape squash 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a shape was accepted without a forge that publishes changes"
+  out=$(FM_HOME="$home" "$BRIEF" forge-direct-g4 review-server-project --mode local-only --forge gerrit 2>&1)
+  status=$?
+  [ "$status" -ne 0 ] || fail "a local-only brief accepted a forge"
+  assert_contains "$out" "cannot ship mode=local-only" "the local-only refusal did not name the mode"
+  pass "forge=gerrit: direct-PR publishes one squashed change and a stack is refused with its reason"
+}
+
+
+
+# --branch-prefix never touches the default "<mode> <yolo>" output (order- and
+# presence-independent), defaults an unregistered/plain project to the legacy
+# "fm/" prefix, and resolves an empty override to "" for a bare <task-id> branch.
+test_project_mode_resolves_branch_prefix() {
+  local home out err
+  home="$TMP_ROOT/project-mode-branch/home"
+  mkdir -p "$home/data"
+  cat > "$home/data/projects.md" <<'EOF'
+- plainproj - fixture with no annotation (added 2026-01-01)
+- modeonlyproj [direct-PR] - fixture with a mode only (added 2026-01-01)
+- overrideproj [direct-PR branch=fix/] - fixture with mode then branch override (added 2026-01-01)
+- reorderedproj [branch=contrib/ direct-PR +yolo] - fixture with branch before mode (added 2026-01-01)
+- bareproj [no-mistakes branch=] - fixture with an empty override (added 2026-01-01)
+- typomodeproj [no-mistake branch=fix/] - fixture with a typo'd mode (added 2026-01-01)
+
+EOF
+  out=$(FM_HOME="$home" "$PROJECT_MODE" plainproj 2>/dev/null)
+  [ "$out" = "no-mistakes off" ] || fail "an unrelated branch=<prefix> query must not change the default mode/yolo output (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix plainproj 2>/dev/null)
+  [ "$out" = "fm/" ] || fail "a project with no branch= annotation must resolve to the legacy fm/ prefix (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix modeonlyproj 2>/dev/null)
+  [ "$out" = "fm/" ] || fail "a project registering only a mode must still default to fm/ (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" overrideproj 2>/dev/null)
+  [ "$out" = "direct-PR off" ] || fail "a branch= token must not leak into the mode/yolo output (got '$out')"
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix overrideproj 2>/dev/null)
+  [ "$out" = "fix/" ] || fail "a registered branch= override after the mode was not resolved (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" reorderedproj 2>/dev/null)
+  [ "$out" = "direct-PR on" ] || fail "a branch= token before the mode must not be mistaken for the mode (got '$out')"
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix reorderedproj 2>/dev/null)
+  [ "$out" = "contrib/" ] || fail "a registered branch= override before the mode was not resolved (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix bareproj 2>/dev/null)
+  [ "$out" = "" ] || fail "an empty branch= override must resolve to an empty prefix, not fm/ (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" typomodeproj 2>/dev/null)
+  [ "$out" = "no-mistakes off" ] || fail "a typo'd mode's registered branch leaked into the mode/yolo output (got '$out')"
+  err=$(FM_HOME="$home" "$PROJECT_MODE" typomodeproj 2>&1 >/dev/null)
+  assert_contains "$err" "unknown mode" "a typo'd mode with a branch override stopped warning"
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix typomodeproj 2>/dev/null)
+  [ "$out" = "fm/" ] || fail "an unknown mode must fall back to the legacy fm/ prefix, not trust the malformed entry's branch (got '$out')"
+
+  out=$(FM_HOME="$home" "$PROJECT_MODE" --branch-prefix never-registered 2>/dev/null)
+  [ "$out" = "fm/" ] || fail "an unregistered project must default its branch prefix to fm/ (got '$out')"
+
+  out=$(FM_HOME="$TMP_ROOT/project-mode-branch/no-registry-home" "$PROJECT_MODE" --branch-prefix anyproj 2>/dev/null)
+  [ "$out" = "fm/" ] || fail "an absent registry must default the branch prefix to fm/ (got '$out')"
+  pass "fm-project-mode: --branch-prefix resolves order-independently and defaults to the legacy fm/ prefix"
+}
+
+# Legacy server-install declarations cannot affect completeness or handoff.
+test_legacy_install_declarations_do_not_affect_admission() {
+  local rec home proj fakebin id=install-declarations prep out field variant
+  rec=$(make_home install-declarations)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" "$id" yes yes
+  write_brief "$home" "$id" no-mistakes
+  prep="$home/data/$id/prep.md"
+  awk '$0 == "## Tier" { print; print "- Prep review exemption: server-install";
+    print "- Changes unit: no"; print "- Changes setting: no";
+    print "- Changes pin: no"; print "- Changes store version: no"; next } { print }' \
+    "$prep" > "$prep.install" && mv "$prep.install" "$prep"
+  cp "$prep" "$prep.valid"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "filled install record should reach rendering: $out"
+  assert_grep '| Delivery admission |' "$home/data/$id/launch-brief.md" "install lost accepted outcome table"
+  assert_no_grep 'which a separate agent reviewed' "$home/data/$id/launch-brief.md" "install falsely claimed review"
+  write_brief "$home" "$id" direct-PR
+  fm_test_prep_depth "$prep.valid" direct-PR || fail "legacy checks-only fixture"
+  for field in unit setting pin 'store version'; do
+    for variant in yes missing malformed conflict; do
+      case "$variant" in
+        yes) sed "s/^- Changes $field: no$/- Changes $field: yes/" "$prep.valid" > "$prep" ;;
+        missing) sed "/^- Changes $field:/d" "$prep.valid" > "$prep" ;;
+        malformed) sed "s/^- Changes $field: no$/- Changes $field: maybe/" "$prep.valid" > "$prep" ;;
+        conflict) awk -v f="$field" '$0 == "## Tier" { print; print "- Changes " f ": yes"; next } { print }' "$prep.valid" > "$prep" ;;
+      esac
+      assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "legacy $field $variant"
+    done
+  done
+  for variant in unknown conflict missing; do
+    case "$variant" in
+      unknown) sed 's/^- Prep review exemption: server-install$/- Prep review exemption: other/' "$prep.valid" > "$prep" ;;
+      missing) sed '/^- Prep review exemption:/d; /^- Changes /d' "$prep.valid" > "$prep" ;;
+      conflict) awk '$0 == "## Tier" { print; print "- Prep review exemption: other"; next } { print }' "$prep.valid" > "$prep" ;;
+    esac
+    assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "legacy declaration $variant"
+  done
+  cp "$prep.valid" "$prep"
+  blank_section "$prep" '## 6. Tests'
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'which is empty' "legacy install bypassed numbered completeness"
+  cp "$prep.valid" "$prep"
+  sed '/^- Scope only as asked:/d' "$prep.valid" > "$prep"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'Scope only as asked' "legacy install bypassed common completeness"
+  cp "$prep.valid" "$prep"
+  answer_tier "$prep" maybe yes
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'does not answer both Q1 and Q2' "legacy install changed tier parsing"
+  pass "legacy install declarations have no admission effect and cannot bypass completeness"
+}
+
+# Even stale batch artifacts have no effect on admission or acceptance handoff.
+test_optional_batch_artifacts_do_not_affect_handoff() {
+  local rec home proj fakebin id reviewer=batch-reviewer prep artifact heading
+  rec=$(make_home batch-review-independent)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  mkdir -p "$home/data/$reviewer/reviewed-prep"
+  printf 'Old optional review.\n' > "$home/data/$reviewer/launch-brief.md"
+  for id in batch-a batch-b; do
+    write_prep "$home" "$id" yes yes no no-mistakes
+    write_brief "$home" "$id" no-mistakes
+    printf 'reviewer=%s\nauthor=firstmate\n' "$reviewer" > "$home/data/$id/prep-review"
+    artifact="$home/data/$reviewer/reviewed-prep/$id.md"
+    printf 'Stale unrelated approved bytes.\n' > "$artifact"
+    prep="$home/data/$id/prep.md"
+    printf '| Unique %s | Current preparation result | fixture spawn | Green admission |\n' "$id" >> "$prep"
+    # Put the unique substantive row in the outcome table, rather than a numbered section.
+    sed '/^| Unique /d' "$prep" > "$prep.f"
+    awk -v id="$id" '/^\| Delivery admission / { print; print "| Unique " id " | Current preparation result | fixture spawn | Green admission |"; next } { print }' "$prep.f" > "$prep"
+    for heading in Standards Spec Architecture; do
+      printf 'Missing %s.\n' "$heading" > "$home/data/$reviewer/report.md"
+      run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off >/dev/null
+      assert_grep "| Unique $id |" "$home/data/$id/launch-brief.md" "stale batch evidence changed current handoff"
+      assert_no_grep 'Stale unrelated approved bytes' "$home/data/$id/launch-brief.md" "handoff read optional artifact"
+    done
+  done
+  pass "optional batch receipts and stale artifacts never select the accepted specification"
+}
+
+test_prep_requires_finalize_after_evidence() {
+  local rec home proj fakebin id=finalize-evidence prep out
+  rec=$(make_home finalize-evidence)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_prep "$home" "$id" no yes
+  write_brief "$home" "$id" direct-PR
+  prep="$home/data/$id/prep.md"
+  fill_section "$prep" '## 8. Out of scope and follow-ups' 'Everything else stays unchanged.'
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$out" 'naming finalize-after' "prose without marker grep bypassed evidence check"
+  fill_section "$prep" '## 8. Out of scope and follow-ups' 'git grep FINALIZE-AFTER: exit 1, no pending markers.'
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "marker grep evidence"
+  assert_grep 'tests named in Tests before their passing code' "$home/data/$id/launch-brief.md" "ship overlay lost test-first instructions"
+  pass "fm-spawn: section 8 owes sentinel grep evidence or an explicit n/a reason"
+}
+
+# Common completeness is independent of tier and uses explicit refusal names.
+test_prep_common_completeness() {
+  local rec home proj fakebin prep baseline field variant reason status bad=0 cell
+  rec=$(make_home common-completeness)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_prep "$home" common no yes
+  prep="$home/data/common/prep.md"
+  # The fixture spells out the requested public format independently of rendering.
+  awk '/^## Author checks$/ { skip=1 } /^## 1[.] / { skip=0 } !skip' "$prep" > "$prep.f"
+  mv "$prep.f" "$prep"
+  cat >> "$prep" <<'EOF'
+
+## Author checks
+- Captain rulings: n/a: no additional ruling; section 1 states the task intent.
+- Still valid: proceed: inspected fixture base and current task records; admission still needed, no dependencies.
+- Siblings named: Not a defect; searched delivery fixtures and task records, none found.
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; isolated Bash fixture, timing unknown until worker measures; CI owns final checks.
+- Screen and region: n/a: this is a shell contract with no product screen.
+- Red-first proof: bash tests/fm-task-delivery.test.sh; delete Scope only as asked; expect a named refusal; record observed RED before passing code.
+- Fixture arithmetic: n/a: no calculated assertions.
+- Data path reachability: scaffold writes prep.md; spawn reads prep.md; fixture launch rendering witnesses the consumer.
+- Scope only as asked: Exercise admission from the quoted delivery intent; no real worker or product change.
+- Author gate check: bash -c '. bin/fm-dod-lib.sh; fm_prep_unfilled_reason "$1"' _ data/common/prep.md; run final bytes before handoff; paste actual empty output and raw exit 1; reason and exit 0 refuses.
+
+## Expected outcomes and how to check each
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| Common refusal | Missing field blocks spawn | bash tests/fm-task-delivery.test.sh; fixture spawn | Named reason, raw exit 0, no launch brief |
+EOF
+  baseline="$home/common-valid.md"
+  cp "$prep" "$baseline"
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  [ "$status" = 1 ] && [ -z "$reason" ] || fail "valid common control refused: $status $reason"
+  for field in 'Captain rulings' 'Still valid' 'Siblings named' 'Validation route' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    for variant in missing blank placeholder comment example duplicate fenced fence-type fence-length fence-info; do
+      awk -v f="$field" -v v="$variant" '
+        index($0, "- " f ":") == 1 {
+          if (v == "missing") next
+          if (v == "blank") { print "- " f ": "; next }
+          if (v == "placeholder") { print "- " f ": {UNFILLED}"; next }
+          if (v == "comment") { print "- " f ": <!-- example only -->"; next }
+          if (v == "example") { print "- " f ": Example: run a check"; next }
+          if (v == "fenced") { print "  ```markdown"; print; print "  ```"; next }
+          if (v == "fence-type") { print "  ````"; print "  ~~~"; print; print "  ````"; next }
+          if (v == "fence-length") { print "   ~~~~sh"; print "   ~~~"; print; print "   ~~~~"; next }
+          if (v == "fence-info") { print " ````"; print " ````text"; print; print " ````"; next }
+          if (v == "duplicate") print
+        } { print }' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      if [ "$status" != 0 ] || [[ "$reason" != *"$field"* ]]; then
+        printf 'not ok - common field %s %s: exit=%s reason=%s\n' "$field" "$variant" "$status" "$reason" >&2
+        bad=1
+      fi
+    done
+  done
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability'; do
+    for variant in 'TODO' 'TBD' 'Example: a check' 'e.g. a check' '{UNFILLED}' '<reason>'; do
+      awk -v f="$field" -v v="$variant" '
+        index($0, "- " f ":") == 1 { print "- " f ": n/a: " v; next }
+        { print }' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      if [ "$status" != 0 ] || [[ "$reason" != *"$field"* ]]; then
+        printf 'not ok - unfinished n/a %s %s: exit=%s reason=%s\n' "$field" "$variant" "$status" "$reason" >&2
+        bad=1
+      fi
+    done
+    awk -v f="$field" '
+      index($0, "- " f ":") == 1 { print "- " f ": n/a: isolated shell fixture has no applicable product change."; next }
+      { print }' "$baseline" > "$prep"
+    reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+    [ "$status" = 1 ] && [ -z "$reason" ] || fail "finished n/a $field refused: $reason"
+  done
+  for cell in 1 2 3 4; do
+    for variant in blank placeholder na comment example; do
+      awk -F '|' -v c="$cell" -v v="$variant" '
+        /^\| Common refusal / {
+          $(c+1) = v == "blank" ? " " : v == "placeholder" ? " {UNFILLED} " : v == "na" ? " n/a: no check " : v == "comment" ? " <!-- example --> " : " Example: some result "
+          OFS="|"; print; next
+        } { print }' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      if [ "$status" != 0 ] || [[ "$reason" != *'Expected outcomes'* ]]; then
+        printf 'not ok - outcome cell %s %s: exit=%s reason=%s\n' "$cell" "$variant" "$status" "$reason" >&2
+        bad=1
+      fi
+    done
+  done
+  for variant in no-rows missing-column missing-header malformed-separator na-table fenced-row; do
+    awk -v v="$variant" '
+      v == "no-rows" && /^\| Common refusal/ { next }
+      v == "fenced-row" && /^\| Common refusal/ { print "  ~~~~markdown"; print; print "  ~~~~~"; next }
+      v == "missing-column" && /^\| Common refusal/ { sub(/\|[^|]*\|$/, "|") }
+      v == "missing-header" && /^\| Outcome / { next }
+      v == "malformed-separator" && /^\| --- / { print "| --- | --- | --- |"; next }
+      v == "na-table" && /^\|/ { next }
+      { print }
+      v == "na-table" && /^## Expected outcomes/ { print "n/a: no outcomes" }
+    ' "$baseline" > "$prep"
+    reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+    if [ "$status" != 0 ] || [[ "$reason" != *'Expected outcomes'* ]]; then
+      printf 'not ok - outcome %s: exit=%s reason=%s\n' "$variant" "$status" "$reason" >&2
+      bad=1
+    fi
+  done
+  for field in 'Still valid' 'Siblings named' 'Validation route' 'Scope only as asked' 'Author gate check'; do
+    sed "s/^- $field:.*$/- $field: n\/a: no requirement/" "$baseline" > "$prep"
+    reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+    if [ "$status" != 0 ] || [[ "$reason" != *"$field"* ]]; then bad=1; printf 'not ok - illegal n/a %s\n' "$field" >&2; fi
+  done
+  cp "$baseline" "$prep"
+  fill_section "$prep" '## 1. Intent and boxes' 'n/a: no intent'
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  if [ "$status" != 0 ] || [[ "$reason" != *'Intent and boxes'* ]]; then bad=1; printf 'not ok - absent substantive intent\n' >&2; fi
+  cp "$baseline" "$prep"
+  fill_section "$prep" '## 1. Intent and boxes' $'  ````markdown\n  ~~~\nExercise the fixture only.\n  ```\n  ````'
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  if [ "$status" != 0 ] || [[ "$reason" != *'Intent and boxes'* ]]; then bad=1; printf 'not ok - fenced-only intent\n' >&2; fi
+  sed 's/^- Data path reachability:.*$/- Data path reachability: rg returned {"callers": []}; result uses <empty>; traced source to consumer./' "$baseline" > "$prep"
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  [ "$status" = 1 ] && [ -z "$reason" ] || fail "literal tool output refused: $reason"
+  [ "$bad" = 0 ] || fail "common completeness cases above failed"
+  # Incomplete common fields also block the executable admission seam.
+  sed '/^- Scope only as asked:/d' "$baseline" > "$prep"
+  write_brief "$home" common direct-PR
+  reason=$(run_spawn "$home" "$fakebin" common "$proj" claude --mode direct-PR --yolo off)
+  assert_contains "$reason" 'Scope only as asked' "spawn omitted common refusal"
+  assert_absent "$home/data/common/launch-brief.md" "incomplete common fields reached launch"
+  pass "common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal"
+}
+
+test_prep_spec_substantive_text() {
+  local rec home proj fakebin prep reason status accepted expected launch out check result
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  rec=$(make_home substantive-spec)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" substantive yes no
+  prep="$home/data/substantive/prep.md"
+  awk '
+    /^\| Delivery admission / {
+      print "<!-- multiline guide"
+      print "| Hidden | Hidden | Hidden | Hidden |"
+      print "-->"
+      print "  ````markdown"
+      print "  ~~~"
+      print "| Fenced | Fenced | Fenced | Fenced |"
+      print "  ```"
+      print "| Still fenced | Still fenced | Still fenced | Still fenced |"
+      print "  ````text"
+      print "| Also fenced | Also fenced | Also fenced | Also fenced |"
+      print "  `````"
+      print "| <!-- first -->Recomputed<!-- last --> | <!-- first -->Result<!-- last --> | <!-- first -->`printf 42`<!-- last --> | <!-- fixture -->42<!-- recomputed --> |"
+      print "| Literal `<!-- outcome -->` | Select `<!-- visible -->` | <!-- guide -->`grep -F '\''<!-- marker -->'\'' output.html`<!-- guide --> | `<!-- marker -->` |"
+      next
+    }
+    { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  fill_section "$prep" '## 2. Behaviour spec' "$(cat <<'EOF'
+<!-- context -->Return 42.<!-- detail -->
+Run `grep -F '<!-- marker -->' output.html`.
+<!-- multiline guide
+Example: return a different value.
+-->
+```bash
+printf '%s' '<!-- literal -->42<!-- literal -->'
+```
+EOF
+)"
+  fill_section "$prep" '## 11. Definition of done' "$(cat <<'EOF'
+<!-- first -->- Recomputed result is 42.<!-- last -->
+- Marker output is `<!-- marker -->`.
+<!-- multiline guide
+Example: accept any result.
+-->
+EOF
+)"
+  reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+  [ "$status" = 1 ] && [ -z "$reason" ] || fail "substantive table refused: $status $reason"
+  expected=$(cat <<'EOF'
+## Expected outcomes and how to check each
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| Recomputed | Result | `printf 42` | 42 |
+| Literal `<!-- outcome -->` | Select `<!-- visible -->` | `grep -F '<!-- marker -->' output.html` | `<!-- marker -->` |
+
+## 2. Behaviour spec
+Return 42.
+Run `grep -F '<!-- marker -->' output.html`.
+```bash
+printf '%s' '<!-- literal -->42<!-- literal -->'
+```
+
+## 11. Definition of done
+- Recomputed result is 42.
+- Marker output is `<!-- marker -->`.
+EOF
+)
+  accepted=$(fm_prep_accepted_spec "$prep")
+  [ "$accepted" = "$expected" ] || fail "accepted specification changed substantive bytes: $accepted"
+  check=$(printf '%s\n' "$accepted" | awk -F '|' '/^\| Literal / { s=$4; sub(/^[[:space:]]*`/, "", s); sub(/`[[:space:]]*$/, "", s); print s }')
+  printf '%s\n' '<!-- marker -->' 'unrelated line' > "$home/output.html"
+  result=$(cd "$home" && bash -c "$check") || fail "emitted grep check failed"
+  [ "$result" = '<!-- marker -->' ] || fail "emitted check selected unrelated output: $result"
+  printf '%s\n' 'unrelated line' > "$home/output.html"
+  (cd "$home" && bash -c "$check" >/dev/null) && fail "emitted grep check passed without the marker"
+  write_brief "$home" substantive no-mistakes
+  out=$(run_spawn "$home" "$fakebin" substantive "$proj" claude --mode no-mistakes --yolo off)
+  launch="$home/data/substantive/launch-brief.md"
+  assert_present "$launch" "substantive preparation did not reach launch rendering: $out"
+  accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
+  [ "$accepted" = "$expected" ] || fail "launch specification changed substantive bytes: $accepted"
+  pass "preparation handoff preserves substantive expectations and commands, excluding table examples and guide comments"
+}
+
+test_prep_inline_delimiters() {
+  local input expected actual code field rec home proj fakebin prep reason
+  for code in "\`<!-- marker -->\`" "\`\`<!-- marker -->\`\`" "\`\` \`<!-- marker -->\` \`\`" "\`\`\`\` \`<!-- marker -->\` \`\`\`\`" "\\\\\`<!-- marker -->\`"; do
+    input="start<!-- guide --> $code <!-- more guide -->end"
+    expected="start $code end"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "inline delimiter literal lost: $actual"
+  done
+  input=$'check ``first\n`inner` <!-- marker -->\nlast`` tail<!-- guide -->'
+  expected=$'check ``first\n`inner` <!-- marker -->\nlast`` tail'
+  actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+  [ "$actual" = "$expected" ] || fail "multiline inline literal lost: $actual"
+  for input in '`unfinished <!-- guide --> end' '\`escaped <!-- guide --> end'; do
+    expected="${input/'<!-- guide -->'/}"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "unmatched or escaped backtick hid a guide comment: $actual"
+  done
+  input=$'before `unmatched\n  ```markdown\n<!-- example -->\n  ```\nafter ` literal'
+  expected=$'before `unmatched\nafter ` literal'
+  actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+  [ "$actual" = "$expected" ] || fail "inline lookahead admitted a fenced example: $actual"
+  rec=$(make_home inline-author)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_prep "$home" inline-author no yes
+  prep="$home/data/inline-author/prep.md"
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    awk -v f="$field" '
+      index($0, "- " f ":") == 1 { print "- " f ": `grep -F '\''<!-- marker -->'\'' output.html`<!-- guide -->"; next }
+      { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  done
+  actual=$(fm_brief_heading_body "$prep" '## Author checks' | fm_prep_body_text)
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    assert_contains "$actual" "- $field: \`grep -F '<!-- marker -->' output.html\`" "author command literal lost for $field"
+  done
+  reason=$(fm_prep_unfilled_reason "$prep") && fail "literal author commands refused: $reason"
+  fill_section "$prep" "## 4. Blast radius" "\`<!-- GitNexus -->\`"
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' gitnexus || fail "literal inline evidence lost"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "literal section became empty"
+  fill_section "$prep" '## 4. Blast radius' '<!-- GitNexus -->'
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' gitnexus && fail "guide comment supplied evidence"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = empty ] || fail "guide-only section counted as filled"
+  pass "inline code preserves literal comment bytes across delimiter forms and preparation readers"
+}
+
+test_promotion_preparation_handoff() {
+  local rec home proj fakebin mode state id prep artifact out expected accepted captain source_intent status
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  source_intent=$'Ship the literal marker check.\n\n### Required behavior\nPreserve the exact marker.'
+  expected=$(cat <<'EOF'
+## Expected outcomes and how to check each
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| Promotion check | Exact marker selected | `grep -F '<!-- marker -->' output.html` | `<!-- marker -->` |
+
+## 2. Behaviour spec
+Refuse the launch and name the missing review.
+
+### Copy
+The refusal names the record.
+
+## 11. Definition of done
+- Every tier is gated.
+- The relaunch stays exempt.
+EOF
+)
+  for mode in no-mistakes direct-PR local-only; do
+    for state in complete incomplete missing; do
+      rec=$(make_home "prep-promote-$mode-$state")
+      IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+      id="prep-promote-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')-$state"
+      write_brief "$home" "$id"
+      prep="$home/data/$id/prep.md"
+      fill_section "$home/data/$id/brief.md" "## Captain's intent" "$source_intent"
+      printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
+      case "$state" in
+        complete)
+          rm "$prep"
+          write_spec_prep "$home" "$id" yes no
+          awk '/^\| Delivery admission / { print "| Promotion check | Exact marker selected | `grep -F '\''<!-- marker -->'\'' output.html` | `<!-- marker -->` |"; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          ;;
+        incomplete) printf '## Tier\n- UI wiring: no, historical prep.\n' > "$prep" ;;
+        missing) rm "$prep" ;;
+      esac
+      [ ! -f "$prep" ] || cp "$prep" "$home/prep-original.md"
+      out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+        "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1)
+      status=$?
+      expect_code 0 "$status" "$mode $state preparation changed promotion admission: $out"
+      assert_grep 'kind=ship' "$home/state/$id.meta" "$mode $state promotion did not publish ship state"
+      if [ "$state" = missing ]; then
+        assert_absent "$prep" "promotion fabricated missing prep"
+      else
+        cmp -s "$prep" "$home/prep-original.md" || fail "promotion rewrote $state prep"
+      fi
+      for artifact in "$home/data/$id/ship-instructions.md" "$home/data/$id/brief.md"; do
+        captain=$(fm_brief_task_heading_body "$artifact" "## Captain's intent")
+        [ "$captain" = "$source_intent" ] || fail "promotion changed source captain intent: $captain"
+        if [ "$state" = complete ]; then
+          assert_grep 'Builders and post-implementation verifiers use' "$artifact" "$mode omitted common acceptance directions"
+          assert_contains "$(cat "$artifact")" "$prep" "$mode points at another preparation record"
+        else
+          assert_no_grep '^# Task preparation record$' "$artifact" "$mode certified $state prep"
+        fi
+        if [ "$mode" = no-mistakes ]; then
+          captain=$(awk -v h="$captain_heading" '$0 == h { emit=1; next } emit { print }' "$artifact")
+          [ "$captain" = "$source_intent" ] || fail "promotion intent tail includes specification: $captain"
+          if [ "$state" = complete ]; then
+            accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$artifact")
+            [ "$accepted" = "$expected" ] || fail "promotion lost accepted specification in $artifact: $accepted"
+          else
+            assert_no_grep '^## Accepted specification for --intent' "$artifact" "promotion certified $state preparation"
+          fi
+        else
+          assert_no_grep '^# Current no-mistakes intent contract$' "$artifact" "$mode received no-mistakes intent directions"
+        fi
+      done
+    done
+  done
+  pass "promotion hands both artifacts the complete preparation in every mode without gating legacy records"
+}
+
+test_prep_inline_block_boundaries() {
+  local input expected actual table continuation boundary
+  for table in $'| Name | Value |\n| :--- | ---: |' $'Name | Value\n:--- | ---:' $'| Name |\n| --- |' $'  | Name \\| alias | Value |\n  | --- | --- |'; do
+    input='before `unmatched'$'\n'"$table"$'\n''<!-- guide --> last`'
+    expected='before `unmatched'$'\n'"$table"$'\n'' last`'
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "inline span crossed a real table: $actual"
+  done
+  for table in $'| Name | Value |\n| not a delimiter | row |' $'| Name | Value |\n| --- |' $'Name \\| Value\n---'; do
+    input='before `literal'$'\n'"$table"$'\n''end <!-- marker -->`<!-- guide -->'
+    expected=${input/'<!-- guide -->'/}
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "non-table pipe text erased a literal: $actual"
+  done
+  for continuation in '| grep -F literal' '####### text' '2. text' '0000000001. text' '- ' '+ ' '* ' '1. '; do
+    input='before `literal'$'\n'"$continuation"$'\n''end <!-- marker -->`<!-- guide -->'
+    expected=${input/'<!-- guide -->'/}
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "superficial block prefix erased a literal: $actual"
+  done
+  for boundary in '# heading' '###### heading' '- item' '+ item' '* item' '1. item' '0001) item' '000000001. item'; do
+    input='before `unmatched'$'\n'"$boundary"$'\n''<!-- guide --> last`'
+    expected='before `unmatched'$'\n'"$boundary"$'\n'' last`'
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "inline span crossed a real block: $actual"
+  done
+  pass "inline lookahead distinguishes structural tables and paragraph interruptions from literal command prefixes"
+}
+
+test_prep_pipeline_handoff() {
+  local rec pipeline_home pipeline_proj pipeline_fakebin prep original command section accepted emitted result fault file out field content
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  command=$(cat <<'EOF'
+printf '%s\n' '<!-- marker -->' 'unrelated line' \
+| grep -F '<!-- marker -->'
+EOF
+)
+  rec=$(make_home pipeline-handoff)
+  IFS='|' read -r pipeline_home pipeline_proj pipeline_fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$pipeline_home" pipeline yes no
+  prep="$pipeline_home/data/pipeline/prep.md"
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    fill_section "$prep" "$section" "\`$command\`"
+  done
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    FM_TEST_PIPELINE="$command" awk -v f="$field" '
+      index($0,"- " f ":") == 1 { print "- " f ": `" ENVIRON["FM_TEST_PIPELINE"] "`"; next }
+      { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  done
+  original="$pipeline_home/prep-original.md"
+  cp "$prep" "$original"
+  fm_prep_unfilled_reason "$prep" && fail "pipeline preparation refused"
+  accepted=$(fm_prep_accepted_spec "$prep")
+  emitted=$(fm_brief_heading_body "$prep" '## Author checks' | fm_prep_body_text)
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    assert_contains "$emitted" "- $field: \`$command\`" "pipeline author bytes lost for $field"
+  done
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    emitted=$(fm_brief_heading_parse - "$section" body <<<"$accepted")
+    [ "$emitted" = "\`$command\`" ] || fail "pipeline specification bytes changed in $section: $emitted"
+    emitted=${emitted#\`}; emitted=${emitted%\`}
+    result=$(bash -c "$emitted") || fail "emitted pipeline failed"
+    [ "$result" = '<!-- marker -->' ] || fail "emitted pipeline selected unrelated rows: $result"
+    fault=${emitted/"'<!-- marker -->' 'unrelated line'"/"'no marker' 'unrelated line'"}
+    bash -c "$fault" >/dev/null && fail "pipeline check passed when input lost its marker"
+  done
+  write_brief "$pipeline_home" pipeline no-mistakes
+  rm "$pipeline_home/data/pipeline/brief.md"
+  FM_HOME="$pipeline_home" "$BRIEF" pipeline firstmate --mode no-mistakes >/dev/null || fail "pipeline brief scaffold"
+  content=$(cat "$pipeline_home/data/pipeline/brief.md")
+  content=${content//'{TASK}'/Exercise the delivery contract.}
+  content=${content//'{FIRSTMATE_SPEC}'/Verify the accepted outcome rows.}
+  printf '%s\n' "$content" > "$pipeline_home/data/pipeline/brief.md"
+  out=$(run_spawn "$pipeline_home" "$pipeline_fakebin" pipeline "$pipeline_proj" claude --mode no-mistakes --yolo off)
+  file="$pipeline_home/data/pipeline/launch-brief.md"
+  assert_present "$file" "pipeline prep did not reach spawn rendering: $out"
+  grep -qxF '# Walk evidence' "$file" || fail "launch artifact omitted walk contract"
+  for content in 'assigned actor, candidate and data' 'human expectation, actual observed result' 'console, network and application diagnostics' 'first failing boundary'; do
+    assert_contains "$(cat "$file")" "$content" "launch artifact lost walk obligation: $content"
+  done
+  emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+  [ "$emitted" = "$accepted" ] || fail "spawn changed pipeline acceptance bytes"
+  printf 'window=fm-pipeline\nkind=scout\nworktree=%s\n' "$pipeline_proj" > "$pipeline_home/state/pipeline.meta"
+  out=$(FM_HOME="$pipeline_home" FM_STATE_OVERRIDE="$pipeline_home/state" FM_DATA_OVERRIDE="$pipeline_home/data" FM_CONFIG_OVERRIDE="$pipeline_home/config" \
+    "$PROMOTE" pipeline --mode no-mistakes --yolo off 2>&1) || fail "pipeline promotion refused: $out"
+  for file in "$pipeline_home/data/pipeline/ship-instructions.md" "$pipeline_home/data/pipeline/brief.md"; do
+    emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+    [ "$emitted" = "$accepted" ] || fail "promotion changed pipeline acceptance bytes in $file"
+    emitted=$(awk -v c="$captain_heading" '$0 == c { emit=1; next } emit { print }' "$file")
+    [ "$emitted" = 'Exercise the delivery contract.' ] || fail "promotion mixed pipeline specification into captain intent"
+  done
+  cmp -s "$prep" "$original" || fail "pipeline handoff rewrote prep"
+  fill_section "$prep" '## 4. Blast radius' "\`$command\`"
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' '<!-- marker -->' || fail "pipeline literal evidence lost"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "pipeline section became empty"
+  pass "pipeline commands survive author checks, extraction, execution, spawn and both promotion artifacts"
+}
+
+test_prep_block_transitions() {
+  local command="grep -F '<!-- marker -->' output.html" input expected actual indent prefix hashes spaces level
+  for indent in '    ' $'\t'; do
+    hashes=''
+    for level in 1 2 3 4 5 6; do
+      hashes+='#'
+      for spaces in '' ' ' '  ' '   '; do
+        prefix="$spaces$hashes Marker check"
+        input="$prefix"$'\n'"$indent$command"
+        actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+        [ "$actual" = "$input" ] || fail "ATX $level/$spaces lost code bytes: $actual"
+        actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+        [ "$actual" = "$prefix" ] || fail "ATX example counted as substantive prose: $actual"
+      done
+    done
+    for prefix in $'| Label | Value |\n| --- | --- |\n| Check | Marker |' \
+      $'Label | Value\n--- | ---\nCheck | Marker' \
+      $'  ````shell\nprintf literal\n  ```\n  `````' \
+      $'~~~shell\nprintf literal\n~~~'; do
+      input="$prefix"$'\n'"$indent$command"
+      actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+      [ "$actual" = "$input" ] || fail "block ending lost code bytes: $actual"
+    done
+    for prefix in '<!-- guide -->' $'<!-- guide\nmultiline guidance\n-->'; do
+      input="$prefix"$'\n'"$indent$command"
+      actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+      [ "$actual" = "$indent$command" ] || fail "guide block contaminated following command: $actual"
+    done
+    for prefix in 'Ordinary paragraph' '- List item' '1. List item' '#Not a heading' '####### Not a heading' \
+      '| Just pipe text |' $'| Not | Table |\n| nope | nope |' 'Escaped \| prose' \
+      $'Setext is not supported\n---'; do
+      input="$prefix"$'\n'"$indent ordinary <!-- guide -->prose"
+      expected="$prefix"$'\n'"$indent ordinary prose"
+      actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+      [ "$actual" = "$expected" ] || fail "paragraph/list continuation mistaken for code: $actual"
+    done
+    input=$'Paragraph <!-- inline guide -->\n'"$indent ordinary <!-- guide -->prose"
+    expected=$'Paragraph \n'"$indent ordinary prose"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+    [ "$actual" = "$expected" ] || fail "inline guide ended a substantive paragraph: $actual"
+  done
+  pass "supported headings, tables, fences and guide blocks end paragraphs; prose/list continuations retain context"
+}
+
+test_prep_author_continuation_context() {
+  local rec home proj fakebin prep baseline field indent value reason status out mode expected
+  rec=$(make_home author-continuations)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" continued yes no
+  prep="$home/data/continued/prep.md"
+  baseline="$home/valid-prep.md"
+  cp "$prep" "$baseline"
+  expected=$(fm_prep_accepted_spec "$prep")
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    for indent in ' ' '    ' $'\t'; do
+      for value in 'Exercise only the requested fixture.' "\`grep -F '<!-- marker -->' output.html\`"; do
+        FM_TEST_CONTINUATION="$indent$value" awk -v f="$field" '
+          index($0,"- " f ":") == 1 { print "- " f ":"; print ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+        ' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 1 ] && [ -z "$reason" ] || fail "$field continuation refused ($indent): $reason"
+      done
+      for value in '' '{UNFILLED}' '<reason>' 'TODO' 'example: use this' 'n/a' 'n/a: TBD' '<!-- guide only -->' \
+        $'\n    Example only.' $'\n\tExample only.' $'\n  ```text\nExample only.\n  ```'; do
+        FM_TEST_CONTINUATION="$indent$value" awk -v f="$field" '
+          index($0,"- " f ":") == 1 { print "- " f ":"; print ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+        ' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 0 ] || fail "$field invalid continuation admitted: $value"
+        assert_contains "$reason" "$field" "invalid continuation refusal named another field: $reason"
+      done
+    done
+  done
+  for value in '    Example only.' $'```text\nExample only.\n```' '<!-- guide only -->'; do
+    cp "$baseline" "$prep"
+    fill_section "$prep" '## 1. Intent and boxes' "$value"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "raw intent example/comment admitted: $value"
+    assert_contains "$reason" 'Intent and boxes' "raw intent refusal unnamed: $reason"
+  done
+  cp "$baseline" "$prep"
+  awk '
+    /^- (Captain rulings|Screen and region|Red-first proof|Fixture arithmetic|Data path reachability|Scope only as asked|Author gate check):/ {
+      sub(/:.*/, ":"); print; print "    Exercise only the requested fixture."; next
+    }
+    { print }
+  ' "$baseline" > "$prep"
+  [ "$(fm_prep_accepted_spec "$prep")" = "$expected" ] || fail "continued author fields omitted accepted specification"
+  for mode in no-mistakes direct-PR local-only; do
+    fm_test_prep_depth "$prep" "${mode/local-only/direct-PR}" || fail "continued depth fixture"
+    write_brief "$home" continued "$mode"
+    rm -f "$home/data/continued/launch-brief.md"
+    out=$(run_spawn "$home" "$fakebin" continued "$proj" claude --mode "$mode" --yolo off)
+    assert_present "$home/data/continued/launch-brief.md" "$mode continuation admission failed: $out"
+  done
+  pass "all author fields accept concrete/literal continuations and refuse incomplete values or examples; raw intent stays cleaned"
+}
+
+test_prep_indented_and_escaped_literals() {
+  local indent input expected actual count slashes
+  for indent in '    ' $'\t' $'  \t'; do
+    input="${indent}grep -F '<!-- marker -->' output.html"$'\n\n'"${indent}<!-- literal code -->"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+    [ "$actual" = "$input" ] || fail "indented executable bytes changed: $actual"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ -z "$(printf '%s' "$actual" | tr -d '[:space:]')" ] || fail "indented example counted as prose: $actual"
+    input=$'Paragraph continues\n'"${indent}ordinary <!-- guide -->prose"
+    expected=$'Paragraph continues\n'"${indent}ordinary prose"
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text yes)
+    [ "$actual" = "$expected" ] || fail "paragraph continuation mistaken for code: $actual"
+  done
+  slashes=''
+  for count in 0 1 2 3 4; do
+    input="${slashes}<!-- marker --> 42 <!-- guide -->"
+    if [ "$((count % 2))" -eq 1 ]; then
+      expected="${slashes}<!-- marker --> 42 "
+    else
+      expected="${slashes} 42 "
+    fi
+    actual=$(printf '%s\n' "$input" | fm_prep_body_text)
+    [ "$actual" = "$expected" ] || fail "escaped opener parity $count changed: $actual"
+    slashes="${slashes}\\"
+  done
+  pass "indented executable blocks and odd escaped openers retain bytes; prose and real comments clean normally"
+}
+
+test_prep_indented_literal_handoff() {
+  local rec home proj fakebin prep section indent body accepted expected emitted out file field reason original cleaned
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  local table command
+  table=$(cat <<'EOF'
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+| \<!-- outcome --> | \<!-- result --> | \<!-- check --> | \<!-- marker --> |
+EOF
+)
+  command="grep -F '<!-- marker -->' output.html"
+  rec=$(make_home indented-handoff)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  write_spec_prep "$home" indented yes no
+  prep="$home/data/indented/prep.md"
+  fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "$table"
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    awk -v f="$field" 'index($0,"- " f ":") == 1 { print "- " f ": \\<!-- marker -->"; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  done
+  emitted=$(fm_brief_heading_body "$prep" '## Author checks' | fm_prep_body_text)
+  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    assert_contains "$emitted" "- $field: \\<!-- marker -->" "escaped author answer lost for $field"
+  done
+  expected="$FM_PREP_OUTCOMES_HEADING"$'\n'"$table"
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    if [ "$section" = '## 2. Behaviour spec' ]; then indent='    '; else indent=$'\t'; fi
+    body="${indent}${command}"$'\n\n### Marker check\n'"${indent}${command}"$'\n\n| Label | Value |\n| --- | --- |\n| Check | Marker |\n'"${indent}${command}"$'\n\n~~~shell\nprintf literal\n~~~\n'"${indent}${command}"$'\n<!-- guide block -->\n'"${indent}${command}"$'\n\n'"${indent}<!-- literal code -->"$'\n\n''Check the marker only.<!-- guide -->'
+    fill_section "$prep" "$section" "$body"
+    cleaned=${body/$'<!-- guide block -->\n'/}
+    expected+=$'\n\n'"$section"$'\n'"${cleaned/Check the marker only.<!-- guide -->/Check the marker only.}"
+  done
+  fm_prep_unfilled_reason "$prep" && fail "literal prep refused"
+  accepted=$(fm_prep_accepted_spec "$prep")
+  [ "$accepted" = "$expected" ] || fail "indented/escaped specification bytes changed: $accepted"
+  for section in '## 2. Behaviour spec' '## 11. Definition of done'; do
+    while IFS= read -r emitted; do
+      for file in marker absent restored; do
+        if [ "$file" != absent ]; then printf '%s\n' '<!-- marker -->' 'unrelated line'; else printf '%s\n' 'unrelated line'; fi > "$home/output.html"
+        out=$(cd "$home" && bash -c "$emitted"); reason=$?
+        if [ "$file" != absent ]; then
+          [ "$reason" -eq 0 ] && [ "$out" = '<!-- marker -->' ] || fail "emitted grep lost exact marker selection: $out"
+        else
+          [ "$reason" -eq 1 ] && [ -z "$out" ] || fail "emitted grep accepted marker-absent input: $out"
+        fi
+      done
+    done < <(fm_brief_heading_parse - "$section" body <<<"$accepted" | awk '/^(    |\t)grep / { print }')
+  done
+  original="$home/prep-original.md"
+  cp "$prep" "$original"
+  write_brief "$home" indented no-mistakes
+  out=$(run_spawn "$home" "$fakebin" indented "$proj" claude --mode no-mistakes --yolo off)
+  file="$home/data/indented/launch-brief.md"
+  assert_present "$file" "literal prep did not reach launch: $out"
+  emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+  [ "$emitted" = "$expected" ] || fail "spawn changed literal specification"
+  printf 'window=fm-indented\nkind=scout\nworktree=%s\n' "$proj" > "$home/state/indented.meta"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+    "$PROMOTE" indented --mode no-mistakes --yolo off 2>&1) || fail "literal promotion refused: $out"
+  for file in "$home/data/indented/ship-instructions.md" "$home/data/indented/brief.md"; do
+    emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
+    [ "$emitted" = "$expected" ] || fail "promotion changed literal specification in $file"
+  done
+  cmp -s "$prep" "$original" || fail "literal handoff rewrote prep"
+  fill_section "$prep" '## 4. Blast radius' "    $command"
+  fm_prep_evidence_ok "$prep" '## 4. Blast radius' '<!-- marker -->' || fail "indented evidence lost"
+  [ "$(fm_prep_section_state "$prep" '## 4. Blast radius' BLAST_RADIUS)" = filled ] || fail "indented section became empty"
+  fill_section "$prep" '## 4. Blast radius' 'n/a: isolated fixture.'
+  for indent in '    ' $'\t' $'  \t'; do
+    body=$(printf '%s\n' "$table" | while IFS= read -r file; do printf '%s%s\n' "$indent" "$file"; done)
+    fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "$body"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "indented example outcome table admitted"
+    assert_contains "$reason" 'Expected outcomes' "indented example refusal unnamed: $reason"
+    [ -z "$(fm_prep_accepted_spec "$prep")" ] || fail "indented example certified"
+    fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "$table"$'\n\n'"$body"
+    reason=$(fm_prep_unfilled_reason "$prep") && fail "indented examples polluted substantive table: $reason"
+    emitted=$(fm_prep_accepted_spec "$prep" | fm_brief_heading_parse - "$FM_PREP_OUTCOMES_HEADING" body)
+    [ "$emitted" = "$table" ] || fail "indented example leaked into outcome specification: $emitted"
+  done
+  pass "literal specification survives public admission, execution, spawn and both promotion artifacts; indented tables cannot supply outcomes"
+}
+
+test_promotion_refreshes_relaunch_specification() {
+  local rec home proj fakebin mode state id prep out launch emitted count expected original captain
+  local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
+  local captain_heading='## Captain intent authorized for --intent'
+  local table='| O1: count | Exact count observed | Fixture count check | 42 |'$'\n''| W1: reopen my saved work | I can find and reopen the right source | Assigned fixture actor saves work, asks in fresh chat, opens source and returns; fixture owner retains diagnostics | Saved idea \| correct source |'
+  for mode in no-mistakes direct-PR local-only; do
+    rec=$(make_home "promotion-refresh-$mode")
+    IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+    id="refresh-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
+    write_brief "$home" "$id"
+    prep="$home/data/$id/prep.md"
+    fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "| Outcome | Exact observable result | Where and how to check | Expected value |"$'\n''| --- | --- | --- | --- |'$'\n'"$table"
+    printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
+    out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1) || fail "promotion refused: $out"
+    printf '\n## Progress note (2026-10-05T00:00:00Z)\nW1 actual receipt: not exercised; owner=fixture walker, next=assigned setup.\n' >> "$home/data/$id/brief.md"
+    original="$home/promoted-brief.md"
+    cp "$home/data/$id/brief.md" "$original"
+    cp "$prep" "$home/complete-prep.md"
+    cat > "$fakebin/tmux" <<'EOF'
+#!/bin/sh
+case "$1" in
+  list-windows) printf 'fm-%s\n' "$FM_REFRESH_ID" ;;
+  display-message)
+    case "$*" in
+      *pane_current_command*) printf 'bash\n' ;;
+      *) exit 1 ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+EOF
+    for state in changed incomplete stale siblings route missing; do
+      cp "$home/complete-prep.md" "$prep"
+      case "$state" in
+        changed) sed 's/| 42 |$/| 43 |/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        incomplete) sed '/^- Scope only as asked:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        stale) sed 's/^- Still valid:.*$/- Still valid: covered: delivered fixture/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        siblings) sed '/^- Siblings named:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        route) sed '/^- Validation route:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        missing) rm "$prep" ;;
+      esac
+      launch="$home/data/$id/launch-brief.md"
+      rm -f "$launch"
+      out=$(FM_REFRESH_ID="$id" run_spawn "$home" "$fakebin" "$id" --relaunch)
+      assert_present "$launch" "$mode $state relaunch failed before launch rendering: $out"
+      assert_grep 'W1 actual receipt: not exercised' "$launch" "relaunch lost progress notes"
+      assert_grep '# Current ship Firstmate spec' "$launch" "relaunch lost promotion instructions"
+      assert_grep '# Current delivery mode contract' "$launch" "relaunch lost delivery contract"
+      captain=$(fm_brief_task_heading_body "$launch" "## Captain's intent")
+      [ "$captain" = 'Exercise the delivery contract.' ] || fail "relaunch changed captain words"
+      count=$(grep -c '^# Task preparation record$' "$launch" || true)
+      if [ "$state" = missing ]; then expected=0; else expected=1; fi
+      [ "$count" -eq "$expected" ] || fail "$mode $state relaunch has $count prep overlays"
+      if [ "$mode" = no-mistakes ]; then
+        count=$(grep -c '^# Current no-mistakes intent contract$' "$launch" || true)
+        [ "$count" -eq 1 ] || fail "$state relaunch has $count intent overlays"
+        captain=$(awk -v c="$captain_heading" '$0 == c { emit=1; next } emit { print }' "$launch")
+        [ "$captain" = 'Exercise the delivery contract.' ] || fail "relaunch mixed specification into captain tail: $captain"
+        count=$(grep -cFx "$accepted_heading" "$launch" || true)
+        if [ "$state" = changed ]; then
+          [ "$count" -eq 1 ] || fail "refreshed relaunch has $count accepted specifications"
+          emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
+          expected="$FM_PREP_OUTCOMES_HEADING"$'\n''| Outcome | Exact observable result | Where and how to check | Expected value |'$'\n''| --- | --- | --- | --- |'$'\n'"${table/42/43}"
+          [ "$emitted" = "$expected" ] || fail "relaunch retained old specification: $emitted"
+        else
+          [ "$count" -eq 0 ] || fail "relaunch certified $state prep"
+        fi
+      else
+        assert_no_grep '# Current no-mistakes intent contract' "$launch" "$mode relaunch added no-mistakes intent"
+      fi
+      cmp -s "$home/data/$id/brief.md" "$original" || fail "relaunch rewrote durable brief"
+    done
+  done
+  pass "promotion relaunch replaces generated overlays with current complete specification in every delivery mode"
+}
+
+test_prep_common_scaffolds() {
+  local home="$TMP_ROOT/common-scaffolds" id prep reason format field
+  mkdir -p "$home"
+  for format in full surgical; do
+    id="common-$format"
+    if [ "$format" = surgical ]; then
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "compact scaffold"
+    else
+      FM_HOME="$home" "$BRIEF" "$id" --prep >/dev/null || fail "full scaffold"
+    fi
+    prep="$home/data/$id/prep.md"
+    for field in 'Captain rulings' 'Still valid' 'Siblings named' 'Validation route' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+      assert_grep "- $field:" "$prep" "$format scaffold missing $field"
+    done
+    assert_grep '| Outcome | Exact observable result | Where and how to check | Expected value |' "$prep" "$format outcome columns absent"
+    reason=$(fm_prep_unfilled_reason "$prep") || fail "fresh $format scaffold admitted"
+    assert_contains "$(cat "$prep")" 'independent source of its expected answer' "$format scaffold lost independent expectation guidance"
+    assert_contains "$(cat "$prep")" 'baseline pass -> injected fault fails -> restored pass' "$format scaffold lost fault witness guidance"
+    assert_contains "$(cat "$prep")" 'raw exit 1' "$format scaffold omitted author gate result"
+  done
+  pass "both executable preparation scaffolds carry common author checks and outcomes"
+}
+
+test_prep_current_work_checks() {
+  local home="$TMP_ROOT/current-work-checks" format prep baseline field value reason status indent
+  mkdir -p "$home"
+  for format in full surgical; do
+    if [ "$format" = surgical ]; then
+      FM_HOME="$home" "$BRIEF" "current-$format" --prep --surgical >/dev/null || fail "surgical scaffold"
+    else
+      FM_HOME="$home" "$BRIEF" "current-$format" --prep >/dev/null || fail "full scaffold"
+    fi
+    prep="$home/data/current-$format/prep.md"
+    fill_current_work_fixture "$prep"
+    fm_test_fill_prep_common "$prep"
+    baseline="$home/$format-valid.md"
+    cp "$prep" "$baseline"
+    reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+    [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format complete control refused: $reason"
+    for indent in ' ' '    ' $'\t' $'\n '; do
+      FM_TEST_CONTINUATION="${indent}proceed: inspected current main; work remains needed." awk '
+        /^- Still valid:/ { print "- Still valid:"; print ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+      ' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format Still valid continuation refused: $reason"
+    done
+    for field in 'Still valid' 'Siblings named' 'Validation route'; do
+      for value in '' '{UNFILLED}' 'n/a' 'n/a: no check' 'Example: searched sources' '<!-- searched none -->'; do
+        awk -v f="$field" -v v="$value" 'index($0, "- " f ":") == 1 { print "- " f ": " v; next } { print }' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format $field unfinished value admitted: $value ($reason)"
+      done
+      for value in duplicate comment fence receipt; do
+        awk -v f="$field" -v v="$value" '
+          index($0, "- " f ":") == 1 {
+            if (v == "duplicate") print
+            if (v == "comment") { print "<!--"; print; print "-->"; next }
+            if (v == "fence") { print "```markdown"; print; print "```"; next }
+            if (v == "receipt") { print "<!-- legacy review: pass -->"; next }
+          } { print }' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format $field $value laundered into readiness: $reason"
+      done
+      sed "/^- $field:/d" "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format missing $field accepted: $reason"
+    done
+    for value in 'refresh: changed design' 'covered: fixture already delivered' 'superseded: replacement owner' 'blocked: dependency open' 'proceed:' 'proceed: {EVIDENCE}' 'proceed: n/a'; do
+      for indent in ' ' $'\n '; do
+        FM_TEST_CONTINUATION="$indent$value" awk '
+          /^- Still valid:/ { print "- Still valid:" ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+        ' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" = 0 ] && [[ "$reason" == *'Still valid'* ]] || fail "$format non-ready Still valid admitted: $value"
+      done
+    done
+    cp "$baseline" "$prep"
+    for value in 'Searched delivery fixtures and task records, none found.' 'Not a defect; related admission work checked, remains open with its existing owner.'; do
+      awk -v v="$value" '/^- Siblings named:/ { print "- Siblings named: " v; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format explicit siblings control refused: $reason"
+    done
+  done
+  pass "both prep formats require current-work checks and only substantive proceed is dispatchable"
+}
+
+eval "$(declare -f fm_prep_delivery_mode | sed '1s/fm_prep_delivery_mode/review_original_delivery_mode/')"
+fm_prep_delivery_mode() { cp "$1" "$REVIEW_INPUT"; review_original_delivery_mode "$@"; }
+eval "$(declare -f run_spawn | sed '1s/run_spawn/review_original_run_spawn/')"
+run_spawn() { cp "$1/data/$3/prep.md" "$REVIEW_INPUT"; review_original_run_spawn "$@"; }
+set -x
+test_depth_commented_tier "$@"

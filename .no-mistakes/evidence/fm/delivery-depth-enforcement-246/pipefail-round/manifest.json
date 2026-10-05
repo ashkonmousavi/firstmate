@@ -1,0 +1,138 @@
+{
+  "timestamp_utc": "2026-10-05T10:41:37.836015+00:00",
+  "starting_head": "c0e4a75f94f248edeedb3892e3b381a995fcb8cc",
+  "provenance": "New review-tier-pipefail reproduction and focused verification on the starting head with the retained dirty diffs; no historical observation is claimed. The canonical 1 MiB subject passed before the final explicit failure guard; the buffer-only fault and restored 128 KiB checks exercised that guard.",
+  "review_handoff": "Next normal Review should consume this manifest and exact artifacts, check source hashes and the semantic inventory, and inspect the sibling draining consumers. Future Review consumption is owned by the outer executor and is not asserted here.",
+  "prior_manifest_sha256": "b184a0ed5c843c5de06f916cca918ed0d91f535f2910403fca1c518c0d4a7460",
+  "sources": {
+    "bin/fm-dod-lib.sh": "323f497ca40054644de9927768f9750a2e34b410265be53df4b74015deee9278",
+    "tests/fm-prep-install.test.sh": "046021b62987d0cf3aa403e735616081581f339457a58ca6656d5a66bb2183b8"
+  },
+  "artifacts": [
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/fault-library.sh",
+      "sha256": "8ad7fb7f0494ce5b570a9b4341047860e0545e3e2a40df061c8045803db75695",
+      "purpose": "fault-library"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/fault.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "purpose": "fault"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/fault.txt",
+      "sha256": "5a643967f44a0228048e3e4400ab3c6b6cfe565d36617b7c532bbc3c2a58efdc",
+      "purpose": "fault"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/final-focused-probe.sh",
+      "sha256": "520cc84fe1bda9194ad0e824155d25cf32c55894ff9abf985e0c1c0fede14c66",
+      "purpose": "final-focused-probe"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/final-install-subject.sh",
+      "sha256": "046021b62987d0cf3aa403e735616081581f339457a58ca6656d5a66bb2183b8",
+      "purpose": "final-install-subject"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/final-status.txt",
+      "sha256": "650b4e8c3bd69aa9b4f5fea6ec5064df274ba4bcb00e6d70a54d3ad2d41deb54",
+      "purpose": "final-status"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/final.diff",
+      "sha256": "99c6310c0c3dc1590a34fdec9564845f4164869a8274e3bc16d08a8de18089ba",
+      "purpose": "final"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/fixed.diff",
+      "sha256": "8dc714a203d9195ee8a588e73f11e526ac30b856496df3684517d69a5dafd5a9",
+      "purpose": "fixed"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/green.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "purpose": "green"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/green.txt",
+      "sha256": "ef6d586191f6b8e162c1c57f2e3f0e4d145eeba23befbf61e23c6aba35292c98",
+      "purpose": "green"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/inventory.txt",
+      "sha256": "a0638a18190ae4f9a9008dc5c6343219b6935582bbc680e66b155c227e168ab0",
+      "purpose": "inventory"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/provenance.json",
+      "sha256": "04dfb04b6c921395394c5943f9d2b252ed78896992a8d98589947e076ac479d1",
+      "purpose": "provenance"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/red.exit",
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "purpose": "red"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/red.txt",
+      "sha256": "5a643967f44a0228048e3e4400ab3c6b6cfe565d36617b7c532bbc3c2a58efdc",
+      "purpose": "red"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/regression-red-probe.sh",
+      "sha256": "ebc3519f2cd8b4256886114cd561fbda2557d66323d7ae5dacc1ff12c6c30efb",
+      "purpose": "regression-red-probe"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/restored-library.sha256",
+      "sha256": "def8843eb469e780095428a90a36d940c8bffc2b4179ad4f9d59e608d72fc148",
+      "purpose": "restored-library"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/restored.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "purpose": "restored"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/restored.txt",
+      "sha256": "0300c9ea984a4b0e2de3faabca7e58f863f647b9cf44b6e6c92430ce4a1459f6",
+      "purpose": "restored"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/starting-production.sh",
+      "sha256": "e007659edc0a81417ea760b14746c4a656d7ceb03feb129fb7fe112a1dfab862",
+      "purpose": "starting-production"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/surgical-red.exit",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "purpose": "surgical-red"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/surgical-red.txt",
+      "sha256": "5ab933ab9c11985a03c9081063ca6f54a4ffd9b51d22f6f7b817cb2cd097f30f",
+      "purpose": "surgical-red"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/surgical-reproduction.sh",
+      "sha256": "5b397a2c1d09dd338181c655f0f887d8908fc4dfda480b37c5e6fe336eac4a1d",
+      "purpose": "surgical-reproduction"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/tested-install-subject.sh",
+      "sha256": "abf2c4748a577251270f6f03d84b1d8a50dcd7efc4e0e560c736a997b420b6ee",
+      "purpose": "tested-install-subject"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/tested-library.sh",
+      "sha256": "323f497ca40054644de9927768f9750a2e34b410265be53df4b74015deee9278",
+      "purpose": "tested-library"
+    },
+    {
+      "path": "/home/zcrew/.no-mistakes/evidence/01M45JNGXNRJ522PPBNYHJF1VA/pipefail-round/trace.txt",
+      "sha256": "8bf59bdf7059f197290be9d4b3e785d4be04331a258436bc9784e6fea2ad89cf",
+      "purpose": "trace"
+    }
+  ]
+}

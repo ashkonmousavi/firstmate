@@ -1,0 +1,22 @@
+[
+  {
+    "name": "immutable-full-direct-PR",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "immutable-full-no-mistakes",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "immutable-surgical-direct-PR",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "immutable-surgical-no-mistakes",
+    "result": "pass",
+    "live": true
+  }
+]

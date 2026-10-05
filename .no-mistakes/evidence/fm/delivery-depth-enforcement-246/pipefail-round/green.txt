@@ -1,0 +1,18 @@
+FM_TEST_BEGIN 2026-10-05T10:32:21Z tests/fm-prep-install.test.sh family=unclassified expected_gate_skip=none
+ok - large-full-appendix: pipefail preserves both depths, tier, completeness and installation
+ok - large-full-tier: pipefail preserves both depths, tier, completeness and installation
+ok - large-surgical-appendix: pipefail preserves both depths, tier, completeness and installation
+ok - large-surgical-tier: pipefail preserves both depths, tier, completeness and installation
+ok - nav-prep: complete compact bytes install unchanged; uncertainty does not install
+ok - fm-prep-install.sh: bash -n succeeds
+ok - fm-prep-install.sh: copies a filled nav-prep into data/<id>/prep.md
+ok - fm-prep-install.sh: refuses a filled destination unless --force
+ok - fm-prep-install.sh: replaces an empty local --prep scaffold
+ok - fm-prep-install.sh: refuses a missing or unfilled source
+ok - fm-spawn: names a filled nav-prep on prep refusal and never auto-installs
+ok - nav-prep: byte-identical complete preparation admits without review; malformed common fields do not install
+# all fm-prep-install tests passed
+FM_TEST_END 2026-10-05T10:39:13Z tests/fm-prep-install.test.sh exit=0 duration_ms=411764 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=412033
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=411764 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-prep-install.test.sh duration_ms=411764
