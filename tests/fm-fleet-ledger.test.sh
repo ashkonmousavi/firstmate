@@ -142,6 +142,7 @@ EOF
 test_flag_on_records_a_pr_registration() {
   local pr_url=https://github.com/acme/sample/pull/9 rows out
   make_case on-pr-ready on
+  fm_test_prep_depth "$HOME_DIR/data/$TASK/prep.md" direct-PR || fail "direct-PR prep fixture"
   # An unreadable forge answer: no draft refusal and no recorded head.
   printf '#!/usr/bin/env bash\nexit 1\n' > "$FAKEBIN/gh"
   chmod +x "$FAKEBIN/gh"

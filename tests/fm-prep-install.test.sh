@@ -19,7 +19,7 @@ write_registry() {  # <primary-home> <secondmate-home>
 place_filled_nav_prep() {  # <secondmate-home> <id>
   local sm=$1 id=$2
   mkdir -p "$sm/data/nav-preps" "$sm/data/$id"
-  fm_test_prep_record "$sm/data" "$id" || fail "could not scaffold filled nav-prep for $id"
+  fm_test_prep_record "$sm/data" "$id" no no no direct-PR || fail "could not scaffold filled nav-prep for $id"
   mv "$sm/data/$id/prep.md" "$sm/data/nav-preps/$id.md"
 }
 
@@ -208,7 +208,7 @@ EOF
     || fail "empty primary scaffold was replaced during spawn"
 
   mkdir -p "$home/data/filledok"
-  fm_test_prep_record "$home/data" filledok || fail "could not fill primary prep for success path"
+  fm_test_prep_record "$home/data" filledok no no no direct-PR || fail "could not fill primary prep for success path"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
     > "$home/data/filledok/brief.md"
   place_filled_nav_prep "$sm" filledok

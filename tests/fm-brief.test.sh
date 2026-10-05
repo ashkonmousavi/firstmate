@@ -29,6 +29,25 @@ mkdir -p "$BRIEF_HOME/data"
 # shellcheck source=bin/fm-backlog-transition-lib.sh
 . "$ROOT/bin/fm-backlog-transition-lib.sh"
 
+test_delivery_depth_scaffolds() {
+  local home="$TMP_ROOT/depth-scaffolds" format id prep out
+  for format in full surgical; do
+    id="depth-$format"
+    if [ "$format" = surgical ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" --prep --surgical >/dev/null || fail "surgical prep scaffold"
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" --prep >/dev/null || fail "full prep scaffold"
+    fi
+    prep="$home/data/$id/prep.md"
+    [ "$(grep -c '^- Delivery depth:' "$prep")" -eq 1 ] || fail "$format must scaffold one depth answer"
+    assert_grep '- Delivery depth: {DELIVERY_DEPTH}' "$prep" "$format must leave depth unanswered"
+    assert_grep 'checks-only (direct-PR)' "$prep" "$format guide missing checks-only"
+    assert_grep 'checks + AI review (no-mistakes)' "$prep" "$format guide missing full review"
+    out=$(fm_prep_unfilled_reason "$prep") || fail "unanswered scaffold accepted"
+  done
+  pass "fm-brief: full and surgical scaffolds ask for one authored Delivery depth"
+}
+
 # The script itself must always parse under the ambient bash. That is Bash 5 in
 # CI and locally, where the issue #958/#1069 parser bug does not fire, so this
 # is a weak guard on its own; test_no_heredoc_in_command_substitution and the
@@ -1212,8 +1231,8 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
   assert_grep 'n/a: <one-line reason>' "$prep" \
     "prep record does not offer the n/a answer that keeps a small change small"
-  grep -c '^<!-- ' "$prep" | grep -qx 25 \
-    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, each numbered section, and the common checks/table"
+  grep -c '^<!-- ' "$prep" | grep -qx 26 \
+    || fail "prep record does not carry a guide line for the tier header, its UI wiring and Delivery depth answers, each numbered section, and the common checks/table"
   assert_grep "task item this work completes in the project's own record" "$prep" \
     "prep record does not point at the project's own task record"
   assert_grep 'record and clear the pending integration' "$prep" \
@@ -1672,6 +1691,7 @@ test_pr_completion_requires_current_head_green_url() {
   pass "fm-brief: both PR paths finish only with current-head green non-draft forge URL"
 }
 
+test_delivery_depth_scaffolds
 test_surgical_prep_scaffold
 test_pr_completion_requires_current_head_green_url
 test_walk_evidence_reaches_workers

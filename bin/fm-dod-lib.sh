@@ -98,7 +98,10 @@
 # scaffold usage.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# Both preparation formats owe common author checks and explicit outcomes.
+# Both preparation formats owe an authored Delivery depth with same-line reason,
+# common author checks and explicit outcomes.
+# fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
+# fresh spawn compares it to direct-PR/no-mistakes before task allocation.
 # Review artifacts and old server-install declarations do not affect admission.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
 # data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
@@ -430,10 +433,12 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer all three. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
+  printf '<!-- Answer Q1, Q2 and UI wiring, plus Delivery depth below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
   printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
+  printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
+  printf '<!-- Delivery depth answers checks-only (direct-PR), <one-line reason> for surgical or low-harm changes; checks + AI review (no-mistakes), <one-line reason> for shared code, money, privacy, permissions, security or uncertainty. The author chooses; neither choice nor reason is prefilled. -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -685,6 +690,26 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
     }'
 }
 
+# Prints direct-PR or no-mistakes only for one complete active Tier declaration.
+# Examples are cleaned in context; continuations cannot supply the line's reason.
+fm_prep_delivery_mode() {  # <file>
+  local value reason mode
+  value=$(fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | fm_prep_body_text | awk '
+    /^- Delivery depth:/ { seen++; value=substr($0,19) }
+    END { if (seen == 1) print value }
+  ')
+  case "$value" in
+    'checks-only (direct-PR), '*) mode=direct-PR; reason=${value#'checks-only (direct-PR), '} ;;
+    'checks + AI review (no-mistakes), '*) mode=no-mistakes; reason=${value#'checks + AI review (no-mistakes), '} ;;
+    *) return 1 ;;
+  esac
+  case "$reason" in
+    *'checks-only (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
+  esac
+  fm_prep_answer_complete "$reason" no || return 1
+  printf '%s\n' "$mode"
+}
+
 fm_prep_common_reason() {  # <file>
   local file=$1 label placeholder conditional guide body value reason
   if ! fm_brief_heading_present "$file" '## Author checks'; then
@@ -876,6 +901,10 @@ fm_prep_unfilled_reason() {  # <file>
   if [ -z "$tier" ]; then
     printf 'its %s header does not answer both Q1 and Q2 yes or no in %s\n' \
       "$FM_PREP_TIER_HEADING" "$file"
+    return 0
+  fi
+  if ! fm_prep_delivery_mode "$file" >/dev/null; then
+    printf 'its %s requires one canonical Delivery depth choice and a substantive same-line reason in %s\n' "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
   if state=$(fm_prep_common_reason "$file"); then

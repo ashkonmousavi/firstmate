@@ -10,14 +10,14 @@
 # here, so a fixture follows the template instead of pinning a stale copy of its
 # sections.
 
-# fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>]
+# fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>] [<depth-mode>]
 # Writes an answered record for <id> under <data-dir>. The tier header answers
 # default to three noes with the tier-1 sections; pass yes to
 # any of them to exercise a higher tier, where every section is answered.
 # Idempotent: an existing record is left alone so a test can write its own.
 # Returns non-zero if the scaffold fails.
 fm_test_prep_record() {
-  local data=$1 id=$2 q1=${3:-no} q2=${4:-no} ui=${5:-no} root prep
+  local data=$1 id=$2 q1=${3:-no} q2=${4:-no} ui=${5:-no} depth_mode=${6:-no-mistakes} root prep
   root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
   prep="$data/$id/prep.md"
   if [ ! -e "$prep" ]; then
@@ -29,7 +29,7 @@ fm_test_prep_record() {
         -e 's/^{INTENT_AND_BOXES}$/Exercise the delivery contract in an isolated fixture./' \
         -e 's/^{[A-Z0-9_]*}$/n\/a: spawn fixture./' "$prep" > "$prep.filled" \
       && mv "$prep.filled" "$prep" || return 1
-    fm_test_fill_prep_common "$prep" || return 1
+    fm_test_fill_prep_common "$prep" "$depth_mode" || return 1
     if [ "$ui" = yes ]; then
       sed 's/^- Screen and region:.*$/- Screen and region: Settings, configuration region, fixture design map./' "$prep" > "$prep.ui" \
         && mv "$prep.ui" "$prep" || return 1
@@ -39,10 +39,17 @@ fm_test_prep_record() {
 }
 
 # Fill the real scaffold's common fields with concrete fixture checks.
-fm_test_fill_prep_common() {  # <prep-file>
-  local prep=$1
-  awk '
-    { gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+fm_test_fill_prep_common() {  # <prep-file> [<depth-mode>]
+  local prep=$1 depth
+  # Shared spawn fixtures exercise no-mistakes unless a caller authors another choice.
+  case "${2:-no-mistakes}" in
+    direct-PR) depth='checks-only (direct-PR)' ;;
+    no-mistakes) depth='checks + AI review (no-mistakes)' ;;
+    *) return 1 ;;
+  esac
+  awk -v depth="$depth" '
+    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+      gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
       gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
       gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
       gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
@@ -58,4 +65,19 @@ fm_test_fill_prep_common() {  # <prep-file>
       gsub(/\{EXPECTED_VALUE\}/, "Brief present; no real endpoint created")
       print
     }' "$prep" > "$prep.common" && mv "$prep.common" "$prep"
+}
+
+# Set an explicit fixture decision, independent of tier and surgical format.
+fm_test_prep_depth() {  # <prep-file> <direct-PR|no-mistakes>
+  local prep=$1 depth
+  case "$2" in
+    direct-PR) depth='checks-only (direct-PR)' ;;
+    no-mistakes) depth='checks + AI review (no-mistakes)' ;;
+    *) return 1 ;;
+  esac
+  awk -v depth="$depth" '
+    /^- Delivery depth:/ { next }
+    { print }
+    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+  ' "$prep" > "$prep.depth" && mv "$prep.depth" "$prep"
 }

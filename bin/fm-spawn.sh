@@ -39,6 +39,9 @@
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
 #   installs it. Common author checks and the outcome table must also pass
 #   bin/fm-dod-lib.sh's completeness contract; review receipts do not gate ships.
+#   Fresh ships also require a canonical Delivery depth and same-line reason
+#   before task allocation; direct-PR/no-mistakes must agree with that authored
+#   choice. Local-only validates depth without comparing its branch lifecycle.
 #   Scouts and secondmates are not gated, and --relaunch preserves recovery for
 #   tasks dispatched before the current preparation contract.
 #   When the record exists, the launch brief points the worker at it as the
@@ -1666,6 +1669,26 @@ if [ -e "$STATE" ] || [ -L "$STATE" ]; then
 elif [ "$RELAUNCH" -eq 1 ]; then
   echo "error: spawn refused: state directory does not exist at $STATE" >&2
   exit 1
+fi
+# Validate the authored decision before fresh-task locks or project allocation.
+# Recovery uses the recorded mode; scout/secondmate have no ship depth decision.
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = ship ]; then
+  PREP_FILE=$(fm_prep_path "$DATA" "$ID")
+  if ! PREP_DEPTH_MODE=$(fm_prep_delivery_mode "$PREP_FILE"); then
+    echo "error: task $ID cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in $PREP_FILE; scaffold with bin/fm-brief.sh $ID --prep and answer Delivery depth" >&2
+    if NAV_PREP=$(fm_nav_prep_filled_source "$DATA/secondmates.md" "$ID"); then
+      echo "hint: a filled secondmate nav-prep is at $NAV_PREP; install it with bin/fm-prep-install.sh $ID" >&2
+    fi
+    exit 1
+  fi
+  if [ "$MODE" != local-only ] && [ "$MODE" != "$PREP_DEPTH_MODE" ]; then
+    case "$PREP_DEPTH_MODE" in
+      direct-PR) PREP_DEPTH='checks-only (direct-PR)' ;;
+      no-mistakes) PREP_DEPTH='checks + AI review (no-mistakes)' ;;
+    esac
+    echo "error: task $ID selected --mode $MODE but declared Delivery depth: $PREP_DEPTH; reconcile the flag and preparation before spawn" >&2
+    exit 1
+  fi
 fi
 # Role partition: spawning NEW work is MAIN-owned while attended. A relaunch of
 # an existing task is legitimate branch recovery (fm-control drives it through
