@@ -14,6 +14,8 @@
 # charters still use a single `{TASK}` charter fill. Firstmate may adjust other
 # sections when the task genuinely deviates (e.g. working an existing external
 # PR instead of shipping a new one).
+# Ship/scout briefs also carry a separate `# Walk evidence` section; its inline
+# guidance owns the conditional journey-evidence contract.
 # Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--branch-prefix <prefix>] [--forge <none|gerrit> [--shape squash]] [--herdr-lab]
 #        fm-brief.sh <task-id> <repo-name> --scout [--prep-review <task-id> ...] [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
@@ -53,8 +55,10 @@
 #   bin/fm-dod-lib.sh owns their common schema, conditional answers and table.
 #   The author writes the detailed outcome list; builders and post-implementation
 #   verifiers follow that list with applicable sections 2 and 11.
-#   Before handoff, the author runs the completeness gate on final bytes and
-#   pastes the actual command, empty reason and raw exit 1 into the handoff.
+#   The author checks Still valid before marking ready; the dispatcher refreshes
+#   that same check immediately before dispatch, under bin/fm-dod-lib.sh's schema.
+#   Before either handoff, run the completeness gate on final bytes and paste
+#   the actual command, empty reason and raw exit 1 into the handoff.
 #   Section 4 Blast radius is TOOL OUTPUT, not prose: paste the GitNexus impact
 #   result for every module touched and the Serena find_referencing_symbols
 #   counts for every symbol whose signature changes, reaching for claude-context
@@ -657,6 +661,13 @@ IFS= read -r -d '' TASK_SECTION <<'EOF' || true
 
 ## Firstmate spec
 {FIRSTMATE_SPEC}
+
+# Walk evidence
+When this task commissions an end-to-end user journey, follow the project walk procedure from the real user entry point through the intended result and its return or reopen step where applicable.
+Before walking, verify the assigned actor, candidate and data, plus working Chrome DevTools or equivalent console, network and application diagnostics within the access this brief authorizes.
+Record each step as the human expectation, actual observed result, pass/fail/not exercised, and evidence tied to that candidate; retain the first failing boundary and enough permitted diagnostics for its owner to investigate.
+Source inspection and isolated checks support diagnosis but do not substitute for the walked result.
+Unavailable setup or diagnostic access is a named gap with an owner and next action, never a successful walk or permission to sign in or change production.
 EOF
 TASK_SECTION=${TASK_SECTION%$'\n'}
 

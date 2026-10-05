@@ -93,8 +93,9 @@
 # breaks parsing of the whole file on Bash 3.2 (tests/fm-brief.test.sh).
 # This file also renders and validates the task preparation record that
 # bin/fm-brief.sh --prep scaffolds and bin/fm-spawn.sh gates a ship launch on.
-# The canonical section list lives here once so the writer and the validator
-# cannot drift; bin/fm-brief.sh's header owns the prose contract for the record.
+# The canonical sections, common checks and outcome guidance live here once
+# so rendering and validation cannot drift; bin/fm-brief.sh's header owns
+# scaffold usage.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
 # Both preparation formats owe common author checks and explicit outcomes.
@@ -299,9 +300,9 @@ fm_brief_task_content_valid() {  # <file>
 }
 
 # Task preparation record (bin/fm-brief.sh --prep). This file renders the
-# template and validates a filled one; bin/fm-brief.sh's header owns the prose
-# contract for what belongs in each section, and bin/fm-spawn.sh refuses a ship
-# launch whose record is missing or unanswered.
+# template and validates a filled one under the schema and guidance below.
+# bin/fm-brief.sh's header owns scaffold usage, and bin/fm-spawn.sh refuses a
+# ship launch whose record is missing or unanswered.
 #
 # The record is TIERED, never flat, so preparation costs what the change is
 # worth. Its `## Tier` header answers Q1, Q2 and UI wiring. Without a
@@ -335,7 +336,7 @@ FM_PREP_SECTIONS='## 1. Intent and boxes|INTENT_AND_BOXES|1|The captain'"'"'s wo
 ## 7. Records|RECORDS|2|Project task items to complete, verification records, and other records its instructions require; answer the surfaces checklist (agent instructions/skills/tool docs, journeys/user docs, reference/help/changelog, plans, architecture, UI states and tests), each updated or n/a with reason; if a component lands ahead of its consumer, record and clear the pending integration as the project'"'"'s instructions specify.
 ## 8. Out of scope and follow-ups|OUT_OF_SCOPE|1|What this task deliberately leaves alone and the follow-up work it creates; paste the project'"'"'s git grep -n '"'"'FINALIZE-AFTER(<this task id>)'"'"' -- . output and say which markers this task resolves; write any pre-staged value inline as FINALIZE-AFTER(<trigger task>): <what>, and resolve every marker whose trigger has landed.|finalize-after
 ## 9. Risks, dependencies, merge order|RISKS|2|Risks, dependencies, sibling lanes touching the same files, and the order these must land in.
-## 10. Demo receipt plan|DEMO_RECEIPT|2|Name the evidence class each claim rests on (fixture/synthetic, admitted-data mirror or live deployment), never promoting one into another, and what the worker walks and records before validation, including the project'"'"'s required visual comparison and states as its instructions name them.
+## 10. Demo receipt plan|DEMO_RECEIPT|2|Name the existing report or delivery-evidence destination for actual results against each outcome ID, the journey execution owner and authorized environment, and the evidence class (fixture/synthetic, admitted-data mirror or live deployment), never promoting one into another; include the project'"'"'s required visual comparison and states as its instructions name them.
 ## 11. Definition of done|DEFINITION_OF_DONE|1|The done criteria, checked line by line against the intent above, with no marker whose trigger has landed.
 ## 12. Size|SIZE|2|Split by one visible, independently testable behaviour, about 300 changed real lines, excluding tests, docs and generated outputs. Keep tiny fixes bundled; design shared structure first under one integration owner. This is a planning guide, not an automatic threshold.'
 # fm_prep_path <data-dir> <task-id>
@@ -394,11 +395,14 @@ FM_PREP_FULL_FALLBACK='full prep: delete the Preparation format line and answer 
 # Common schema: label|placeholder|conditional n/a allowed|author guidance.
 # Both preparation formats owe these fields and the substantive outcome table.
 FM_PREP_AUTHOR_CHECKS='Captain rulings|CAPTAIN_RULINGS|yes|Quote relevant rulings and their source, or give reasoned n/a for no additional ruling; state task intent here when surgical, otherwise in section 1.
+Still valid|STILL_VALID|no|Before marking ready and again before dispatch, compare the item as filed with current main, landed and open changes, redesigns, root-cause reports, decisions and newer related items. Record the check time, inspected base and sources, changed assumptions, and remaining work. Begin with proceed: only when the work is still needed and its dependencies permit dispatch; otherwise record refresh:, covered:, superseded: or blocked: and return it to its existing owner. Refresh only the affected preparation.
+Siblings named|SIBLINGS_NAMED|no|For a defect, name the reproduced shared cause, confirmed and suspected affected uses, existing repair owner and root-cause evidence. List related bug/report/backlog IDs with closes or remains open, each linked to an outcome row and its required evidence class; closure waits for that evidence. Record none found with the searched sources when appropriate. For other work, state that it is not a defect and name related work checked. Related symptoms alone never authorize a broader repair.
 Screen and region|SCREEN_AND_REGION|yes|For UI work name the exact screen, region and project map/design reference; otherwise give reasoned n/a.
 Red-first proof|RED_FIRST_PROOF|yes|For each planned behavioral test name the public seam, failing setup or mutation, exact expected failure and RED evidence to record before passing code; never invent an observed result; for each new or changed high-risk test, name the user-visible outcome, the independent source of its expected answer, the real production boundary it exercises, and one realistic fault witness that makes it fail; record baseline pass -> injected fault fails -> restored pass with the command; if no executable test applies, give the reason and alternative check.
 Fixture arithmetic|FIXTURE_ARITHMETIC|yes|For each calculated assertion give fixture inputs, recomputation command and derived expected value; otherwise give reasoned n/a.
 Data path reachability|DATA_PATH_REACHABILITY|yes|Trace source to consumer with paths and command/output or direct tracing evidence of reachability; otherwise give reasoned n/a.
 Scope only as asked|SCOPE_ONLY_AS_ASKED|no|Tie each proposed behavior to the quoted task intent and state the exclusions.
+Validation route|VALIDATION_ROUTE|no|Name the exact focused and final validation commands, pinned runtime and required setup, changed-file/test mapping, known base failures or unmeasured baseline, and each execution owner. Record measured or prior timings against the applicable step budget, or unknown with the first bounded measurement. Name dependency/base integration and remaining acceptance owners; for walks include actor, candidate, data and verified diagnostic access. A missing resource blocks its dependent step, never becomes a pass; use existing admission and recovery owners rather than adding a local policy.
 Author gate check|AUTHOR_GATE_CHECK|no|Name the exact bash command sourcing bin/fm-dod-lib.sh and calling fm_prep_unfilled_reason on this record; run it on final bytes before handoff and paste the actual command, empty output and raw exit 1 into the handoff; reason with raw exit 0 refuses; execution evidence belongs in the handoff, not a recursive pass receipt here.'
 FM_PREP_OUTCOMES_HEADING='## Expected outcomes and how to check each'
 FM_PREP_OUTCOME_COLUMNS='Outcome|Exact observable result|Where and how to check|Expected value'
@@ -412,7 +416,7 @@ fm_prep_common_template() {
 $FM_PREP_AUTHOR_CHECKS
 EOF
   printf '\n%s\n' "$FM_PREP_OUTCOMES_HEADING"
-  printf '<!-- The author writes at least one substantive row; builders and post-implementation verifiers check every row against the same explicit result, concrete command/public seam or screen and region, and expected value; every cell is required; n/a and examples alone are not answers. -->\n'
+  printf '<!-- Write at least one substantive row with a stable outcome ID. For a user journey, state what the person expects to accomplish in their words; name the starting actor/state, user actions through the final visible or reopened result, and the independent expected answer or source. Put the environment, evidence class and execution owner in Where and how to check. Internal tooling may use its operator-facing command and result. Builders and verifiers record actual observations and evidence against these IDs in the existing task report or delivery evidence, never as invented results in this plan. Every cell is required; n/a and examples alone are not answers. -->\n'
   printf '|'
   while IFS= read -r column; do printf ' %s |' "$column"; done < <(printf '%s\n' "$FM_PREP_OUTCOME_COLUMNS" | tr '|' '\n')
   printf '\n| --- | --- | --- | --- |\n| {OUTCOME} | {OBSERVABLE_RESULT} | {WHERE_AND_HOW} | {EXPECTED_VALUE} |\n'
@@ -705,6 +709,16 @@ fm_prep_common_reason() {  # <file>
     if ! fm_prep_answer_complete "$value" "$conditional" || [[ "$value" == *'{INVALID_FIELD}'* ]]; then
       printf 'Author checks requires one complete %s answer\n' "$label"; return 0
     fi
+    if [ "$label" = 'Still valid' ]; then
+      value=${value#"${value%%[![:space:]]*}"}
+      case "$value" in
+        proceed:*)
+          if ! fm_prep_answer_complete "${value#proceed:}" no; then
+            printf 'Still valid requires proceed: with current evidence\n'; return 0
+          fi ;;
+        *) printf 'Still valid must be proceed: before ready or dispatch\n'; return 0 ;;
+      esac
+    fi
   done <<EOF
 $FM_PREP_AUTHOR_CHECKS
 EOF
@@ -933,7 +947,11 @@ fm_brief_prep_overlay() {  # <prep-path>
 Read it in full before you plan or write anything: it is the specification beneath this brief, and it supersedes your own reconstruction of what the change should do.
 Its `## Tier` header decides how much the record says; a section it does not carry was ruled out there, not forgotten.
 Builders and post-implementation verifiers use `## Expected outcomes and how to check each` as the same explicit acceptance list, alongside the applicable `## 2. Behaviour spec`, `## 11. Definition of done` and `## Captain's intent` above.
-Check each outcome row with its named command/public seam or screen and region and expected value, and report actual evidence and unproven claims without promoting fixture proof into real launch or installed proof.
+Before building, compare the recorded Still valid evidence with the current task and base; report any invalidating change to firstmate before implementing obsolete scope.
+Check each outcome row with its named command/public seam or journey and expected value.
+In the existing task report or delivery evidence, record outcome ID, actual observation, pass/fail/not exercised, candidate/environment, evidence pointer, and the owner and next action for anything unproven; do not overwrite the expected result to match the implementation.
+Only list a sibling as closed when its linked outcome has passed at the required evidence class.
+Keep fixture, real launch and installed proof separate.
 A section answered `n/a: <reason>` is a decision already taken, not an invitation to fill the gap yourself.
 Write the tests named in Tests before their passing code, one slice at a time at the named public seams.
 If the record is wrong or incomplete for what you find in the code, say so through the status file rather than silently building something else.

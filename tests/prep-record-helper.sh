@@ -43,6 +43,9 @@ fm_test_fill_prep_common() {  # <prep-file>
   local prep=$1
   awk '
     { gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
+      gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
+      gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
+      gsub(/\{VALIDATION_ROUTE\}/, "bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; Bash fixture runtime, isolated home, baseline timing unknown; worker measures this bounded run, CI owns final regression.")
       gsub(/\{SCREEN_AND_REGION\}/, "n/a: no product screen is changed.")
       gsub(/\{RED_FIRST_PROOF\}/, "bash tests/fm-task-delivery.test.sh; remove the record; expect a preparation refusal; record observed RED before implementation.")
       gsub(/\{FIXTURE_ARITHMETIC\}/, "n/a: no calculated assertions.")
