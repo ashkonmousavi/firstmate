@@ -1006,11 +1006,34 @@ When the captain's intent refers to a report, decision, or PR ("do items 1, 2, 3
 This replaces the no-mistakes skill's advice to enrich \`--intent\` with decisions and tradeoffs; that advice does not apply to Firstmate-dispatched work.
 Do not hand-edit, commit, or fix findings yourself while a run is active - the pipeline applies every fix.
 
+Author checkpoints and preservation apply only before a new run or after verified supported terminal handoff returns branch custody.
+Commit one independently verified cause/finding at a time, fixing and testing its whole cause class; retain its ID, original failing command/output, occurrence inventory, verification command/result and exact commit/parent/tree identities.
+Before a true rerun, inspect exact native status and full relevant logs, account for every available authored and pipeline-preserved head, and follow offered public recovery/archive guidance without dropping work or amending/resetting verified checkpoints away.
+In your own quiescent author checkout, preserve available exact staged, working and untracked material separately through public Git/file archival seams with identities/hashes before changing or rerunning it; if safe capture is unavailable, retain the refusal and route it to firstmate.
+Preserved partial work is recovery evidence, never a validated head or review/publication authority; do not mutate a pipeline checkout or invent rescue-ref/database contracts.
+Retain original killed-command/failure proof and identify the changed cause, smaller independently verified unit or actual prerequisite correction before retrying an editing workload.
+Active drive/read reattachment below remains unchanged and is not an editing-workload rerun; retain any operational-owner 45m warning without adding a timer or monitor.
+Internal stopped-agent byte rescue, per-finding internal commits and safe continuation remain outstanding upstream to Kun until an accepted official release or separately verified supported external seam supplies them; prompts, traps, timeout caps, retention, hooks and after-step gates do not prove internal no-loss.
+
 $drive_block
 A killed or timed-out call is never evidence the daemon died: the daemon accepts your response immediately and runs the round in the background, so the call was only ever waiting for a read while the run kept working.
 Reattach and keep going rather than reporting the pipeline blocked; rule 7 owns the checks that decide when a pipeline block is real.
 
 Review triage and class-fix handoff:
+- For a GitHub PR CI conflict, including an old repair waiting after head/base movement, first retain fresh exact stock run/repository/branch/submitted/current/pushed identities, full HTTPS PR URL, live PR head, base repository/ref/current commit, mergeability and every relevant check's name/provider/status/conclusion/head.
+  Read live forge identity and exact-head checks through current \`gh-axi\` help; retain observation time, command and raw receipt, comparing previous observations and repair head/base.
+  Moved head/base or pending/unknown mergeability invalidates old repair credit and old green checks; retain the original finding/failure and report inconsistent stock state upstream rather than restarting to hide stale suppression.
+  This GitHub conflict procedure is inapplicable to Gerrit without a GitHub PR; preserve its existing selected path.
+  Where accepted project policy forbids rebase, never select a CI merge-conflict finding for \`axi respond --action fix\`: initial \`rebase.strategy: merge\` does not govern stock CI repair.
+  Before a dependent run, require the independent configuration owner's receipt proving trusted native \`rebase.strategy: merge\` and effective \`auto_fix.ci: 0\` for the actual submitted configuration including overrides; declining a response cannot prevent earlier daemon auto-fix, and you must not edit config incidentally.
+  Without that proof, refuse a new dependent run; for an already active run, preserve evidence, leave writers alone and route the configuration/ownership blocker to firstmate.
+  Do not approve/skip a real conflict or waive red checks to obtain custody; authorized non-conflict findings retain the ordinary response/inventory contract, with mixed-gate selection semantics proven before selecting them.
+  Active and parked runs remain pipeline-owned: do not author-edit/commit, start another run, force/cancel or invoke recovery to seize the branch; absent supported naturally terminal handoff, leave the conflict parked and report the precise blocker.
+  For a naturally terminal run, inspect fresh structured \`branch_sync\` and follow only its offered public \`axi sync\` action when loss-preserving; require positive returned/user-owned custody, re-read status and exact heads, and verify a clean own checkout before author work, because rebind success alone does not return custody.
+  Destructive \`--keep-local\`, missing heads, changed targets or divergent/unanchored preserved heads are refusals to reconcile with their owner, never discard permission.
+  Only with returned custody and all authored/pipeline commits preserved, recheck base/head immediately before a normal authored merge of the freshly verified base in your own authorized clean checkout; preserve both intended sides and generated-file rules, verify the cause and commit it.
+  Movement requires fresh evidence; submit the resulting head through fresh selected-path no-mistakes validation, never direct publication or an older review/check verdict.
+  No sibling mutation, SQLite/private-mirror edit, reset, manufactured anchor/review permission, force-push, daemon restart or branch replacement is permitted.
 - The stop set is exactly a finding whose severity column is exactly error; a security, money or data-loss risk; or a product choice the accepted intent and record never settled.
   Severity is mechanical; judging the risks and unsettled choices is your responsibility. Escalate to firstmate using rule 6's stop-set format and stop until its exact decision arrives.
   Firstmate applies \`ask-user-authority\` and obtains any required captain decision.

@@ -26,7 +26,10 @@ Send the same worker one exact decision naming the decision key, step, action, a
 Require the matching `resolved` event, forbid `--yes`, and require the worker to process every synchronous return until completion or a genuinely new escalation.
 Resume fleet supervision immediately after the decision lands.
 
-`bin/fm-dod-lib.sh`'s `fm_nm_driving_block` owns the common triage, class-inventory payload and repeated-finding handoff for ordinary and promoted workers on both forges.
+`bin/fm-dod-lib.sh`'s `fm_nm_driving_block` owns common triage, class-inventory/repeated-finding handoff, scoped CI-conflict routing and author checkpoint/preservation discipline for ordinary and promoted workers on both forges.
+Require its fresh exact run/repository/PR/head/base/check receipts and independent effective-config owner proof; keep run/respond ownership with the worker and never infer runtime protection from emitted prose.
+Recognize terminal author repair only with positive structured returned/user-owned custody, offered loss-preserving public recovery evidence where required, freshly verified exact heads and a clean own checkout; rebind success, terminal status or refusal alone is insufficient.
+Conflict routing grants no abort exception to the explicit supersession sequence above; internal stock editing-agent no-loss remains an upstream obligation, not instruction or fixture proof.
 For each authorized fix, require the worker's actual respond call with its inventory guidance in the active step input and retained run evidence; launch prose alone does not prove the next Review checked the inventory.
 Keep a mixed gate parked until its stop-set decision arrives; require installed help and a controlled receipt for singular-action selection semantics rather than guessing.
 A repeated finding in the same run returns with a `working:` event and the exact response command when outside the stop set, not a new decision solely because it repeated.
