@@ -1102,6 +1102,26 @@ EOF
   pass "fm-spawn: every legacy worker receives scoped role instructions without changing project or primary instructions"
 }
 
+# Placeholder tokens are literal data, never extended regular expressions.
+fill_current_work_fixture() {  # <prep-file> [<q1>]
+  local prep=$1 q1=${2:-no} content check line
+  content=$(cat "$prep")
+  content=${content//"{Q1}"/$q1}
+  content=${content//"{Q2}"/no}
+  content=${content//"{UI_WIRING}"/no, confined CLI output.}
+  content=${content//"{Q1_REASON}"/Inspected confined output.}
+  content=${content//"{Q2_REASON}"/Inspected confined output.}
+  for check in C1 C2 C3 C4 C5; do
+    content=${content//"{$check}"/yes}
+    content=${content//"{${check}_EVIDENCE}"/bin\/owned.sh:12; rg callers returned only owned file; stored data, security, permissions, money, install and server paths untouched; cause reproduced by bash tests\/owned.test.sh; fix output; red-first regression covers behaviour.}
+  done
+  content=${content//"{INTENT_AND_BOXES}"/Exercise fixture admission.}
+  while IFS= read -r line; do
+    if [[ "$line" == \{*\} ]]; then line='n/a: isolated fixture.'; fi
+    printf '%s\n' "$line"
+  done <<<"$content" > "$prep"
+}
+
 test_surgical_certainty_and_admission() {
   local rec task_home proj fakebin id prep baseline field change reason out
   rec=$(make_home surgical-admission)
@@ -1113,10 +1133,7 @@ EOF
   rm -f "$task_home/data/$id/prep.md" "$task_home/data/$id/prep-review"
   FM_HOME="$task_home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
   prep="$task_home/data/$id/prep.md"
-  sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
-    -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
-    -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/bin\/owned.sh:12; rg callers returned only owned file; stored data, security, permissions, money, install and server paths untouched; cause reproduced by bash tests\/owned.test.sh; fix output; red-first regression covers behaviour./' \
-    "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+  fill_current_work_fixture "$prep" yes
   fm_test_fill_prep_common "$prep" || fail "surgical common fixture"
   baseline="$task_home/certain.md"
   cp "$prep" "$baseline"
@@ -2299,6 +2316,9 @@ EOF
 
 ## Author checks
 - Captain rulings: n/a: no additional ruling; section 1 states the task intent.
+- Still valid: proceed: inspected fixture base and current task records; admission still needed, no dependencies.
+- Siblings named: Not a defect; searched delivery fixtures and task records, none found.
+- Validation route: bash bin/fm-test-run.sh tests/fm-task-delivery.test.sh; isolated Bash fixture, timing unknown until worker measures; CI owns final checks.
 - Screen and region: n/a: this is a shell contract with no product screen.
 - Red-first proof: bash tests/fm-task-delivery.test.sh; delete Scope only as asked; expect a named refusal; record observed RED before passing code.
 - Fixture arithmetic: n/a: no calculated assertions.
@@ -2315,7 +2335,7 @@ EOF
   cp "$prep" "$baseline"
   reason=$(fm_prep_unfilled_reason "$prep"); status=$?
   [ "$status" = 1 ] && [ -z "$reason" ] || fail "valid common control refused: $status $reason"
-  for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+  for field in 'Captain rulings' 'Still valid' 'Siblings named' 'Validation route' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
     for variant in missing blank placeholder comment example duplicate fenced fence-type fence-length fence-info; do
       awk -v f="$field" -v v="$variant" '
         index($0, "- " f ":") == 1 {
@@ -2385,7 +2405,7 @@ EOF
       bad=1
     fi
   done
-  for field in 'Scope only as asked' 'Author gate check'; do
+  for field in 'Still valid' 'Siblings named' 'Validation route' 'Scope only as asked' 'Author gate check'; do
     sed "s/^- $field:.*$/- $field: n\/a: no requirement/" "$baseline" > "$prep"
     reason=$(fm_prep_unfilled_reason "$prep"); status=$?
     if [ "$status" != 0 ] || [[ "$reason" != *"$field"* ]]; then bad=1; printf 'not ok - illegal n/a %s\n' "$field" >&2; fi
@@ -2652,7 +2672,7 @@ test_prep_inline_block_boundaries() {
 }
 
 test_prep_pipeline_handoff() {
-  local rec pipeline_home pipeline_proj pipeline_fakebin prep original command section accepted emitted result fault file out field
+  local rec pipeline_home pipeline_proj pipeline_fakebin prep original command section accepted emitted result fault file out field content
   local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
   local captain_heading='## Captain intent authorized for --intent'
   command=$(cat <<'EOF'
@@ -2692,9 +2712,19 @@ EOF
     bash -c "$fault" >/dev/null && fail "pipeline check passed when input lost its marker"
   done
   write_brief "$pipeline_home" pipeline no-mistakes
+  rm "$pipeline_home/data/pipeline/brief.md"
+  FM_HOME="$pipeline_home" "$BRIEF" pipeline firstmate --mode no-mistakes >/dev/null || fail "pipeline brief scaffold"
+  content=$(cat "$pipeline_home/data/pipeline/brief.md")
+  content=${content//'{TASK}'/Exercise the delivery contract.}
+  content=${content//'{FIRSTMATE_SPEC}'/Verify the accepted outcome rows.}
+  printf '%s\n' "$content" > "$pipeline_home/data/pipeline/brief.md"
   out=$(run_spawn "$pipeline_home" "$pipeline_fakebin" pipeline "$pipeline_proj" claude --mode no-mistakes --yolo off)
   file="$pipeline_home/data/pipeline/launch-brief.md"
   assert_present "$file" "pipeline prep did not reach spawn rendering: $out"
+  grep -qxF '# Walk evidence' "$file" || fail "launch artifact omitted walk contract"
+  for content in 'assigned actor, candidate and data' 'human expectation, actual observed result' 'console, network and application diagnostics' 'first failing boundary'; do
+    assert_contains "$(cat "$file")" "$content" "launch artifact lost walk obligation: $content"
+  done
   emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$file")
   [ "$emitted" = "$accepted" ] || fail "spawn changed pipeline acceptance bytes"
   printf 'window=fm-pipeline\nkind=scout\nworktree=%s\n' "$pipeline_proj" > "$pipeline_home/state/pipeline.meta"
@@ -2927,7 +2957,7 @@ test_promotion_refreshes_relaunch_specification() {
   local rec home proj fakebin mode state id prep out launch emitted count expected original captain
   local accepted_heading="## Accepted specification for --intent (preparation record, not the captain's words)"
   local captain_heading='## Captain intent authorized for --intent'
-  local table='| Count | Exact count observed | Fixture count check | 42 |'
+  local table='| O1: count | Exact count observed | Fixture count check | 42 |'$'\n''| W1: reopen my saved work | I can find and reopen the right source | Assigned fixture actor saves work, asks in fresh chat, opens source and returns; fixture owner retains diagnostics | Saved idea \| correct source |'
   for mode in no-mistakes direct-PR local-only; do
     rec=$(make_home "promotion-refresh-$mode")
     IFS='|' read -r home proj fakebin <<EOF
@@ -2940,6 +2970,7 @@ EOF
     printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
     out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
       "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1) || fail "promotion refused: $out"
+    printf '\n## Progress note (2026-10-05T00:00:00Z)\nW1 actual receipt: not exercised; owner=fixture walker, next=assigned setup.\n' >> "$home/data/$id/brief.md"
     original="$home/promoted-brief.md"
     cp "$home/data/$id/brief.md" "$original"
     cp "$prep" "$home/complete-prep.md"
@@ -2955,17 +2986,21 @@ case "$1" in
   *) exit 1 ;;
 esac
 EOF
-    for state in changed incomplete missing; do
+    for state in changed incomplete stale siblings route missing; do
       cp "$home/complete-prep.md" "$prep"
       case "$state" in
         changed) sed 's/| 42 |$/| 43 |/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
         incomplete) sed '/^- Scope only as asked:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        stale) sed 's/^- Still valid:.*$/- Still valid: covered: delivered fixture/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        siblings) sed '/^- Siblings named:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        route) sed '/^- Validation route:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
         missing) rm "$prep" ;;
       esac
       launch="$home/data/$id/launch-brief.md"
       rm -f "$launch"
       out=$(FM_REFRESH_ID="$id" run_spawn "$home" "$fakebin" "$id" --relaunch)
       assert_present "$launch" "$mode $state relaunch failed before launch rendering: $out"
+      assert_grep 'W1 actual receipt: not exercised' "$launch" "relaunch lost progress notes"
       assert_grep '# Current ship Firstmate spec' "$launch" "relaunch lost promotion instructions"
       assert_grep '# Current delivery mode contract' "$launch" "relaunch lost delivery contract"
       captain=$(fm_brief_task_heading_body "$launch" "## Captain's intent")
@@ -3007,7 +3042,7 @@ test_prep_common_scaffolds() {
       FM_HOME="$home" "$BRIEF" "$id" --prep >/dev/null || fail "full scaffold"
     fi
     prep="$home/data/$id/prep.md"
-    for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
+    for field in 'Captain rulings' 'Still valid' 'Siblings named' 'Validation route' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
       assert_grep "- $field:" "$prep" "$format scaffold missing $field"
     done
     assert_grep '| Outcome | Exact observable result | Where and how to check | Expected value |' "$prep" "$format outcome columns absent"
@@ -3019,6 +3054,59 @@ test_prep_common_scaffolds() {
   pass "both executable preparation scaffolds carry common author checks and outcomes"
 }
 
+test_prep_current_work_checks() {
+  local home="$TMP_ROOT/current-work-checks" format prep baseline field value reason status
+  mkdir -p "$home"
+  for format in full surgical; do
+    if [ "$format" = surgical ]; then
+      FM_HOME="$home" "$BRIEF" "current-$format" --prep --surgical >/dev/null || fail "surgical scaffold"
+    else
+      FM_HOME="$home" "$BRIEF" "current-$format" --prep >/dev/null || fail "full scaffold"
+    fi
+    prep="$home/data/current-$format/prep.md"
+    fill_current_work_fixture "$prep"
+    fm_test_fill_prep_common "$prep"
+    baseline="$home/$format-valid.md"
+    cp "$prep" "$baseline"
+    reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+    [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format complete control refused: $reason"
+    for field in 'Still valid' 'Siblings named' 'Validation route'; do
+      for value in '' '{UNFILLED}' 'n/a' 'n/a: no check' 'Example: searched sources' '<!-- searched none -->'; do
+        awk -v f="$field" -v v="$value" 'index($0, "- " f ":") == 1 { print "- " f ": " v; next } { print }' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format $field unfinished value admitted: $value ($reason)"
+      done
+      for value in duplicate comment fence receipt; do
+        awk -v f="$field" -v v="$value" '
+          index($0, "- " f ":") == 1 {
+            if (v == "duplicate") print
+            if (v == "comment") { print "<!--"; print; print "-->"; next }
+            if (v == "fence") { print "```markdown"; print; print "```"; next }
+            if (v == "receipt") { print "<!-- legacy review: pass -->"; next }
+          } { print }' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format $field $value laundered into readiness: $reason"
+      done
+      sed "/^- $field:/d" "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format missing $field accepted: $reason"
+    done
+    for value in 'refresh: changed design' 'covered: fixture already delivered' 'superseded: replacement owner' 'blocked: dependency open' 'proceed:' 'proceed: {EVIDENCE}' 'proceed: n/a'; do
+      awk -v v="$value" '/^- Still valid:/ { print "- Still valid: " v; next } { print }' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 0 ] && [[ "$reason" == *'Still valid'* ]] || fail "$format non-ready Still valid admitted: $value"
+    done
+    cp "$baseline" "$prep"
+    for value in 'Searched delivery fixtures and task records, none found.' 'Not a defect; related admission work checked, remains open with its existing owner.'; do
+      awk -v v="$value" '/^- Siblings named:/ { print "- Siblings named: " v; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format explicit siblings control refused: $reason"
+    done
+  done
+  pass "both prep formats require current-work checks and only substantive proceed is dispatchable"
+}
+
+test_prep_current_work_checks
 test_prep_block_transitions
 test_prep_author_continuation_context
 test_prep_indented_and_escaped_literals

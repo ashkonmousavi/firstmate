@@ -94,8 +94,8 @@ Design the shared interface first, then fan dependent plans out against it.
 A known blocker permits pre-staging, never premature dispatch; include bounded plans whose blocker is expected to clear during the current wave.
 Beyond the horizon, keep only a one-line sketch in the existing work board: outcome, dependencies, code area and kind of unknown.
 
-Before consuming a plan, compare its inspected base and file/contract read set against merges since preparation, including changed shared dependencies even when the consumer's own files did not change.
-Refresh only an affected delta and run the preparation gate on the updated final bytes before handoff; an untouched plan need not be planned again.
+Before consuming a plan, refresh the preparation record's `Still valid` check under `bin/fm-dod-lib.sh`, including changed shared dependencies even when the consumer's own files did not change.
+An untouched plan need not be planned again.
 Expand the horizon if builders wait on planning; shorten it if repeated refreshes materially rewrite plans.
 
 What this skill adds is the accounting:

@@ -1212,7 +1212,7 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep '{BEHAVIOUR_SPEC}' "$prep" "prep record section 2 carries no placeholder to replace"
   assert_grep 'n/a: <one-line reason>' "$prep" \
     "prep record does not offer the n/a answer that keeps a small change small"
-  grep -c '^<!-- ' "$prep" | grep -qx 22 \
+  grep -c '^<!-- ' "$prep" | grep -qx 25 \
     || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, each numbered section, and the common checks/table"
   assert_grep "task item this work completes in the project's own record" "$prep" \
     "prep record does not point at the project's own task record"
@@ -1594,6 +1594,37 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   pass "fm-brief.sh: every crewmate scaffold forbids administering the shared worktree pool"
 }
 
+# The generated worker brief is the walk-instruction interface.
+test_walk_evidence_reaches_workers() {
+  local home="$TMP_ROOT/walk-evidence" kind id brief filled
+  mkdir -p "$home/data"
+  for kind in ship scout; do
+    id="walk-$kind"
+    if [ "$kind" = scout ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --scout >/dev/null || fail "scout scaffold"
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode no-mistakes >/dev/null || fail "ship scaffold"
+    fi
+    brief="$home/data/$id/brief.md"
+    grep -qxF '# Walk evidence' "$brief" || fail "$kind missing separate walk heading"
+    assert_contains "$(cat "$brief")" 'assigned actor, candidate and data' "$kind missing assigned walk setup"
+    assert_contains "$(cat "$brief")" 'working Chrome DevTools or equivalent console, network and application diagnostics' "$kind missing diagnostic obligations"
+    assert_contains "$(cat "$brief")" 'human expectation, actual observed result, pass/fail/not exercised' "$kind missing actual-result contract"
+    assert_contains "$(cat "$brief")" 'first failing boundary' "$kind missing failure diagnosis"
+    assert_contains "$(cat "$brief")" 'return or reopen step' "$kind missing complete journey"
+    fm_brief_task_placeholders_present "$brief" || fail "$kind scaffold placeholders hidden by walk block"
+    filled=$(cat "$brief")
+    filled=${filled//'{TASK}'/Walk the assigned journey.}
+    printf '%s\n' "$filled" > "$home/spec-unfilled.md"
+    fm_brief_task_placeholders_present "$home/spec-unfilled.md" || fail "$kind spec placeholder hidden by walk block"
+    filled=${filled//'{FIRSTMATE_SPEC}'/Use the assigned actor and diagnostic access.}
+    printf '%s\n' "$filled" > "$home/filled.md"
+    fm_brief_task_placeholders_present "$home/filled.md" && fail "$kind filled task treated as a placeholder"
+    grep -qxF '# Walk evidence' "$home/filled.md" || fail "$kind fill lost walk block"
+  done
+  pass "ship and scout artifacts deliver conditional complete journeys, actual results and diagnostics without hiding placeholders"
+}
+
 # A batch reviewer receives confined approval paths through the scout interface.
 test_prep_review_scout_brief() {
   local home="$TMP_ROOT/reviewer-brief" brief out status args token
@@ -1643,6 +1674,7 @@ test_pr_completion_requires_current_head_green_url() {
 
 test_surgical_prep_scaffold
 test_pr_completion_requires_current_head_green_url
+test_walk_evidence_reaches_workers
 test_prep_review_scout_brief
 test_script_parses
 test_no_heredoc_in_command_substitution
