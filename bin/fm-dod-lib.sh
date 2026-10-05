@@ -709,7 +709,7 @@ fm_prep_common_reason() {  # <file>
       printf 'Author checks requires one complete %s answer\n' "$label"; return 0
     fi
     if [ "$label" = 'Still valid' ]; then
-      value=$(printf '%s\n' "$value" | sed 's/^[[:space:]]*//')
+      value=${value#"${value%%[![:space:]]*}"}
       case "$value" in
         proceed:*)
           if ! fm_prep_answer_complete "${value#proceed:}" no; then

@@ -3055,7 +3055,7 @@ test_prep_common_scaffolds() {
 }
 
 test_prep_current_work_checks() {
-  local home="$TMP_ROOT/current-work-checks" format prep baseline field value reason status
+  local home="$TMP_ROOT/current-work-checks" format prep baseline field value reason status indent
   mkdir -p "$home"
   for format in full surgical; do
     if [ "$format" = surgical ]; then
@@ -3070,6 +3070,13 @@ test_prep_current_work_checks() {
     cp "$prep" "$baseline"
     reason=$(fm_prep_unfilled_reason "$prep"); status=$?
     [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format complete control refused: $reason"
+    for indent in ' ' '    ' $'\t' $'\n '; do
+      FM_TEST_CONTINUATION="${indent}proceed: inspected current main; work remains needed." awk '
+        /^- Still valid:/ { print "- Still valid:"; print ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+      ' "$baseline" > "$prep"
+      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+      [ "$status" = 1 ] && [ -z "$reason" ] || fail "$format Still valid continuation refused: $reason"
+    done
     for field in 'Still valid' 'Siblings named' 'Validation route'; do
       for value in '' '{UNFILLED}' 'n/a' 'n/a: no check' 'Example: searched sources' '<!-- searched none -->'; do
         awk -v f="$field" -v v="$value" 'index($0, "- " f ":") == 1 { print "- " f ": " v; next } { print }' "$baseline" > "$prep"
@@ -3092,9 +3099,13 @@ test_prep_current_work_checks() {
       [ "$status" = 0 ] && [[ "$reason" == *"$field"* ]] || fail "$format missing $field accepted: $reason"
     done
     for value in 'refresh: changed design' 'covered: fixture already delivered' 'superseded: replacement owner' 'blocked: dependency open' 'proceed:' 'proceed: {EVIDENCE}' 'proceed: n/a'; do
-      awk -v v="$value" '/^- Still valid:/ { print "- Still valid: " v; next } { print }' "$baseline" > "$prep"
-      reason=$(fm_prep_unfilled_reason "$prep"); status=$?
-      [ "$status" = 0 ] && [[ "$reason" == *'Still valid'* ]] || fail "$format non-ready Still valid admitted: $value"
+      for indent in ' ' $'\n '; do
+        FM_TEST_CONTINUATION="$indent$value" awk '
+          /^- Still valid:/ { print "- Still valid:" ENVIRON["FM_TEST_CONTINUATION"]; next } { print }
+        ' "$baseline" > "$prep"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" = 0 ] && [[ "$reason" == *'Still valid'* ]] || fail "$format non-ready Still valid admitted: $value"
+      done
     done
     cp "$baseline" "$prep"
     for value in 'Searched delivery fixtures and task records, none found.' 'Not a defect; related admission work checked, remains open with its existing owner.'; do
