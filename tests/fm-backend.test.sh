@@ -1095,10 +1095,13 @@ test_teardown_conformance_old_vs_new() {
 # --- backend selection loudly refuses an unknown backend --------------------
 
 test_spawn_refuses_unknown_backend_flag() {
-  local out status
+  local out status home
+  home="$TMP_ROOT/unknown-backend-home"
+  mkdir -p "$home/state"
+  fm_test_prep_record "$home/data" nope-backend-z1 || fail "unknown backend prep fixture failed"
   # bogus names a backend with no adapter at all; zellij and orca both
   # graduated to real adapters and have their own spawn tests.
-  out=$(FM_ROOT_OVERRIDE='' FM_HOME='' FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' \
+  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' \
     FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' FM_SPAWN_NO_GUARD=1 \
     "$ROOT/bin/fm-spawn.sh" nope-backend-z1 projects/none claude --mode no-mistakes --yolo off --backend bogus 2>&1)
   status=$?
@@ -1108,8 +1111,11 @@ test_spawn_refuses_unknown_backend_flag() {
 }
 
 test_spawn_refuses_codex_app_backend_flag() {
-  local out status
-  out=$(FM_ROOT_OVERRIDE='' FM_HOME='' FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' \
+  local out status home
+  home="$TMP_ROOT/codex-app-backend-home"
+  mkdir -p "$home/state"
+  fm_test_prep_record "$home/data" nope-codex-app-z1 || fail "codex-app backend prep fixture failed"
+  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' \
     FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' FM_SPAWN_NO_GUARD=1 \
     "$ROOT/bin/fm-spawn.sh" nope-codex-app-z1 projects/none claude --mode no-mistakes --yolo off --backend codex-app 2>&1)
   status=$?
@@ -1119,8 +1125,11 @@ test_spawn_refuses_codex_app_backend_flag() {
 }
 
 test_spawn_refuses_unknown_fm_backend_env() {
-  local out status
-  out=$(FM_ROOT_OVERRIDE='' FM_HOME='' FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' \
+  local out status home
+  home="$TMP_ROOT/unknown-backend-env-home"
+  mkdir -p "$home/state"
+  fm_test_prep_record "$home/data" nope-backend-z2 || fail "backend env prep fixture failed"
+  out=$(FM_ROOT_OVERRIDE='' FM_HOME="$home" FM_STATE_OVERRIDE='' FM_DATA_OVERRIDE='' \
     FM_PROJECTS_OVERRIDE='' FM_CONFIG_OVERRIDE='' FM_SPAWN_NO_GUARD=1 FM_BACKEND=bogus \
     "$ROOT/bin/fm-spawn.sh" nope-backend-z2 projects/none claude --mode no-mistakes --yolo off 2>&1)
   status=$?
