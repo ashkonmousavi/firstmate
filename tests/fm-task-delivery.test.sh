@@ -203,6 +203,93 @@ EOF
   pass "delivery depth: both contradictions refuse before allocation; matched and local-only controls reach backend"
 }
 
+test_depth_commented_tier() {
+  local format=$1 declared=$2 check rec home proj fakebin id prep baseline old_mode depth selected out status reason
+  [ "$#" -gt 2 ] || set -- "$@" reader missing malformed mismatch matched local
+  for check in "${@:3}"; do
+    id="commented-$format-$declared-$check"
+    rec=$(make_home "$id")
+    IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+    case "$declared" in
+      direct-PR) old_mode=no-mistakes; depth='checks-only (direct-PR)' ;;
+      no-mistakes) old_mode=direct-PR; depth='checks + AI review (no-mistakes)' ;;
+    esac
+    selected=$declared
+    [ "$check" != mismatch ] || selected=$old_mode
+    [ "$check" != local ] || selected=local-only
+    write_brief "$home" "$id" "$selected"
+    prep="$home/data/$id/prep.md"
+    if [ "$format" = surgical ]; then
+      rm "$prep"
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "surgical scaffold"
+      sed -E -e 's/\{Q1\}/yes/' -e 's/\{Q2\}/no/' -e 's/\{UI_WIRING\}/no, confined CLI output./' \
+        -e 's/\{Q[12]_REASON\}/Inspected confined output./' \
+        -e 's/\{C[1-5]\}/yes/' -e 's/\{C[1-5]_EVIDENCE\}/owned.sh:12; callers confined; cause reproduced; regression covers output; no sensitive paths./' \
+        "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+      fm_test_fill_prep_common "$prep" "$declared" || fail "surgical common fields"
+    fi
+    fm_test_prep_depth "$prep" "$declared" || fail "live depth fixture"
+    baseline="$home/live.prep"
+    cp "$prep" "$baseline"
+    {
+      printf '<!-- Previous preparation example\n## Tier\n'
+      if [ "$format" = surgical ]; then printf '%s\n' '- Preparation format: surgical'; fi
+      printf '%s\n' '- Q1 does this change alter what a user sees or can do: no' 'Reason: old confined output example.' \
+        '- Q2 does this change touch a shared module or a contract: no' 'Reason: old isolated owner example.' \
+        '- UI wiring: no, old isolated example.'
+      if [ "$old_mode" = direct-PR ]; then
+        printf '%s\n' '- Delivery depth: checks-only (direct-PR), old low-harm example.'
+      else
+        printf '%s\n' '- Delivery depth: checks + AI review (no-mistakes), old shared example.'
+      fi
+      printf '\n-->\n'
+      case "$check" in
+        missing) sed '/^- Delivery depth:/d' "$baseline" ;;
+        malformed) sed 's/^- Delivery depth:.*$/- Delivery depth: unknown, live invalid choice./' "$baseline" ;;
+        *) cat "$baseline" ;;
+      esac
+    } > "$prep"
+    case "$check" in
+      reader)
+        out=$(fm_prep_delivery_mode "$prep"); status=$?
+        [ "$status" -eq 0 ] && [ "$out" = "$declared" ] || fail "$format commented $old_mode/live $declared read $out (exit $status)"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 1 ] && [ -z "$reason" ] || fail "$format live complete Tier refused: $reason"
+        ;;
+      missing|malformed)
+        out=$(fm_prep_delivery_mode "$prep"); status=$?
+        [ "$status" -ne 0 ] && [ -z "$out" ] || fail "$format commented $old_mode rescued $check live depth: $out"
+        reason=$(fm_prep_unfilled_reason "$prep"); status=$?
+        [ "$status" -eq 0 ] || fail "$format $check live depth passed completeness"
+        assert_contains "$reason" 'Delivery depth' "$format $check live depth refusal unnamed"
+        ;;
+      mismatch|matched|local)
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$selected" --yolo off); status=$?
+        [ "$status" -ne 0 ] || fail "refusing backend unexpectedly launched"
+        if [ "$check" = mismatch ]; then
+          assert_contains "$out" "--mode $selected" "$format contradiction lost selected mode"
+          assert_contains "$out" "$depth" "$format contradiction lost LIVE depth"
+          assert_contains "$out" "$id" "$format contradiction lost task id"
+          assert_contains "$out" 'reconcile' "$format contradiction omitted repair"
+          assert_absent "$home/data/$id/launch-brief.md" "$format contradiction published brief"
+          assert_absent "$home/state/$id.meta" "$format contradiction published metadata"
+          assert_absent "$fakebin/tmux.calls" "$format contradiction reached backend"
+          assert_absent "$fakebin/treehouse.calls" "$format contradiction allocated worktree"
+          [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "$format contradiction acquired lock"
+        else
+          assert_present "$home/data/$id/launch-brief.md" "$format $check live depth refused: $out"
+          assert_present "$fakebin/tmux.calls" "$format $check missed refusing backend: $out"
+          assert_grep '.' "$fakebin/tmux.calls" "$format $check backend log empty"
+          assert_not_contains "$out" 'Delivery depth' "$format $check depth refused"
+        fi
+        ;;
+    esac
+    pass "$format commented $old_mode/live $declared: $check"
+  done
+}
+
 test_depth_required_full_and_surgical() {
   local rec home proj fakebin format id prep baseline change reason out declared status
   rec=$(make_home depth-fields)
@@ -3247,6 +3334,10 @@ test_prep_requires_finalize_after_evidence
 test_optional_batch_artifacts_do_not_affect_handoff
 test_legacy_install_declarations_do_not_affect_admission
 test_surgical_certainty_and_admission
+test_depth_commented_tier full direct-PR
+test_depth_commented_tier full no-mistakes
+test_depth_commented_tier surgical direct-PR
+test_depth_commented_tier surgical no-mistakes
 test_depth_mode_matrix
 test_depth_required_full_and_surgical
 test_ship_spawn_requires_a_valid_delivery_contract

@@ -478,10 +478,16 @@ $FM_PREP_SECTIONS
 EOF
 }
 
+fm_prep_tier_read() {
+  local file=$1 mode=${2:-body}
+  [ -f "$file" ] && [ -r "$file" ] || { [ "$mode" = body ]; return; }
+  fm_prep_body_text < "$file" | fm_brief_heading_parse - "$FM_PREP_TIER_HEADING" "$mode"
+}
+
 # fm_prep_ui_wiring_line <file> - raw text after the tier header's UI wiring
 # label, including leading space. Empty when the line is missing.
 fm_prep_ui_wiring_line() {  # <file>
-  fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | awk '
+  fm_prep_tier_read "$1" | awk '
     index($0, "- UI wiring:") == 1 { print substr($0, length("- UI wiring:") + 1); exit }
   '
 }
@@ -490,7 +496,11 @@ fm_prep_ui_wiring_line() {  # <file>
 # line of <heading> that opens with it, one per line: the one answer reader
 # shared by tier and certainty answers.
 fm_prep_labelled() {  # <file> <heading> <id>
-  fm_brief_heading_body "$1" "$2" | awk -v q="$3" 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
+  if [ "$2" = "$FM_PREP_TIER_HEADING" ]; then
+    fm_prep_tier_read "$1"
+  else
+    fm_brief_heading_body "$1" "$2"
+  fi | awk -v q="$3" 'index($0, "- " q " ") == 1 { print substr($0, length(q) + 4) }'
 }
 
 # fm_prep_answer <file> <Qn> - the yes/no answer recorded in the tier header, or
@@ -531,7 +541,7 @@ fm_prep_ui_wiring() {  # <file>
 # refusal, not a default.
 fm_prep_tier() {  # <file>
   local file=$1 q1 q2 ui
-  fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING" || { printf '\n'; return 0; }
+  fm_prep_tier_read "$file" present || { printf '\n'; return 0; }
   q1=$(fm_prep_answer "$file" Q1)
   q2=$(fm_prep_answer "$file" Q2)
   ui=$(fm_prep_ui_wiring "$file")
@@ -694,7 +704,7 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
 # Examples are cleaned in context; continuations cannot supply the line's reason.
 fm_prep_delivery_mode() {  # <file>
   local value reason mode
-  value=$(fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | fm_prep_body_text | awk '
+  value=$(fm_prep_tier_read "$1" | awk '
     /^- Delivery depth:/ { seen++; value=substr($0,19) }
     END { if (seen == 1) print value }
   ')
@@ -802,21 +812,21 @@ fm_prep_evidence_ok() {  # <file> <heading> <token>...
 
 # A format declaration selects the compact gate even when malformed or duplicated.
 fm_prep_surgical_declared() {  # <file>
-  fm_brief_heading_body "$1" "$FM_PREP_TIER_HEADING" | grep -q '^- Preparation format:'
+  fm_prep_tier_read "$1" | grep -q '^- Preparation format:'
 }
 
 # fm_prep_certainty_reason <file>: same reason exit convention as completeness.
 # Parse answer-after-label and evidence once; declarations are not verified facts.
 fm_prep_certainty_reason() {  # <file>
   local file=$1 field label evidence answer
-  if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+  if ! fm_prep_tier_read "$file" | awk '
     /^- Preparation format:/ { n++; if ($0 != "- Preparation format: surgical") bad = 1 }
     END { exit !(n == 1 && !bad) }
   '; then
     printf 'Preparation format must declare surgical exactly once; use %s\n' "$FM_PREP_FULL_FALLBACK"
     return 0
   fi
-  if ! fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+  if ! fm_prep_tier_read "$file" | awk '
     /^- Q[12] / {
       if (awaiting) bad = 1
       q = substr($0, 3, 2); seen[q]++; awaiting = 1
@@ -840,7 +850,7 @@ fm_prep_certainty_reason() {  # <file>
     printf 'C2 contradicts a shared module or contract declaration; use %s\n' "$FM_PREP_FULL_FALLBACK"
     return 0
   fi
-  if fm_brief_heading_body "$file" "$FM_PREP_TIER_HEADING" | awk '
+  if fm_prep_tier_read "$file" | awk '
     /^- Changes (stored data|security|permissions|money|install|server|unit|setting|pin|store version):/ {
       value = $0; sub(/^.*:/, "", value); gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
       if (value != "no") bad = 1
@@ -887,7 +897,7 @@ fm_prep_unfilled_reason() {  # <file>
     printf 'no preparation record at %s\n' "$file"
     return 0
   fi
-  if ! fm_brief_heading_present "$file" "$FM_PREP_TIER_HEADING"; then
+  if ! fm_prep_tier_read "$file" present; then
     printf 'its %s header is missing from %s\n' "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
