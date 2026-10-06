@@ -149,6 +149,11 @@ test_review_list_ledger_failures() {
     fi
     assert_equals '' "$out" "$forge failed lookup returned an ordinal"
     assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed lookup appended a head"
+    if out=$(bash -c "tail() { return 1; }; $cmd" 2>/dev/null); then
+      fail "$forge failed integrity read returned success"
+    fi
+    assert_equals '' "$out" "$forge failed integrity read returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed integrity read changed the ledger"
     cmd=${cmd//ccc/aaa}
     if out=$(bash -c "wc() { return 1; }; $cmd" 2>/dev/null); then
       fail "$forge failed count returned success"
@@ -161,8 +166,52 @@ test_review_list_ledger_failures() {
       fail "$forge failed first-list append returned success"
     fi
     assert_equals '' "$out" "$forge failed first append returned an ordinal"
+    out=$(bash -c "$cmd") || fail "$forge empty ledger did not recover after a zero-byte failure"
+    assert_equals 1 "$(printf '%s' "$out" | tr -d ' ')" "$forge empty ledger recovery ordinal"
   done
   pass "review ledger: lookup, append and count failures return no ordinal"
+}
+
+test_review_list_ledger_torn_writes() {
+  local home output forge ledger_cmd cmd ledger expected initial fragment retry out
+  home="$TMP_ROOT/ledger-torn-home"
+  output="$TMP_ROOT/ledger-torn.md"
+  expected="$TMP_ROOT/ledger-torn-expected.txt"
+  mkdir -p "$home/data/sample" "$home/state" "$home/config"
+  for forge in none gerrit; do
+    fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship no-mistakes fm/sample "$forge" > "$output" \
+      || fail "$forge torn ledger contract render"
+    ledger_cmd=$(rendered_command "$output" 'review-lists.txt')
+    [ -n "$ledger_cmd" ] || fail "$forge ledger command missing"
+    for initial in new existing; do
+      for fragment in c cc ccc; do
+        ledger="$home/data/sample/nm-torn-$forge-$initial-$fragment-review-lists.txt"
+        cmd=${ledger_cmd//<run>/torn-$forge-$initial-$fragment}
+        cmd=${cmd//<head_sha>/ccc}
+        if [ "$initial" = existing ]; then
+          printf 'aaa\nbbb\n' > "$ledger"
+          printf 'aaa\nbbb\n' > "$expected"
+        else
+          [ ! -e "$ledger" ] || fail "new ledger already exists"
+          : > "$expected"
+        fi
+        printf '%s' "$fragment" >> "$expected"
+        if out=$(FM_TEST_LEDGER_FRAGMENT="$fragment" bash -c 'printf() { if [ "$1" = "%s\n" ]; then builtin printf "%s" "$FM_TEST_LEDGER_FRAGMENT"; return 1; fi; builtin printf "$@"; }; '"$cmd" 2>/dev/null); then
+          fail "$forge $initial partial append returned success"
+        fi
+        assert_equals '' "$out" "$forge $initial partial append returned an ordinal"
+        cmp -s "$expected" "$ledger" || fail "$forge $initial partial append did not reproduce a torn record"
+        for retry in 1 2; do
+          if out=$(bash -c "$cmd" 2>/dev/null); then
+            fail "$forge $initial torn ledger reattachment $retry returned success"
+          fi
+          assert_equals '' "$out" "$forge $initial torn ledger returned an ordinal"
+          cmp -s "$expected" "$ledger" || fail "$forge $initial reattachment modified the torn ledger"
+        done
+      done
+    done
+  done
+  pass "review ledger: torn first and later writes remain closed on reattachment"
 }
 
 test_scout_done_is_not_gated() {
@@ -531,6 +580,7 @@ test_pr_based_dod_draft_check_uses_gh_axi() {
 test_common_review_triage_contract
 test_third_review_list_is_last
 test_review_list_ledger_failures
+test_review_list_ledger_torn_writes
 test_scout_done_is_not_gated
 test_unpushed_ship_done_is_refused
 test_no_mistakes_prevalidation_done_is_not_gated
