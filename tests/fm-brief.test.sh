@@ -41,6 +41,8 @@ test_delivery_depth_scaffolds() {
     prep="$home/data/$id/prep.md"
     [ "$(grep -c '^- Delivery depth:' "$prep")" -eq 1 ] || fail "$format must scaffold one depth answer"
     assert_grep '- Delivery depth: {DELIVERY_DEPTH}' "$prep" "$format must leave depth unanswered"
+    assert_grep '- Delivery risk: {DELIVERY_RISK}' "$prep" "$format must leave risk unanswered"
+    assert_grep 'exactly one code review round' "$prep" "$format guide must require one fast-path round"
     assert_grep 'checks-only (direct-PR)' "$prep" "$format guide missing checks-only"
     assert_grep 'checks + AI review (no-mistakes)' "$prep" "$format guide missing full review"
     out=$(fm_prep_unfilled_reason "$prep") || fail "unanswered scaffold accepted"

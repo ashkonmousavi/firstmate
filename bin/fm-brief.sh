@@ -75,6 +75,8 @@
 #   server-install declarations do not bypass completeness.
 #   The guide lines for sections 1, 3, 7, and 10 point at the project's own
 #   task, design, UI, and verification records as its instructions name them.
+#   Both formats ask for risk and delivery depth under bin/fm-dod-lib.sh;
+#   surgical certainty never selects delivery depth.
 #   --prep --surgical emits a compact certainty certificate: every C1-C5 answer
 #   must be exactly yes with concrete evidence to replace numbered sections. Any no,
 #   unsure, malformed or incomplete certificate is refused, never upgraded:

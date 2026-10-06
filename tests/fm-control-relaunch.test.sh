@@ -1290,7 +1290,7 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
     sed 's/{TASK}/Fix the promotion relaunch contract./; s/{FIRSTMATE_SPEC}/Preserve the current delivery mode./' \
       "$brief" > "$brief.filled"
     mv "$brief.filled" "$brief"
-    fm_test_prep_record "$home/data" "$id" || fail "$mode: could not fill preparation"
+    fm_test_prep_record "$home/data" "$id" no no no "${mode/local-only/direct-PR}" || fail "$mode: could not fill preparation"
     {
       echo "window=fmses:fm-$id"
       echo "endpoint_task_id=$id"

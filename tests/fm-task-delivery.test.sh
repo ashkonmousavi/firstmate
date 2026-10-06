@@ -74,9 +74,9 @@ write_prep() {  # <home> <id> [<q1>] [<q2>] [<ui-wiring>] [<depth-mode>]
 # proven by the launch brief spawn renders only after preparation validation (the fake tmux still
 # stops it before any endpoint exists).
 assert_spawn_clears_prep_gates() {
-  local home=$1 fakebin=$2 id=$3 proj=$4 label=$5 out
+  local home=$1 fakebin=$2 id=$3 proj=$4 label=$5 mode=${6:-direct-PR} out
   rm -f "$home/data/$id/launch-brief.md"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   assert_not_contains "$out" "cannot ship without its preparation record" "$label: refused by the preparation gate"
   assert_not_contains "$out" "cannot ship before a separate agent reviews" "$label: refused by the review gate"
   assert_present "$home/data/$id/launch-brief.md" "$label: spawn did not get past the preparation gate"
@@ -162,6 +162,164 @@ run_spawn() {  # <home> <fakebin> <spawn-args...>
     FM_PROJECTS_OVERRIDE="$TMP_ROOT/projects-unused" FM_CONFIG_OVERRIDE="$home/config" \
     FM_SPAWN_NO_GUARD=1 FM_BACKEND=tmux PATH="$fakebin:$PATH" \
     "$SPAWN" "$@" 2>&1
+}
+
+# The captain's named risk classes, not preparation size or certainty, decide
+# delivery. Drive the public fresh-ship seam and witness refusal before allocation.
+test_promotion_risk_admission() {
+  local rec home proj fakebin risk mode expected id prep out status
+  rec=$(make_home promotion-risk)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for risk in money security 'shared code' other; do
+    case "$risk" in other) expected=direct-PR ;; *) expected=no-mistakes ;; esac
+    for mode in direct-PR no-mistakes; do
+      id="promote-risk-${risk// /-}-$mode"
+      write_brief "$home" "$id" "$mode"
+      prep="$home/data/$id/prep.md"
+      [ "$risk" != "shared code" ] || answer_tier "$prep" no yes
+      awk -v risk="$risk" '/^- Delivery risk:/ { next }
+        { print } $0 == "## Tier" { print "- Delivery risk: " risk ", inspected the changed behavior and its callers." }
+      ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+      printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
+      cp "$home/state/$id.meta" "$home/original-meta"
+      cp "$home/data/$id/brief.md" "$home/original-brief"
+      out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+        "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1); status=$?
+      if [ "$mode" != "$expected" ]; then
+        [ "$status" -ne 0 ] || fail "$risk promoted with wrong $mode depth"
+        assert_contains "$out" 'Delivery risk' "$risk promotion refusal unnamed"
+        cmp -s "$home/state/$id.meta" "$home/original-meta" || fail "$risk refusal changed metadata"
+        cmp -s "$home/data/$id/brief.md" "$home/original-brief" || fail "$risk refusal changed brief"
+        assert_absent "$home/data/$id/ship-instructions.md" "$risk refusal published ship instructions"
+        [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "$risk refusal acquired lock"
+      else
+        expect_code 0 "$status" "$risk matching promotion failed: $out"
+        assert_grep 'kind=ship' "$home/state/$id.meta" "$risk promotion did not become ship"
+        if [ "$mode" = direct-PR ]; then
+          assert_grep 'exactly one code review round' "$home/data/$id/ship-instructions.md" 'promotion omitted one review round'
+        fi
+      fi
+    done
+  done
+  # Historical scouts with no risk schema remain promotable by explicit mode;
+  # an active, malformed risk answer is a current-schema refusal.
+  id=promote-risk-malformed
+  write_brief "$home" "$id" direct-PR
+  sed 's/^- Delivery risk:.*$/- Delivery risk: other, {REASON}/' "$home/data/$id/prep.md" > "$home/data/$id/prep.bad"
+  mv "$home/data/$id/prep.bad" "$home/data/$id/prep.md"
+  printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+    "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1); status=$?
+  [ "$status" -ne 0 ] || fail 'malformed current promotion risk accepted'
+  assert_contains "$out" 'Delivery risk' 'malformed promotion refusal unnamed'
+  pass "promotion: authored risk/depth contradictions refuse before mutation; matching modes receive the shared contract"
+}
+
+test_risk_delivery_admission() {
+  local rec home proj fakebin risk mode expected id prep out status format
+  rec=$(make_home risk-admission)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for risk in money security 'shared code' other; do
+    case "$risk" in other) expected=direct-PR ;; *) expected=no-mistakes ;; esac
+    for mode in direct-PR no-mistakes; do
+      id="risk-${risk// /-}-$mode"
+      write_brief "$home" "$id" "$mode"
+      prep="$home/data/$id/prep.md"
+      [ "$risk" != "shared code" ] || answer_tier "$prep" no yes
+      # Explicitly authored field, independent of the fixture's chosen mode.
+      awk -v risk="$risk" '/^- Delivery risk:/ { next }
+        { print } $0 == "## Tier" { print "- Delivery risk: " risk ", inspected the changed behavior and its callers." }
+      ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+      if [ "$risk:$mode" = other:direct-PR ]; then
+        sed 's/checks-only (direct-PR)/checks + one review (direct-PR)/' "$prep" > "$prep.new" && mv "$prep.new" "$prep"
+      fi
+      rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off); status=$?
+      [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
+      if [ "$mode" != "$expected" ]; then
+        assert_contains "$out" 'Delivery' "$risk contradiction omitted authored repair"
+        assert_absent "$home/data/$id/launch-brief.md" "$risk wrong depth launched"
+        assert_absent "$home/state/$id.meta" "$risk wrong depth wrote metadata"
+        assert_absent "$fakebin/tmux.calls" "$risk wrong depth reached backend"
+        assert_absent "$fakebin/treehouse.calls" "$risk wrong depth allocated worktree"
+        [ "$(find "$home/state" -name '*lock*' | wc -l)" -eq 0 ] || fail "$risk wrong depth acquired lock"
+      else
+        assert_present "$home/data/$id/launch-brief.md" "$risk correct depth refused: $out"
+        assert_present "$fakebin/tmux.calls" "$risk correct depth missed backend"
+      fi
+    done
+  done
+  # Exactly one review is the rendered direct-PR contract, including promotion
+  # and Gerrit consumers of the same owner; local-only keeps its own lifecycle.
+  for format in none gerrit; do
+    out=$(fm_dod_block direct-PR risk-contract fm/risk-contract "$format") || fail "direct-PR render"
+    assert_contains "$out" 'exactly one code review round' "$format direct-PR missing one round"
+    assert_contains "$out" 'without another review round' "$format adds fix review rounds"
+  done
+  out=$(fm_dod_block local-only risk-contract)
+  assert_not_contains "$out" 'code review round' 'local-only acquired a PR review lifecycle'
+  pass "risk admission: money, security and shared code require no-mistakes; other requires direct-PR and one round"
+}
+
+test_risk_fields_and_certainty_controls() {
+  local rec home proj fakebin prep baseline change out status risk mode format id
+  rec=$(make_home risk-fields)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for format in full surgical; do
+    id="risk-fields-$format"
+    write_brief "$home" "$id" direct-PR
+    prep="$home/data/$id/prep.md"
+    if [ "$format" = surgical ]; then
+      rm "$prep"
+      FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail "compact risk scaffold"
+      fill_current_work_fixture "$prep" yes
+      fm_test_fill_prep_common "$prep" direct-PR || fail "compact risk fields"
+    fi
+    fm_test_prep_depth "$prep" direct-PR
+    baseline="$home/$format-risk-valid.md"
+    cp "$prep" "$baseline"
+    for change in absent empty unknown duplicate comment fence indented continuation placeholder; do
+      awk -v c="$change" '
+        /^- Delivery risk:/ {
+          if (c == "absent") next
+          if (c == "empty") { print "- Delivery risk:"; next }
+          if (c == "unknown") { print "- Delivery risk: low, inspected output."; next }
+          if (c == "placeholder") { print "- Delivery risk: other, {REASON}"; next }
+          if (c == "continuation") { print "- Delivery risk: other,"; print "  inspected output."; next }
+          if (c == "comment") { print "<!--"; print; print "-->"; next }
+          if (c == "fence") { print "```"; print; print "```"; next }
+          if (c == "indented") { print ""; print "    " $0; next }
+          print; if (c == "duplicate") print; next
+        } { print }
+      ' "$baseline" > "$prep"
+      rm -f "$home/data/$id/launch-brief.md" "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+      out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off); status=$?
+      [ "$status" -ne 0 ] || fail "$format $change risk launched"
+      assert_contains "$out" 'Delivery risk' "$format $change risk refusal unnamed"
+      assert_absent "$home/data/$id/launch-brief.md" "$format $change rendered launch"
+      assert_absent "$fakebin/tmux.calls" "$format $change reached backend"
+      assert_absent "$fakebin/treehouse.calls" "$format $change reached allocator"
+    done
+    cp "$baseline" "$prep"
+    out=$(fm_prep_delivery_mode "$prep") || fail "$format valid risk refused"
+    [ "$out" = direct-PR ] || fail "$format certainty changed depth"
+    # Even perfect C1-C5 evidence cannot select the fast path for money/security.
+    for risk in money security; do
+      awk -v r="$risk" '/^- Delivery risk:/ { print "- Delivery risk: " r ", changed the named risk behavior."; next } { print }' "$baseline" > "$prep"
+      fm_prep_delivery_mode "$prep" >/dev/null && fail "$format certainty overrode $risk"
+    done
+  done
+  # A contradictory shared-module answer cannot down-classify shared code.
+  cp "$baseline" "$prep"
+  answer_tier "$prep" no yes
+  fm_prep_delivery_mode "$prep" >/dev/null && fail 'shared declaration downgraded as other'
+  pass "risk fields: missing/malformed/example answers refuse; preparation certainty cannot override risk"
 }
 
 test_depth_mode_matrix() {
@@ -1222,7 +1380,7 @@ EOF
 
   id='intent-addressed-promote'
   printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$home/state/$id.meta"
-  write_brief "$home" "$id"
+  write_brief "$home" "$id" no-mistakes
   printf '# Task\n## Captain'"'"'s intent\nCaptain: investigate the refusal.\n\n## Firstmate spec\nReproduce it first.\n' > "$home/data/$id/brief.md"
   out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode no-mistakes --yolo off 2>&1)
   status=$?
@@ -1423,7 +1581,7 @@ EOF
 # ones below it. A scout is not gated. tests/fm-control-relaunch.test.sh owns the
 # --relaunch exemption, where a relaunch reaches this check with a live endpoint.
 test_ship_spawn_requires_the_task_preparation_record() {
-  local rec home proj fakebin id prep out status
+  local rec home proj fakebin id prep out status mode=direct-PR
   rec=$(make_home prep-gate)
   IFS='|' read -r home proj fakebin <<EOF
 $rec
@@ -1433,7 +1591,7 @@ EOF
   mkdir -p "$home/data/$id"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
     > "$home/data/$id/brief.md"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a ship spawn without a preparation record should exit non-zero"
   assert_contains "$out" "cannot ship without its preparation record" \
@@ -1447,7 +1605,7 @@ EOF
   FM_HOME="$home" FM_DATA_OVERRIDE="$home/data" "$BRIEF" "$id" --prep >/dev/null 2>&1 \
     || fail "prep scaffold failed"
   fm_test_prep_depth "$prep" direct-PR
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a ship spawn with an unanswered tier header should exit non-zero"
   assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
@@ -1457,7 +1615,7 @@ EOF
   # UI wiring takes a verdict AND a reason, so a bare yes is still unanswered:
   # the answer cannot be given without having looked at the interface.
   sed 's/{UI_WIRING}/yes/' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a bare UI wiring yes with no reason should exit non-zero"
   assert_contains "$out" "## Tier header does not answer \`UI wiring:" \
@@ -1467,7 +1625,7 @@ EOF
   # still unanswered, and the refusal moves on to name them.
   sed 's/^- UI wiring: .*$/- UI wiring: no, a fixture no user meets./' "$prep" > "$prep.f" \
     && mv "$prep.f" "$prep"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a ship spawn with unanswered Q1 and Q2 should exit non-zero"
   assert_contains "$out" "## Tier header does not answer both Q1 and Q2" \
@@ -1477,7 +1635,7 @@ EOF
   # refused one by one, by name.
   answer_tier "$prep" yes no
   fm_test_fill_prep_common "$prep" direct-PR || fail "common fields for numbered controls"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a tier-2 spawn with placeheld sections should exit non-zero"
   assert_contains "$out" "tier 2 requires ## 1. Intent and boxes" \
@@ -1487,7 +1645,7 @@ EOF
   # One section left blank is refused by name even when every other one is answered.
   sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   blank_section "$prep" "## 3. UI/UX"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a ship spawn with an empty required section should exit non-zero"
   assert_contains "$out" "tier 2 requires ## 3. UI/UX, which is empty" \
@@ -1497,7 +1655,7 @@ EOF
   # At tier 2 a deleted section is as refusable as an unanswered one: the gate is
   # not escapable by removing the heading the author does not want to answer.
   drop_section "$prep" "## 3. UI/UX" "## 4."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a tier-2 spawn with a deleted section should exit non-zero"
   assert_contains "$out" "tier 2 requires ## 3. UI/UX, which is missing" \
@@ -1506,12 +1664,15 @@ EOF
   # The SAME record at tier 1 launches: section 3 is below that tier, so deleting
   # it was a decision the tier authorizes rather than a hole in the record.
   answer_tier "$prep" no yes
+  mode=no-mistakes
+  fm_test_prep_depth "$prep" no-mistakes
+  sed "s/Delivery contract: mode=direct-PR/Delivery contract: mode=no-mistakes/" "$home/data/$id/brief.md" > "$home/data/$id/brief.f" && mv "$home/data/$id/brief.f" "$home/data/$id/brief.md"
   assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
-    "a tier-1 record refused for a section only tier 2 requires"
+    "a tier-1 record refused for a section only tier 2 requires" "$mode"
 
   # Tier 1 still owes its own five sections, so blanking one is refused by name.
   blank_section "$prep" "## 6. Tests"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a tier-1 spawn with an empty required section should exit non-zero"
   assert_contains "$out" "tier 1 requires ## 6. Tests, which is empty" \
@@ -1519,6 +1680,7 @@ EOF
 
   # The blast radius is the one section that owes tool output rather than prose,
   # so an answer that ran no tool is refused at every tier that requires it.
+  mode=direct-PR
   id="prep-blast"
   mkdir -p "$home/data/$id"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
@@ -1528,9 +1690,12 @@ EOF
   prep="$home/data/$id/prep.md"
   sed -e 's|^{INTENT_AND_BOXES}$|Exercise the delivery contract.|' -e 's|^{[A-Z0-9_]*}$|n/a: fixture.|' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   answer_tier "$prep" no yes
-  fm_test_fill_prep_common "$prep" direct-PR || fail "blast common fields"
+  mode=no-mistakes
+  fm_test_prep_depth "$prep" no-mistakes
+  sed "s/Delivery contract: mode=direct-PR/Delivery contract: mode=no-mistakes/" "$home/data/$id/brief.md" > "$home/data/$id/brief.f" && mv "$home/data/$id/brief.f" "$home/data/$id/brief.md"
+  fm_test_fill_prep_common "$prep" no-mistakes || fail "blast common fields"
   fill_section "$prep" "## 4. Blast radius" "I read the code and nothing else changes."
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a blast radius answered from memory should exit non-zero"
   assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
@@ -1542,19 +1707,19 @@ EOF
   # whether the output is right.
   fill_section "$prep" "## 4. Blast radius" "gitnexus impact bin/fm-dod-lib.sh: 3 modules, 0 callers outside."
   assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
-    "a blast radius carrying impact output"
+    "a blast radius carrying impact output" "$mode"
 
   # Serena answers it too, and case never matters.
   fill_section "$prep" "## 4. Blast radius" "Serena find_referencing_symbols: 4 callers, all in tests/."
   assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
-    "a blast radius carrying caller counts"
+    "a blast radius carrying caller counts" "$mode"
 
   # A decision already taken needs no tool output, but a bare n/a is not one.
   fill_section "$prep" "## 4. Blast radius" "n/a: this change crosses no module boundary."
   assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
-    "an n/a blast radius with a reason"
+    "an n/a blast radius with a reason" "$mode"
   fill_section "$prep" "## 4. Blast radius" "n/a"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a bare n/a blast radius with no reason should exit non-zero"
   assert_contains "$out" "tier 1 requires ## 4. Blast radius to paste the tool output" \
@@ -1562,6 +1727,7 @@ EOF
 
   # UI wiring yes forces tier 2 whatever Q1 and Q2 say: a change the user meets
   # owes its behaviour spec even when it looks small from the code's side.
+  mode=direct-PR
   id="prep-ui-wiring"
   mkdir -p "$home/data/$id"
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
@@ -1574,7 +1740,7 @@ EOF
   fm_test_fill_prep_common "$prep" direct-PR || fail "UI common fields"
   sed 's/^- Screen and region:.*$/- Screen and region: Settings, configuration region, fixture design map./' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
   blank_section "$prep" "## 2. Behaviour spec"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   status=$?
   [ "$status" -ne 0 ] || fail "a UI wiring yes did not force tier 2 over two no answers"
   assert_contains "$out" "tier 2 requires ## 2. Behaviour spec, which is empty" \
@@ -1584,7 +1750,7 @@ EOF
   # was the missing section rather than the UI wiring answer itself.
   fill_section "$prep" "## 2. Behaviour spec" "The user sees a new button."
   assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" \
-    "an answered UI-wiring record"
+    "an answered UI-wiring record" "$mode"
 
   # Legacy header-only all-no records now owe the tier-1 sections.
   id="prep-tier0"
@@ -1598,7 +1764,7 @@ EOF
   answer_tier "$prep" no no
   fm_test_fill_prep_common "$prep" direct-PR || fail "legacy common fields"
   assert_no_grep "## 1. Intent and boxes" "$prep" "the tier-0 fixture kept a section"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   assert_contains "$out" "tier 1 requires ## 1. Intent and boxes" "legacy header-only record bypassed completeness"
   assert_absent "$home/data/$id/launch-brief.md" "header-only legacy record launched"
 
@@ -1610,7 +1776,7 @@ EOF
   printf 'You are a crewmate.\n\n# Task\n## Captain'"'"'s intent\nShip something.\n\n## Firstmate spec\nBuild it.\n\n# Definition of done\nDelivery contract: mode=direct-PR\n' \
     > "$home/data/$id/brief.md"
   write_prep "$home" "$id" yes no
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
   assert_not_contains "$out" "cannot ship without its preparation record" \
     "an answered tier-2 preparation record was refused"
   assert_present "$home/data/$id/launch-brief.md" "an answered-prep spawn rendered no launch contract"
@@ -1651,10 +1817,15 @@ EOF
   for mode in no-mistakes direct-PR local-only; do
     for tier in 0 1 2; do
       q1=no; q2=no
+      [ "$mode:$tier" != direct-PR:1 ] || continue # shared code belongs to no-mistakes
       [ "$tier" != 1 ] || q2=yes
       [ "$tier" != 2 ] || q1=yes
       id="no-review-$mode-$tier"
-      write_prep "$home" "$id" "$q1" "$q2" no "${mode/local-only/direct-PR}"
+      if [ "$mode:$tier" = local-only:1 ]; then
+        write_prep "$home" "$id" "$q1" "$q2" no no-mistakes
+      else
+        write_prep "$home" "$id" "$q1" "$q2" no "${mode/local-only/direct-PR}"
+      fi
       write_brief "$home" "$id" "$mode"
       assert_absent "$home/data/$id/prep-review" "fixture manufactured compulsory review"
       out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off)
@@ -2417,6 +2588,7 @@ EOF
   assert_no_grep 'which a separate agent reviewed' "$home/data/$id/launch-brief.md" "install falsely claimed review"
   write_brief "$home" "$id" direct-PR
   fm_test_prep_depth "$prep.valid" direct-PR || fail "legacy checks-only fixture"
+  answer_tier "$prep.valid" yes no # legacy exemption does not decide the current risk class
   for field in unit setting pin 'store version'; do
     for variant in yes missing malformed conflict; do
       case "$variant" in
@@ -2445,7 +2617,7 @@ EOF
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   assert_contains "$out" 'Scope only as asked' "legacy install bypassed common completeness"
   cp "$prep.valid" "$prep"
-  answer_tier "$prep" maybe yes
+  answer_tier "$prep" maybe no
   out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
   assert_contains "$out" 'does not answer both Q1 and Q2' "legacy install changed tier parsing"
   pass "legacy install declarations have no admission effect and cannot bypass completeness"
@@ -2487,14 +2659,14 @@ test_prep_requires_finalize_after_evidence() {
   IFS='|' read -r home proj fakebin <<EOF
 $rec
 EOF
-  write_prep "$home" "$id" no yes
-  write_brief "$home" "$id" direct-PR
+  write_prep "$home" "$id" no yes no no-mistakes
+  write_brief "$home" "$id" no-mistakes
   prep="$home/data/$id/prep.md"
   fill_section "$prep" '## 8. Out of scope and follow-ups' 'Everything else stays unchanged.'
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
   assert_contains "$out" 'naming finalize-after' "prose without marker grep bypassed evidence check"
   fill_section "$prep" '## 8. Out of scope and follow-ups' 'git grep FINALIZE-AFTER: exit 1, no pending markers.'
-  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "marker grep evidence"
+  assert_spawn_clears_prep_gates "$home" "$fakebin" "$id" "$proj" "marker grep evidence" no-mistakes
   assert_grep 'tests named in Tests before their passing code' "$home/data/$id/launch-brief.md" "ship overlay lost test-first instructions"
   pass "fm-spawn: section 8 owes sentinel grep evidence or an explicit n/a reason"
 }
@@ -2506,7 +2678,7 @@ test_prep_common_completeness() {
   IFS='|' read -r home proj fakebin <<EOF
 $rec
 EOF
-  write_prep "$home" common no yes
+  write_prep "$home" common no yes no no-mistakes
   prep="$home/data/common/prep.md"
   # The fixture spells out the requested public format independently of rendering.
   awk '/^## Author checks$/ { skip=1 } /^## 1[.] / { skip=0 } !skip' "$prep" > "$prep.f"
@@ -2623,8 +2795,8 @@ EOF
   [ "$bad" = 0 ] || fail "common completeness cases above failed"
   # Incomplete common fields also block the executable admission seam.
   sed '/^- Scope only as asked:/d' "$baseline" > "$prep"
-  write_brief "$home" common direct-PR
-  reason=$(run_spawn "$home" "$fakebin" common "$proj" claude --mode direct-PR --yolo off)
+  write_brief "$home" common no-mistakes
+  reason=$(run_spawn "$home" "$fakebin" common "$proj" claude --mode no-mistakes --yolo off)
   assert_contains "$reason" 'Scope only as asked' "spawn omitted common refusal"
   assert_absent "$home/data/common/launch-brief.md" "incomplete common fields reached launch"
   pass "common preparation: every field and outcome cell is complete, named refusals are structural, tool output remains literal"
@@ -2740,7 +2912,7 @@ test_prep_inline_delimiters() {
   IFS='|' read -r home proj fakebin <<EOF
 $rec
 EOF
-  write_prep "$home" inline-author no yes
+  write_prep "$home" inline-author no yes no no-mistakes
   prep="$home/data/inline-author/prep.md"
   for field in 'Captain rulings' 'Screen and region' 'Red-first proof' 'Fixture arithmetic' 'Data path reachability' 'Scope only as asked' 'Author gate check'; do
     awk -v f="$field" '
@@ -2784,7 +2956,7 @@ The refusal names the record.
 EOF
 )
   for mode in no-mistakes direct-PR local-only; do
-    for state in complete incomplete missing; do
+    for state in complete historical historical-incomplete incomplete missing; do
       rec=$(make_home "prep-promote-$mode-$state")
       IFS='|' read -r home proj fakebin <<EOF
 $rec
@@ -2795,10 +2967,21 @@ EOF
       fill_section "$home/data/$id/brief.md" "## Captain's intent" "$source_intent"
       printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
       case "$state" in
-        complete)
+        complete|historical|historical-incomplete)
           rm "$prep"
-          write_spec_prep "$home" "$id" yes no
+          write_spec_prep "$home" "$id" yes no "${mode/local-only/direct-PR}"
           awk '/^\| Delivery admission / { print "| Promotion check | Exact marker selected | `grep -F '\''<!-- marker -->'\'' output.html` | `<!-- marker -->` |"; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          if [ "$state" != complete ]; then
+            sed '/^- Delivery risk:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+            out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off); status=$?
+            [ "$status" -ne 0 ] || fail "$mode historical prep admitted as a fresh ship"
+            assert_contains "$out" 'Delivery risk' "$mode historical prep cleared fresh admission"
+            assert_absent "$home/data/$id/launch-brief.md" "$mode fresh admission rendered historical prep"
+            assert_absent "$fakebin/tmux.calls" "$mode historical fresh admission reached backend"
+            if [ "$state" = historical-incomplete ]; then
+              blank_section "$prep" '## 2. Behaviour spec'
+            fi
+          fi
           ;;
         incomplete) printf '## Tier\n- UI wiring: no, historical prep.\n' > "$prep" ;;
         missing) rm "$prep" ;;
@@ -2817,7 +3000,7 @@ EOF
       for artifact in "$home/data/$id/ship-instructions.md" "$home/data/$id/brief.md"; do
         captain=$(fm_brief_task_heading_body "$artifact" "## Captain's intent")
         [ "$captain" = "$source_intent" ] || fail "promotion changed source captain intent: $captain"
-        if [ "$state" = complete ]; then
+        if [ "$state" = complete ] || [ "$state" = historical ]; then
           assert_grep 'Builders and post-implementation verifiers use' "$artifact" "$mode omitted common acceptance directions"
           assert_contains "$(cat "$artifact")" "$prep" "$mode points at another preparation record"
         else
@@ -2826,7 +3009,7 @@ EOF
         if [ "$mode" = no-mistakes ]; then
           captain=$(awk -v h="$captain_heading" '$0 == h { emit=1; next } emit { print }' "$artifact")
           [ "$captain" = "$source_intent" ] || fail "promotion intent tail includes specification: $captain"
-          if [ "$state" = complete ]; then
+          if [ "$state" = complete ] || [ "$state" = historical ]; then
             accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$artifact")
             [ "$accepted" = "$expected" ] || fail "promotion lost accepted specification in $artifact: $accepted"
           else
@@ -3166,6 +3349,8 @@ EOF
     id="refresh-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
     write_brief "$home" "$id"
     prep="$home/data/$id/prep.md"
+    rm "$prep"
+    write_spec_prep "$home" "$id" yes no "${mode/local-only/direct-PR}"
     fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "| Outcome | Exact observable result | Where and how to check | Expected value |"$'\n''| --- | --- | --- | --- |'$'\n'"$table"
     printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
     out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
@@ -3186,10 +3371,20 @@ case "$1" in
   *) exit 1 ;;
 esac
 EOF
-    for state in changed incomplete stale siblings route missing; do
+    for state in changed historical historical-incomplete malformed duplicate mismatch incomplete stale siblings route missing; do
       cp "$home/complete-prep.md" "$prep"
       case "$state" in
         changed) sed 's/| 42 |$/| 43 |/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        historical|historical-incomplete)
+          sed '/^- Delivery risk:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          [ "$state" != historical-incomplete ] || blank_section "$prep" '## 2. Behaviour spec'
+          ;;
+        malformed) sed 's/^- Delivery risk:.*$/- Delivery risk: money, {REASON}/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        duplicate) sed '/^- Delivery risk:/p' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        mismatch)
+          case "$mode" in no-mistakes) expected=other ;; *) expected=money ;; esac
+          sed "s/^- Delivery risk:.*$/- Delivery risk: $expected, inspected scope./" "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          ;;
         incomplete) sed '/^- Scope only as asked:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
         stale) sed 's/^- Still valid:.*$/- Still valid: covered: delivered fixture/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
         siblings) sed '/^- Siblings named:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
@@ -3214,10 +3409,27 @@ EOF
         captain=$(awk -v c="$captain_heading" '$0 == c { emit=1; next } emit { print }' "$launch")
         [ "$captain" = 'Exercise the delivery contract.' ] || fail "relaunch mixed specification into captain tail: $captain"
         count=$(grep -cFx "$accepted_heading" "$launch" || true)
-        if [ "$state" = changed ]; then
+        if [ "$state" = changed ] || [ "$state" = historical ]; then
           [ "$count" -eq 1 ] || fail "refreshed relaunch has $count accepted specifications"
           emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
-          expected="$FM_PREP_OUTCOMES_HEADING"$'\n''| Outcome | Exact observable result | Where and how to check | Expected value |'$'\n''| --- | --- | --- | --- |'$'\n'"${table/42/43}"
+          expected=$(cat <<EOF
+$FM_PREP_OUTCOMES_HEADING
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+$table
+
+## 2. Behaviour spec
+Refuse the launch and name the missing review.
+
+### Copy
+The refusal names the record.
+
+## 11. Definition of done
+- Every tier is gated.
+- The relaunch stays exempt.
+EOF
+)
+          [ "$state" != changed ] || expected=${expected/42/43}
           [ "$emitted" = "$expected" ] || fail "relaunch retained old specification: $emitted"
         else
           [ "$count" -eq 0 ] || fail "relaunch certified $state prep"
@@ -3317,6 +3529,9 @@ test_prep_current_work_checks() {
   pass "both prep formats require current-work checks and only substantive proceed is dispatchable"
 }
 
+test_promotion_risk_admission
+test_risk_delivery_admission
+test_risk_fields_and_certainty_controls
 test_prep_current_work_checks
 test_prep_block_transitions
 test_prep_author_continuation_context
