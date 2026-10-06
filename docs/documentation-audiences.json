@@ -433,10 +433,6 @@
       "audience": "operator-current"
     },
     {
-      "path": "docs/subagent-guard.md",
-      "audience": "maintainer-architecture"
-    },
-    {
       "path": "docs/supervision-protocols/claude.md",
       "audience": "agent-runtime"
     },
