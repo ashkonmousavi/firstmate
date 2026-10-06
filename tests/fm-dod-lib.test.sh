@@ -125,6 +125,46 @@ test_third_review_list_is_last() {
   pass "review: third distinct list is last, reattach is stable, follow-ups land verbatim, direct-PR keeps one round"
 }
 
+test_review_list_ledger_failures() {
+  local home output forge ledger_cmd cmd ledger out
+  home="$TMP_ROOT/ledger-failure-home"
+  output="$TMP_ROOT/ledger-failure.md"
+  mkdir -p "$home/data/sample" "$home/state" "$home/config"
+  ledger="$home/data/sample/nm-run1-review-lists.txt"
+  for forge in none gerrit; do
+    fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship no-mistakes fm/sample "$forge" > "$output" \
+      || fail "$forge ledger contract render"
+    ledger_cmd=$(rendered_command "$output" 'review-lists.txt')
+    [ -n "$ledger_cmd" ] || fail "$forge ledger command missing"
+    cmd=${ledger_cmd//<run>/run1}
+    cmd=${cmd//<head_sha>/ccc}
+    printf 'aaa\nbbb\n' > "$ledger"
+    if out=$(bash -c "ulimit -f 0; trap '' XFSZ; $cmd" 2>/dev/null); then
+      fail "$forge failed third-list append returned success"
+    fi
+    assert_equals '' "$out" "$forge failed append returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed append changed the ledger"
+    if out=$(bash -c "grep() { return 2; }; $cmd" 2>/dev/null); then
+      fail "$forge failed lookup returned success"
+    fi
+    assert_equals '' "$out" "$forge failed lookup returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed lookup appended a head"
+    cmd=${cmd//ccc/aaa}
+    if out=$(bash -c "wc() { return 1; }; $cmd" 2>/dev/null); then
+      fail "$forge failed count returned success"
+    fi
+    assert_equals '' "$out" "$forge failed count returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge reattachment changed the ledger"
+    cmd=${ledger_cmd//<run>/new-$forge}
+    cmd=${cmd//<head_sha>/aaa}
+    if out=$(bash -c "ulimit -f 0; trap '' XFSZ; $cmd" 2>/dev/null); then
+      fail "$forge failed first-list append returned success"
+    fi
+    assert_equals '' "$out" "$forge failed first append returned an ordinal"
+  done
+  pass "review ledger: lookup, append and count failures return no ordinal"
+}
+
 test_scout_done_is_not_gated() {
   local repo wt
   repo="$TMP_ROOT/scout-repo"
@@ -490,6 +530,7 @@ test_pr_based_dod_draft_check_uses_gh_axi() {
 
 test_common_review_triage_contract
 test_third_review_list_is_last
+test_review_list_ledger_failures
 test_scout_done_is_not_gated
 test_unpushed_ship_done_is_refused
 test_no_mistakes_prevalidation_done_is_not_gated

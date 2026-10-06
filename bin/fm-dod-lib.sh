@@ -1366,8 +1366,8 @@ fm_review_followup_block() {  # <root> <data-dir> <task-id> <mode>
   if [ "$mode" = no-mistakes ]; then
     cat <<EOF
 ${lead}count each distinct Review finding list once, by the \`head_sha\` in the drive return carrying its review gate, with
-   \`f='$data/$id/nm-<run>-review-lists.txt'; grep -qxF '<head_sha>' "\$f" 2>/dev/null || printf '%s\n' '<head_sha>' >> "\$f"; wc -l < "\$f"\`
-   which prints that list's ordinal.
+   \`f='$data/$id/nm-<run>-review-lists.txt'; if [ ! -e "\$f" ]; then printf '%s\n' '<head_sha>' >> "\$f" || exit 1; elif grep -xF '<head_sha>' "\$f" >/dev/null; then :; else [ "\$?" -eq 1 ] && printf '%s\n' '<head_sha>' >> "\$f" || exit 1; fi; wc -l < "\$f"\`
+   which prints that list's ordinal only on success; on failure, stop and escalate instead of choosing a Review action.
 EOF
     lead='   '
   fi
