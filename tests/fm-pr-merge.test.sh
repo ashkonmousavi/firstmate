@@ -3951,3 +3951,157 @@ test_allow_missing_follows_the_allow_red_rules
 test_required_producer_identity
 test_app_bound_required_status_context_matches_by_name
 test_required_partial_reads_report_all_failures
+
+# A real linked Git worktree supplies revert source; only forge reads/merges
+# are mocked, keeping source construction independent of the guard fixture.
+make_revert_case() {
+  local case_dir=$1 mode=${2:-single} head original_base original_head first commits
+  original_base=$(git -C "$case_dir/wt" rev-parse HEAD)
+  printf 'regression\n' > "$case_dir/wt/regression"
+  git -C "$case_dir/wt" add regression
+  git -C "$case_dir/wt" commit -qm 'Introduce regression'
+  first=$(git -C "$case_dir/wt" rev-parse HEAD)
+  commits="[{\"oid\":\"$first\"}]"
+  if [ "$mode" != single ]; then
+    printf 'second regression\n' > "$case_dir/wt/second-regression"
+    git -C "$case_dir/wt" add second-regression
+    git -C "$case_dir/wt" commit -qm 'Introduce second regression'
+    original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+    commits="[{\"oid\":\"$first\"},{\"oid\":\"$original_head\"}]"
+    git -C "$case_dir/wt" switch -qc integration "$original_base"
+    case "$mode" in
+      merge) git -C "$case_dir/wt" merge --no-ff -qm 'Merge regressions' "$original_head" ;;
+      squash) git -C "$case_dir/wt" merge --squash -q "$original_head"; git -C "$case_dir/wt" commit -qm 'Squash regressions' ;;
+      partial) git -C "$case_dir/wt" cherry-pick "$original_head" >/dev/null ;;
+    esac
+  else
+    original_head=$first
+  fi
+  head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  git -C "$case_dir/wt" update-ref refs/remotes/origin/main "$head"
+  git -C "$case_dir/wt" worktree add -qb revert-source "$case_dir/source" "$head" \
+    || fail 'could not create isolated revert source'
+  sed -i.bak "s|worktree=.*|worktree=$case_dir/source|;s|project=.*|project=$case_dir/wt|" "$case_dir/state/task-x1.meta"
+  add_gh_mocks "$case_dir" "$head"
+  printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"baseRefName":"main","baseRefOid":"%s","headRefOid":"%s","commits":%s}\n' \
+    "$head" "$head" "$original_head" "$commits" > "$case_dir/github-view.json.prepare"
+  mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh.merge"
+  cat > "$case_dir/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *mergeCommit*) cat "$FM_TEST_GH_VIEW_JSON.prepare" ;;
+  *) exec "$0.merge" "$@" ;;
+esac
+SH
+  chmod +x "$case_dir/fakebin/gh"
+}
+
+run_prepare_revert() {
+  local case_dir=$1
+  (cd "$case_dir/source" && FM_TASK_ID="${REVERT_WORKER_ID-task-x1}" \
+    run_pr_merge "$case_dir" task-x1 https://github.com/acme/widget/pull/31 --prepare-revert) \
+    > "$case_dir/prepare.out" 2> "$case_dir/prepare.err"
+}
+
+test_worker_revert_preparation_and_guarded_pr() {
+  local case_dir old_head revert_head rc
+  case_dir=$(make_case worker-revert)
+  make_revert_case "$case_dir"
+  old_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  run_prepare_revert "$case_dir" \
+    || fail "isolated worker revert refused: $(cat "$case_dir/prepare.err")"
+  revert_head=$(git -C "$case_dir/source" rev-parse HEAD)
+  [ "$revert_head" != "$old_head" ] || fail 'revert prepared no commit'
+  [ ! -e "$case_dir/source/regression" ] || fail 'revert did not undo regression'
+  [ "$(git -C "$case_dir/wt" rev-parse HEAD)" = "$old_head" ] \
+    && [ -f "$case_dir/wt/regression" ] || fail 'preparation changed primary source'
+  [ -z "$(git -C "$case_dir/source" status --porcelain)" ] || fail 'revert source not clean'
+  assert_no_grep 'pr=' "$case_dir/state/task-x1.meta" 'preparation bound the old PR as the revert PR'
+  assert_no_grep 'pr merge' "$case_dir/gh.log" 'preparation attempted a merge'
+  # A separately published PR at that actual revert commit still goes through
+  # every existing check and the head-bound merge command.
+  write_github_red_json "$case_dir" "$revert_head" classify
+  rc=0
+  run_pr_merge "$case_dir" task-x1 https://github.com/acme/widget/pull/32 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" 'red revert classify must refuse'
+  assert_no_grep 'pr merge' "$case_dir/gh.log" 'red revert was merged'
+  write_github_live_json "$case_dir" "$revert_head"
+  run_pr_merge "$case_dir" task-x1 https://github.com/acme/widget/pull/32 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || fail 'green revert guard refused'
+  assert_logged_gh_merge "$case_dir" 32 acme/widget --squash
+  pass 'worker prepares isolated revert; separately published revert PR must pass the verified-head guard'
+}
+
+test_worker_revert_preparation_refuses_unsafe_source() {
+  local case_dir fault before rc
+  for fault in supervisor dirty primary stale-base unmerged unknown-commit; do
+    case_dir=$(make_case "worker-revert-$fault")
+    make_revert_case "$case_dir"
+    before=$(git -C "$case_dir/source" rev-parse HEAD)
+    case "$fault" in
+      supervisor) REVERT_WORKER_ID= ;;
+      dirty) printf 'uncommitted\n' >> "$case_dir/source/regression" ;;
+      primary) sed -i.bak "s|worktree=.*|worktree=$case_dir/wt|" "$case_dir/state/task-x1.meta" ;;
+      stale-base) jq '.baseRefOid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+        "$case_dir/github-view.json.prepare" > "$case_dir/new.json"; mv "$case_dir/new.json" "$case_dir/github-view.json.prepare" ;;
+      unmerged) jq '.state = "OPEN"' "$case_dir/github-view.json.prepare" > "$case_dir/new.json"; mv "$case_dir/new.json" "$case_dir/github-view.json.prepare" ;;
+      unknown-commit) jq '.mergeCommit.oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+        "$case_dir/github-view.json.prepare" > "$case_dir/new.json"; mv "$case_dir/new.json" "$case_dir/github-view.json.prepare" ;;
+    esac
+    rc=0
+    run_prepare_revert "$case_dir" || rc=$?
+    unset REVERT_WORKER_ID
+    [ "$rc" -ne 0 ] || fail "unsafe revert preparation accepted: $fault"
+    [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$before" ] || fail "unsafe preparation changed source: $fault"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" "unsafe preparation merged: $fault"
+  done
+  pass 'revert preparation refuses supervisor, dirty, primary, stale, unmerged and unproved source'
+}
+
+test_worker_revert_preparation_and_guarded_pr
+test_worker_revert_preparation_refuses_unsafe_source
+
+test_worker_reverts_complete_merge_and_squash_only() {
+  local mode case_dir before rc
+  for mode in merge squash partial; do
+    case_dir=$(make_case "worker-revert-$mode")
+    make_revert_case "$case_dir" "$mode"
+    before=$(git -C "$case_dir/source" rev-parse HEAD)
+    rc=0
+    run_prepare_revert "$case_dir" || rc=$?
+    if [ "$mode" = partial ]; then
+      [ "$rc" -ne 0 ] || fail 'partial multi-commit integration was reverted as a complete PR'
+      [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$before" ] || fail 'partial revert changed source'
+      assert_grep 'complete PR patch' "$case_dir/prepare.err" 'partial revert refusal not explained'
+    else
+      expect_code 0 "$rc" "$mode revert failed: $(cat "$case_dir/prepare.err")"
+      [ ! -e "$case_dir/source/regression" ] && [ ! -e "$case_dir/source/second-regression" ] \
+        || fail "$mode revert left part of the regression"
+    fi
+  done
+  pass 'revert prepares complete two-parent merge and squash; refuses a partial rebased PR'
+}
+
+test_worker_revert_preserves_conflict() {
+  local case_dir merged head rc
+  case_dir=$(make_case worker-revert-conflict)
+  make_revert_case "$case_dir"
+  merged=$(git -C "$case_dir/source" rev-parse HEAD)
+  printf 'later main change\n' > "$case_dir/source/regression"
+  git -C "$case_dir/source" commit -qam 'Subsequent main change'
+  head=$(git -C "$case_dir/source" rev-parse HEAD)
+  git -C "$case_dir/source" update-ref refs/remotes/origin/main "$head"
+  jq --arg head "$head" '.baseRefOid = $head' "$case_dir/github-view.json.prepare" > "$case_dir/new.json"
+  mv "$case_dir/new.json" "$case_dir/github-view.json.prepare"
+  rc=0
+  run_prepare_revert "$case_dir" || rc=$?
+  [ "$rc" -ne 0 ] || fail 'conflicting revert succeeded'
+  [ "$(git -C "$case_dir/source" rev-parse REVERT_HEAD)" = "$merged" ] || fail 'failed revert discarded conflict custody'
+  [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$head" ] || fail 'failed revert changed head'
+  [ -n "$(git -C "$case_dir/source" ls-files -u)" ] || fail 'conflicting source no longer retained'
+  pass 'conflicting revert refuses and preserves isolated unresolved source without aborting'
+}
+
+test_worker_reverts_complete_merge_and_squash_only
+test_worker_revert_preserves_conflict
