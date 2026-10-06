@@ -254,15 +254,25 @@ test_pretool_guards_deduplicate_and_render_cursor_deny() {
 }
 
 test_cd_guard_renders_cursor_deny() {
-  local dir payload out decision
+  local dir payload out decision status
   dir=$(make_primary_dir "$TMP_ROOT/host-cd")
-  payload='{"tool_name":"Shell","tool_input":{"command":"cd projects/example"},"cursor_version":"2026.08.11-e8db854"}'
-  out=$(printf '%s' "$payload" | FM_HOME="$dir" bash "$dir/bin/fm-cd-pretool-check.sh" --cursor 2>/dev/null)
+  payload=$(jq -cn --arg cwd "$dir" '{tool_name:"Shell",tool_input:{command:"cd projects/example"},cwd:$cwd,cursor_version:"2026.08.11-e8db854"}')
+  out=$(printf '%s' "$payload" | FM_HOME="$dir" bash "$dir/bin/fm-cd-pretool-check.sh" --cursor 2>&1); status=$?
+  expect_code 0 "$status" "Cursor reads the cd guard's deny object"
   decision=$(printf '%s' "$out" | jq -r '.permission // empty' 2>/dev/null)
   [ "$decision" = deny ] || fail "expected a Cursor deny object from the cd guard, got: $out"
-  out=$(printf '%s' "$payload" | FM_HOME="$dir" bash "$dir/bin/fm-cd-pretool-check.sh" 2>&1)
+  printf '%s' "$out" | jq -e '.user_message | type == "string" and length > 0' >/dev/null 2>&1 \
+    || fail "Cursor's cd deny object must carry a user_message reason, got: $out"
+  out=$(printf '%s' "$payload" | FM_HOME="$dir" bash "$dir/bin/fm-cd-pretool-check.sh" 2>&1); status=$?
+  expect_code 0 "$status" "the cd guard's Claude-settings duplicate must allow under Cursor"
   [ -z "$out" ] || fail "the cd guard's Claude-settings duplicate produced output under Cursor: $out"
   pass "fm-cd-pretool-check: Cursor duplicate allows, --cursor denies in Cursor's own shape"
+
+  payload=$(printf '%s' "$payload" | jq -c 'del(.cwd)')
+  out=$(printf '%s' "$payload" | FM_HOME="$dir" bash "$dir/bin/fm-cd-pretool-check.sh" --cursor 2>&1); status=$?
+  expect_code 0 "$status" "a relative Cursor cd without execution cwd must allow"
+  [ -z "$out" ] || fail "a relative Cursor cd without execution cwd produced output: $out"
+  pass "fm-cd-pretool-check: a relative Cursor cd without execution cwd allows silently"
 }
 
 # --- PARK --------------------------------------------------------------------
