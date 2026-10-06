@@ -1241,9 +1241,7 @@ reread_instruction_path() {
   state="$(cd "$home/state" && pwd -P)"
   latest=$(
     for path in "$state"/.fm-inherited-config-reread.*; do
-      case "$path" in
-        *.pending) continue ;;
-      esac
+      [[ "$path" == *.pending ]] && continue
       [ -f "$path" ] && [ ! -L "$path" ] || continue
       printf '%s\n' "$path"
     done | fm_config_reread_sort_generations | tail -n 1
