@@ -543,24 +543,23 @@ SH
   chmod +x "$case_dir/fakebin/rm"
 }
 
-remove_data_during_startup_budget_check() {  # <case-dir>
-  local case_dir=$1 real data saved budget
-  real=$(command -v stat)
+# Removes the backlog data directory from inside bootstrap's first backlog gate:
+# its memoized tasks-axi version probe runs after that gate's own data checks
+# passed, so reconciliation's re-check is the first to see the loss.
+remove_data_during_backlog_gate() {  # <case-dir>
+  local case_dir=$1 real data saved
+  real=$(command -v tasks-axi)
   data="$(home_of "$case_dir")/data"
   saved="$case_dir/bootstrap-data"
-  budget="$(home_of "$case_dir")/config/startup-memory-budget"
-  printf '7500\n' > "$budget"
-  cat > "$case_dir/fakebin/stat" <<SH
+  cat > "$case_dir/fakebin/tasks-axi" <<SH
 #!/usr/bin/env bash
-for arg in "\$@"; do
-  if [ "\$arg" = "$budget" ] && [ ! -e "$case_dir/data-removed" ]; then
-    mv "$data" "$saved" || exit 1
-    : > "$case_dir/data-removed"
-  fi
-done
+if [ "\${1:-}" = --version ] && [ ! -e "$case_dir/data-removed" ]; then
+  mv "$data" "$saved" || exit 1
+  : > "$case_dir/data-removed"
+fi
 exec "$real" "\$@"
 SH
-  chmod +x "$case_dir/fakebin/stat"
+  chmod +x "$case_dir/fakebin/tasks-axi"
 }
 
 break_meta_publication() {  # <case-dir> <meta-path>
@@ -2615,23 +2614,19 @@ test_bootstrap_refuses_a_symlinked_state_directory_before_reconciliation() {
 
 test_bootstrap_stops_when_data_disappears_before_reconciliation() {
   local case_dir id saved out rc=0
-  # The data-removal fault is injected by a fake stat on PATH; on Darwin the
-  # budget link-count helper now calls /usr/bin/stat directly, so the fake can
-  # never fire there. Skip the Darwin run of this case.
-  if [ "$(uname)" = Darwin ]; then
-    pass "bootstrap data-disappears fault injection is PATH-based; skipped on Darwin where stat is /usr/bin/stat"
-    return
-  fi
   id=atomic-bootstrap-data-race-b11
   case_dir=$(make_home bootstrap-data-race)
   add_item "$case_dir" "$id"
   start_item "$case_dir" "$id"
   write_task_meta "$case_dir" "$id" ship no-mistakes "spawn_gen=spawn-bootstrap-race"
-  remove_data_during_startup_budget_check "$case_dir"
+  remove_data_during_backlog_gate "$case_dir"
   saved="$case_dir/bootstrap-data"
 
   out=$(run_bootstrap "$case_dir") || rc=$?
   [ "$rc" -ne 0 ] || fail "bootstrap absorbed a fatal reconciliation addressing error: $out"
+  assert_present "$case_dir/data-removed" "the data-removal fault never fired"
+  assert_contains "$out" "backlog reconciliation cannot access configured data directory" \
+    "the data loss was not caught by reconciliation's own re-check: $out"
   assert_present "$(home_of "$case_dir")/state/$id.meta" \
     "fatal bootstrap reconciliation removed the task record"
   [ "$(tasks-axi show "$id" --file "$saved/backlog.md" 2>/dev/null | sed -n 's/^  state: *//p' | head -1)" = in_flight ] \
