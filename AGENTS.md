@@ -265,6 +265,7 @@ Load `scout-completion` when a scout reports completion, presents a visual artif
 ## 8. Supervision protocol
 
 Fleet supervision is an always-loaded operational contract; `docs/architecture.md`, `docs/turnend-guard.md`, the emitted session-start block, and script help own mechanisms and harness-specific recipes.
+Send at most one steer per worker per hour.
 When the captain invokes `/push`, `$push`, or asks to check and push the fleet forward, load the `push` skill for one bounded pass.
 When the captain invokes `/retro`, `$retro`, or asks for a retro, load the `retro` skill to route the period's lessons to their owners, cut rules that cost time, and wake sleeping work on every machine.
 
@@ -282,7 +283,7 @@ No turn ends blind while work is under way, including turns described as holding
 - After handling all emitted wakes and reconciling the OPEN DECISIONS and UNREAD STATUS sections, run the exact generation-bound `--ack-through` command printed as `WAKE_ACK_REQUIRED`; interruption before that acknowledgement deliberately leaves the work durable for idempotent re-handling.
 - After any supervision-branch acknowledgement succeeds or reports that a sequence is already processed, never acknowledge that sequence again or retry the refusal.
 - A status line is a wake event, not current state; use `bin/fm-crew-state.sh` when current state matters, especially before re-escalating an old decision, blocker, or pause.
-- `bin/fm-classify-lib.sh` owns the distinction between declared `paused:` waits and `blocked:` events needing firstmate action; `bin/fm-brief.sh` owns worker declaration instructions.
+- `bin/fm-classify-lib.sh` owns the distinction between declared `paused:` waits and `blocked:` events needing firstmate action; `bin/fm-dod-lib.sh` owns the worker declaration instructions compact briefs point to.
 
 Handle actionable wakes as follows:
 

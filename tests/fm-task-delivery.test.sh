@@ -27,6 +27,21 @@ MERGE_LOCAL="$ROOT/bin/fm-merge-local.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-task-delivery)
 
+# Follow compact briefs through the executable owner command handed to the worker.
+worker_contract_output() {
+  local command
+  # shellcheck disable=SC2016 # Fences are literal generated Markdown.
+  command=$(sed -n '/^```bash$/,/^```$/p' "$1" | sed '1d;$d')
+  [ -n "$command" ] || fail "missing compact worker contract pointer: $1"
+  bash -c "$command" || fail "compact worker contract pointer failed: $1"
+}
+
+resolved_worker_brief() {
+  cat "$1" > "$1.resolved"
+  worker_contract_output "$1" >> "$1.resolved"
+  printf '%s\n' "$1.resolved"
+}
+
 # A home with one registered project, one project directory, and a fake tmux that
 # refuses, so a spawn that clears the delivery checks still creates nothing.
 # Echoes "<home>|<project-dir>|<fakebin>".
@@ -809,7 +824,7 @@ STUB
       || fail "$mode: ordinary ship brief generation should succeed"
     brief_dod="$TMP_ROOT/promote-dod/brief-dod-$id"
     delivered_dod="$TMP_ROOT/promote-dod/delivered-dod-$id"
-    printf '%s\n' "$(fm_brief_heading_body "$home/data/$id/brief.md" '# Definition of done')" > "$brief_dod"
+    printf '%s\n' "$(worker_contract_output "$home/data/$id/brief.md" | fm_brief_heading_parse - '# Definition of done' body)" > "$brief_dod"
     printf '%s\n' "$(fm_brief_heading_body "$payload" '# Definition of done')" > "$delivered_dod"
     cmp -s "$brief_dod" "$delivered_dod" \
       || fail "$mode: promotion and ordinary brief generation delivered different Definitions of done"
@@ -2137,6 +2152,7 @@ test_forge_gerrit_changes_what_no_mistakes_means() {
   FM_HOME="$home" "$BRIEF" forge-dod-g1 review-server-project --mode no-mistakes --forge gerrit >/dev/null \
     || fail "a gerrit no-mistakes brief should scaffold"
   brief="$home/data/forge-dod-g1/brief.md"
+  brief=$(resolved_worker_brief "$brief")
   grep -qx "Delivery contract: mode=no-mistakes forge=gerrit shape=squash" "$brief" \
     || fail "the brief did not record the machine-readable forge in its delivery contract"
 
@@ -2183,6 +2199,7 @@ test_forge_gerrit_changes_what_no_mistakes_means() {
   FM_HOME="$home" "$BRIEF" forge-dod-n1 other-project --mode no-mistakes >/dev/null \
     || fail "a default-forge no-mistakes brief should scaffold"
   plain="$home/data/forge-dod-n1/brief.md"
+  plain=$(resolved_worker_brief "$plain")
   assert_grep 'bypassing the stop-set authority boundary.' "$brief" \
     "the gerrit driving block lost its authority-boundary terminator"
   assert_grep 'bypassing the stop-set authority boundary.' "$plain" \
@@ -2456,7 +2473,7 @@ STUB
   rm "$home/data/$id/brief.md"
   FM_HOME="$home" "$BRIEF" "$id" proj --mode no-mistakes --forge gerrit >/dev/null 2>&1 \
     || fail "ordinary gerrit ship brief generation should succeed"
-  printf '%s\n' "$(fm_brief_heading_body "$home/data/$id/brief.md" '# Definition of done')" > "$TMP_ROOT/forge-promote/brief-dod"
+  printf '%s\n' "$(worker_contract_output "$home/data/$id/brief.md" | fm_brief_heading_parse - '# Definition of done' body)" > "$TMP_ROOT/forge-promote/brief-dod"
   printf '%s\n' "$(fm_brief_heading_body "$payload" '# Definition of done')" > "$TMP_ROOT/forge-promote/delivered-dod"
   cmp -s "$TMP_ROOT/forge-promote/brief-dod" "$TMP_ROOT/forge-promote/delivered-dod" \
     || fail "promotion and ordinary brief generation delivered different gerrit contracts"
@@ -2474,6 +2491,7 @@ test_forge_gerrit_direct_pr_publishes_one_change() {
   FM_HOME="$home" "$BRIEF" forge-direct-g1 review-server-project --mode direct-PR --forge gerrit >/dev/null \
     || fail "a gerrit direct-PR brief should scaffold"
   brief="$home/data/forge-direct-g1/brief.md"
+  brief=$(resolved_worker_brief "$brief")
   grep -qx "Delivery contract: mode=direct-PR forge=gerrit shape=squash" "$brief" \
     || fail "the brief did not record the forge and shape in its delivery contract"
   # shellcheck disable=SC2016 # Backticks are literal generated Markdown.
@@ -3103,6 +3121,7 @@ EOF
   out=$(run_spawn "$pipeline_home" "$pipeline_fakebin" pipeline "$pipeline_proj" claude --mode no-mistakes --yolo off)
   file="$pipeline_home/data/pipeline/launch-brief.md"
   assert_present "$file" "pipeline prep did not reach spawn rendering: $out"
+  file=$(resolved_worker_brief "$file")
   grep -qxF '# Walk evidence' "$file" || fail "launch artifact omitted walk contract"
   for content in 'assigned actor, candidate and data' 'human expectation, actual observed result' 'console, network and application diagnostics' 'first failing boundary'; do
     assert_contains "$(cat "$file")" "$content" "launch artifact lost walk obligation: $content"

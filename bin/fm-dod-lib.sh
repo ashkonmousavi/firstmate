@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Single owner of a ship task's mode-specific "Definition of done" block and of
 # the named-head reachability gate that accepts a ship `done:` claim.
-# Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
-# bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
+# Compact bin/fm-brief.sh scaffolds point at its public contract renderer;
+# bin/fm-promote.sh renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
 # no-mistakes worker that never received the stop-set escalation rule or the
 # `--yes` ban is the exact delivery hole this single owner exists to close.
@@ -1036,6 +1036,205 @@ fm_brief_intent_address_line() {  # <file>
     /^[[:space:]]*(Captain('\''s (words|ask|intent))?:|Captain,)/ { print; found = 1; exit }
     END { exit !found }
   '
+}
+
+fm_worker_shell_quote() {
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
+fm_worker_status_append() {  # <root> <state-dir> <task-id> <config-dir>
+  local STATUS_FILE
+  STATUS_FILE=$(fm_worker_shell_quote "$2/$3.status")
+  local FM_ROOT=$1 CONFIG=$4 STATUS_APPEND
+  STATUS_APPEND="echo \"{state} [at=<epoch>]: {one short line}\" >> $STATUS_FILE && { [ ! -e $(fm_worker_shell_quote "$CONFIG/fleet-ledger") ] || $(fm_worker_shell_quote "$FM_ROOT/bin/fm-fleet-ledger.sh") appended $(fm_worker_shell_quote "$CONFIG") $STATUS_FILE >/dev/null 2>&1 || true; }"
+  printf '%s\n' "$STATUS_APPEND"
+}
+
+fm_worker_pause_block() {  # <pause-verb>
+  local PAUSED_VERB=$1 CREWMATE_PAUSE_INSTRUCTIONS
+IFS= read -r -d '' CREWMATE_PAUSE_INSTRUCTIONS <<EOF || true
+   Use \`$PAUSED_VERB: {why}\` - distinct from \`blocked:\` - when deliberately waiting for work or an external condition expected to clear on its own, including your own validation round.
+   Before ending your turn with your own background shell or monitor still running, or before waiting on your own pipeline run or a long foreground command, append \`$PAUSED_VERB [at=<epoch>]: {job and completion condition}\` to the status file.
+   Name what you are waiting for and what will let you resume; do not repeat the declaration on every poll.
+   Do not declare active implementation or reasoning as a wait.
+   Firstmate may still raise one first-sight alert; the declared wait then uses the existing long recheck cadence instead of repeated possible-wedge alarms.
+   When you know when the wait clears, include \`until <YYYY-MM-DDTHH:MMZ>\` (UTC) for a recheck at that time.
+   Follow the resolution rule below when the wait clears, then resume the task.
+   Use \`blocked:\` when you are stuck and need help.
+EOF
+
+  printf '%s\n' "$CREWMATE_PAUSE_INSTRUCTIONS"
+}
+
+fm_worker_inbox_block() {  # <state-dir> <task-id> <config-dir>
+  local CONFIG=$3 INBOX_DIR INBOX_SECTION
+  INBOX_DIR=$(fm_worker_shell_quote "$1/$2.inbox")
+IFS= read -r -d '' INBOX_SECTION <<EOF || true
+# Firstmate instruction inbox
+Firstmate steers you through durable message files in $INBOX_DIR.
+When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list $INBOX_DIR/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: \`mv $INBOX_DIR/NNN.msg $INBOX_DIR/handled/\`.
+The move IS the acknowledgement: without it firstmate rings again and eventually treats you as stuck. An empty or absent inbox needs no action.
+EOF
+if [ -e "$CONFIG/wait-no-turns" ]; then
+  INBOX_SECTION+="Do not poll or list the inbox while waiting; a waiting instruction rings."$'\n'
+fi
+INBOX_SECTION=${INBOX_SECTION%$'\n'}
+
+  printf '%s\n' "$INBOX_SECTION"
+}
+
+fm_worker_wait_block() {
+  local WAIT_SECTION
+IFS= read -r -d '' WAIT_SECTION <<'EOF' || true
+# Waiting
+Every turn you take resends your whole context, so a wait must cost no turns.
+After you append `needs-decision:` or `blocked:`, end your turn at once: do not check the inbox, the status file, or anything else, because the answer arrives as a terminal message that starts your next turn.
+Wait on anything external - a pipeline gate, PR checks, a heavy-test slot - with ONE blocking shell command that returns when the state changes: `no-mistakes axi run` or `respond` with `--wait`, `gh pr checks <pr> --watch`, or `until <condition>; do sleep 30; done` for anything else.
+Never spend turns on `sleep` followed by a status check, and never background a command in order to poll it.
+In Claude Code that `until` loop in a single Bash call is the sanctioned foreground wait: when the harness refuses a sleep-then-check command and points you at backgrounding instead, reissue the wait as the loop rather than accepting the background.
+Bound that command by what your harness lets one command run: in Pi pass the bash tool a `timeout` of at most 2700 seconds, because Pi sets none by default; in Claude Code pass the Bash tool its maximum `timeout` of 600000 ms, because its default is 2 minutes; in Codex keep waiting on a still-running command with empty `write_stdin` polls of up to 300000 ms; elsewhere pass your shell tool its largest timeout and assume at most 10 minutes.
+Give any `--wait` a duration a little under that bound.
+When the bound passes with nothing changed, run the same blocking command again, with no status check in between.
+The one exception is `respond`: it sent its answer before it began waiting, so reattach with `no-mistakes axi run --wait` instead, and never send the same `respond` again, because it would answer whichever gate parks next without you reading it.
+A wait your shell can watch this way needs no `paused:` line, except your own pipeline run, a long foreground command, or your own validation round, which you declare once just before its blocking hold: append `paused:` once just before its first blocking command, then stay in the command, and never append it again as you reissue that command.
+EOF
+WAIT_SECTION=${WAIT_SECTION%$'\n'}
+  printf '%s\n' "$WAIT_SECTION"
+}
+
+fm_worker_infra_block() {
+  local SHARED_INFRA_RULE
+IFS= read -r -d '' SHARED_INFRA_RULE <<'EOF' || true
+7. Never administer infrastructure that every lane shares. Two things are shared:
+   - The `no-mistakes` daemon - one instance serving every lane/home, so stopping, restarting, or
+     updating it kills other lanes' in-flight pipeline runs; only firstmate manages the daemon.
+     Before you append `blocked:` about the pipeline, run `no-mistakes daemon status` and
+     `no-mistakes axi status`. If the daemon socket refuses connections or is missing, append
+     `blocked [at=<epoch>]: {the daemon error}` and stop even when the local run record still says running or
+     fixing, because that record can be stale after the daemon exits. A run record failed with a
+     daemon error is also a real block.
+     Only after ruling out socket refusal, if the run is still running or fixing, reattach and keep
+     going. A drive-call error, timeout, slow read, or generic unreachability is NOT a daemon error:
+     the daemon accepts `respond` immediately and runs the round in the background, so a killed or
+     timed-out call was only waiting for a read while the run kept working.
+   - The worktree pool your own worktree came from, and the repository every lane's worktree
+     shares. Never create, remove, return, prune, move, or reassign a worktree or pool slot, and
+     never write into a sibling slot's directory. Rule 2 does not cover this: removing a worktree
+     is administration rather than an edit outside your directory, and it lands on lanes that are
+     running right now. The act is the rule and commands are only examples of it - `treehouse`
+     get/return/remove/prune, the equivalent operations on any other worktree provider or runtime
+     backend, and `git worktree add|remove|move|prune`. A slot that looks unused is not evidence
+     that it is free, and returning your own worktree is firstmate's job at cleanup, not yours.
+   If you genuinely need a second checkout, another slot, or the daemon touched, append
+   `blocked [at=<epoch>]: {what you need}` and stop; firstmate arranges it.
+EOF
+SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
+
+  printf '%s\n' "$SHARED_INFRA_RULE"
+}
+
+fm_worker_walk_block() {
+  cat <<'EOF'
+# Walk evidence
+When this task commissions an end-to-end user journey, follow the project walk procedure from the real user entry point through the intended result and its return or reopen step where applicable.
+Before walking, verify the assigned actor, candidate and data, plus working Chrome DevTools or equivalent console, network and application diagnostics within the access this brief authorizes.
+Record each step as the human expectation, actual observed result, pass/fail/not exercised, and evidence tied to that candidate; retain the first failing boundary and enough permitted diagnostics for its owner to investigate.
+Source inspection and isolated checks support diagnosis but do not substitute for the walked result.
+Unavailable setup or diagnostic access is a named gap with an owner and next action, never a successful walk or permission to sign in or change production.
+EOF
+}
+
+# Compact briefs point here; execute this public renderer before work.
+# Arguments retain task-local paths and mode rather than consulting a home registry.
+fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode> <branch> <forge> [scout-rule2]
+  local FM_ROOT=$1 DATA=$2 STATE=$3 CONFIG=$4 ID=$5 KIND=$6 MODE=$7 BRANCH=$8 FORGE=$9
+  case "$KIND" in ship|scout) ;; *) echo "error: unknown worker kind: $KIND" >&2; return 1 ;; esac
+  local SCOUT_RULE2=${10:-'2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'}
+  local PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
+  local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' RULE1 DOD
+  STATUS_APPEND=$(fm_worker_status_append "$FM_ROOT" "$STATE" "$ID" "$CONFIG")
+  CREWMATE_PAUSE_INSTRUCTIONS=$(fm_worker_pause_block "$PAUSED_VERB")
+  INBOX_SECTION=$(fm_worker_inbox_block "$STATE" "$ID" "$CONFIG")
+  SHARED_INFRA_RULE=$(fm_worker_infra_block)
+  [ ! -e "$CONFIG/wait-no-turns" ] || WAIT_BLOCK="$(fm_worker_wait_block)"$'\n\n'
+  fm_worker_walk_block
+  if [ "$KIND" = scout ]; then
+    cat <<EOF
+# Rules
+1. Never push to any remote and never open a PR.
+$SCOUT_RULE2
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+4. Report status by appending one line:
+   \`$STATUS_APPEND\`
+   States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
+   Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+   Each append wakes firstmate, so report sparingly: only phase changes a supervisor
+   would act on and the needs-decision/blocked/paused/done/failed states. No step-by-step
+   FYI progress lines; firstmate reads your pane for that.
+   Whenever you mention a PR anywhere - a status line, your terminal, a summary - write its full
+   https:// URL exactly as the forge printed it, never a bare number such as "PR 108"; firstmate
+   copies that URL from your line rather than assembling one.
+$CREWMATE_PAUSE_INSTRUCTIONS
+5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
+   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
+6. If a decision belongs to a human (product choices, destructive actions),
+   append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
+   A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
+   Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
+$SHARED_INFRA_RULE
+
+$WAIT_BLOCK$INBOX_SECTION
+
+# Definition of done
+Write your findings to \`$DATA/$ID/report.md\`.
+The report must stand alone: what you did, what you found, the evidence (commands run, output, file:line references), and what you recommend.
+Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md\` and pass its shared completion gate for the report and any visual review.
+When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\` to the status file and stop.
+If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
+EOF
+  else
+    RULE1=$(fm_ship_rule_one "$MODE" "$ID" "$BRANCH" "$FORGE") || return 1
+    DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE") || return 1
+    [ "$MODE" != no-mistakes ] || ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
+    cat <<EOF
+# Rules
+$RULE1
+2. Stay inside this worktree; modify nothing outside it.
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+4. Report status by appending one line:
+   \`$STATUS_APPEND\`
+   States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
+   Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+   Each append wakes firstmate, so report sparingly: only phase changes a supervisor
+   would act on (setup done, bug reproduced, fix implemented, validation passed) and the
+   needs-decision/blocked/paused/done/failed states. No step-by-step FYI progress lines;
+   firstmate reads your pane for that.
+   Whenever you mention a PR anywhere - a status line, your terminal, a summary - write its full
+   https:// URL exactly as the forge printed it, never a bare number such as "PR 108"; firstmate
+   copies that URL from your line rather than assembling one.
+   A mid-task \`working:\` line (including setup complete) is nonterminal: do not end the
+   turn after it; continue the same stage until a defined \`done:\` gate under Definition of done.
+$CREWMATE_PAUSE_INSTRUCTIONS
+5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
+   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
+6. If a decision belongs above the implementation worker (product choices, destructive actions),
+   append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
+$ASK_USER_BLOCK
+   A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
+   Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
+$SHARED_INFRA_RULE
+
+$WAIT_BLOCK$INBOX_SECTION
+
+# Project memory
+A project's \`AGENTS.md\` or \`CLAUDE.md\` is loaded into every agent session in that project, so edit it only to correct information that is factually wrong - including information your own change made wrong - and never to add knowledge because it is missing.
+A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agents-md.sh\`, create either file, or add sections, headings, or pointers alongside it.
+
+$DOD
+EOF
+  fi
 }
 
 # The `nm-<run>-<step>` decision key this block mandates is load-bearing beyond
