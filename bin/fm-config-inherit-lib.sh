@@ -670,6 +670,17 @@ fm_config_reread_retry_dir() {
   printf '%s/%s/%s\n' "$source_home" "$FM_CONFIG_REREAD_RETRY_ROOT_REL" "$token"
 }
 
+# Order generations by their durable per-home sequence, independent of clock
+# adjustments. Keep the full path as the tie-breaker for older instruction names.
+fm_config_reread_sort_generations() {
+  awk '{
+    name = $0
+    sub(/^.*\//, "", name)
+    split(name, parts, ".")
+    printf "%s\t%s\n", parts[4], $0
+  }' | LC_ALL=C sort -t $'\t' -k1,1n -k2,2 | cut -f2-
+}
+
 fm_config_reread_pending_stages() {
   local source_home=$1 id=$2 retry_dir stage
   retry_dir=$(fm_config_reread_retry_dir "$source_home" "$id") || return 1
@@ -680,7 +691,7 @@ fm_config_reread_pending_stages() {
     [ -f "$stage" ] && [ ! -L "$stage" ] || continue
     [ -s "$stage" ] || continue
     printf '%s\n' "$stage"
-  done | LC_ALL=C sort
+  done | fm_config_reread_sort_generations
 }
 
 fm_config_reread_pending_reports() {
@@ -689,7 +700,7 @@ fm_config_reread_pending_reports() {
   for report in "$retry_dir"/.fm-inherited-config-reread.*.report; do
     [ -f "$report" ] && [ ! -L "$report" ] || continue
     printf '%s\n' "$report"
-  done | LC_ALL=C sort
+  done | fm_config_reread_sort_generations
 }
 
 fm_config_reread_has_staged() {
@@ -833,7 +844,7 @@ fm_config_reread_pending_instructions() {
     [ -f "$pending" ] && [ ! -L "$pending" ] || continue
     instruction=${pending%.pending}
     printf '%s\n' "$instruction"
-  done | LC_ALL=C sort
+  done | fm_config_reread_sort_generations
 }
 
 fm_config_reread_has_pending() {
@@ -863,7 +874,7 @@ fm_config_reread_cleanup_sent() {
     paths+="$path"
   done
   [ -n "$paths" ] || return 0
-  sorted=$(printf '%s\n' "$paths" | LC_ALL=C sort)
+  sorted=$(printf '%s\n' "$paths" | fm_config_reread_sort_generations)
   total=$(printf '%s\n' "$sorted" | wc -l | tr -d ' ')
   remove=$((total - FM_CONFIG_REREAD_MAX_SENT))
   [ "$remove" -gt 0 ] || return 0
@@ -1255,7 +1266,7 @@ EOF
     [ "${send_failures:-0}" = 1 ] && return 1
     return 0
   fi
-  delivery_paths=$(printf '%s\n' "$delivery_paths" | LC_ALL=C sort)
+  delivery_paths=$(printf '%s\n' "$delivery_paths" | fm_config_reread_sort_generations)
   while IFS= read -r instruction_path; do
     [ -n "$instruction_path" ] || continue
     if fm_config_reread_send_pointer "$id" "$instruction_path"; then

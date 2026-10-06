@@ -1237,15 +1237,17 @@ inbox_stream() {  # <parent-state-dir> <task-id>
 }
 
 reread_instruction_path() {
-  local home=$1 state path latest=
+  local home=$1 state path latest
   state="$(cd "$home/state" && pwd -P)"
-  for path in "$state"/.fm-inherited-config-reread.*; do
-    case "$path" in
-      *.pending) continue ;;
-    esac
-    [ -f "$path" ] && [ ! -L "$path" ] || continue
-    latest="$path"
-  done
+  latest=$(
+    for path in "$state"/.fm-inherited-config-reread.*; do
+      case "$path" in
+        *.pending) continue ;;
+      esac
+      [ -f "$path" ] && [ ! -L "$path" ] || continue
+      printf '%s\n' "$path"
+    done | fm_config_reread_sort_generations | tail -n 1
+  )
   [ -n "$latest" ] || return 1
   printf '%s\n' "$latest"
 }
@@ -2176,8 +2178,8 @@ SH
 
 test_config_reread_write_failure_retains_exact_retry_generation() {
   local w head fakebin real_mv retry_dir out status stage_path log retry_out retry_status instr
-  local old_instr new_instr
-  w=$(new_world config-reread-write-retry)
+  local old_instr new_instr real_date clock=${1:-normal}
+  w=$(new_world "config-reread-write-retry-$clock")
   head=$(git -C "$w/main" rev-parse HEAD)
   add_sm_worktree "$w" sm "$head"
   mkdir -p "$w/sm/config" "$w/sm/state"
@@ -2185,6 +2187,23 @@ test_config_reread_write_failure_retains_exact_retry_generation() {
   printf 'codex\n' > "$w/home/config/crew-harness"
   fakebin=$(make_fake_toolchain "$w")
   real_mv=$(command -v mv)
+  if [ "$clock" = backwards ]; then
+    real_date=$(command -v date)
+    cat > "$fakebin/date" <<SH
+#!/usr/bin/env bash
+if [ "\$*" = '-u +%Y%m%dT%H%M%S' ]; then
+  if [ -f '$w/clock-read' ]; then
+    printf '%s\n' 20261006T120000
+  else
+    touch '$w/clock-read'
+    printf '%s\n' 20261006T120001
+  fi
+  exit 0
+fi
+exec "$real_date" "\$@"
+SH
+    chmod +x "$fakebin/date"
+  fi
   mkdir -p "$w/home/state/.fm-inherited-config-reread-retry/sm"
   retry_dir=$(cd "$w/home/state/.fm-inherited-config-reread-retry/sm" && pwd -P)
   cat > "$fakebin/mv" <<SH
@@ -2787,6 +2806,7 @@ test_config_reread_per_home_changed_sets_and_exact_bytes
 test_config_reread_isolation_and_absent_and_send_failure
 test_config_reread_publication_failure_retries_exact_generation
 test_config_reread_write_failure_retains_exact_retry_generation
+test_config_reread_write_failure_retains_exact_retry_generation backwards
 test_config_reread_exact_temp_survives_adoption_failure
 test_config_reread_serializes_concurrent_pushes
 test_config_reread_full_retry_queue_drains_before_new_push
