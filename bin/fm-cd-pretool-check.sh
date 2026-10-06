@@ -4,7 +4,8 @@
 # A stray persistent top-level `cd projects/<clone>` in the PRIMARY firstmate
 # shell silently relocates the shell, so a later firstmate-owned command (a
 # backlog write, an fm-* lifecycle call, tasks-axi) runs inside a project clone
-# instead of the home. This seatbelt denies such a command before it runs.
+# instead of the home. This seatbelt denies a persistent move into that
+# projects folder before it runs. A directory change to anywhere else is allowed.
 # bin/fm-cd-command-policy.mjs is the sole owner of the block/allow decision; it
 # reuses the shell classifier owned by bin/fm-arm-command-policy.mjs. This
 # wrapper only scopes the guard to the real primary checkout, acquires the
@@ -53,7 +54,7 @@ With no --command, reads a PreToolUse-style JSON payload on stdin (Grok
 toolInput.command, or Claude/Codex tool_input.command).
 Fires only in the real primary firstmate checkout; it is a silent no-op in a
 crewmate/scout task worktree or any non-firstmate repo.
-Exits 0 to allow and 2 to deny a persistent top-level cwd change.
+Exits 0 to allow and 2 to deny a persistent move into the home's projects folder.
 The deny reason is written to stderr, with a Grok decision object on stdout
 unless --claude is supplied.
 With --cursor, a deny is Cursor's own decision object on stdout and exit 0,
@@ -163,7 +164,8 @@ POLICY="$FM_ROOT/bin/fm-cd-command-policy.mjs"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$POLICY" ] || exit 0
 
-POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" 2>/dev/null) || exit 0
+PROJECTS_ROOT=${FM_HOME:-$FM_ROOT}/projects
+POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" --projects-root "$PROJECTS_ROOT" 2>/dev/null) || exit 0
 [ -n "$POLICY_OUTPUT" ] || exit 0
 
 TAB=$(printf '\t')

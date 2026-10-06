@@ -76,14 +76,15 @@ matrix_case() {
   MATRIX_COMMANDS+=("$3")
 }
 
-# BLOCK: a persistent top-level cwd change in the parent shell.
+# BLOCK: a persistent top-level cd or pushd into the home's projects folder.
+# Other persistent directory changes are allowed.
 matrix_case B01 deny 'cd projects/foo'
-matrix_case B02 deny 'cd ..'
-matrix_case B03 deny 'cd'
-matrix_case B04 deny 'cd -'
-matrix_case B05 deny 'cd /abs/path'
+matrix_case B02 allow 'cd ..'
+matrix_case B03 allow 'cd'
+matrix_case B04 allow 'cd -'
+matrix_case B05 allow 'cd /abs/path'
 matrix_case B06 deny 'pushd projects/foo'
-matrix_case B07 deny 'popd'
+matrix_case B07 allow 'popd'
 matrix_case B08 deny 'X=1 cd projects/foo'
 matrix_case B09 deny 'cd projects/foo && tasks-axi add x'
 matrix_case B10 deny 'echo before; cd projects/foo'
@@ -104,6 +105,9 @@ matrix_case B24 deny 'command builtin cd projects/foo'
 matrix_case B25 deny 'builtin command cd projects/foo'
 matrix_case B26 deny 'command -p cd projects/foo'
 matrix_case B27 deny 'command -- cd projects/foo'
+matrix_case B28 deny 'cd projects'
+matrix_case B29 deny 'cd ./projects/foo'
+matrix_case B30 deny "cd '$PRIMARY/projects/foo'"
 
 # ALLOW: not a persistent top-level cwd change (scoped, data, or non-cd).
 matrix_case A01 allow 'git -C projects/foo status'
@@ -142,6 +146,9 @@ matrix_case A33 allow 'command -v cd'
 matrix_case A34 allow 'command -V cd'
 matrix_case A35 allow 'command -pv cd'
 matrix_case A36 allow 'command -vp cd'
+matrix_case A37 allow 'cd /tmp'
+matrix_case A38 allow 'cd bin'
+matrix_case A39 allow 'cd projectsfoo'
 
 MATRIX_TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-cd-policy-matrix.XXXXXX")
 FM_TEST_CLEANUP_DIRS+=("$MATRIX_TMP")
@@ -358,15 +365,22 @@ EOF
 # --- policy CLI contract ----------------------------------------------------
 
 test_policy_cli_direct() {
-  local policy
+  local policy projects_root absolute
   policy="$ROOT/bin/fm-cd-command-policy.mjs"
-  [ "$(node "$policy" --command 'cd projects/foo' | cut -f1)" = deny ] \
-    || fail "policy CLI must deny a bare top-level cd"
-  [ "$(node "$policy" --command 'git -C projects/foo status')" = allow ] \
+  projects_root="$TMP_ROOT/policy-home/projects"
+  mkdir -p "$projects_root"
+  absolute="$projects_root/clone"
+  [ "$(node "$policy" --command 'cd projects/foo' --projects-root "$projects_root" | cut -f1)" = deny ] \
+    || fail "policy CLI must deny a bare top-level cd into projects"
+  [ "$(node "$policy" --command "cd $absolute" --projects-root "$projects_root" | cut -f1)" = deny ] \
+    || fail "policy CLI must deny an absolute cd under the projects root"
+  [ "$(node "$policy" --command 'cd /tmp' --projects-root "$projects_root")" = allow ] \
+    || fail "policy CLI must allow an absolute cd outside the projects root"
+  [ "$(node "$policy" --command 'git -C projects/foo status' --projects-root "$projects_root")" = allow ] \
     || fail "policy CLI must allow git -C"
-  [ "$(node "$policy" --command '(cd projects/foo && pwd)')" = allow ] \
+  [ "$(node "$policy" --command '(cd projects/foo && pwd)' --projects-root "$projects_root")" = allow ] \
     || fail "policy CLI must allow a subshell-local cd"
-  [ "$(node "$policy")" = allow ] \
+  [ "$(node "$policy" --projects-root "$projects_root")" = allow ] \
     || fail "policy CLI must allow when no command is supplied"
   pass "cd-guard: fm-cd-command-policy.mjs CLI honors the deny/allow output contract"
 }

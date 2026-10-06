@@ -16,12 +16,13 @@
 // it inspects lexical command positions only.
 
 import { Lexer, splitProgram, commandPosition } from "./fm-arm-command-policy.mjs";
+import path from "node:path";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const REASONS = {
   "persistent-cd":
-    "a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).",
+    "a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).",
 };
 
 // Directory-changing builtins that mutate the calling shell's own cwd.
@@ -68,7 +69,87 @@ function hasCommandQueryPrefix(position) {
   return false;
 }
 
-function decision(command) {
+function knownDirectoryOption(commandName, value) {
+  if (commandName === "cd") return /^-[LPe@]+$/.test(value);
+  if (commandName === "pushd") return value === "-n";
+  return false;
+}
+
+// The directory operand, or null when this builtin does not name one literal
+// directory. Unknown options, stack rotations, and extra operands fail open:
+// bash does not change cwd for those, and an unreadable target must not block.
+function directoryOperand(commandName, words, commandIndex) {
+  let index = commandIndex + 1;
+  while (index < words.length) {
+    const word = words[index];
+    if (word.value === "--" && word.literal && word.subs.length === 0) {
+      index += 1;
+      break;
+    }
+    if (
+      word.value !== "-" &&
+      word.value.startsWith("-") &&
+      word.literal &&
+      word.subs.length === 0 &&
+      !word.unquotedExpansion
+    ) {
+      if (commandName === "pushd" && /^[-+]\d+$/.test(word.value)) return null;
+      if (knownDirectoryOption(commandName, word.value)) {
+        index += 1;
+        continue;
+      }
+      return null;
+    }
+    if (commandName === "pushd" && word.literal && /^\+\d+$/.test(word.value)) return null;
+    break;
+  }
+  if (index >= words.length || index + 1 !== words.length) return null;
+  return words[index];
+}
+
+function lexicalProjectsRelative(value) {
+  const parts = [];
+  for (const part of value.split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") {
+      if (parts.length === 0) return false;
+      parts.pop();
+      continue;
+    }
+    parts.push(part);
+  }
+  return parts[0] === "projects";
+}
+
+function resolveTarget(word, projectsRoot) {
+  const value = word.value;
+  if (!word.quoted && (value === "~" || value.startsWith("~/"))) {
+    const home = process.env.HOME;
+    if (!home || !home.startsWith("/")) return null;
+    return value === "~" ? path.resolve(home) : path.resolve(home, value.slice(2));
+  }
+  if (value.startsWith("/")) return path.resolve(value);
+  if (!projectsRoot) return null;
+  return path.resolve(path.dirname(path.resolve(projectsRoot)), value);
+}
+
+// True when the literal target is the projects folder or a directory below it.
+// Relative targets are read as if the shell were still at the home that owns
+// projectsRoot. A variable, substitution, glob, or ~user target is not literal.
+function targetsProjectFolder(word, projectsRoot) {
+  if (!word.literal || word.unquotedExpansion || word.subs.length > 0) return false;
+  const value = word.value;
+  if (value === "" || value === "-") return false;
+  if (!word.quoted && value.startsWith("~") && value !== "~" && !value.startsWith("~/")) return false;
+  const tilde = !word.quoted && (value === "~" || value.startsWith("~/"));
+  if (!projectsRoot && !value.startsWith("/") && !tilde) return lexicalProjectsRelative(value);
+  const resolved = resolveTarget(word, projectsRoot);
+  if (!resolved || !projectsRoot) return false;
+  const root = path.resolve(projectsRoot);
+  return resolved === root || resolved.startsWith(`${root}${path.sep}`);
+}
+
+function decision(command, projectsRoot = "") {
   const lexed = new Lexer(command).tokenize();
   // Fail open on syntax this classifier cannot tokenize. The cd-guard's threat
   // model is agent mistakes - an accidental bare `cd projects/foo` always
@@ -85,34 +166,47 @@ function decision(command) {
     const position = commandPosition(nodes[index]);
     if (hasPathQualifiedCommandPrefix(position)) continue;
     if (hasCommandQueryPrefix(position)) continue;
-    let command = position.command;
+    let commandWord = position.command;
     let wordIndex = position.index;
-    while (command && (command.value === "builtin" || command.value === "command")) {
+    while (commandWord && (commandWord.value === "builtin" || commandWord.value === "command")) {
       wordIndex += 1;
-      command = position.words[wordIndex];
+      commandWord = position.words[wordIndex];
     }
-    if (!command) continue;
-    if (!CD_BUILTINS.has(command.value)) continue;
+    if (!commandWord) continue;
+    if (!CD_BUILTINS.has(commandWord.value)) continue;
     if (position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper))) continue;
+    // popd never names a destination folder. A bare cd, cd -, and any target
+    // outside the projects folder are allowed.
+    if (commandWord.value === "popd") continue;
+    const operand = directoryOperand(commandWord.value, position.words, wordIndex);
+    if (!operand || !targetsProjectFolder(operand, projectsRoot)) continue;
     return deny("persistent-cd");
   }
   return { decision: "allow" };
 }
 
 function parseArguments(argv) {
-  const result = { command: "", commandSet: false };
+  const result = { command: "", commandSet: false, projectsRoot: "" };
   for (let i = 0; i < argv.length; i += 1) {
     const name = argv[i];
-    if (name === "--command") {
-      if (i + 1 >= argv.length) throw new Error("--command requires a value");
-      result.command = argv[i + 1];
-      result.commandSet = true;
+    if (name === "--command" || name === "--projects-root") {
+      if (i + 1 >= argv.length) throw new Error(`${name} requires a value`);
+      if (name === "--command") {
+        result.command = argv[i + 1];
+        result.commandSet = true;
+      } else {
+        result.projectsRoot = argv[i + 1];
+      }
       i += 1;
       continue;
     }
     if (name.startsWith("--command=")) {
       result.command = name.slice("--command=".length);
       result.commandSet = true;
+      continue;
+    }
+    if (name.startsWith("--projects-root=")) {
+      result.projectsRoot = name.slice("--projects-root=".length);
       continue;
     }
     throw new Error(`unknown argument: ${name}`);
@@ -137,7 +231,7 @@ if (invokedDirectly()) {
     if (!args.commandSet || !args.command) {
       process.stdout.write("allow\n");
     } else {
-      const result = decision(args.command);
+      const result = decision(args.command, args.projectsRoot);
       if (result.decision === "allow") {
         process.stdout.write("allow\n");
       } else {

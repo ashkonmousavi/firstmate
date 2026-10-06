@@ -12,8 +12,9 @@ the watcher-arm PreToolUse seatbelt (`bin/fm-arm-pretool-check.sh`, `docs/arm-pr
 
 The primary firstmate shell persists its working directory across tool calls.
 A stray persistent top-level `cd projects/<clone>` therefore silently relocates the shell, so the next firstmate-owned command - a backlog write, an `fm-*` lifecycle call - runs inside a project clone instead of the home.
-That has actually happened: a persistent top-level `cd` caused a firstmate-owned backlog write to execute inside a project clone rather than the home.
-The seatbelt denies exactly that command shape - a cwd change that persists to the primary shell - before it runs.
+That has actually happened: a persistent top-level `cd` into a project clone caused a firstmate-owned backlog write to execute inside that clone rather than the home.
+The seatbelt denies exactly that relocation: a persistent top-level `cd` or `pushd` whose literal target is the home's `projects` folder or a directory below it.
+A persistent directory change to anywhere else is allowed.
 
 This guard is not a general sandbox.
 It classifies shell command positions only; it never evaluates, expands, sources, or runs any byte of the submitted command.
@@ -35,10 +36,14 @@ Secondmate child crew and scout worktrees are likewise inert under the linked-wo
 
 ## Block vs allow
 
-The discriminator is persistence to the parent shell's cwd, not the mere presence of the token `cd`.
+The discriminator is a persistent move into the home's projects folder, not the mere presence of the token `cd`.
 
-The guard **blocks** a `cd`, `pushd`, or `popd` builtin that runs in an executed top-level position in the parent shell, because such a command persistently changes the primary shell's own working directory.
-This covers a bare `cd projects/foo`, `cd ..`, `cd`, `cd -`, an absolute `cd /some/path` (still a persistent relocation of the parent shell), `pushd <dir>`, `popd`, a leading-assignment form such as `X=1 cd foo`, quoted or escaped command-word fragments that cook to a bare builtin, and any list form where the builtin runs in the parent shell (`cd x && cmd`, `cmd; cd x`, `cmd || cd x`, `command cd x`, `command -p cd x`, `command -- cd x`, `builtin cd x`, `command builtin cd x`, `cd x >/dev/null`, and newline-separated lists).
+The projects folder is `${FM_HOME:-<checkout>}/projects`.
+A literal target matches when it is `projects`, `projects/...`, `./projects` or `./projects/...`, a `~/` path that expands to that folder or below it, or an absolute path at or under that folder.
+The guard **blocks** a persistent top-level `cd` or `pushd` with that target.
+This covers `cd projects/foo`, `cd ./projects/foo`, `pushd projects/foo`, `cd <home>/projects/foo`, a leading assignment such as `X=1 cd projects/foo`, quoted or escaped command-word fragments that cook to that builtin and target, and any list form where that builtin runs in the parent shell (`cd projects/foo && cmd`, `cmd; cd projects/foo`, `cmd || cd projects/foo`, `command cd projects/foo`, `command -p cd projects/foo`, `command -- cd projects/foo`, `builtin cd projects/foo`, `command builtin cd projects/foo`, `cd projects/foo >/dev/null`, and newline-separated lists).
+A bare `cd`, `cd -`, `cd ..`, `cd /tmp`, `cd bin`, `popd`, and `cd projectsfoo` are allowed.
+`popd` does not name a destination folder, so it is allowed even when it is persistent.
 
 The guard **allows** everything else, including these safe scoped forms that must never be blocked:
 
@@ -49,14 +54,18 @@ The guard **allows** everything else, including these safe scoped forms that mus
 - A `command` query such as `command -v cd`, `command -V cd`, or a clustered form such as `command -pv cd`, because it reports command resolution without executing the named builtin.
 - The token `cd` appearing as data: quoted text (`echo "cd projects/foo"`), a comment, a substring of another word (`cdk`, `abcd`, `record`), a `printf` payload, or any later argument word.
 
-An absolute-path `cd` is blocked on purpose: the ALLOW carve-out for absolute paths is for commands that address a target by absolute path, not for `cd`, which relocates the shell itself regardless of whether its argument is relative or absolute.
-Blocking a top-level `cd` is safe in the strong sense: the guard's steady state is "always at the home", so a return-to-home `cd` is redundant rather than necessary, and the block never causes a wrong-directory write.
+An absolute-path `cd` is blocked only when the path is the projects folder or a directory below it.
+An absolute `cd` to any other path is allowed.
+The ALLOW carve-out for absolute paths on ordinary commands is unchanged: `git -C` and an absolute path on the command itself never move the shell.
+The guard's steady state is "always at the home" only as the agent-mistake case it exists for: a relative target is read as if the shell were still at that home.
+A `cd` back to the home, a `cd ..`, and a `cd` to an unrelated directory are allowed, because they do not enter a project folder.
 
 ### Accepted non-goals
 
 Consistent with the agent-mistake threat model, the guard deliberately does not chase every obfuscated bypass:
 
 - A `cd` reconstructed by a command substitution (`$(echo c)d x`) or hidden inside a brace group (`{ cd x; }`) is not blocked. Brace-group recursion is avoided because this classifier cannot reliably tell a brace group `{ cd; }` from brace expansion `{cd,foo}`, and a false block there is worse than the missed exotic bypass.
+- A relative target typed after the shell has already moved is not re-resolved against the real cwd. The OpenCode, Pi, and omp adapters pass only the command, and a target the lexer cannot know (a variable, substitution, or glob) is allowed.
 - Malformed or untokenizable syntax fails open (allow). Unlike the watcher-arm seatbelt, which fails closed on unclassifiable protected commands, the cd-guard prioritizes zero false blocks over catching a malformed bypass, because a blocked backlog write is a correctness hazard while a missed exotic `cd` is only the pre-existing status quo.
 
 If a genuinely ambiguous command shape is found that risks a false block, the guard is not extended by guesswork; the ambiguity is escalated and the guard stays precise rather than over-eager.
@@ -67,10 +76,11 @@ Every deny carries one stable code in square brackets before its prose reason.
 
 | Code | Meaning |
 | --- | --- |
-| `persistent-cd` | A top-level `cd`/`pushd`/`popd` would persistently change the primary shell's own working directory. |
+| `persistent-cd` | A top-level `cd` or `pushd` would persistently move the primary shell into the home's projects folder or a directory below it. |
 
 The reason directs the caller to reach the target without moving the shell by using `git -C <dir>`, placing an absolute path on the intended command itself, or scoping the `cd` to a subshell.
-It does not permit `cd /home/project`, because an absolute-path `cd` remains a persistent directory change and is denied.
+It does not permit `cd <home>/projects/<clone>`, because that absolute path is still a move into a project folder.
+An absolute `cd` to any other directory is allowed.
 
 ## Transport and fail-open behavior
 
