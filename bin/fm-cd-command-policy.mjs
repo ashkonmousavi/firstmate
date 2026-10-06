@@ -17,7 +17,7 @@
 
 import { Lexer, splitProgram, commandPosition } from "./fm-arm-command-policy.mjs";
 import path from "node:path";
-import { realpathSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const REASONS = {
@@ -107,49 +107,29 @@ function directoryOperand(commandName, words, commandIndex) {
   return words[index];
 }
 
-function lexicalProjectsRelative(value) {
-  const parts = [];
-  for (const part of value.split("/")) {
-    if (part === "" || part === ".") continue;
-    if (part === "..") {
-      if (parts.length === 0) return false;
-      parts.pop();
-      continue;
-    }
-    parts.push(part);
-  }
-  return parts[0] === "projects";
-}
-
-function resolveTarget(word, projectsRoot) {
+function resolveTarget(word, cwd) {
+  if (!word.literal || word.unquotedExpansion || word.subs.length > 0) return null;
   const value = word.value;
+  if (value === "" || value === "-") return null;
+  if (word.tildeExpansion && value !== "~" && !value.startsWith("~/")) return null;
   if (word.tildeExpansion && (value === "~" || value.startsWith("~/"))) {
     const home = process.env.HOME;
     if (!home || !home.startsWith("/")) return null;
     return value === "~" ? path.resolve(home) : path.resolve(home, value.slice(2));
   }
   if (value.startsWith("/")) return path.resolve(value);
-  if (!projectsRoot) return null;
-  return path.resolve(path.dirname(path.resolve(projectsRoot)), value);
+  if (!cwd || !path.isAbsolute(cwd)) return null;
+  return path.resolve(cwd, value);
 }
 
 // True when the literal target is the projects folder or a directory below it.
-// Relative targets are read as if the shell were still at the home that owns
-// projectsRoot. A variable, substitution, glob, or ~user target is not literal.
-function targetsProjectFolder(word, projectsRoot) {
-  if (!word.literal || word.unquotedExpansion || word.subs.length > 0) return false;
-  const value = word.value;
-  if (value === "" || value === "-") return false;
-  if (word.tildeExpansion && value !== "~" && !value.startsWith("~/")) return false;
-  const tilde = word.tildeExpansion && (value === "~" || value.startsWith("~/"));
-  if (!projectsRoot && !value.startsWith("/") && !tilde) return lexicalProjectsRelative(value);
-  const resolved = resolveTarget(word, projectsRoot);
+function targetsProjectFolder(resolved, projectsRoot) {
   if (!resolved || !projectsRoot) return false;
   const root = path.resolve(projectsRoot);
   return resolved === root || resolved.startsWith(`${root}${path.sep}`);
 }
 
-function decision(command, projectsRoot = "") {
+function decision(command, projectsRoot = "", cwd = process.cwd()) {
   const lexed = new Lexer(command).tokenize();
   // Fail open on syntax this classifier cannot tokenize. The cd-guard's threat
   // model is agent mistakes - an accidental bare `cd projects/foo` always
@@ -158,6 +138,7 @@ function decision(command, projectsRoot = "") {
   if (lexed.error) return { decision: "allow" };
 
   const { nodes, separators } = splitProgram(lexed.tokens);
+  let directory = cwd;
   for (let index = 0; index < nodes.length; index += 1) {
     if (!nodePersists(separators, index)) continue;
     // commandPosition ignores subshell/brace groups, quoted data, comments, and
@@ -175,27 +156,46 @@ function decision(command, projectsRoot = "") {
     if (!commandWord) continue;
     if (!CD_BUILTINS.has(commandWord.value)) continue;
     if (position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper))) continue;
-    // popd never names a destination folder. A bare cd, cd -, and any target
-    // outside the projects folder are allowed.
-    if (commandWord.value === "popd") continue;
+    if (commandWord.value === "popd") {
+      if (separators[index] !== "||") directory = "";
+      continue;
+    }
     const operand = directoryOperand(commandWord.value, position.words, wordIndex);
-    if (!operand || !targetsProjectFolder(operand, projectsRoot)) continue;
-    return deny("persistent-cd");
+    if (!operand) {
+      if (position.words.length === wordIndex + 1 && separators[index] !== "||") {
+        directory = commandWord.value === "cd" ? process.env.HOME || "" : "";
+      }
+      continue;
+    }
+    const resolved = resolveTarget(operand, directory);
+    if (targetsProjectFolder(resolved, projectsRoot)) return deny("persistent-cd");
+    if (separators[index] === "||") continue;
+    if (commandWord.value === "pushd" && position.words.slice(wordIndex + 1, -1).some((word) => word.value === "-n")) continue;
+    if (!resolved || separators[index] === "&&") {
+      directory = resolved || "";
+      continue;
+    }
+    try {
+      if (statSync(resolved).isDirectory()) directory = resolved;
+    } catch {
+    }
   }
   return { decision: "allow" };
 }
 
 function parseArguments(argv) {
-  const result = { command: "", commandSet: false, projectsRoot: "" };
+  const result = { command: "", commandSet: false, projectsRoot: "", cwd: process.cwd() };
   for (let i = 0; i < argv.length; i += 1) {
     const name = argv[i];
-    if (name === "--command" || name === "--projects-root") {
+    if (name === "--command" || name === "--projects-root" || name === "--cwd") {
       if (i + 1 >= argv.length) throw new Error(`${name} requires a value`);
       if (name === "--command") {
         result.command = argv[i + 1];
         result.commandSet = true;
-      } else {
+      } else if (name === "--projects-root") {
         result.projectsRoot = argv[i + 1];
+      } else {
+        result.cwd = argv[i + 1];
       }
       i += 1;
       continue;
@@ -207,6 +207,10 @@ function parseArguments(argv) {
     }
     if (name.startsWith("--projects-root=")) {
       result.projectsRoot = name.slice("--projects-root=".length);
+      continue;
+    }
+    if (name.startsWith("--cwd=")) {
+      result.cwd = name.slice("--cwd=".length);
       continue;
     }
     throw new Error(`unknown argument: ${name}`);
@@ -231,7 +235,7 @@ if (invokedDirectly()) {
     if (!args.commandSet || !args.command) {
       process.stdout.write("allow\n");
     } else {
-      const result = decision(args.command, args.projectsRoot);
+      const result = decision(args.command, args.projectsRoot, args.cwd);
       if (result.decision === "allow") {
         process.stdout.write("allow\n");
       } else {

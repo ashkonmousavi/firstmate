@@ -43,15 +43,19 @@ set -u
 
 CMD=""
 CMD_SET=0
+EXECUTION_CWD=$(pwd -P) || exit 0
+CWD_SET=0
 CLAUDE_MODE=0
 CURSOR_MODE=0
 
 usage() {
   cat <<'EOF'
-Usage: fm-cd-pretool-check.sh [--command <cmd>] [--claude|--cursor]
+Usage: fm-cd-pretool-check.sh [--command <cmd>] [--cwd <dir>] [--claude|--cursor]
 
 With no --command, reads a PreToolUse-style JSON payload on stdin (Grok
 toolInput.command, or Claude/Codex tool_input.command).
+Stdin cwd comes from the payload cwd and any tool workdir/cwd override.
+CLI cwd defaults to the calling directory; adapters supply --cwd explicitly.
 Fires only in the real primary firstmate checkout; it is a silent no-op in a
 crewmate/scout task worktree or any non-firstmate repo.
 Exits 0 to allow and 2 to deny a persistent move into the home's projects folder.
@@ -74,6 +78,17 @@ while [ "$#" -gt 0 ]; do
     --command=*)
       CMD=${1#--command=}
       CMD_SET=1
+      shift
+      ;;
+    --cwd)
+      [ "$#" -gt 1 ] || { echo "error: --cwd requires a value" >&2; exit 2; }
+      EXECUTION_CWD=$2
+      CWD_SET=1
+      shift 2
+      ;;
+    --cwd=*)
+      EXECUTION_CWD=${1#--cwd=}
+      CWD_SET=1
       shift
       ;;
     --claude)
@@ -109,6 +124,15 @@ if [ "$CMD_SET" -eq 0 ]; then
     exit 0
   fi
   CMD=$(printf '%s' "$PAYLOAD" | jq -r '(.toolInput.command // .tool_input.command // empty)' 2>/dev/null) || exit 0
+  if [ "$CWD_SET" -eq 0 ]; then
+    EXECUTION_CWD=$(printf '%s' "$PAYLOAD" | jq -r '
+      (.cwd // "" | select(type == "string")) as $base |
+      (.tool_input.workdir // .tool_input.cwd // .toolInput.cwd // $base) |
+      select(type == "string") |
+      if . == "" or startswith("/") or test("^[A-Za-z]:[\\\\/]") then .
+      elif $base != "" then $base + "/" + . else "" end
+    ' 2>/dev/null) || exit 0
+  fi
 fi
 
 [ -n "$CMD" ] || exit 0
@@ -165,7 +189,7 @@ command -v node >/dev/null 2>&1 || exit 0
 [ -f "$POLICY" ] || exit 0
 
 PROJECTS_ROOT=${FM_HOME:-$FM_ROOT}/projects
-POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" --projects-root "$PROJECTS_ROOT" 2>/dev/null) || exit 0
+POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" --projects-root "$PROJECTS_ROOT" --cwd "$EXECUTION_CWD" 2>/dev/null) || exit 0
 [ -n "$POLICY_OUTPUT" ] || exit 0
 
 TAB=$(printf '\t')
