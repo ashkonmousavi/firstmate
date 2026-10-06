@@ -1,0 +1,13 @@
+[
+  "state/.guard-watcher-stale-banner",
+  "state/.inactive-outcome-reconcile",
+  "state/.lock",
+  "state/.lock-session",
+  "state/.session-start-complete",
+  "state/.startup-network.report",
+  "state/.startup-network.status",
+  "state/.startup-network.timings",
+  "state/.trace-context-effective",
+  "state/.wake-queue",
+  "state/home-summary.json"
+]

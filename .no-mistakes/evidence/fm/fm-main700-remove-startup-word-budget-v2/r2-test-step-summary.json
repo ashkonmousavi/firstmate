@@ -1,0 +1,42 @@
+{
+  "target": "7bc2e82b0b2271dea42ab4abba0a96c2a82ed055",
+  "focused_tests": {
+    "fm-bootstrap.test.sh": 0,
+    "fm-secondmate-harness.test.sh": 0,
+    "fm-stow-cascade.test.sh": 0,
+    "test_bootstrap_stops_when_data_disappears_before_reconciliation": 0
+  },
+  "clock_rollback_regression": {
+    "base_exit": 1,
+    "target_exit": 0
+  },
+  "live_cli_surfaces": [
+    "fresh bootstrap",
+    "legacy bootstrap and session restart",
+    "retired config omission",
+    "direct/deferred/real-agent cascade"
+  ],
+  "native_stow_surfaces": [
+    "cold archival with provenance",
+    "consolidation without size eviction",
+    "existing-owner conditional offload",
+    "local cascade read-only shared input",
+    "no budget receipt or decision",
+    "reset unsafe on deferred remote"
+  ],
+  "live_retry_blocker": "Nested config-push send supplies FM_ROOT_OVERRIDE/FM_STATE_OVERRIDE; gate refuses these overrides even on marked lab homes. No bypass used. Live full transport retry remains untested; exact-byte backwards-clock behavioral regression passes.",
+  "outside_assigned_phase": [
+    "doc audience lint",
+    "repository lint",
+    "CI",
+    "publication",
+    "merge",
+    "home rollout"
+  ],
+  "cleanup": {
+    "temporary_paths_absent": true,
+    "worktree_clean": true,
+    "git_status": "",
+    "target_commit": "7bc2e82b0b2271dea42ab4abba0a96c2a82ed055"
+  }
+}

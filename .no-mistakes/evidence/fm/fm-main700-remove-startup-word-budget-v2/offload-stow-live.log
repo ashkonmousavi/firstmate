@@ -1,0 +1,16 @@
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ez_ckwi_
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ez_ckwi_
+
+exit=0
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.u4ibmj0p
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.u4ibmj0p
+
+exit=0
+$ git init -q /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ez_ckwi_
+
+exit=0
+$ tmux -L fm-lab new-session -d -s primary -x 120 -y 40 -c /home/tegris/.no-mistakes/worktrees/892c8faf04fc/01M49EBAM259QST2W72QEEJVGG -e FM_HOME=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ez_ckwi_ 'claude -p --permission-mode auto --no-session-persistence --setting-sources project --strict-mcp-config --disallowedTools Agent,Task,TaskCreate,TaskUpdate,TaskList,TaskGet --add-dir /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ez_ckwi_ --add-dir /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.u4ibmj0p --verbose --output-format stream-json '"'"'/stow This is a disposable lab primary with FM_HOME=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ez_ckwi_. The existing private note data/lab-calibration.md already owns the LAB-CALIBRATION batch-trace investigation trigger; consider that live owner in the normal retention plan. Curate only this home and its registered disposable secondmate /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.u4ibmj0p. Use the tracked internal stow skill and its normal cascade. No independent session evidence confirms the old secondary incident, no open work records exist, and there are no uncaptured findings. Do not modify tracked source or external homes, do not create or control pipelines, do not launch any worker, and do not contact external services. Produce the normal completion receipt. Reads and writes for the primary belong under FM_HOME, not cwd data. Only registered lab homes may be touched; finish after the receipt.'"'"' > /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/offload-stow-native.jsonl 2> /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/offload-stow-native.stderr'
+
+exit=0
+Offload native run ended; persisted data and shared-file preservation retained.
+All disposable homes and private tmux server torn down.

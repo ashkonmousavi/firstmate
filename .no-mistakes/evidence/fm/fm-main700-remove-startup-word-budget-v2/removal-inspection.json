@@ -1,0 +1,34 @@
+[
+  {
+    "command": [
+      "git",
+      "grep",
+      "-n",
+      "-e",
+      "startup-memory-budget",
+      "-e",
+      "STARTUP_MEMORY_BUDGET",
+      "-e",
+      "fm_startup_memory"
+    ],
+    "exit": 1,
+    "output": ""
+  },
+  {
+    "command": [
+      "git",
+      "grep",
+      "-n",
+      "-i",
+      "budget",
+      "--",
+      ".agents/skills/stow/SKILL.md"
+    ],
+    "exit": 1,
+    "output": ""
+  },
+  {
+    "manual": "Recorded orphan removal",
+    "orphan_absent": true
+  }
+]

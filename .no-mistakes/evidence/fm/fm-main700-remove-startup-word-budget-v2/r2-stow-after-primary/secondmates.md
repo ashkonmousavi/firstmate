@@ -1,0 +1,2 @@
+- local-old - lab (home: /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.ls; scope: testing; projects: alpha; added 2026-10-06)
+- remote-old - lab (host: fm-lab-uncontacted; root: /disposable/root; home: /disposable/old; scope: testing; projects: alpha; added 2026-10-06)

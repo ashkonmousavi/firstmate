@@ -1,0 +1,25 @@
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+config-push: /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp -> live secondmate homes
+secondmate retry (/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  claude-worker-settings.json: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  data/captain-shared.md: unchanged
+CONFIG_REREAD: secondmate retry: send failed: could not publish retry instruction; retained exact retry generation /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp/state/.fm-inherited-config-reread-retry/retry/.fm-inherited-config-reread.20261006T120001.00000001.Lpzrm3

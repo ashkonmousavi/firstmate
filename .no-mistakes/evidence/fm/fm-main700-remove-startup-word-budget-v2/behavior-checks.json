@@ -1,0 +1,74 @@
+[
+  {
+    "check": "Stale aging and expired perishable entries removed from injected memory and recovered verbatim with provenance",
+    "passed": true
+  },
+  {
+    "check": "Current dated memory retained despite invalid old setting",
+    "passed": true
+  },
+  {
+    "check": "Duplicate current rule consolidated to exactly one retained fact",
+    "passed": true
+  },
+  {
+    "check": "Direct cascade archived the local secondmate obsolete ruling",
+    "passed": true
+  },
+  {
+    "check": "Read-only shared memory byte-identical",
+    "passed": true
+  },
+  {
+    "check": "Receipt retains unresolved-exception reset guard",
+    "passed": true
+  },
+  {
+    "check": "stow-native finished successfully",
+    "passed": true
+  },
+  {
+    "check": "stow-native executed no retired reporting command",
+    "passed": true
+  },
+  {
+    "check": "stow-native receipt contains no size budget accounting",
+    "passed": true
+  },
+  {
+    "check": "cascade-stow-native finished successfully",
+    "passed": true
+  },
+  {
+    "check": "cascade-stow-native executed no retired reporting command",
+    "passed": true
+  },
+  {
+    "check": "cascade-stow-native receipt contains no size budget accounting",
+    "passed": true
+  },
+  {
+    "check": "cascade-stow-native ran actual cascade executable",
+    "passed": true
+  },
+  {
+    "check": "offload-stow-native finished successfully",
+    "passed": true
+  },
+  {
+    "check": "offload-stow-native executed no retired reporting command",
+    "passed": true
+  },
+  {
+    "check": "offload-stow-native receipt contains no size budget accounting",
+    "passed": true
+  },
+  {
+    "check": "offload-stow-native ran actual cascade executable",
+    "passed": true
+  },
+  {
+    "check": "Conditional current knowledge offloaded to its pre-existing private triggered owner",
+    "passed": true
+  }
+]

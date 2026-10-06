@@ -1,0 +1,3 @@
+# Learnings
+- Fleet-wide dispatch must resolve the registered home before selecting its transport. <!--a:2026-10-06-->
+- When debugging LAB-CALIBRATION batch traces, preserve the local batch identifier before replay, compare the stored sampling interval with the trace header, and inspect the recorded sequence before deciding whether to rebuild the lab sample. These checks belong to the calibration investigation only and are irrelevant to dispatch, session recovery, and every other fleet task. Preserve all three checks in the existing private calibration note for future investigations. <!--a:2026-10-06-->

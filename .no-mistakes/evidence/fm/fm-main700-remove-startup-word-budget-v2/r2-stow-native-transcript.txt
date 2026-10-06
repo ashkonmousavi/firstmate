@@ -1,0 +1,431 @@
+Bash {"command": "cd /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG; for h in .lp .ls; do echo \"=== $h\"; find $h -maxdepth 3 -not -path '*/.git/*' | head -50; done; for f in .lp/data/*.md .ls/data/*.md; do echo \"----- $f\"; cat \"$f\"; done; ls .lp/config .ls/config 2>&1", "description": "Inspect lab primary and secondmate homes and memory files"}
+
+=== .lp
+.lp
+.lp/state
+.lp/tmux
+.lp/.fm-lab-home
+.lp/config
+.lp/projects
+.lp/data
+.lp/state/.trace-context-effective
+.lp/state/.lock
+.lp/state/.inactive-outcome-reconcile
+.lp/state/.startup-network.status
+.lp/state/.startup-network.report
+.lp/state/.lock-session
+.lp/state/terminal-outcomes
+.lp/state/.startup-network.timings
+.lp/state/.session-start-complete
+.lp/state/.guard-watcher-stale-banner
+.lp/state/home-summary.json
+.lp/state/.wake-queue
+.lp/tmux/tmux-1000
+.lp/config/supervision-host-off
+.lp/config/startup-memory-budget
+.lp/data/secondmates.md
+.lp/data/captain-shared.md
+.lp/data/captain.md
+.lp/data/lab-calibration.md
+.lp/data/learnings.md
+.lp/tmux/tmux-1000/fm-lab
+=== .ls
+.ls
+.ls/state
+.ls/.fm-secondmate-home
+.ls/.fm-lab-home
+.ls/AGENTS.md
+.ls/bin
+.ls/config
+.ls/projects
+.ls/data
+.ls/config/startup-memory-budget
+.ls/data/captain-shared.md
+.ls/data/learnings.md
+----- .lp/data/captain-shared.md
+# Shared captain
+<!-- memory tiers: see the stow skill -->
+- Report observed outcomes faithfully and disclose remaining gaps.
+----- .lp/data/captain.md
+# Captain
+<!-- memory tiers: see the stow skill -->
+- Never discard unlanded work without explicit authority.
+----- .lp/data/lab-calibration.md
+# Lab calibration owner
+Read only when debugging LAB-CALIBRATION batch traces.
+----- .lp/data/learnings.md
+# Learnings
+<!-- memory tiers: see the stow skill -->
+- Fleet-wide dispatch must resolve the registered home before selecting its transport. <!--a:2026-10-06-->
+- Fleet-wide dispatch must resolve the registered home before selecting its transport. <!--a:2026-10-06-->
+- Completed lab release 0.0.1 used the superseded path /disposable/obsolete. <!--a:2026-01-01-->
+- Temporary compatibility workaround for closed lab ticket LAB-OLD was retired when that ticket closed. <!--p:2026-01-01-->
+- When debugging LAB-CALIBRATION batch traces, preserve the local batch identifier before replay, compare the stored sampling interval with the trace header, and inspect the recorded sequence before deciding whether to rebuild the lab sample. These checks belong to the calibration investigation only and are irrelevant to dispatch, session recovery, and every other fleet task. <!--a:2026-10-06-->
+----- .lp/data/secondmates.md
+- local-old - lab (home: /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.ls; scope: testing; projects: alpha; added 2026-10-06)
+- remote-old - lab (host: fm-lab-uncontacted; root: /disposable/root; home: /disposable/old; scope: testing; projects: alpha; added 2026-10-06)
+----- .ls/data/captain-shared.md
+# Shared captain
+<!-- memory tiers: see the stow skill -->
+- Keep unresolved authority boundaries explicit.
+----- .ls/data/learnings.md
+# Learnings
+<!-- memory tiers: see the stow skill -->
+- Finished secondary incident used the superseded lab path /disposable/old-secondary. <!--a:2026-01-01-->
+.lp/config:
+startup-memory-budget
+supervision-host-off
+
+.ls/config:
+startup-memory-budget
+Shell cwd was reset to /home/tegris/.no-mistakes/worktrees/892c8faf04fc/01M49EBAM259QST2W72QEEJVGG
+
+Bash {"command": "sed -n 1,80p bin/fm-stow-cascade.sh; cd /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.lp && git rev-parse --show-toplevel 2>&1; ls -la data; cat .fm-lab-home", "description": "Read cascade script header and check lab home git status"}
+
+#!/usr/bin/env bash
+# Enumerate this home's registered secondmates for an internal /stow cascade.
+# Usage: fm-stow-cascade.sh [--help]
+#
+# The internal /stow skill owns curation judgement; this command owns only the
+# mechanical inputs a cascade needs: which homes exist and how the sweep can
+# reach each one.
+#
+# Enumeration comes from data/secondmates.md, the registry that already refuses
+# a duplicate id, a duplicate home, and an overlapping home, so each registered
+# secondmate is emitted exactly once.
+#
+# Each home is reported as one blank-line-separated key=value stanza:
+#   secondmate=<id>
+#   placement=local|remote            (host=<alias> on a remote route)
+#   home=<path>
+#   transport=agent|direct|deferred|unavailable
+#   reason=<one line>                 (whenever a step did not complete)
+#
+# transport says how the sweep reaches that home:
+#   agent     - a live secondmate agent owns the home; steer it with
+#               bin/fm-send.sh so it sweeps its own uncaptured session
+#               knowledge and replies through its marked return channel.
+#   direct    - a local home with no live agent; curate its editable memory
+#               files in place.
+#   deferred  - a remote home with no live agent. There is deliberately no
+#               generic remote write path (bin/fm-remote-file.sh put reaches
+#               only the handoff outbox), so that home is curated by its next
+#               cascade once its agent is back.
+#   unavailable - the local home failed validation or the remote endpoint probe
+#               failed, so no transport conclusion is safe.
+#
+# Every step that crosses a host runs under one hard bound (FM_STOW_CASCADE_TIMEOUT seconds, default 60), so a slow or
+# unreachable home reports an exception and the sweep continues instead of
+# blocking the primary's own /stow. A local endpoint probe reads this host's
+# recorded backend in process, like every other caller of that contract.
+#
+# A secondmate home never cascades: secondmates do not own secondmates, so this
+# command reports the empty cascade there rather than reaching for a registry.
+#
+# Exit status: 0 every home reported cleanly (or there were none); 3 at least
+# one home reported an exception and every home was still reported; 1 the
+# cascade input itself is unusable; 2 invalid use.
+set -u
+
+usage() {
+  sed -n '2,43{s/^# \{0,1\}//;p;}' "$0"
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+  "") ;;
+  *) usage >&2; exit 2 ;;
+esac
+[ "$#" -le 1 ] || { usage >&2; exit 2; }
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
+DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
+STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
+REGISTRY="$DATA/secondmates.md"
+SUB_HOME_MARKER="${SUB_HOME_MARKER:-.fm-secondmate-home}"
+
+# shellcheck source=bin/fm-ff-lib.sh
+. "$SCRIPT_DIR/fm-ff-lib.sh"
+# shellcheck source=bin/fm-backend.sh
+. "$SCRIPT_DIR/fm-backend.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$SCRIPT_DIR/fm-timeout-lib.sh"
+
+BOUND=${FM_STOW_CASCADE_TIMEOUT:-60}
+case "$BOUND" in
+  ''|*[!0-9]*) printf 'error: FM_STOW_CASCADE_TIMEOUT must be a positive integer: %s\n' "$BOUND" >&2; exit 2 ;;
+esac
+[ "$BOUND" -gt 0 ] \
+  || { printf 'error: FM_STOW_CASCADE_TIMEOUT must be a positive integer: %s\n' "$BOUND" >&2; exit 2; }
+
+die() { printf 'error: %s\n' "$1" >&2; exit 1; }
+emit() { printf '%s\n' "$1"; }
+fatal: not a git repository (or any of the parent directories): .git
+total 28
+drwxr-xr-x 2 tegris tegris 4096 Oct  6 14:02 .
+drwxr-xr-x 7 tegris tegris 4096 Oct  6 14:02 ..
+-rw-r--r-- 1 tegris tegris  126 Oct  6 14:02 captain-shared.md
+-rw-r--r-- 1 tegris tegris  110 Oct  6 14:02 captain.md
+-rw-r--r-- 1 tegris tegris   79 Oct  6 14:02 lab-calibration.md
+-rw-r--r-- 1 tegris tegris  888 Oct  6 14:02 learnings.md
+-rw-r--r-- 1 tegris tegris  287 Oct  6 14:02 secondmates.md
+fm-lab-home v1
+
+Bash {"command": "sed -n 80,260p /home/tegris/.no-mistakes/worktrees/892c8faf04fc/01M49EBAM259QST2W72QEEJVGG/bin/fm-stow-cascade.sh", "description": "Read remainder of cascade script"}
+
+emit() { printf '%s\n' "$1"; }
+
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-stow-cascade.XXXXXX") || exit 1
+# shellcheck disable=SC2317,SC2329 # Invoked by the EXIT trap.
+cleanup() { rm -rf -- "$TMP"; }
+trap cleanup EXIT
+STEP_OUT="$TMP/step.out"
+
+# Run one bounded external step, capturing its stdout for the caller.
+# Returns the step's own status, or 124 when the bound was hit.
+run_step() {
+  local rc=0
+  fm_run_timed "$BOUND" "$@" < /dev/null > "$STEP_OUT" 2>/dev/null || rc=$?
+  return "$rc"
+}
+
+# This home's recorded secondmate endpoint for <id>, if it has one.
+meta_for() { # <id>
+  local meta="$STATE/$1.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
+  grep -q '^kind=secondmate$' "$meta" 2>/dev/null || return 1
+  printf '%s\n' "$meta"
+}
+
+TRANSPORT=
+TRANSPORT_REASON=
+set_transport() { TRANSPORT=$1; TRANSPORT_REASON=${2:-}; }
+
+# A local home is curated in place when no live agent owns it.
+resolve_local_transport() { # <id> <resolved-home>
+  local id=$1 home=$2 meta backend target meta_home
+  if ! meta=$(meta_for "$id"); then
+    set_transport direct 'no recorded endpoint for this home'
+    return 0
+  fi
+  meta_home=$(fm_meta_get "$meta" home)
+  if [ -n "$meta_home" ] \
+    && [ "$(secondmate_registry_path_key "$meta_home" 2>/dev/null || true)" != "$home" ]; then
+    set_transport direct 'recorded endpoint belongs to another home'
+    return 0
+  fi
+  backend=$(fm_backend_of_meta "$meta")
+  target=$(fm_backend_target_of_meta "$meta")
+  [ -n "$target" ] || target=$(fm_meta_get "$meta" window)
+  if [ -z "$target" ]; then
+    set_transport direct 'recorded endpoint has no target'
+    return 0
+  fi
+  case "$(fm_backend_agent_state "$backend" "$target" 2>/dev/null || printf 'unreadable')" in
+    alive) set_transport agent ;;
+    *) set_transport direct 'no live agent on the recorded endpoint' ;;
+  esac
+}
+
+# A remote home with no live agent is deferred, never direct: this repo has no
+# generic remote write path for a home's own memory files.
+resolve_remote_transport() { # <id>
+  local id=$1 rc=0
+  if ! meta_for "$id" >/dev/null; then
+    set_transport deferred 'no recorded endpoint and no remote memory write path'
+    return 0
+  fi
+  run_step "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" || rc=$?
+  if [ "$rc" -eq 124 ]; then
+    set_transport unavailable "remote endpoint probe exceeded the ${BOUND}s bound"
+    return 0
+  fi
+  if [ "$rc" -ne 0 ]; then
+    set_transport unavailable 'remote endpoint probe failed'
+    return 0
+  fi
+  case "$(tail -1 "$STEP_OUT")" in
+    alive) set_transport agent ;;
+    *) set_transport deferred 'no live agent and no remote memory write path' ;;
+  esac
+}
+
+if [ -e "$FM_HOME/$SUB_HOME_MARKER" ] || [ -L "$FM_HOME/$SUB_HOME_MARKER" ]; then
+  emit 'role=secondmate'
+  emit 'secondmates=0'
+  emit 'reason=a secondmate home stows its own memory only and never cascades'
+  exit 0
+fi
+emit 'role=primary'
+
+if [ ! -e "$REGISTRY" ] && [ ! -L "$REGISTRY" ]; then
+  emit 'secondmates=0'
+  emit 'exceptions=0'
+  emit 'reason=no secondmate registry in this home'
+  exit 0
+fi
+if ! secondmate_registry_validate_bindings "$REGISTRY" secondmate_registry_path_key; then
+  die "$SECONDMATE_REGISTRY_ERROR"
+fi
+
+grep '^- ' "$REGISTRY" > "$TMP/records" 2>/dev/null || : > "$TMP/records"
+total=0
+exceptions=0
+while IFS= read -r line || [ -n "$line" ]; do
+  [ -n "$line" ] || continue
+  secondmate_registry_parse_line "$line" || die "malformed secondmate registry entry: $line"
+  id=$SECONDMATE_REGISTRY_ID
+  home=$SECONDMATE_REGISTRY_HOME
+  remote=$SECONDMATE_REGISTRY_REMOTE
+  host=$SECONDMATE_REGISTRY_HOST
+  total=$((total + 1))
+  printf '\n'
+  emit "secondmate=$id"
+  if [ "$remote" -eq 1 ]; then
+    emit 'placement=remote'
+    emit "host=$host"
+    emit "home=$home"
+    resolve_remote_transport "$id"
+  else
+    emit 'placement=local'
+    if ! validate_secondmate_home "$id" "$home"; then
+      emit "home=$home"
+      emit 'transport=unavailable'
+      emit "reason=$VALIDATION_ERROR"
+      exceptions=$((exceptions + 1))
+      continue
+    fi
+    resolved=$VALIDATED_HOME
+    emit "home=$resolved"
+    resolve_local_transport "$id" "$resolved"
+  fi
+  emit "transport=$TRANSPORT"
+  [ -z "$TRANSPORT_REASON" ] || emit "reason=$TRANSPORT_REASON"
+  case "$TRANSPORT" in agent|direct) ;; *) exceptions=$((exceptions + 1)) ;; esac
+done < "$TMP/records"
+
+printf '\n'
+emit "secondmates=$total"
+emit "exceptions=$exceptions"
+[ "$exceptions" -eq 0 ] || exit 3
+exit 0
+
+Primary pass first: deduplicate, archive the two stale completed-history entries, and offload the calibration procedure to its existing live note.
+
+Bash {"command": "cd /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.lp/data && cat >> lab-calibration.md <<'EOF'\n- When debugging LAB-CALIBRATION batch traces, preserve the local batch identifier before replay, compare the stored sampling interval with the trace header, and inspect the recorded sequence before deciding whether to rebuild the lab sample. These checks belong to the calibration investigation only and are irrelevant to dispatch, session recovery, and every other fleet task.\nEOF\ngrep -qF 'preserve the local batch identifier before replay' lab-calibration.md && echo DEST_OK\ncat > memory-archive.md <<'EOF'\n# Memory archive\n\n## 2026-10-06 stow\n- (from learnings.md, tier: aging, reinforced: 2026-01-01) Completed lab release 0.0.1 used the superseded path /disposable/obsolete. [archived: unreinforced 278d]\n- (from learnings.md, tier: perishable, reinforced: 2026-01-01) Temporary compatibility workaround for closed lab ticket LAB-OLD was retired when that ticket closed. [archived: unreinforced 278d; condition resolved - LAB-OLD closed]\nEOF\ncat > learnings.md <<'EOF'\n# Learnings\n<!-- memory tiers: see the stow skill -->\n- Fleet-wide dispatch must resolve the registered home before selecting its transport. <!--a:2026-10-06-->\nEOF\ncat learnings.md lab-calibration.md", "description": "Offload calibration entry, archive stale entries, consolidate primary learnings"}
+
+Bash {"command": "cd /home/tegris/.no-mistakes/worktrees/892c8faf04fc/01M49EBAM259QST2W72QEEJVGG && FM_HOME=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.lp bin/fm-stow-cascade.sh; echo \"exit=$?\"", "description": "Enumerate registered secondmates for the cascade"}
+
+DEST_OK
+# Learnings
+<!-- memory tiers: see the stow skill -->
+- Fleet-wide dispatch must resolve the registered home before selecting its transport. <!--a:2026-10-06-->
+# Lab calibration owner
+Read only when debugging LAB-CALIBRATION batch traces.
+- When debugging LAB-CALIBRATION batch traces, preserve the local batch identifier before replay, compare the stored sampling interval with the trace header, and inspect the recorded sequence before deciding whether to rebuild the lab sample. These checks belong to the calibration investigation only and are irrelevant to dispatch, session recovery, and every other fleet task.
+
+role=primary
+
+secondmate=local-old
+placement=local
+home=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.ls
+transport=direct
+reason=no recorded endpoint for this home
+
+secondmate=remote-old
+placement=remote
+host=fm-lab-uncontacted
+home=/disposable/old
+transport=deferred
+reason=no recorded endpoint and no remote memory write path
+
+secondmates=2
+exceptions=1
+exit=3
+
+Local secondmate is curated directly; the remote one was deferred without any contact. Curating the secondmate's own learnings (its shared-captain file stays read-only):
+
+Bash {"command": "cd /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.ls/data && ls; cat > memory-archive.md <<'EOF'\n# Memory archive\n\n## 2026-10-06 stow\n- (from learnings.md, tier: aging, reinforced: 2026-01-01) Finished secondary incident used the superseded lab path /disposable/old-secondary. [archived: unreinforced 278d]\nEOF\ncat > learnings.md <<'EOF'\n# Learnings\n<!-- memory tiers: see the stow skill -->\nEOF\ncat learnings.md memory-archive.md captain-shared.md", "description": "Archive stale secondmate learning entry"}
+
+captain-shared.md
+learnings.md
+# Learnings
+<!-- memory tiers: see the stow skill -->
+# Memory archive
+
+## 2026-10-06 stow
+- (from learnings.md, tier: aging, reinforced: 2026-01-01) Finished secondary incident used the superseded lab path /disposable/old-secondary. [archived: unreinforced 278d]
+# Shared captain
+<!-- memory tiers: see the stow skill -->
+- Keep unresolved authority boundaries explicit.
+
+Captain, the memory cleanup is done for the lab main home and its local second mate. One exception is still open: the remote second mate could not be cleaned up from here, so the session is **not** safe to reset yet.
+
+**Main home**
+- **Captain preferences:** unchanged. The single entry is a standing preference and the header pointer is correct.
+- **Shared captain preferences:** unchanged. The single entry is a standing preference and the header pointer is correct.
+- **Learnings:** pruned, archived and offloaded. It went from five entries to one.
+  - **Pruned:** a duplicate "resolve the registered home before selecting its transport" line. The identical copy stays, still current as of today.
+  - **Archived:** "Completed lab release 0.0.1 used /disposable/obsolete". It had not been confirmed in 278 days and nothing this session confirmed it.
+  - **Archived:** the retired LAB-OLD workaround. It had not been confirmed in 278 days and its expiry condition is met because LAB-OLD is closed.
+  - **Offloaded:** the LAB-CALIBRATION batch-trace debugging procedure.
+    - It only matters when debugging calibration traces, and it was the largest entry.
+    - It now lives in the existing private calibration note `data/lab-calibration.md`.
+    - That note is untracked because the home is not a git repository. I confirmed the full text is there before removing it from memory.
+- **Archive file:** `data/memory-archive.md` was created, with the source, tier, last-confirmed date and reason for each archived entry.
+
+**Local second mate (cleaned up from here, since no worker was attached to it)**
+- **Captain preferences:** absent. Nothing was created.
+- **Shared captain preferences:** unchanged. This copy is owned by the main home, the second mate cannot edit it, and its header pointer is already correct.
+- **Learnings:** archived. "Finished secondary incident used /disposable/old-secondary" had not been confirmed in 278 days and nothing this session confirmed it. The file now holds only its header.
+- **Archive file:** created in the second mate's own home.
+
+**Open exception: the remote second mate**
+- It has no recorded connection point, so it was skipped without being contacted.
+- There is no remote way to edit its memory files. It will be cleaned up the next time this runs while its worker is reachable.
+- Relaunching it would be a separate decision.
+
+**Other results**
+- No new durable findings, no proposed moves for permanent entries, and no work records changed. You said there were no open records, and I held none.
+- Nothing outside these two homes was touched. That includes tracked code, other homes, credentials and tool settings, and no pipelines or workers were started.
+
+**Reset safety:** nothing this session knew has been lost, but the session is not safe to reset while the remote second mate is still waiting for its cleanup. This only means nothing from this session was lost; it does not check whether the home's records are correct.
+
+lanes working: 0 (this lab home has no task records)
+
+FINAL RECEIPT
+Captain, the memory cleanup is done for the lab main home and its local second mate. One exception is still open: the remote second mate could not be cleaned up from here, so the session is **not** safe to reset yet.
+
+**Main home**
+- **Captain preferences:** unchanged. The single entry is a standing preference and the header pointer is correct.
+- **Shared captain preferences:** unchanged. The single entry is a standing preference and the header pointer is correct.
+- **Learnings:** pruned, archived and offloaded. It went from five entries to one.
+  - **Pruned:** a duplicate "resolve the registered home before selecting its transport" line. The identical copy stays, still current as of today.
+  - **Archived:** "Completed lab release 0.0.1 used /disposable/obsolete". It had not been confirmed in 278 days and nothing this session confirmed it.
+  - **Archived:** the retired LAB-OLD workaround. It had not been confirmed in 278 days and its expiry condition is met because LAB-OLD is closed.
+  - **Offloaded:** the LAB-CALIBRATION batch-trace debugging procedure.
+    - It only matters when debugging calibration traces, and it was the largest entry.
+    - It now lives in the existing private calibration note `data/lab-calibration.md`.
+    - That note is untracked because the home is not a git repository. I confirmed the full text is there before removing it from memory.
+- **Archive file:** `data/memory-archive.md` was created, with the source, tier, last-confirmed date and reason for each archived entry.
+
+**Local second mate (cleaned up from here, since no worker was attached to it)**
+- **Captain preferences:** absent. Nothing was created.
+- **Shared captain preferences:** unchanged. This copy is owned by the main home, the second mate cannot edit it, and its header pointer is already correct.
+- **Learnings:** archived. "Finished secondary incident used /disposable/old-secondary" had not been confirmed in 278 days and nothing this session confirmed it. The file now holds only its header.
+- **Archive file:** created in the second mate's own home.
+
+**Open exception: the remote second mate**
+- It has no recorded connection point, so it was skipped without being contacted.
+- There is no remote way to edit its memory files. It will be cleaned up the next time this runs while its worker is reachable.
+- Relaunching it would be a separate decision.
+
+**Other results**
+- No new durable findings, no proposed moves for permanent entries, and no work records changed. You said there were no open records, and I held none.
+- Nothing outside these two homes was touched. That includes tracked code, other homes, credentials and tool settings, and no pipelines or workers were started.
+
+**Reset safety:** nothing this session knew has been lost, but the session is not safe to reset while the remote second mate is still waiting for its cleanup. This only means nothing from this session was lost; it does not check whether the home's records are correct.
+
+lanes working: 0 (this lab home has no task records)

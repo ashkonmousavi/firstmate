@@ -1,0 +1,13 @@
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.shfcqh9f
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.shfcqh9f
+
+exit=0
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.hkr5n248
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.hkr5n248
+
+exit=0
+$ tmux -L fm-lab new-session -d -s primary -x 120 -y 40 -c /home/tegris/.no-mistakes/worktrees/892c8faf04fc/01M49EBAM259QST2W72QEEJVGG -e FM_HOME=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.shfcqh9f 'claude -p --permission-mode auto --no-session-persistence --setting-sources project --strict-mcp-config --disallowedTools Agent,Task,TaskCreate,TaskUpdate,TaskList,TaskGet --add-dir /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.shfcqh9f --add-dir /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.hkr5n248 --verbose --output-format stream-json '"'"'/stow This is a disposable lab primary with FM_HOME=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.shfcqh9f. Curate only this home and its registered disposable secondmate /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.hkr5n248. Use the tracked internal stow skill and its normal cascade. No independent session evidence confirms the old secondary incident, no open work records exist, and there are no uncaptured findings. Do not modify tracked source or external homes, do not create or control pipelines, do not launch any worker, and do not contact external services. Produce the normal completion receipt. Reads and writes for the primary belong under FM_HOME, not cwd data. Only registered lab homes may be touched; finish after the receipt.'"'"' > /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/cascade-stow-native.jsonl 2> /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/cascade-stow-native.stderr'
+
+exit=0
+Cascade native run ended; persisted data and shared-file preservation retained.
+All disposable homes and private tmux server torn down.

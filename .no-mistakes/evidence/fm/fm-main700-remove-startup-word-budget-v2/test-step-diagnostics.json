@@ -1,0 +1,31 @@
+{
+  "target_first_run": {
+    "command": "bash tests/fm-secondmate-harness.test.sh",
+    "result": "failed at exact retry delivery byte assertion",
+    "evidence": "secondmate-tests.log"
+  },
+  "target_full_rerun": {
+    "exit": 0,
+    "evidence": "secondmate-recheck.log"
+  },
+  "isolated_retry_runs": {
+    "passes": 6,
+    "evidence": [
+      "retry-focused.log",
+      "retry-repeat-1.log",
+      "retry-repeat-2.log",
+      "retry-repeat-3.log",
+      "retry-repeat-4.log",
+      "retry-repeat-5.log"
+    ]
+  },
+  "base_comparison": {
+    "commit": "a86dcd88a937e3f12b5911f5249e23bed0e87a2e",
+    "exit": 1,
+    "failure": "successive pushes reused the same generation path",
+    "evidence": "base-secondmate.log"
+  },
+  "classification": "Intermittent config-reread checks also fail on the base; root cause not isolated. No speculative fix applied.",
+  "cleanup": "Disposable homes, private tmux servers, temporary test copies and base snapshot removed; worktree clean.",
+  "phase_boundary": "No lint, formatting, static analysis, pipeline control, publication, CI, merge, or installed-home update performed."
+}

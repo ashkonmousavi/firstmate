@@ -1,0 +1,12 @@
+$ FM_HOME=<lab-primary> bin/fm-stow-cascade.sh
+role=primary
+
+secondmate=agent
+placement=local
+home=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.as
+transport=agent
+
+secondmates=1
+exceptions=0
+
+exit=0

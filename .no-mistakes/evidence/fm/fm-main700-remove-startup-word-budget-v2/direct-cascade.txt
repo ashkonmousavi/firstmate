@@ -1,0 +1,16 @@
+role=primary
+
+secondmate=fresh-secondary
+placement=local
+home=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.ynzy997r
+transport=direct
+reason=recorded endpoint has no target
+
+secondmate=old-secondary
+placement=local
+home=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/lab.z6kinij4
+transport=direct
+reason=recorded endpoint has no target
+
+secondmates=2
+exceptions=0

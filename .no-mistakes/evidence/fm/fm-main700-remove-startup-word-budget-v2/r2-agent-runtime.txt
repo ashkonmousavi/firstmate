@@ -1,0 +1,1 @@
+Private 120x40 tmux endpoint foreground command: bash

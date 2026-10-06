@@ -1,0 +1,69 @@
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp
+
+exit=0
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs
+
+exit=0
+$ git init -q /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs
+
+exit=0
+$ tmux -L fm-lab new-session -d -s primary -n fm-retry -x 120 -y 40 -c /home/tegris/.no-mistakes/worktrees/892c8faf04fc/01M49EBAM259QST2W72QEEJVGG -e FM_HOME=/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp bash
+
+exit=0
+$ tmux -L fm-lab display-message -p -t primary '#{socket_path}'
+/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp/tmux/tmux-1000/fm-lab
+
+exit=0
+$ bin/fm-config-push.sh
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+config-push: /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp -> live secondmate homes
+secondmate retry (/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  claude-worker-settings.json: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  data/captain-shared.md: unchanged
+CONFIG_REREAD: secondmate retry: send failed: could not publish retry instruction; retained exact retry generation /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp/state/.fm-inherited-config-reread-retry/retry/.fm-inherited-config-reread.20261006T120001.00000001.Lpzrm3
+
+exit=1
+$ bin/fm-config-push.sh
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+config-push: /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp -> live secondmate homes
+secondmate retry (/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  claude-worker-settings.json: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  data/captain-shared.md: unchanged
+CONFIG_REREAD: secondmate retry: send failed: error: refusing fleet lifecycle from inside a no-mistakes gate worktree (/home/tegris/.no-mistakes/repos/892c8faf04fc.git)
+
+exit=1
+Disposable homes, fault tools and private tmux server removed.

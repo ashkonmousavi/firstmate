@@ -1,0 +1,54 @@
+[
+  {
+    "check": "Fresh primary creates no retired setting and emits no retired diagnostic",
+    "pass": true
+  },
+  {
+    "check": "Invalid legacy setting is ignored and preserved",
+    "pass": true
+  },
+  {
+    "check": "Restart digest has no retired diagnostic and preserves invalid legacy file",
+    "pass": true
+  },
+  {
+    "check": "Config push neither lists nor creates the retired item; old secondary file untouched",
+    "pass": true
+  },
+  {
+    "check": "Local cascade reports both homes and direct transports without budget_report",
+    "pass": true
+  },
+  {
+    "check": "Unupdated remote without endpoint is deferred and does not prevent local resolution",
+    "pass": true
+  },
+  {
+    "check": "Normal signed-in Claude primary completes stow",
+    "pass": true
+  },
+  {
+    "check": "Stale aging and expired perishable entries recoverable with provenance",
+    "pass": true
+  },
+  {
+    "check": "Current fleet rule survives and duplicate is consolidated despite size limit 1",
+    "pass": true
+  },
+  {
+    "check": "Current conditional material relocates to existing private triggered owner",
+    "pass": true
+  },
+  {
+    "check": "Direct secondary cascade archives old ruling in its own cold tier",
+    "pass": true
+  },
+  {
+    "check": "Secondary shared input remains byte-identical",
+    "pass": true
+  },
+  {
+    "check": "Stow ignores legacy settings without changing either file",
+    "pass": true
+  }
+]

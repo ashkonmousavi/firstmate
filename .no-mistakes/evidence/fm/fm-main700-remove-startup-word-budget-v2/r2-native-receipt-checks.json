@@ -1,0 +1,8 @@
+{
+  "native_harness_completed": true,
+  "actual_cascade_invoked": true,
+  "no_retired_executable_invoked": true,
+  "receipt_omits_size_budget_and_token_totals": true,
+  "unresolved_remote_keeps_reset_unsafe": true,
+  "no_budget_decision_record_created": true
+}

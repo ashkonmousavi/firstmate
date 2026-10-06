@@ -1,0 +1,19 @@
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+config-push: /home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rp -> live secondmate homes
+secondmate retry (/home/tegris/.no-mistakes/evidence/01M49EBAM259QST2W72QEEJVGG/.rs):
+  home: dirty working tree - local-material push continuing
+  crew-dispatch.json: unchanged
+  dispatch-never-send: unchanged
+  crew-harness: pushed
+  backlog-backend: unchanged
+  backend: unchanged
+  herdr-presentation-spaces: unchanged
+  trace-context: unchanged - session-scoped
+  launch-env-allowlist: unchanged
+  claude-permission-mode: unchanged
+  claude-worker-settings.json: unchanged
+  lavish-axi-host: unchanged
+  keep-ai-trailers: unchanged
+  supervision-host-off: unchanged
+  data/captain-shared.md: unchanged
+CONFIG_REREAD: secondmate retry: send failed: error: refusing fleet lifecycle from inside a no-mistakes gate worktree (/home/tegris/.no-mistakes/repos/892c8faf04fc.git)
