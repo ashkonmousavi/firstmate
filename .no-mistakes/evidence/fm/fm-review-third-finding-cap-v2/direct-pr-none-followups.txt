@@ -1,0 +1,3 @@
+{"id": "terminal-warning", "severity": "warning", "file": "bin/example.sh", "line": 42, "action": "auto-fix", "description": "Remaining third-list detail: preserve \"quotes\", `commands`, and $literal verbatim."}
+{"id": "terminal-stop-set", "severity": "error", "file": "src/example.py", "line": 7, "action": "ask-user", "description": "Requires a human decision; deferred, not fixed."}
+{"id": "terminal-info", "severity": "info", "file": null, "line": null, "action": "no-op", "description": "Keep every finding, including one without a location."}

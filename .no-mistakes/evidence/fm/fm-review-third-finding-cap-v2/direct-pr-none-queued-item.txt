@@ -1,0 +1,18 @@
+task:
+  id: review-follow-ups-direct-pr-none-pr-e0
+  title: "review follow-ups: direct-pr-none pr"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: task
+  repo: "-"
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: none
+  body: "{\"id\": \"terminal-warning\", \"severity\": \"warning\", \"file\": \"bin/example.sh\", \"line\": 42, \"action\": \"auto-fix\", \"description\": \"Remaining third-list detail: preserve \\\"quotes\\\", `commands`, and $literal verbatim.\"}\n{\"id\": \"terminal-stop-set\", \"severity\": \"error\", \"file\": \"src/example.py\", \"line\": 7, \"action\": \"ask-user\", \"description\": \"Requires a human decision; deferred, not fixed.\"}\n{\"id\": \"terminal-info\", \"severity\": \"info\", \"file\": null, \"line\": null, \"action\": \"no-op\", \"description\": \"Keep every finding, including one without a location.\"}"

@@ -1,0 +1,16 @@
+Executable validation in this Test phase:
+- Fresh fm-brief.sh output and its generated contract command were executed in a marked disposable lab inside the gate worktree.
+- Both no-mistakes forge contracts supplied the executed ledger commands; three repository SHAs were supplied as disposable data, not claimed as native gate returns.
+- Repeated reads, incomplete persisted records, real zero-byte write refusal through ulimit, and restored write capability were exercised.
+- Both publishing modes filed three supplied findings through the real fm-tasks-axi.sh/tasks-axi tools and reopened the complete queued items.
+- Focused fm-dod-lib selectors: test_common_review_triage_contract, test_third_review_list_is_last, test_review_list_ledger_failures, test_review_list_ledger_torn_writes.
+- Focused fm-task-delivery selector: test_promotion_risk_admission, plus its definition-loading setup checks.
+- The driver's initial parser expected an unindented id and status field. Real tasks-axi returns an indented id and state. The driver was corrected and the entire live check passed on rerun.
+
+Not established:
+- Actual model obedience to terminal review and stop-set handling.
+- Native public drive-return head identity or native reattachment.
+- Actual protected approval refusal, downstream Test/CI execution, current-head hosted green, merge, or installation.
+The assigned phase explicitly forbids creating or controlling any pipeline, including init/run/respond. A disposable lab cannot supply genuine gate returns without those forbidden operations. The outer executor/authorized run-owning worker must retain those native receipts. No fake pipeline or fake harness was used. Previously declined evidence findings were not reopened.
+
+All disposable labs and transient selected-test scripts were removed. No intentional source/test changes remain. The changed surface is CLI-generated Markdown and shell commands; no rendered visual UI was changed.
