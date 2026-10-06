@@ -11,7 +11,7 @@
 # wrapper only scopes the guard to the real primary checkout, acquires the
 # harness payload, invokes that policy, and renders the established harness
 # responses. It never executes, sources, evaluates, or expands the command.
-# See docs/cd-guard.md for the complete contract and validation record.
+# See docs/cd-guard.md for the contract and native verification pointer.
 #
 # Usage:
 #   <PreToolUse JSON on stdin> | bin/fm-cd-pretool-check.sh

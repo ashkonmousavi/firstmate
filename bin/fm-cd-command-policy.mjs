@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Semantic policy for the cd-guard: does a shell command persistently change the
-// PRIMARY firstmate shell's own working directory?
+// Semantic policy for the cd-guard: does a shell command persistently move the
+// PRIMARY firstmate shell into the home's projects folder?
 //
 // A stray persistent top-level `cd projects/<clone>` silently relocates the
 // primary shell, so the next firstmate-owned command (a backlog write, an

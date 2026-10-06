@@ -2534,15 +2534,18 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 
 `FM_OMP_LIVE_E2E=1 tests/fm-omp-primary-live-e2e.test.sh` refreshes the primary evidence; the worker path above is refreshed by repeating the scout dispatch after any omp upgrade.
 
-## Project-directory guard execution cwd: Test-phase gate, 2026-10-06
+## Project-directory guard execution cwd, 2026-10-06
 
 Live cwd delivery for the project-directory guard remains unverified for the pending consumers below.
 Codex's supported partial coverage is defined in [the cd-guard contract](../cd-guard.md#transport-and-fail-open-behavior); its native readback is recorded below.
-The Review phase exercises the registered hook commands and adapter callbacks with supplied payloads and contexts, which proves local forwarding but does not establish what a vendor emits.
-The dedicated Test phase owns S1 and must record each installed harness's exact version, invocation, emitted cwd or tool directory override, guard response, and observable sentinel outcomes.
+The portable suite exercises the registered hook commands and adapter callbacks with supplied payloads and contexts, which proves local forwarding but does not establish what a vendor emits.
+To refresh native evidence, record each installed harness's exact version, invocation, emitted cwd or tool directory override, guard response, and observable sentinel outcomes.
 Use an isolated primary-shaped checkout with real guard code, a `bin` directory, and a protected `projects/foo` directory; do not run these probes against an operational home.
 Capture the real vendor's hook payload or callback context when the guard runs, without fabricating the cwd field.
 An unattempted tool call or a missing control sentinel cannot establish a guard verdict.
+
+The relative-target probes below apply to harnesses that deliver the command execution cwd.
+For Codex payloads that omit it, use the supported-coverage cases in the native readback below.
 
 | Live probe | Required observable result |
 | --- | --- |
@@ -2595,3 +2598,38 @@ The process exited 0 and the native readback was:
 
 `tests/fm-cd-pretool-check.test.sh` contains the executable registered-hook regression for this supported boundary and the explicit-tool-directory contrast.
 The Test-phase evidence retains the native transcript, payloads, sentinel state, and original captured-payload RED/GREEN replay.
+
+### Earlier guard integration evidence, 2026-07-11
+
+These observations predate the project-only narrowing and execution-cwd handling.
+They establish earlier hook integration, not current relative-target coverage; the current contract is owned by [cd-guard.md](../cd-guard.md).
+
+Each harness ran against a scratch primary-shaped firstmate checkout: a plain git repo with `AGENTS.md`, `bin/` holding the real `fm-cd-pretool-check.sh`, `fm-cd-command-policy.mjs`, and `fm-arm-command-policy.mjs` plus a no-op dummy `fm-arm-pretool-check.sh`, a `projects/foo/` stand-in clone, and the tracked harness hook config.
+No live watcher, fleet state, or the captain's real primary checkout was involved.
+Each harness was told to run, as separate tool calls, a top-level `cd projects/foo && touch <abs>/BLOCKED` (must be denied) and a subshell `(cd projects/foo && touch <abs>/ALLOWED)` (must run), with the sentinel files as the observable.
+
+Harness versions and outcomes:
+
+- **Claude Code 2.1.207** - blocked.
+  Claude reported the top-level command "denied by the `PreToolUse` hook (`fm-cd-pretool-check.sh`)", the `BLOCKED` sentinel was absent, and the subshell form was permitted to run.
+  A prior control `touch` proved the harness executed commands.
+- **codex-cli 0.144.0** - blocked.
+  Codex logged `error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change ..."}`, the `BLOCKED` sentinel was absent, and the subshell `ALLOWED` sentinel was created.
+  Both the arm and cd PreToolUse hooks ran per command (two `hook: PreToolUse Completed` lines), confirming Codex re-feeds the payload to each hook in the array.
+- **OpenCode 1.17.18** - blocked.
+  `opencode run` printed `✗ cd projects/foo && touch ... failed` with `Error: {"hookSpecificOutput":...,"permissionDecision":"deny"},"systemMessage":"[persistent-cd] ..."}`, the `BLOCKED` sentinel was absent, and the subshell `ALLOWED` sentinel was created.
+- **Pi 0.80.6** - blocked.
+  The `BLOCKED` sentinel was absent while the subshell `ALLOWED` sentinel was created; that differential (top-level denied, subshell run, in the same session) can only come from the guard.
+- **grok 0.2.93** - inconclusive live run: the Grok Build API returned `402 Payment Required: Grok Build usage balance exhausted`, so the model never issued the probe commands.
+  The grok cd hook (`.grok/hooks/fm-primary-cd-check.json`) is structurally identical to the arm-seatbelt grok hook already live-validated on 2026-07-09 (`docs/arm-pretool-check.md`) - same `${GROK_WORKSPACE_ROOT:-}` anchoring and same PreToolUse deny consumption - and the grok-shaped stdin path (`.toolInput.command` in, `{"decision":"deny"}` out) is covered by `tests/fm-cd-pretool-check.test.sh`.
+  Re-run once the Grok balance is restored to close the live gap.
+
+The launch commands mirrored `docs/arm-pretool-check.md`'s validation:
+
+```sh
+claude -p "$PROMPT" --dangerously-skip-permissions --output-format text
+codex exec --dangerously-bypass-hook-trust --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$PROMPT"
+OPENCODE_CONFIG_CONTENT='{"permission":{"*":"allow"}}' opencode run --print-logs --log-level INFO "$PROMPT"
+pi -p -e .pi/extensions/fm-primary-turnend-guard.ts --no-context-files --no-session "$PROMPT"
+grok --trust -p "$PROMPT" --permission-mode bypassPermissions --output-format plain
+```

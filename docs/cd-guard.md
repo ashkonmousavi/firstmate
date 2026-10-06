@@ -166,30 +166,10 @@ bash -n bin/fm-cd-pretool-check.sh
 shellcheck bin/fm-cd-pretool-check.sh tests/fm-cd-pretool-check.test.sh
 node --check bin/fm-cd-command-policy.mjs
 node --check bin/fm-arm-command-policy.mjs
-tests/fm-cd-pretool-check.test.sh
-tests/fm-arm-pretool-check.test.sh
+bash tests/fm-cd-pretool-check.test.sh
+bash tests/fm-arm-pretool-check.test.sh
 ```
 
-## Live validation record, 2026-07-11
+## Native verification
 
-Each harness ran against a scratch primary-shaped firstmate checkout: a plain git repo with `AGENTS.md`, `bin/` holding the real `fm-cd-pretool-check.sh`, `fm-cd-command-policy.mjs`, and `fm-arm-command-policy.mjs` plus a no-op dummy `fm-arm-pretool-check.sh`, a `projects/foo/` stand-in clone, and the tracked harness hook config.
-No live watcher, fleet state, or the captain's real primary checkout was involved.
-Each harness was told to run, as separate tool calls, a top-level `cd projects/foo && touch <abs>/BLOCKED` (must be denied) and a subshell `(cd projects/foo && touch <abs>/ALLOWED)` (must run), with the sentinel files as the observable.
-
-Harness versions and outcomes:
-
-- **Claude Code 2.1.207** - blocked. Claude reported the top-level command "denied by the `PreToolUse` hook (`fm-cd-pretool-check.sh`)", the `BLOCKED` sentinel was absent, and the subshell form was permitted to run. A prior control `touch` proved the harness executed commands.
-- **codex-cli 0.144.0** - blocked. Codex logged `error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change ..."}`, the `BLOCKED` sentinel was absent, and the subshell `ALLOWED` sentinel was created. Both the arm and cd PreToolUse hooks ran per command (two `hook: PreToolUse Completed` lines), confirming Codex re-feeds the payload to each hook in the array.
-- **OpenCode 1.17.18** - blocked. `opencode run` printed `✗ cd projects/foo && touch ... failed` with `Error: {"hookSpecificOutput":...,"permissionDecision":"deny"},"systemMessage":"[persistent-cd] ..."}`, the `BLOCKED` sentinel was absent, and the subshell `ALLOWED` sentinel was created.
-- **Pi 0.80.6** - blocked. The `BLOCKED` sentinel was absent while the subshell `ALLOWED` sentinel was created; that differential (top-level denied, subshell run, in the same session) can only come from the guard.
-- **grok 0.2.93** - inconclusive live run: the Grok Build API returned `402 Payment Required: Grok Build usage balance exhausted`, so the model never issued the probe commands. The grok cd hook (`.grok/hooks/fm-primary-cd-check.json`) is structurally identical to the arm-seatbelt grok hook already live-validated on 2026-07-09 (`docs/arm-pretool-check.md`) - same `${GROK_WORKSPACE_ROOT:-}` anchoring and same PreToolUse deny consumption - and the grok-shaped stdin path (`.toolInput.command` in, `{"decision":"deny"}` out) is covered by `tests/fm-cd-pretool-check.test.sh`. Re-run once the Grok balance is restored to close the live gap.
-
-The launch commands mirrored `docs/arm-pretool-check.md`'s validation:
-
-```sh
-claude -p "$PROMPT" --dangerously-skip-permissions --output-format text
-codex exec --dangerously-bypass-hook-trust --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$PROMPT"
-OPENCODE_CONFIG_CONTENT='{"permission":{"*":"allow"}}' opencode run --print-logs --log-level INFO "$PROMPT"
-pi -p -e .pi/extensions/fm-primary-turnend-guard.ts --no-context-files --no-session "$PROMPT"
-grok --trust -p "$PROMPT" --permission-mode bypassPermissions --output-format plain
-```
+[Runtime backend verification](verification/runtime-backends.md#project-directory-guard-execution-cwd-2026-10-06) owns native cwd evidence, supported-coverage readback, and pending harness checks.
