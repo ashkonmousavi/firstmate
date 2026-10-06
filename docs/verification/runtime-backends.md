@@ -2533,3 +2533,32 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 6. `bin/fm-control.sh <id> exit` stopped the agent and `bin/fm-teardown.sh` returned the worktree and closed the item.
 
 `FM_OMP_LIVE_E2E=1 tests/fm-omp-primary-live-e2e.test.sh` refreshes the primary evidence; the worker path above is refreshed by repeating the scout dispatch after any omp upgrade.
+
+## Project-directory guard execution cwd: Test-phase gate, 2026-10-06
+
+Live cwd delivery for the changed project-directory guard remains unverified.
+The Review phase exercises the registered hook commands and adapter callbacks with supplied payloads and contexts, which proves local forwarding but does not establish what a vendor emits.
+The dedicated Test phase owns S1 and must record each installed harness's exact version, invocation, emitted cwd or tool directory override, guard response, and observable sentinel outcomes.
+Use an isolated primary-shaped checkout with real guard code, a `bin` directory, and a protected `projects/foo` directory; do not run these probes against an operational home.
+Capture the real vendor's hook payload or callback context when the guard runs, without fabricating the cwd field.
+An unattempted tool call or a missing control sentinel cannot establish a guard verdict.
+
+| Live probe | Required observable result |
+| --- | --- |
+| From the home: `cd bin || true; cd ../projects/foo && touch <absolute-deny-sentinel>` | Guard denial and absent deny sentinel; a separate permitted control tool call creates its sentinel. |
+| Actual execution cwd at `<home>/bin`: `cd ../projects/foo` | The vendor emits that execution cwd and the guard denies the protected destination. |
+| Actual execution cwd at `/tmp`: `cd projects/foo; touch <absolute-allow-sentinel>` | The vendor emits `/tmp` or its documented tool-directory override, the guard allows, and the allow sentinel is created inside the isolated fixture. |
+| From the home: `cd /tmp || true; cd projects/foo; touch <absolute-allow-sentinel>` | The guard allows the unrelated destination and the allow sentinel is created. |
+
+| Consumer | Required live source | Current status |
+| --- | --- | --- |
+| Claude and Codex | Delivered hook `.cwd`, plus Codex's actual tool `workdir` when used | Pending dedicated Test; synthetic payloads are insufficient. |
+| Cursor | Delivered Shell hook cwd and Cursor's returned decision object | Pending dedicated Test; portable object-shape checks are insufficient. |
+| Grok | Delivered `run_terminal_command` hook cwd or documented tool cwd | API emission remains unverified; report the exact missing field if absent. |
+| OpenCode | Real plugin directory and bash `workdir` | Not exercised; the CLI was absent from PATH during the earlier local review. |
+| Pi and pi-signed | Real bash callback `ctx.cwd` | Pending dedicated Test; source inspection and synthetic contexts are insufficient. |
+| omp | Real bash callback session cwd | Pending dedicated Test; synthetic contexts are insufficient. |
+| Native Windows | Native harness cwd delivery and path conversion | Not exercised in the Linux Review; no Windows adoption or availability claim. |
+
+Record unavailable tools and API gaps explicitly, use only tools already on PATH, and never treat checking no real harness as a pass.
+No live versions or successful live results are recorded here because this Review phase is not authorized to execute the dedicated Test phase.

@@ -183,7 +183,7 @@ matrix_case C06 deny 'cd bin && pushd ../projects/foo'
 matrix_case C07 deny $'cd bin\ncd ../projects/foo'
 matrix_case C08 allow 'cd /tmp; cd projects/foo'
 matrix_case C09 deny 'cd missing-directory; cd projects/foo'
-matrix_case C10 deny 'cd bin || cd projects/foo'
+matrix_case C10 allow 'cd bin || cd projects/foo'
 matrix_case C11 deny 'cd ../projects/foo' "$PRIMARY/bin"
 matrix_case C12 allow 'cd projectsfoo' /tmp
 matrix_case C13 allow 'cd "$TARGET" && cd projects/foo'
@@ -191,6 +191,29 @@ matrix_case C14 deny '(cd /tmp) && cd projects/foo'
 matrix_case C15 deny 'cd bin & cd projects/foo'
 matrix_case C16 allow 'cd projects/foo' ''
 matrix_case C17 deny "cd '$PRIMARY/projects/foo'" ''
+matrix_case C18 deny 'cd bin || true; cd ../projects/foo && tasks-axi add x'
+matrix_case C19 deny 'cd missing-directory && true; cd projects/foo'
+matrix_case C20 allow 'cd /tmp || true; cd projects/foo'
+matrix_case C21 deny 'pushd bin || true; pushd ../projects/foo'
+matrix_case C22 deny 'pushd missing-directory && true; pushd projects/foo'
+matrix_case C23 allow 'pushd /tmp || true; pushd projects/foo'
+matrix_case C24 deny 'false && cd /tmp; cd projects/foo'
+matrix_case C25 deny 'true || cd /tmp; cd projects/foo'
+matrix_case C26 allow 'false || cd /tmp; cd projects/foo'
+matrix_case C27 deny 'false && cd /tmp || cd bin; cd ../projects/foo'
+matrix_case C28 allow 'true && cd /tmp || cd bin; cd projects/foo'
+matrix_case C29 deny 'cd missing-directory || cd bin; cd ../projects/foo'
+matrix_case C30 deny 'true && cd bin || cd /tmp; pushd ../projects/foo'
+matrix_case C31 allow 'cd /tmp && false; cd projects/foo'
+matrix_case C32 deny 'false && cd bin; cd projects/foo'
+matrix_case C33 allow 'cd missing-directory && cd projects/foo'
+matrix_case C34 deny $'cd bin || false\ncd ../projects/foo'
+matrix_case C35 allow 'command true || cd projects/foo'
+matrix_case C36 allow 'false | true || cd projects/foo'
+matrix_case C37 deny 'true | false || cd projects/foo'
+matrix_case C38 deny 'true >missing-directory/output || cd projects/foo'
+matrix_case C39 deny 'builtin false && cd /tmp; cd projects/foo'
+matrix_case C40 deny 'cd "$TARGET" || cd projects/foo'
 
 MATRIX_TMP=$(mktemp -d "${TMPDIR:-/tmp}/fm-cd-policy-matrix.XXXXXX")
 FM_TEST_CLEANUP_DIRS+=("$MATRIX_TMP")
@@ -474,6 +497,10 @@ const cases = [
   ["cd '" + primary + "/projects/foo'", "/tmp", true],
   ["cd bin", primary, false],
   ["cd /tmp && cd projects/foo", primary, false],
+  ["cd bin || true; cd ../projects/foo", primary, true],
+  ["cd missing-directory && true; cd projects/foo", primary, true],
+  ["cd /tmp || true; cd projects/foo", primary, false],
+  ["pushd bin || true; pushd ../projects/foo", primary, true],
 ];
 const { decision } = await import(pathToFileURL(root + "/bin/fm-cd-command-policy.mjs").href);
 for (const [command, cwd, denied] of cases) {
@@ -562,6 +589,38 @@ JS
   pass "cd-guard: registered hooks, tool workdir overrides, OpenCode, Pi and omp execute with their supplied cwd"
 }
 
+test_literal_list_execution() {
+  FM_CD_PRIMARY="$PRIMARY" FM_CD_ROOT="$ROOT" node --input-type=module <<'JS' || fail "cd-guard literal list execution regression"
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+const home = process.env.FM_CD_PRIMARY;
+const { decision } = await import(pathToFileURL(process.env.FM_CD_ROOT + "/bin/fm-cd-command-policy.mjs").href);
+mkdirSync(home + "/projects/flow-clone", { recursive: true });
+mkdirSync(home + "/locked");
+chmodSync(home + "/locked", 0);
+for (const command of [
+  "cd bin || true; cd ../projects/flow-clone",
+  "cd missing-directory && true; cd projects/flow-clone",
+  "pushd bin || true; pushd ../projects/flow-clone",
+  "false && cd /tmp; cd projects/flow-clone",
+  "true || cd /tmp; cd projects/flow-clone",
+  "cd /tmp || true; cd projects/flow-clone",
+  "cd missing-directory && cd projects/flow-clone",
+  "cd locked && true; cd projects/flow-clone",
+]) {
+  const executed = spawnSync("bash", ["--noprofile", "--norc", "-c", command + "; pwd -P"], { cwd: home, encoding: "utf8", env: { ...process.env, CDPATH: "" } });
+  assert.equal(executed.status, 0, command);
+  const destination = executed.stdout.trim().split("\n").at(-1);
+  const protectedDestination = destination.startsWith(home + "/projects/");
+  assert.equal(decision(command, home + "/projects", home).decision, protectedDestination ? "deny" : "allow", command);
+}
+chmodSync(home + "/locked", 0o700);
+JS
+  pass "cd-guard: literal branch and rejoin verdicts match executed shell destinations"
+}
+
 test_scripts_are_shellcheck_clean() {
   local out
   command -v shellcheck >/dev/null 2>&1 || { pass "shellcheck not installed, skipping"; return; }
@@ -583,4 +642,5 @@ test_fail_open_missing_jq_on_stdin
 test_prefilter_skips_node_without_cd_substring
 test_policy_cli_direct
 test_cwd_adapters
+test_literal_list_execution
 test_scripts_are_shellcheck_clean

@@ -60,7 +60,11 @@ An absolute `cd` to any other path is allowed.
 The ALLOW carve-out for absolute paths on ordinary commands is unchanged: `git -C` and an absolute path on the command itself never move the shell.
 The guard resolves relative targets from the harness's execution cwd, then follows preceding literal top-level `cd` and `pushd` destinations within the same command.
 Thus `cd bin && cd ../projects/foo` from the home is denied, while `cd /tmp && cd projects/foo` resolves outside the home's projects folder and is allowed.
-For unconditional command separators, a preceding literal destination must exist as a directory before it becomes the next resolution base; an absent literal directory leaves the base unchanged.
+Directory changes carry separate success and failure paths through `&&` and `||`; semicolons and newlines rejoin the reachable paths without losing either cwd.
+Initial directory existence can establish a literal move's outcome, but an intervening opaque command invalidates that snapshot and leaves both outcomes possible.
+The guard denies a protected literal destination on any reachable path and ignores a destination in a skipped command.
+An opaque command that creates a new directory before a later literal `cd` remains ambiguous at this pre-execution boundary: the successful move can be outside projects while its failure leaves a later protected move reachable.
+That case remains an unresolved precision limit requiring a scope decision; this policy does not predict arbitrary command effects.
 A `cd` back to the home, a `cd ..`, and a `cd` to an unrelated directory are allowed, because they do not enter a project folder.
 
 ### Accepted non-goals
@@ -68,7 +72,7 @@ A `cd` back to the home, a `cd ..`, and a `cd` to an unrelated directory are all
 Consistent with the agent-mistake threat model, the guard deliberately does not chase every obfuscated bypass:
 
 - A `cd` reconstructed by a command substitution (`$(echo c)d x`) or hidden inside a brace group (`{ cd x; }`) is not blocked. Brace-group recursion is avoided because this classifier cannot reliably tell a brace group `{ cd; }` from brace expansion `{cd,foo}`, and a false block there is worse than the missed exotic bypass.
-- A target the lexer cannot know (a variable, substitution, glob, `cd -`, or directory-stack destination) is allowed and leaves subsequent relative destinations unknown until an absolute literal move establishes a base.
+- A target the lexer cannot know (a variable, substitution, glob, `cd -`, or directory-stack destination) is allowed; its successful move leaves cwd unknown, while its failure preserves the preceding cwd.
 - Missing execution cwd leaves relative destinations unknown; absolute and tilde destinations still receive their normal checks.
 - Malformed or untokenizable syntax fails open (allow). Unlike the watcher-arm seatbelt, which fails closed on unclassifiable protected commands, the cd-guard prioritizes zero false blocks over catching a malformed bypass, because a blocked backlog write is a correctness hazard while a missed exotic `cd` is only the pre-existing status quo.
 

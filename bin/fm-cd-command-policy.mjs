@@ -17,7 +17,7 @@
 
 import { Lexer, splitProgram, commandPosition } from "./fm-arm-command-policy.mjs";
 import path from "node:path";
-import { realpathSync, statSync } from "node:fs";
+import { accessSync, constants, realpathSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const REASONS = {
@@ -138,47 +138,85 @@ function decision(command, projectsRoot = "", cwd = process.cwd()) {
   if (lexed.error) return { decision: "allow" };
 
   const { nodes, separators } = splitProgram(lexed.tokens);
-  let directory = cwd;
+  let states = [{ directory: cwd, succeeded: true, filesystemKnown: true }];
   for (let index = 0; index < nodes.length; index += 1) {
-    if (!nodePersists(separators, index)) continue;
     // commandPosition ignores subshell/brace groups, quoted data, comments, and
     // substitutions (they contribute no top-level command word), and skips
     // leading assignments and wrappers to find the executed command word.
     const position = commandPosition(nodes[index]);
-    if (hasPathQualifiedCommandPrefix(position)) continue;
-    if (hasCommandQueryPrefix(position)) continue;
     let commandWord = position.command;
     let wordIndex = position.index;
     while (commandWord && (commandWord.value === "builtin" || commandWord.value === "command")) {
       wordIndex += 1;
       commandWord = position.words[wordIndex];
     }
-    if (!commandWord) continue;
-    if (!CD_BUILTINS.has(commandWord.value)) continue;
-    if (position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper))) continue;
-    if (commandWord.value === "popd") {
-      if (separators[index] !== "||") directory = "";
-      continue;
-    }
-    const operand = directoryOperand(commandWord.value, position.words, wordIndex);
-    if (!operand) {
-      if (position.words.length === wordIndex + 1 && separators[index] !== "||") {
-        directory = commandWord.value === "cd" ? process.env.HOME || "" : "";
+    const commandName = commandWord?.value;
+    const directoryCommand = nodePersists(separators, index) &&
+      CD_BUILTINS.has(commandName) &&
+      !hasPathQualifiedCommandPrefix(position) &&
+      !hasCommandQueryPrefix(position) &&
+      !position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper));
+    const operand = directoryCommand && commandName !== "popd"
+      ? directoryOperand(commandName, position.words, wordIndex) : null;
+    const nextStates = [];
+    for (const state of states) {
+      const incoming = separators[index - 1];
+      if ((incoming === "&&" && !state.succeeded) || (incoming === "||" && state.succeeded)) {
+        nextStates.push(state);
+        continue;
       }
-      continue;
+      if (!directoryCommand) {
+        const constant = !hasPathQualifiedCommandPrefix(position) &&
+          !hasCommandQueryPrefix(position) &&
+          !position.wrappers.some((wrapper) => FORKING_WRAPPERS.has(wrapper)) &&
+          !nodes[index].some((token) => token.type === "redir" ||
+            (token.type === "word" && (!token.literal || token.unquotedExpansion || token.subs.length > 0))) &&
+          ["true", "false", ":"].includes(commandName);
+        if (constant) {
+          nextStates.push({ ...state, succeeded: commandName !== "false" });
+        } else {
+          nextStates.push({ ...state, succeeded: true, filesystemKnown: false });
+          nextStates.push({ ...state, succeeded: false, filesystemKnown: false });
+        }
+        continue;
+      }
+      const args = position.words.slice(wordIndex + 1);
+      const stackRotation = commandName === "pushd" && args.some((word) =>
+        word.literal && word.subs.length === 0 && /^[-+]\d+$/.test(word.value));
+      const bareCd = commandName === "cd" && args.every((word) =>
+        word.literal && !word.unquotedExpansion && word.subs.length === 0 &&
+        (word.value === "--" || knownDirectoryOption("cd", word.value)));
+      if (!operand && !bareCd && !stackRotation && commandName !== "popd" && args.length > 0) {
+        nextStates.push({ ...state, succeeded: false });
+        continue;
+      }
+      const home = process.env.HOME;
+      const resolved = bareCd ? (home && path.isAbsolute(home) ? path.resolve(home) : "")
+        : operand ? resolveTarget(operand, state.directory) : "";
+      if (operand && targetsProjectFolder(resolved, projectsRoot)) return deny("persistent-cd");
+      if (commandName === "pushd" && args.slice(0, -1).some((word) => word.value === "-n")) {
+        nextStates.push({ ...state, succeeded: true });
+        nextStates.push({ ...state, succeeded: false });
+        continue;
+      }
+      if (!resolved) {
+        nextStates.push({ ...state, directory: "", succeeded: true });
+        nextStates.push({ ...state, succeeded: false });
+        continue;
+      }
+      let succeeds = null;
+      if (state.filesystemKnown) {
+        try {
+          succeeds = statSync(resolved).isDirectory();
+          if (succeeds) accessSync(resolved, constants.X_OK);
+        } catch (error) {
+          succeeds = ["ENOENT", "ENOTDIR", "EACCES", "EPERM"].includes(error.code) ? false : null;
+        }
+      }
+      if (succeeds !== false) nextStates.push({ ...state, directory: resolved, succeeded: true });
+      if (succeeds !== true) nextStates.push({ ...state, succeeded: false });
     }
-    const resolved = resolveTarget(operand, directory);
-    if (targetsProjectFolder(resolved, projectsRoot)) return deny("persistent-cd");
-    if (separators[index] === "||") continue;
-    if (commandWord.value === "pushd" && position.words.slice(wordIndex + 1, -1).some((word) => word.value === "-n")) continue;
-    if (!resolved || separators[index] === "&&") {
-      directory = resolved || "";
-      continue;
-    }
-    try {
-      if (statSync(resolved).isDirectory()) directory = resolved;
-    } catch {
-    }
+    states = [...new Map(nextStates.map((state) => [JSON.stringify(state), state])).values()];
   }
   return { decision: "allow" };
 }
