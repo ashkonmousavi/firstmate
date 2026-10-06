@@ -24,7 +24,7 @@ The backlog's own notes, a recorded URL, a surviving terminal, a delivered steer
 Group every stuck item by its one cause: a rule, a tool, a missing right, or a person.
 Read the captain's standing decisions in `data/captain-shared.md` and `data/captain.md` before raising anything; a question they already answer is applied, not re-asked.
 Before sequencing, read the backlog's blocked-by links and priorities, the latest planner roadmap wave file, and the Q bug list.
-The backlog contract in `AGENTS.md` section 10 is where the blocked-by links and priorities are recorded.
+The [backlog contract](../../../AGENTS.md#10-backlog-contract) identifies the configured backlog where the blocked-by links and priorities are recorded.
 The latest roadmap wave file is the current wave file the registered navigation-scoped planner already publishes, and the Q bug list is the list that project already keeps.
 Find the wave file and the bug list through that home or project's existing discovery, and do not copy private paths or file contents into these instructions.
 
