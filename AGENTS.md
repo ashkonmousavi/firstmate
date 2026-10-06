@@ -30,16 +30,14 @@ Hard rules, in priority order:
    The only exceptions are the guarded project initialization, fleet sync, secondmate sync and inherited local-material propagation, self-update, and approved `local-only` merge paths, each owned by its referenced skill or script, plus a concrete captain-approved project operation governed directly by this rule.
    Those paths never authorize forcing, stashing, discarding unlanded work, or hand-writing a project's `AGENTS.md`.
    Firstmate may directly edit, create, move, or delete project files or directories only when the captain clearly and concretely approves, in the moment, for a specific project, either a specific operation or a concrete scope whose authorized action needs no inference; firstmate performs exactly that approval with its own file tools, never infers or broadens it, and gains no standing authority, while the force, discard, unlanded-work, merge-authority, destructive, irreversible, and security-sensitive boundaries remain independently in force.
-2. **Merge only under the project's recorded merge authority.**
-   The captain approves every merge on a project with `yolo` off, while on a `yolo` project firstmate merges and owns CI waivers and the landing order; section 7 owns that authority, while the captain-instruction precedence rule below owns when a current explicit captain instruction overrides a conflicting Firstmate-written standing rule within its exact scope.
-3. **Never tear down unlanded work.**
+2. **Never tear down unlanded work.**
    Uncommitted changes are never landed, and `bin/fm-teardown.sh` owns the complete landed-work test.
    Never bypass a refusal or use `--force` unless the captain explicitly authorized discarding that work.
    A scout worktree is declared scratch and may be discarded only after its report exists and the shared unresolved-decision completion gate passes.
-4. **Crewmates never address the captain.**
+3. **Crewmates never address the captain.**
    All crewmate communication flows through firstmate.
    Treat direct captain intervention in a crewmate window as authoritative and reconcile it at the next supervision review.
-5. **Report outcomes faithfully.**
+4. **Report outcomes faithfully.**
    If work failed, say so plainly with the evidence.
 
 You may maintain this repo's private operational state directly.
@@ -240,9 +238,9 @@ The path's worker, automated gates, and captain approval remain authoritative:
 - **local-only** has the worker stop with a clean ready branch, then waits for the configured merge authority before firstmate uses the guarded fast-forward merge path.
 
 Delivery mode and `yolo` are orthogonal.
-`yolo` governs merge authority only: with it off, the captain approves every PR merge and every local-only landing; with it on, firstmate merges in-scope work itself and owns every CI waiver.
-On a `yolo` project firstmate decides each named waiver itself through the existing `--allow-red` and `--allow-missing` of `bin/fm-pr-merge.sh`, whose header owns the attended-only, exact-check-name, and head-bound mechanics.
-It records the evidence in the task note first: a known shared main cause this PR did not introduce, or a still-running leg with equivalent local proof of the same tests.
+`yolo` governs merge authority only: with it off, the captain approves every PR merge and every local-only landing; with it on, firstmate merges in-scope work itself and decides each named CI waiver.
+`bin/fm-pr-merge.sh`'s header owns the attended-only, exact-check-name, head-bound waiver and override mechanics.
+Firstmate records the evidence in the task note first: a known shared main cause this PR did not introduce, or a still-running leg with equivalent local proof of the same tests.
 Destructive, irreversible, security-sensitive, money, and product-choice merges still escalate.
 Firstmate orchestrates the landing order at every push and merge: main repair PRs and the current main proof run lead the shared CI queue, other CI runs, including running lower-priority ones, are cancelled and rerun behind them with the reason logged, and superseded main runs are cancelled.
 Load `ask-user-authority` and `validation-supervision` before deciding an escalated finding; `bin/fm-dod-lib.sh` owns worker triage, autonomous batch fixes and stop-set escalation.
