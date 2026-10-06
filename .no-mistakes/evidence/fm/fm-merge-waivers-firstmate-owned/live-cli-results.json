@@ -1,0 +1,128 @@
+[
+  {
+    "name": "baseline-old-admin-refusal",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments must not request auto-merge, a protection bypass, or branch deletion; pass --attended-override only for an explicit captain instruction\n"
+  },
+  {
+    "name": "red-waiver-admin-authority-copy",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "missing-waiver-admin-authority-copy",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "restricted-forge-flag---auto",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "restricted-forge-flag---delete-branch",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "restricted-forge-flag--d",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "restricted-forge-flag--yd",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "gitlab-source-deletion-restriction",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction\n"
+  },
+  {
+    "name": "attended-identity-guard---repo",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments must not override the repository\n"
+  },
+  {
+    "name": "attended-identity-guard--yR",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments must not override the repository\n"
+  },
+  {
+    "name": "attended-identity-guard---sha",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments must not override the head commit\n"
+  },
+  {
+    "name": "attended-identity-guard---match-head-commit",
+    "result": "pass",
+    "exit": 1,
+    "stderr": "error: extra merge arguments must not override the head commit\n"
+  },
+  {
+    "name": "separate-check-name---allow-red",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-red requires a separate check name argument\n"
+  },
+  {
+    "name": "absent-check-name---allow-red",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-red requires a check name\n"
+  },
+  {
+    "name": "github-only-waiver---allow-red",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-red does not apply to GitLab, where a merge already requires the head pipeline to have succeeded\n"
+  },
+  {
+    "name": "separate-check-name---allow-missing",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-missing requires a separate check name argument\n"
+  },
+  {
+    "name": "absent-check-name---allow-missing",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-missing requires a check name\n"
+  },
+  {
+    "name": "github-only-waiver---allow-missing",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-missing does not apply to GitLab, where a merge already requires the head pipeline to have succeeded\n"
+  },
+  {
+    "name": "away-refuses-attended-admin---allow-red",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-red is attended-only; while the away-posture record exists the green check is absolute\n"
+  },
+  {
+    "name": "away-refuses-attended-admin---allow-missing",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --allow-missing is attended-only; while the away-posture record exists every required check must report\n"
+  },
+  {
+    "name": "away-refuses-auto",
+    "result": "pass",
+    "exit": 2,
+    "stderr": "error: --auto is attended-only; while the away-posture record exists only a synchronous merge may run under its authority lock\n"
+  }
+]

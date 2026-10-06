@@ -1,0 +1,142 @@
+$ bin/fm-lab-home.sh create <disposable-worktree-home>
+/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-lab.b2nx4okh
+
+[baseline-old-admin-refusal]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/.nm-base-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-red lint -- --admin
+exit=1
+error: extra merge arguments must not request auto-merge, a protection bypass, or branch deletion; pass --attended-override only for an explicit captain instruction
+result=pass
+
+[red-waiver-admin-authority-copy]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-red lint -- --admin
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[missing-waiver-admin-authority-copy]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-missing validate -- --admin
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[restricted-forge-flag---auto]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 -- --auto
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[restricted-forge-flag---delete-branch]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 -- --delete-branch
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[restricted-forge-flag--d]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 -- -d
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[restricted-forge-flag--yd]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 -- -yd
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[gitlab-source-deletion-restriction]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://gitlab.example/group/subgroup/project/-/merge_requests/7 -- --remove-source-branch
+exit=1
+error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction
+result=pass
+
+[attended-identity-guard---repo]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override --allow-red lint -- --repo other/repo
+exit=1
+error: extra merge arguments must not override the repository
+result=pass
+
+[attended-identity-guard--yR]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override --allow-red lint -- -yR other/repo
+exit=1
+error: extra merge arguments must not override the repository
+result=pass
+
+[attended-identity-guard---sha]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override --allow-red lint -- --sha bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+exit=1
+error: extra merge arguments must not override the head commit
+result=pass
+
+[attended-identity-guard---match-head-commit]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override --allow-red lint -- --match-head-commit bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+exit=1
+error: extra merge arguments must not override the head commit
+result=pass
+
+[separate-check-name---allow-red]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-red=lint
+exit=2
+error: --allow-red requires a separate check name argument
+result=pass
+
+[absent-check-name---allow-red]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-red
+exit=2
+error: --allow-red requires a check name
+result=pass
+
+[github-only-waiver---allow-red]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://gitlab.example/group/subgroup/project/-/merge_requests/7 --allow-red lint
+exit=2
+error: --allow-red does not apply to GitLab, where a merge already requires the head pipeline to have succeeded
+result=pass
+
+[separate-check-name---allow-missing]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-missing=lint
+exit=2
+error: --allow-missing requires a separate check name argument
+result=pass
+
+[absent-check-name---allow-missing]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --allow-missing
+exit=2
+error: --allow-missing requires a check name
+result=pass
+
+[github-only-waiver---allow-missing]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://gitlab.example/group/subgroup/project/-/merge_requests/7 --allow-missing lint
+exit=2
+error: --allow-missing does not apply to GitLab, where a merge already requires the head pipeline to have succeeded
+result=pass
+
+$ bin/fm-afk-contract.sh enter --words <disposable-test-posture>
+Away posture recorded at 2026-10-06T08:25:21Z: hold-for-return only. No phone channel is configured; anything that needs you waits for your return. Your away instructions are recorded verbatim; the away session will carry them out where it can, and anything it is unsure of, or that needs you, waits for your return. Destructive, irreversible, and security-sensitive actions are never pre-authorizable, whatever the words say. Expected return: not given. Spend cap: 4 concurrent workers.
+Away posture (recorded):
+  entered: 2026-10-06T08:25:21Z
+  expected return: not given
+  spend cap: 4 concurrent workers
+  reach: hold-for-return only. No phone channel is configured; anything that needs you waits for your return.
+  your words (verbatim):
+    Disposable test posture; do not merge anything.
+
+[away-refuses-attended-admin---allow-red]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override --allow-red lint -- --admin
+exit=2
+error: --allow-red is attended-only; while the away-posture record exists the green check is absolute
+result=pass
+
+[away-refuses-attended-admin---allow-missing]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override --allow-missing lint -- --admin
+exit=2
+error: --allow-missing is attended-only; while the away-posture record exists every required check must report
+result=pass
+
+[away-refuses-auto]
+$ bash /home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/bin/fm-pr-merge.sh task-x1 https://github.com/example/repo/pull/81 --attended-override -- --auto
+exit=2
+error: --auto is attended-only; while the away-posture record exists only a synchronous merge may run under its authority lock
+result=pass
+
+Persisted state after refusals: no PR poll, no merge-authority receipt.
+
+Disposable lab home and baseline script removed.

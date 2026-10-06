@@ -1,0 +1,139 @@
+CASE github-allow-missing-admin-classic
+Forge is the repository mock; this is supporting regression evidence, not live GitHub proof.
+
+stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/96 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/96 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+
+stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/96 is open and mergeable, with every unwaived required check reported and every unwaived check green at head a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+
+gh.log:
+pr view https://github.com/example/repo/pull/96 --json headRefOid -q .headRefOid
+pr view https://github.com/example/repo/pull/96 --json state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,statusCheckRollup
+api repos/example/repo/branches/main
+api --paginate repos/example/repo/rules/branches/main
+pr merge 96 --repo example/repo --match-head-commit a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 --squash --admin
+api graphql -f query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged isInMergeQueue baseRefName}}} -F owner=example -F repo=repo -F number=96 --jq .data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "queued=" + (.isInMergeQueue | tostring), "base=" + (.baseRefName // "")
+
+meta-at-merge:
+window=fm-task-x1
+worktree=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-missing-admin-classic/wt
+project=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-missing-admin-classic/project
+kind=ship
+mode=no-mistakes
+pr=https://github.com/example/repo/pull/96
+pr_head=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+
+CASE github-allow-missing-admin-ruleset
+Forge is the repository mock; this is supporting regression evidence, not live GitHub proof.
+
+stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/96 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/96 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+
+stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/96 is open and mergeable, with every unwaived required check reported and every unwaived check green at head a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+
+gh.log:
+pr view https://github.com/example/repo/pull/96 --json headRefOid -q .headRefOid
+pr view https://github.com/example/repo/pull/96 --json state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,statusCheckRollup
+api repos/example/repo/branches/main
+api --paginate repos/example/repo/rules/branches/main
+pr merge 96 --repo example/repo --match-head-commit a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5 --squash --admin
+api graphql -f query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged isInMergeQueue baseRefName}}} -F owner=example -F repo=repo -F number=96 --jq .data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "queued=" + (.isInMergeQueue | tostring), "base=" + (.baseRefName // "")
+
+meta-at-merge:
+window=fm-task-x1
+worktree=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-missing-admin-ruleset/wt
+project=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-missing-admin-ruleset/project
+kind=ship
+mode=no-mistakes
+pr=https://github.com/example/repo/pull/96
+pr_head=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
+
+CASE github-allow-red-admin-classic
+Forge is the repository mock; this is supporting regression evidence, not live GitHub proof.
+
+stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/81 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/81 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+
+stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/81 is open and mergeable, with every unwaived required check reported and every unwaived check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+gh.log:
+pr view https://github.com/example/repo/pull/81 --json headRefOid -q .headRefOid
+pr view https://github.com/example/repo/pull/81 --json state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,statusCheckRollup
+api repos/example/repo/branches/main
+api --paginate repos/example/repo/rules/branches/main
+pr merge 81 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash --admin
+api graphql -f query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged isInMergeQueue baseRefName}}} -F owner=example -F repo=repo -F number=81 --jq .data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "queued=" + (.isInMergeQueue | tostring), "base=" + (.baseRefName // "")
+
+meta-at-merge:
+window=fm-task-x1
+worktree=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-red-admin-classic/wt
+project=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-red-admin-classic/project
+kind=ship
+mode=no-mistakes
+pr=https://github.com/example/repo/pull/81
+pr_head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+CASE github-allow-red-admin-ruleset
+Forge is the repository mock; this is supporting regression evidence, not live GitHub proof.
+
+stdout:
+armed: state/task-x1.check.sh
+verified: https://github.com/example/repo/pull/81 is merged (state=MERGED, merged=true, isInMergeQueue=false)
+reminder: https://github.com/example/repo/pull/81 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+
+stderr:
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+verified: https://github.com/example/repo/pull/81 is open and mergeable, with every unwaived required check reported and every unwaived check green at head aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+gh.log:
+pr view https://github.com/example/repo/pull/81 --json headRefOid -q .headRefOid
+pr view https://github.com/example/repo/pull/81 --json state,isDraft,mergeable,mergeStateStatus,headRefOid,baseRefName,statusCheckRollup
+api repos/example/repo/branches/main
+api --paginate repos/example/repo/rules/branches/main
+pr merge 81 --repo example/repo --match-head-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --squash --admin
+api graphql -f query=query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){state merged isInMergeQueue baseRefName}}} -F owner=example -F repo=repo -F number=81 --jq .data.repository.pullRequest | "state=" + (.state // ""), "merged=" + (.merged | tostring), "queued=" + (.isInMergeQueue | tostring), "base=" + (.baseRefName // "")
+
+meta-at-merge:
+window=fm-task-x1
+worktree=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-red-admin-ruleset/wt
+project=/home/zcrew/.no-mistakes/worktrees/986d25e75c08/01M482GWAP8NMMB9MQDE4AHWZG/.nm-test-tmp/fm-pr-merge-tests.1VMFvI/github-allow-red-admin-ruleset/project
+kind=ship
+mode=no-mistakes
+pr=https://github.com/example/repo/pull/81
+pr_head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
