@@ -17,7 +17,7 @@ BRIEF="$TMP_ROOT/brief.md"
 export FM_GROKBOT_BRIDGE="$BRIDGE" STUB_LOG="$LOG"
 
 cat > "$BRIDGE" <<'JS'
-import { appendFileSync } from "node:fs";
+import { appendFileSync, existsSync } from "node:fs";
 const [cmd, ...a] = process.argv.slice(2);
 appendFileSync(process.env.STUB_LOG, JSON.stringify([cmd, ...a]) + "\n");
 const out = (o) => console.log(JSON.stringify(o, null, 2));
@@ -25,7 +25,9 @@ if (cmd === "list") {
   out([{ id: "a1", name: "fm-researcher" }, { id: "b1", name: "twin" }, { id: "b2", name: "twin" }]);
 } else if (cmd === "chat") {
   if (process.env.STUB_CHAT_FAIL === "1") process.exit(1);
-  if (process.env.STUB_CHAT_SLEEP) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.STUB_CHAT_SLEEP) * 1000);
+  // Hold this chat open until the test creates the release file (bounded at 30s).
+  for (let i = 0; process.env.STUB_CHAT_HOLD && !existsSync(process.env.STUB_CHAT_HOLD) && i < 600; i++)
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
   out({ sent: { ok: true } });
   out({ stillRunning: process.env.STUB_RUNNING === "1",
         newEntries: [{ id: 1, text: a[1] }, { id: 2, text: "Finding one. https://example.com/a" }] });
@@ -128,15 +130,26 @@ assert_equals 2 "$(chats)" "a retry after a failed send reaches the bridge again
 pass "a failed send records nothing, so a retry sends"
 
 : > "$LOG"
-STUB_CHAT_SLEEP=2 "$TOOL" "$BRIEF" --bot fm-researcher --once-key 'QW-13@abc1234' > "$TMP_ROOT/first.out" 2>&1 &
+# The first dispatch's chat is held at a release barrier until the second returns.
+RELEASE="$TMP_ROOT/release-chat"
+first=''
+release_first() {
+  : > "$RELEASE"
+  [ -z "$first" ] || { kill "$first" 2>/dev/null; wait "$first" 2>/dev/null; }
+}
+trap 'release_first; fm_test_cleanup' EXIT
+STUB_CHAT_HOLD="$RELEASE" "$TOOL" "$BRIEF" --bot fm-researcher --once-key 'QW-13@abc1234' > "$TMP_ROOT/first.out" 2>&1 &
 first=$!
-for _ in $(seq 100); do grep -q '^\["chat"' "$LOG" && break; sleep 0.1; done
+for _ in $(seq 300); do grep -q '^\["chat"' "$LOG" && break; sleep 0.1; done
+assert_grep '["chat"' "$LOG" "the first dispatch reached its held chat"
 run code out err "$BRIEF" --bot fm-researcher --once-key 'QW-13@abc1234'
+: > "$RELEASE"
 expect_code 2 "$code" "a concurrent dispatch of an in-flight once-key refuses"
 assert_contains "$err" 'in flight or interrupted' "the concurrent refusal names the held key"
 assert_not_contains "$out" 'already sent' "the concurrent refusal claims no success"
 wait "$first"
 expect_code 0 "$?" "the first of two concurrent dispatches sends"
+first=''
 assert_equals 1 "$(chats)" "concurrent dispatches of one once-key send once"
 pass "a concurrent dispatch of one once-key sends once and claims no success"
 
