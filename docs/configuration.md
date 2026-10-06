@@ -660,6 +660,29 @@ The file is created lazily on first learning and follows the internal [`stow` sk
 
 There is no shared learnings file by captain decision.
 
+## Daily startup growth check
+
+A home can arm a lightweight daily growth monitor with `bin/fm-startup-growth-check.sh arm`.
+It writes `state/startup-growth.check.sh` and binds it through the existing authenticated watcher-check mechanism, so no extra daemon or scheduler is installed.
+Registering it is a reason to watch on the same terms as the [watched-tool check](#watched-tool-updates-configwatched-toolsjson), so an armed home keeps needing a watcher after its last task is torn down.
+Use `bin/fm-startup-growth-check.sh disarm` to remove the check and its local report record.
+
+The check evaluates at most once per day and stays silent when nothing meaningful changed.
+A due evaluation uses file metadata and byte sizes to watch printed startup memory and tracked startup/instruction files for accumulated growth; `bin/fm-startup-growth-check.sh` owns the surfaces and thresholds.
+A secondmate records but does not report growth in its primary-owned `data/captain-shared.md`.
+This check has no startup memory allowance, budget verdict, or automatic eviction.
+A secondmate home is likewise not notified about per-file growth of that same primary-owned `data/captain-shared.md`, which it receives read-only; the growth is still observed and recorded, and a primary home reports it normally.
+Those tracked bytes are code and instruction-surface size, not prompt-memory cost.
+The check does not run session-start, bootstrap, network checks, model calls, repository refreshes, `/stow`, or full preference/learnings rereads.
+
+Growth is measured against a per-file baseline retained in the check's own state record, so accumulation that stays under one day's threshold is still caught once it adds up; reporting a file rebases its baseline to the reported size, so accepted growth then stays silent.
+A surface observed for the first time is baselined silently, including the first content of an optional file that did not exist yet when the check was armed, and an established baseline survives that file disappearing and coming back.
+The fixed growth thresholds are inspectable in the script header: 2048 bytes for tracked startup/instruction files and 250 estimated tokens for the printed startup-memory files.
+Unsafe or unreadable inputs, missing required tracked owner files, or material growth are reported once and deduplicated until the finding changes or clears; the report line is delivered before the check advances its own record, so a state-publication failure can repeat a finding but never swallow one.
+That one line goes out through the shared per-line digest cut, so an over-long finding set carries the repo's `[truncated]` marker instead of ending mid-finding, while deduplication keeps comparing the full uncapped set.
+Older bulk learning files remain reference-only; this monitor neither loads nor merges them.
+A reported review need is only a recommendation, not cleanup authority.
+
 ## Stow pass horizon (config/stow-pass-horizon)
 
 `config/stow-pass-horizon` is an optional local, gitignored presence flag that opts this home in to the pass-count decay horizon in the internal [`/stow` skill](../.agents/skills/stow/SKILL.md).
