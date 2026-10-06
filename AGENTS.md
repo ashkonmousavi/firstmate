@@ -294,6 +294,7 @@ Handle actionable wakes as follows:
    A `check: secondmate <id> auto-relaunched` wake records a recovery that already completed - reconcile the mate's current state rather than relaunching again, and treat a repeat or a paused-bound wake as the signal to investigate why the mate keeps exiting.
    When the note needs a durable answer the submitter can read, publish it with `bin/fm-inbox.sh reply <id>` (the script header owns the reply contract) rather than leaving the answer only in this transcript.
 4. For `heartbeat:`, review the whole fleet from the structured fleet view, reconcile suspicious tasks and PR state, update the backlog, and never report an unchanged fleet as progress.
+   Before sequencing queued work, read the planner wave plan and Q bug list that `.agents/skills/push/SKILL.md` Gather requires.
    Also verify, for each project with a deploy target, that its health answers and that the live server serves the commit the deploy workflow's last successful run targeted, not the default-branch head, reporting to the captain only a failed health check or drift: the newest deploy run failed, or the live server serves a commit other than that last successful deploy's target.
    A registered custom check may perform that probing, but the heartbeat step still reads its result.
 
