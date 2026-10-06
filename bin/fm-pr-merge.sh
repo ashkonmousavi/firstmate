@@ -148,6 +148,23 @@
 # destination, normal-case deduplication, and at-least-once recovery.
 # A landed merge whose outcome cannot be written is reported loudly rather than
 # misreported as a failed merge.
+#
+# Revert preparation: fm-pr-merge.sh <revert-task-id> <merged-pr-url> --prepare-revert
+# Only the dispatched ship worker (FM_TASK_ID matching that id), running in its
+# recorded clean linked worktree on the current forge base, may use this mode.
+# Refresh origin's base and, for a multi-commit squash, fetch the original PR
+# head into the worker copy first. This mode reads the merged GitHub PR live,
+# proves its merge commit is on that base and runs git revert --no-edit there
+# (with -m 1 for a two-parent merge). A one-parent multi-commit integration must
+# match the original PR's complete patch; a partial rebase revert refuses.
+# Dirty, primary, stale or unproved source refuses before writing. Conflicts
+# remain in the worker copy for resolution; nothing is aborted or discarded.
+# This prepares source only: the worker publishes ONE real revert PR through
+# its selected no-mistakes or direct-PR path. Firstmate then uses the ordinary
+# invocation above with that NEW PR URL and the separately recorded named-check
+# dispositions. Preparation never merges, changes remotes or binds the old PR
+# as the revert task's PR. The ordinary invocation still verifies the live head,
+# every unwaived check, captain holds, authority and the actual merge outcome.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -198,6 +215,81 @@ if [ "$PROVIDER" = gerrit ]; then
   exit 2
 fi
 shift 2
+if [ "${1:-}" = --prepare-revert ]; then
+  [ "$#" -eq 1 ] && [ "$PROVIDER" = github ] \
+    && [ "${FM_TASK_ID:-}" = "$ID" ] || {
+    echo "error: revert preparation requires the matching GitHub ship worker and no merge arguments" >&2
+    exit 2
+  }
+  META="$STATE/$ID.meta"
+  [ -f "$META" ] && [ ! -L "$META" ] || {
+    echo "error: revert task metadata is unavailable" >&2; exit 1;
+  }
+  SOURCE=$(sed -n 's/^worktree=//p' "$META")
+  KIND=$(sed -n 's/^kind=//p' "$META")
+  MODE=$(sed -n 's/^mode=//p' "$META")
+  [ "$KIND" = ship ] && { [ "$MODE" = no-mistakes ] || [ "$MODE" = direct-PR ]; } \
+    && [ -d "$SOURCE" ] && [ "$(pwd -P)" = "$(cd "$SOURCE" && pwd -P)" ] || {
+    echo "error: revert preparation must run in the recorded PR-path ship worktree" >&2; exit 1;
+  }
+  GIT_DIR=$(git rev-parse --absolute-git-dir)
+  COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir)
+  if ! { [ "$(cd "$GIT_DIR" && pwd -P)" != "$(cd "$COMMON_DIR" && pwd -P)" ] \
+    && [ -z "$(git status --porcelain)" ] \
+    && BRANCH=$(git symbolic-ref --quiet --short HEAD); }; then
+    echo "error: revert preparation requires a clean isolated branch, never the primary checkout" >&2; exit 1;
+  fi
+  JSON=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
+    --json state,mergeCommit,baseRefName,baseRefOid,headRefOid,commits) || {
+    echo "error: could not read the merged PR for revert preparation" >&2; exit 1;
+  }
+  if ! printf '%s' "$JSON" | jq -e '
+    .state == "MERGED" and (.mergeCommit.oid | test("^[0-9a-f]{40}$"))
+    and (.baseRefOid | test("^[0-9a-f]{40}$"))
+    and (.headRefOid | test("^[0-9a-f]{40}$"))
+    and (.baseRefName | type == "string" and length > 0)
+    and (.commits | type == "array" and length > 0)' >/dev/null; then
+    echo "error: revert preparation needs a proved merged PR and base" >&2; exit 1
+  fi
+  MERGED_COMMIT=$(printf '%s' "$JSON" | jq -r '.mergeCommit.oid')
+  BASE=$(printf '%s' "$JSON" | jq -r '.baseRefName')
+  BASE_HEAD=$(printf '%s' "$JSON" | jq -r '.baseRefOid')
+  if ! { git check-ref-format "refs/heads/$BASE" >/dev/null \
+    && [ "$BRANCH" != "$BASE" ] \
+    && [ "$(git rev-parse HEAD)" = "$BASE_HEAD" ] \
+    && [ "$(git rev-parse --verify "refs/remotes/origin/$BASE")" = "$BASE_HEAD" ] \
+    && git merge-base --is-ancestor "$MERGED_COMMIT" HEAD; }; then
+    echo "error: revert source must start at the current forge base containing the merged commit" >&2; exit 1;
+  fi
+  PARENTS=$(git show -s --format=%P "$MERGED_COMMIT")
+  REVERT_ARGS=()
+  case "$PARENTS" in
+    *' '*' '*) echo "error: octopus revert is unsupported" >&2; exit 1 ;;
+    *' '*) REVERT_ARGS=(-m 1) ;;
+    '') echo "error: root-commit revert is unsupported" >&2; exit 1 ;;
+    *)
+      if [ "$(printf '%s' "$JSON" | jq '.commits | length')" -gt 1 ]; then
+        FIRST=$(printf '%s' "$JSON" | jq -r '.commits[0].oid')
+        LAST=$(printf '%s' "$JSON" | jq -r '.headRefOid')
+        git cat-file -e "$FIRST^{commit}" \
+          && ! git merge-base --is-ancestor "$FIRST" "$MERGED_COMMIT^" \
+          && PR_BASE=$(git merge-base "$MERGED_COMMIT^" "$LAST") \
+          && INTEGRATED_TREE=$(git merge-tree --write-tree --no-messages "$MERGED_COMMIT^" "$LAST") \
+          && [ "$INTEGRATED_TREE" = "$(git rev-parse "$MERGED_COMMIT^{tree}")" ] \
+          && REVERTED_TREE=$(git merge-tree --write-tree --no-messages --merge-base="$LAST" "$MERGED_COMMIT" "$PR_BASE") \
+          && [ "$REVERTED_TREE" = "$(git rev-parse "$MERGED_COMMIT^:")" ] || {
+          echo "error: merged commit does not prove the complete PR patch; refusing a partial revert" >&2; exit 1;
+        }
+      fi
+      ;;
+  esac
+  git revert --no-edit ${REVERT_ARGS[@]+"${REVERT_ARGS[@]}"} "$MERGED_COMMIT" || {
+    echo "error: revert failed; preserve the isolated source and resolve its reported failure" >&2; exit 1;
+  }
+  printf 'revert source prepared: head=%s; publish its real PR through %s, then use fm-pr-merge.sh %s <new-pr-url>\n' \
+    "$(git rev-parse HEAD)" "$MODE" "$ID"
+  exit 0
+fi
 ATTENDED_OVERRIDE=false
 ALLOW_RED=()
 ALLOW_MISSING=()
