@@ -3955,29 +3955,58 @@ test_required_partial_reads_report_all_failures
 # A real linked Git worktree supplies revert source; only forge reads/merges
 # are mocked, keeping source construction independent of the guard fixture.
 make_revert_case() {
-  local case_dir=$1 mode=${2:-single} head original_base original_head first commits
+  local case_dir=$1 mode=${2:-single} head original_base original_head first commits line integration_base
+  for line in {1..40}; do printf 'base line %s\n' "$line"; done > "$case_dir/wt/shared"
+  printf 'base\0binary\n' > "$case_dir/wt/binary"
+  printf 'rename content\n' > "$case_dir/wt/original-name"
+  git -C "$case_dir/wt" add shared binary original-name
+  git -C "$case_dir/wt" commit -qm 'Shared baseline'
   original_base=$(git -C "$case_dir/wt" rev-parse HEAD)
+  integration_base=$original_base
   printf 'regression\n' > "$case_dir/wt/regression"
-  git -C "$case_dir/wt" add regression
+  sed '2s/.*/first regression/' "$case_dir/wt/shared" > "$case_dir/shared.new"
+  mv "$case_dir/shared.new" "$case_dir/wt/shared"
+  printf 'regression\0binary\n' > "$case_dir/wt/binary"
+  git -C "$case_dir/wt" add regression shared binary
   git -C "$case_dir/wt" commit -qm 'Introduce regression'
   first=$(git -C "$case_dir/wt" rev-parse HEAD)
   commits="[{\"oid\":\"$first\"}]"
   if [ "$mode" != single ]; then
     printf 'second regression\n' > "$case_dir/wt/second-regression"
-    git -C "$case_dir/wt" add second-regression
+    sed '12s/.*/second regression/' "$case_dir/wt/shared" > "$case_dir/shared.new"
+    mv "$case_dir/shared.new" "$case_dir/wt/shared"
+    git -C "$case_dir/wt" mv original-name renamed
+    git -C "$case_dir/wt" add second-regression shared
     git -C "$case_dir/wt" commit -qm 'Introduce second regression'
     original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
     commits="[{\"oid\":\"$first\"},{\"oid\":\"$original_head\"}]"
     git -C "$case_dir/wt" switch -qc integration "$original_base"
     case "$mode" in
+      squash-drift|squash-synced|rebase)
+        sed '35s/.*/independent main change/' "$case_dir/wt/shared" > "$case_dir/shared.new"
+        mv "$case_dir/shared.new" "$case_dir/wt/shared"
+        git -C "$case_dir/wt" commit -qam 'Independent main change'
+        integration_base=$(git -C "$case_dir/wt" rev-parse HEAD)
+        if [ "$mode" = squash-synced ]; then
+          git -C "$case_dir/wt" switch -qc synchronized "$original_head"
+          git -C "$case_dir/wt" merge --no-ff -qm 'Synchronize main' integration
+          original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+          commits=$(printf '%s' "$commits" | jq --arg head "$original_head" '. + [{oid:$head}]')
+          git -C "$case_dir/wt" switch -q integration
+        fi
+        ;;
+    esac
+    case "$mode" in
       merge) git -C "$case_dir/wt" merge --no-ff -qm 'Merge regressions' "$original_head" ;;
-      squash) git -C "$case_dir/wt" merge --squash -q "$original_head"; git -C "$case_dir/wt" commit -qm 'Squash regressions' ;;
+      squash|squash-drift|squash-synced) git -C "$case_dir/wt" merge --squash -q "$original_head"; git -C "$case_dir/wt" commit -qm 'Squash regressions' ;;
       partial) git -C "$case_dir/wt" cherry-pick "$original_head" >/dev/null ;;
+      rebase|rebase-original) git -C "$case_dir/wt" cherry-pick "$first" "$original_head" >/dev/null ;;
     esac
   else
     original_head=$first
   fi
   head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  git -C "$case_dir/wt" rev-parse "$integration_base^{tree}" > "$case_dir/integration-base-tree"
   git -C "$case_dir/wt" update-ref refs/remotes/origin/main "$head"
   git -C "$case_dir/wt" worktree add -qb revert-source "$case_dir/source" "$head" \
     || fail 'could not create isolated revert source'
@@ -4013,6 +4042,8 @@ test_worker_revert_preparation_and_guarded_pr() {
   revert_head=$(git -C "$case_dir/source" rev-parse HEAD)
   [ "$revert_head" != "$old_head" ] || fail 'revert prepared no commit'
   [ ! -e "$case_dir/source/regression" ] || fail 'revert did not undo regression'
+  [ "$(git -C "$case_dir/source" rev-parse 'HEAD^{tree}')" = "$(cat "$case_dir/integration-base-tree")" ] \
+    || fail 'single-commit revert did not restore the integration base'
   [ "$(git -C "$case_dir/wt" rev-parse HEAD)" = "$old_head" ] \
     && [ -f "$case_dir/wt/regression" ] || fail 'preparation changed primary source'
   [ -z "$(git -C "$case_dir/source" status --porcelain)" ] || fail 'revert source not clean'
@@ -4064,23 +4095,27 @@ test_worker_revert_preparation_refuses_unsafe_source
 
 test_worker_reverts_complete_merge_and_squash_only() {
   local mode case_dir before rc
-  for mode in merge squash partial; do
+  for mode in merge squash squash-drift squash-synced partial rebase rebase-original; do
     case_dir=$(make_case "worker-revert-$mode")
     make_revert_case "$case_dir" "$mode"
     before=$(git -C "$case_dir/source" rev-parse HEAD)
     rc=0
     run_prepare_revert "$case_dir" || rc=$?
-    if [ "$mode" = partial ]; then
-      [ "$rc" -ne 0 ] || fail 'partial multi-commit integration was reverted as a complete PR'
-      [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$before" ] || fail 'partial revert changed source'
+    if [ "$mode" = partial ] || [ "$mode" = rebase ] || [ "$mode" = rebase-original ]; then
+      [ "$rc" -ne 0 ] || fail "$mode integration was reverted as a complete PR"
+      [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$before" ] || fail "$mode refusal changed source"
+      [ -z "$(git -C "$case_dir/source" status --porcelain)" ] || fail "$mode refusal dirtied source"
       assert_grep 'complete PR patch' "$case_dir/prepare.err" 'partial revert refusal not explained'
     else
       expect_code 0 "$rc" "$mode revert failed: $(cat "$case_dir/prepare.err")"
       [ ! -e "$case_dir/source/regression" ] && [ ! -e "$case_dir/source/second-regression" ] \
         || fail "$mode revert left part of the regression"
+      [ "$(git -C "$case_dir/source" rev-parse 'HEAD^{tree}')" = "$(cat "$case_dir/integration-base-tree")" ] \
+        || fail "$mode revert did not restore the complete integration base"
+      [ "$(git -C "$case_dir/wt" rev-parse HEAD)" = "$before" ] || fail "$mode revert changed primary source"
     fi
   done
-  pass 'revert prepares complete two-parent merge and squash; refuses a partial rebased PR'
+  pass 'revert preserves main changes, restores binary files and renames, and refuses incomplete rebased PR reverts'
 }
 
 test_worker_revert_preserves_conflict() {

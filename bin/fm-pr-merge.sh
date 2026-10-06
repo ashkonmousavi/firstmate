@@ -271,15 +271,19 @@ if [ "${1:-}" = --prepare-revert ]; then
       if [ "$(printf '%s' "$JSON" | jq '.commits | length')" -gt 1 ]; then
         FIRST=$(printf '%s' "$JSON" | jq -r '.commits[0].oid')
         LAST=$(printf '%s' "$JSON" | jq -r '.headRefOid')
-        ORIGINAL_PATCH=$(git diff --binary --no-ext-diff --no-textconv "$FIRST^" "$LAST") \
-          && MERGED_PATCH=$(git diff --binary --no-ext-diff --no-textconv "$MERGED_COMMIT^" "$MERGED_COMMIT") \
-          && [ "$ORIGINAL_PATCH" = "$MERGED_PATCH" ] || {
+        git cat-file -e "$FIRST^{commit}" \
+          && ! git merge-base --is-ancestor "$FIRST" "$MERGED_COMMIT^" \
+          && PR_BASE=$(git merge-base "$MERGED_COMMIT^" "$LAST") \
+          && INTEGRATED_TREE=$(git merge-tree --write-tree --no-messages "$MERGED_COMMIT^" "$LAST") \
+          && [ "$INTEGRATED_TREE" = "$(git rev-parse "$MERGED_COMMIT^{tree}")" ] \
+          && REVERTED_TREE=$(git merge-tree --write-tree --no-messages --merge-base="$LAST" "$MERGED_COMMIT" "$PR_BASE") \
+          && [ "$REVERTED_TREE" = "$(git rev-parse "$MERGED_COMMIT^:")" ] || {
           echo "error: merged commit does not prove the complete PR patch; refusing a partial revert" >&2; exit 1;
         }
       fi
       ;;
   esac
-  git revert --no-edit "${REVERT_ARGS[@]}" "$MERGED_COMMIT" || {
+  git revert --no-edit ${REVERT_ARGS[@]+"${REVERT_ARGS[@]}"} "$MERGED_COMMIT" || {
     echo "error: revert failed; preserve the isolated source and resolve its reported failure" >&2; exit 1;
   }
   printf 'revert source prepared: head=%s; publish its real PR through %s, then use fm-pr-merge.sh %s <new-pr-url>\n' \
