@@ -1153,7 +1153,7 @@ fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode
   case "$KIND" in ship|scout) ;; *) echo "error: unknown worker kind: $KIND" >&2; return 1 ;; esac
   local SCOUT_RULE2=${10:-'2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'}
   local PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
-  local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' RULE1 DOD
+  local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' FOLLOWUP_BLOCK='' RULE1 DOD
   STATUS_APPEND=$(fm_worker_status_append "$FM_ROOT" "$STATE" "$ID" "$CONFIG")
   CREWMATE_PAUSE_INSTRUCTIONS=$(fm_worker_pause_block "$PAUSED_VERB")
   INBOX_SECTION=$(fm_worker_inbox_block "$STATE" "$ID" "$CONFIG")
@@ -1198,6 +1198,8 @@ EOF
     RULE1=$(fm_ship_rule_one "$MODE" "$ID" "$BRANCH" "$FORGE") || return 1
     DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE") || return 1
     [ "$MODE" != no-mistakes ] || ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
+    [ "$MODE" = local-only ] || FOLLOWUP_BLOCK=$(fm_review_followup_block "$FM_ROOT" "$DATA" "$ID" "$MODE")
+    [ -z "$ASK_USER_BLOCK" ] || [ -z "$FOLLOWUP_BLOCK" ] || FOLLOWUP_BLOCK=$'\n'$FOLLOWUP_BLOCK
     cat <<EOF
 # Rules
 $RULE1
@@ -1221,7 +1223,7 @@ $CREWMATE_PAUSE_INSTRUCTIONS
    When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
 6. If a decision belongs above the implementation worker (product choices, destructive actions),
    append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
-$ASK_USER_BLOCK
+$ASK_USER_BLOCK$FOLLOWUP_BLOCK
    A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
    Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
 $SHARED_INFRA_RULE
@@ -1313,7 +1315,11 @@ Review triage and class-fix handoff:
   For a gate containing both stop-set and other findings, keep the gate parked until the exact firstmate decision arrives, then use the installed help and proven gate semantics to select the authorized findings together; never guess how a singular action handles the remainder.
 - A repeated finding returns in a later review of the same run: match the same id, or the same file and line and cause as a finding already fixed, including round-numbered ids.
   Skip a stale repeat with file:line proof. Batch-fix a still-real repeat outside the stop set again, and append \`working [at=<epoch>]:\` naming the run, step, repeated ids, inventory/evidence reference and exact respond command including its instructions.
-  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort, restart or a round cap. The worker remains the sole driver of its run.
+  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort or restart; only the last-list rule below ends fixing. The worker remains the sole driver of its run.
+- The third distinct Review finding list is the last. Count lists with the review follow-up rule's ledger: a Review gate is a new list only when its drive return carries a \`head_sha\` not yet counted for this run, so a reattached read adds nothing, and internal auto-fix rounds that never park are not counted.
+  The first and second lists are triaged and fixed as above. On the third, never respond \`--action fix\`: record every finding still listed under the review follow-up rule, then approve with \`no-mistakes axi respond --step review --action approve\` and append \`working [at=<epoch>]:\` naming the run, the list ordinal, the follow-up file and item id, and that its findings were deferred, not fixed.
+  A stop-set finding on the third list still escalates under rule 6, stating it is the third list; the decision there is approve with recorded follow-ups or hold the run, never another fix.
+  Approving Review ends only Review: Test, document, lint, push, PR and CI still run, and a protected-path or Test refusal still takes its explicit response; never get past them with \`--yes\`, a skip or a CI waiver.
 - NEVER pass \`--yes\` (or \`-y\`) to \`no-mistakes axi run\` or \`no-mistakes axi respond\`. It is banned fleet-wide.
   It auto-resolves every gate including ask-user findings with no escalation, bypassing the stop-set authority boundary.
 
@@ -1346,7 +1352,30 @@ fm_direct_review_block() {
   cat <<'EOF'
 Perform exactly one code review round against the preparation outcomes and project standards using the existing review mechanism.
 Record the reviewed head, findings and their resolution in the task report; fix the findings without another review round, then validate the final head through the selected delivery path's checks.
+That round's finding list is the only one: never request a second review list, and record any finding you leave unfixed under the review follow-up rule as a follow-up item, never as fixed.
 Do not commission a separate preparation review or add a second implementation review.
+EOF
+}
+
+# Where a publishing ship records the review findings it leaves unfixed, and
+# the no-mistakes list ledger the last-list rule in fm_nm_driving_block counts
+# with. Path-bearing, so it renders beside rule 6 rather than inside the
+# path-free Definition of done.
+fm_review_followup_block() {  # <root> <data-dir> <task-id> <mode>
+  local root=$1 data=$2 id=$3 mode=$4 lead='   Review follow-ups: '
+  if [ "$mode" = no-mistakes ]; then
+    cat <<EOF
+${lead}count each distinct Review finding list once, by the \`head_sha\` in the drive return carrying its review gate, with
+   \`f='$data/$id/nm-<run>-review-lists.txt'; grep -qxF '<head_sha>' "\$f" 2>/dev/null || printf '%s\n' '<head_sha>' >> "\$f"; wc -l < "\$f"\`
+   which prints that list's ordinal.
+EOF
+    lead='   '
+  fi
+  cat <<EOF
+${lead}A review finding left unfixed when its review closes is a follow-up item, never a claimed fix: write each one verbatim and unparaphrased (id, severity, file, line, action, description) to \`$data/$id/review-followups-<review>.txt\`, where \`<review>\` is the no-mistakes run id or \`pr\`, then file that file as one queued backlog item with
+   \`FM_DATA_OVERRIDE='$data' '$root/bin/fm-tasks-axi.sh' add --mint "review follow-ups: $id <review>" --body-file '$data/$id/review-followups-<review>.txt'\`
+   and name the file and the printed item id in your next status line.
+   These records are the only writes outside this worktree this rule permits.
 EOF
 }
 

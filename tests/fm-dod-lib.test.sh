@@ -48,6 +48,83 @@ test_common_review_triage_contract() {
   pass "common no-mistakes renderer: triage, active class inventory and repeat visibility on both forges"
 }
 
+# The backticked command a rendered contract line carries, found by a fixed
+# marker inside it.
+rendered_command() {  # <file> <marker>
+  # shellcheck disable=SC2016  # single quotes are deliberate: the backticks are literal
+  grep -F -- "$2" "$1" | head -n 1 | sed 's/^[^`]*`//; s/`[^`]*$//'
+}
+
+test_third_review_list_is_last() {
+  local forge mode home output cmd ledger_cmd file_cmd followups out
+  output="$TMP_ROOT/last-list.md"
+  for forge in none gerrit; do
+    fm_dod_block no-mistakes sample fm/sample "$forge" > "$output"
+    assert_grep 'The third distinct Review finding list is the last' "$output" "third list is not terminal"
+    # shellcheck disable=SC2016  # single quotes are deliberate: the backticks are literal
+    assert_grep 'never respond `--action fix`' "$output" "third list may still request a fix"
+    assert_grep 'no-mistakes axi respond --step review --action approve' "$output" "third list lacks the explicit Review approval"
+    assert_grep 'deferred, not fixed' "$output" "deferred findings could be reported as fixed"
+    assert_grep 'never another fix' "$output" "third-list stop-set decision could reopen fixing"
+    assert_grep 'Test, document, lint, push, PR and CI still run' "$output" "approving Review could skip later gates"
+    assert_no_grep 'abort, restart or a round cap' "$output" "repeat rule still forbids the last-list cap"
+  done
+  for mode in direct-PR local-only; do
+    fm_dod_block "$mode" sample fm/sample > "$output"
+    assert_no_grep 'axi respond' "$output" "$mode acquired gate commands"
+  done
+  fm_dod_block direct-PR sample fm/sample > "$output"
+  assert_grep 'exactly one code review round' "$output" "direct-PR lost its one review round"
+  assert_grep 'never request a second review list' "$output" "direct-PR could add a review list"
+  assert_grep 'review follow-up rule' "$output" "direct-PR unfixed findings have no follow-up record"
+
+  home="$TMP_ROOT/last-list-home"
+  mkdir -p "$home/data/sample" "$home/state" "$home/config"
+  printf '## In flight\n\n## Queued\n\n## Done\n' > "$home/data/backlog.md"
+  for mode in no-mistakes direct-PR; do
+    fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship "$mode" fm/sample none > "$output" \
+      || fail "$mode worker contract render"
+    assert_grep 'Review follow-ups:' "$output" "$mode contract lacks the review follow-up rule"
+    assert_grep 'only writes outside this worktree' "$output" "$mode follow-up writes are not authorized"
+  done
+  fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship local-only fm/sample none > "$output" \
+    || fail "local-only worker contract render"
+  assert_no_grep 'Review follow-ups:' "$output" "local-only acquired review follow-ups"
+
+  # C3: the ledger counts distinct lists by head; a reattached read adds nothing.
+  fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship no-mistakes fm/sample none > "$output"
+  ledger_cmd=$(rendered_command "$output" 'review-lists.txt')
+  [ -n "$ledger_cmd" ] || fail "no-mistakes contract renders no review-list ledger command"
+  cmd=${ledger_cmd//<run>/run1}
+  out=$(bash -c "${cmd//<head_sha>/aaa}" | tr -d ' ')
+  assert_equals 1 "$out" "first list ordinal"
+  out=$(bash -c "${cmd//<head_sha>/aaa}" | tr -d ' ')
+  assert_equals 1 "$out" "reattached first list must not add a list"
+  out=$(bash -c "${cmd//<head_sha>/bbb}" | tr -d ' ')
+  assert_equals 2 "$out" "second list ordinal"
+  out=$(bash -c "${cmd//<head_sha>/ccc}" | tr -d ' ')
+  assert_equals 3 "$out" "third list ordinal"
+  out=$(bash -c "${cmd//<head_sha>/ccc}" | tr -d ' ')
+  assert_equals 3 "$out" "reattached third list must not add a list"
+
+  # C2: the rendered filing command lands every finding verbatim as a queued item.
+  if command -v tasks-axi >/dev/null 2>&1; then
+    file_cmd=$(rendered_command "$output" 'fm-tasks-axi.sh')
+    [ -n "$file_cmd" ] || fail "contract renders no follow-up filing command"
+    file_cmd=${file_cmd//<review>/run1}
+    followups="$home/data/sample/review-followups-run1.txt"
+    printf '%s\n' 'R7,warning,bin/x.sh,42,ask-user,"Spec: keep the quoted text exactly"' > "$followups"
+    out=$(cd "$TMP_ROOT" && env -u FM_HOME -u TASKS_AXI_FILE bash -c "$file_cmd" 2>&1) || fail "follow-up filing failed: $out"
+    assert_grep 'review follow-ups: sample run1' "$home/data/backlog.md" "follow-up item missing from the home backlog"
+    assert_grep 'R7,warning,bin/x.sh,42,ask-user,"Spec: keep the quoted text exactly"' "$home/data/backlog.md" \
+      "follow-up item lost the verbatim finding"
+    assert_not_contains "$(sed -n '/## In flight/,/## Queued/p' "$home/data/backlog.md")" 'review follow-ups' "follow-up item was started"
+  else
+    echo "skip - follow-up filing: tasks-axi not installed"
+  fi
+  pass "review: third distinct list is last, reattach is stable, follow-ups land verbatim, direct-PR keeps one round"
+}
+
 test_scout_done_is_not_gated() {
   local repo wt
   repo="$TMP_ROOT/scout-repo"
@@ -412,6 +489,7 @@ test_pr_based_dod_draft_check_uses_gh_axi() {
 }
 
 test_common_review_triage_contract
+test_third_review_list_is_last
 test_scout_done_is_not_gated
 test_unpushed_ship_done_is_refused
 test_no_mistakes_prevalidation_done_is_not_gated
