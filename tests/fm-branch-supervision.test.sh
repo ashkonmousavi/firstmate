@@ -17,7 +17,7 @@ fm_git_identity fmtest fmtest@example.invalid
 # --- byte-stable branch prompt ------------------------------------------------
 
 test_branch_prompt_is_byte_stable_and_above_cache_floor() {
-  local home_a home_b out_a out_b out_c size
+  local home_a home_b out_a out_b out_c size heartbeat
   home_a="$TMP_ROOT/prompt-home-a"
   home_b="$TMP_ROOT/prompt-home-b"
   mkdir -p "$home_a/state" "$home_b/state"
@@ -69,6 +69,11 @@ test_branch_prompt_is_byte_stable_and_above_cache_floor() {
     *"names exactly that moment"*) fail "branch prompt still tears down on the merge wake before post-merge verification" ;;
     *"A second mate's status log is a relay channel for its child work"*"retiring a second mate is MAIN's alone"*"Report a second mate's signal wake from the status lines that wake newly presents"*"A second mate's stale wake is a liveness event: report it even when it presents no new status lines."*) ;;
     *) fail "branch prompt lost the second-mate relay, signal-span, or stale-liveness rule" ;;
+  esac
+  heartbeat=$(printf '%s\n' "$out_a" | sed -n '/^A heartbeat wake asks you/,/^$/p')
+  case "$heartbeat" in
+    *'Before sequencing queued work, read the planner wave plan and Q bug list that `.agents/skills/push/SKILL.md` Gather requires.'*) ;;
+    *) fail "generated heartbeat paragraph lost the push Gather reference before sequencing queued work" ;;
   esac
   pass "branch prompt is byte-stable across homes, cwd, timezone, and time, above the cache floor"
 }
