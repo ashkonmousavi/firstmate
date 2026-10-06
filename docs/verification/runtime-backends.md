@@ -2168,7 +2168,7 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --backend tmux` o
 4. `bin/fm-send.sh` delivered a steer through the then-current typed path and exited 0;
 5. `bin/fm-control.sh <id> interrupt` cancelled a running turn;
 6. `bin/fm-control.sh <id> exit` stopped the agent;
-7. `bin/fm-teardown.sh` refused until the scout's report and decision gate were satisfied, then removed the session record.
+7. `bin/fm-teardown.sh` removed the session record.
 
 ### Herdr backend
 
@@ -2198,7 +2198,7 @@ The rest of the lifecycle was driven end to end on that worker:
 2. the transcript fold read `busy` mid-turn and `idle` after, unchanged from tmux, so the recorded worker state is backend-agnostic;
 3. `bin/fm-control.sh <id> interrupt` reported `cancel=unconfirmed` by design and the pane showed `Cancelled`, with the footer and the fold both returning to idle;
 4. `bin/fm-control.sh <id> exit` stopped the agent through the slash popup and the pane returned to its shell;
-5. `bin/fm-teardown.sh` refused until the scout's report and decision gate were satisfied, then removed the session record and returned the worktree.
+5. `bin/fm-teardown.sh` removed the session record and returned the worktree.
 
 Other harnesses on Herdr are unaffected by the edge-detector change.
 All seven live panes of the running default session - one Pi, four Claude, two plain shells - classified identically under the pre-fix and current classifiers.
