@@ -265,7 +265,8 @@ Load `scout-completion` when a scout reports completion, presents a visual artif
 ## 8. Supervision protocol
 
 Fleet supervision is an always-loaded operational contract; `docs/architecture.md`, `docs/turnend-guard.md`, the emitted session-start block, and script help own mechanisms and harness-specific recipes.
-Send at most one steer per worker per hour.
+Send at most one steer per crewmate per hour; the limit never applies to a second mate or any other home.
+Route work to a second mate and handle every event or wake as it arrives, never in hourly batches.
 When the captain invokes `/push`, `$push`, or asks to check and push the fleet forward, load the `push` skill for one bounded pass.
 When the captain invokes `/retro`, `$retro`, or asks for a retro, load the `retro` skill to route the period's lessons to their owners, cut rules that cost time, and wake sleeping work on every machine.
 
