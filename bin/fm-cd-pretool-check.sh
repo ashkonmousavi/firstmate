@@ -47,14 +47,17 @@ EXECUTION_CWD=$(pwd -P) || exit 0
 CWD_SET=0
 CLAUDE_MODE=0
 CURSOR_MODE=0
+CODEX_MODE=0
 
 usage() {
   cat <<'EOF'
-Usage: fm-cd-pretool-check.sh [--command <cmd>] [--cwd <dir>] [--claude|--cursor]
+Usage: fm-cd-pretool-check.sh [--command <cmd>] [--cwd <dir>] [--claude|--cursor|--codex]
 
 With no --command, reads a PreToolUse-style JSON payload on stdin (Grok
 toolInput.command, or Claude/Codex tool_input.command).
 Stdin cwd comes from the payload cwd and any tool workdir/cwd override.
+With --codex, only a tool workdir/cwd supplies execution cwd; the top-level
+session cwd is not a fallback. Without it, only absolute/home targets are checked.
 CLI cwd defaults to the calling directory; adapters supply --cwd explicitly.
 Fires only in the real primary firstmate checkout; it is a silent no-op in a
 crewmate/scout task worktree or any non-firstmate repo.
@@ -99,6 +102,10 @@ while [ "$#" -gt 0 ]; do
       CURSOR_MODE=1
       shift
       ;;
+    --codex)
+      CODEX_MODE=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -125,9 +132,10 @@ if [ "$CMD_SET" -eq 0 ]; then
   fi
   CMD=$(printf '%s' "$PAYLOAD" | jq -r '(.toolInput.command // .tool_input.command // empty)' 2>/dev/null) || exit 0
   if [ "$CWD_SET" -eq 0 ]; then
-    EXECUTION_CWD=$(printf '%s' "$PAYLOAD" | jq -r '
+    EXECUTION_CWD=$(printf '%s' "$PAYLOAD" | jq -r --argjson codex "$CODEX_MODE" '
       (.cwd // "" | select(type == "string")) as $base |
-      (.tool_input.workdir // .tool_input.cwd // .toolInput.cwd // $base) |
+      (.tool_input.workdir // .tool_input.cwd // .toolInput.cwd //
+        (if $codex == 1 then "" else $base end)) |
       select(type == "string") |
       if . == "" or startswith("/") or test("^[A-Za-z]:[\\\\/]") then .
       elif $base != "" then $base + "/" + . else "" end

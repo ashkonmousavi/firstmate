@@ -191,8 +191,9 @@ function decision(command, projectsRoot = "", cwd = process.cwd()) {
         continue;
       }
       const home = process.env.HOME;
+      // Without an initial execution cwd, coverage stays anchored-only.
       const resolved = bareCd ? (home && path.isAbsolute(home) ? path.resolve(home) : "")
-        : operand ? resolveTarget(operand, state.directory) : "";
+        : operand ? resolveTarget(operand, cwd ? state.directory : "") : "";
       if (operand && targetsProjectFolder(resolved, projectsRoot)) return deny("persistent-cd");
       if (commandName === "pushd" && args.slice(0, -1).some((word) => word.value === "-n")) {
         nextStates.push({ ...state, succeeded: true });

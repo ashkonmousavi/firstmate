@@ -225,8 +225,8 @@ run_matrix_entry() {
 
   case "$entry" in
     codex)
-      payload=$(jq -cn --arg command "$cmd" --arg cwd "$cwd" '{tool_name:"Bash",tool_input:{command:$command},cwd:$cwd}')
-      printf '%s' "$payload" | env HOME="$TMP_ROOT" "$CHECK" >"$out_file" 2>"$err_file"
+      payload=$(jq -cn --arg command "$cmd" --arg cwd "$cwd" '{tool_name:"Bash",tool_input:{command:$command,workdir:$cwd},cwd:$cwd}')
+      printf '%s' "$payload" | env HOME="$TMP_ROOT" "$CHECK" --codex >"$out_file" 2>"$err_file"
       rc=$?
       ;;
     claude)
@@ -526,7 +526,7 @@ for (const [name, hook] of registrations) {
   for (const [command, cwd, denied] of cases) {
     const payload = name === "grok"
       ? { toolName: "run_terminal_command", toolInput: { command }, cwd }
-      : { tool_name: name === "cursor" ? "Shell" : "Bash", tool_input: { command }, cwd, ...(name === "cursor" ? { cursor_version: "fixture" } : {}) };
+      : { tool_name: name === "cursor" ? "Shell" : "Bash", tool_input: { command, ...(name === "codex" ? { workdir: cwd } : {}) }, cwd, ...(name === "cursor" ? { cursor_version: "fixture" } : {}) };
     const result = spawnSync("bash", ["-c", hook], { cwd: primary, env, input: JSON.stringify(payload), encoding: "utf8" });
     assert.equal(result.error, undefined, name);
     assert.equal(result.status, denied && name !== "cursor" ? 2 : 0, name + ": " + command);
@@ -589,6 +589,52 @@ JS
   pass "cd-guard: registered hooks, tool workdir overrides, OpenCode, Pi and omp execute with their supplied cwd"
 }
 
+test_codex_supported_coverage() {
+  mkdir -p "$PRIMARY/.codex"
+  cp "$ROOT/.codex/hooks.json" "$PRIMARY/.codex/hooks.json"
+  FM_CD_PRIMARY="$PRIMARY" HOME="$TMP_ROOT" FM_HOME="$PRIMARY" node --input-type=module <<'JS' || fail "Codex supported cwd coverage"
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+const primary = process.env.FM_CD_PRIMARY;
+const hooks = JSON.parse(readFileSync(primary + "/.codex/hooks.json", "utf8")).hooks.PreToolUse;
+const hook = hooks.flatMap((entry) => entry.hooks).find((entry) => entry.command.includes("fm-cd-pretool-check.sh")).command;
+function check(command, cwd, denied, toolDirectory = {}) {
+  // Codex 0.160.0 emits session cwd and command, omitting exec_command.workdir.
+  const payload = { session_id: "codex-coverage", transcript_path: null, hook_event_name: "PreToolUse", tool_name: "Bash", cwd, tool_input: { command, ...toolDirectory } };
+  const result = spawnSync("bash", ["-c", hook], { cwd: primary, env: process.env, input: JSON.stringify(payload), encoding: "utf8" });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, denied ? 2 : 0, command + ": " + JSON.stringify(toolDirectory));
+  if (denied) {
+    assert.equal(JSON.parse(result.stderr).hookSpecificOutput.permissionDecision, "deny");
+    assert.match(result.stderr, /\[persistent-cd\]/);
+  } else assert.equal(result.stdout + result.stderr, "", command);
+}
+for (const builtin of ["cd", "pushd"]) {
+  for (const command of [
+    builtin + " projects/foo",
+    builtin + " ../projects/foo",
+    builtin + " ./projects/foo",
+    builtin + " bin && " + builtin + " ../projects/foo",
+    "cd '" + primary + "' && " + builtin + " projects/foo",
+  ]) check(command, primary, false);
+  check(builtin + " '" + primary + "/projects/foo'", primary + "/outside", true);
+  check(builtin + " '" + primary + "/outside/projects/foo'", primary, false);
+  check(builtin + " ~/primary/projects/\"my clone\"", primary + "/outside", true);
+  check(builtin + " ~/primary/outside/projects/foo", primary, false);
+  check(builtin + " '~/primary/projects/foo'", primary, false);
+  check(builtin + " \\~/primary/projects/foo", primary, false);
+  check(builtin + " projects/foo", primary + "/outside", true, { workdir: primary });
+  check(builtin + " projects/foo", primary, false, { workdir: primary + "/outside" });
+  check(builtin + " ../projects/foo", primary, true, { workdir: "bin" });
+  check(builtin + " projects/foo", primary + "/outside", true, { cwd: primary });
+  check(builtin + " projects/foo", undefined, true, { workdir: primary });
+}
+check('printf "native-control\\n" > CONTROL_SENTINEL', primary, false);
+JS
+  pass "cd-guard: Codex checks anchored targets, allows unresolved relatives, and honors supplied tool cwd"
+}
+
 test_literal_list_execution() {
   FM_CD_PRIMARY="$PRIMARY" FM_CD_ROOT="$ROOT" node --input-type=module <<'JS' || fail "cd-guard literal list execution regression"
 import assert from "node:assert/strict";
@@ -642,5 +688,6 @@ test_fail_open_missing_jq_on_stdin
 test_prefilter_skips_node_without_cd_substring
 test_policy_cli_direct
 test_cwd_adapters
+test_codex_supported_coverage
 test_literal_list_execution
 test_scripts_are_shellcheck_clean

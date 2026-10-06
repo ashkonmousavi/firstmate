@@ -3,7 +3,7 @@
 This document is the authoritative human-readable contract for the cd-guard PreToolUse seatbelt.
 `bin/fm-cd-command-policy.mjs` is the single decision owner.
 `bin/fm-cd-pretool-check.sh` is the stable harness transport, primary-checkout scope, and output renderer.
-The tracked harness adapters forward command text and execution cwd without classifying them.
+The tracked harness adapters forward command text and the available execution cwd without classifying them.
 
 It is the third member of a family of primary-session guards that share the same cross-harness hook machinery:
 the watcher-arm PreToolUse seatbelt (`bin/fm-arm-pretool-check.sh`, `docs/arm-pretool-check.md`) and the turn-end supervision guard (`bin/fm-turnend-guard.sh`, `docs/turnend-guard.md`).
@@ -42,7 +42,7 @@ The projects folder is `${FM_HOME:-<checkout>}/projects`.
 A literal target matches when resolving it from the execution cwd reaches that folder or below it, including a `~/` path with an unquoted tilde prefix or an absolute path.
 Quoting a suffix after the first slash preserves tilde expansion; quoting or escaping the initial tilde makes it literal.
 The guard **blocks** a persistent top-level `cd` or `pushd` with that target.
-This covers `cd projects/foo`, `cd ./projects/foo`, `pushd projects/foo`, `cd <home>/projects/foo`, a leading assignment such as `X=1 cd projects/foo`, quoted or escaped command-word fragments that cook to that builtin and target, and any list form where that builtin runs in the parent shell (`cd projects/foo && cmd`, `cmd; cd projects/foo`, `cmd || cd projects/foo`, `command cd projects/foo`, `command -p cd projects/foo`, `command -- cd projects/foo`, `builtin cd projects/foo`, `command builtin cd projects/foo`, `cd projects/foo >/dev/null`, and newline-separated lists).
+When the command execution cwd is available, this covers `cd projects/foo`, `cd ./projects/foo`, `pushd projects/foo`, `cd <home>/projects/foo`, a leading assignment such as `X=1 cd projects/foo`, quoted or escaped command-word fragments that cook to that builtin and target, and any list form where that builtin runs in the parent shell (`cd projects/foo && cmd`, `cmd; cd projects/foo`, `cmd || cd projects/foo`, `command cd projects/foo`, `command -p cd projects/foo`, `command -- cd projects/foo`, `builtin cd projects/foo`, `command builtin cd projects/foo`, `cd projects/foo >/dev/null`, and newline-separated lists).
 A bare `cd`, `cd -`, `cd ..`, `cd /tmp`, `cd bin`, `popd`, and `cd projectsfoo` are allowed.
 `popd` does not name a destination folder, so it is allowed even when it is persistent.
 
@@ -73,7 +73,7 @@ Consistent with the agent-mistake threat model, the guard deliberately does not 
 
 - A `cd` reconstructed by a command substitution (`$(echo c)d x`) or hidden inside a brace group (`{ cd x; }`) is not blocked. Brace-group recursion is avoided because this classifier cannot reliably tell a brace group `{ cd; }` from brace expansion `{cd,foo}`, and a false block there is worse than the missed exotic bypass.
 - A target the lexer cannot know (a variable, substitution, glob, `cd -`, or directory-stack destination) is allowed; its successful move leaves cwd unknown, while its failure preserves the preceding cwd.
-- Missing execution cwd leaves relative destinations unknown; absolute and tilde destinations still receive their normal checks.
+- Missing command execution cwd leaves every relative destination unchecked, including after a preceding absolute or home-anchored move; absolute and home-anchored destinations still receive their normal checks.
 - Malformed or untokenizable syntax fails open (allow). Unlike the watcher-arm seatbelt, which fails closed on unclassifiable protected commands, the cd-guard prioritizes zero false blocks over catching a malformed bypass, because a blocked backlog write is a correctness hazard while a missed exotic `cd` is only the pre-existing status quo.
 
 If a genuinely ambiguous command shape is found that risks a false block, the guard is not extended by guesswork; the ambiguity is escalated and the guard stays precise rather than over-eager.
@@ -95,7 +95,7 @@ An absolute `cd` to any other directory is allowed.
 `bin/fm-cd-pretool-check.sh` supports every harness-engine entry shape used by the tracked adapters, with pi-signed sharing Pi's shape:
 
 - Claude sends stdin JSON at `.tool_input.command`, carries `.cwd`, and adds `--claude` to preserve Claude's stderr-only deny requirement.
-- Codex sends stdin JSON at `.tool_input.command` without `--claude`; `.tool_input.workdir` overrides `.cwd` when present.
+- Codex sends stdin JSON at `.tool_input.command` with `--codex`; only `.tool_input.workdir` or a tool-level `.cwd` supplies command execution cwd.
 - Grok sends stdin JSON at `.toolInput.command`; the transport accepts `.toolInput.cwd` or `.cwd` when provided.
 - OpenCode sends the exact command string through `--command <exact string>` and `--cwd` resolved from the plugin's `directory` and the bash tool's optional `workdir`.
 - Pi and pi-signed send the exact command string through `--command <exact string>` and the tool callback's `ctx.cwd` through `--cwd`.
@@ -104,6 +104,10 @@ An absolute `cd` to any other directory is allowed.
 
 The stdin transport also accepts `.tool_input.cwd` as an override and resolves relative tool directory overrides against the payload's `.cwd`.
 Direct CLI use defaults to the caller's cwd; stdin without cwd never assumes the checkout or home is the command's cwd.
+Codex 0.160.0 emits the session `.cwd` but omits `exec_command.workdir`, so its registration never substitutes session cwd for an omitted command directory.
+For that payload, only absolute and home-anchored targets are checked: protected targets deny, unrelated targets allow, and every relative `cd` or `pushd` allows.
+This is supported partial coverage, not universal protection of Codex relative directory changes.
+Claude supplies command execution cwd in top-level `.cwd` and retains relative-target checks.
 Grok's live cwd emission and native Windows cwd delivery remain unverified; portable payload and adapter checks do not prove those vendor integrations.
 
 Processing order is cheapest-first: a strict-superset prefilter, then the primary-checkout scope, then the Node policy owner.
@@ -137,7 +141,7 @@ The cd-guard never duplicates shell lexing; it adds only the cd-specific decisio
 | Harness | Entry | Adapter behavior on checker exit 2 |
 | --- | --- | --- |
 | Claude | `.claude/settings.json` PreToolUse Bash hook forwarding stdin with `--claude` | Blocks the tool call; stderr deny object, stdout empty. |
-| Codex | `.codex/hooks.json` PreToolUse hook that anchors from `pwd -P`, verifies the hook-loaded firstmate root, and forwards the payload | Blocks on exit 2 and displays stderr. |
+| Codex | `.codex/hooks.json` PreToolUse hook that anchors from `pwd -P`, verifies the hook-loaded firstmate root, and forwards the payload with `--codex` | Blocks on exit 2 and displays stderr. |
 | Grok | `.grok/hooks/fm-primary-cd-check.json` PreToolUse hook anchored on `${GROK_WORKSPACE_ROOT:-}` | Consumes the stdout `decision=deny` object. |
 | OpenCode | `.opencode/plugins/fm-primary-cd-check.js` `tool.execute.before` | Throws, which surfaces as the failed tool result. |
 | Pi | `.pi/extensions/fm-primary-turnend-guard.ts` `tool_call` handler | Returns `{block: true}`; piggybacks on the already-loaded primary extension so no extra `-e` flag is needed. |
@@ -150,7 +154,8 @@ Every shell variable reference in the Grok hook command carries an inline defaul
 ## Automated validation
 
 `tests/fm-cd-pretool-check.test.sh` owns the acceptance matrix.
-Every block and allow case runs through Codex-shaped stdin, Claude-shaped stdin, Grok-shaped stdin, OpenCode-shaped CLI, Pi-shaped CLI, pi-signed-shaped CLI, omp-shaped CLI, and Cursor-shaped stdin entry forms.
+Every block and allow case runs through Codex-shaped stdin with an explicit tool directory, Claude-shaped stdin, Grok-shaped stdin, OpenCode-shaped CLI, Pi-shaped CLI, pi-signed-shaped CLI, omp-shaped CLI, and Cursor-shaped stdin entry forms.
+The Codex coverage regression separately executes its registered hook without a tool directory and verifies anchored denials, unrelated allows, unchecked relative targets, and the control-write allowance.
 The suite executes the registered hook commands and the OpenCode, Pi, and omp adapter callbacks against the real transport to check cwd forwarding, tool directory overrides, and preceding literal directory changes.
 The suite also proves the end-to-end cwd-leak regression (a firstmate-owned backlog write leaking into a project clone, then denied at the exact command), the checkout scoping (fires in a git-cloned secondmate fixture, inert in a crewmate/scout linked worktree, inert outside a firstmate checkout, inert outside a git repo), the fail-open transport behavior, the prefilter fast path, the policy CLI output contract, and the per-harness wiring.
 

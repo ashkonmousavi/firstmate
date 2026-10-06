@@ -2536,7 +2536,8 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 
 ## Project-directory guard execution cwd: Test-phase gate, 2026-10-06
 
-Live cwd delivery for the changed project-directory guard remains unverified.
+Live cwd delivery for the project-directory guard remains unverified for the pending consumers below.
+Codex's supported partial coverage is defined in [the cd-guard contract](../cd-guard.md#transport-and-fail-open-behavior); its native readback is recorded below.
 The Review phase exercises the registered hook commands and adapter callbacks with supplied payloads and contexts, which proves local forwarding but does not establish what a vendor emits.
 The dedicated Test phase owns S1 and must record each installed harness's exact version, invocation, emitted cwd or tool directory override, guard response, and observable sentinel outcomes.
 Use an isolated primary-shaped checkout with real guard code, a `bin` directory, and a protected `projects/foo` directory; do not run these probes against an operational home.
@@ -2552,7 +2553,8 @@ An unattempted tool call or a missing control sentinel cannot establish a guard 
 
 | Consumer | Required live source | Current status |
 | --- | --- | --- |
-| Claude and Codex | Delivered hook `.cwd`, plus Codex's actual tool `workdir` when used | Pending dedicated Test; synthetic payloads are insufficient. |
+| Claude | Delivered hook execution `.cwd` | Retained native Test payloads; replay preserves protected denial and unrelated allowance. |
+| Codex | Delivered hook payload with explicit tool `workdir` requests | Codex 0.160.0 omits tool `workdir`; supported coverage passed seven native calls below. |
 | Cursor | Delivered Shell hook cwd and Cursor's returned decision object | Pending dedicated Test; portable object-shape checks are insufficient. |
 | Grok | Delivered `run_terminal_command` hook cwd or documented tool cwd | API emission remains unverified; report the exact missing field if absent. |
 | OpenCode | Real plugin directory and bash `workdir` | Not exercised; the CLI was absent from PATH during the earlier local review. |
@@ -2561,4 +2563,35 @@ An unattempted tool call or a missing control sentinel cannot establish a guard 
 | Native Windows | Native harness cwd delivery and path conversion | Not exercised in the Linux Review; no Windows adoption or availability claim. |
 
 Record unavailable tools and API gaps explicitly, use only tools already on PATH, and never treat checking no real harness as a pass.
-No live versions or successful live results are recorded here because this Review phase is not authorized to execute the dedicated Test phase.
+The remaining pending consumers require their own native evidence; the Codex result does not establish their coverage or native Windows adoption.
+
+### Codex supported-coverage readback, 2026-10-06
+
+Version: `codex-cli 0.160.0`.
+The isolated plain checkout used the current registered cd hook, wrapped only to capture its real stdin payload, and the real transport and policy.
+The native invocation was:
+
+```sh
+codex exec --ephemeral --ignore-user-config --ignore-rules --enable hooks \
+  --dangerously-bypass-hook-trust -s workspace-write \
+  -c 'approval_policy="never"' \
+  -c 'projects={"<lab>"={trust_level="trusted"}}' \
+  -c 'log_dir="<lab>/logs"' --cd '<lab>' "$PROMPT"
+```
+
+Seven separate real `exec_command` calls supplied explicit workdirs.
+Every captured PreToolUse payload reported the session cwd and omitted tool `workdir`.
+The process exited 0 and the native readback was:
+
+| Native command target | Hook outcome | Write sentinel |
+| --- | --- | --- |
+| Relative protected target from `bin` | Allowed under supported coverage | Present |
+| Relative unrelated target from `outside` | Allowed | Present |
+| Absolute protected target | `persistent-cd` denial | Absent |
+| Absolute unrelated target | Allowed | Present |
+| Home-anchored protected target with quoted suffix | `persistent-cd` denial | Absent |
+| Home-anchored unrelated target | Allowed | Present |
+| Independent control write | Allowed | Present |
+
+`tests/fm-cd-pretool-check.test.sh` contains the executable registered-hook regression for this supported boundary and the explicit-tool-directory contrast.
+The Test-phase evidence retains the native transcript, payloads, sentinel state, and original captured-payload RED/GREEN replay.
