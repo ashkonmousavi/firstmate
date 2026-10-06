@@ -2956,7 +2956,7 @@ The refusal names the record.
 EOF
 )
   for mode in no-mistakes direct-PR local-only; do
-    for state in complete incomplete missing; do
+    for state in complete historical historical-incomplete incomplete missing; do
       rec=$(make_home "prep-promote-$mode-$state")
       IFS='|' read -r home proj fakebin <<EOF
 $rec
@@ -2967,10 +2967,21 @@ EOF
       fill_section "$home/data/$id/brief.md" "## Captain's intent" "$source_intent"
       printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
       case "$state" in
-        complete)
+        complete|historical|historical-incomplete)
           rm "$prep"
           write_spec_prep "$home" "$id" yes no "${mode/local-only/direct-PR}"
           awk '/^\| Delivery admission / { print "| Promotion check | Exact marker selected | `grep -F '\''<!-- marker -->'\'' output.html` | `<!-- marker -->` |"; next } { print }' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          if [ "$state" != complete ]; then
+            sed '/^- Delivery risk:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+            out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off); status=$?
+            [ "$status" -ne 0 ] || fail "$mode historical prep admitted as a fresh ship"
+            assert_contains "$out" 'Delivery risk' "$mode historical prep cleared fresh admission"
+            assert_absent "$home/data/$id/launch-brief.md" "$mode fresh admission rendered historical prep"
+            assert_absent "$fakebin/tmux.calls" "$mode historical fresh admission reached backend"
+            if [ "$state" = historical-incomplete ]; then
+              blank_section "$prep" '## 2. Behaviour spec'
+            fi
+          fi
           ;;
         incomplete) printf '## Tier\n- UI wiring: no, historical prep.\n' > "$prep" ;;
         missing) rm "$prep" ;;
@@ -2989,7 +3000,7 @@ EOF
       for artifact in "$home/data/$id/ship-instructions.md" "$home/data/$id/brief.md"; do
         captain=$(fm_brief_task_heading_body "$artifact" "## Captain's intent")
         [ "$captain" = "$source_intent" ] || fail "promotion changed source captain intent: $captain"
-        if [ "$state" = complete ]; then
+        if [ "$state" = complete ] || [ "$state" = historical ]; then
           assert_grep 'Builders and post-implementation verifiers use' "$artifact" "$mode omitted common acceptance directions"
           assert_contains "$(cat "$artifact")" "$prep" "$mode points at another preparation record"
         else
@@ -2998,7 +3009,7 @@ EOF
         if [ "$mode" = no-mistakes ]; then
           captain=$(awk -v h="$captain_heading" '$0 == h { emit=1; next } emit { print }' "$artifact")
           [ "$captain" = "$source_intent" ] || fail "promotion intent tail includes specification: $captain"
-          if [ "$state" = complete ]; then
+          if [ "$state" = complete ] || [ "$state" = historical ]; then
             accepted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$artifact")
             [ "$accepted" = "$expected" ] || fail "promotion lost accepted specification in $artifact: $accepted"
           else
@@ -3338,7 +3349,8 @@ EOF
     id="refresh-$(printf '%s' "$mode" | tr '[:upper:]' '[:lower:]')"
     write_brief "$home" "$id"
     prep="$home/data/$id/prep.md"
-    fm_test_prep_depth "$prep" "${mode/local-only/direct-PR}" || fail "promotion depth fixture"
+    rm "$prep"
+    write_spec_prep "$home" "$id" yes no "${mode/local-only/direct-PR}"
     fill_section "$prep" "$FM_PREP_OUTCOMES_HEADING" "| Outcome | Exact observable result | Where and how to check | Expected value |"$'\n''| --- | --- | --- | --- |'$'\n'"$table"
     printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
     out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
@@ -3359,10 +3371,20 @@ case "$1" in
   *) exit 1 ;;
 esac
 EOF
-    for state in changed incomplete stale siblings route missing; do
+    for state in changed historical historical-incomplete malformed duplicate mismatch incomplete stale siblings route missing; do
       cp "$home/complete-prep.md" "$prep"
       case "$state" in
         changed) sed 's/| 42 |$/| 43 |/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        historical|historical-incomplete)
+          sed '/^- Delivery risk:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          [ "$state" != historical-incomplete ] || blank_section "$prep" '## 2. Behaviour spec'
+          ;;
+        malformed) sed 's/^- Delivery risk:.*$/- Delivery risk: money, {REASON}/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        duplicate) sed '/^- Delivery risk:/p' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
+        mismatch)
+          case "$mode" in no-mistakes) expected=other ;; *) expected=money ;; esac
+          sed "s/^- Delivery risk:.*$/- Delivery risk: $expected, inspected scope./" "$prep" > "$prep.f" && mv "$prep.f" "$prep"
+          ;;
         incomplete) sed '/^- Scope only as asked:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
         stale) sed 's/^- Still valid:.*$/- Still valid: covered: delivered fixture/' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
         siblings) sed '/^- Siblings named:/d' "$prep" > "$prep.f" && mv "$prep.f" "$prep" ;;
@@ -3387,10 +3409,27 @@ EOF
         captain=$(awk -v c="$captain_heading" '$0 == c { emit=1; next } emit { print }' "$launch")
         [ "$captain" = 'Exercise the delivery contract.' ] || fail "relaunch mixed specification into captain tail: $captain"
         count=$(grep -cFx "$accepted_heading" "$launch" || true)
-        if [ "$state" = changed ]; then
+        if [ "$state" = changed ] || [ "$state" = historical ]; then
           [ "$count" -eq 1 ] || fail "refreshed relaunch has $count accepted specifications"
           emitted=$(awk -v h="$accepted_heading" -v c="$captain_heading" '$0 == h { emit=1; next } $0 == c { exit } emit { print }' "$launch")
-          expected="$FM_PREP_OUTCOMES_HEADING"$'\n''| Outcome | Exact observable result | Where and how to check | Expected value |'$'\n''| --- | --- | --- | --- |'$'\n'"${table/42/43}"
+          expected=$(cat <<EOF
+$FM_PREP_OUTCOMES_HEADING
+| Outcome | Exact observable result | Where and how to check | Expected value |
+| --- | --- | --- | --- |
+$table
+
+## 2. Behaviour spec
+Refuse the launch and name the missing review.
+
+### Copy
+The refusal names the record.
+
+## 11. Definition of done
+- Every tier is gated.
+- The relaunch stays exempt.
+EOF
+)
+          [ "$state" != changed ] || expected=${expected/42/43}
           [ "$emitted" = "$expected" ] || fail "relaunch retained old specification: $emitted"
         else
           [ "$count" -eq 0 ] || fail "relaunch certified $state prep"

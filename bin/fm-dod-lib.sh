@@ -728,6 +728,10 @@ fm_prep_delivery_mode() {  # <file>
     *'checks-only (direct-PR)'*|*'checks + one review (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
   esac
   fm_prep_answer_complete "$reason" no || return 1
+  if [ "${2:-}" = historical ] && ! fm_prep_tier_read "$1" | grep '^- Delivery risk:' >/dev/null; then
+    printf '%s\n' "$mode"
+    return 0
+  fi
   value=$(fm_prep_tier_read "$1" | awk '
     /^- Delivery risk:/ { seen++; value=substr($0,18) }
     END { if (seen == 1) print value }
@@ -941,7 +945,7 @@ fm_prep_unfilled_reason() {  # <file>
       "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
-  if ! fm_prep_delivery_mode "$file" >/dev/null; then
+  if ! fm_prep_delivery_mode "$file" "${2:-}" >/dev/null; then
     printf 'its %s requires canonical Delivery risk and Delivery depth choices with substantive same-line reasons that agree in %s\n' "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
@@ -983,11 +987,11 @@ EOF
 
 # fm_prep_accepted_spec <prep-path>
 # Prints the common outcome table plus substantive applicable sections 2 and 11.
-# Only a record passing current completeness supplies accepted specification;
+# Only a complete record supplies accepted specification;
 # legacy relaunch recovery does not certify incomplete historical preparation.
 fm_prep_accepted_spec() {  # <prep-path>
   local file=$1 heading placeholder required guide evidence body first sep=''
-  fm_prep_unfilled_reason "$file" >/dev/null && return 0
+  fm_prep_unfilled_reason "$file" historical >/dev/null && return 0
   body=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | fm_prep_body_text | awk 'NF')
   printf '%s\n%s\n' "$FM_PREP_OUTCOMES_HEADING" "$body"
   sep=$'\n'

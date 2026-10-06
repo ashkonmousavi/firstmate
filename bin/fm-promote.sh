@@ -249,7 +249,7 @@ fi
 # the --yes ban is the delivery hole this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
 PROMOTION_PREP=
-if ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+if ! fm_prep_unfilled_reason "$PREP_FILE" historical >/dev/null; then
   PROMOTION_PREP=$PREP_FILE
 fi
 PROMOTION_ASK_USER_BLOCK=

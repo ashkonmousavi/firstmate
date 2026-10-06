@@ -3283,10 +3283,10 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
       exit 1
     fi
   fi
-  # Relaunch preserves legacy recovery, but only a currently complete record
+  # Relaunch preserves legacy recovery, but only a complete record
   # supplies preparation specification to the generated intent overlay.
   ACCEPTED_PREP=
-  if [ "$KIND" = ship ] && ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+  if [ "$KIND" = ship ] && ! fm_prep_unfilled_reason "$PREP_FILE" historical >/dev/null; then
     ACCEPTED_PREP=$PREP_FILE
   fi
   if [ "$KIND" = ship ] && [ "$MODE" = no-mistakes ]; then
