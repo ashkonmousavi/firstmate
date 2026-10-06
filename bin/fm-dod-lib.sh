@@ -98,8 +98,14 @@
 # scaffold usage.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# Both preparation formats owe an authored Delivery depth with same-line reason,
-# common author checks and explicit outcomes.
+# Both preparation formats owe authored Delivery risk and Delivery depth with
+# same-line reasons, common author checks and explicit outcomes.
+# Risk is money|security|shared code|other: one highest applicable class.
+# The first three require no-mistakes; other requires direct-PR and one code
+# review round. Q2=yes cannot be classified other. Surgical certainty concerns
+# preparation completeness only and never selects delivery depth.
+# The legacy checks-only depth spelling remains readable; its generated
+# direct-PR contract now requires the same one-round review as the new spelling.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
 # bin/fm-spawn.sh's header owns fresh-ship depth admission and recovery.
 # Review artifacts and old server-install declarations do not affect admission.
@@ -433,12 +439,13 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer Q1, Q2 and UI wiring, plus Delivery depth below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
+  printf '<!-- Answer Q1, Q2 and UI wiring, plus Delivery risk and Delivery depth below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
   printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
+  printf -- '- Delivery risk: {DELIVERY_RISK}\n'
   printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery depth answers checks-only (direct-PR), <one-line reason> for surgical or low-harm changes; checks + AI review (no-mistakes), <one-line reason> for shared code, money, privacy, permissions, security or uncertainty. The author chooses; neither choice nor reason is prefilled. -->\n'
+  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -706,20 +713,38 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
 # Prints direct-PR or no-mistakes only for one complete active Tier declaration.
 # Examples are cleaned in context; continuations cannot supply the line's reason.
 fm_prep_delivery_mode() {  # <file>
-  local value reason mode
+  local value reason mode risk
   value=$(fm_prep_tier_read "$1" | awk '
     /^- Delivery depth:/ { seen++; value=substr($0,19) }
     END { if (seen == 1) print value }
   ')
   case "$value" in
+    'checks + one review (direct-PR), '*) mode=direct-PR; reason=${value#'checks + one review (direct-PR), '} ;;
     'checks-only (direct-PR), '*) mode=direct-PR; reason=${value#'checks-only (direct-PR), '} ;;
     'checks + AI review (no-mistakes), '*) mode=no-mistakes; reason=${value#'checks + AI review (no-mistakes), '} ;;
     *) return 1 ;;
   esac
   case "$reason" in
-    *'checks-only (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
+    *'checks-only (direct-PR)'*|*'checks + one review (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
   esac
   fm_prep_answer_complete "$reason" no || return 1
+  value=$(fm_prep_tier_read "$1" | awk '
+    /^- Delivery risk:/ { seen++; value=substr($0,18) }
+    END { if (seen == 1) print value }
+  ')
+  case "$value" in
+    'money, '*) risk=money; reason=${value#'money, '} ;;
+    'security, '*) risk=security; reason=${value#'security, '} ;;
+    'shared code, '*) risk=shared; reason=${value#'shared code, '} ;;
+    'other, '*) risk=other; reason=${value#'other, '} ;;
+    *) return 1 ;;
+  esac
+  fm_prep_answer_complete "$reason" no || return 1
+  case "$risk:$mode" in
+    other:direct-PR) [ "$(fm_prep_answer "$1" Q2)" != yes ] || return 1 ;;
+    money:no-mistakes|security:no-mistakes|shared:no-mistakes) ;;
+    *) return 1 ;;
+  esac
   printf '%s\n' "$mode"
 }
 
@@ -917,7 +942,7 @@ fm_prep_unfilled_reason() {  # <file>
     return 0
   fi
   if ! fm_prep_delivery_mode "$file" >/dev/null; then
-    printf 'its %s requires one canonical Delivery depth choice and a substantive same-line reason in %s\n' "$FM_PREP_TIER_HEADING" "$file"
+    printf 'its %s requires canonical Delivery risk and Delivery depth choices with substantive same-line reasons that agree in %s\n' "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
   if state=$(fm_prep_common_reason "$file"); then
@@ -1114,6 +1139,14 @@ There is no pull request, no \`gh-axi\` call, and no forge CI result to report: 
 EOF
 }
 
+fm_direct_review_block() {
+  cat <<'EOF'
+Perform exactly one code review round against the preparation outcomes and project standards using the existing review mechanism.
+Record the reviewed head, findings and their resolution in the task report; fix the findings without another review round, then validate the final head through the selected delivery path's checks.
+Do not commission a separate preparation review or add a second implementation review.
+EOF
+}
+
 fm_dod_block() {  # <mode> <task-id> [branch] [<forge>]
   local mode=$1 id=$2 forge=${4:-none}
   local branch=${3:-fm/$id}
@@ -1129,6 +1162,7 @@ Gerrit has no pull requests, so there is nothing to open; publishing creates the
 The task is complete only when committed on your branch.
 When it is implemented and committed, publish it.
 EOF
+      fm_direct_review_block
       fm_gerrit_publish_block
       cat <<EOF
 Do NOT run /no-mistakes.
@@ -1172,6 +1206,9 @@ EOF
 Delivery contract: mode=direct-PR
 Ship branch: $branch
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
+EOF
+      fm_direct_review_block
+      cat <<EOF
 This task is complete only with an existing non-draft PR and every required check green for its current head.
 When it is implemented and committed, push your branch and open a PR with \`gh-axi\` that is ready for review, not a draft.
 Before you report done, read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.

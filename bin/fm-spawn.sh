@@ -39,9 +39,10 @@
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
 #   installs it. Common author checks and the outcome table must also pass
 #   bin/fm-dod-lib.sh's completeness contract; review receipts do not gate ships.
-#   Fresh ships also require a canonical Delivery depth and same-line reason
-#   before task allocation; direct-PR/no-mistakes must agree with that authored
-#   choice. Local-only validates depth without comparing its branch lifecycle.
+#   Fresh ships also require canonical Delivery risk and Delivery depth with
+#   same-line reasons that agree under bin/fm-dod-lib.sh before task allocation;
+#   direct-PR/no-mistakes must agree with that authored choice. Local-only
+#   validates depth without comparing its branch lifecycle.
 #   Scouts and secondmates are not gated, and --relaunch preserves recovery for
 #   tasks dispatched before the current preparation contract.
 #   When the record exists, the launch brief points the worker at it as the
@@ -1675,7 +1676,7 @@ fi
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = ship ]; then
   PREP_FILE=$(fm_prep_path "$DATA" "$ID")
   if ! PREP_DEPTH_MODE=$(fm_prep_delivery_mode "$PREP_FILE"); then
-    echo "error: task $ID cannot ship without its preparation record: Delivery depth requires one canonical choice and a substantive same-line reason in $PREP_FILE; scaffold with bin/fm-brief.sh $ID --prep and answer Delivery depth" >&2
+    echo "error: task $ID cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in $PREP_FILE; scaffold with bin/fm-brief.sh $ID --prep and reconcile Delivery risk/depth" >&2
     if NAV_PREP=$(fm_nav_prep_filled_source "$DATA/secondmates.md" "$ID"); then
       echo "hint: a filled secondmate nav-prep is at $NAV_PREP; install it with bin/fm-prep-install.sh $ID" >&2
     fi
