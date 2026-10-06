@@ -29,6 +29,68 @@ mkdir -p "$BRIEF_HOME/data"
 # shellcheck source=bin/fm-backlog-transition-lib.sh
 . "$ROOT/bin/fm-backlog-transition-lib.sh"
 
+# Follow the mandatory generated pointer through its public shell command.
+# Keep the scaffold intact; legacy contract assertions inspect the resolved output.
+resolve_worker_contract() {
+  local brief=$1 command
+  # shellcheck disable=SC2016 # Fences are literal generated Markdown.
+  command=$(sed -n '/^```bash$/,/^```$/p' "$brief" | sed '1d;$d')
+  [ -n "$command" ] || fail "worker brief has no executable owner pointer: $brief"
+  cat "$brief" > "$brief.resolved"
+  bash -c "$command" >> "$brief.resolved" || fail "worker contract pointer failed: $brief"
+  printf '%s\n' "$brief.resolved"
+}
+
+# Actual scaffold size, task parser and executable owner pointers are the public seams.
+test_compact_worker_scaffolds() {
+  local home="$TMP_ROOT/compact quote's" kind brief bytes body command resolved append move fault_owner
+  for kind in no-mistakes direct-PR local-only scout; do
+    if [ "$kind" = scout ]; then
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$kind" repo --scout >/dev/null || fail "scout generation"
+    else
+      FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$kind" repo --mode "$kind" >/dev/null || fail "$kind generation"
+    fi
+    brief="$home/data/$kind/brief.md"
+    bytes=$(wc -c < "$brief" | tr -d ' ')
+    [ "$bytes" -ge 2000 ] && [ "$bytes" -le 4000 ] || fail "$kind scaffold is $bytes bytes, expected about 3 KB (2000-4000)"
+    body=$(cat "$brief")
+    body=${body//'{TASK}'/Preserve the requested result.}
+    body=${body//'{FIRSTMATE_SPEC}'/Implement the accepted preparation.}
+    printf '%s\n' "$body" > "$home/filled.md"
+    fm_brief_task_content_valid "$home/filled.md" || fail "$kind task parser rejected filled short brief"
+    [ "$(fm_brief_task_heading_body "$home/filled.md" "## Captain's intent" | sed '/^$/d')" = 'Preserve the requested result.' ] || fail "$kind intent mixed with specifications"
+    assert_grep 'fm_worker_contract_block' "$brief" "$kind lost executable contract pointer"
+    resolved=$(resolve_worker_contract "$brief")
+    assert_grep 'Never administer infrastructure' "$resolved" "$kind lost shared-infrastructure safety"
+    # shellcheck disable=SC2016 # Extract commands from the generated Markdown interface.
+    append=$(sed -n '/^Append: /s/^Append: `\(.*\)`$/\1/p' "$brief")
+    append=${append//\{state\}/done}
+    append=${append//<epoch>/1234567890}
+    append=${append//\{one short line\}/test event}
+    mkdir -p "$home/state/$kind.inbox/handled"
+    bash -c "$append" || fail "$kind quoted status command failed"
+    [ "$(cat "$home/state/$kind.status")" = 'done [at=1234567890]: test event' ] || fail "$kind status reached wrong path"
+    # shellcheck disable=SC2016 # Extract the actual acknowledgement command.
+    move=$(sed -n '/moving it:/s/.*moving it: `\(mv .*\)`\./\1/p' "$resolved")
+    move=${move//NNN.msg/001.msg}
+    printf 'instruction\n' > "$home/state/$kind.inbox/001.msg"
+    bash -c "$move" || fail "$kind quoted inbox acknowledgement failed"
+    [ ! -e "$home/state/$kind.inbox/001.msg" ] && [ -f "$home/state/$kind.inbox/handled/001.msg" ] || fail "$kind acknowledgement reached wrong inbox"
+    # shellcheck disable=SC2016 # Fences are literal generated Markdown.
+    command=$(sed -n '/^```bash$/,/^```$/p' "$brief" | sed '1d;$d')
+    if bash -c "${command/fm_worker_contract_block/fm_worker_missing_block}" > "$home/fault.log" 2>&1; then
+      fail "$kind broken owner pointer was accepted"
+    fi
+    fault_owner="$TMP_ROOT/partial-owner.sh"
+    printf '%s\n' 'fm_worker_contract_block() { echo partial-owner; }' 'return 1' > "$fault_owner"
+    if bash -c "${command/"$ROOT/bin/fm-dod-lib.sh"/"$fault_owner"}" > "$home/source-fault.log" 2>&1; then
+      fail "$kind rendered a partially loaded owner after its source failed"
+    fi
+    resolve_worker_contract "$brief" >/dev/null || fail "$kind restored pointer did not render"
+  done
+  pass "compact ship/scout generation preserves task parsing, exact communication paths and executable contracts"
+}
+
 test_delivery_depth_scaffolds() {
   local home="$TMP_ROOT/depth-scaffolds" format id prep out
   for format in full surgical; do
@@ -233,6 +295,7 @@ test_ship_modes_generate_clean_briefs() {
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode "$mode" >/dev/null 2>&1; status=$?
     expect_code 0 "$status" "fm-brief.sh $id --mode $mode should exit 0"
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     assert_present "$brief" "$id: brief was not scaffolded"
     assert_grep "# Definition of done" "$brief" "$id: brief missing Definition of done section"
     grep -qx "Delivery contract: mode=$mode" "$brief" \
@@ -286,6 +349,7 @@ test_ship_mode_is_explicit_not_registry() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-explicit-a5 direct-proj --mode no-mistakes >/dev/null 2>&1 \
     || fail "explicit no-mistakes brief on a direct-PR project should scaffold"
   brief="$home/data/brief-explicit-a5/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   grep -qx "Delivery contract: mode=no-mistakes" "$brief" \
     || fail "registered direct-PR posture overrode the explicit --mode"
   assert_grep "start the pipeline yourself immediately" "$brief" \
@@ -329,6 +393,7 @@ test_faster_paths_use_configured_authority_without_stacked_review() {
   id="brief-direct-authority-a4"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" direct-proj --mode direct-PR >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_grep "The configured merge authority decides whether to merge the PR; firstmate relays the outcome." "$brief" \
     "direct-PR brief lost configured merge authority"
   assert_no_grep "The captain reviews and merges the PR" "$brief" \
@@ -336,6 +401,7 @@ test_faster_paths_use_configured_authority_without_stacked_review() {
   id="brief-local-authority-a4"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" local-proj --mode local-only >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_grep "The configured merge authority approves the ready branch, then firstmate merges it into local \`main\` through the guarded fast-forward path." "$brief" \
     "local-only brief lost configured merge authority and guarded landing"
   assert_no_grep "The captain approves the ready branch" "$brief" \
@@ -362,6 +428,7 @@ test_pr_based_dod_requires_non_draft() {
     id="brief-draft-$mode"
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode "$mode" >/dev/null 2>&1
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     assert_present "$brief" "$mode: brief was not scaffolded"
     if [ "$mode" = local-only ]; then
       assert_no_grep "isDraft" "$brief" "$mode: a branch-only delivery must not require a non-draft PR"
@@ -388,6 +455,7 @@ test_no_mistakes_dod_wording() {
   id="brief-wording-b1"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_present "$brief" "brief was not scaffolded"
   for spelling in 'Captain:' "Captain's words:" "Captain's ask:" "Captain's intent:" 'Captain,'; do
     assert_no_grep "$spelling" "$brief" "rendered intent contract still teaches operator-address labels"
@@ -444,6 +512,7 @@ test_no_mistakes_dod_green_detection() {
   id="brief-green-b1"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_present "$brief" "brief was not scaffolded"
   assert_grep "Only a drive call's return reports the green PR" "$brief" \
     "no-mistakes DOD must make the drive call's return the green signal"
@@ -467,6 +536,7 @@ test_ask_user_escalation_format() {
   id="brief-ask-user-d1"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_present "$brief" "brief was not scaffolded"
 
   # A no-mistakes gate must escalate its stop-set findings as one status
@@ -532,6 +602,7 @@ test_ship_project_memory_wording() {
   id="brief-memory-c1"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_present "$brief" "brief was not scaffolded"
   assert_grep "loaded into every agent session" "$brief" \
     "project-memory contract lost the per-session cost rationale"
@@ -889,6 +960,7 @@ test_pause_verb_override_renders_all_brief_scaffolds() {
         ;;
     esac
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     # Fill the scaffold's generated status-append command the way a worker does
     # and run it. The stamp must be a value the worker supplies, so the command
     # may not carry an unevaluated substitution that a file-write tool would
@@ -968,6 +1040,7 @@ test_ship_and_scout_teach_validation_round_pause() {
       FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode no-mistakes >/dev/null 2>&1
     fi
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     assert_grep "your own validation round, which you declare once just before its blocking hold" "$brief" \
       "$kind brief did not teach workers to declare their validation-round wait before holding it"
     assert_grep "append \`paused:\` once just before its first blocking command, then stay in the command" "$brief" \
@@ -994,7 +1067,7 @@ test_scout_and_secondmate_load_decision_hold_policy() {
   mkdir -p "$home/data"
   FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
     "$ROOT/bin/fm-brief.sh" sample-investigation sample --scout >/dev/null 2>&1
-  scout="$home/data/sample-investigation/brief.md"
+  scout=$(resolve_worker_contract "$home/data/sample-investigation/brief.md")
   assert_grep "$ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md" "$scout" \
     "scout brief did not load the captain-call policy before done"
   assert_grep "pass its shared completion gate for the report and any visual review" "$scout" \
@@ -1086,6 +1159,7 @@ test_workers_wait_without_spending_turns() {
     || fail "fm-brief.sh scout scaffold exited non-zero"
   for id in brief-wait-ship brief-wait-scout; do
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     assert_grep "end your turn at once" "$brief" "$id: a decision wait must end the turn"
     assert_grep "with ONE blocking shell command that returns when the state changes" "$brief" \
       "$id: an external wait must sleep in one blocking shell command"
@@ -1102,6 +1176,7 @@ test_workers_wait_without_spending_turns() {
     assert_grep "natural checkpoint" "$brief" "$id: the flag dropped the natural-checkpoint inbox check"
   done
   brief="$home/data/brief-wait-ship/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_grep "issue the same foreground call again" "$brief" \
     "the no-mistakes DOD must reattach with the same foreground call"
   assert_no_grep "background the drive call" "$brief" "the no-mistakes DOD still backgrounds the drive call"
@@ -1110,6 +1185,7 @@ test_workers_wait_without_spending_turns() {
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-wait-sm --secondmate --no-projects >/dev/null 2>&1 \
     || fail "fm-brief.sh secondmate scaffold exited non-zero"
   brief="$home/data/brief-wait-sm/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_grep "Do not poll or list the inbox while waiting; a waiting instruction rings." "$brief" \
     "secondmate: polling the inbox while waiting is not forbidden"
   assert_grep "natural checkpoint" "$brief" "secondmate: the flag dropped the natural-checkpoint inbox check"
@@ -1125,6 +1201,7 @@ test_wait_no_turns_absent_keeps_the_previous_brief() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-wait-off some-proj --mode no-mistakes >/dev/null 2>&1 \
     || fail "fm-brief.sh ship scaffold exited non-zero"
   brief="$home/data/brief-wait-off/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_no_grep "end your turn at once" "$brief" "an absent flag still added the waiting section"
   assert_grep "natural checkpoint" "$brief" "an absent flag dropped the unprompted inbox check"
   assert_no_grep "Do not poll or list the inbox while waiting" "$brief" "an absent flag still added the no-poll inbox line"
@@ -1426,6 +1503,7 @@ test_ship_branch_prefix_override_is_consistent_across_modes() {
   id="brief-branch-override-nm-e4"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode no-mistakes --branch-prefix 'contrib/' >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   # shellcheck disable=SC2016
   assert_grep "\`git checkout -b contrib/$id --\`" "$brief" \
     "no-mistakes: branch-creation command did not use the configured override"
@@ -1435,6 +1513,7 @@ test_ship_branch_prefix_override_is_consistent_across_modes() {
   id="brief-branch-override-dp-e5"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode direct-PR --branch-prefix 'contrib/' >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   # shellcheck disable=SC2016
   assert_grep "\`git checkout -b contrib/$id --\`" "$brief" \
     "direct-PR: branch-creation command did not use the configured override"
@@ -1447,6 +1526,7 @@ test_ship_branch_prefix_override_is_consistent_across_modes() {
   id="brief-branch-override-lo-e6"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" some-proj --mode local-only --branch-prefix 'contrib/' >/dev/null 2>&1
   brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   # shellcheck disable=SC2016
   assert_grep "\`git checkout -b contrib/$id --\`" "$brief" \
     "local-only: branch-creation command did not use the configured override"
@@ -1563,6 +1643,7 @@ test_crewmate_scaffolds_forbid_pool_administration() {
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" alpha --mode "$mode" >/dev/null 2>&1 \
       || fail "fm-brief.sh --mode $mode exited non-zero"
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     assert_grep "worktree pool" "$brief" \
       "$mode ship brief did not name the shared worktree pool"
     assert_grep "create, remove, return, prune, move, or reassign" "$brief" \
@@ -1584,6 +1665,7 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-pool-scout alpha --scout >/dev/null 2>&1 \
     || fail "fm-brief.sh --scout exited non-zero"
   brief="$home/data/brief-pool-scout/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   assert_grep "worktree pool" "$brief" "scout brief did not name the shared worktree pool"
   # shellcheck disable=SC2016 # Literal backticks and braces must remain unexpanded.
   assert_grep 'blocked [at=<epoch>]: {what you need}' "$brief" "scout brief gave the prohibition no exit"
@@ -1591,7 +1673,7 @@ test_crewmate_scaffolds_forbid_pool_administration() {
   # One shared string, not two copies: the emitted rule must be byte-identical
   # across the ship and scout scaffolds so a later edit cannot fix one and miss
   # the other.
-  ship_rule=$(awk '/^7\. Never administer/,/^$/' "$home/data/brief-pool-no-mistakes/brief.md")
+  ship_rule=$(awk '/^7\. Never administer/,/^$/' "$home/data/brief-pool-no-mistakes/brief.md.resolved")
   scout_rule=$(awk '/^7\. Never administer/,/^$/' "$brief")
   [ -n "$ship_rule" ] || fail "ship brief emitted no shared-infrastructure rule to compare"
   [ "$ship_rule" = "$scout_rule" ] \
@@ -1627,6 +1709,7 @@ test_walk_evidence_reaches_workers() {
       FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" firstmate --mode no-mistakes >/dev/null || fail "ship scaffold"
     fi
     brief="$home/data/$id/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     grep -qxF '# Walk evidence' "$brief" || fail "$kind missing separate walk heading"
     assert_contains "$(cat "$brief")" 'assigned actor, candidate and data' "$kind missing assigned walk setup"
     assert_contains "$(cat "$brief")" 'working Chrome DevTools or equivalent console, network and application diagnostics' "$kind missing diagnostic obligations"
@@ -1654,6 +1737,7 @@ test_prep_review_scout_brief() {
   status=$?
   expect_code 0 "$status" "batch reviewer should scaffold: $out"
   brief="$home/data/reviewer/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
   for token in '## Standards' '## Spec' '## Architecture' 'Q2 yes' 'byte-identical' \
     "$home/data/task-a/prep.md" "$home/data/task-b/prep.md" \
     "$home/data/reviewer/reviewed-prep/task-a.md" "$home/data/reviewer/reviewed-prep/task-b.md"; do
@@ -1681,6 +1765,7 @@ test_pr_completion_requires_current_head_green_url() {
     FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "green-$mode" repo --mode "$mode" >/dev/null 2>&1 \
       || fail "PR brief scaffold failed: $mode"
     brief="$home/data/green-$mode/brief.md"
+    [ ! -f "$brief" ] || ! grep -q '^# Worker contract$' "$brief" || brief=$(resolve_worker_contract "$brief")
     assert_grep 'every required check green for its current head' "$brief" "$mode lost current-head checks"
     assert_grep 'PR {full https URL from the forge} checks green' "$brief" "$mode terminal line is not a green full URL"
     assert_no_grep 'The task is complete only when committed on your branch.' "$brief" "$mode still calls implementation-only complete"
@@ -1693,6 +1778,7 @@ test_pr_completion_requires_current_head_green_url() {
   pass "fm-brief: both PR paths finish only with current-head green non-draft forge URL"
 }
 
+test_compact_worker_scaffolds
 test_delivery_depth_scaffolds
 test_surgical_prep_scaffold
 test_pr_completion_requires_current_head_green_url
