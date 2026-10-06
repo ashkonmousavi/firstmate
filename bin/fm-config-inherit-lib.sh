@@ -7,8 +7,7 @@
 # out of its dispatch resolver requests, primary config/crew-harness=codex makes a secondmate's crewmates
 # spawn on codex too, primary config/backlog-backend=manual makes that home
 # hand-edit backlog files too, primary config/backend pins that home's local
-# runtime-backend default for future spawns, primary config/startup-memory-budget
-# bounds that home's startup-memory curation, and primary
+# runtime-backend default for future spawns, and primary
 # config/herdr-presentation-spaces carries the same Herdr presentation-projection
 # preference - an absent primary file and an absent destination file both mean
 # the same unconfigured default, so the generic absence mirror below converges
@@ -69,9 +68,6 @@
 # other. A local and remote code root that disagree about this list must be
 # reconciled by the ordinary remote sync/update path before the transfer
 # succeeds; there is no separate allowlist version negotiation.
-#
-# shellcheck source=bin/fm-startup-memory-budget-lib.sh
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-startup-memory-budget-lib.sh"
 
 # The one shared data file in this inheritance contract. There is deliberately
 # no shared learnings file.
@@ -82,7 +78,7 @@ FM_SHARED_CAPTAIN_MODE="444"
 # The declared inheritable set (space-separated, config-dir-relative item paths).
 # Extend here to inherit more of the primary's local config; override via the
 # environment only in tests. Items must not contain whitespace.
-FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send crew-harness backlog-backend backend herdr-presentation-spaces startup-memory-budget trace-context launch-env-allowlist claude-permission-mode claude-worker-settings.json lavish-axi-host keep-ai-trailers supervision-host-off}"
+FM_INHERITABLE_CONFIG="${FM_INHERITABLE_CONFIG:-crew-dispatch.json dispatch-never-send crew-harness backlog-backend backend herdr-presentation-spaces trace-context launch-env-allowlist claude-permission-mode claude-worker-settings.json lavish-axi-host keep-ai-trailers supervision-host-off}"
 
 # Items whose value is a home-SESSION enablement decision rather than durable
 # local configuration. They are inherited at the launch convergence point, where
@@ -574,47 +570,6 @@ propagate_inheritable_config() {
       rc=1
       continue
     fi
-    # This one scalar config is consumed as a local safety boundary, so reject
-    # every unsafe or malformed source/destination artifact before the generic
-    # byte-copy behavior below can treat it as ordinary inherited material.
-    if [ "$item" = "$FM_STARTUP_MEMORY_BUDGET_FILE" ]; then
-      if [ -e "$src_config" ] || [ -L "$src_config" ]; then
-        if ! fm_startup_memory_budget_config_dir_safe "$src_config"; then
-          reason="unsafe primary config directory: $FM_STARTUP_MEMORY_BUDGET_ERROR"
-          warn_inheritable_config_error "$item" "$src_config" "$reason"
-          record_inheritable_config_result "$item" error "$reason"
-          rc=1
-          continue
-        fi
-      fi
-      if [ -e "$dest_config" ] || [ -L "$dest_config" ]; then
-        if ! fm_startup_memory_budget_config_dir_safe "$dest_config"; then
-          reason="unsafe destination config directory: $FM_STARTUP_MEMORY_BUDGET_ERROR"
-          warn_inheritable_config_error "$item" "$dest_config" "$reason"
-          record_inheritable_config_result "$item" error "$reason"
-          rc=1
-          continue
-        fi
-      fi
-      if [ -e "$src" ] || [ -L "$src" ]; then
-        if ! fm_startup_memory_budget_file_valid "$src"; then
-          reason="unsafe or invalid primary source: $FM_STARTUP_MEMORY_BUDGET_ERROR"
-          warn_inheritable_config_error "$item" "$src" "$reason"
-          record_inheritable_config_result "$item" error "$reason"
-          rc=1
-          continue
-        fi
-      fi
-      if [ -e "$dest" ] || [ -L "$dest" ]; then
-        if ! fm_startup_memory_budget_file_valid "$dest"; then
-          reason="unsafe or invalid destination: $FM_STARTUP_MEMORY_BUDGET_ERROR"
-          warn_inheritable_config_error "$item" "$dest" "$reason"
-          record_inheritable_config_result "$item" error "$reason"
-          rc=1
-          continue
-        fi
-      fi
-    fi
     if [ -f "$src" ]; then
       if ! destination_allows_inherited_item "$dest_config" "$item"; then
         reason=$(inheritable_config_skip_reason)
@@ -715,6 +670,17 @@ fm_config_reread_retry_dir() {
   printf '%s/%s/%s\n' "$source_home" "$FM_CONFIG_REREAD_RETRY_ROOT_REL" "$token"
 }
 
+# Order generations by their durable per-home sequence, independent of clock
+# adjustments. Keep the full path as the tie-breaker for older instruction names.
+fm_config_reread_sort_generations() {
+  awk '{
+    name = $0
+    sub(/^.*\//, "", name)
+    split(name, parts, ".")
+    printf "%s\t%s\n", parts[4], $0
+  }' | LC_ALL=C sort -t $'\t' -k1,1n -k2,2 | cut -f2-
+}
+
 fm_config_reread_pending_stages() {
   local source_home=$1 id=$2 retry_dir stage
   retry_dir=$(fm_config_reread_retry_dir "$source_home" "$id") || return 1
@@ -725,7 +691,7 @@ fm_config_reread_pending_stages() {
     [ -f "$stage" ] && [ ! -L "$stage" ] || continue
     [ -s "$stage" ] || continue
     printf '%s\n' "$stage"
-  done | LC_ALL=C sort
+  done | fm_config_reread_sort_generations
 }
 
 fm_config_reread_pending_reports() {
@@ -734,7 +700,7 @@ fm_config_reread_pending_reports() {
   for report in "$retry_dir"/.fm-inherited-config-reread.*.report; do
     [ -f "$report" ] && [ ! -L "$report" ] || continue
     printf '%s\n' "$report"
-  done | LC_ALL=C sort
+  done | fm_config_reread_sort_generations
 }
 
 fm_config_reread_has_staged() {
@@ -878,7 +844,7 @@ fm_config_reread_pending_instructions() {
     [ -f "$pending" ] && [ ! -L "$pending" ] || continue
     instruction=${pending%.pending}
     printf '%s\n' "$instruction"
-  done | LC_ALL=C sort
+  done | fm_config_reread_sort_generations
 }
 
 fm_config_reread_has_pending() {
@@ -908,7 +874,7 @@ fm_config_reread_cleanup_sent() {
     paths+="$path"
   done
   [ -n "$paths" ] || return 0
-  sorted=$(printf '%s\n' "$paths" | LC_ALL=C sort)
+  sorted=$(printf '%s\n' "$paths" | fm_config_reread_sort_generations)
   total=$(printf '%s\n' "$sorted" | wc -l | tr -d ' ')
   remove=$((total - FM_CONFIG_REREAD_MAX_SENT))
   [ "$remove" -gt 0 ] || return 0
@@ -1300,7 +1266,7 @@ EOF
     [ "${send_failures:-0}" = 1 ] && return 1
     return 0
   fi
-  delivery_paths=$(printf '%s\n' "$delivery_paths" | LC_ALL=C sort)
+  delivery_paths=$(printf '%s\n' "$delivery_paths" | fm_config_reread_sort_generations)
   while IFS= read -r instruction_path; do
     [ -n "$instruction_path" ] || continue
     if fm_config_reread_send_pointer "$id" "$instruction_path"; then

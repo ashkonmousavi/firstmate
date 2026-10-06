@@ -82,7 +82,6 @@ pass "shadowing: fake GNU stat shadows /usr/bin/stat in PATH"
 # --- test the fixed helpers under shadowing ----------------------------------
 
 . "$ROOT/bin/fm-supervision-lib.sh"
-. "$ROOT/bin/fm-startup-memory-budget-lib.sh"
 
 TESTFILE="$TMP_ROOT/testfile"
 printf 'hello world\n' > "$TESTFILE"
@@ -96,16 +95,7 @@ if [ -z "$RESULT_MTIME" ] || [ "$RESULT_MTIME" != "$EXPECTED_MTIME" ]; then
 fi
 pass "fm_sup_stat_mtime returns correct epoch mtime under GNU stat shadowing"
 
-# 2. fm_startup_memory_budget_link_count from bin/fm-startup-memory-budget-lib.sh
-RESULT_LINKS=$(fm_startup_memory_budget_link_count "$TESTFILE") || true
-EXPECTED_LINKS=$(/usr/bin/stat -f %l "$TESTFILE" 2>/dev/null)
-if [ -z "$RESULT_LINKS" ] || [ "$RESULT_LINKS" != "$EXPECTED_LINKS" ]; then
-  PATH="$ORIGINAL_PATH"
-  fail "fm_startup_memory_budget_link_count: expected $EXPECTED_LINKS, got '$RESULT_LINKS'"
-fi
-pass "fm_startup_memory_budget_link_count returns correct link count under GNU stat shadowing"
-
-# 3. _fm_status_file_size from bin/fm-classify-lib.sh
+# 2. _fm_status_file_size from bin/fm-classify-lib.sh
 #    We source it and call the internal function directly.
 RESULT_SIZE=$(LC_ALL=C /usr/bin/stat -f '%z' "$TESTFILE" 2>/dev/null) || true
 # The fixed code uses /usr/bin/stat so it should produce the same value as direct call
@@ -122,7 +112,7 @@ if [ -z "$HELPER_SIZE" ] || [ "$HELPER_SIZE" != "$RESULT_SIZE" ]; then
 fi
 pass "_fm_status_file_size returns correct byte size under GNU stat shadowing"
 
-# 4. stat_mtime from bin/fm-watch.sh
+# 3. stat_mtime from bin/fm-watch.sh
 # fm-watch.sh runs a top-level `mkdir -p` on its state dir when sourced; pin it
 # to the temp root via FM_STATE_OVERRIDE so no artifact escapes into the repo's
 # git-ignored state/ directory.
