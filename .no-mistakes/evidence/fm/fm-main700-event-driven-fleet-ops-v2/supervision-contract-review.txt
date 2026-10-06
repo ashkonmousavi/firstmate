@@ -1,0 +1,37 @@
+Documentation contract review - Test phase
+This records the requested reviewer-visible text and scope contract, not live agent behavior.
+
+$ git rev-parse HEAD
+b4751bd33a58c3b4fa4f9ee9e9e073c242273c83
+
+$ git diff --name-only a86dcd88a937e3f12b5911f5249e23bed0e87a2e b4751bd33a58c3b4fa4f9ee9e9e073c242273c83
+AGENTS.md
+
+$ git diff --numstat a86dcd88a937e3f12b5911f5249e23bed0e87a2e b4751bd33a58c3b4fa4f9ee9e9e073c242273c83
+2	1	AGENTS.md
+
+$ git diff a86dcd88a937e3f12b5911f5249e23bed0e87a2e b4751bd33a58c3b4fa4f9ee9e9e073c242273c83 -- AGENTS.md
+diff --git a/AGENTS.md b/AGENTS.md
+index 17642c6..f404a45 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -265,7 +265,8 @@ Load `scout-completion` when a scout reports completion, presents a visual artif
+ ## 8. Supervision protocol
+ 
+ Fleet supervision is an always-loaded operational contract; `docs/architecture.md`, `docs/turnend-guard.md`, the emitted session-start block, and script help own mechanisms and harness-specific recipes.
+-Send at most one steer per worker per hour.
++Send at most one steer per crewmate per hour; the limit never applies to a second mate or any other home.
++Route work to a second mate and handle every event or wake as it arrives, never in hourly batches.
+ When the captain invokes `/push`, `$push`, or asks to check and push the fleet forward, load the `push` skill for one bounded pass.
+ When the captain invokes `/retro`, `$retro`, or asks for a retro, load the `retro` skill to route the period's lessons to their owners, cut rules that cost time, and wake sleeping work on every machine.
+ 
+
+$ git status --short
+
+Review: only AGENTS.md changes, replacing one sentence with two sentences.
+The hourly limit names crewmates and explicitly excludes second mates and other homes.
+Routing and event/wake handling are explicitly immediate, never hourly batches.
+No executable code or rendered UI changes. No live scheduling proof was attempted because this is a natural-language instruction change with no deterministic runtime surface.
+No source-matching regression test was added.
+Not run: bin/fm-doc-audience-check.sh and bin/fm-lint.sh, because this assigned Test phase prohibits linters and static analysis.
+Publication, current-head CI, MAIN700 merge, FINALIZE-AFTER status, and every-home adoption were not validated; they remain outside this phase and workspace authority.
