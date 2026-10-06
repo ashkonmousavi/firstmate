@@ -132,9 +132,13 @@
 # (--admin), and branch
 # deletion (--delete-branch, -d and short-flag clusters, and GitLab's
 # --remove-source-branch) are refused by default; --attended-override, parsed
-# before the optional -- separator, re-enables those forge flags for an
-# explicit captain instruction and never skips the live green check, the
-# away-record read, or a captain hold.
+# before the optional -- separator, re-enables those forge flags without
+# skipping the unwaived-check guards, away-record read, or a captain hold.
+# AGENTS.md section 7 owns waiver authority: on yolo projects firstmate may use
+# --attended-override -- --admin solely for a named --allow-red or --allow-missing
+# CI waiver if forge protection requires it, not to bypass non-CI protections.
+# Auto-merge, branch deletion, non-CI protection bypass, and security-sensitive
+# merges still require an explicit captain instruction.
 #
 # Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--allow-red <check-name>]... [--allow-missing <check-name>]... [-- <extra forge merge args>]
 #
@@ -326,14 +330,14 @@ reject_protected_forge_args() {
   for arg in "$@"; do
     case "$arg" in
       --auto|--auto=*|--admin|--admin=*|--delete-branch|--delete-branch=*|--remove-source-branch|--remove-source-branch=*)
-        echo "error: extra merge arguments must not request auto-merge, a protection bypass, or branch deletion; pass --attended-override only for an explicit captain instruction" >&2
+        echo "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction" >&2
         return 1
         ;;
       --*) ;;
       # A single-dash argument is a short-option cluster. -d is gh's
       # --delete-branch, and -yd carries it the same way -yR carries --repo.
       -*d*)
-        echo "error: extra merge arguments must not request auto-merge, a protection bypass, or branch deletion; pass --attended-override only for an explicit captain instruction" >&2
+        echo "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction" >&2
         return 1
         ;;
     esac

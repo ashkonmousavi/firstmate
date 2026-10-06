@@ -1500,8 +1500,8 @@ test_extra_merge_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "extra-args: branch deletion must be refused without --attended-override"
-  assert_grep 'pass --attended-override only for an explicit captain instruction' "$case_dir/stderr" \
-    "extra-args: refusal did not name --attended-override"
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+    "extra-args: refusal did not preserve captain-only override limits"
   assert_no_grep 'pr merge' "$case_dir/gh.log" \
     "extra-args: gh pr merge ran despite the denylist"
 
@@ -1676,8 +1676,8 @@ test_bundled_repo_override_args_refuse_before_recording() {
   rc=$?
   set -e
   expect_code 1 "$rc" "bundled-non-repo-cluster: -d is branch deletion and must be refused"
-  assert_grep 'pass --attended-override only for an explicit captain instruction' "$case_dir/stderr" \
-    "bundled-non-repo-cluster: refusal did not name --attended-override"
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+    "bundled-non-repo-cluster: refusal did not preserve captain-only override limits"
 
   case_dir=$(make_case bundled-delete-attended)
   mkdir -p "$case_dir/wt"
@@ -1811,8 +1811,8 @@ test_gitlab_extra_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "gitlab-extra-args: source-branch deletion must be refused without --attended-override"
-  assert_grep 'pass --attended-override only for an explicit captain instruction' "$case_dir/stderr" \
-    "gitlab-extra-args: refusal did not name --attended-override"
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+    "gitlab-extra-args: refusal did not preserve captain-only override limits"
   [ ! -s "$case_dir/glab.log" ] || fail "gitlab-extra-args: glab ran despite the denylist"
 
   case_dir=$(make_gitlab_case gitlab-extra-args-attended)
@@ -2590,7 +2590,7 @@ test_backend_override_bypasses_unreadable_user_config() {
 }
 
 test_github_red_checks_refuse_and_allow_red_waives_named() {
-  local case_dir rc head
+  local case_dir rc head kind
   head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   case_dir=$(make_case github-red-checks)
   mkdir -p "$case_dir/wt"
@@ -2616,6 +2616,26 @@ test_github_red_checks_refuse_and_allow_red_waives_named() {
     --allow-red lint \
     > "$case_dir/stdout" 2> "$case_dir/stderr" || fail "github-allow-red: named waiver should merge"
   assert_logged_gh_merge "$case_dir" 81 example/repo --squash
+  for kind in classic ruleset; do
+    case_dir=$(make_case "github-allow-red-admin-$kind")
+    add_gh_mocks "$case_dir" "$head"
+    write_github_red_json "$case_dir" "$head" lint
+    write_github_required "$case_dir" "$kind:lint"
+    set +e
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/81 \
+      --allow-red lint -- --admin > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    expect_code 1 "$rc" "allow-red-admin-$kind: admin must require attended override"
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
+      "allow-red-admin-$kind: refusal did not name firstmate waiver authority"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" \
+      "allow-red-admin-$kind: merge ran without attended override"
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/81 \
+      --attended-override --allow-red lint -- --admin \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || fail "allow-red-admin-$kind: attended named waiver should merge"
+    assert_logged_gh_merge "$case_dir" 81 example/repo --squash --admin
+  done
   pass "fm-pr-merge refuses red GitHub checks and waives only a named --allow-red check"
 }
 
@@ -3739,7 +3759,7 @@ test_unreadable_required_set_refuses() {
 }
 
 test_allow_missing_waives_only_the_named_unreported_check() {
-  local case_dir head
+  local case_dir head kind
   head=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
 
   case_dir=$(make_case github-allow-missing-named)
@@ -3748,6 +3768,20 @@ test_allow_missing_waives_only_the_named_unreported_check() {
   run_required_case "$case_dir" 96 --allow-missing validate
   expect_code 0 "$RC" "allow-missing-named: the named waiver should merge: $(cat "$case_dir/stderr")"
   assert_logged_gh_merge "$case_dir" 96 example/repo --squash
+  for kind in classic ruleset; do
+    case_dir=$(make_case "github-allow-missing-admin-$kind")
+    add_gh_mocks "$case_dir" "$head"
+    write_github_required "$case_dir" "$kind:validate"
+    run_required_case "$case_dir" 96 --allow-missing validate -- --admin
+    expect_code 1 "$RC" "allow-missing-admin-$kind: admin must require attended override"
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
+      "allow-missing-admin-$kind: refusal did not name firstmate waiver authority"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" \
+      "allow-missing-admin-$kind: merge ran without attended override"
+    run_required_case "$case_dir" 96 --attended-override --allow-missing validate -- --admin
+    expect_code 0 "$RC" "allow-missing-admin-$kind: attended named waiver should merge: $(cat "$case_dir/stderr")"
+    assert_logged_gh_merge "$case_dir" 96 example/repo --squash --admin
+  done
 
   case_dir=$(make_case github-allow-missing-other-missing)
   add_gh_mocks "$case_dir" "$head"
