@@ -1310,7 +1310,11 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
       || fail "$mode: scout promotion should succeed: $out"
     assert_grep 'This is a SCOUT task' "$brief" \
       "$mode: the reproduction fixture lost the original scout delivery text"
-    assert_grep 'Never push to any remote and never open a PR' "$brief" \
+    # The compact scout brief still points at the scout contract after promotion.
+    # shellcheck disable=SC2016 # Fences are literal generated Markdown.
+    bash -c "$(sed -n '/^```bash$/,/^```$/p' "$brief" | sed '1d;$d')" > "$dir/scout-contract.md" \
+      || fail "$mode: the scout contract pointer did not render"
+    assert_grep 'Never push to any remote and never open a PR' "$dir/scout-contract.md" \
       "$mode: the reproduction fixture lost the stale scout prohibition"
 
     out=$(run_control "$dir" "$id" relaunch --note 'reproduced the crash in parser.go') \
