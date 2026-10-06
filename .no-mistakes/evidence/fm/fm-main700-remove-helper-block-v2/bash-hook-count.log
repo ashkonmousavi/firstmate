@@ -1,0 +1,4 @@
+$ jq '[.hooks.PreToolUse[] | select(.matcher=="Bash") | .hooks[]] | length' .claude/settings.json
+2
+
+exit=0

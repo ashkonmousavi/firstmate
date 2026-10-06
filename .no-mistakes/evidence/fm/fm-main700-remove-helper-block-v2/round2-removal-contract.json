@@ -1,0 +1,35 @@
+{
+  "contract": "Tracked Claude settings normalized semantic model and explicit removal ownership",
+  "removed_entries": [
+    {
+      "matcher": ".*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "\"$CLAUDE_PROJECT_DIR\"/bin/fm-subagent-pretool-check.sh --claude"
+        }
+      ]
+    }
+  ],
+  "remaining_hooks_unchanged": true,
+  "removed_owners_absent": [
+    "bin/fm-subagent-pretool-check.sh",
+    "tests/fm-subagent-pretool-check.test.sh",
+    "docs/subagent-guard.md"
+  ],
+  "pretool_entries": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-arm-pretool-check.sh --claude"
+        },
+        {
+          "type": "command",
+          "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-cd-pretool-check.sh --claude"
+        }
+      ]
+    }
+  ]
+}

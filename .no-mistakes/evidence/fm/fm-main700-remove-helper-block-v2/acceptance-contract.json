@@ -1,0 +1,9 @@
+{
+  "tracked_removed_owners_absent": true,
+  "tracked_reference_search_exit": 1,
+  "tracked_reference_search_output": "",
+  "bash_hook_count": 2,
+  "other_PreToolUse_matchers": [],
+  "lint_and_static_analysis": "Not run: explicitly prohibited in assigned Test phase.",
+  "delivery": "Push, PR, CI, merge and updates on all homes are owned by the outer executor; not driven here."
+}

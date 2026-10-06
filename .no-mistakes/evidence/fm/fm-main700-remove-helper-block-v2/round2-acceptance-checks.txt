@@ -1,0 +1,31 @@
+$ jq -r '.hooks.PreToolUse[].hooks[].command' .claude/settings.json | grep -c subagent
+0
+
+exit=1
+
+$ jq '[.hooks.PreToolUse[] | select(.matcher=="Bash") | .hooks[]] | length' .claude/settings.json
+2
+
+exit=0
+
+$ git grep -n -e fm-subagent-pretool-check -e subagent-guard -e FM_ALLOW_SUBAGENT
+
+exit=1
+
+$ bash tests/fm-turnend-guard.test.sh
+ok - tracked .claude/settings.json entries: 7 inert under grok, 0 unguarded, all live under Claude
+exit=0
+Full output: turnend.log
+
+$ bin/fm-doc-audience-check.sh
+fm-doc-audience-check: ok surfaces=124 local_links=728
+
+exit=0
+
+$ bin/fm-lint.sh
+fm-lint.sh: ShellCheck 0.11.0 (pinned 0.11.0)
+fm-lint.sh: local changed-file mode; ShellCheck source following disabled
+fm-lint-workflows.sh: actionlint 1.7.12 (pinned 1.7.12)
+fm-lint-workflows.sh: 3 workflow files valid
+
+exit=0

@@ -1,0 +1,154 @@
+[
+  {
+    "scenario": "retained Bash guard",
+    "input": "bin/fm-watch-arm.sh &",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[watcher-background] a protected watcher command cannot run in an asynchronous shell list or through nohup/disown\"}\n"
+  },
+  {
+    "scenario": "ordinary Bash allowed",
+    "guard": 0,
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "scenario": "retained Bash guard",
+    "input": "cd projects/example",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+  },
+  {
+    "scenario": "ordinary Bash allowed",
+    "guard": 1,
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "SessionStart",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "PreToolUse",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "PreToolUse",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "UserPromptSubmit",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "Stop",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "Stop",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_AGENT",
+    "event": "Stop",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "SessionStart",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "PreToolUse",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "PreToolUse",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "UserPromptSubmit",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "Stop",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "Stop",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "Grok marker bypasses Claude hook",
+    "marker": "GROK_HOOK_EVENT",
+    "event": "Stop",
+    "exit": 0,
+    "stdout": "",
+    "trace": "+ [ -z 1 ]\n+ exit 0\n"
+  },
+  {
+    "scenario": "configuration semantic contract",
+    "bash_hooks": 2,
+    "remaining_hooks_unchanged": true,
+    "Agent_matching_PreToolUse_entries": 0
+  },
+  {
+    "scenario": "baseline primary Agent restriction",
+    "exit": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[subagent-dispatch] the firstmate primary dispatches through the fleet, not the harness's own delegation tools: work started that way has no durable fleet record, leaves every firstmate guard inert, and dies with this session. Instead, first classify the work under the AGENTS.md intake contract, then use bin/fm-brief.sh followed by bin/fm-spawn.sh for dispatched work (blocked tool: Agent, delegation-shaped on \\\"agent\\\"). Launch the session with FM_ALLOW_SUBAGENT=1 for a deliberate exception.\"}\n"
+  }
+]

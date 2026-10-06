@@ -1,0 +1,4 @@
+$ jq -r '.hooks.PreToolUse[].hooks[].command' .claude/settings.json | grep -c subagent
+0
+
+exit=1

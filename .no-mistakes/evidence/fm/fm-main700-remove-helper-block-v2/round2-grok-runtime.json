@@ -1,0 +1,132 @@
+{
+  "interface": "Execute all seven registered shell-hook commands with each native Grok marker shape and adversarial Bash payload; no scripts are replaced or mocked.",
+  "results": [
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-sessionstart-run.sh",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-arm-pretool-check.sh --claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-cd-pretool-check.sh --claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-host-mirror.sh hook claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-turnend-guard.sh --claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-claude-stop-autoarm.sh",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_HOOK_EVENT": "pre_tool_use"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-host-mirror.sh hook claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-sessionstart-run.sh",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-arm-pretool-check.sh --claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-cd-pretool-check.sh --claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-host-mirror.sh hook claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-turnend-guard.sh --claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-claude-stop-autoarm.sh",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "markers": {
+        "GROK_AGENT": "1"
+      },
+      "command": "[ -z \"${GROK_AGENT:-}${GROK_HOOK_EVENT:-}\" ] || exit 0; exec \"$CLAUDE_PROJECT_DIR\"/bin/fm-host-mirror.sh hook claude",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "lab_home_file_bytes_unchanged": true
+}

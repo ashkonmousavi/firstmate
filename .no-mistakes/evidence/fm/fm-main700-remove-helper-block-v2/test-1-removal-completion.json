@@ -1,0 +1,50 @@
+{
+  "finding_id": "test-1",
+  "result": "All explicitly requested acceptance checks passed; evidence gap resolved.",
+  "root_cause": "Prior phase restrictions left acceptance evidence incomplete; no product, setup or infrastructure defect reproduced.",
+  "product_or_test_files_changed": [],
+  "normalized_settings_comparison": {
+    "base": "a86dcd88a937e3f12b5911f5249e23bed0e87a2e",
+    "only_removed_registration": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/bin/fm-subagent-pretool-check.sh --claude"
+          }
+        ]
+      }
+    ],
+    "remaining_declarations_unchanged": true
+  },
+  "deleted_owners_absent": [
+    "bin/fm-subagent-pretool-check.sh",
+    "tests/fm-subagent-pretool-check.test.sh",
+    "docs/subagent-guard.md"
+  ],
+  "deleted_owner_check_argv": [
+    "git",
+    "ls-files",
+    "--",
+    "bin/fm-subagent-pretool-check.sh",
+    "tests/fm-subagent-pretool-check.test.sh",
+    "docs/subagent-guard.md"
+  ],
+  "deleted_owner_check_stdout": "",
+  "guarded": 7,
+  "unguarded": 0,
+  "behavior_test_output": "ok - tracked .claude/settings.json entries: 7 inert under grok, 0 unguarded, all live under Claude",
+  "checks_report": "/home/tegris/.no-mistakes/evidence/01M49D3NR74VSS687DRA7GC1GX/test-1-removal-check-results.json",
+  "retained_inventory": "/home/tegris/.no-mistakes/evidence/01M49D3NR74VSS687DRA7GC1GX/test-1-removal-class-inventory.json",
+  "cleanup": "Test fixture cleanup completed; no transient or intentional changes in the working tree.",
+  "final_status_argv": [
+    "git",
+    "status",
+    "--short",
+    "--untracked-files=all"
+  ],
+  "final_status_stdout": "",
+  "next_review": "Check retained inventory and all requested command outputs; search for missed siblings.",
+  "remaining_delivery_gates": "Remote CI, publication, merge and all-home adoption are outside this assigned Test phase."
+}

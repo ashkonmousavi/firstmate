@@ -1,0 +1,22 @@
+{
+  "recorded_at": "2026-10-06T20:15:08.091791+00:00",
+  "phase": "Test fix round",
+  "tested_head_sha": "8815d4b1a4bbe1b6a98b9433e2a18a943ae03358",
+  "source_edits_before_inventory": false,
+  "search_scope": "Supplied gate findings table (one row: test-1) and supplied test summary",
+  "inventory": [
+    {
+      "id": "test-1",
+      "cause": "Acceptance evidence incomplete: runtime scenarios passed; removal-contract inspection and documentation/lint acceptance remained untested.",
+      "known_source_defect": false
+    }
+  ],
+  "negative_evidence": [
+    "Supplied Review completed with zero findings.",
+    "No other Test finding is listed."
+  ],
+  "decision": "Run the six explicitly requested checks in the assigned publisher worktree and retain outputs; do not change product code if checks pass.",
+  "lint_authority": "The specific recorded human fix decision requests bin/fm-doc-audience-check.sh and bin/fm-lint.sh; this supersedes the generic phase restriction for those exact commands only.",
+  "next_review": "Inspect retained inventory, verify every listed check and search for missed siblings.",
+  "delivery_boundary": "CI, PR publication, merge and updates to all homes remain outer-executor owned."
+}

@@ -1,0 +1,3 @@
+$ git grep -n -e fm-subagent-pretool-check -e subagent-guard -e FM_ALLOW_SUBAGENT
+
+exit=1
