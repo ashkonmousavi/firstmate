@@ -1579,8 +1579,7 @@ test_completion_closes_a_scout_with_its_report() {
   add_item "$case_dir" "$id" scout
   start_item "$case_dir" "$id"
   write_task_meta "$case_dir" "$id" scout '' "spawn_gen=spawn-close-scout"
-  # A scout's deliverable is its report, and teardown also enforces the shared
-  # captain-call completion gate; satisfy both the way a real scout does.
+  # A scout's deliverable is its report.
   mkdir -p "$(home_of "$case_dir")/data/$id"
   printf 'findings\n' > "$(home_of "$case_dir")/data/$id/report.md"
   FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$(home_of "$case_dir")" \

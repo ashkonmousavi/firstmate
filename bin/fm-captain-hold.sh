@@ -151,8 +151,7 @@
 # `captain-held [key=...]` status close naming the inventory. Later review
 # passes may add ids. A post-teardown visual review can complete against the
 # surviving report and tasks without recreating task state.
-# `verify` is read-only and is called by scout teardown, so teardown cannot
-# erase a source before this gate has succeeded: every recorded inventory
+# `verify` is the read-only check of the attestation: every recorded inventory
 # entry must still satisfy the same durability and origin checks as `complete`,
 # and no keyed status decision may be open.
 # Metadata compatibility: the attestation keeps the historical
