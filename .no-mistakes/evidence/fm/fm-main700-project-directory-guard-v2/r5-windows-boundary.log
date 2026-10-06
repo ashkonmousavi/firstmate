@@ -1,0 +1,7 @@
+ExactWorktreeExists=False
+claude=True
+codex=False
+cursor-agent=False
+node=True
+jq=False
+tmux=False

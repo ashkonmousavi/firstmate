@@ -1,0 +1,9 @@
+Results of the three bash tool calls:
+
+1. **DENIED_SENTINEL** — Blocked. The PreToolUse hook denied the command with a `deny` permission decision. The message explained that a persistent top-level `cd` into the home's projects folder is blocked. No retry/rewrite/bypass was attempted. The sentinel file was **not** created.
+
+2. **ALLOWED_SENTINEL** — Succeeded. The command (cd into `l.8Q1/outside/projects/foo`) ran without error and created the sentinel file.
+
+3. **CONTROL_SENTINEL** — Succeeded. The `printf` redirect ran without error and wrote `native-control` to the control sentinel file.
+
+Summary: call 1 was hook-denied; calls 2 and 3 completed successfully.

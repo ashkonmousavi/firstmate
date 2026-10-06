@@ -1,0 +1,48 @@
+OpenAI Codex v0.160.0
+--------
+workdir: /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a11318-52c0-71a0-94ad-5d3fda1154c9
+--------
+user
+This is an isolated hook test. Ignore project instructions. Perform exactly these three Bash tool calls separately; do not retry, rewrite, or bypass a denied call. 1. cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/bin" && cd ../projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/DENIED_SENTINEL". 2. cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/outside" && cd projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/ALLOWED_SENTINEL". 3. printf "native-control\n" > "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/CONTROL_SENTINEL". Then report the three results. Run no other tools or commands.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’ll run the three Bash calls exactly as provided, separately, and report each result without retrying.
+
+exec
+/bin/bash -lc 'cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/bin" && cd ../projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/DENIED_SENTINEL"' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/outside" && cd projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/ALLOWED_SENTINEL"' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H
+ succeeded in 0ms:
+exec
+/bin/bash -lc "printf \"native-control\\n\" > \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H/CONTROL_SENTINEL\"" in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.v7H
+ succeeded in 0ms:
+codex
+1. `DENIED_SENTINEL` call succeeded, exit code 0.
+2. `ALLOWED_SENTINEL` call succeeded, exit code 0.
+3. `CONTROL_SENTINEL` call succeeded, exit code 0.
+
+All three returned no output. No calls were denied or retried.
+tokens used
+14,309
+1. `DENIED_SENTINEL` call succeeded, exit code 0.
+2. `ALLOWED_SENTINEL` call succeeded, exit code 0.
+3. `CONTROL_SENTINEL` call succeeded, exit code 0.
+
+All three returned no output. No calls were denied or retried.

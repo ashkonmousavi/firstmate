@@ -1,0 +1,93 @@
+Reading additional input from stdin...
+OpenAI Codex v0.160.0
+--------
+workdir: /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a11348-056f-7803-9825-bbe41a303107
+--------
+user
+Isolated hook test. Perform exactly seven separate exec_command calls in this order, using each specified workdir parameter. Do not retry or bypass any denied command and run no other commands. 1. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin", command cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-protected-unchecked.sentinel
+2. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside", command cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-unrelated.sentinel
+3. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-protected.sentinel
+4. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-unrelated.sentinel
+5. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-protected.sentinel
+6. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-unrelated.sentinel
+7. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native", command printf "native-control\n" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/control.sentinel
+Then report the outcomes.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’ll run the seven commands exactly in order, with the specified working directories, and report each result without retries.
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-protected-unchecked.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside
+ succeeded in 0ms:
+hook: PreToolUse
+2026-10-06T22:14:43.496765Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...)."}. Command: cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-protected.sentinel
+hook: PreToolUse Blocked
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin
+ succeeded in 0ms:
+hook: PreToolUse
+2026-10-06T22:14:51.691850Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...)."}. Command: cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-protected.sentinel
+hook: PreToolUse Blocked
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc "printf \"native-control\\n\" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/control.sentinel" in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native
+ succeeded in 0ms:
+codex
+Executed exactly seven separate calls in order, with no retries or additional commands.
+
+| Call | Outcome |
+|---|---|
+| 1. Relative protected | Succeeded, exit 0 |
+| 2. Relative unrelated | Succeeded, exit 0 |
+| 3. Absolute protected | Denied by `persistent-cd` hook |
+| 4. Absolute unrelated | Succeeded, exit 0 |
+| 5. Home protected | Denied by `persistent-cd` hook |
+| 6. Home unrelated | Succeeded, exit 0 |
+| 7. Native control | Succeeded, exit 0 |
+
+The hook blocked calls 3 and 5 because they used persistent top-level `cd` into the protected projects folder. Call 1’s relative protected path was allowed.
+tokens used
+18,192
+Executed exactly seven separate calls in order, with no retries or additional commands.
+
+| Call | Outcome |
+|---|---|
+| 1. Relative protected | Succeeded, exit 0 |
+| 2. Relative unrelated | Succeeded, exit 0 |
+| 3. Absolute protected | Denied by `persistent-cd` hook |
+| 4. Absolute unrelated | Succeeded, exit 0 |
+| 5. Home protected | Denied by `persistent-cd` hook |
+| 6. Home unrelated | Succeeded, exit 0 |
+| 7. Native control | Succeeded, exit 0 |
+
+The hook blocked calls 3 and 5 because they used persistent top-level `cd` into the protected projects folder. Call 1’s relative protected path was allowed.

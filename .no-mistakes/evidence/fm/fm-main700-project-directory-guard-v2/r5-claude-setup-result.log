@@ -1,0 +1,8 @@
+Results of the four Bash calls:
+
+1. `cd .../l.oPT/bin` — **completed**, no output.
+2. `cd ../projects/foo && touch .../protected.sentinel` — **completed**, no output.
+3. `cd .../l.oPT/outside` — **completed**, no output.
+4. `cd projects/foo && touch .../unrelated.sentinel && printf ... > .../control.sentinel` — **completed**, no output.
+
+All four ran as separate calls. Note that between call 1 and call 2, my response was stopped by a safety classifier, so calls 2–4 were issued afterward. None were retried or bypassed.

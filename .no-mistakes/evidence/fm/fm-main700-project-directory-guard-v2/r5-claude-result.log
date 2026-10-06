@@ -1,0 +1,11 @@
+Results of the four Bash calls:
+
+1. **`cd .../l.AFD/bin`** — Succeeded. No output.
+
+2. **`cd ../projects/foo && touch protected.sentinel`** — **Denied by hook.** The `PreToolUse` hook blocked it: a persistent top-level `cd` into the home's `projects` folder is blocked. The command did not run and `protected.sentinel` was not created. Per instructions, I did not retry or bypass.
+
+3. **`cd .../l.AFD/outside`** — Succeeded. No output.
+
+4. **`cd projects/foo && touch unrelated.sentinel && printf ... > control.sentinel`** — Succeeded. No output. This `cd projects/foo` was relative to the `outside` directory from call 3 (ending in `.../l.AFD/outside/projects/foo`), not the home projects folder, so the hook permitted it. Both `unrelated.sentinel` and `control.sentinel` were created.
+
+Summary: calls 1, 3, and 4 ran; call 2 was denied by the `persistent-cd` hook (not retried or bypassed).

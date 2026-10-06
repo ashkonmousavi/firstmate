@@ -1,0 +1,3 @@
+Command: ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', 'Get-Command bash,node,jq,git,tmux -ErrorAction SilentlyContinue | Select-Object Name,Source | ConvertTo-Json -Compress']
+exit=1
+[{"Name":"bash.exe","Source":"C:\\Windows\\system32\\bash.exe"},{"Name":"node.exe","Source":"C:\\Program Files\\nodejs\\node.exe"},{"Name":"git.exe","Source":"C:\\Program Files\\Git\\cmd\\git.exe"}]

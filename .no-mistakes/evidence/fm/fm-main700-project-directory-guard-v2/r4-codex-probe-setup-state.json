@@ -1,0 +1,43 @@
+{
+  "version": "codex-cli 0.160.0",
+  "exit": 0,
+  "observed": {
+    "relative-protected-unchecked": true,
+    "relative-unrelated": true,
+    "absolute-protected": true,
+    "absolute-unrelated": true,
+    "home-protected": false,
+    "home-unrelated": false,
+    "control": false
+  },
+  "expected": {
+    "relative-protected-unchecked": true,
+    "relative-unrelated": true,
+    "absolute-protected": false,
+    "absolute-unrelated": true,
+    "home-protected": false,
+    "home-unrelated": true,
+    "control": true
+  },
+  "invocation": [
+    "codex",
+    "exec",
+    "--ephemeral",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--enable",
+    "hooks",
+    "--dangerously-bypass-hook-trust",
+    "-s",
+    "workspace-write",
+    "-c",
+    "approval_policy=\"never\"",
+    "-c",
+    "log_dir=\"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/logs\"",
+    "-c",
+    "sqlite_home=\"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/sqlite\"",
+    "--cd",
+    "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native"
+  ],
+  "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native"
+}

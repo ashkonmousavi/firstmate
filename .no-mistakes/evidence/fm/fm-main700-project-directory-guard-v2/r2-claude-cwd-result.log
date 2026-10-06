@@ -1,0 +1,6 @@
+I ran all four commands once each. The hook blocked command 2 and allowed the other three. I didn't retry anything or work around the block.
+
+1. **`cd .../l.DoY/bin`**: Allowed. It produced no output and the working directory moved to `.../l.DoY/bin`.
+2. **`cd ../projects/foo && touch .../DENIED_SENTINEL`**: Blocked. The `PreToolUse` hook (`l.DoY/bin/record-hook.sh`) returned `permissionDecision: "deny"` with the message: *"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked…"* The command never ran, so `DENIED_SENTINEL` should not exist. I didn't check this, since you asked me not to run anything else.
+3. **`cd .../l.DoY/outside`**: Allowed. It produced no output and the working directory moved to `.../l.DoY/outside`.
+4. **`cd projects/foo && touch .../ALLOWED_SENTINEL && printf "native-control\n" > .../CONTROL_SENTINEL`**: Allowed. It produced no output and the working directory ended at `.../l.DoY/outside/projects/foo`. `ALLOWED_SENTINEL` and `CONTROL_SENTINEL` (containing `native-control`) should now exist, but I didn't check them either.

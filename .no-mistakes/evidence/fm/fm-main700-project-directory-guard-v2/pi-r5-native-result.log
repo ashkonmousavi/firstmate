@@ -1,0 +1,9 @@
+Here are the results of the three bash calls:
+
+1. **DENIED** — The first call (`cd l.X7y/projects/foo && touch .../DENIED_SENTINEL`) was blocked by the `[persistent-cd]` PreToolUse hook. The hook denied it because it was a persistent top-level `cd` into the home's projects folder. No retry, rewrite, or bypass was attempted.
+
+2. **ALLOWED** — The second call (`cd l.X7y/outside/projects/foo && touch .../ALLOWED_SENTINEL`) executed successfully with no output or errors.
+
+3. **SUCCEEDED** — The third call (`printf "native-control\n" > .../CONTROL_SENTINEL`) executed successfully with no output or errors.
+
+Summary: 1 denied by hook, 2 allowed/succeeded as expected.

@@ -1,0 +1,9 @@
+I ran the three calls once each, with no retries and no other commands:
+
+1. **`bin` → `../projects/foo` → touch `DENIED_SENTINEL`: blocked.** The PreToolUse hook (`bin/record-hook.sh`) denied it with the message `[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked...`. Since the command never ran, `DENIED_SENTINEL` should not exist.
+2. **`outside` → `projects/foo` → touch `ALLOWED_SENTINEL`: allowed.** It finished with no output, so `ALLOWED_SENTINEL` should exist.
+3. **printf to `CONTROL_SENTINEL`: allowed.** It finished with no output, so `CONTROL_SENTINEL` should contain `native-control`.
+
+I didn't check any of the files on disk, because you asked me to run nothing else.
+
+Because call 2 was allowed, its `cd` stuck: the shell's working directory is now `.../l.EPQ/outside/projects/foo`, which is not a git worktree. The hook only blocks persistent `cd` into the home's `projects` folder, and this one wasn't caught. Any later command without an absolute path will run from there.

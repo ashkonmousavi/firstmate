@@ -1,0 +1,69 @@
+{
+  "labs": [
+    {
+      "state_file": "omp-r5-native-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.07P",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-codex-setup-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2",
+      "lab_exists": false
+    },
+    {
+      "state_file": "grok-r5-isolated-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.cgJ",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-codex-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda",
+      "lab_exists": false
+    },
+    {
+      "state_file": "omp-r5-model-native-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lx1",
+      "lab_exists": false
+    },
+    {
+      "state_file": "pi-r5-native-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.X7y",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-claude-setup-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.oPT",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-claude-setup2-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.yja",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-opencode-native-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.tIs",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-opencode-tui-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.jtp",
+      "lab_exists": false
+    },
+    {
+      "state_file": "cursor-r5-isolated-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.LcK",
+      "lab_exists": false
+    },
+    {
+      "state_file": "r5-claude-state.json",
+      "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.AFD",
+      "lab_exists": false
+    }
+  ],
+  "remaining_lab_process_pids": [],
+  "git_status": "",
+  "source_changed": false,
+  "transient_test_runners_removed": true,
+  "test_installed_dependencies_removed": true
+}

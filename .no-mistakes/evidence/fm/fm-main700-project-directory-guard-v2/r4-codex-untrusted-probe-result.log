@@ -1,0 +1,55 @@
+Reading additional input from stdin...
+OpenAI Codex v0.160.0
+--------
+workdir: /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a11347-278a-7502-b8c0-666537a75a39
+--------
+user
+Isolated hook test. Perform exactly seven separate exec_command calls in this order, using each specified workdir parameter. Do not retry or bypass any denied command and run no other commands. 1. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin", command cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-protected-unchecked.sentinel
+2. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside", command cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-unrelated.sentinel
+3. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-protected.sentinel
+4. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-unrelated.sentinel
+5. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-protected.sentinel
+6. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-unrelated.sentinel
+7. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native", command printf "native-control\n" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/control.sentinel
+Then report the outcomes.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’ll run the seven calls in order, with the exact commands and workdirs, and report the outcomes without retries or additional commands.
+
+exec
+/bin/bash -lc 'cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-protected-unchecked.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/relative-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-protected.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/absolute-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-protected.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside
+ succeeded in 0ms:
+exec
+/bin/bash -lc 'cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/home-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/bin
+ succeeded in 0ms:
+exec
+/bin/bash -lc "printf \"native-control\\n\" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native/control.sentinel" in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/native
+ succeeded in 0ms:

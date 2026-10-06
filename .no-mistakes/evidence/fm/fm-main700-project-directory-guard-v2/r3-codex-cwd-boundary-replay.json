@@ -1,0 +1,56 @@
+[
+  {
+    "native_payload": {
+      "session_id": "01a1132c-f0a6-7f32-bad0-a1a4a10e697d",
+      "turn_id": "01a1132d-3d8c-71e1-b747-fc46257b775f",
+      "transcript_path": null,
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lm4",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd ../projects/foo && touch \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lm4/DENIED_SENTINEL\""
+      },
+      "tool_use_id": "exec-680134d7-204e-4696-b605-ec9633d2ed0a"
+    },
+    "effective_execution_cwd_from_native_log": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lm4/bin",
+    "original": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "only_cwd_corrected": {
+      "exit": 2,
+      "stdout": "",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+    }
+  },
+  {
+    "native_payload": {
+      "session_id": "01a1132c-f0a6-7f32-bad0-a1a4a10e697d",
+      "turn_id": "01a1132d-3d8c-71e1-b747-fc46257b775f",
+      "transcript_path": null,
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lm4",
+      "hook_event_name": "PreToolUse",
+      "model": "gpt-6.1-sol",
+      "permission_mode": "bypassPermissions",
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo && touch \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lm4/ALLOWED_SENTINEL\""
+      },
+      "tool_use_id": "exec-23f328f0-f853-4c18-8c90-7aaa110388c9"
+    },
+    "effective_execution_cwd_from_native_log": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Lm4/outside",
+    "original": {
+      "exit": 2,
+      "stdout": "",
+      "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+    },
+    "only_cwd_corrected": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  }
+]

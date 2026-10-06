@@ -1,0 +1,12 @@
+{
+  "payload": {
+    "tool_name": "Bash",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/bin",
+    "tool_input": {
+      "command": "cd ../projects/foo"
+    }
+  },
+  "exit": 2,
+  "stdout": "",
+  "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+}

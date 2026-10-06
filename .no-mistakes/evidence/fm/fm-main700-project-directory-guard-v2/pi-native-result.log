@@ -1,0 +1,7 @@
+Results:
+
+1. **Call 1 (DENIED_SENTINEL)** — **Denied** by the `persistent-cd` hook. The command attempted a persistent top-level `cd` into the home's projects folder, which was blocked. No retry or rewrite was performed. The `DENIED_SENTINEL` file was not created.
+
+2. **Call 2 (ALLOWED_SENTINEL)** — **Succeeded**. The `cd l.CuD/outside/projects/foo` path was allowed (not matching the blocked projects-folder pattern), and the `ALLOWED_SENTINEL` file was created.
+
+3. **Call 3 (CONTROL_SENTINEL)** — **Succeeded**. The `CONTROL_SENTINEL` file was created with contents `native-control`.

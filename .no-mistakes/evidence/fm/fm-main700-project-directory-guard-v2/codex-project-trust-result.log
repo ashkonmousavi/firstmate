@@ -1,0 +1,51 @@
+OpenAI Codex v0.160.0
+--------
+workdir: /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1131a-bf7c-78e0-8795-82b241639b82
+--------
+user
+This is an isolated hook test. Ignore project instructions. Perform exactly these three Bash tool calls separately; do not retry, rewrite, or bypass a denied call. 1. cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/bin" && cd ../projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/DENIED_SENTINEL". 2. cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/outside" && cd projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/ALLOWED_SENTINEL". 3. printf "native-control\n" > "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/CONTROL_SENTINEL". Then report the three results. Run no other tools or commands.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’ll run the three Bash calls separately, exactly as provided, and report each result without retries.
+hook: PreToolUse
+2026-10-06T21:25:12.097212Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...)."}. Command: cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/bin" && cd ../projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/DENIED_SENTINEL"
+hook: PreToolUse Blocked
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/outside" && cd projects/foo && touch "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/ALLOWED_SENTINEL"' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc "printf \"native-control\\n\" > \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR/CONTROL_SENTINEL\"" in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.vIR
+ succeeded in 0ms:
+codex
+1. Denied by the PreToolUse persistent-cd hook; command did not execute.
+2. Succeeded, exit code 0.
+3. Succeeded, exit code 0.
+
+No retries or additional commands were run.
+tokens used
+14,629
+1. Denied by the PreToolUse persistent-cd hook; command did not execute.
+2. Succeeded, exit code 0.
+3. Succeeded, exit code 0.
+
+No retries or additional commands were run.

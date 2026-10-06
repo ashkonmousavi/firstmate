@@ -1,0 +1,26 @@
+[
+  {
+    "revision": "a86dcd88a937e3f12b5911f5249e23bed0e87a2e",
+    "command": "cd bin",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/baseline",
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+  },
+  {
+    "revision": "a86dcd88a937e3f12b5911f5249e23bed0e87a2e",
+    "command": "cd ..",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/baseline",
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+  },
+  {
+    "revision": "a86dcd88a937e3f12b5911f5249e23bed0e87a2e",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/baseline",
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level directory change in the primary firstmate checkout is blocked; it would move the shell out of the home so a later firstmate-owned command runs inside a project clone. Reach the target without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n"
+  }
+]

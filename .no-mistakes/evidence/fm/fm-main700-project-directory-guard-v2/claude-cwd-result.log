@@ -1,0 +1,8 @@
+I ran all four commands once each. The hook blocked step 2 as intended and allowed the other three.
+
+1. **`cd .../l.XiQ/bin`**: Succeeded with no output. The shell moved to `l.XiQ/bin`.
+2. **`cd ../projects/foo && touch .../DENIED_SENTINEL`**: Blocked by the PreToolUse hook (`bin/record-hook.sh`) with `permissionDecision: "deny"` and this message: *"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked…"* Since it was blocked before running, `DENIED_SENTINEL` should not exist. I didn't retry or work around it.
+3. **`cd .../l.XiQ/outside`**: Succeeded with no output. The shell moved to `l.XiQ/outside`.
+4. **`cd projects/foo && touch .../ALLOWED_SENTINEL && printf "native-control\n" > .../CONTROL_SENTINEL`**: Succeeded with no output and the hook didn't block it. The shell is now in `l.XiQ/outside/projects/foo`. `ALLOWED_SENTINEL` should exist, and `CONTROL_SENTINEL` should contain `native-control`.
+
+As you asked, I didn't run anything else, so I haven't checked that the sentinel files exist or what they contain.

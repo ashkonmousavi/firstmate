@@ -1,0 +1,9 @@
+Results:
+
+1. **Call 1 (DENIED_SENTINEL)** — **Denied** by the `persistent-cd` PreToolUse hook. The hook blocked the persistent top-level `cd` into the home's projects folder. No retry/rewrite was attempted.
+
+2. **Call 2 (ALLOWED_SENTINEL)** — **Succeeded** (no output). The `cd` into `l.Stc/outside/projects/foo` was allowed and the sentinel file was touched.
+
+3. **Call 3 (CONTROL_SENTINEL)** — **Succeeded** (no output). The control file was written with `native-control`.
+
+Summary: 1 denied (as expected by the hook), 2 allowed and completed.

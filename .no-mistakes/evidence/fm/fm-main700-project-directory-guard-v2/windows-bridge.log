@@ -1,0 +1,3 @@
+Command: powershell.exe -NoProfile -NonInteractive -Command Get-Command node,bash,claude,codex,cursor-agent,pi,omp,opencode,grok
+Observed exit 1:
+<3>WSL (32947 - ) ERROR: UtilAcceptVsock:271: accept4 failed 110

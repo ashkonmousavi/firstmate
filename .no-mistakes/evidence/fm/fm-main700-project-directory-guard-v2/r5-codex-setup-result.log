@@ -1,0 +1,96 @@
+OpenAI Codex v0.160.0
+--------
+workdir: /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1134b-fa54-7c52-84bf-c493b8eac416
+--------
+user
+Isolated hook test. Perform exactly seven separate exec_command calls in this order, using each specified workdir parameter. Do not retry or bypass any denied command and run no other commands. 1. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/bin", command cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/relative-protected-unchecked.sentinel
+2. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside", command cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/relative-unrelated.sentinel
+3. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/absolute-protected.sentinel
+4. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/bin", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/absolute-unrelated.sentinel
+5. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/home-protected.sentinel
+6. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/bin", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/home-unrelated.sentinel
+7. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2", command printf "native-control\n" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/control.sentinel
+Then report outcomes.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’ll run the seven calls in the specified order, without retries or additional commands, then report each outcome.
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/relative-protected-unchecked.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/bin
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/relative-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/absolute-protected.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/absolute-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/bin
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/home-protected.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/home-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/bin
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc "printf \"native-control\\n\" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2/control.sentinel" in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.wg2
+ succeeded in 0ms:
+codex
+Exactly seven calls ran in order. All returned exit code `0`, with no output or denials.
+
+| Call | Sentinel | Outcome |
+|---|---|---|
+| 1 | relative-protected-unchecked.sentinel | Success |
+| 2 | relative-unrelated.sentinel | Success |
+| 3 | absolute-protected.sentinel | Success |
+| 4 | absolute-unrelated.sentinel | Success |
+| 5 | home-protected.sentinel | Success |
+| 6 | home-unrelated.sentinel | Success |
+| 7 | control.sentinel | Success |
+
+No retries or additional commands were run.
+tokens used
+17,447
+Exactly seven calls ran in order. All returned exit code `0`, with no output or denials.
+
+| Call | Sentinel | Outcome |
+|---|---|---|
+| 1 | relative-protected-unchecked.sentinel | Success |
+| 2 | relative-unrelated.sentinel | Success |
+| 3 | absolute-protected.sentinel | Success |
+| 4 | absolute-unrelated.sentinel | Success |
+| 5 | home-protected.sentinel | Success |
+| 6 | home-unrelated.sentinel | Success |
+| 7 | control.sentinel | Success |
+
+No retries or additional commands were run.

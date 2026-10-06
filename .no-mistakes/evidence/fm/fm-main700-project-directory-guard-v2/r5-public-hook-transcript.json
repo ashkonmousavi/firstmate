@@ -1,0 +1,689 @@
+[
+  {
+    "name": "protected literal move",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "cd ./projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd ./projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "pushd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "pushd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "cd \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/projects/foo\"",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/projects/foo\""
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "cd bin && cd ../projects/foo && touch data/SHOULD_NOT_EXIST",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd bin && cd ../projects/foo && touch data/SHOULD_NOT_EXIST"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "cd bin || true; cd ../projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd bin || true; cd ../projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "pushd bin || true; pushd ../projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "pushd bin || true; pushd ../projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "protected literal move",
+    "command": "cd missing && true; cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd missing && true; cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "cd ..",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd .."
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "cd",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "cd -",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd -"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "cd /tmp",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd /tmp"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "cd bin",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd bin"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "popd",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "popd"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "nonproject move remains permitted",
+    "command": "cd projectsfoo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projectsfoo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "same relative operand outside protected root",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow",
+    "shell": {
+      "returncode": 0,
+      "stdout": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside/projects/foo\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "preceding cd changes resolution base",
+    "command": "cd \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside\" || true; cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd \"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside\" || true; cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow",
+    "shell": {
+      "returncode": 0,
+      "stdout": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside/projects/foo\n",
+      "stderr": ""
+    }
+  },
+  {
+    "name": "existing child-process or data carve-out",
+    "command": "(cd projects/foo && pwd)",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "(cd projects/foo && pwd)"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "existing child-process or data carve-out",
+    "command": "cd projects/foo | cat",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo | cat"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "existing child-process or data carve-out",
+    "command": "cd projects/foo &",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo &"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "existing child-process or data carve-out",
+    "command": "env cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "env cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "existing child-process or data carve-out",
+    "command": "echo \"cd projects/foo\"",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "echo \"cd projects/foo\""
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "initial tilde interpretation",
+    "command": "cd ~/product/projects/\"my clone\"",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd ~/product/projects/\"my clone\""
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "initial tilde interpretation",
+    "command": "cd \\~/product/projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd \\~/product/projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "initial tilde interpretation",
+    "command": "cd \"~\"/product/projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd \"~\"/product/projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "initial tilde interpretation",
+    "command": "cd '~/product/projects/foo'",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd '~/product/projects/foo'"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "harness deny shape",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "harness actual base cwd",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside",
+    "mode": "claude",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "harness deny shape",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "codex",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo",
+        "workdir": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "{\"decision\":\"deny\",\"reason\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "harness actual base cwd",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside",
+    "mode": "codex",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo",
+        "workdir": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "harness deny shape",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "grok",
+    "transport": "stdin",
+    "payload": {
+      "toolName": "run_terminal_command",
+      "toolInput": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "{\"decision\":\"deny\",\"reason\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "harness actual base cwd",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside",
+    "mode": "grok",
+    "transport": "stdin",
+    "payload": {
+      "toolName": "run_terminal_command",
+      "toolInput": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "harness deny shape",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "cursor",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Shell",
+      "tool_input": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+      "cursor_version": "native-shape-probe"
+    },
+    "returncode": 0,
+    "stdout": "{\"permission\":\"deny\",\"user_message\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "stderr": "",
+    "expected": "deny"
+  },
+  {
+    "name": "harness actual base cwd",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside",
+    "mode": "cursor",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Shell",
+      "tool_input": {
+        "command": "cd projects/foo"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside",
+      "cursor_version": "native-shape-probe"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "tool workdir overrides payload cwd",
+    "command": "cd ../projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "codex",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd ../projects/foo",
+        "workdir": "bin"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 2,
+    "stdout": "{\"decision\":\"deny\",\"reason\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "tool workdir overrides payload cwd",
+    "command": "cd projects/foo",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "codex",
+    "transport": "stdin",
+    "payload": {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "cd projects/foo",
+        "workdir": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product/outside"
+      },
+      "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product"
+    },
+    "returncode": 0,
+    "stdout": "",
+    "stderr": "",
+    "expected": "allow"
+  },
+  {
+    "name": "backlog leak prevented before shell runs",
+    "command": "cd bin && cd ../projects/clone && printf \"guarded leak\\n\" >> data/backlog.md",
+    "cwd": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/.gate-cd-validation/product",
+    "mode": "claude",
+    "transport": "cli",
+    "payload": null,
+    "returncode": 2,
+    "stdout": "",
+    "stderr": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\"},\"systemMessage\":\"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...).\"}\n",
+    "expected": "deny"
+  },
+  {
+    "name": "persisted backlog proof",
+    "home_backlog": "home backlog\nsafe home update\n",
+    "clone_backlog_exists": false
+  },
+  {
+    "name": "accepted missing-cwd fail-open",
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

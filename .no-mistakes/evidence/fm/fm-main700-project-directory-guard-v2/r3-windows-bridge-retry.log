@@ -1,0 +1,16 @@
+native-Windows bridge reachable
+Set-Location : Cannot find path '/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G' because 
+it does not exist.
+At line:1 char:49
++ ... reachable"; Set-Location -LiteralPath "/home/tegris/.no-mistakes/work ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (/home/tegris/.n...XN3RZT15AD8YR2G:String) [Set-Location], ItemNotFoundE 
+   xception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
+ 
+
+Path                                                                                                                   
+----                                                                                                                   
+Microsoft.PowerShell.Core\FileSystem::\\wsl.localhost\Ubuntu\home\tegris\.no-mistakes\worktrees\04376deab85f\01M49D1...
+
+

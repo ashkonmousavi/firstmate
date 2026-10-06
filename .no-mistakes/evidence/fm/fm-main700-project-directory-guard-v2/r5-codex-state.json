@@ -1,0 +1,46 @@
+{
+  "version": "codex-cli 0.160.0",
+  "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda",
+  "grid": "120x35",
+  "invocation": [
+    "codex",
+    "exec",
+    "--ephemeral",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--enable",
+    "hooks",
+    "--dangerously-bypass-hook-trust",
+    "-s",
+    "workspace-write",
+    "-c",
+    "approval_policy=\"never\"",
+    "-c",
+    "projects={\"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda\"={trust_level=\"trusted\"}}",
+    "-c",
+    "log_dir=\"/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/logs\"",
+    "--cd",
+    "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda"
+  ],
+  "completed": true,
+  "exit": "0",
+  "expected": {
+    "relative-protected-unchecked": true,
+    "relative-unrelated": true,
+    "absolute-protected": false,
+    "absolute-unrelated": true,
+    "home-protected": false,
+    "home-unrelated": true,
+    "control": true
+  },
+  "observed": {
+    "relative-protected-unchecked": true,
+    "relative-unrelated": true,
+    "absolute-protected": false,
+    "absolute-unrelated": true,
+    "home-protected": false,
+    "home-unrelated": true,
+    "control": true
+  },
+  "payload_count": 7
+}

@@ -1,0 +1,92 @@
+OpenAI Codex v0.160.0
+--------
+workdir: /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda
+model: gpt-6.1-sol
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR]
+reasoning effort: none
+reasoning summaries: none
+session id: 01a1134c-f4c9-78a0-82f5-1e8bfb35eda0
+--------
+user
+Isolated hook test. Perform exactly seven separate exec_command calls in this order, using each specified workdir parameter. Do not retry or bypass any denied command and run no other commands. 1. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/bin", command cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/relative-protected-unchecked.sentinel
+2. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside", command cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/relative-unrelated.sentinel
+3. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/absolute-protected.sentinel
+4. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/bin", command cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/absolute-unrelated.sentinel
+5. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/home-protected.sentinel
+6. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/bin", command cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/home-unrelated.sentinel
+7. workdir "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda", command printf "native-control\n" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/control.sentinel
+Then report outcomes.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+hook: SessionStart Completed
+codex
+I’ll run the seven commands in order with the specified working directories, without retries or additional commands.
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ../projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/relative-protected-unchecked.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/bin
+ succeeded in 70ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/relative-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside
+ succeeded in 0ms:
+hook: PreToolUse
+2026-10-06T22:20:12.352796Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...)."}. Command: cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/absolute-protected.sentinel
+hook: PreToolUse Blocked
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/absolute-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/bin
+ succeeded in 0ms:
+hook: PreToolUse
+2026-10-06T22:20:19.580848Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level cd or pushd into the home's projects folder is blocked; it would move the shell into a project clone so a later firstmate-owned command runs there. Reach the clone without moving the shell - use git -C <dir> or an absolute path on the command itself - or scope the cd to a subshell like (cd <dir> && ...)."}. Command: cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/projects/"my clone" && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/home-protected.sentinel
+hook: PreToolUse Blocked
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc 'cd ~/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/outside/projects/foo && touch /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/home-unrelated.sentinel' in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/bin
+ succeeded in 0ms:
+hook: PreToolUse
+hook: PreToolUse Completed
+exec
+/bin/bash -lc "printf \"native-control\\n\" > /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda/control.sentinel" in /home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.Yda
+ succeeded in 0ms:
+codex
+Exactly seven calls made in order. No retries or additional commands.
+
+| Call | Outcome |
+|---|---|
+| 1. Relative protected | Succeeded, exit 0 |
+| 2. Relative unrelated | Succeeded, exit 0 |
+| 3. Absolute protected | Denied by hook |
+| 4. Absolute unrelated | Succeeded, exit 0 |
+| 5. Home protected | Denied by hook |
+| 6. Home unrelated | Succeeded, exit 0 |
+| 7. Native control | Succeeded, exit 0 |
+
+The PreToolUse hook rejected calls 3 and 5 because they used a persistent top-level `cd` into the protected projects folder. Call 1’s relative protected path was allowed.
+tokens used
+17,843
+Exactly seven calls made in order. No retries or additional commands.
+
+| Call | Outcome |
+|---|---|
+| 1. Relative protected | Succeeded, exit 0 |
+| 2. Relative unrelated | Succeeded, exit 0 |
+| 3. Absolute protected | Denied by hook |
+| 4. Absolute unrelated | Succeeded, exit 0 |
+| 5. Home protected | Denied by hook |
+| 6. Home unrelated | Succeeded, exit 0 |
+| 7. Native control | Succeeded, exit 0 |
+
+The PreToolUse hook rejected calls 3 and 5 because they used a persistent top-level `cd` into the protected projects folder. Call 1’s relative protected path was allowed.

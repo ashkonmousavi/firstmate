@@ -1,0 +1,9 @@
+{
+  "lab": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.XiQ",
+  "socket": "/home/tegris/.no-mistakes/worktrees/04376deab85f/01M49D1DVEJXN3RZT15AD8YR2G/l.XiQ/tmux",
+  "grid": "120x35",
+  "completed": true,
+  "denied_sentinel": false,
+  "allowed_sentinel": true,
+  "control_sentinel": true
+}
