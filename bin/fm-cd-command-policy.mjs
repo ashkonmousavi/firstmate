@@ -123,7 +123,7 @@ function lexicalProjectsRelative(value) {
 
 function resolveTarget(word, projectsRoot) {
   const value = word.value;
-  if (!word.quoted && (value === "~" || value.startsWith("~/"))) {
+  if (word.tildeExpansion && (value === "~" || value.startsWith("~/"))) {
     const home = process.env.HOME;
     if (!home || !home.startsWith("/")) return null;
     return value === "~" ? path.resolve(home) : path.resolve(home, value.slice(2));
@@ -140,8 +140,8 @@ function targetsProjectFolder(word, projectsRoot) {
   if (!word.literal || word.unquotedExpansion || word.subs.length > 0) return false;
   const value = word.value;
   if (value === "" || value === "-") return false;
-  if (!word.quoted && value.startsWith("~") && value !== "~" && !value.startsWith("~/")) return false;
-  const tilde = !word.quoted && (value === "~" || value.startsWith("~/"));
+  if (word.tildeExpansion && value !== "~" && !value.startsWith("~/")) return false;
+  const tilde = word.tildeExpansion && (value === "~" || value.startsWith("~/"));
   if (!projectsRoot && !value.startsWith("/") && !tilde) return lexicalProjectsRelative(value);
   const resolved = resolveTarget(word, projectsRoot);
   if (!resolved || !projectsRoot) return false;

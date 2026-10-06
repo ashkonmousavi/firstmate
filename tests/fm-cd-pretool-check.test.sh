@@ -13,6 +13,8 @@
 # spawned; live per-harness evidence lives in docs/cd-guard.md.
 set -u
 
+unset FM_HOME
+
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -109,6 +111,26 @@ matrix_case B28 deny 'cd projects'
 matrix_case B29 deny 'cd ./projects/foo'
 matrix_case B30 deny "cd '$PRIMARY/projects/foo'"
 
+for directory_command in cd pushd; do
+  matrix_case "T01-$directory_command" deny "$directory_command ~/primary/projects/foo"
+  matrix_case "T02-$directory_command" deny "$directory_command ~/primary/projects/\"my clone\""
+  matrix_case "T03-$directory_command" deny "$directory_command ~/primary/projects/'my clone'"
+  matrix_case "T04-$directory_command" deny "$directory_command ~/primary/projects/my\\ clone"
+  matrix_case "T05-$directory_command" deny "$directory_command ~/primary/projects/\$'my clone'"
+  matrix_case "T06-$directory_command" allow "$directory_command \\~/primary/projects/foo"
+  matrix_case "T07-$directory_command" allow "$directory_command '~/primary/projects/foo'"
+  matrix_case "T08-$directory_command" allow "$directory_command \"~\"/primary/projects/foo"
+  matrix_case "T09-$directory_command" allow "$directory_command ''~/primary/projects/foo"
+  matrix_case "T10-$directory_command" allow "$directory_command ~\"\"/primary/projects/foo"
+  matrix_case "T11-$directory_command" allow "$directory_command ~\\/primary/projects/foo"
+  matrix_case "T12-$directory_command" deny "$directory_command "$'\\\n''~/primary/projects/"my clone"'
+  matrix_case "T13-$directory_command" allow "$directory_command ~unknown/primary/projects/\"my clone\""
+  matrix_case "T14-$directory_command" deny "$directory_command ~"$'\\\n''/primary/projects/"my clone"'
+  matrix_case "T15-$directory_command" deny "$directory_command ~/primary/projects/\$\"my clone\""
+  matrix_case "T16-$directory_command" allow "$directory_command \$'~'/primary/projects/foo"
+  matrix_case "T17-$directory_command" allow "$directory_command \$\"~\"/primary/projects/foo"
+done
+
 # ALLOW: not a persistent top-level cwd change (scoped, data, or non-cd).
 matrix_case A01 allow 'git -C projects/foo status'
 matrix_case A02 allow 'cat /abs/path/file'
@@ -161,21 +183,21 @@ run_matrix_entry() {
   case "$entry" in
     codex)
       payload=$(jq -cn --arg command "$cmd" '{tool_name:"Bash",tool_input:{command:$command}}')
-      printf '%s' "$payload" | "$CHECK" >"$out_file" 2>"$err_file"
+      printf '%s' "$payload" | env HOME="$TMP_ROOT" "$CHECK" >"$out_file" 2>"$err_file"
       rc=$?
       ;;
     claude)
       payload=$(jq -cn --arg command "$cmd" '{tool_name:"Bash",tool_input:{command:$command}}')
-      printf '%s' "$payload" | "$CHECK" --claude >"$out_file" 2>"$err_file"
+      printf '%s' "$payload" | env HOME="$TMP_ROOT" "$CHECK" --claude >"$out_file" 2>"$err_file"
       rc=$?
       ;;
     grok)
       payload=$(jq -cn --arg command "$cmd" '{toolName:"run_terminal_command",toolInput:{command:$command}}')
-      printf '%s' "$payload" | "$CHECK" >"$out_file" 2>"$err_file"
+      printf '%s' "$payload" | env HOME="$TMP_ROOT" "$CHECK" >"$out_file" 2>"$err_file"
       rc=$?
       ;;
     opencode|pi)
-      "$CHECK" --command "$cmd" >"$out_file" 2>"$err_file"
+      env HOME="$TMP_ROOT" "$CHECK" --command "$cmd" >"$out_file" 2>"$err_file"
       rc=$?
       ;;
     *)
