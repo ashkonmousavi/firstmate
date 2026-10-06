@@ -1,0 +1,216 @@
+/home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y
+ok: added report-only (scout, repo sample) -> Queued
+task:
+  id: report-only
+  title: Disposable scout report-only
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start report-only` to move it to in flight
+  - Run `tasks-axi block report-only --by <other>` to record a dependency
+ok: start report-only -> In flight
+help[1]:
+  - Run `tasks-axi done report-only --pr <url>` when it ships
+
+BASELINE: report present, no completion attestation
+
+$ bash /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/bin/.test-main700-baseline-teardown.sh report-only
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+fm-captain-hold: origin report-only has no completed captain-call inventory
+REFUSED: scout task report-only has not passed the captain-call completion gate.
+Inventory its report and any visual review through bin/fm-captain-hold.sh before teardown.
+exit=1
+baseline retained metadata and window
+
+TARGET: report present, no completion attestation
+
+$ bash bin/fm-teardown.sh report-only
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown report-only complete (window fm-lab-main700:fm-report-only, worktree /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y/projects/missing-report-only)
+Backlog: report-only is closed in /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+exit=0
+metadata absent; window absent; report retained
+task:
+  id: report-only
+  title: Disposable scout report-only data/report-only/report.md
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: "-"
+  closed: 2026-10-06
+  deps: none
+  links: "report:data/report-only/report.md"
+  body: ""
+ok: added missing-report (scout, repo sample) -> Queued
+task:
+  id: missing-report
+  title: Disposable scout missing-report
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start missing-report` to move it to in flight
+  - Run `tasks-axi block missing-report --by <other>` to record a dependency
+ok: start missing-report -> In flight
+help[1]:
+  - Run `tasks-axi done missing-report --pr <url>` when it ships
+
+TARGET: report absent
+
+$ bash bin/fm-teardown.sh missing-report
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: scout task missing-report has no report at /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y/data/missing-report/report.md.
+The report is the work product. Have the crewmate write it, or use --force after explicit discard approval.
+exit=1
+metadata retained; window retained; report absent
+task:
+  id: missing-report
+  title: Disposable scout missing-report
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+ok: added captain-held (scout, repo sample) -> Queued
+task:
+  id: captain-held
+  title: Disposable scout captain-held
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start captain-held` to move it to in flight
+  - Run `tasks-axi block captain-held --by <other>` to record a dependency
+ok: start captain-held -> In flight
+help[1]:
+  - Run `tasks-axi done captain-held --pr <url>` when it ships
+captain-held
+
+TARGET: unanswered captain-held task, no completion attestation
+task:
+  id: captain-held
+  title: Disposable scout captain-held
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Choose north or south before follow-up"
+  hold_kind: captain
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: none
+  body: "Captain hold set: 2026-10-06T20:22:41Z"
+
+$ bash bin/fm-teardown.sh captain-held
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown captain-held complete (window fm-lab-main700:fm-captain-held, worktree /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y/projects/missing-captain-held)
+Backlog: captain-held stays open in /home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y/data/backlog.md, still held for the captain with its deliverable recorded. Relay the question and close it only with bin/fm-captain-hold.sh answer.
+exit=0
+open predicate exit=0; metadata absent; window absent; report retained
+task:
+  id: captain-held
+  title: Disposable scout captain-held data/captain-held/report.md
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "Choose north or south before follow-up"
+  hold_kind: captain
+  hold_until: "-"
+  kind: scout
+  repo: sample
+  priority: "-"
+  created: 2026-10-06
+  closed: "-"
+  deps: none
+  links: "report:data/captain-held/report.md"
+  body: "Captain hold set: 2026-10-06T20:22:41Z\n\nDeliverable of the finished work: report data/captain-held/report.md"
+true
+{
+  "decisions_open": [
+    {
+      "id": "captain-held",
+      "key": "captain-held",
+      "verb": "captain-hold",
+      "summary": "Disposable scout captain-held: Choose north or south before follow-up",
+      "owner": "(main)"
+    }
+  ],
+  "reports": [
+    {
+      "id": "report-only",
+      "path": "/home/tegris/.no-mistakes/worktrees/01e10cee72c9/01M49DS97MT8QHDRHB760RDDCC/.test-live-main700/fm-lab.c6yy4Y/data/report-only/report.md"
+    }
+  ]
+}
+
+All live CLI scenarios passed; lab server and home removed by EXIT trap.
