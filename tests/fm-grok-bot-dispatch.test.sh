@@ -27,6 +27,9 @@ if (cmd === "chat" && process.env.STUB_SNAP) {
   else appendFileSync(process.env.STUB_SNAP, "");
 }
 if (cmd === "chat" && process.env.STUB_CHAT_FAIL === "1") process.exit(1);
+if (cmd === "chat" && process.env.STUB_CHAT_WAIT === "1") {
+  await new Promise(resolve => setTimeout(resolve, 10000));
+}
 const out = (o) => console.log(JSON.stringify(o, null, 2));
 if (cmd === "list") {
   out([{ id: "a1", name: "fm-researcher" }, { id: "b1", name: "twin" }, { id: "b2", name: "twin" }]);
@@ -105,7 +108,15 @@ cat > "$TRANSPORT" <<'SH'
 #!/usr/bin/env bash
 printf '["transport","%s"]\n' "$*" >> "$STUB_LOG"
 [ "${TRANSPORT_FAIL:-}" != "$1" ] || exit 1
-XDG_STATE_HOME="$TRANSPORT_STATE" exec python3 - "$@"
+if [ "${TRANSPORT_RECEIPT_OP:-}" = "$1" ]; then
+  printf '%s' "${TRANSPORT_RECEIPT:-}"
+  exit 0
+fi
+receipt=$(XDG_STATE_HOME="$TRANSPORT_STATE" python3 - "$@") || { printf '%s\n' "$receipt"; exit 1; }
+if [ "$1" = claim ] && [ -n "${TRANSPORT_DELAY:-}" ]; then
+  sleep "$TRANSPORT_DELAY"
+fi
+printf '%s\n' "$receipt"
 SH
 chmod +x "$TRANSPORT"
 export FM_WALK_MARKER_TRANSPORT="$TRANSPORT" TRANSPORT_STATE="$STATE" STUB_MARKER="$MARKER"
@@ -158,6 +169,40 @@ assert_equals '["QW-40"]' "$(field "$MARKER" .walks)" "only the finished walk is
 assert_equals '"2026-10-07T10:30:00Z"' "$(field "$MARKER" .expires_at)" "the surviving claim keeps its expiry"
 pass "overlapping walks release only their own claim"
 
+active='{"walks":["QW-40","QW-41"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}'
+for owner in firstmate-main sol-operator; do
+  marker "$active"
+  walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner "$owner"
+  expect_code 2 "$code" "a repeated active walk refuses for $owner"
+  assert_no_grep '["chat"' "$LOG" "a repeated active walk never starts a second chat"
+  assert_no_grep '["transport","release' "$LOG" "a refused duplicate never releases its predecessor"
+  assert_equals "$active" "$(cat "$MARKER")" "a duplicate claim preserves the predecessor and its sibling"
+done
+pass "an active walk cannot be dispatched twice"
+
+for seed in '' '{"walks":["QW-40"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}'; do
+  rm -f "$MARKER"
+  [ -z "$seed" ] || marker "$seed"
+  TRANSPORT_DELAY=2 walk_run code out err "$BRIEF" --bot fm-researcher --timeout 30 --walk QW-41 --walk-owner firstmate-main
+  expect_code 0 "$code" "a delayed claim retains time for a successful chat"
+  budget=$(jq -r 'select(.[0] == "chat") | .[3] | tonumber' "$LOG")
+  [ "$budget" -gt 0 ] && [ "$budget" -le 28 ] || fail "publication time is deducted from the chat budget ($budget)"
+  if [ -n "$seed" ]; then
+    assert_equals '["QW-40"]' "$(field "$MARKER" .walks)" "a delayed overlapping report preserves its sibling"
+  else
+    assert_absent "$MARKER" "a delayed report clears its own claim"
+  fi
+done
+TRANSPORT_DELAY=2 walk_run code out err "$BRIEF" --bot fm-researcher --timeout 1 --walk QW-41 --walk-owner firstmate-main
+expect_code 3 "$code" "publication exhausting the budget times out"
+assert_no_grep '["chat"' "$LOG" "an exhausted publication budget never sends a chat"
+assert_equals '["QW-40"]' "$(field "$MARKER" .walks)" "an exhausted dispatch releases only its own walk"
+STUB_CHAT_WAIT=1 walk_run code out err "$BRIEF" --bot fm-researcher --timeout 1 --walk QW-41 --walk-owner firstmate-main
+expect_code 3 "$code" "an unresponsive bridge is terminated at the dispatch deadline"
+assert_contains "$err" 'dispatch deadline' "the enforced timeout is explained"
+assert_equals '["QW-40"]' "$(field "$MARKER" .walks)" "an enforced timeout preserves the overlapping claim"
+pass "publication and chat share one bounded budget, including overlaps"
+
 other='{"walks":["QW-9"],"started":"2026-10-07T09:55:00Z","expires_at":"2026-10-07T10:05:00Z","owner":"sol-operator"}'
 marker "$other"
 FM_WALK_MARKER_NOW=2026-10-07T10:04:00Z walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
@@ -203,6 +248,23 @@ expect_code 2 "$code" "an unsafe walk id refuses"
 assert_no_grep '["transport"' "$LOG" "invalid walk options touch nothing"
 pass "claim, transport and option failures refuse before sending"
 
+claimed='{"result":"claimed","walks":["QW-41"],"owner":"firstmate-main","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}'
+for bad in '' '{}' '[]' '{"result":"refused","reason":"held"}' \
+  "$(jq -c '.result = "released"' <<<"$claimed")" \
+  "$(jq -c '.walks = ["QW-40"]' <<<"$claimed")" \
+  "$(jq -c '.walks = []' <<<"$claimed")" \
+  "$(jq -c '.walks = [null]' <<<"$claimed")" \
+  "$(jq -c '.owner = "sol-operator"' <<<"$claimed")" \
+  "$(jq -c 'del(.started)' <<<"$claimed")" \
+  "$(jq -c '.started = "2026-10-07T10:05:00Z"' <<<"$claimed")" \
+  "$(jq -c '.expires_at = "2026-02-30T10:05:00Z"' <<<"$claimed")" \
+  "$claimed"$'\n'"$claimed"; do
+  TRANSPORT_RECEIPT_OP=claim TRANSPORT_RECEIPT="$bad" walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
+  expect_code 2 "$code" "a malformed or refused success-status claim refuses ($bad)"
+  assert_no_grep '["chat"' "$LOG" "an invalid claim receipt never sends a chat"
+done
+pass "claim receipts must prove the requested walk and a canonical lease"
+
 STUB_CHAT_FAIL=1 walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
 expect_code 2 "$code" "a failed chat still fails"
 assert_grep '["transport","release' "$LOG" "a failed chat releases its claim"
@@ -216,5 +278,22 @@ assert_contains "$err" 'release failed' "the failed release is reported"
 assert_contains "$err" '2026-10-07T10:05:00Z' "the failed release names when the claim expires on its own"
 assert_equals '["QW-41"]' "$(field "$MARKER" .walks)" "a failed release never claims a clear"
 pass "a failed release stays an actionable failure"
+
+released='{"result":"released","walks":["QW-40"],"owner":"firstmate-main","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}'
+for bad in '' '{}' '{"result":"refused"}' "$claimed" \
+  "$(jq -c '.walks = ["QW-41"]' <<<"$released")" \
+  "$(jq -c '.owner = "sol-operator"' <<<"$released")" \
+  "$(jq -c 'del(.expires_at)' <<<"$released")" \
+  "$(jq -c '.started = .expires_at' <<<"$released")" \
+  "$(jq -c '.result = "not-listed" | .walks = ["QW-41"]' <<<"$released")"; do
+  for running in 0 1; do
+    rm -f "$MARKER"
+    TRANSPORT_RECEIPT_OP=release TRANSPORT_RECEIPT="$bad" STUB_RUNNING="$running" walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
+    expect_code 4 "$code" "an invalid release after a report or timeout remains actionable ($bad)"
+    assert_contains "$err" 'release failed' "an invalid release is reported"
+    assert_equals '["QW-41"]' "$(field "$MARKER" .walks)" "a refused release never manufactures a clear"
+  done
+done
+pass "release receipts must prove removal and validate every remaining claim"
 
 echo "# all fm-grok-bot-dispatch tests passed"

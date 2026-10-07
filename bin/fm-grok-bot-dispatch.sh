@@ -90,6 +90,7 @@ if [ -n "$WALK$WALK_OWNER" ]; then
   [[ "$WALK" =~ $id_re && "$WALK_OWNER" =~ $id_re ]] \
     || die "--walk and --walk-owner both need an id matching [A-Za-z0-9][A-Za-z0-9._:-]*"
   [ -x "$WALK_TRANSPORT" ] || die "walk marker transport not found: $WALK_TRANSPORT; the walk is not sent"
+  command -v python3 >/dev/null 2>&1 || die "python3 required for a bounded walk"
 fi
 
 task_text() {
@@ -110,7 +111,33 @@ ID=$(jq -r --arg n "$BOT" '
 
 WALK_CLAIMED=''
 walk_marker() {  # <claim|release> [<sec>]: prints the program's one JSON line
-  "$WALK_TRANSPORT" "$1" "$WALK" "$WALK_OWNER" "${@:2}" < "$WALK_PROGRAM"
+  local receipt
+  receipt=$("$WALK_TRANSPORT" "$1" "$WALK" "$WALK_OWNER" "${@:2}" < "$WALK_PROGRAM" 2>&1) \
+    || { printf '%s\n' "$receipt" >&2; return 1; }
+  if ! jq -se --arg op "$1" --arg walk "$WALK" --arg owner "$WALK_OWNER" '
+    def utc:
+      type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
+      and (try ((fromdateiso8601 | strftime("%Y-%m-%dT%H:%M:%SZ")) == .) catch false);
+    def marker:
+      .owner == $owner and (.walks | type == "array" and length > 0)
+      and all(.walks[]; type == "string" and test("\\S"))
+      and ((.walks | unique | length) == (.walks | length))
+      and (.started | utc) and (.expires_at | utc)
+      and (.expires_at > .started);
+    length == 1 and (.[0] | type == "object" and
+      if $op == "claim" then
+        .result == "claimed" and marker and (.walks | index($walk) != null)
+      elif .result == "cleared" or .result == "absent" then
+        .walks == null and .owner == null and .started == null and .expires_at == null
+      else
+        (.result == "released" or .result == "not-listed")
+        and marker and (.walks | index($walk) == null)
+      end)
+  ' <<<"$receipt" >/dev/null 2>&1; then
+    printf 'invalid %s receipt: %s\n' "$1" "${receipt:0:300}" >&2
+    return 1
+  fi
+  printf '%s\n' "$receipt"
 }
 # shellcheck disable=SC2329 # Invoked by the EXIT trap below.
 walk_release_on_exit() {
@@ -122,16 +149,45 @@ walk_release_on_exit() {
   case "$rc" in 0|3) exit 4 ;; *) exit "$rc" ;; esac
 }
 if [ -n "$WALK" ]; then
+  WALK_DEADLINE=$(python3 -c 'import sys, time; print(time.monotonic() + int(sys.argv[1]))' "$TIMEOUT") \
+    || die "could not establish the walk deadline"
   CLAIM=$(walk_marker claim "$TIMEOUT" 2>&1) \
     || die "walk marker not claimed for $WALK, so nothing was sent: ${CLAIM:0:300}"
-  WALK_CLAIMED=$(jq -r '.expires_at // empty' <<<"$CLAIM" 2>/dev/null)
-  [ -n "$WALK_CLAIMED" ] || WALK_CLAIMED='its recorded expiry'
+  WALK_CLAIMED=$(jq -r '.expires_at' <<<"$CLAIM")
   trap walk_release_on_exit EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
 fi
 
-CHAT=$(node "$BRIDGE" chat "$ID" "$PROMPT" "$TIMEOUT") || die "Grok Bot bridge chat failed"
+chat() {
+  if [ -z "$WALK" ]; then
+    node "$BRIDGE" chat "$ID" "$PROMPT" "$TIMEOUT"
+    return $?
+  fi
+  python3 - "$WALK_DEADLINE" "$BRIDGE" "$ID" "$PROMPT" <<'PY'
+import math
+import subprocess
+import sys
+import time
+
+remaining = float(sys.argv[1]) - time.monotonic()
+if remaining <= 0:
+    sys.exit(3)
+try:
+    result = subprocess.run(["node", sys.argv[2], "chat", sys.argv[3], sys.argv[4], str(math.ceil(remaining))],
+                            timeout=remaining)
+except subprocess.TimeoutExpired:
+    sys.exit(3)
+sys.exit(result.returncode if result.returncode >= 0 else 2)
+PY
+}
+CHAT=$(chat)
+CHAT_CODE=$?
+if [ "$CHAT_CODE" -eq 3 ] && [ -n "$WALK" ]; then
+  printf 'grok-bot: walk %s reached its dispatch deadline\n' "$WALK" >&2
+  exit 3
+fi
+[ "$CHAT_CODE" -eq 0 ] || die "Grok Bot bridge chat failed"
 # The bridge prints two JSON documents: the send receipt, then the new entries.
 RESULT=$(jq -s 'last' <<<"$CHAT" 2>/dev/null) || die "Grok Bot bridge returned malformed output"
 REPLY=$(jq -r --arg p "$PROMPT" '

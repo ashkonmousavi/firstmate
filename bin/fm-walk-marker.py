@@ -14,8 +14,8 @@ Times are %Y-%m-%dT%H:%M:%SZ. The claim holds restarts while now < expires_at.
 
 claim: an absent or expired marker is replaced by this walk, started now and
   expiring <seconds> later. An active marker of the same owner gains the walk
-  and keeps the earlier start and the later expiry. An active marker of another
-  owner, or a malformed or non-regular marker, is left untouched and refused.
+  and keeps the earlier start and the later expiry. An already active walk,
+  another owner's active marker, or a malformed or non-regular marker is refused.
 release: removes only this walk from a marker of this owner, deleting the file
   when no walk remains; the remaining claim keeps its expiry. An absent marker
   or one no longer listing the walk is already released. Another owner's or a
@@ -53,7 +53,7 @@ def stamp(moment):
 
 def now():
     fixed = os.environ.get("FM_WALK_MARKER_NOW")
-    return parse(fixed) if fixed else dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    return parse(fixed) if fixed else dt.datetime.now(dt.timezone.utc)
 
 
 def marker_path():
@@ -94,15 +94,20 @@ def write(path, data):
 def claim(path, walk, owner, seconds):
     at = now()
     current = read(path)
+    expires = (at + dt.timedelta(seconds=seconds)).replace(microsecond=0)
+    if at.microsecond:
+        expires += dt.timedelta(seconds=1)
     if current and at < parse(current["expires_at"]):
         if current["owner"] != owner:
             raise Refused(f"walk marker held by {current['owner']} for {', '.join(current['walks'])} "
                           f"until {current['expires_at']}")
-        expires = max(parse(current["expires_at"]), at + dt.timedelta(seconds=seconds))
-        walks = current["walks"] + ([walk] if walk not in current["walks"] else [])
+        if walk in current["walks"]:
+            raise Refused(f"walk {walk} is already active until {current['expires_at']}")
+        expires = max(parse(current["expires_at"]), expires)
+        walks = current["walks"] + [walk]
         data = {**current, "walks": walks, "expires_at": stamp(expires)}
     else:
-        data = {"walks": [walk], "started": stamp(at), "expires_at": stamp(at + dt.timedelta(seconds=seconds)),
+        data = {"walks": [walk], "started": stamp(at), "expires_at": stamp(expires),
                 "owner": owner}
     write(path, data)
     return {"result": "claimed", **data}
