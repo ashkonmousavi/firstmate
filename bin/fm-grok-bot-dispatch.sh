@@ -33,7 +33,7 @@
 #   bin/fm-walk-marker.py owns the marker format, overlap and expiry rules; it
 #   runs through the home-private transport $FM_HOME/data/walk-marker/transport,
 #   or FM_WALK_MARKER_TRANSPORT when set: an executable run as
-#   `<transport> claim|release <walk> <owner> [<sec>] < bin/fm-walk-marker.py`
+#   `<transport> claim|release <walk> <owner> <seconds|started> < bin/fm-walk-marker.py`
 #   that executes the program from stdin with python3 and those arguments as
 #   the marker's account on the walked host. Ids match [A-Za-z0-9][A-Za-z0-9._:-]*.
 #   A missing transport, a failed claim, another owner's active claim, or a
@@ -109,12 +109,12 @@ ID=$(jq -r --arg n "$BOT" '
   if length == 1 then .[0] else error("\(length)") end' <<<"$LIST" 2>/dev/null) \
   || die "expected exactly one Grok Bot named $BOT"
 
-WALK_CLAIMED=''
-walk_marker() {  # <claim|release> [<sec>]: prints the program's one JSON line
+WALK_CLAIMED='' WALK_STARTED=''
+walk_marker() {  # <claim|release> <seconds|started>: prints the program's one JSON line
   local receipt
   receipt=$("$WALK_TRANSPORT" "$1" "$WALK" "$WALK_OWNER" "${@:2}" < "$WALK_PROGRAM" 2>&1) \
     || { printf '%s\n' "$receipt" >&2; return 1; }
-  if ! jq -se --arg op "$1" --arg walk "$WALK" --arg owner "$WALK_OWNER" '
+  if ! jq -se --arg op "$1" --arg walk "$WALK" --arg owner "$WALK_OWNER" --arg started "$WALK_STARTED" '
     def utc:
       type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
       and (try ((fromdateiso8601 | strftime("%Y-%m-%dT%H:%M:%SZ")) == .) catch false);
@@ -131,7 +131,7 @@ walk_marker() {  # <claim|release> [<sec>]: prints the program's one JSON line
         .walks == null and .owner == null and .started == null and .expires_at == null
       else
         (.result == "released" or .result == "not-listed")
-        and marker and (.walks | index($walk) == null)
+        and marker and .started == $started and (.walks | index($walk) == null)
       end)
   ' <<<"$receipt" >/dev/null 2>&1; then
     printf 'invalid %s receipt: %s\n' "$1" "${receipt:0:300}" >&2
@@ -143,7 +143,7 @@ walk_marker() {  # <claim|release> [<sec>]: prints the program's one JSON line
 walk_release_on_exit() {
   local rc=$? result
   [ -n "$WALK_CLAIMED" ] || exit "$rc"
-  if result=$(walk_marker release 2>&1); then exit "$rc"; fi
+  if result=$(walk_marker release "$WALK_STARTED" 2>&1); then exit "$rc"; fi
   printf 'walk-marker: release failed for %s (%s); the claim holds restarts until %s: %s\n' \
     "$WALK" "$WALK_OWNER" "$WALK_CLAIMED" "${result:0:300}" >&2
   case "$rc" in 0|3) exit 4 ;; *) exit "$rc" ;; esac
@@ -154,6 +154,7 @@ if [ -n "$WALK" ]; then
   CLAIM=$(walk_marker claim "$TIMEOUT" 2>&1) \
     || die "walk marker not claimed for $WALK, so nothing was sent: ${CLAIM:0:300}"
   WALK_CLAIMED=$(jq -r '.expires_at' <<<"$CLAIM")
+  WALK_STARTED=$(jq -r '.started' <<<"$CLAIM")
   trap walk_release_on_exit EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM

@@ -4,7 +4,7 @@
 Usage (run on the host and account that own the marker, usually piped through a
 transport as `python3 - <args>`; see bin/fm-grok-bot-dispatch.sh --walk):
   fm-walk-marker.py claim <walk> <owner> <seconds>
-  fm-walk-marker.py release <walk> <owner>
+  fm-walk-marker.py release <walk> <owner> <started>
 
 The marker is $XDG_STATE_HOME/q-walk/in-progress.json (default
 ~/.local/state/q-walk/in-progress.json), the file every restart path on that
@@ -16,7 +16,7 @@ claim: an absent or expired marker is replaced by this walk, started now and
   expiring <seconds> later. An active marker of the same owner gains the walk
   and keeps the earlier start and the later expiry. An already active walk,
   another owner's active marker, or a malformed or non-regular marker is refused.
-release: removes only this walk from a marker of this owner, deleting the file
+release: removes only this walk from the matching owner and lease start, deleting the file
   when no walk remains; the remaining claim keeps its expiry. An absent marker
   or one no longer listing the walk is already released. Another owner's or a
   malformed marker is left untouched and refused.
@@ -44,7 +44,10 @@ class Refused(Exception):
 
 
 def parse(text):
-    return dt.datetime.strptime(text, FORMAT).replace(tzinfo=dt.timezone.utc)
+    moment = dt.datetime.strptime(text, FORMAT).replace(tzinfo=dt.timezone.utc)
+    if stamp(moment) != text:
+        raise ValueError("noncanonical UTC timestamp")
+    return moment
 
 
 def stamp(moment):
@@ -76,7 +79,7 @@ def read(path):
     try:
         walks, owner = data["walks"], data["owner"]
         if (not isinstance(walks, list) or not walks or not all(isinstance(w, str) and w.strip() for w in walks)
-                or not isinstance(owner, str) or not owner.strip()):
+                or len(set(walks)) != len(walks) or not isinstance(owner, str) or not owner.strip()):
             raise ValueError("walks or owner")
         if parse(data["expires_at"]) <= parse(data["started"]):
             raise ValueError("interval")
@@ -113,12 +116,14 @@ def claim(path, walk, owner, seconds):
     return {"result": "claimed", **data}
 
 
-def release(path, walk, owner):
+def release(path, walk, owner, started):
     current = read(path)
     if current is None:
         return {"result": "absent"}
     if current["owner"] != owner:
         raise Refused(f"walk marker now held by {current['owner']}; {walk} is not released by {owner}")
+    if current["started"] != started:
+        raise Refused(f"walk marker lease changed since {started}; {walk} is not released")
     if walk not in current["walks"]:
         return {"result": "not-listed", **current}
     walks = [w for w in current["walks"] if w != walk]
@@ -133,16 +138,18 @@ def release(path, walk, owner):
 def main(argv):
     op = argv[0] if argv else ""
     if not ((op == "claim" and len(argv) == 4 and argv[3].isdigit() and int(argv[3]) > 0)
-            or (op == "release" and len(argv) == 3)) or not all(ID.fullmatch(x) for x in argv[1:3]):
-        print(json.dumps({"error": "usage: claim <walk> <owner> <seconds> | release <walk> <owner>"}))
+            or (op == "release" and len(argv) == 4)) or not all(ID.fullmatch(x) for x in argv[1:3]):
+        print(json.dumps({"error": "usage: claim <walk> <owner> <seconds> | release <walk> <owner> <started>"}))
         return 2
     try:
+        if op == "release":
+            parse(argv[3])
         path = marker_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path.parent / ".in-progress.lock", "a", encoding="utf-8") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            result = claim(path, argv[1], argv[2], int(argv[3])) if op == "claim" else release(path, argv[1], argv[2])
-    except (Refused, OSError) as exc:
+            result = claim(path, argv[1], argv[2], int(argv[3])) if op == "claim" else release(path, *argv[1:])
+    except (Refused, OSError, ValueError) as exc:
         print(json.dumps({"result": "refused", "reason": str(exc)}))
         return 1
     print(json.dumps(result))
