@@ -3556,6 +3556,11 @@ EOF
   pending=$(checkpoint_read scan_signals)
   if [ -n "$pending" ]; then
     if grace=$(checkpoint_wait_budget "$SIGNAL_GRACE"); then
+      if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+        fm_checkpoint_clock
+        grace_whole=${grace%%.*}
+        [ "${grace_whole:-0}" -lt "$((WATCHER_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW - 1))" ] || grace=0
+      fi
       sleep "$grace"
     fi
     pending=$(printf '%s\n%s' "$pending" "$(checkpoint_read scan_signals)")

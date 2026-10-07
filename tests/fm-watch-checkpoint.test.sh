@@ -46,6 +46,93 @@ test_signal_passes_through_and_exits_zero() {
   pass "checkpoint passes through a real watcher wake and leaves the queue for drain"
 }
 
+test_short_signal_checkpoint_delivers_once() {
+  local kind home status grace expected drained source
+  for kind in turn-ended status mixed exact-grace fractional-grace; do
+    home=$(make_home "short-signal-$kind")
+    grace=default
+    expected=1
+    case "$kind" in
+      turn-ended) printf 'finished\n' > "$home/state/demo.turn-ended" ;;
+      mixed)
+        printf 'finished\n' > "$home/state/demo.turn-ended"
+        printf 'done: synthetic wake\n' > "$home/state/demo.status"
+        expected=2
+        ;;
+      *) printf 'done: synthetic wake\n' > "$home/state/demo.status" ;;
+    esac
+    case "$kind" in exact-grace) grace=3 ;; fractional-grace) grace=2.5 ;; esac
+    status=0
+    if [ "$grace" = default ]; then
+      fm_run_timed 10 env -u FM_SIGNAL_GRACE FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+        FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$CHECKPOINT" --seconds 3 \
+        > "$home/out.txt" 2> "$home/err.txt" || status=$?
+    else
+      fm_run_timed 10 env FM_SIGNAL_GRACE="$grace" FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+        FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$CHECKPOINT" --seconds 3 \
+        > "$home/out.txt" 2> "$home/err.txt" || status=$?
+    fi
+    expect_code 0 "$status" "short $kind signal: $(cat "$home/err.txt")"
+    assert_contains "$(cat "$home/out.txt")" 'signal:' "short $kind signal did not surface"
+    ack_checkpoint_wakes "$home"
+    [ "$(awk -F '\t' '$3 == "signal" && ($4 == "demo.status" || $4 == "demo.turn-ended") {n++} END {print n+0}' "$home/drained")" -eq "$expected" ] \
+      || fail "short $kind signal did not deliver each file exactly once"
+    for source in "$home/state"/demo.*; do
+      case "$source" in
+        *.status) [ "$(cat "$source")" = 'done: synthetic wake' ] || fail 'signal delivery changed status bytes' ;;
+        *.turn-ended) [ "$(cat "$source")" = finished ] || fail 'signal delivery changed turn-end bytes' ;;
+      esac
+    done
+    status=0
+    fm_run_timed 10 env -u FM_SIGNAL_GRACE FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+      FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$CHECKPOINT" --seconds 3 \
+      > "$home/repeat.out" 2> "$home/repeat.err" || status=$?
+    expect_code 124 "$status" "acknowledged $kind signal repeated"
+    drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh")
+    assert_not_contains "$drained" $'\tsignal\t' "acknowledged $kind signal was queued twice"
+  done
+  pass 'short checkpoints deliver status and bare turn-end signals once without spending their deadline on grace'
+}
+
+test_signal_grace_keeps_trailing_signals() {
+  local mode home status real_sleep
+  real_sleep=$(command -v sleep) || fail 'sleep is unavailable'
+  for mode in checkpoint watcher; do
+    home=$(make_home "signal-coalesce-$mode")
+    mkdir -p "$home/fakebin"
+    printf 'done: synthetic wake\n' > "$home/state/demo.status"
+    cat > "$home/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = 1 ] && [ ! -e "$FM_HOME/grace-entered" ]; then
+  : > "$FM_HOME/grace-entered"
+  printf 'working: trailing bookkeeping\n' >> "$FM_HOME/state/demo.status"
+  printf 'finished\n' > "$FM_HOME/state/demo.turn-ended"
+fi
+exec "$FM_REAL_SLEEP" "$@"
+SH
+    chmod +x "$home/fakebin/sleep"
+    status=0
+    if [ "$mode" = checkpoint ]; then
+      fm_run_timed 12 env PATH="$home/fakebin:$PATH" FM_REAL_SLEEP="$real_sleep" \
+        FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+        "$CHECKPOINT" --seconds 8 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+    else
+      fm_run_timed 12 env -u FM_WATCH_CHECKPOINT_SECONDS -u FM_CHECKPOINT_DEADLINE \
+        PATH="$home/fakebin:$PATH" FM_REAL_SLEEP="$real_sleep" FM_HOME="$home" \
+        FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+        "$ROOT/bin/fm-watch.sh" > "$home/out.txt" 2> "$home/err.txt" || status=$?
+    fi
+    expect_code 0 "$status" "$mode signal coalescing failed: $(cat "$home/err.txt")"
+    [ -f "$home/grace-entered" ] || fail "$mode skipped an affordable grace"
+    ack_checkpoint_wakes "$home"
+    [ "$(awk -F '\t' '$3 == "signal" && $4 == "demo.status" {n++} END {print n+0}' "$home/drained")" -eq 1 ] \
+      || fail "$mode lost or duplicated the done status behind its trailing working note"
+    [ "$(awk -F '\t' '$3 == "signal" && $4 == "demo.turn-ended" {n++} END {print n+0}' "$home/drained")" -eq 1 ] \
+      || fail "$mode lost or duplicated the second discovery pass's turn-end"
+  done
+  pass 'affordable checkpoint grace and ordinary watcher grace coalesce trailing signals without hiding done'
+}
+
 test_registered_check_uses_preserved_watcher_environment() {
   local home out err status
   home=$(make_home check-env)
@@ -588,6 +675,8 @@ test_checkpoint_deadline_is_scoped_to_watch_reads() {
 
 test_quiet_checkpoint_exits_124_cleanly
 test_signal_passes_through_and_exits_zero
+test_short_signal_checkpoint_delivers_once
+test_signal_grace_keeps_trailing_signals
 test_registered_check_uses_preserved_watcher_environment
 test_existing_singleton_watcher_is_not_success
 test_host_checkpoint_bounds_the_park_by_posture
