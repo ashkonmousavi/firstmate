@@ -3821,9 +3821,10 @@ fm_backend_herdr_agent_status_raw() {  # <session> <pane_id>
 # mapping.
 #
 # A `busy` verdict is proven at process level before it is reported: a
-# lingering `working` registration over a shell-only pane (an agent killed
-# mid-turn, issue #4115) reads `unknown`, never busy, so the recovery classifier
-# cannot report a shell-only pane as working. Only the busy case pays the extra
+# lingering `working` registration after an agent dies (issue #4115) cannot
+# substitute for valid agent or foreground-tool corroboration. A shell-only,
+# unreadable, or malformed process view reads `unknown`, never busy.
+# Only the busy case pays the extra
 # process read; idle and unknown are never trusted as busy by any consumer.
 fm_backend_herdr_busy_state() {  # <target>
   local verdict

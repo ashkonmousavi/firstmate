@@ -66,8 +66,10 @@
 #      this way, however its rendered tail looks, so a genuinely working turn
 #      keeps its ordinary busy verdict and the general BUSY_TURN_MAX_SECS
 #      bound is unchanged.
-#   4. no record at all: herdr's native busy verdict is trusted as busy
-#      (generation state is sufficient for busy, not for idle), then the
+#   4. no record at all: herdr's process-corroborated native busy verdict is
+#      trusted as busy, never native idle (bin/backends/herdr.sh owns the
+#      corroboration). Codex without that evidence returns unknown
+#      codex-unverified, independent of its writer capability gates; then the
 #      muse session-log and cursor transcript pull sources, then the
 #      Grok/Rovo/AGY temporary regex fallbacks classify a grok, rovo, or agy
 #      task from its rendered tail, then unknown missing
