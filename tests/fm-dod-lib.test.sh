@@ -48,6 +48,172 @@ test_common_review_triage_contract() {
   pass "common no-mistakes renderer: triage, active class inventory and repeat visibility on both forges"
 }
 
+# The backticked command a rendered contract line carries, found by a fixed
+# marker inside it.
+rendered_command() {  # <file> <marker>
+  # shellcheck disable=SC2016  # single quotes are deliberate: the backticks are literal
+  grep -F -- "$2" "$1" | head -n 1 | sed 's/^[^`]*`//; s/`[^`]*$//'
+}
+
+test_third_review_list_is_last() {
+  local forge mode home output cmd ledger_cmd file_cmd followups out
+  output="$TMP_ROOT/last-list.md"
+  for forge in none gerrit; do
+    fm_dod_block no-mistakes sample fm/sample "$forge" > "$output"
+    assert_grep 'The third distinct Review finding list is the last' "$output" "third list is not terminal"
+    # shellcheck disable=SC2016  # single quotes are deliberate: the backticks are literal
+    assert_grep 'never respond `--action fix`' "$output" "third list may still request a fix"
+    assert_grep 'no-mistakes axi respond --step review --action approve' "$output" "third list lacks the explicit Review approval"
+    assert_grep 'deferred, not fixed' "$output" "deferred findings could be reported as fixed"
+    assert_grep 'never another fix' "$output" "third-list stop-set decision could reopen fixing"
+    assert_grep 'Test, document, lint, push, PR and CI still run' "$output" "approving Review could skip later gates"
+    assert_no_grep 'abort, restart or a round cap' "$output" "repeat rule still forbids the last-list cap"
+  done
+  for mode in direct-PR local-only; do
+    fm_dod_block "$mode" sample fm/sample > "$output"
+    assert_no_grep 'axi respond' "$output" "$mode acquired gate commands"
+  done
+  fm_dod_block direct-PR sample fm/sample > "$output"
+  assert_grep 'exactly one code review round' "$output" "direct-PR lost its one review round"
+  assert_grep 'never request a second review list' "$output" "direct-PR could add a review list"
+  assert_grep 'review follow-up rule' "$output" "direct-PR unfixed findings have no follow-up record"
+
+  home="$TMP_ROOT/last-list-home"
+  mkdir -p "$home/data/sample" "$home/state" "$home/config"
+  printf '## In flight\n\n## Queued\n\n## Done\n' > "$home/data/backlog.md"
+  for mode in no-mistakes direct-PR; do
+    fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship "$mode" fm/sample none > "$output" \
+      || fail "$mode worker contract render"
+    assert_grep 'Review follow-ups:' "$output" "$mode contract lacks the review follow-up rule"
+    assert_grep 'only writes outside this worktree' "$output" "$mode follow-up writes are not authorized"
+  done
+  fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship local-only fm/sample none > "$output" \
+    || fail "local-only worker contract render"
+  assert_no_grep 'Review follow-ups:' "$output" "local-only acquired review follow-ups"
+
+  # C3: the ledger counts distinct lists by head; a reattached read adds nothing.
+  fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship no-mistakes fm/sample none > "$output"
+  ledger_cmd=$(rendered_command "$output" 'review-lists.txt')
+  [ -n "$ledger_cmd" ] || fail "no-mistakes contract renders no review-list ledger command"
+  cmd=${ledger_cmd//<run>/run1}
+  out=$(bash -c "${cmd//<head_sha>/aaa}" | tr -d ' ')
+  assert_equals 1 "$out" "first list ordinal"
+  out=$(bash -c "${cmd//<head_sha>/aaa}" | tr -d ' ')
+  assert_equals 1 "$out" "reattached first list must not add a list"
+  out=$(bash -c "${cmd//<head_sha>/bbb}" | tr -d ' ')
+  assert_equals 2 "$out" "second list ordinal"
+  out=$(bash -c "${cmd//<head_sha>/ccc}" | tr -d ' ')
+  assert_equals 3 "$out" "third list ordinal"
+  out=$(bash -c "${cmd//<head_sha>/ccc}" | tr -d ' ')
+  assert_equals 3 "$out" "reattached third list must not add a list"
+
+  # C2: the rendered filing command lands every finding verbatim as a queued item.
+  if command -v tasks-axi >/dev/null 2>&1; then
+    file_cmd=$(rendered_command "$output" 'fm-tasks-axi.sh')
+    [ -n "$file_cmd" ] || fail "contract renders no follow-up filing command"
+    file_cmd=${file_cmd//<review>/run1}
+    followups="$home/data/sample/review-followups-run1.txt"
+    printf '%s\n' 'R7,warning,bin/x.sh,42,ask-user,"Spec: keep the quoted text exactly"' > "$followups"
+    out=$(cd "$TMP_ROOT" && env -u FM_HOME -u TASKS_AXI_FILE bash -c "$file_cmd" 2>&1) || fail "follow-up filing failed: $out"
+    assert_grep 'review follow-ups: sample run1' "$home/data/backlog.md" "follow-up item missing from the home backlog"
+    assert_grep 'R7,warning,bin/x.sh,42,ask-user,"Spec: keep the quoted text exactly"' "$home/data/backlog.md" \
+      "follow-up item lost the verbatim finding"
+    assert_not_contains "$(sed -n '/## In flight/,/## Queued/p' "$home/data/backlog.md")" 'review follow-ups' "follow-up item was started"
+  else
+    echo "skip - follow-up filing: tasks-axi not installed"
+  fi
+  pass "review: third distinct list is last, reattach is stable, follow-ups land verbatim, direct-PR keeps one round"
+}
+
+test_review_list_ledger_failures() {
+  local home output forge ledger_cmd cmd ledger out
+  home="$TMP_ROOT/ledger-failure-home"
+  output="$TMP_ROOT/ledger-failure.md"
+  mkdir -p "$home/data/sample" "$home/state" "$home/config"
+  ledger="$home/data/sample/nm-run1-review-lists.txt"
+  for forge in none gerrit; do
+    fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship no-mistakes fm/sample "$forge" > "$output" \
+      || fail "$forge ledger contract render"
+    ledger_cmd=$(rendered_command "$output" 'review-lists.txt')
+    [ -n "$ledger_cmd" ] || fail "$forge ledger command missing"
+    cmd=${ledger_cmd//<run>/run1}
+    cmd=${cmd//<head_sha>/ccc}
+    printf 'aaa\nbbb\n' > "$ledger"
+    if out=$(bash -c "ulimit -f 0; trap '' XFSZ; $cmd" 2>/dev/null); then
+      fail "$forge failed third-list append returned success"
+    fi
+    assert_equals '' "$out" "$forge failed append returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed append changed the ledger"
+    if out=$(bash -c "grep() { return 2; }; $cmd" 2>/dev/null); then
+      fail "$forge failed lookup returned success"
+    fi
+    assert_equals '' "$out" "$forge failed lookup returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed lookup appended a head"
+    if out=$(bash -c "tail() { return 1; }; $cmd" 2>/dev/null); then
+      fail "$forge failed integrity read returned success"
+    fi
+    assert_equals '' "$out" "$forge failed integrity read returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge failed integrity read changed the ledger"
+    cmd=${cmd//ccc/aaa}
+    if out=$(bash -c "wc() { return 1; }; $cmd" 2>/dev/null); then
+      fail "$forge failed count returned success"
+    fi
+    assert_equals '' "$out" "$forge failed count returned an ordinal"
+    assert_equals $'aaa\nbbb' "$(cat "$ledger")" "$forge reattachment changed the ledger"
+    cmd=${ledger_cmd//<run>/new-$forge}
+    cmd=${cmd//<head_sha>/aaa}
+    if out=$(bash -c "ulimit -f 0; trap '' XFSZ; $cmd" 2>/dev/null); then
+      fail "$forge failed first-list append returned success"
+    fi
+    assert_equals '' "$out" "$forge failed first append returned an ordinal"
+    out=$(bash -c "$cmd") || fail "$forge empty ledger did not recover after a zero-byte failure"
+    assert_equals 1 "$(printf '%s' "$out" | tr -d ' ')" "$forge empty ledger recovery ordinal"
+  done
+  pass "review ledger: lookup, append and count failures return no ordinal"
+}
+
+test_review_list_ledger_torn_writes() {
+  local home output forge ledger_cmd cmd ledger expected initial fragment retry out
+  home="$TMP_ROOT/ledger-torn-home"
+  output="$TMP_ROOT/ledger-torn.md"
+  expected="$TMP_ROOT/ledger-torn-expected.txt"
+  mkdir -p "$home/data/sample" "$home/state" "$home/config"
+  for forge in none gerrit; do
+    fm_worker_contract_block "$ROOT" "$home/data" "$home/state" "$home/config" sample ship no-mistakes fm/sample "$forge" > "$output" \
+      || fail "$forge torn ledger contract render"
+    ledger_cmd=$(rendered_command "$output" 'review-lists.txt')
+    [ -n "$ledger_cmd" ] || fail "$forge ledger command missing"
+    for initial in new existing; do
+      for fragment in c cc ccc; do
+        ledger="$home/data/sample/nm-torn-$forge-$initial-$fragment-review-lists.txt"
+        cmd=${ledger_cmd//<run>/torn-$forge-$initial-$fragment}
+        cmd=${cmd//<head_sha>/ccc}
+        if [ "$initial" = existing ]; then
+          printf 'aaa\nbbb\n' > "$ledger"
+          printf 'aaa\nbbb\n' > "$expected"
+        else
+          [ ! -e "$ledger" ] || fail "new ledger already exists"
+          : > "$expected"
+        fi
+        printf '%s' "$fragment" >> "$expected"
+        if out=$(FM_TEST_LEDGER_FRAGMENT="$fragment" bash -c 'printf() { if [ "$1" = "%s\n" ]; then builtin printf "%s" "$FM_TEST_LEDGER_FRAGMENT"; return 1; fi; builtin printf "$@"; }; '"$cmd" 2>/dev/null); then
+          fail "$forge $initial partial append returned success"
+        fi
+        assert_equals '' "$out" "$forge $initial partial append returned an ordinal"
+        cmp -s "$expected" "$ledger" || fail "$forge $initial partial append did not reproduce a torn record"
+        for retry in 1 2; do
+          if out=$(bash -c "$cmd" 2>/dev/null); then
+            fail "$forge $initial torn ledger reattachment $retry returned success"
+          fi
+          assert_equals '' "$out" "$forge $initial torn ledger returned an ordinal"
+          cmp -s "$expected" "$ledger" || fail "$forge $initial reattachment modified the torn ledger"
+        done
+      done
+    done
+  done
+  pass "review ledger: torn first and later writes remain closed on reattachment"
+}
+
 test_scout_done_is_not_gated() {
   local repo wt
   repo="$TMP_ROOT/scout-repo"
@@ -412,6 +578,9 @@ test_pr_based_dod_draft_check_uses_gh_axi() {
 }
 
 test_common_review_triage_contract
+test_third_review_list_is_last
+test_review_list_ledger_failures
+test_review_list_ledger_torn_writes
 test_scout_done_is_not_gated
 test_unpushed_ship_done_is_refused
 test_no_mistakes_prevalidation_done_is_not_gated

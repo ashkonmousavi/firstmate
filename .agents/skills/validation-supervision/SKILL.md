@@ -30,8 +30,9 @@ Resume fleet supervision immediately after the decision lands.
 For each authorized fix, require the worker's actual respond call with its inventory guidance in the active step input and retained run evidence; launch prose alone does not prove the next Review checked the inventory.
 Keep a mixed gate parked until its stop-set decision arrives; require installed help and a controlled receipt for singular-action selection semantics rather than guessing.
 A repeated finding in the same run returns with a `working:` event and the exact response command when outside the stop set, not a new decision solely because it repeated.
+Apply [`fm_nm_driving_block`'s last-list rule](../../../bin/fm-dod-lib.sh) before authorizing a response to a Review list, including repeated findings and stop-set decisions.
 Check the current quoted code before relaying a repeat, following `ask-user-authority`; a stale repeat carries file:line proof.
-If inventory propagation or mixed-gate semantics remain unproven, retain that precise external gap as unverified without adding a new pipeline or round cap.
+If inventory propagation or mixed-gate semantics remain unproven, retain that precise external gap as unverified without adding a new pipeline or changing the worker contract's list limit.
 
 Judge validation by the resolved state line from [`bin/fm-crew-state.sh`](../../../bin/fm-crew-state.sh), whose header owns outcome mappings and CI-monitor/daemon exceptions, never by shell liveness, the last status event, or a raw run record.
 Workers parked at approval or fix-review must follow the active gate help.

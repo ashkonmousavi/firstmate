@@ -214,7 +214,12 @@ EOF
         assert_grep 'kind=ship' "$home/state/$id.meta" "$risk promotion did not become ship"
         if [ "$mode" = direct-PR ]; then
           assert_grep 'exactly one code review round' "$home/data/$id/ship-instructions.md" 'promotion omitted one review round'
+          assert_grep 'never request a second review list' "$home/data/$id/ship-instructions.md" 'promotion could add a review list'
+        else
+          assert_grep 'The third distinct Review finding list is the last' "$home/data/$id/ship-instructions.md" 'promotion lost the last-list rule'
+          assert_grep "$home/data/$id/nm-<run>-review-lists.txt" "$home/data/$id/ship-instructions.md" 'promotion lost the review-list ledger'
         fi
+        assert_grep "$home/data/$id/review-followups-<review>.txt" "$home/data/$id/ship-instructions.md" 'promotion lost the review follow-up record'
       fi
     done
   done

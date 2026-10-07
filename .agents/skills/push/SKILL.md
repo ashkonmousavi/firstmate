@@ -35,7 +35,7 @@ Fix by hand before fixing the tool, because the hand fix lands in minutes and th
 Treat repeated failures as one class fixed at the root through its existing owner, because one-by-one fixes multiply.
 Judge every rule, gate, hook, queue or check that cost time in this period: name its cost in minutes and decide keep, cut, or make advisory; cut directly where the fleet is empty and by PR otherwise, and prefer removing a rule to adding one.
 Check the sequence of every in-flight item and every ready item: its stage, whether it serves the stable base in the captain's recorded priority order, and whether it is duplicated, stale, out of order, or on the wrong method.
-Wrong methods include a class of failures fixed one by one, more than two review rounds, a worker parked on CI, a redesign delivered as a bandaid, and a quick or surgical fix pushed through full review or test rounds when a live journey walk or another checkpoint already tests it.
+Wrong methods include a class of failures fixed one by one, review rounds beyond the selected delivery contract in [`bin/fm-dod-lib.sh`](../../../bin/fm-dod-lib.sh), a worker parked on CI, a redesign delivered as a bandaid, and a quick or surgical fix pushed through full review or test rounds when a live journey walk or another checkpoint already tests it.
 Correct each such item: close, re-sequence, bundle, merge, or hand it to the right mate through the parent channel, with the planner confirming readiness before any handoff.
 Keep every lane full on every machine: no idle lane while ready work exists, and a worker waiting on CI gets its next job.
 Recheck every wait's actual release condition, including supervisor-imposed holds; when it clears, notify its owner in the same pass and verify continuation.

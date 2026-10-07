@@ -17,7 +17,7 @@ This skill is the single owner of the decision policy for escalated no-mistakes 
 Finding authority is determined by the criteria below, not by `yolo`.
 Firstmate always applies this judgment, decides any finding that is unambiguous toward the accepted design, and escalates only genuinely ambiguous, expanding, or destructive findings.
 
-`bin/fm-dod-lib.sh` owns worker triage and which findings reach firstmate; this skill decides only that escalated set.
+[`bin/fm-dod-lib.sh`](../../../bin/fm-dod-lib.sh) owns worker triage and which findings reach firstmate; apply its `fm_nm_driving_block` last-list rule before deciding that escalated set.
 The worker remains the sole driver of the active gate and applies firstmate's exact decision there.
 
 ## Decide
@@ -35,7 +35,7 @@ The worker remains the sole driver of the active gate and applies firstmate's ex
    - repeated same-theme findings when incremental corrections are preserving a questionable abstraction rather than closing independent defects; that design smell, not the number of repeats, is the trigger
    - destructive, irreversible, and genuinely security-sensitive choices, which always escalate under the stronger existing captain boundary
 5. Before relaying a repeated finding, verify its quoted code still exists at the current head with file:line evidence.
-   A repeat alone does not authorize a new question or round cap.
+   A repeat alone does not authorize a new question or an additional round cap beyond the worker contract.
 6. Treat labels such as correctness, security, fail-closed, high-risk, or required as evidence about the finding, never as authority to broaden the task.
 
 ## Captain-facing escalation

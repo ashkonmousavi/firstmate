@@ -256,6 +256,10 @@ PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
 fi
+PROMOTION_FOLLOWUP_BLOCK=
+if [ "$MODE" != local-only ]; then
+  PROMOTION_FOLLOWUP_BLOCK=$(fm_review_followup_block "$FM_ROOT" "$DATA" "$ID" "$MODE")
+fi
 IFS= read -r -d '' PROMOTION_SHIP_SPEC <<EOF || true
 If these promotion steps were already completed before a relaunch, preserve the existing \`$BRANCH_Q\` branch and continue from its current state; do not repeat them destructively.
 1. **Verify isolation before anything else.** Run \`pwd -P\` and \`git rev-parse --show-toplevel\`; both must resolve to the disposable task worktree you were launched in, such as a treehouse pool path or an Orca-managed worktree, not the primary checkout firstmate operates from. If either does not resolve to the worktree you were launched in, stop and escalate to firstmate.
@@ -281,6 +285,9 @@ EOF
   if [ -n "$PROMOTION_ASK_USER_BLOCK" ]; then
     printf '\nThe no-mistakes stop-set escalation below supersedes the scout rule 6 escalation shape.\n'
     printf '%s\n' "$PROMOTION_ASK_USER_BLOCK"
+  fi
+  if [ -n "$PROMOTION_FOLLOWUP_BLOCK" ]; then
+    printf '\n%s\n' "$PROMOTION_FOLLOWUP_BLOCK"
   fi
   printf '\n'
   fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE"
