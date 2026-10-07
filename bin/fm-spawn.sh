@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Ordinary walks opt in with --walk <id> --walk-owner <owner> --walk-timeout <seconds>,
-# all required together on one fresh ship/scout task. The shared lifecycle is
-# owned by fm-walk-marker-lib.sh; state/<id>.meta retains the operation token
-# and expiry. Relaunch preserves that claim without re-claiming or releasing it.
+# Ordinary Q walks opt in with --walk <id> --walk-owner <owner> --walk-timeout <seconds>,
+# all required together on one fresh ship/scout task. A refused or failed claim
+# prevents worker launch. fm-teardown.sh owns terminal cleanup.
+# The shared lifecycle is owned by fm-walk-marker-lib.sh; state/<id>.meta retains
+# the operation token and expiry. Relaunch preserves that claim without
+# re-claiming or releasing it.
 # Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>] [--walk <id> --walk-owner <owner> --walk-timeout <seconds>]
 #        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>] [--walk <id> --walk-owner <owner> --walk-timeout <seconds>]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] --secondmate

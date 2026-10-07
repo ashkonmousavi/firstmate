@@ -7,11 +7,12 @@ transport as `python3 - <args>`; see bin/fm-grok-bot-dispatch.sh --walk):
   fm-walk-marker.py release <walk> <owner> <token>
 
 The marker is $XDG_STATE_HOME/q-walk/in-progress.json (default
-~/.local/state/q-walk/in-progress.json), the file every restart path on that
-host reads before stopping a service:
+~/.local/state/q-walk/in-progress.json), the canonical file for Q restart
+guards on that host:
   {"walks": ["<walk id>", ...], "started": "<UTC>", "expires_at": "<UTC>", "owner": "<id>"}
 Producer claims also carry "claims": {"<walk id>": "<16 lowercase hex characters>"}.
 Each claim returns its fresh token; release requires that operation's token.
+Walk and owner IDs match [A-Za-z0-9][A-Za-z0-9._:-]{0,63}.
 Hand-written markers without claims remain readable, but active joins are refused.
 Times are %Y-%m-%dT%H:%M:%SZ. The claim holds restarts while now < expires_at.
 

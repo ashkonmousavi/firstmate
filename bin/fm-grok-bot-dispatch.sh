@@ -26,19 +26,15 @@
 #   `grok-bot: unverified` line. The reply is unverified: firstmate has it
 #   checked by a candidate from another vendor before relaying or acting on it.
 #
-# Walk marker (--walk): a live walk holds every restart on the walked host.
+# Q walk marker (--walk): publishes restart protection on the walked host.
 #   After the Bot resolves and before anything is sent, the walk is claimed in
-#   that host's walk marker for --timeout seconds; when the reply lands, the
-#   timeout passes, or the send fails, only this walk is released again.
-#   bin/fm-walk-marker.py owns the marker format, overlap and expiry rules; it
-#   runs through the home-private transport $FM_HOME/data/walk-marker/transport,
-#   or FM_WALK_MARKER_TRANSPORT when set: an executable run as
-#   `<transport> claim|release <walk> <owner> <seconds|token> < bin/fm-walk-marker.py`
-#   that executes the program from stdin with python3 and those arguments as
-#   the marker's account on the walked host. Ids match [A-Za-z0-9][A-Za-z0-9._:-]*.
-#   bin/fm-walk-marker-lib.sh bounds each transport call. A missing or
-#   timed-out transport, a failed claim, another owner's active claim, or a
-#   malformed marker refuses the walk before anything is sent.
+#   that host's walk marker for --timeout seconds. Publication and chat share
+#   one --timeout budget; reply, timeout and failed-send exits attempt release
+#   using this operation's token. Release has its own transport deadline.
+#   bin/fm-walk-marker.py owns the marker format, IDs, overlap and expiry rules;
+#   bin/fm-walk-marker-lib.sh owns transport setup, receipts and call bounds.
+#   A missing or timed-out transport, a failed claim, another owner's active
+#   claim, or a malformed marker refuses the walk before anything is sent.
 #
 # Exit codes: 0 reply received; 3 the Bot was still working at the timeout
 #   (read the rest later with the bridge's `transcript <id>`); 2 usage,

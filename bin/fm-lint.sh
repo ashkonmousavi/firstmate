@@ -72,8 +72,8 @@
 # required-bounds run never lints uncapped. Otherwise (hosts like macOS
 # cannot apply the address-space limit at all) the run prints a warning
 # naming each missing bound and each root still runs in its own ShellCheck
-# process with identical diagnostics, just unbounded. A root that exhausts
-# its budget fails lint, naming the root and the budget.
+# process with identical diagnostics, just unbounded. A final memory or timeout
+# failure fails lint, naming the root and the budget; memory retries follow below.
 #
 # If a source-following root exits with a memory failure, it is retried once
 # without --external-sources under the same memory limit and only the time
@@ -126,9 +126,8 @@ SELF="$SELF_DIR/fm-lint.sh"
 ROOT="$(cd "$SELF_DIR/.." && pwd -P)"
 cd "$ROOT" || exit 1
 
-# The sibling timeout library supplies the shared group-kill watchdog that
-# bounds each root when FM_LINT_REQUIRE_BOUNDS=1 requires it; without the
-# library a required-bounds run refuses in preflight rather than lint uncapped.
+# The sibling timeout library supplies the shared group-kill watchdog;
+# the header owns bound enforcement and missing-capability behavior.
 if [ -r "$SELF_DIR/fm-timeout-lib.sh" ]; then
   # shellcheck source=bin/fm-timeout-lib.sh
   . "$SELF_DIR/fm-timeout-lib.sh"
@@ -957,11 +956,8 @@ if [ -n "$TELEMETRY" ]; then
   }
 fi
 
-# Per-root bounded-execution envelope. The watchdog is probed and the host's
-# acceptance of ulimit -v is checked before any root starts. Under
-# FM_LINT_REQUIRE_BOUNDS=1 failed checks refuse with a named error, so a
-# required-bounds run never lints uncapped; otherwise they warn by name and
-# each root runs alone in its own ShellCheck process, unbounded.
+# Per-root bounded-execution envelope; the header owns enforcement,
+# capability failures and the memory-fallback contract.
 ROOT_SECONDS=${FM_LINT_ROOT_SECONDS:-1200}
 ROOT_GRACE=${FM_LINT_ROOT_GRACE:-5}
 # 12 GiB of virtual address space per analysis process. ulimit -v caps
@@ -979,9 +975,10 @@ ROOT_GRACE=${FM_LINT_ROOT_GRACE:-5}
 # roots peak near 1.8 GiB (bin/fm-spawn.sh) and fit; a source-following heavy
 # root hits the local cap and takes the memory-fallback retry below. To
 # reproduce CI's budget locally, set FM_LINT_ROOT_MEMORY_KIB=12582912 with
-# FM_LINT_JOBS=1. A root that exceeds its cap fails by name.
-# Never disable, narrow, or redirect source-following to fit a root under
-# the cap. The roots sidecar records each root's peak RSS; roots peaking
+# FM_LINT_JOBS=1.
+# Source-following retries must use the header's explicit memory fallback;
+# never silently skip a root or suppress other diagnostics to fit the cap.
+# The roots sidecar records each root's peak RSS; roots peaking
 # above about 3 GiB resident are reduction candidates,
 # bin/fm-pending-reply-lib.sh first (its separate dedup fix is PR 5753).
 if [ "${FM_LINT_REQUIRE_BOUNDS:-0}" = 1 ]; then

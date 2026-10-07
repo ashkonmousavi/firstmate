@@ -3,13 +3,20 @@
 # fm_walk_claim <walk> <owner> <seconds> publishes before launch and returns JSON.
 # fm_walk_release <walk> <owner> <token> releases only that operation.
 # The home-private executable ${FM_HOME}/data/walk-marker/transport (override:
-# FM_WALK_MARKER_TRANSPORT) receives those arguments and executes the marker
-# program from stdin on the walked host. Every call has a 30-second deadline
+# FM_WALK_MARKER_TRANSPORT) is invoked as
+#   <transport> claim|release <walk> <owner> <seconds|token> < bin/fm-walk-marker.py
+# and must execute stdin with python3 and those arguments as the marker's
+# account on the walked host, returning one JSON receipt with no extra output
+# on success.
+# bin/fm-walk-marker.py owns the marker format, IDs, overlap and expiry rules.
+# Every call has a 30-second deadline
 # and one-second kill grace. FM_TEST_SEAM=1 permits FM_WALK_MARKER_TEST_BOUND
 # to select a shorter positive integer deadline in behavior tests.
 # fm_walk_meta_read <meta> validates the optional walk_id, walk_owner,
 # walk_token and walk_expires_at fields and exports FM_WALK_META_* values.
-# Relaunch preserves these fields; expiry is the ordinary worker's timeout.
+# Relaunch preserves these fields. Recorded expiry is the claim receipt's
+# deadline; overlapping claims can extend the shared marker's expiry.
+# Expiry bounds restart protection; it does not stop an ordinary worker.
 set -u
 
 FM_WALK_MARKER_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
