@@ -2565,7 +2565,7 @@ test_no_run_grok_uses_isolated_fallback() {
 # Native activity and rendered activity deliberately diverge in both directions.
 test_codex_native_fallback() {
   reset_fakes
-  local d out native process shell_info ps_bin
+  local d out native process shell_info ps_bin member members field value tool_info
   d=$(new_case codex-native)
   make_repo_on_branch "$d/wt" fm/codex-native
   make_fakebin "$d" >/dev/null
@@ -2635,10 +2635,49 @@ test_codex_native_fallback() {
     out=$(FM_HERDR_PS_BIN="$ps_bin" run_crew_state "$d" codex-native)
     assert_contains "$out" 'state: unknown' "stale working registration with $process process evidence must stay unknown"
   done
-  FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq '.result.process_info.foreground_processes = [{pid: 424242, name: "sleep", argv0: "sleep"}]')
+  tool_info=$(printf '%s' "$shell_info" | jq '.result.process_info.foreground_processes = [{pid: 424242, name: "sleep", argv0: "sleep"}]')
+  for value in null 0 1 424242.5 '"424242"' true '{}' '[]'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$tool_info" | jq --argjson value "$value" '.result.process_info.shell_pid = $value')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' "malformed shell PID $value must stay unknown"
+  done
+  for member in null '[]' '0' '"sleep"' '{}' \
+    '{"pid":424242}' '{"name":"sleep"}'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq --argjson member "$member" '.result.process_info.foreground_processes = [$member]')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' "malformed foreground member $member must stay unknown"
+  done
+  for field in pid name argv0 argv cmdline; do
+    case "$field" in
+      pid) members='[null,0,-1,424242.5,"424242",true,{},[]]' ;;
+      name) members='[null,"",0,true,{},[]]' ;;
+      argv0|cmdline) members='[0,true,{},[]]' ;;
+      argv) members='[0,true,{},"sleep",[null],[0],[true],[{}],[[]]]' ;;
+    esac
+    while IFS= read -r value; do
+      FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$tool_info" | jq --arg field "$field" --argjson value "$value" '.result.process_info.foreground_processes[0][$field] = $value')
+      out=$(run_crew_state "$d" codex-native)
+      assert_contains "$out" 'state: unknown' "malformed foreground $field=$value must stay unknown"
+    done < <(printf '%s' "$members" | jq -c '.[]')
+  done
+  for members in '[{"pid":424242,"name":"codex"},{}]' '[{},{"pid":424242,"name":"codex"}]'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq --argjson members "$members" '.result.process_info.foreground_processes = $members')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' 'a valid agent must not mask a malformed sibling entry'
+  done
+  FM_FAKE_HERDR_PROCESS_INFO=$tool_info
   out=$(run_crew_state "$d" codex-native)
   assert_contains "$out" 'state: working' 'native working registration with a foreground tool retains authority'
   assert_contains "$out" 'herdr-native' 'foreground tool must preserve the native source'
+  for member in \
+    '{"pid":424242,"name":"sleep","argv0":null,"argv":["sleep",""],"cmdline":null}' \
+    '{"pid":424242,"name":"sleep","argv":[],"cmdline":"sleep 300"}' \
+    '{"pid":424242,"name":"node","argv0":"codex"}' \
+    '{"pid":424242,"name":"node","argv":["codex"]}'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$tool_info" | jq --argjson member "$member" '.result.process_info.foreground_processes = [$member]')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: working' 'valid optional identity fields preserve native working evidence'
+  done
   FM_FAKE_HERDR_PROCESS_INFO=
   unset FM_FAKE_HERDR_PANE_FILE
   pass 'Codex native fallback survives capture loss and refuses stale pane/status/registration'
