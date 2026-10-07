@@ -1,0 +1,142 @@
+[
+  {
+    "scenario": "no-mistakes/none",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "contract-no-mistakes-none",
+      "firstmate",
+      "--mode",
+      "no-mistakes",
+      "--forge",
+      "none"
+    ],
+    "scaffold_output": "scaffolded: /home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote's/data/contract-no-mistakes-none/brief.md (ship, mode=no-mistakes; replace {TASK} and {FIRSTMATE_SPEC})",
+    "pointer": "FM_CLASSIFY_PAUSED_VERB='paused' bash -c '. \"$1\" || exit; shift; fm_worker_contract_block \"$@\"' _ '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/bin/fm-dod-lib.sh' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/data' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/state' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/config' 'contract-no-mistakes-none' 'ship' 'no-mistakes' 'fm/contract-no-mistakes-none' 'none'",
+    "result": "pass",
+    "emitted_contract": "contract-no-mistakes-none-emitted.md"
+  },
+  {
+    "scenario": "no-mistakes/gerrit",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "contract-no-mistakes-gerrit",
+      "firstmate",
+      "--mode",
+      "no-mistakes",
+      "--forge",
+      "gerrit"
+    ],
+    "scaffold_output": "scaffolded: /home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote's/data/contract-no-mistakes-gerrit/brief.md (ship, mode=no-mistakes forge=gerrit shape=squash; replace {TASK} and {FIRSTMATE_SPEC})",
+    "pointer": "FM_CLASSIFY_PAUSED_VERB='paused' bash -c '. \"$1\" || exit; shift; fm_worker_contract_block \"$@\"' _ '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/bin/fm-dod-lib.sh' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/data' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/state' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/config' 'contract-no-mistakes-gerrit' 'ship' 'no-mistakes' 'fm/contract-no-mistakes-gerrit' 'gerrit'",
+    "result": "pass",
+    "emitted_contract": "contract-no-mistakes-gerrit-emitted.md"
+  },
+  {
+    "scenario": "direct-PR/none",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "contract-direct-pr-none",
+      "firstmate",
+      "--mode",
+      "direct-PR",
+      "--forge",
+      "none"
+    ],
+    "scaffold_output": "scaffolded: /home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote's/data/contract-direct-pr-none/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})",
+    "pointer": "FM_CLASSIFY_PAUSED_VERB='paused' bash -c '. \"$1\" || exit; shift; fm_worker_contract_block \"$@\"' _ '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/bin/fm-dod-lib.sh' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/data' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/state' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/config' 'contract-direct-pr-none' 'ship' 'direct-PR' 'fm/contract-direct-pr-none' 'none'",
+    "result": "pass",
+    "emitted_contract": "contract-direct-pr-none-emitted.md"
+  },
+  {
+    "scenario": "direct-PR/gerrit",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "contract-direct-pr-gerrit",
+      "firstmate",
+      "--mode",
+      "direct-PR",
+      "--forge",
+      "gerrit"
+    ],
+    "scaffold_output": "scaffolded: /home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote's/data/contract-direct-pr-gerrit/brief.md (ship, mode=direct-PR forge=gerrit shape=squash; replace {TASK} and {FIRSTMATE_SPEC})",
+    "pointer": "FM_CLASSIFY_PAUSED_VERB='paused' bash -c '. \"$1\" || exit; shift; fm_worker_contract_block \"$@\"' _ '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/bin/fm-dod-lib.sh' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/data' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/state' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/config' 'contract-direct-pr-gerrit' 'ship' 'direct-PR' 'fm/contract-direct-pr-gerrit' 'gerrit'",
+    "result": "pass",
+    "emitted_contract": "contract-direct-pr-gerrit-emitted.md"
+  },
+  {
+    "scenario": "local-only/none",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "contract-local-only-none",
+      "firstmate",
+      "--mode",
+      "local-only",
+      "--forge",
+      "none"
+    ],
+    "scaffold_output": "scaffolded: /home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote's/data/contract-local-only-none/brief.md (ship, mode=local-only; replace {TASK} and {FIRSTMATE_SPEC})",
+    "pointer": "FM_CLASSIFY_PAUSED_VERB='paused' bash -c '. \"$1\" || exit; shift; fm_worker_contract_block \"$@\"' _ '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/bin/fm-dod-lib.sh' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/data' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/state' '/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w/home with spaces and quote'\\''s/config' 'contract-local-only-none' 'ship' 'local-only' 'fm/contract-local-only-none' 'none'",
+    "result": "pass",
+    "emitted_contract": "contract-local-only-none-emitted.md"
+  },
+  {
+    "scenario": "bad-forge-mode",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "bad-forge-mode",
+      "firstmate",
+      "--mode",
+      "local-only",
+      "--forge",
+      "gerrit"
+    ],
+    "exit": 1,
+    "diagnostic": "error: fm-brief.sh --forge: forge=gerrit cannot ship mode=local-only - that mode publishes nothing, so a forge has no meaning there, and its landing would fast-forward local main with content the review server has never seen; ship no-mistakes or direct-PR, which publish through the forge",
+    "result": "pass: refused without writing brief"
+  },
+  {
+    "scenario": "bad-mode",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "bad-mode",
+      "firstmate",
+      "--mode",
+      "invalid"
+    ],
+    "exit": 1,
+    "diagnostic": "error: --mode must be one of no-mistakes, direct-PR, local-only (got 'invalid')",
+    "result": "pass: refused without writing brief"
+  },
+  {
+    "scenario": "bad-forge",
+    "command": [
+      "bash",
+      "bin/fm-brief.sh",
+      "bad-forge",
+      "firstmate",
+      "--mode",
+      "no-mistakes",
+      "--forge",
+      "unknown"
+    ],
+    "exit": 1,
+    "diagnostic": "error: fm-brief.sh --forge: unknown forge 'unknown' (expected none or gerrit)",
+    "result": "pass: refused without writing brief"
+  },
+  {
+    "scenario": "baseline emitted contract",
+    "result": "RED: old renderer lacks the required class-fix line; candidate emits it once",
+    "baseline_exit": 0
+  },
+  {
+    "cleanup": "/home/tegris/.no-mistakes/worktrees/825ef466523f/01M4A1DG2FKS344GNXF5BG88DG/.fm-contract-test-00gm1u8w",
+    "exists": false
+  }
+]
