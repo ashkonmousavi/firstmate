@@ -72,7 +72,7 @@ test_branch_prompt_is_byte_stable_and_above_cache_floor() {
   esac
   heartbeat=$(printf '%s\n' "$out_a" | sed -n '/^A heartbeat wake asks you/,/^$/p')
   case "$heartbeat" in
-    *'Before sequencing queued work, read the planner wave plan and Q bug list that `.agents/skills/push/SKILL.md` Gather requires.'*) ;;
+    *"Before sequencing queued work, read the planner wave plan and Q bug list that \`.agents/skills/push/SKILL.md\` Gather requires."*) ;;
     *) fail "generated heartbeat paragraph lost the push Gather reference before sequencing queued work" ;;
   esac
   pass "branch prompt is byte-stable across homes, cwd, timezone, and time, above the cache floor"
