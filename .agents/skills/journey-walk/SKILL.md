@@ -32,7 +32,7 @@ Name one walk owner for the run, the version reservation, the stage ledger, defe
 Do not split those across lanes.
 
 Hold installs for the walk window and its cleanup.
-A walk sent through `bin/fm-grok-bot-dispatch.sh` holds them with `--walk <id> --walk-owner <owner>`, whose header owns the walk-marker contract.
+Walk dispatch uses `bin/fm-grok-bot-dispatch.sh --walk <id> --walk-owner <owner>` or `bin/fm-spawn.sh --walk <id> --walk-owner <owner> --walk-timeout <seconds>`; `bin/fm-walk-marker-lib.sh` and the dispatch/teardown headers own the lifecycle.
 Record that freeze in the walk task's durable records the same turn it starts, and record its release the same turn it ends.
 A walk that cannot hold the installed version does not start acceptance evidence.
 

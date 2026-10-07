@@ -55,8 +55,8 @@
 #   (y) persistent lock (never clears, not provably stale)    -> REFUSE loudly
 set -u
 
-# shellcheck source=tests/lib.sh disable=SC1091
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/fixtures.sh disable=SC1091
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 fm_git_identity fmtest fmtest@example.invalid
 
 TEARDOWN="$ROOT/bin/fm-teardown.sh"
@@ -4288,6 +4288,99 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
     "retained-sources: the ordinary refusal was replaced"
   pass "present required sources still reach the ordinary teardown refusal"
 }
+
+
+# shellcheck disable=SC2030,SC2031 # Each walk fixture owns its subshell environment.
+test_teardown_walk_tokens_and_failed_release() (
+  local case_dir scenario receipt token marker meta before out rc sibling
+  export FM_WALK_MARKER_TRANSPORT FM_WALK_TEST_STATE FM_WALK_TEST_LOG FM_WALK_TEST_SLEEP
+  export FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z FM_WALK_MARKER_TEST_BOUND=1
+  FM_WALK_TEST_SLEEP=$(command -v sleep)
+  for scenario in report manual fail timeout stale malformed; do
+    case_dir=$(make_case "walk-teardown-$scenario")
+    write_meta "$case_dir" local-only ship
+    seed_backlog_in_flight "$case_dir"
+    FM_WALK_TEST_STATE="$case_dir/walk-state"
+    FM_WALK_TEST_LOG="$case_dir/walk.log"
+    FM_WALK_MARKER_TRANSPORT=$(fm_test_walk_transport "$case_dir/walk-transport")
+    marker="$FM_WALK_TEST_STATE/q-walk/in-progress.json"
+    meta="$case_dir/state/task-x1.meta"
+    receipt=$(XDG_STATE_HOME="$FM_WALK_TEST_STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-A firstmate-main 300)
+    expect_code 0 "$?" "teardown fixture creates the dispatched claim"
+    token=$(jq -r .token <<<"$receipt")
+    sibling=$(XDG_STATE_HOME="$FM_WALK_TEST_STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-B firstmate-main 600)
+    expect_code 0 "$?" "teardown fixture adds an overlapping claim"
+    [ "$scenario" != stale ] || token=0000000000000000
+    printf 'walk_id=QW-A\nwalk_owner=firstmate-main\nwalk_token=%s\nwalk_expires_at=2026-10-07T10:10:00Z\n' "$token" >> "$meta"
+    [ "$scenario" != malformed ] || printf 'walk_token=broken\n' >> "$meta"
+    [ "$scenario" != manual ] || printf '%s\n' '{"walks":["QW-M"],"started":"2026-10-07T10:01:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}' > "$marker"
+    before=$(cat "$marker")
+    unset FM_WALK_TEST_TRANSPORT_FAIL FM_WALK_TEST_TRANSPORT_SLEEP_OP
+    case "$scenario" in
+      fail) export FM_WALK_TEST_TRANSPORT_FAIL=release ;;
+      timeout) export FM_WALK_TEST_TRANSPORT_SLEEP_OP=release ;;
+    esac
+    out=$(run_teardown "$case_dir" 2>&1)
+    rc=$?
+    if [ "$scenario" = manual ]; then
+      expect_code 0 "$rc" "a hand-written marker without the walk is already released: $out"
+      assert_equals "$before" "$(cat "$marker")" "teardown leaves a hand-written marker untouched"
+      assert_absent "$meta" "an already released walk retires the task record"
+    elif [ "$scenario" = report ]; then
+      expect_code 0 "$rc" "terminal teardown releases its own walk: $out"
+      assert_equals '["QW-B"]' "$(jq -c .walks "$marker")" "teardown preserves unrelated walks"
+      assert_equals "$(jq -r .token <<<"$sibling")" "$(jq -r '.claims["QW-B"]' "$marker")" "teardown preserves the sibling token"
+      assert_absent "$meta" "successful teardown retires the task record"
+    else
+      expect_code 1 "$rc" "a refused release refuses teardown ($scenario): $out"
+      assert_present "$meta" "a failed release retains the retry record"
+      assert_absent "$case_dir/state/task-x1.backlog-close" "failed release cannot authorize recovery to erase its retry record"
+      assert_present "$case_dir/wt" "a failed release precedes worktree cleanup"
+      assert_not_contains "$out" 'teardown task-x1 complete' "a failed release never reports a clean teardown"
+      assert_equals "$before" "$(cat "$marker")" "failed cleanup leaves both claims untouched"
+      if [ "$scenario" != malformed ]; then
+        assert_contains "$out" 'release failed for QW-A (firstmate-main)' "release failure names walk and owner"
+        assert_contains "$out" 'expires_at=2026-10-07T10:10:00Z' "release failure names expiry"
+      fi
+      [ "$scenario" != timeout ] || assert_contains "$out" 'transport timeout after 1s' "release timeout is actionable"
+      if [ "$scenario" = fail ] || [ "$scenario" = timeout ]; then
+        unset FM_WALK_TEST_TRANSPORT_FAIL FM_WALK_TEST_TRANSPORT_SLEEP_OP
+        out=$(run_teardown "$case_dir" 2>&1)
+        expect_code 0 "$?" "a retained claim supports retry: $out"
+        assert_equals '["QW-B"]' "$(jq -c .walks "$marker")" "a successful retry releases only its own walk"
+      fi
+    fi
+  done
+  pass "teardown releases only its recorded token and retains failed releases for retry"
+)
+
+# shellcheck disable=SC2030,SC2031 # Each walk fixture owns its subshell environment.
+test_forced_secondmate_walk_release_failure() (
+  local case_dir home receipt token out
+  case_dir=$(make_case walk-child-release)
+  write_meta "$case_dir" local-only secondmate
+  configure_secondmate_with_tmux_children "$case_dir"
+  home="$case_dir/secondmate-home"
+  export FM_WALK_TEST_STATE="$case_dir/walk-state" FM_WALK_TEST_LOG="$case_dir/walk.log"
+  export FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z FM_WALK_MARKER_TRANSPORT
+  FM_WALK_MARKER_TRANSPORT=$(fm_test_walk_transport "$case_dir/walk-transport")
+  receipt=$(XDG_STATE_HOME="$FM_WALK_TEST_STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-child firstmate-child 300)
+  expect_code 0 "$?" "the child fixture creates its walk claim"
+  token=$(jq -r .token <<<"$receipt")
+  printf 'walk_id=QW-child\nwalk_owner=firstmate-child\nwalk_token=%s\nwalk_expires_at=2026-10-07T10:05:00Z\n' \
+    "$token" >> "$home/state/child-a.meta"
+  out=$(FM_WALK_TEST_TRANSPORT_FAIL=release run_teardown "$case_dir" --force 2>&1)
+  expect_code 1 "$?" "a failed child release refuses forced home cleanup: $out"
+  assert_contains "$out" 'release failed for QW-child (firstmate-child)' "forced cleanup reports the child's failed release"
+  assert_present "$home/state/child-a.meta" "forced cleanup retains the child retry record"
+  assert_present "$case_dir/state/task-x1.meta" "forced cleanup retains the parent route"
+  assert_present "$case_dir/child-a-wt" "forced cleanup retains the child's worktree"
+  assert_equals '["QW-child"]' "$(jq -c .walks "$FM_WALK_TEST_STATE/q-walk/in-progress.json")" "forced cleanup never clears a failed claim"
+  pass "forced secondmate cleanup uses the same token-bound child release gate"
+)
+
+test_teardown_walk_tokens_and_failed_release || exit 1
+test_forced_secondmate_walk_release_failure || exit 1
 
 test_missing_startup_source_refuses_before_cleanup
 test_unreadable_startup_source_refuses_before_cleanup

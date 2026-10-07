@@ -108,6 +108,7 @@ cat > "$TRANSPORT" <<'SH'
 #!/usr/bin/env bash
 printf '["transport","%s"]\n' "$*" >> "$STUB_LOG"
 [ "${TRANSPORT_FAIL:-}" != "$1" ] || exit 1
+[ "${TRANSPORT_STALL:-}" != "$1" ] || exec sleep 5
 if [ "${TRANSPORT_RECEIPT_OP:-}" = "$1" ]; then
   printf '%s' "${TRANSPORT_RECEIPT:-}"
   exit 0
@@ -168,7 +169,7 @@ expect_code 3 "$code" "a walk still running at the timeout exits 3"
 assert_absent "$MARKER" "the walk's marker is cleared at its timeout"
 pass "a walk's marker ends at its timeout"
 
-marker '{"walks":["QW-40"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}'
+marker '{"walks":["QW-40"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main","claims":{"QW-40":"2222222222222222"}}'
 walk_run code out err "$BRIEF" --bot fm-researcher --timeout 300 --walk QW-41 --walk-owner firstmate-main
 expect_code 0 "$code" "an overlapping walk of the same owner is sent"
 assert_equals '["QW-40","QW-41"]' "$(field "$SNAP" .walks)" "an overlapping walk joins the active claim"
@@ -178,7 +179,7 @@ assert_equals '["QW-40"]' "$(field "$MARKER" .walks)" "only the finished walk is
 assert_equals '"2026-10-07T10:30:00Z"' "$(field "$MARKER" .expires_at)" "the surviving claim keeps its expiry"
 pass "overlapping walks release only their own claim"
 
-active='{"walks":["QW-40","QW-41"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}'
+active='{"walks":["QW-40","QW-41"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main","claims":{"QW-40":"2222222222222222","QW-41":"1111111111111111"}}'
 for owner in firstmate-main sol-operator; do
   marker "$active"
   walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner "$owner"
@@ -189,7 +190,7 @@ for owner in firstmate-main sol-operator; do
 done
 pass "an active walk cannot be dispatched twice"
 
-for seed in '' '{"walks":["QW-40"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}'; do
+for seed in '' '{"walks":["QW-40"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main","claims":{"QW-40":"2222222222222222"}}'; do
   rm -f "$MARKER"
   [ -z "$seed" ] || marker "$seed"
   TRANSPORT_DELAY=2 walk_run code out err "$BRIEF" --bot fm-researcher --timeout 30 --walk QW-41 --walk-owner firstmate-main
@@ -246,7 +247,7 @@ for clock in 2026-10-07T10:00:00Z 2026-10-07T11:00:00Z; do
     for op in claim release; do
       marker "$bad"
       argument=300
-      [ "$op" != release ] || argument=2026-10-07T09:55:00Z
+      [ "$op" != release ] || argument=1111111111111111
       marker_result=$(XDG_STATE_HOME="$STATE" FM_WALK_MARKER_NOW="$clock" \
         python3 "$ROOT/bin/fm-walk-marker.py" "$op" QW-41 firstmate-main "$argument")
       expect_code 1 "$?" "an active or expired malformed marker refuses $op"
@@ -265,28 +266,60 @@ rm -f "$MARKER"
 first_claim=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-41 firstmate-main 300)
 expect_code 0 "$?" "the public producer creates a lease"
 lease_start=$(jq -r .started <<<"$first_claim")
+first_token=$(jq -r .token <<<"$first_claim")
 second_claim=$(XDG_STATE_HOME="$STATE" FM_WALK_MARKER_NOW=2026-10-07T10:01:00Z \
   python3 "$ROOT/bin/fm-walk-marker.py" claim QW-42 firstmate-main 1200)
 expect_code 0 "$?" "an overlapping claim extends the lease"
+second_token=$(jq -r .token <<<"$second_claim")
 assert_equals "$lease_start" "$(jq -r .started <<<"$second_claim")" "an extension preserves the lease identity"
 marker_before=$(cat "$MARKER")
 marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main)
 expect_code 2 "$?" "a release without a lease identity refuses"
 assert_equals "$marker_before" "$(cat "$MARKER")" "an unbound release leaves the lease untouched"
-marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main "$lease_start")
+marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main "$first_token")
 expect_code 0 "$?" "the first walk can release after a sibling extends the lease"
 assert_equals '["QW-42"]' "$(field "$MARKER" .walks)" "the extension's walk survives the older walk's release"
 assert_equals '"2026-10-07T10:21:00Z"' "$(field "$MARKER" .expires_at)" "the extended expiry survives"
-marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main "$lease_start")
+marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main "$first_token")
 expect_code 0 "$?" "a matching repeated release is idempotent"
 assert_equals 'not-listed' "$(jq -r .result <<<"$marker_result")" "a repeated release reports the preserved lease"
-marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-42 firstmate-main "$lease_start")
-expect_code 0 "$?" "the final matching walk clears the extended lease"
+reclaimed=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-41 firstmate-main 300)
+expect_code 0 "$?" "a finished walk can be reclaimed while its sibling survives"
+new_token=$(jq -r .token <<<"$reclaimed")
+assert_not_equals "$first_token" "$new_token" "redispatch has a fresh operation identity"
+marker_before=$(cat "$MARKER")
+marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main "$first_token")
+expect_code 1 "$?" "replay of the old operation's terminal release refuses"
+assert_equals "$marker_before" "$(cat "$MARKER")" "a stale token leaves both walks and tokens unchanged"
+marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-42 firstmate-main "$second_token")
+expect_code 0 "$?" "the sibling's matching release succeeds"
+assert_equals '["QW-41"]' "$(field "$MARKER" .walks)" "the redispatched walk survives its sibling's report"
+marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-41 firstmate-main "$new_token")
+expect_code 0 "$?" "the redispatched walk's own token clears the marker"
 assert_absent "$MARKER" "the final matching release removes the marker"
-marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-42 firstmate-main "$lease_start")
+marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" release QW-42 firstmate-main "$second_token")
 expect_code 0 "$?" "an absent matching claim stays idempotent"
 assert_equals 'absent' "$(jq -r .result <<<"$marker_result")" "an absent release reports absence"
-pass "release binds to the stable lease start while sibling expiry extensions remain valid"
+pass "per-operation tokens prevent replay during overlapping redispatch and permit expiry extensions"
+
+manual='{"walks":["QW-40"],"started":"2026-10-07T09:58:00Z","expires_at":"2026-10-07T10:30:00Z","owner":"firstmate-main"}'
+marker "$manual"
+walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
+expect_code 2 "$code" "joining an active hand-written marker refuses"
+assert_no_grep '["chat"' "$LOG" "a producer cannot invent ownership tokens for a manual walk"
+assert_equals "$manual" "$(cat "$MARKER")" "the hand-written claim remains byte-identical"
+for claims in '{}' '{"QW-40":"bad"}' '{"QW-41":"1111111111111111","QW-42":"2222222222222222"}' 'null'; do
+  marker "$(jq -c --argjson claims "$claims" '.claims = $claims' <<<"$manual")"
+  before=$(cat "$MARKER")
+  for op in claim release; do
+    arg=300
+    [ "$op" != release ] || arg=1111111111111111
+    marker_result=$(XDG_STATE_HOME="$STATE" python3 "$ROOT/bin/fm-walk-marker.py" "$op" QW-41 firstmate-main "$arg")
+    expect_code 1 "$?" "a malformed token map refuses $op"
+    assert_equals "$before" "$(cat "$MARKER")" "invalid token metadata cannot be mutated"
+  done
+done
+pass "manual claims remain readable and malformed token maps refuse before mutation"
 
 for recovery in single overlap; do
   for terminal in report timeout failed-send; do
@@ -301,8 +334,8 @@ for recovery in single overlap; do
       walk_run code out err "$BRIEF" --bot fm-researcher --timeout 300 --walk QW-41 --walk-owner firstmate-main
     expect_code "$expected" "$code" "a delayed $terminal release refuses a replacement lease ($recovery)"
     assert_contains "$err" 'release failed' "a stale release remains actionable"
-    assert_contains "$err" 'lease changed' "a stale release names the changed lease"
-    assert_equals "$(jq -Sc 'del(.result)' "$TMP_ROOT/recovered.json")" "$(jq -Sc . "$MARKER")" \
+    assert_contains "$err" 'token mismatch' "a stale release names the changed operation"
+    assert_equals "$(jq -Sc 'del(.result, .token)' "$TMP_ROOT/recovered.json")" "$(jq -Sc . "$MARKER")" \
       "a stale release preserves the complete replacement and its sibling claims"
     assert_equals '"2026-10-07T10:05:00Z"' "$(field "$MARKER" .started)" "recovery creates a distinct lease identity"
   done
@@ -328,9 +361,11 @@ expect_code 2 "$code" "an unsafe walk id refuses"
 assert_no_grep '["transport"' "$LOG" "invalid walk options touch nothing"
 pass "claim, transport and option failures refuse before sending"
 
-claimed='{"result":"claimed","walks":["QW-41"],"owner":"firstmate-main","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}'
+claimed='{"result":"claimed","token":"1111111111111111","claims":{"QW-41":"1111111111111111"},"walks":["QW-41"],"owner":"firstmate-main","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}'
 for bad in '' '{}' '[]' '{"result":"refused","reason":"held"}' \
   "$(jq -c '.result = "released"' <<<"$claimed")" \
+  "$(jq -c '.token = "3333333333333333"' <<<"$claimed")" \
+  "$(jq -c 'del(.claims)' <<<"$claimed")" \
   "$(jq -c '.walks = ["QW-40"]' <<<"$claimed")" \
   "$(jq -c '.walks = []' <<<"$claimed")" \
   "$(jq -c '.walks = [null]' <<<"$claimed")" \
@@ -359,11 +394,10 @@ assert_contains "$err" '2026-10-07T10:05:00Z' "the failed release names when the
 assert_equals '["QW-41"]' "$(field "$MARKER" .walks)" "a failed release never claims a clear"
 pass "a failed release stays an actionable failure"
 
-released='{"result":"released","walks":["QW-40"],"owner":"firstmate-main","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}'
+released='{"result":"released","claims":{"QW-40":"2222222222222222"},"walks":["QW-40"],"owner":"firstmate-main","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}'
 for bad in '' '{}' '{"result":"refused"}' "$claimed" \
   "$(jq -c '.walks = ["QW-41"]' <<<"$released")" \
   "$(jq -c '.owner = "sol-operator"' <<<"$released")" \
-  "$(jq -c '.started = "2026-10-07T10:01:00Z"' <<<"$released")" \
   "$(jq -c 'del(.expires_at)' <<<"$released")" \
   "$(jq -c '.started = .expires_at' <<<"$released")" \
   "$(jq -c '.result = "not-listed" | .walks = ["QW-41"]' <<<"$released")"; do
@@ -376,5 +410,16 @@ for bad in '' '{}' '{"result":"refused"}' "$claimed" \
   done
 done
 pass "release receipts must prove removal and validate every remaining claim"
+
+rm -f "$MARKER"
+TRANSPORT_STALL=claim FM_WALK_MARKER_TEST_BOUND=1 walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
+expect_code 2 "$code" "a stalled claim transport refuses the walk"
+assert_contains "$err" 'claim transport timeout after 1s' "claim failure identifies the hard bound"
+assert_no_grep '["chat"' "$LOG" "a transport timeout never launches a walk"
+TRANSPORT_STALL=release FM_WALK_MARKER_TEST_BOUND=1 walk_run code out err "$BRIEF" --bot fm-researcher --walk QW-41 --walk-owner firstmate-main
+expect_code 4 "$code" "a stalled release remains an actionable failure"
+assert_contains "$err" 'release transport timeout after 1s' "release failure identifies the hard bound"
+assert_present "$MARKER" "a timed-out release retains its durable claim"
+pass "both transport operations have a shared hard deadline"
 
 echo "# all fm-grok-bot-dispatch tests passed"

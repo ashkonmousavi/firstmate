@@ -33,10 +33,11 @@
 #   bin/fm-walk-marker.py owns the marker format, overlap and expiry rules; it
 #   runs through the home-private transport $FM_HOME/data/walk-marker/transport,
 #   or FM_WALK_MARKER_TRANSPORT when set: an executable run as
-#   `<transport> claim|release <walk> <owner> <seconds|started> < bin/fm-walk-marker.py`
+#   `<transport> claim|release <walk> <owner> <seconds|token> < bin/fm-walk-marker.py`
 #   that executes the program from stdin with python3 and those arguments as
 #   the marker's account on the walked host. Ids match [A-Za-z0-9][A-Za-z0-9._:-]*.
-#   A missing transport, a failed claim, another owner's active claim, or a
+#   bin/fm-walk-marker-lib.sh bounds each transport call. A missing or
+#   timed-out transport, a failed claim, another owner's active claim, or a
 #   malformed marker refuses the walk before anything is sent.
 #
 # Exit codes: 0 reply received; 3 the Bot was still working at the timeout
@@ -50,11 +51,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-$FM_ROOT}"
 BRIDGE="${FM_GROKBOT_BRIDGE:-$FM_HOME/data/grok-bot-bridge/grokbot.mjs}"
-WALK_TRANSPORT="${FM_WALK_MARKER_TRANSPORT:-$FM_HOME/data/walk-marker/transport}"
-WALK_PROGRAM="$SCRIPT_DIR/fm-walk-marker.py"
 
 # shellcheck source=bin/fm-brief-heading-lib.sh
 . "$SCRIPT_DIR/fm-brief-heading-lib.sh"
+# shellcheck source=bin/fm-walk-marker-lib.sh
+. "$SCRIPT_DIR/fm-walk-marker-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 2; }
 usage() {
@@ -86,10 +87,7 @@ done
 command -v node >/dev/null 2>&1 || die "node required"
 command -v jq >/dev/null 2>&1 || die "jq required"
 if [ -n "$WALK$WALK_OWNER" ]; then
-  id_re='^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$'
-  [[ "$WALK" =~ $id_re && "$WALK_OWNER" =~ $id_re ]] \
-    || die "--walk and --walk-owner both need an id matching [A-Za-z0-9][A-Za-z0-9._:-]*"
-  [ -x "$WALK_TRANSPORT" ] || die "walk marker transport not found: $WALK_TRANSPORT; the walk is not sent"
+  fm_walk_options_valid "$WALK" "$WALK_OWNER" "$TIMEOUT" || die "invalid walk options"
   command -v python3 >/dev/null 2>&1 || die "python3 required for a bounded walk"
 fi
 
@@ -109,41 +107,12 @@ ID=$(jq -r --arg n "$BOT" '
   if length == 1 then .[0] else error("\(length)") end' <<<"$LIST" 2>/dev/null) \
   || die "expected exactly one Grok Bot named $BOT"
 
-WALK_CLAIMED='' WALK_STARTED=''
-walk_marker() {  # <claim|release> <seconds|started>: prints the program's one JSON line
-  local receipt
-  receipt=$("$WALK_TRANSPORT" "$1" "$WALK" "$WALK_OWNER" "${@:2}" < "$WALK_PROGRAM" 2>&1) \
-    || { printf '%s\n' "$receipt" >&2; return 1; }
-  if ! jq -se --arg op "$1" --arg walk "$WALK" --arg owner "$WALK_OWNER" --arg started "$WALK_STARTED" '
-    def utc:
-      type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")
-      and (try ((fromdateiso8601 | strftime("%Y-%m-%dT%H:%M:%SZ")) == .) catch false);
-    def marker:
-      .owner == $owner and (.walks | type == "array" and length > 0)
-      and all(.walks[]; type == "string" and test("\\S"))
-      and ((.walks | unique | length) == (.walks | length))
-      and (.started | utc) and (.expires_at | utc)
-      and (.expires_at > .started);
-    length == 1 and (.[0] | type == "object" and
-      if $op == "claim" then
-        .result == "claimed" and marker and (.walks | index($walk) != null)
-      elif .result == "cleared" or .result == "absent" then
-        .walks == null and .owner == null and .started == null and .expires_at == null
-      else
-        (.result == "released" or .result == "not-listed")
-        and marker and .started == $started and (.walks | index($walk) == null)
-      end)
-  ' <<<"$receipt" >/dev/null 2>&1; then
-    printf 'invalid %s receipt: %s\n' "$1" "${receipt:0:300}" >&2
-    return 1
-  fi
-  printf '%s\n' "$receipt"
-}
+WALK_CLAIMED='' WALK_TOKEN=''
 # shellcheck disable=SC2329 # Invoked by the EXIT trap below.
 walk_release_on_exit() {
   local rc=$? result
   [ -n "$WALK_CLAIMED" ] || exit "$rc"
-  if result=$(walk_marker release "$WALK_STARTED" 2>&1); then exit "$rc"; fi
+  if result=$(fm_walk_release "$WALK" "$WALK_OWNER" "$WALK_TOKEN" 2>&1); then exit "$rc"; fi
   printf 'walk-marker: release failed for %s (%s); the claim holds restarts until %s: %s\n' \
     "$WALK" "$WALK_OWNER" "$WALK_CLAIMED" "${result:0:300}" >&2
   case "$rc" in 0|3) exit 4 ;; *) exit "$rc" ;; esac
@@ -151,10 +120,10 @@ walk_release_on_exit() {
 if [ -n "$WALK" ]; then
   WALK_DEADLINE=$(python3 -c 'import sys, time; print(time.monotonic() + int(sys.argv[1]))' "$TIMEOUT") \
     || die "could not establish the walk deadline"
-  CLAIM=$(walk_marker claim "$TIMEOUT" 2>&1) \
+  CLAIM=$(fm_walk_claim "$WALK" "$WALK_OWNER" "$TIMEOUT" 2>&1) \
     || die "walk marker not claimed for $WALK, so nothing was sent: ${CLAIM:0:300}"
   WALK_CLAIMED=$(jq -r '.expires_at' <<<"$CLAIM")
-  WALK_STARTED=$(jq -r '.started' <<<"$CLAIM")
+  WALK_TOKEN=$(jq -r '.token' <<<"$CLAIM")
   trap walk_release_on_exit EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM

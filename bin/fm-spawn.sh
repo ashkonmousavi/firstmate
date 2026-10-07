@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Spawn a direct report: a crewmate in a treehouse or Orca worktree, or a
 # secondmate in its isolated firstmate home.
-# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>]
-#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>]
+# Ordinary walks opt in with --walk <id> --walk-owner <owner> --walk-timeout <seconds>,
+# all required together on one fresh ship/scout task. The shared lifecycle is
+# owned by fm-walk-marker-lib.sh; state/<id>.meta retains the operation token
+# and expiry. Relaunch preserves that claim without re-claiming or releasing it.
+# Usage: fm-spawn.sh <task-id> <project-dir> --mode <no-mistakes|direct-PR|local-only> --yolo <on|off> [--branch-prefix <prefix>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>] [--walk <id> --walk-owner <owner> --walk-timeout <seconds>]
+#        fm-spawn.sh <task-id> <project-dir> --scout [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] [--dispatch-rule <index|default>] [--walk <id> --walk-owner <owner> --walk-timeout <seconds>]
 #        fm-spawn.sh <task-id> [<firstmate-home>] [--harness <name>|harness|launch-command] [--model <name>] [--effort <level>] [--backend <name>] --secondmate
 #   --mode and --yolo are this task's delivery contract, REQUIRED for every ship
 #   spawn and refused on --scout and --secondmate spawns. Firstmate resolves both
@@ -738,6 +742,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-remote-readiness-lib.sh"
 # shellcheck source=bin/fm-timeout-lib.sh
 . "$SCRIPT_DIR/fm-timeout-lib.sh"
+# shellcheck source=bin/fm-walk-marker-lib.sh
+. "$SCRIPT_DIR/fm-walk-marker-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never spawn
@@ -767,6 +773,7 @@ YOLO_SET=0
 BRANCH_PREFIX_SET=0
 TRACEPARENT_SET=0
 RELAUNCH=0
+WALK_ID='' WALK_OWNER='' WALK_TIMEOUT='' WALK_TOKEN='' WALK_EXPIRES='' WALK_OPTIONS_SET=0
 POS=()
 want_value=
 for a in "$@"; do
@@ -814,6 +821,9 @@ for a in "$@"; do
       TRACEPARENT_ARG=$a
       TRACEPARENT_SET=1
       ;;
+    walk) WALK_ID=$a; WALK_OPTIONS_SET=1 ;;
+    walk-owner) WALK_OWNER=$a; WALK_OPTIONS_SET=1 ;;
+    walk-timeout) WALK_TIMEOUT=$a; WALK_OPTIONS_SET=1 ;;
     *)
       echo "error: internal parser state for --$want_value" >&2
       exit 1
@@ -832,6 +842,9 @@ for a in "$@"; do
     KIND_SET=1
     ;;
   --relaunch) RELAUNCH=1 ;;
+  --walk) want_value=walk ;;
+  --walk-owner) want_value="walk-owner" ;;
+  --walk-timeout) want_value="walk-timeout" ;;
   --harness) want_value=harness ;;
   --harness=*)
     HARNESS_ARG=${a#--harness=}
@@ -884,6 +897,13 @@ done
   echo "error: --$want_value requires a value" >&2
   exit 1
 }
+if [ "$WALK_OPTIONS_SET" = 1 ]; then
+  fm_walk_options_valid "$WALK_ID" "$WALK_OWNER" "$WALK_TIMEOUT" || exit 1
+  if [ "$RELAUNCH" = 1 ] || [ "$KIND" = secondmate ] || [ "${#POS[@]}" -ne 2 ]; then
+    echo 'error: walk options require one fresh ship/scout task; relaunch keeps its recorded claim' >&2
+    exit 1
+  fi
+fi
 [ "$HARNESS_SET" -eq 0 ] || [ -n "$HARNESS_ARG" ] || {
   echo "error: --harness requires a non-empty value" >&2
   exit 1
@@ -1341,6 +1361,17 @@ SPAWN_LAUNCH_SENT=0
 SPAWN_ENDPOINT_CLOSED=0
 
 spawn_fresh_commit_rollback() {
+  local release_result
+  if [ -n "$WALK_TOKEN" ]; then
+    if { [ "$SPAWN_LAUNCH_SENT" = 0 ] || [ "$SPAWN_ENDPOINT_CLOSED" = 1 ]; } \
+      && release_result=$(fm_walk_release "$WALK_ID" "$WALK_OWNER" "$WALK_TOKEN" 2>&1); then
+      WALK_TOKEN=''
+    else
+      echo "error: aborted walk $WALK_ID ($WALK_OWNER), expires_at=$WALK_EXPIRES; preserving $STATE/$ID.meta for reconciliation: ${release_result:-worker termination not confirmed}" >&2
+      SPAWN_FRESH_COMMIT_PENDING=0
+      return 1
+    fi
+  fi
   if fm_backlog_atomic_transition rollback "$STATE/$ID.meta" \
     "$FM_ROOT/bin/fm-busy-event.sh" "$STATE" "$ID" "${BUSY_GEN:-}"; then
     SPAWN_FRESH_COMMIT_PENDING=0
@@ -1883,6 +1914,7 @@ if [ "$RELAUNCH" -eq 1 ]; then
     echo "error: --relaunch refused after locking: $FM_BACKLOG_TRANSITION_ERROR" >&2
     exit 1
   }
+  fm_walk_meta_read "$RELAUNCH_META" || exit 1
   fm_backend_validate_task_endpoint "$RELAUNCH_META" "$ID" || exit 1
   BACKEND=$FM_BACKEND_VALIDATED_BACKEND
   RELAUNCH_TARGET=$FM_BACKEND_VALIDATED_TARGET
@@ -5789,6 +5821,19 @@ if ! (umask 077 && printf '%s\n' "$LAUNCH" >"$LAUNCH_STAGE" &&
   rm -f "$LAUNCH_STAGE"
   echo "error: could not stage the launch command at $LAUNCH_FILE" >&2
   exit 1
+fi
+if [ "$WALK_OPTIONS_SET" = 1 ]; then
+  WALK_RECEIPT=$(fm_walk_claim "$WALK_ID" "$WALK_OWNER" "$WALK_TIMEOUT" 2>&1) || {
+    echo "error: walk $WALK_ID not claimed; worker not launched: ${WALK_RECEIPT:0:300}" >&2
+    exit 1
+  }
+  WALK_TOKEN=$(jq -r .token <<<"$WALK_RECEIPT")
+  WALK_EXPIRES=$(jq -r .expires_at <<<"$WALK_RECEIPT")
+  printf 'walk_id=%s\nwalk_owner=%s\nwalk_token=%s\nwalk_expires_at=%s\n' \
+    "$WALK_ID" "$WALK_OWNER" "$WALK_TOKEN" "$WALK_EXPIRES" >> "$STATE/$ID.meta" || {
+      echo "error: walk $WALK_ID claim could not be recorded; worker not launched" >&2
+      exit 1
+    }
 fi
 sleep 0.3
 SPAWN_LAUNCH_SENT=1
