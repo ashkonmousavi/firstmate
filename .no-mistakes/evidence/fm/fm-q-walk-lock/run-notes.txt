@@ -1,0 +1,10 @@
+Validated head: 39d6b48845b58f096896d28727f8afb87c3ca63f
+Focused test selection: Grok dispatch file; three walk functions from spawn-dispatch-profile; three walk functions from teardown; Orca walk-close refusal function.
+Temporary selectors suppressed unrelated top-level test invocations. Their original canned footer is not evidence of a full-suite run.
+Workspace-contained teardown fixtures initially reached the existing safety refusal against child homes inside the code root. The child fixture was rerun using the existing neutral-root pattern; all selected checks then passed.
+The first relaunch attempt lacked its required scout progress note. A later verification accidentally observed a concurrent release test in the shared transport log. The final relaunch receipt was rerun sequentially with the required note and verified exact metadata, marker and unchanged transport call count.
+Real Claude worker completed its report; Codex launch/relaunch and non-walk launch were inspected at the native trust dialog without approving trust or submitting a model prompt. Codex cleanup reports were explicitly lab-driver records, not model receipts.
+Scope exception encountered: the real Claude spawn invoked the existing fm-claude-trust.sh user-level trust preregistration outside the worktree. No external restoration was attempted. Additional Codex checks did not approve persistent trust.
+Herdr helper prepare succeeded with a worktree-local tripwire directory. No Herdr session was provisioned; the normal user-level session state was left unchanged.
+No linters, static analysis, complete repository suite, pipeline control, push, PR, CI or production restart was run.
+All created lab tasks were cleaned up, the private fm-lab tmux server was stopped, and disposable workspace files were removed. Evidence files remain in the designated evidence directory.

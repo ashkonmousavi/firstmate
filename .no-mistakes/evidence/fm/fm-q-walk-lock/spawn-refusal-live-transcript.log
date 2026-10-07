@@ -1,0 +1,37 @@
+--- real public spawn refusal: foreign-owner ---
+{"result": "claimed", "token": "22d31a0a2e72e68c", "walks": ["foreign"], "started": "2026-10-07T17:20:26Z", "expires_at": "2026-10-07T17:30:27Z", "owner": "other-owner", "claims": {"foreign": "22d31a0a2e72e68c"}}
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+error: walk refused not claimed; worker not launched: {"result": "refused", "reason": "walk marker held by other-owner for foreign until 2026-10-07T17:30:27Z"}
+warning: leaving task refuse-foreign-owner's slot claim on /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/1/.nm-live-project in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it
+exit=1 elapsed=3s
+bash
+fm-refuse-foreign-owner
+{"walks": ["foreign"], "started": "2026-10-07T17:20:26Z", "expires_at": "2026-10-07T17:30:27Z", "owner": "other-owner", "claims": {"foreign": "22d31a0a2e72e68c"}}
+--- real public spawn refusal: malformed-marker ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+error: walk refused not claimed; worker not launched: {"result": "refused", "reason": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home/marker-state/q-walk/in-progress.json is unreadable or malformed; its owner must check it (Expecting value: line 1 column 1 (char 0))"}
+warning: leaving task refuse-malformed-marker's slot claim on /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/2/.nm-live-project in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it
+exit=1 elapsed=4s
+bash
+fm-refuse-foreign-owner
+fm-refuse-malformed-marker
+broken
+--- real public spawn refusal: missing-receipt ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+error: walk refused not claimed; worker not launched: invalid claim receipt: {"result":"claimed"}
+warning: leaving task refuse-missing-receipt's slot claim on /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/3/.nm-live-project in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it
+exit=1 elapsed=3s
+bash
+fm-refuse-foreign-owner
+fm-refuse-malformed-marker
+fm-refuse-missing-receipt
+--- real public spawn refusal: hang ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+error: walk refused not claimed; worker not launched: walk marker claim transport timeout after 30s
+warning: leaving task refuse-hang's slot claim on /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/4/.nm-live-project in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it
+exit=1 elapsed=33s
+bash
+fm-refuse-foreign-owner
+fm-refuse-malformed-marker
+fm-refuse-missing-receipt
+fm-refuse-hang

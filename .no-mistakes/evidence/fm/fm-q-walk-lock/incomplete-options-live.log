@@ -1,0 +1,4 @@
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+error: --walk, --walk-owner and a positive walk timeout are required together
+exit=1

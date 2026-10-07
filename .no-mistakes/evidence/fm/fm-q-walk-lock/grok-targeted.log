@@ -1,0 +1,23 @@
+ok - a routed task reaches the named Bot with only its task sections
+ok - a still-working Bot exits 3
+ok - unknown, ambiguous, and missing inputs refuse before sending
+ok - non-walk dispatch is unchanged
+ok - a walk is claimed before dispatch and cleared on its report
+ok - a walk's marker ends at its timeout
+ok - overlapping walks release only their own claim
+ok - an active walk cannot be dispatched twice
+ok - publication and chat share one bounded budget, including overlaps
+ok - another owner's active claim is preserved and refuses the walk
+ok - an expired claim releases at its expiry
+ok - a malformed marker refuses safely
+ok - claim and release refuse noncanonical timestamps and duplicate walks before mutation
+ok - per-operation tokens prevent replay during overlapping redispatch and permit expiry extensions
+ok - manual claims remain readable and malformed token maps refuse before mutation
+ok - delayed terminal releases cannot clear or rewrite recovered leases
+ok - claim, transport and option failures refuse before sending
+ok - claim receipts must prove the requested walk and a canonical lease
+ok - a failed send releases its own claim
+ok - a failed release stays an actionable failure
+ok - release receipts must prove removal and validate every remaining claim
+ok - both transport operations have a shared hard deadline
+# all fm-grok-bot-dispatch tests passed

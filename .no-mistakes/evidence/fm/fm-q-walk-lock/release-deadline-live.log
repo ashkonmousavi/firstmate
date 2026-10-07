@@ -1,0 +1,3 @@
+walk marker release transport timeout after 30s
+exit=1 elapsed=30s
+Marker and its operation token remained byte-identical after the release deadline.

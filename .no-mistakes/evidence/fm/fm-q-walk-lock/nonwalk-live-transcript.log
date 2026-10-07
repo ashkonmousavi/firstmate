@@ -1,0 +1,7 @@
+Spawn an ordinary task with no walk options while another walk exists:
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+spawned nonwalk harness=codex kind=scout window=primary:fm-nonwalk worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/6/.nm-live-project
+exit=0
+No walk metadata, no marker mutation, and no transport calls; ordinary worker launched.
+{"walks": ["QW-codex"], "started": "2026-10-07T17:22:50Z", "expires_at": "2026-10-07T17:32:51Z", "owner": "lab-owner", "claims": {"QW-codex": "d1f9b4499f4e1813"}}

@@ -1,0 +1,3 @@
+ok - teardown releases only its recorded token and retains failed releases for retry
+ok - a walk claim survives every teardown abort before worker termination is proven
+ok - forced secondmate cleanup uses the same token-bound child release gate

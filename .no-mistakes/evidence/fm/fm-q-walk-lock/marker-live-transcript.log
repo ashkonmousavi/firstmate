@@ -1,0 +1,61 @@
+HEAD=39d6b48845b58f096896d28727f8afb87c3ca63f
+$ python3 bin/fm-walk-marker.py claim A live-owner 30
+{"result": "claimed", "token": "3df3100b38d0e255", "walks": ["A"], "started": "2026-10-07T17:17:22Z", "expires_at": "2026-10-07T17:17:53Z", "owner": "live-owner", "claims": {"A": "3df3100b38d0e255"}}
+exit=0
+$ python3 bin/fm-walk-marker.py claim B live-owner 30
+{"result": "claimed", "token": "95a572d131fe3046", "walks": ["A", "B"], "started": "2026-10-07T17:17:22Z", "expires_at": "2026-10-07T17:17:53Z", "owner": "live-owner", "claims": {"A": "3df3100b38d0e255", "B": "95a572d131fe3046"}}
+exit=0
+$ python3 bin/fm-walk-marker.py claim C other-owner 30
+{"result": "refused", "reason": "walk marker held by live-owner for A, B until 2026-10-07T17:17:53Z"}
+exit=1
+$ python3 bin/fm-walk-marker.py claim A live-owner 30
+{"result": "refused", "reason": "walk A is already active until 2026-10-07T17:17:53Z"}
+exit=1
+$ python3 bin/fm-walk-marker.py release A other-owner 3df3100b38d0e255
+{"result": "refused", "reason": "walk marker now held by live-owner; A is not released by other-owner"}
+exit=1
+$ python3 bin/fm-walk-marker.py release A live-owner 0000000000000000
+{"result": "refused", "reason": "walk A operation token mismatch; claim is not released"}
+exit=1
+$ python3 bin/fm-walk-marker.py release A live-owner 3df3100b38d0e255
+{"result": "released", "walks": ["B"], "started": "2026-10-07T17:17:22Z", "expires_at": "2026-10-07T17:17:53Z", "owner": "live-owner", "claims": {"B": "95a572d131fe3046"}}
+exit=0
+$ python3 bin/fm-walk-marker.py claim A live-owner 30
+{"result": "claimed", "token": "e3b6ffffb4faac90", "walks": ["B", "A"], "started": "2026-10-07T17:17:22Z", "expires_at": "2026-10-07T17:17:53Z", "owner": "live-owner", "claims": {"B": "95a572d131fe3046", "A": "e3b6ffffb4faac90"}}
+exit=0
+$ python3 bin/fm-walk-marker.py release A live-owner 3df3100b38d0e255
+{"result": "refused", "reason": "walk A operation token mismatch; claim is not released"}
+exit=1
+$ python3 bin/fm-walk-marker.py release B live-owner 95a572d131fe3046
+{"result": "released", "walks": ["A"], "started": "2026-10-07T17:17:22Z", "expires_at": "2026-10-07T17:17:53Z", "owner": "live-owner", "claims": {"A": "e3b6ffffb4faac90"}}
+exit=0
+$ python3 bin/fm-walk-marker.py release A live-owner e3b6ffffb4faac90
+{"result": "cleared"}
+exit=0
+PASS overlap, operation replay protection, foreign-owner refusal, last release deletes file
+$ python3 bin/fm-walk-marker.py claim expire live-owner 1
+{"result": "claimed", "token": "fe4ce3ce59bf04d3", "walks": ["expire"], "started": "2026-10-07T17:17:22Z", "expires_at": "2026-10-07T17:17:24Z", "owner": "live-owner", "claims": {"expire": "fe4ce3ce59bf04d3"}}
+exit=0
+$ python3 bin/fm-walk-marker.py claim expire live-owner 30
+{"result": "claimed", "token": "9c816b50a2ff6039", "walks": ["expire"], "started": "2026-10-07T17:17:24Z", "expires_at": "2026-10-07T17:17:55Z", "owner": "live-owner", "claims": {"expire": "9c816b50a2ff6039"}}
+exit=0
+$ python3 bin/fm-walk-marker.py release expire live-owner fe4ce3ce59bf04d3
+{"result": "refused", "reason": "walk expire operation token mismatch; claim is not released"}
+exit=1
+$ python3 bin/fm-walk-marker.py release expire live-owner 9c816b50a2ff6039
+{"result": "cleared"}
+exit=0
+PASS real-clock expiry and same-walk redispatch token isolation
+$ python3 bin/fm-walk-marker.py claim refuse live-owner 30
+{"result": "refused", "reason": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-marker-state/q-walk/in-progress.json is unreadable or malformed; its owner must check it (Expecting value: line 1 column 1 (char 0))"}
+exit=1
+$ python3 bin/fm-walk-marker.py release refuse live-owner 0000000000000000
+{"result": "refused", "reason": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-marker-state/q-walk/in-progress.json is unreadable or malformed; its owner must check it (Expecting value: line 1 column 1 (char 0))"}
+exit=1
+$ python3 bin/fm-walk-marker.py claim refuse live-owner 30
+{"result": "refused", "reason": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-marker-state/q-walk/in-progress.json is malformed; its owner must check it (walks or owner)"}
+exit=1
+$ python3 bin/fm-walk-marker.py release refuse live-owner 0000000000000000
+{"result": "refused", "reason": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-marker-state/q-walk/in-progress.json is malformed; its owner must check it (walks or owner)"}
+exit=1
+PASS malformed and empty-walk markers refuse without mutation

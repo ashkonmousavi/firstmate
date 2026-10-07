@@ -1,0 +1,4 @@
+# all fm-spawn-dispatch-profile tests passed
+ok - ordinary spawn publishes before launch and relaunch preserves its exact claim
+ok - walk publication failures launch nothing; complete opt-in tuples are required
+ok - a backlog commit failure retains the launched walk and its retry record

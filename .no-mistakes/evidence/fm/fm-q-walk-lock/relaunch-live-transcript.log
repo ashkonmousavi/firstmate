@@ -1,0 +1,20 @@
+Real Codex dispatch receipt:
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+spawned codex-walk harness=codex kind=scout window=primary:fm-codex-walk worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/5/.nm-live-project
+Claim before relaunch:
+walk_id=QW-codex
+walk_owner=lab-owner
+walk_token=d1f9b4499f4e1813
+walk_expires_at=2026-10-07T17:32:51Z
+{"walks": ["QW-codex"], "started": "2026-10-07T17:22:50Z", "expires_at": "2026-10-07T17:32:51Z", "owner": "lab-owner", "claims": {"QW-codex": "d1f9b4499f4e1813"}}
+Public fm-control relaunch after declining the CLI trust dialog:
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+relaunched codex-walk harness=codex from=codex model=default effort=default backend=tmux endpoint=primary:fm-codex-walk worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/5/.nm-live-project
+exit=0
+walk_id=QW-codex
+walk_owner=lab-owner
+walk_token=d1f9b4499f4e1813
+walk_expires_at=2026-10-07T17:32:51Z
+Exact claim metadata and marker preserved; zero claim/release transport calls during relaunch.

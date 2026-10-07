@@ -1,0 +1,55 @@
+Real worker dispatch receipt:
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+spawned live-walk harness=claude kind=scout window=primary:fm-live-walk worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/1/.nm-live-project
+Real worker report:
+PASS: disposable walk worker live-walk launched in isolated worktree /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/1/.nm-live-project, read brief and worker contract, inbox empty, no prep.md, no project edits or external calls; no captain calls.
+Durable walk claim before cleanup:
+walk_id=QW-live
+walk_owner=lab-owner
+walk_token=efe8eca3b474d508
+walk_expires_at=2026-10-07T17:22:04Z
+{"walks": ["QW-live"], "started": "2026-10-07T17:17:03Z", "expires_at": "2026-10-07T17:22:04Z", "owner": "lab-owner", "claims": {"QW-live": "efe8eca3b474d508"}}
+--- process-scan failure ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: cannot determine leaked processes under /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/1/.nm-live-project for live-walk (lsof failed); preserving the worktree/tasktmp for manual inspection or retry.
+exit=1
+{"walks": ["QW-live"], "started": "2026-10-07T17:17:03Z", "expires_at": "2026-10-07T17:22:04Z", "owner": "lab-owner", "claims": {"QW-live": "efe8eca3b474d508"}}
+bash
+fm-live-walk
+--- release transport fails after real termination ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+teardown: reaping leaked worktree process(es) for live-walk: 1790925 1793188 1825101 1825103 1825107 1826266 1826514 1826519 1826560 1826563 1826913 1827513 1828329 1828335
+teardown: force-killing leaked worktree process(es) for live-walk: 1790925
+teardown: reaping leaked worktree process(es) for live-walk: 1955083
+A new version of treehouse is available: v3.1.0 → v3.1.2
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+error: walk-marker release failed for QW-live (lab-owner), expires_at=2026-10-07T17:22:04Z; retaining /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home/state/live-walk.meta: disposable transport fault: release unavailable
+exit=1
+{"walks": ["QW-live"], "started": "2026-10-07T17:17:03Z", "expires_at": "2026-10-07T17:22:04Z", "owner": "lab-owner", "claims": {"QW-live": "efe8eca3b474d508"}}
+walk_id=QW-live
+walk_owner=lab-owner
+walk_token=efe8eca3b474d508
+walk_expires_at=2026-10-07T17:22:04Z
+bash
+--- successful retry ---
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+A new version of treehouse is available: v3.1.0 → v3.1.2
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+teardown live-walk complete (window primary:fm-live-walk, worktree /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-pool/.treehouse/.nm-live-project-9c35d3/1/.nm-live-project)
+Backlog: live-walk just finished (this home keeps no markdown backlog at /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home/data/backlog.md). Update /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4BAWCBJZBTQSAR6Q8069QPK/.nm-live-home/data/backlog.md - move live-walk to Done, keep Done to the 10 most recent, then re-scan Queued and dispatch only work whose blockers are gone and date is due.
+exit=0
+Walk marker absent; task record retired; only the private lab primary remains.
+bash
