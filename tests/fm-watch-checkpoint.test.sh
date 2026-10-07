@@ -197,6 +197,147 @@ test_real_host_checkpoint_ends_quietly_at_its_bound() {
   pass "checkpoint: the real host ends its park at the checkpoint bound as a quiet checkpoint"
 }
 
+# Real checkpoint and queue; only the terminal read is controlled. Each read
+# finishes in one second, so a long inventory exposes aggregate deadline loss
+# independently of a hung backend, registered checks, or competing lock.
+make_sweep_home() {  # <name> <lanes>
+  local home i id
+  home=$(make_home "$1")
+  mkdir -p "$home/fakebin"
+  touch "$home/state/.last-check" "$home/state/.last-heartbeat" "$home/state/home-summary.json"
+  for ((i=1; i<=$2; i++)); do
+    printf -v id 'lane-%03d' "$i"
+    printf 'kind=ship\nbackend=tmux\nharness=codex\nwindow=fixture:%s\n' "$id" > "$home/state/$id.meta"
+  done
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  capture-pane)
+    printf '%s\n' "$*" >> "$FM_HOME/captures"
+    case "$*" in *fixture:lane-001*) sleep "${FM_FIXTURE_FIRST_CAPTURE_DELAY:-${FM_FIXTURE_CAPTURE_DELAY:-1}}" ;; *) sleep "${FM_FIXTURE_CAPTURE_DELAY:-1}" ;; esac
+    exit 1 ;;
+esac
+exit 1
+SH
+  chmod +x "$home/fakebin/tmux"
+  printf '%s\n' "$home"
+}
+
+run_sweep_checkpoint() {  # <home> [seconds]
+  local home=$1 seconds=${2:-3}
+  SWEEP_RC=0
+  PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$CHECKPOINT" --seconds "$seconds" \
+    > "$home/out.txt" 2> "$home/err.txt" || SWEEP_RC=$?
+}
+
+test_recorded_sweep_closes_at_checkpoint_budget() {
+  local home count
+  for count in 1 18; do
+    home=$(make_sweep_home "sweep-$count" "$count")
+    run_sweep_checkpoint "$home"
+    expect_code 124 "$SWEEP_RC" "recorded sweep ($count lanes): $(cat "$home/err.txt")"
+    assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'sweep did not close cleanly'
+    assert_absent "$home/state/.watch.lock/pid" 'quiet sweep retained singleton'
+    [ -s "$home/captures" ] || fail 'sweep control never reached a pane read'
+  done
+  [ "$(wc -l < "$home/captures")" -lt 18 ] || fail 'long sweep ignored deadline and visited every lane'
+  pass 'checkpoint bounds long recorded sweeps and preserves the short control'
+}
+
+test_slow_pane_read_obeys_remaining_budget() {
+  local home
+  home=$(make_sweep_home stuck-read 1)
+  FM_FIXTURE_CAPTURE_DELAY=30 run_sweep_checkpoint "$home"
+  expect_code 124 "$SWEEP_RC" "slow pane read: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'slow read missed clean close'
+  pass 'checkpoint bounds one stalled pane read without an outer-watchdog failure'
+}
+
+test_deferred_later_lane_survives_and_is_delivered_once() {
+  local home i before after drained seq generation
+  home=$(make_sweep_home fair-sweep 8)
+  mkdir -p "$home/state/lane-008.inbox/handled"
+  printf 'preserve pending instruction\n' > "$home/state/lane-008.inbox/001.msg"
+  # A fresh message stays below the inbox ladder deadline during this test.
+  printf '%s 4242\n' "$(date +%s)" > "$home/state/lane-008.prompt-waiting"
+  before=$(cat "$home/state/lane-008.meta" "$home/state/lane-008.inbox/001.msg")
+  run_sweep_checkpoint "$home"
+  expect_code 124 "$SWEEP_RC" 'the first budget must defer the later lane'
+  for i in 1 2 3 4 5 6 7 8; do
+    run_sweep_checkpoint "$home"
+    [ "$SWEEP_RC" -ne 0 ] || break
+    expect_code 124 "$SWEEP_RC" "deferred cycle $i failed"
+  done
+  expect_code 0 "$SWEEP_RC" 'later lane was starved across repeated checkpoints'
+  assert_contains "$(cat "$home/out.txt")" 'stale: fixture:lane-008 (a permission or question prompt is waiting in the pane)' 'wrong later-lane witness'
+  after=$(cat "$home/state/lane-008.meta" "$home/state/lane-008.inbox/001.msg")
+  [ "$before" = "$after" ] || fail 'budget exhaustion mutated lane custody or pending inbox'
+  drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" 2> "$home/drain.err")
+  [ "$(printf '%s\n' "$drained" | grep -c $'\tstale\tfixture:lane-008\t')" -eq 1 ] || fail 'later wake was not queued exactly once'
+  seq=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9]*\) --recovery-generation .*/\1/p' "$home/drain.err")
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([^ ]*\)$/\1/p' "$home/drain.err")
+  [ -n "$seq" ] && [ -n "$generation" ] || fail 'missing generation-bound acknowledgement'
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" --ack-through "$seq" --recovery-generation "$generation" >/dev/null || fail 'acknowledgement failed'
+  drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" 2>/dev/null)
+  assert_not_contains "$drained" $'\tstale\tfixture:lane-008\t' 'acknowledged witness replayed'
+  FM_FIXTURE_CAPTURE_DELAY=0 run_sweep_checkpoint "$home"
+  expect_code 124 "$SWEEP_RC" 'ordinary complete sweep replayed the surfaced later-lane wake'
+  drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" 2>/dev/null)
+  assert_not_contains "$drained" $'\tstale\tfixture:lane-008\t' 'complete sweep requeued acknowledged witness'
+  pass 'deferred later lane retains custody and delivers one generation-bound wake'
+}
+
+# Duplicate recorded targets are already supported by the inventory's dedup.
+# A stalled endpoint must not pin continuation to its first metadata alias.
+test_duplicate_target_cannot_pin_sweep_continuation() {
+  local home i
+  home=$(make_sweep_home duplicate-target 3)
+  cp "$home/state/lane-001.meta" "$home/state/lane-002.meta"
+  printf '%s 4242\n' "$(date +%s)" > "$home/state/lane-003.prompt-waiting"
+  for i in 1 2 3 4; do
+    FM_FIXTURE_FIRST_CAPTURE_DELAY=30 run_sweep_checkpoint "$home"
+    [ "$SWEEP_RC" -ne 0 ] || break
+    expect_code 124 "$SWEEP_RC" "duplicate target checkpoint $i"
+  done
+  expect_code 0 "$SWEEP_RC" 'duplicate metadata pinned continuation before the later lane'
+  assert_contains "$(cat "$home/out.txt")" 'stale: fixture:lane-003 (a permission or question prompt is waiting in the pane)' 'duplicate-target witness missing'
+  pass 'duplicate recorded targets cannot pin checkpoint continuation'
+}
+
+# A pane read can finish promptly while its dependent crew-state read stalls.
+# Preseed stable pane observations through their public state format so this
+# cycle reaches real stale triage without waiting for three poll cycles.
+test_slow_crew_read_defers_without_false_stale() {
+  local home hash
+  home=$(make_sweep_home slow-crew 1)
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in capture-pane) printf 'idle pane\n'; exit 0 ;; esac
+exit 1
+SH
+  cat > "$home/fakebin/crew-state" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$FM_HOME/crew-reads"
+sleep 30
+printf 'state: working · source: run-step · delayed verdict\n'
+SH
+  chmod +x "$home/fakebin/crew-state"
+  if command -v md5 >/dev/null 2>&1; then hash=$(printf 'idle pane' | md5 -q); else hash=$(printf 'idle pane' | md5sum | cut -d' ' -f1); fi
+  printf '%s' "$hash" > "$home/state/.hash-fixture_lane-001"
+  printf '2\n' > "$home/state/.count-fixture_lane-001"
+  # The three-second sweep fixture can legitimately expire before this seam.
+  # Twelve seconds leaves setup headroom (including a controlled four-second
+  # setup delay in the causal check); the thirty-second read still exceeds it.
+  FM_CREW_STATE_BIN="$home/fakebin/crew-state" run_sweep_checkpoint "$home" 12
+  expect_code 124 "$SWEEP_RC" "slow crew read: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 12s' 'crew read missed clean close'
+  [ -s "$home/crew-reads" ] || fail 'dependent read was never exercised'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'exhausted read became an actionable verdict'
+  assert_absent "$home/state/.stale-fixture_lane-001" 'exhausted read suppressed the unclassified pane'
+  pass 'checkpoint defers a slow dependent crew read without inventing a stale verdict'
+}
+
 test_quiet_checkpoint_exits_124_cleanly
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment
@@ -205,3 +346,11 @@ test_host_checkpoint_bounds_the_park_by_posture
 test_host_checkpoint_passes_a_handback_and_reports_a_stand_down
 test_host_checkpoint_needs_the_file_and_honors_off
 test_real_host_checkpoint_ends_quietly_at_its_bound
+
+test_recorded_sweep_closes_at_checkpoint_budget
+test_slow_pane_read_obeys_remaining_budget
+test_deferred_later_lane_survives_and_is_delivered_once
+
+test_slow_crew_read_defers_without_false_stale
+
+test_duplicate_target_cannot_pin_sweep_continuation
