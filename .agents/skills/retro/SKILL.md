@@ -24,7 +24,7 @@ Project `AGENTS.md` files are out of scope: they change only to correct text tha
 
 Each lesson from the period becomes exactly one change at the point where the decision is made (a check, a brief line, a registry field, a skill, a hook), and the same lesson is removed from wherever else it was written, so nothing is said twice.
 A rule that cost time in the period with no saved hour it can show is cut or made advisory; prefer removing a rule to adding one.
-Review and test depth stays in proportion: a quick or surgical fix that a live journey walk or another checkpoint already tests gets no extra review or test round, and a rule that adds one is cut.
+For fixes outside the [class-fix rule](../diagnostic-reasoning/SKILL.md#class-fix), review and test depth stays in proportion: a quick or surgical fix that a live journey walk or another checkpoint already tests gets no extra review or test round, and a rule that adds one is cut.
 `AGENTS.md` may only shrink or stay the same length: new detail goes into a skill or hook that `AGENTS.md` points to with one line, and any added line replaces one.
 Every sleeping item is woken and pushed to its next step or closed, on every machine: held, paused, done but not landed, landed but not installed, ready with no lane, or waiting on an answer that already exists.
 Records that disagree (backlog against PR state, status against the served commit, two homes with different copies) are reconciled to the live truth.
