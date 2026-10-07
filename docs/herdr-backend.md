@@ -613,8 +613,7 @@ The adapter's own composer reads are exempt because they read the visible viewpo
 ### Native idle state
 
 Herdr's native agent state can read idle while a harness waits on its own long foreground tool.
-The shared crew-state path therefore accepts a native `busy` as evidence of activity.
-It never accepts a native `idle` as evidence that a worker has stopped; the task's own semantic busy state (`bin/fm-busy-lib.sh`) decides that.
+[`bin/fm-busy-lib.sh`](../bin/fm-busy-lib.sh) owns native fallback eligibility and idle refusal; [process verification](#stale-agent-registrations) bounds registration trust.
 A human-blocked permission dialog has no busy banner and still surfaces.
 
 ## Composer and injection safety
@@ -691,7 +690,9 @@ The settle window exists because an idle shell transiently hosts prompt helpers 
 The first agent or shell sample in that window decides.
 
 No registered status outranks the process view, because an agent killed mid-turn leaves `working` behind just as a quit one leaves `idle`.
-The native busy verdict is verified the same way, so a shell-only pane never reads busy.
+The native busy verdict requires an agent or supported foreground tool in a valid process view; shell-only, unreadable, or malformed evidence leaves a lingering `working` registration unknown.
+The shared `fm_backend_herdr_process_info_valid` validator in [`bin/backends/herdr.sh`](../bin/backends/herdr.sh) guards both process sampling and agent termination, so a malformed foreground member cannot be masked by a valid agent entry.
+[`tests/fm-crew-state.test.sh`](../tests/fm-crew-state.test.sh) pins this refusal and preservation of valid foreground-tool activity through public crew-state output.
 
 ### Process-view version support
 

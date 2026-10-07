@@ -6,6 +6,29 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Codex idle refusal guard
+
+On 2026-10-07, installed `codex-cli 0.160.1` passed the native idle guard on Linux.
+The guard launches Codex with hooks disabled, matching a worker launch, in an isolated tmux server without submitting a model prompt.
+It verifies composer readability and passes that same captured screen to the semantic busy classifier.
+Without a verified semantic source, an idle prompt remains unknown rather than asserting working.
+Refresh after a Codex upgrade with:
+
+```sh
+FM_COMPOSER_CODEX_IDLE_LIVE=1 bash bin/fm-test-run.sh tests/fm-composer-codex-idle-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+# codex (codex-cli 0.160.1): starfield furniture observed=yes placeholder observed=yes
+ok - codex (codex-cli 0.160.1): real idle screen classifies empty on the cursor-anchored tmux read and the cursorless styled read
+ok - codex (codex-cli 0.160.1): native idle screen remains unknown without semantic evidence
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=3681
+```
+
+This proves the installed idle refusal only; it does not verify Herdr native activity or deployment to another home.
+
 ## Codex launcher placement in a named Herdr lab, 2026-09-27
 
 Herdr 0.7.3 exposed a pane's terminal id through `pane get` and its foreground process ids through `pane process-info`.
