@@ -2617,7 +2617,7 @@ test_codex_native_fallback() {
   for process in unreadable failed malformed wrong-type wrong-pane invalid-shell invalid-foreground missing-ps failed-ps missing-shell; do
     FM_FAKE_HERDR_PROCESS=$process
     FM_FAKE_HERDR_PROCESS_INFO=
-    ps_bin=ps
+    ps_bin='ps'
     case "$process" in
       malformed) FM_FAKE_HERDR_PROCESS_INFO='{' ;;
       wrong-type) FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq '.result.type = "unexpected"') ;;
