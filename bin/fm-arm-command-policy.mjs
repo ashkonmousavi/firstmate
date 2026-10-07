@@ -295,15 +295,25 @@ export class Lexer {
   }
 
   readWord() {
-    const word = { type: "word", value: "", literal: true, subs: [], quoted: false, unquotedExpansion: false };
+    const word = { type: "word", value: "", literal: true, subs: [], tildeExpansion: false, unquotedExpansion: false };
     let consumed = false;
+    let tildeStart = true;
+    let tildePrefix = true;
     while (this.index < this.source.length) {
       const char = this.source[this.index];
       if (/\s/.test(char) || ";&|<>()".includes(char)) break;
       if (char === "#" && !consumed) break;
+      if (char === "\\" && this.source[this.index + 1] === "\n") {
+        consumed = true;
+        this.index += 2;
+        continue;
+      }
+      if (tildeStart) word.tildeExpansion = char === "~";
+      tildeStart = false;
+      if (tildePrefix && "'\"\\$".includes(char)) word.tildeExpansion = false;
+      if (char === "/") tildePrefix = false;
       consumed = true;
       if (char === "'") {
-        word.quoted = true;
         const end = this.source.indexOf("'", this.index + 1);
         if (end === -1) {
           this.error = "unclosed single quote";
@@ -314,7 +324,6 @@ export class Lexer {
         continue;
       }
       if (char === '"') {
-        word.quoted = true;
         if (!this.readDoubleQuoted(word)) return null;
         continue;
       }
@@ -322,10 +331,6 @@ export class Lexer {
         if (this.index + 1 >= this.source.length) {
           this.error = "trailing escape";
           return null;
-        }
-        if (this.source[this.index + 1] === "\n") {
-          this.index += 2;
-          continue;
         }
         word.value += this.source[this.index + 1];
         this.index += 2;
@@ -337,13 +342,11 @@ export class Lexer {
           this.error = "unclosed ANSI-C quote";
           return null;
         }
-        word.quoted = true;
         word.value += ansi.value;
         this.index = ansi.next;
         continue;
       }
       if (this.source.startsWith('$"', this.index)) {
-        word.quoted = true;
         this.index += 1;
         if (!this.readDoubleQuoted(word)) return null;
         continue;

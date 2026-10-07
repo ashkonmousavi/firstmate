@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Single owner of a ship task's mode-specific "Definition of done" block and of
 # the named-head reachability gate that accepts a ship `done:` claim.
-# Sourced by bin/fm-brief.sh, which renders it into a generated ship brief, and by
-# bin/fm-promote.sh, which renders it into the ship instructions a promoted scout
+# Compact bin/fm-brief.sh scaffolds point at its public contract renderer;
+# bin/fm-promote.sh renders it into the ship instructions a promoted scout
 # receives. Both paths must hand the worker the same contract: a promoted
 # no-mistakes worker that never received the stop-set escalation rule or the
 # `--yes` ban is the exact delivery hole this single owner exists to close.
@@ -98,8 +98,14 @@
 # scaffold usage.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# Both preparation formats owe an authored Delivery depth with same-line reason,
-# common author checks and explicit outcomes.
+# Both preparation formats owe authored Delivery risk and Delivery depth with
+# same-line reasons, common author checks and explicit outcomes.
+# Risk is money|security|shared code|other: one highest applicable class.
+# The first three require no-mistakes; other requires direct-PR and one code
+# review round. Q2=yes cannot be classified other. Surgical certainty concerns
+# preparation completeness only and never selects delivery depth.
+# The legacy checks-only depth spelling remains readable; its generated
+# direct-PR contract now requires the same one-round review as the new spelling.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
 # bin/fm-spawn.sh's header owns fresh-ship depth admission and recovery.
 # Review artifacts and old server-install declarations do not affect admission.
@@ -433,12 +439,13 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer Q1, Q2 and UI wiring, plus Delivery depth below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
+  printf '<!-- Answer Q1, Q2 and UI wiring, plus Delivery risk and Delivery depth below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
   printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
+  printf -- '- Delivery risk: {DELIVERY_RISK}\n'
   printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery depth answers checks-only (direct-PR), <one-line reason> for surgical or low-harm changes; checks + AI review (no-mistakes), <one-line reason> for shared code, money, privacy, permissions, security or uncertainty. The author chooses; neither choice nor reason is prefilled. -->\n'
+  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -706,20 +713,42 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
 # Prints direct-PR or no-mistakes only for one complete active Tier declaration.
 # Examples are cleaned in context; continuations cannot supply the line's reason.
 fm_prep_delivery_mode() {  # <file>
-  local value reason mode
+  local value reason mode risk
   value=$(fm_prep_tier_read "$1" | awk '
     /^- Delivery depth:/ { seen++; value=substr($0,19) }
     END { if (seen == 1) print value }
   ')
   case "$value" in
+    'checks + one review (direct-PR), '*) mode=direct-PR; reason=${value#'checks + one review (direct-PR), '} ;;
     'checks-only (direct-PR), '*) mode=direct-PR; reason=${value#'checks-only (direct-PR), '} ;;
     'checks + AI review (no-mistakes), '*) mode=no-mistakes; reason=${value#'checks + AI review (no-mistakes), '} ;;
     *) return 1 ;;
   esac
   case "$reason" in
-    *'checks-only (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
+    *'checks-only (direct-PR)'*|*'checks + one review (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
   esac
   fm_prep_answer_complete "$reason" no || return 1
+  if [ "${2:-}" = historical ] && ! fm_prep_tier_read "$1" | grep '^- Delivery risk:' >/dev/null; then
+    printf '%s\n' "$mode"
+    return 0
+  fi
+  value=$(fm_prep_tier_read "$1" | awk '
+    /^- Delivery risk:/ { seen++; value=substr($0,18) }
+    END { if (seen == 1) print value }
+  ')
+  case "$value" in
+    'money, '*) risk=money; reason=${value#'money, '} ;;
+    'security, '*) risk=security; reason=${value#'security, '} ;;
+    'shared code, '*) risk=shared; reason=${value#'shared code, '} ;;
+    'other, '*) risk=other; reason=${value#'other, '} ;;
+    *) return 1 ;;
+  esac
+  fm_prep_answer_complete "$reason" no || return 1
+  case "$risk:$mode" in
+    other:direct-PR) [ "$(fm_prep_answer "$1" Q2)" != yes ] || return 1 ;;
+    money:no-mistakes|security:no-mistakes|shared:no-mistakes) ;;
+    *) return 1 ;;
+  esac
   printf '%s\n' "$mode"
 }
 
@@ -916,8 +945,8 @@ fm_prep_unfilled_reason() {  # <file>
       "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
-  if ! fm_prep_delivery_mode "$file" >/dev/null; then
-    printf 'its %s requires one canonical Delivery depth choice and a substantive same-line reason in %s\n' "$FM_PREP_TIER_HEADING" "$file"
+  if ! fm_prep_delivery_mode "$file" "${2:-}" >/dev/null; then
+    printf 'its %s requires canonical Delivery risk and Delivery depth choices with substantive same-line reasons that agree in %s\n' "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
   if state=$(fm_prep_common_reason "$file"); then
@@ -958,11 +987,11 @@ EOF
 
 # fm_prep_accepted_spec <prep-path>
 # Prints the common outcome table plus substantive applicable sections 2 and 11.
-# Only a record passing current completeness supplies accepted specification;
+# Only a complete record supplies accepted specification;
 # legacy relaunch recovery does not certify incomplete historical preparation.
 fm_prep_accepted_spec() {  # <prep-path>
   local file=$1 heading placeholder required guide evidence body first sep=''
-  fm_prep_unfilled_reason "$file" >/dev/null && return 0
+  fm_prep_unfilled_reason "$file" historical >/dev/null && return 0
   body=$(fm_brief_heading_body "$file" "$FM_PREP_OUTCOMES_HEADING" | fm_prep_body_text | awk 'NF')
   printf '%s\n%s\n' "$FM_PREP_OUTCOMES_HEADING" "$body"
   sep=$'\n'
@@ -1007,6 +1036,207 @@ fm_brief_intent_address_line() {  # <file>
     /^[[:space:]]*(Captain('\''s (words|ask|intent))?:|Captain,)/ { print; found = 1; exit }
     END { exit !found }
   '
+}
+
+fm_worker_shell_quote() {
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
+fm_worker_status_append() {  # <root> <state-dir> <task-id> <config-dir>
+  local STATUS_FILE
+  STATUS_FILE=$(fm_worker_shell_quote "$2/$3.status")
+  local FM_ROOT=$1 CONFIG=$4 STATUS_APPEND
+  STATUS_APPEND="echo \"{state} [at=<epoch>]: {one short line}\" >> $STATUS_FILE && { [ ! -e $(fm_worker_shell_quote "$CONFIG/fleet-ledger") ] || $(fm_worker_shell_quote "$FM_ROOT/bin/fm-fleet-ledger.sh") appended $(fm_worker_shell_quote "$CONFIG") $STATUS_FILE >/dev/null 2>&1 || true; }"
+  printf '%s\n' "$STATUS_APPEND"
+}
+
+fm_worker_pause_block() {  # <pause-verb>
+  local PAUSED_VERB=$1 CREWMATE_PAUSE_INSTRUCTIONS
+IFS= read -r -d '' CREWMATE_PAUSE_INSTRUCTIONS <<EOF || true
+   Use \`$PAUSED_VERB: {why}\` - distinct from \`blocked:\` - when deliberately waiting for work or an external condition expected to clear on its own, including your own validation round.
+   Before ending your turn with your own background shell or monitor still running, or before waiting on your own pipeline run or a long foreground command, append \`$PAUSED_VERB [at=<epoch>]: {job and completion condition}\` to the status file.
+   Name what you are waiting for and what will let you resume; do not repeat the declaration on every poll.
+   Do not declare active implementation or reasoning as a wait.
+   Firstmate may still raise one first-sight alert; the declared wait then uses the existing long recheck cadence instead of repeated possible-wedge alarms.
+   When you know when the wait clears, include \`until <YYYY-MM-DDTHH:MMZ>\` (UTC) for a recheck at that time.
+   Follow the resolution rule below when the wait clears, then resume the task.
+   Use \`blocked:\` when you are stuck and need help.
+EOF
+
+  printf '%s\n' "$CREWMATE_PAUSE_INSTRUCTIONS"
+}
+
+fm_worker_inbox_block() {  # <state-dir> <task-id> <config-dir>
+  local CONFIG=$3 INBOX_DIR INBOX_SECTION
+  INBOX_DIR=$(fm_worker_shell_quote "$1/$2.inbox")
+IFS= read -r -d '' INBOX_SECTION <<EOF || true
+# Firstmate instruction inbox
+Firstmate steers you through durable message files in $INBOX_DIR.
+When a terminal message says an instruction is waiting there - and at any natural checkpoint when you are unsure - list $INBOX_DIR/*.msg, read and act on each message in numeric order, then acknowledge each handled message by moving it: \`mv $INBOX_DIR/NNN.msg $INBOX_DIR/handled/\`.
+The move IS the acknowledgement: without it firstmate rings again and eventually treats you as stuck. An empty or absent inbox needs no action.
+EOF
+if [ -e "$CONFIG/wait-no-turns" ]; then
+  INBOX_SECTION+="Do not poll or list the inbox while waiting; a waiting instruction rings."$'\n'
+fi
+INBOX_SECTION=${INBOX_SECTION%$'\n'}
+
+  printf '%s\n' "$INBOX_SECTION"
+}
+
+fm_worker_wait_block() {
+  local WAIT_SECTION
+IFS= read -r -d '' WAIT_SECTION <<'EOF' || true
+# Waiting
+Every turn you take resends your whole context, so a wait must cost no turns.
+After you append `needs-decision:` or `blocked:`, end your turn at once: do not check the inbox, the status file, or anything else, because the answer arrives as a terminal message that starts your next turn.
+Wait on anything external - a pipeline gate, PR checks, a heavy-test slot - with ONE blocking shell command that returns when the state changes: `no-mistakes axi run` or `respond` with `--wait`, `gh pr checks <pr> --watch`, or `until <condition>; do sleep 30; done` for anything else.
+Never spend turns on `sleep` followed by a status check, and never background a command in order to poll it.
+In Claude Code that `until` loop in a single Bash call is the sanctioned foreground wait: when the harness refuses a sleep-then-check command and points you at backgrounding instead, reissue the wait as the loop rather than accepting the background.
+Bound that command by what your harness lets one command run: in Pi pass the bash tool a `timeout` of at most 2700 seconds, because Pi sets none by default; in Claude Code pass the Bash tool its maximum `timeout` of 600000 ms, because its default is 2 minutes; in Codex keep waiting on a still-running command with empty `write_stdin` polls of up to 300000 ms; elsewhere pass your shell tool its largest timeout and assume at most 10 minutes.
+Give any `--wait` a duration a little under that bound.
+When the bound passes with nothing changed, run the same blocking command again, with no status check in between.
+The one exception is `respond`: it sent its answer before it began waiting, so reattach with `no-mistakes axi run --wait` instead, and never send the same `respond` again, because it would answer whichever gate parks next without you reading it.
+A wait your shell can watch this way needs no `paused:` line, except your own pipeline run, a long foreground command, or your own validation round, which you declare once just before its blocking hold: append `paused:` once just before its first blocking command, then stay in the command, and never append it again as you reissue that command.
+EOF
+WAIT_SECTION=${WAIT_SECTION%$'\n'}
+  printf '%s\n' "$WAIT_SECTION"
+}
+
+fm_worker_infra_block() {
+  local SHARED_INFRA_RULE
+IFS= read -r -d '' SHARED_INFRA_RULE <<'EOF' || true
+7. Never administer infrastructure that every lane shares. Two things are shared:
+   - The `no-mistakes` daemon - one instance serving every lane/home, so stopping, restarting, or
+     updating it kills other lanes' in-flight pipeline runs; only firstmate manages the daemon.
+     Before you append `blocked:` about the pipeline, run `no-mistakes daemon status` and
+     `no-mistakes axi status`. If the daemon socket refuses connections or is missing, append
+     `blocked [at=<epoch>]: {the daemon error}` and stop even when the local run record still says running or
+     fixing, because that record can be stale after the daemon exits. A run record failed with a
+     daemon error is also a real block.
+     Only after ruling out socket refusal, if the run is still running or fixing, reattach and keep
+     going. A drive-call error, timeout, slow read, or generic unreachability is NOT a daemon error:
+     the daemon accepts `respond` immediately and runs the round in the background, so a killed or
+     timed-out call was only waiting for a read while the run kept working.
+   - The worktree pool your own worktree came from, and the repository every lane's worktree
+     shares. Never create, remove, return, prune, move, or reassign a worktree or pool slot, and
+     never write into a sibling slot's directory. Rule 2 does not cover this: removing a worktree
+     is administration rather than an edit outside your directory, and it lands on lanes that are
+     running right now. The act is the rule and commands are only examples of it - `treehouse`
+     get/return/remove/prune, the equivalent operations on any other worktree provider or runtime
+     backend, and `git worktree add|remove|move|prune`. A slot that looks unused is not evidence
+     that it is free, and returning your own worktree is firstmate's job at cleanup, not yours.
+   If you genuinely need a second checkout, another slot, or the daemon touched, append
+   `blocked [at=<epoch>]: {what you need}` and stop; firstmate arranges it.
+EOF
+SHARED_INFRA_RULE=${SHARED_INFRA_RULE%$'\n'}
+
+  printf '%s\n' "$SHARED_INFRA_RULE"
+}
+
+fm_worker_walk_block() {
+  cat <<'EOF'
+# Walk evidence
+When this task commissions an end-to-end user journey, follow the project walk procedure from the real user entry point through the intended result and its return or reopen step where applicable.
+Before walking, verify the assigned actor, candidate and data, plus working Chrome DevTools or equivalent console, network and application diagnostics within the access this brief authorizes.
+Record each step as the human expectation, actual observed result, pass/fail/not exercised, and evidence tied to that candidate; retain the first failing boundary and enough permitted diagnostics for its owner to investigate.
+Source inspection and isolated checks support diagnosis but do not substitute for the walked result.
+Unavailable setup or diagnostic access is a named gap with an owner and next action, never a successful walk or permission to sign in or change production.
+EOF
+}
+
+# Compact briefs point here; execute this public renderer before work.
+# Arguments retain task-local paths and mode rather than consulting a home registry.
+fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode> <branch> <forge> [scout-rule2]
+  local FM_ROOT=$1 DATA=$2 STATE=$3 CONFIG=$4 ID=$5 KIND=$6 MODE=$7 BRANCH=$8 FORGE=$9
+  case "$KIND" in ship|scout) ;; *) echo "error: unknown worker kind: $KIND" >&2; return 1 ;; esac
+  local SCOUT_RULE2=${10:-'2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'}
+  local PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
+  local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' FOLLOWUP_BLOCK='' RULE1 DOD
+  STATUS_APPEND=$(fm_worker_status_append "$FM_ROOT" "$STATE" "$ID" "$CONFIG")
+  CREWMATE_PAUSE_INSTRUCTIONS=$(fm_worker_pause_block "$PAUSED_VERB")
+  INBOX_SECTION=$(fm_worker_inbox_block "$STATE" "$ID" "$CONFIG")
+  SHARED_INFRA_RULE=$(fm_worker_infra_block)
+  [ ! -e "$CONFIG/wait-no-turns" ] || WAIT_BLOCK="$(fm_worker_wait_block)"$'\n\n'
+  fm_worker_walk_block
+  if [ "$KIND" = scout ]; then
+    cat <<EOF
+# Rules
+1. Never push to any remote and never open a PR.
+$SCOUT_RULE2
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+4. Report status by appending one line:
+   \`$STATUS_APPEND\`
+   States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
+   Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+   Each append wakes firstmate, so report sparingly: only phase changes a supervisor
+   would act on and the needs-decision/blocked/paused/done/failed states. No step-by-step
+   FYI progress lines; firstmate reads your pane for that.
+   Whenever you mention a PR anywhere - a status line, your terminal, a summary - write its full
+   https:// URL exactly as the forge printed it, never a bare number such as "PR 108"; firstmate
+   copies that URL from your line rather than assembling one.
+$CREWMATE_PAUSE_INSTRUCTIONS
+5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
+   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
+6. If a decision belongs to a human (product choices, destructive actions),
+   append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
+   A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
+   Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
+$SHARED_INFRA_RULE
+
+$WAIT_BLOCK$INBOX_SECTION
+
+# Definition of done
+Write your findings to \`$DATA/$ID/report.md\`.
+The report must stand alone: what you did, what you found, the evidence (commands run, output, file:line references), and what you recommend.
+Before reporting done, read and follow \`$FM_ROOT/.agents/skills/captain-hold-lifecycle/SKILL.md\` and pass its shared completion gate for the report and any visual review.
+When the report is complete, append \`done [at=<epoch>]: {one-line conclusion}\` to the status file and stop.
+If your findings reveal work that should ship (e.g. you reproduced a bug and the fix is clear), say so in the report; firstmate may promote this task in place, and you would then receive mode-specific ship instructions as a follow-up message.
+EOF
+  else
+    RULE1=$(fm_ship_rule_one "$MODE" "$ID" "$BRANCH" "$FORGE") || return 1
+    DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE") || return 1
+    [ "$MODE" != no-mistakes ] || ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
+    [ "$MODE" = local-only ] || FOLLOWUP_BLOCK=$(fm_review_followup_block "$FM_ROOT" "$DATA" "$ID" "$MODE")
+    [ -z "$ASK_USER_BLOCK" ] || [ -z "$FOLLOWUP_BLOCK" ] || FOLLOWUP_BLOCK=$'\n'$FOLLOWUP_BLOCK
+    cat <<EOF
+# Rules
+$RULE1
+2. Stay inside this worktree; modify nothing outside it.
+3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+4. Report status by appending one line:
+   \`$STATUS_APPEND\`
+   States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
+   Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+   Each append wakes firstmate, so report sparingly: only phase changes a supervisor
+   would act on (setup done, bug reproduced, fix implemented, validation passed) and the
+   needs-decision/blocked/paused/done/failed states. No step-by-step FYI progress lines;
+   firstmate reads your pane for that.
+   Whenever you mention a PR anywhere - a status line, your terminal, a summary - write its full
+   https:// URL exactly as the forge printed it, never a bare number such as "PR 108"; firstmate
+   copies that URL from your line rather than assembling one.
+   A mid-task \`working:\` line (including setup complete) is nonterminal: do not end the
+   turn after it; continue the same stage until a defined \`done:\` gate under Definition of done.
+$CREWMATE_PAUSE_INSTRUCTIONS
+5. If you hit the same obstacle twice, append \`blocked [at=<epoch>]: {why}\` and stop; firstmate will help.
+   When the obstacle is a failing test or check, first reproduce it with one command and rank three to five hypotheses with disproof observations, and put the command and leading hypothesis in the blocked line.
+6. If a decision belongs above the implementation worker (product choices, destructive actions),
+   append \`needs-decision [at=<epoch>]: {summary of options}\` and stop. Firstmate will reply with the decision.
+$ASK_USER_BLOCK$FOLLOWUP_BLOCK
+   A decision or blocker you opened stays open until a \`resolved\` line carrying its exact key lands; a later \`done:\` or \`working:\` line never closes it, even when the answer is what started that work.
+   Firstmate's reply normally writes that closing line at answer time; when a blocker or wait clears WITHOUT a firstmate reply, append \`resolved [at=<epoch>]: {how it cleared}\` yourself (same \`[key=<slug>]\` if you opened it with one) as you resume.
+$SHARED_INFRA_RULE
+
+$WAIT_BLOCK$INBOX_SECTION
+
+# Project memory
+A project's \`AGENTS.md\` or \`CLAUDE.md\` is loaded into every agent session in that project, so edit it only to correct information that is factually wrong - including information your own change made wrong - and never to add knowledge because it is missing.
+A correction edits only the wrong text: do not run \`$FM_ROOT/bin/fm-ensure-agents-md.sh\`, create either file, or add sections, headings, or pointers alongside it.
+
+$DOD
+EOF
+  fi
 }
 
 # The `nm-<run>-<step>` decision key this block mandates is load-bearing beyond
@@ -1085,7 +1315,11 @@ Review triage and class-fix handoff:
   For a gate containing both stop-set and other findings, keep the gate parked until the exact firstmate decision arrives, then use the installed help and proven gate semantics to select the authorized findings together; never guess how a singular action handles the remainder.
 - A repeated finding returns in a later review of the same run: match the same id, or the same file and line and cause as a finding already fixed, including round-numbered ids.
   Skip a stale repeat with file:line proof. Batch-fix a still-real repeat outside the stop set again, and append \`working [at=<epoch>]:\` naming the run, step, repeated ids, inventory/evidence reference and exact respond command including its instructions.
-  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort, restart or a round cap. The worker remains the sole driver of its run.
+  A repeat alone never authorizes needs-decision, a new captain question, hand-editing, abort or restart; only the last-list rule below ends fixing. The worker remains the sole driver of its run.
+- The third distinct Review finding list is the last. Count lists with the review follow-up rule's ledger: a Review gate is a new list only when its drive return carries a \`head_sha\` not yet counted for this run, so a reattached read adds nothing, and internal auto-fix rounds that never park are not counted.
+  The first and second lists are triaged and fixed as above. On the third, never respond \`--action fix\`: record every finding still listed under the review follow-up rule, then approve with \`no-mistakes axi respond --step review --action approve\` and append \`working [at=<epoch>]:\` naming the run, the list ordinal, the follow-up file and item id, and that its findings were deferred, not fixed.
+  A stop-set finding on the third list still escalates under rule 6, stating it is the third list; the decision there is approve with recorded follow-ups or hold the run, never another fix.
+  Approving Review ends only Review: Test, document, lint, push, PR and CI still run, and a protected-path or Test refusal still takes its explicit response; never get past them with \`--yes\`, a skip or a CI waiver.
 - NEVER pass \`--yes\` (or \`-y\`) to \`no-mistakes axi run\` or \`no-mistakes axi respond\`. It is banned fleet-wide.
   It auto-resolves every gate including ask-user findings with no escalation, bypassing the stop-set authority boundary.
 
@@ -1114,9 +1348,43 @@ There is no pull request, no \`gh-axi\` call, and no forge CI result to report: 
 EOF
 }
 
+fm_direct_review_block() {
+  cat <<'EOF'
+Perform exactly one code review round against the preparation outcomes and project standards using the existing review mechanism.
+Record the reviewed head, findings and their resolution in the task report; fix the findings without another review round, then validate the final head through the selected delivery path's checks.
+That round's finding list is the only one: never request a second review list, and record any finding you leave unfixed under the review follow-up rule as a follow-up item, never as fixed.
+Do not commission a separate preparation review or add a second implementation review.
+EOF
+}
+
+# Where a publishing ship records the review findings it leaves unfixed, and
+# the no-mistakes list ledger the last-list rule in fm_nm_driving_block counts
+# with. Path-bearing, so it renders beside rule 6 rather than inside the
+# path-free Definition of done.
+fm_review_followup_block() {  # <root> <data-dir> <task-id> <mode>
+  local root=$1 data=$2 id=$3 mode=$4 lead='   Review follow-ups: '
+  if [ "$mode" = no-mistakes ]; then
+    cat <<EOF
+${lead}count each distinct Review finding list once, by the \`head_sha\` in the drive return carrying its review gate, with
+   \`f='$data/$id/nm-<run>-review-lists.txt'; if [ -s "\$f" ]; then last=\$(tail -c 1 "\$f" && printf .) || exit 1; [ "\$last" = \$'\n.' ] || exit 1; fi; if [ ! -e "\$f" ]; then printf '%s\n' '<head_sha>' >> "\$f" || exit 1; elif grep -xF '<head_sha>' "\$f" >/dev/null; then :; else [ "\$?" -eq 1 ] && printf '%s\n' '<head_sha>' >> "\$f" || exit 1; fi; wc -l < "\$f"\`
+   which prints that list's ordinal only on success; on failure, stop and escalate instead of choosing a Review action.
+EOF
+    lead='   '
+  fi
+  cat <<EOF
+${lead}A review finding left unfixed when its review closes is a follow-up item, never a claimed fix: write each one verbatim and unparaphrased (id, severity, file, line, action, description) to \`$data/$id/review-followups-<review>.txt\`, where \`<review>\` is the no-mistakes run id or \`pr\`, then file that file as one queued backlog item with
+   \`FM_DATA_OVERRIDE='$data' '$root/bin/fm-tasks-axi.sh' add --mint "review follow-ups: $id <review>" --body-file '$data/$id/review-followups-<review>.txt'\`
+   and name the file and the printed item id in your next status line.
+   These records are the only writes outside this worktree this rule permits.
+EOF
+}
+
 fm_dod_block() {  # <mode> <task-id> [branch] [<forge>]
   local mode=$1 id=$2 forge=${4:-none}
   local branch=${3:-fm/$id}
+  # The captain's class-fix line, verbatim in every mode; the
+  # diagnostic-reasoning skill owns what makes a repair a class fix.
+  local class_fix='class fix: test fails without the fix; symptom seen twice.'
   fm_forge_valid_for_mode "$forge" "$mode" fm_dod_block || return 1
   case "$mode:$forge" in
     direct-PR:gerrit)
@@ -1124,11 +1392,13 @@ fm_dod_block() {  # <mode> <task-id> [branch] [<forge>]
 # Definition of done
 Delivery contract: mode=direct-PR forge=gerrit shape=squash
 Ship branch: $branch
+$class_fix
 This task ships **direct-PR** to a Gerrit review server: you publish the change yourself, without the no-mistakes pipeline.
 Gerrit has no pull requests, so there is nothing to open; publishing creates the change.
 The task is complete only when committed on your branch.
 When it is implemented and committed, publish it.
 EOF
+      fm_direct_review_block
       fm_gerrit_publish_block
       cat <<EOF
 Do NOT run /no-mistakes.
@@ -1139,6 +1409,7 @@ EOF
 # Definition of done
 Delivery contract: mode=no-mistakes forge=gerrit shape=squash
 Ship branch: $branch
+$class_fix
 This project's review server is Gerrit: it has no pull requests and no forge CI the pipeline can watch, so **no-mistakes runs here as a review pass that ends at a ready branch**, and you then publish that branch as one change.
 Pass \`--skip push,pr,ci\` on every \`no-mistakes axi run\` for this task, and skip nothing else: \`review\`, \`test\`, \`document\`, and \`lint\` are the whole point of the run.
 Those three are the only steps that reach a forge, and skipping them is a supported outcome, not a degraded one.
@@ -1171,7 +1442,11 @@ EOF
 # Definition of done
 Delivery contract: mode=direct-PR
 Ship branch: $branch
+$class_fix
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
+EOF
+      fm_direct_review_block
+      cat <<EOF
 This task is complete only with an existing non-draft PR and every required check green for its current head.
 When it is implemented and committed, push your branch and open a PR with \`gh-axi\` that is ready for review, not a draft.
 Before you report done, read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.
@@ -1189,6 +1464,7 @@ EOF
 # Definition of done
 Delivery contract: mode=local-only
 Ship branch: $branch
+$class_fix
 This task ships **local-only**: no remote, no PR, no pipeline.
 The task is complete only when committed on your branch \`$branch\`. Do NOT push, do NOT open a PR, do NOT merge.
 A \`done:\` is accepted when the named head is on this project's shared local branch, not only on a detached copy; the check tests that head, not merely that a branch moved.
@@ -1202,6 +1478,7 @@ EOF
 # Definition of done
 Delivery contract: mode=no-mistakes
 Ship branch: $branch
+$class_fix
 This task is complete only with an existing non-draft PR and every required check green for its current head.
 After your implementation commit, append a \`working [at=<epoch>]: implementation committed; starting validation\` milestone and start the pipeline yourself immediately with \`no-mistakes axi run\`, supplying \`--intent\` under the contract below.
 The pipeline owns the push; follow its version-matched skill and help to drive every gate through the green PR return.

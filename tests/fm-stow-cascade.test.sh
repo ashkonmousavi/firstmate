@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Behavioral coverage for the internal /stow cascade enumerator: per-home budget
-# accounting that never sums a fleet total, one stanza per registered home,
-# local versus remote transport routing, the facts a per-home completion receipt
-# is built from, and the bound that keeps one slow home from blocking the sweep.
+# Behavioral coverage for the internal /stow cascade enumerator: one stanza per
+# registered home, local versus remote transport routing, the facts a per-home
+# completion receipt is built from, and the bound that keeps one slow home from
+# blocking the sweep.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -39,9 +39,6 @@ case "${FM_FAKE_SSH_MODE:-normal}" in
   hang) sleep 45; exit 0 ;;
 esac
 case "$command" in
-  fm-startup-memory-budget.sh)
-    cat "$FM_FAKE_REMOTE_BUDGET"
-    ;;
   fm-remote-secondmate-control.sh)
     printf '%s\n' "${FM_FAKE_REMOTE_AGENT_STATE:-alive}"
     ;;
@@ -68,14 +65,13 @@ exit 0
 SH
 chmod +x "$FAKEBIN/tmux"
 
-# new_home <name> [budget] -> path to a seeded local secondmate home.
+# new_home <name> -> path to a seeded local secondmate home.
 new_home() {
-  local name=$1 budget=${2:-10} home
+  local name=$1 home
   home="$TMP_ROOT/homes/$name"
   mkdir -p "$home/config" "$home/data" "$home/state" "$home/bin" "$home/projects"
   printf '%s\n' "$name" > "$home/.fm-secondmate-home"
   printf '%s\n' '# secondmate instructions' > "$home/AGENTS.md"
-  printf '%s\n' "$budget" > "$home/config/startup-memory-budget"
   printf '%s\n' "$home"
 }
 
@@ -120,44 +116,6 @@ stanza() {
 
 value_in() { # <stanza> <key>
   printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -1
-}
-
-test_budget_is_enforced_per_home_and_never_summed() {
-  local primary a b out sa sb
-  primary=$(new_primary per-home)
-  a=$(new_home over-budget 10)
-  b=$(new_home within-budget 10)
-  # Home A alone exceeds its own 10-token allowance.
-  printf '%s\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' > "$a/data/captain.md"
-  # Home B is comfortably inside the same allowance, and would only look
-  # over-budget if the cascade added another home's total to its own.
-  printf '%s\n' 'bbbbbb' > "$b/data/captain.md"
-  {
-    local_record over-budget "$a"
-    local_record within-budget "$b"
-  } > "$primary/data/secondmates.md"
-
-  set +e
-  out=$(run_cascade "$primary")
-  set -e
-  sa=$(stanza "$out" over-budget)
-  sb=$(stanza "$out" within-budget)
-
-  [ "$(value_in "$sa" effective_budget_tokens)" = 10 ] \
-    || fail "over-budget home did not report its own allowance"
-  [ "$(value_in "$sb" effective_budget_tokens)" = 10 ] \
-    || fail "within-budget home did not report its own allowance"
-  [ "$(value_in "$sa" total_estimated_tokens)" = 13 ] \
-    || fail "over-budget home total was not its own files: $(value_in "$sa" total_estimated_tokens)"
-  [ "$(value_in "$sb" total_estimated_tokens)" = 3 ] \
-    || fail "within-budget home total was not its own files: $(value_in "$sb" total_estimated_tokens)"
-  [ "$(value_in "$sa" budget_status)" = over-budget ] \
-    || fail "the over-budget home was not classified against its own allowance"
-  [ "$(value_in "$sb" budget_status)" = within-budget ] \
-    || fail "a within-budget home was penalized for another home's memory"
-  [ "$(value_in "$sa" role)" = secondmate ] \
-    || fail "per-home accounting did not run in the secondmate home"
-  pass "each home is accounted against its own allowance instead of a fleet total"
 }
 
 test_every_registered_home_is_enumerated_exactly_once() {
@@ -214,13 +172,10 @@ test_transport_routes_by_placement_and_liveness() {
   } > "$primary/data/secondmates.md"
   fm_write_secondmate_meta "$primary/state/live-local.meta" "$live" 'firstmate:fm-live-local' alpha claude
   fm_write_secondmate_meta "$primary/state/remote-live.meta" "$remote" 'fm-remote:fm-remote-live' alpha claude
-  printf 'role=secondmate\neffective_budget_tokens=7500\ntotal_estimated_tokens=100\nbudget_status=within-budget\n' \
-    > "$TMP_ROOT/remote-budget.txt"
 
   set +e
   out=$(run_cascade "$primary" \
     FM_FAKE_TMUX_WINDOW='fm-live-local' \
-    FM_FAKE_REMOTE_BUDGET="$TMP_ROOT/remote-budget.txt" \
     FM_FAKE_REMOTE_AGENT_STATE=alive)
   set -e
   [ "$(value_in "$(stanza "$out" live-local)" transport)" = agent ] \
@@ -234,13 +189,10 @@ test_transport_routes_by_placement_and_liveness() {
   [ "$(value_in "$s" host)" = remote-mac ] || fail "a remote home did not name its host"
   [ "$(value_in "$s" transport)" = agent ] \
     || fail "a remote home with a live agent was not routed to that agent"
-  [ "$(value_in "$s" total_estimated_tokens)" = 100 ] \
-    || fail "the remote home's own accounting was not reported"
 
   set +e
   out=$(run_cascade "$primary" \
     FM_FAKE_TMUX_WINDOW='fm-live-local' \
-    FM_FAKE_REMOTE_BUDGET="$TMP_ROOT/remote-budget.txt" \
     FM_FAKE_REMOTE_AGENT_STATE=dead)
   set -e
   s=$(stanza "$out" remote-live)
@@ -251,89 +203,65 @@ test_transport_routes_by_placement_and_liveness() {
   pass "transport follows placement and live-agent state, and a remote home without an agent defers"
 }
 
-test_receipt_facts_are_complete_and_show_before_and_after() {
-  local primary home before after s
+test_receipt_stanza_carries_routing_facts_only() {
+  local primary home out s
   primary=$(new_primary receipt)
-  home=$(new_home receipt-home 20)
+  home=$(new_home receipt-home)
   printf '%s\n' 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' > "$home/data/captain.md"
-  printf '%s\n' 'bbbbbb' > "$home/data/learnings.md"
   local_record receipt-home "$home" > "$primary/data/secondmates.md"
 
   set +e
-  before=$(run_cascade "$primary")
+  out=$(run_cascade "$primary")
   set -e
-  s=$(stanza "$before" receipt-home)
+  s=$(stanza "$out" receipt-home)
+  [ "$(value_in "$s" secondmate)" = receipt-home ] || fail "receipt stanza lacks its secondmate"
   [ "$(value_in "$s" placement)" = local ] || fail "receipt stanza lacks placement"
-  [ "$(value_in "$s" home)" = "$home" ] || fail "receipt stanza lacks the home it accounted"
-  [ "$(value_in "$s" budget_report)" = ok ] || fail "receipt stanza lacks an accounting outcome"
-  [ -n "$(value_in "$s" transport)" ] || fail "receipt stanza lacks a transport"
-  local file
-  for file in captain.md captain-shared.md learnings.md; do
-    assert_contains "$s" "file=data/$file " "receipt stanza lacks a per-file action input for $file"
-  done
-  [ "$(value_in "$s" budget_status)" = over-budget ] \
-    || fail "the over-budget home was not surfaced before curation"
-
-  # Curation shrinks this home's editable memory; the same command is the
-  # after-pass, so before and after totals come from one accounting contract.
-  printf '%s\n' 'aaa' > "$home/data/captain.md"
-  set +e
-  after=$(run_cascade "$primary")
-  set -e
-  s=$(stanza "$after" receipt-home)
-  [ "$(value_in "$s" budget_status)" = within-budget ] \
-    || fail "the after pass did not reflect this home's curation"
-  [ "$(value_in "$(stanza "$before" receipt-home)" total_estimated_tokens)" \
-    -gt "$(value_in "$s" total_estimated_tokens)" ] \
-    || fail "the after total did not drop below the before total"
-  pass "each stanza carries the facts a per-home receipt needs, before and after curation"
+  [ "$(value_in "$s" home)" = "$home" ] || fail "receipt stanza lacks the home it routes"
+  [ "$(value_in "$s" transport)" = direct ] || fail "receipt stanza lacks a transport"
+  assert_not_contains "$out" 'budget_report=' "the cascade still measured a home against a memory size budget"
+  assert_not_contains "$out" 'total_estimated_tokens=' "the cascade still estimated a home's memory size"
+  pass "each stanza carries the routing facts a per-home receipt needs and no size accounting"
 }
 
 test_a_slow_remote_is_bounded_and_the_rest_still_report() {
   local primary home remote out rc started elapsed s
   primary=$(new_primary bounded)
-  home=$(new_home bounded-local 10)
-  printf '%s\n' 'cccccc' > "$home/data/captain.md"
+  home=$(new_home bounded-local)
   remote="$TMP_ROOT/homes/bounded-remote"
   {
     remote_record bounded-remote remote-mac "$TMP_ROOT/remote-root" "$remote"
     local_record bounded-local "$home"
   } > "$primary/data/secondmates.md"
   fm_write_secondmate_meta "$primary/state/bounded-remote.meta" "$remote" 'fm-remote:fm-bounded-remote'
-  printf 'role=secondmate\n' > "$TMP_ROOT/remote-budget.txt"
 
   started=$(date +%s)
   set +e
   out=$(run_cascade "$primary" \
     FM_STOW_CASCADE_TIMEOUT=2 \
-    FM_FAKE_SSH_MODE=hang \
-    FM_FAKE_REMOTE_BUDGET="$TMP_ROOT/remote-budget.txt")
+    FM_FAKE_SSH_MODE=hang)
   rc=$?
   set -e
   elapsed=$(( $(date +%s) - started ))
   [ "$elapsed" -lt 30 ] || fail "the sweep waited $elapsed s on a host that never answered"
   s=$(stanza "$out" bounded-remote)
-  [ "$(value_in "$s" budget_report)" = timeout ] \
-    || fail "an unanswered home did not report a bounded exception"
   [ "$(value_in "$s" transport)" = unavailable ] \
-    || fail "an unanswered home claimed a transport conclusion"
-  s=$(stanza "$out" bounded-local)
-  [ "$(value_in "$s" budget_report)" = ok ] \
+    || fail "an unanswered home claimed a transport conclusion: $(value_in "$s" transport)"
+  assert_contains "$s" 'exceeded the 2s bound' "an unanswered home did not report a bounded exception"
+  [ "$(value_in "$(stanza "$out" bounded-local)" transport)" = direct ] \
     || fail "the healthy home was blocked by the unanswered one"
-  [ "$(value_in "$s" total_estimated_tokens)" = 3 ] \
-    || fail "the healthy home's own accounting was lost"
   expect_code 3 "$rc" "a reported per-home exception should be distinguishable from a clean sweep"
   assert_contains "$out" 'exceptions=1' "the sweep did not count the unreachable home"
 
   set +e
   out=$(run_cascade "$primary" \
-    FM_FAKE_SSH_MODE=unreachable \
-    FM_FAKE_REMOTE_BUDGET="$TMP_ROOT/remote-budget.txt")
+    FM_FAKE_SSH_MODE=unreachable)
   rc=$?
   set -e
-  [ "$(value_in "$(stanza "$out" bounded-remote)" budget_report)" = error ] \
+  s=$(stanza "$out" bounded-remote)
+  [ "$(value_in "$s" transport)" = unavailable ] \
     || fail "an unreachable host was not reported as a per-home exception"
-  [ "$(value_in "$(stanza "$out" bounded-local)" budget_report)" = ok ] \
+  assert_contains "$s" 'remote endpoint probe failed' "an unreachable host did not say why it is unavailable"
+  [ "$(value_in "$(stanza "$out" bounded-local)" transport)" = direct ] \
     || fail "an unreachable host blocked the healthy home"
   expect_code 3 "$rc" "an unreachable host should still finish the sweep"
   pass "one slow or unreachable home is bounded and every other home still reports"
@@ -362,9 +290,8 @@ test_no_cascade_without_secondmates_or_from_a_secondmate_home() {
   pass "the cascade stays silent with no secondmates and never runs from a secondmate home"
 }
 
-test_budget_is_enforced_per_home_and_never_summed
 test_every_registered_home_is_enumerated_exactly_once
 test_transport_routes_by_placement_and_liveness
-test_receipt_facts_are_complete_and_show_before_and_after
+test_receipt_stanza_carries_routing_facts_only
 test_a_slow_remote_is_bounded_and_the_rest_still_report
 test_no_cascade_without_secondmates_or_from_a_secondmate_home

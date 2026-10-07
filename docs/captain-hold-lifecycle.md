@@ -36,7 +36,7 @@ It never reads report bodies, review artifacts, terminal output, or chat.
 | `hold` | Creates or reuses a task and holds it for the captain. | [Creating a hold](#creating-a-hold-hold) |
 | `answer` | Records the captain's exact words and resolves the call. | [Answering a call](#answering-a-call-answer) |
 | `complete` | Records the reviewed captain-held task ids in the originating task's metadata. | [Recording a reviewed inventory](#recording-a-reviewed-inventory-complete) |
-| `verify` | Read-only check that scout teardown runs before removing source state. | [Checking before scout teardown](#checking-before-scout-teardown-verify) |
+| `verify` | Read-only check of the recorded captain-call attestation. | [Checking the attestation](#checking-the-attestation-verify) |
 | `open` | Read-only check of whether a row is still an open captain call. | [Cleanup never closes a captain call](#cleanup-never-closes-a-captain-call) |
 | `answers` | Channel-agnostic entry point for keyed answers. | [Answer-time resolution](#answer-time-resolution) |
 | `bind`, `unbind`, `binding` | Record that a captured-answer source feeds the keyed-answer intake. | [Source bindings](#source-bindings) |
@@ -117,17 +117,16 @@ With a non-empty inventory, `complete` appends a `captain-held [key=<key>]` tran
 The event names the reviewed inventory.
 `bin/fm-classify-lib.sh` recognizes it as closing the live status copy without claiming that the captain has answered it.
 
-### Checking before scout teardown (`verify`)
+### Checking the attestation (`verify`)
 
-Scout teardown calls the read-only `verify` subcommand after checking for the report and before removing any source state.
-`verify` checks three things:
+`verify` is the read-only check of a recorded attestation.
+It checks three things:
 
 - The recorded attestation exists.
 - Every recorded inventory entry still passes the [completion inventory checks](#recording-a-reviewed-inventory-complete).
 - No keyed status decision opened after the last `complete`.
 
 A keyed status decision opened after the last `complete` makes `verify` fail, and re-running `complete` is the repair.
-The `--force` path remains the explicit captain-approved discard escape hatch.
 
 ## Cleanup never closes a captain call
 
@@ -528,8 +527,8 @@ The suite does not test the accepted merge-to-cleanup re-hold window or asynchro
 
 ### Completion and verification
 
-- A report-only unresolved captain call refuses `--none` completion before teardown can erase the source.
-- Non-forced scout teardown always requires the durable inventory verification.
+- A scout with a report and no completion attestation cleans up.
+- A scout with no report is still refused.
 - The recorded-answer guard holds: a bare `tasks-axi done` close fails `verify` until `answer` records the captain's word, and an ordinary finished task cannot be dressed up as an answered call.
 
 ### Answers, stamps, and deferral

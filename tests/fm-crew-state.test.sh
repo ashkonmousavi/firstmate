@@ -226,6 +226,17 @@ SH
   cat > "$fb/herdr" <<'SH'
 #!/usr/bin/env bash
 set -u
+# Optional immutable native receipts replayed through the actual backend reader.
+if [ -n "${FM_FAKE_HERDR_NATIVE_FILE:-}" ]; then
+  case "${1:-} ${2:-}" in
+    'agent get'|'pane process-info')
+      receipt=$(jq -c --arg one "$1" --arg two "$2" \
+        '.receipts[] | select(.command[1] == $one and .command[2] == $two)' "$FM_FAKE_HERDR_NATIVE_FILE") || exit 1
+      printf '%s' "$receipt" | jq -r '.json | if type == "string" then . else tojson end'
+      printf '%s' "$receipt" | jq -r '.stderr' >&2
+      exit "$(printf '%s' "$receipt" | jq -r '.exit_code')" ;;
+  esac
+fi
 case "${1:-}" in
   status)
     [ "${2:-}" = --json ] && {
@@ -239,6 +250,7 @@ case "${1:-}" in
       read)
         [ "${FM_FAKE_HERDR_MISSING:-0}" = 1 ] && exit 1
         [ "${FM_FAKE_HERDR_READ_FAIL:-0}" = 1 ] && exit 1
+        if [ -n "${FM_FAKE_HERDR_PANE_FILE:-}" ]; then cat "$FM_FAKE_HERDR_PANE_FILE"; exit 0; fi
         if [ "${FM_FAKE_HERDR_BUSY:-0}" = 1 ]; then printf 'work in progress\nesc to interrupt\n'
         else printf 'all quiet\n> \n'; fi
         exit 0 ;;
@@ -250,6 +262,10 @@ case "${1:-}" in
         printf '{"result":{"pane":{"pane_id":"%s"}}}\n' "${3:-}"
         exit 0 ;;
       process-info)
+        if [ -n "${FM_FAKE_HERDR_PROCESS_INFO:-}" ]; then
+          printf '%s\n' "$FM_FAKE_HERDR_PROCESS_INFO"
+          exit 0
+        fi
         # The process-level view a registration is verified against (#4115):
         # `agent` puts a live claude in the foreground, `shell` a bare zsh whose
         # pid is the test script itself (a real, long-lived process with no
@@ -257,6 +273,7 @@ case "${1:-}" in
         # it), and anything else answers nothing (unreadable).
         pane=""; args=("$@"); for ((i=0; i<${#args[@]}; i++)); do [ "${args[$i]}" = --pane ] && pane=${args[$((i+1))]:-}; done
         case "${FM_FAKE_HERDR_PROCESS:-agent}" in
+          failed) exit 1 ;;
           agent) printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_process_group_id":424242,"foreground_processes":[{"pid":424242,"name":"claude","argv0":"claude"}]}}}\n' "$pane" "${FM_FAKE_HERDR_SHELL_PID:-$PPID}" ;;
           shell) printf '{"result":{"type":"pane_process_info","process_info":{"pane_id":"%s","shell_pid":%s,"foreground_process_group_id":%s,"foreground_processes":[{"pid":%s,"name":"zsh","argv0":"zsh","argv":["-zsh"]}]}}}\n' "$pane" "${FM_FAKE_HERDR_SHELL_PID:-$PPID}" "${FM_FAKE_HERDR_SHELL_PID:-$PPID}" "${FM_FAKE_HERDR_SHELL_PID:-$PPID}" ;;
         esac
@@ -333,6 +350,7 @@ reset_fakes() {
   FM_FAKE_HERDR_HUSK=0
   FM_FAKE_HERDR_AGENT_STATUS=""
   FM_FAKE_HERDR_PROCESS=agent
+  FM_FAKE_HERDR_PROCESS_INFO=
   FM_FAKE_HERDR_SHELL_PID=$$
   FM_FAKE_CI_LOGS=""
   FM_FAKE_DAEMON_DOWN=0
@@ -354,6 +372,7 @@ reset_fakes() {
   unset FM_FAKE_PR_47_STATE FM_FAKE_PR_47_MERGED FM_FAKE_PR_48_STATE FM_FAKE_PR_48_MERGED
   export FM_FAKE_AXI_STATUS FM_FAKE_AXI_STATUS_RUN FM_FAKE_RUNS_LIST FM_FAKE_BUSY FM_FAKE_BUSY_TEXT FM_FAKE_TMUX_MISSING FM_FAKE_TMUX_UNREADABLE
   export FM_FAKE_HERDR_BUSY FM_FAKE_HERDR_MISSING FM_FAKE_HERDR_READ_FAIL FM_FAKE_HERDR_HUSK FM_FAKE_HERDR_AGENT_STATUS FM_FAKE_HERDR_PROCESS FM_FAKE_HERDR_SHELL_PID FM_FAKE_CI_LOGS
+  export FM_FAKE_HERDR_PROCESS_INFO
   export FM_FAKE_DAEMON_DOWN FM_FAKE_DAEMON_TIMEOUT FM_FAKE_DAEMON_PROBE_LOG FM_FAKE_AXI_HOME
   export FM_FAKE_AXI_HOME_ERROR FM_FAKE_AXI_STATUS_RUN_ERROR FM_FAKE_AXI_STATUS_ERROR
   export FM_FAKE_PR_STATE FM_FAKE_PR_MERGED FM_FAKE_PR_READ_FAIL FM_FAKE_PR_READ_LOG FM_FAKE_PR_STATE_AXI
@@ -2540,6 +2559,156 @@ test_no_run_grok_uses_isolated_fallback() {
   assert_contains "$out" "state: working" "grok busy tail -> working"
   assert_contains "$out" "grok-regex" "the grok verdict names its isolated fallback source"
   pass "grok still reads working through its isolated rendered-tail fallback"
+}
+
+# The real server Codex pane is a reproduction input, never busy authority.
+# Native activity and rendered activity deliberately diverge in both directions.
+test_codex_native_fallback() {
+  reset_fakes
+  local d out native process shell_info ps_bin member members field value tool_info
+  d=$(new_case codex-native)
+  make_repo_on_branch "$d/wt" fm/codex-native
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/codex-native.meta" "window=default:w1:p2" \
+    "worktree=$d/wt" "kind=ship" "backend=herdr" "harness=codex"
+  FM_FAKE_HERDR_PANE_FILE=${FM_CODEX_SERVER_CAPTURE:-}
+  export FM_FAKE_HERDR_PANE_FILE
+  FM_FAKE_HERDR_BUSY=1
+  FM_FAKE_HERDR_AGENT_STATUS=working
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'Codex without hooks must reach native busy fallback'
+  assert_contains "$out" 'herdr-native' 'Codex must name independent native source'
+
+  # Removing the entire rendered surface must not erase native working proof.
+  FM_FAKE_HERDR_PANE_FILE=
+  FM_FAKE_HERDR_READ_FAIL=1
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'native busy survives capture loss'
+  FM_FAKE_HERDR_READ_FAIL=0
+  FM_FAKE_HERDR_PANE_FILE=${FM_CODEX_SERVER_CAPTURE:-}
+  for native in idle 'done' blocked unknown ''; do
+    FM_FAKE_HERDR_AGENT_STATUS=$native
+    printf 'working: stale historical event\n' > "$d/state/codex-native.status"
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' 'stale pane/status cannot replace lost native activity'
+  done
+  # A bound pipeline remains the higher-priority independent source, even
+  # when the pane's native activity source is lost or reads idle.
+  FM_FAKE_AXI_STATUS=$(run_running fm/codex-native)
+  FM_FAKE_HERDR_AGENT_STATUS=idle
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'native run survives loss of pane activity'
+  assert_contains "$out" 'source: run-step' 'native run retains priority for Codex'
+  FM_FAKE_AXI_STATUS=$(run_parked fm/codex-native)
+  FM_FAKE_HERDR_AGENT_STATUS=working
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: parked' 'native parked run outranks busy pane'
+  assert_contains "$out" 'source: run-step' 'parked run retains priority for Codex'
+  FM_FAKE_AXI_STATUS=
+  FM_FAKE_HERDR_AGENT_STATUS=working
+  FM_FAKE_HERDR_PROCESS=shell
+  FM_FAKE_HERDR_SHELL_PID=$$
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: unknown' 'stale registration over shell must stay unknown'
+  shell_info=$(jq -cn --argjson pid "$$" '{result: {type: "pane_process_info", process_info: {
+    pane_id: "w1:p2", shell_pid: $pid,
+    foreground_processes: [{pid: $pid, name: "bash", argv0: "bash"}]
+  }}}')
+  for process in unreadable failed malformed wrong-type wrong-pane invalid-shell invalid-foreground missing-ps failed-ps missing-shell; do
+    FM_FAKE_HERDR_PROCESS=$process
+    FM_FAKE_HERDR_PROCESS_INFO=
+    ps_bin='ps'
+    case "$process" in
+      malformed) FM_FAKE_HERDR_PROCESS_INFO='{' ;;
+      wrong-type) FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq '.result.type = "unexpected"') ;;
+      wrong-pane) FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq '.result.process_info.pane_id = "w1:p3"') ;;
+      invalid-shell) FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq '.result.process_info.shell_pid = null') ;;
+      invalid-foreground) FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq '.result.process_info.foreground_processes = {}') ;;
+      missing-ps|failed-ps|missing-shell)
+        FM_FAKE_HERDR_PROCESS_INFO=$shell_info
+        case "$process" in
+          missing-ps) ps_bin="$d/fakebin/missing-ps" ;;
+          failed-ps) ps_bin=false ;;
+          missing-shell) ps_bin=true ;;
+        esac ;;
+    esac
+    out=$(FM_HERDR_PS_BIN="$ps_bin" run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' "stale working registration with $process process evidence must stay unknown"
+  done
+  tool_info=$(printf '%s' "$shell_info" | jq '.result.process_info.foreground_processes = [{pid: 424242, name: "sleep", argv0: "sleep"}]')
+  for value in null 0 1 424242.5 '"424242"' true '{}' '[]'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$tool_info" | jq --argjson value "$value" '.result.process_info.shell_pid = $value')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' "malformed shell PID $value must stay unknown"
+  done
+  for member in null '[]' '0' '"sleep"' '{}' \
+    '{"pid":424242}' '{"name":"sleep"}'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq --argjson member "$member" '.result.process_info.foreground_processes = [$member]')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' "malformed foreground member $member must stay unknown"
+  done
+  for field in pid name argv0 argv cmdline; do
+    case "$field" in
+      pid) members='[null,0,-1,424242.5,"424242",true,{},[]]' ;;
+      name) members='[null,"",0,true,{},[]]' ;;
+      argv0|cmdline) members='[0,true,{},[]]' ;;
+      argv) members='[0,true,{},"sleep",[null],[0],[true],[{}],[[]]]' ;;
+    esac
+    while IFS= read -r value; do
+      FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$tool_info" | jq --arg field "$field" --argjson value "$value" '.result.process_info.foreground_processes[0][$field] = $value')
+      out=$(run_crew_state "$d" codex-native)
+      assert_contains "$out" 'state: unknown' "malformed foreground $field=$value must stay unknown"
+    done < <(printf '%s' "$members" | jq -c '.[]')
+  done
+  for members in '[{"pid":424242,"name":"codex"},{}]' '[{},{"pid":424242,"name":"codex"}]'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$shell_info" | jq --argjson members "$members" '.result.process_info.foreground_processes = $members')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' 'a valid agent must not mask a malformed sibling entry'
+  done
+  FM_FAKE_HERDR_PROCESS_INFO=$tool_info
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'native working registration with a foreground tool retains authority'
+  assert_contains "$out" 'herdr-native' 'foreground tool must preserve the native source'
+  for member in \
+    '{"pid":424242,"name":"sleep","argv0":null,"argv":["sleep",""],"cmdline":null}' \
+    '{"pid":424242,"name":"sleep","argv":[],"cmdline":"sleep 300"}' \
+    '{"pid":424242,"name":"node","argv0":"codex"}' \
+    '{"pid":424242,"name":"node","argv":["codex"]}'; do
+    FM_FAKE_HERDR_PROCESS_INFO=$(printf '%s' "$tool_info" | jq --argjson member "$member" '.result.process_info.foreground_processes = [$member]')
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: working' 'valid optional identity fields preserve native working evidence'
+  done
+  FM_FAKE_HERDR_PROCESS_INFO=
+  unset FM_FAKE_HERDR_PANE_FILE
+  pass 'Codex native fallback survives capture loss and refuses stale pane/status/registration'
+}
+
+# Optional local proof against retained real server responses, not a claim
+# that the candidate was installed there. CI uses the hermetic cases above.
+test_codex_captured_native_pairs() {
+  [ -n "${FM_CODEX_SERVER_NATIVE:-}" ] || return 0
+  local d out kind pane
+  for kind in working-study stopped-apps; do
+    reset_fakes
+    d=$(new_case "codex-captured-$kind")
+    make_repo_on_branch "$d/wt" fm/codex-captured
+    make_fakebin "$d" >/dev/null
+    FM_FAKE_HERDR_NATIVE_FILE="$FM_CODEX_SERVER_NATIVE/native-paired-$kind.json"
+    FM_FAKE_HERDR_PANE_FILE="$FM_CODEX_SERVER_NATIVE/native-paired-$kind.pane.txt"
+    export FM_FAKE_HERDR_NATIVE_FILE FM_FAKE_HERDR_PANE_FILE
+    pane=$(jq -r '.receipts[] | select(.command[1:3] == ["pane","process-info"]) | .json.result.process_info.pane_id' "$FM_FAKE_HERDR_NATIVE_FILE")
+    fm_write_meta "$d/state/captured.meta" "window=fm-remote:$pane" \
+      "worktree=$d/wt" "kind=ship" "backend=herdr" "harness=codex"
+    out=$(run_crew_state "$d" captured)
+    if [ "$kind" = working-study ]; then
+      assert_contains "$out" 'state: working' 'captured native Codex activity must survive loss of run source'
+      assert_contains "$out" 'herdr-native' 'captured activity must name native source'
+    else
+      assert_contains "$out" 'state: unknown' 'captured stopped pane must remain conservative'
+    fi
+    pass "Codex captured native $kind: $out"
+    unset FM_FAKE_HERDR_NATIVE_FILE FM_FAKE_HERDR_PANE_FILE
+  done
 }
 
 test_no_run_herdr_unknown_uses_backend_capture() {
@@ -5607,6 +5776,8 @@ test_unpushed_ship_done_is_blocked
 test_merged_pr_reads_done_under_captured_meta
 test_no_mistakes_prevalidation_done_stays_done
 test_moved_remote_branch_without_named_head_is_blocked
+test_codex_native_fallback
+test_codex_captured_native_pairs
 test_no_run_busy_pane
 test_no_run_launch_prompt_parked_is_not_working
 test_no_run_footer_text_alone_is_not_working

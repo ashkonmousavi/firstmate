@@ -296,13 +296,15 @@ reply_owner() {
     | awk -v id="$SID" 'NR > 1 && $1 == id { print $3; exit }'
 }
 
+# A listener seen live can still stand down when a manual handle re-arms its
+# source, so ownership is re-checked during the wait, as reconcile does.
 await_reply_result() { # <result-path>
-  local result=$1 handled=${1%.result}.handled _
-  if [ "$(reply_owner)" != live ]; then
-    remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null 2>&1 &
-  fi
-  for _ in $(seq 1 800); do
+  local result=$1 handled=${1%.result}.handled i
+  for i in $(seq 0 799); do
     [ -s "$result" ] && [ -f "$handled" ] && return 0
+    if [ $((i % 10)) -eq 0 ] && [ "$(reply_owner)" != live ]; then
+      remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null 2>&1 &
+    fi
     sleep 0.05
   done
   return 1
@@ -1128,7 +1130,7 @@ remote_env "$ROOT/bin/fm-procevent-remote-reply.sh" handle ios 3 "$CONFIG_RESULT
 pass "remote inherited config retains and retries a failed live reread nudge"
 
 resolve_ios_pending() {
-  local pending_record pending_corr pending_result pending_seq before_results now_results pending_seen
+  local pending_record pending_corr pending_result pending_seq before_results now_results pending_seen i
   for pending_record in "$PARENT/state/pending-replies"/*; do
     [ -f "$pending_record" ] || continue
     [ "$(grep '^task_id=' "$pending_record" | cut -d= -f2-)" = ios ] || continue
@@ -1137,11 +1139,11 @@ resolve_ios_pending() {
     before_results=$(find "$PARENT/state/procevent-inbox" -name "$SID.*.result" 2>/dev/null | wc -l | tr -d ' ')
     printf 'done [corr=%s]: concurrent inherited data re-read\n' "$pending_corr" \
       >> "$REMOTE_HOME/state/parent-replies.status"
-    if [ "$(reply_owner)" != live ]; then
-      remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null 2>&1 &
-    fi
     pending_seen=0
-    for _ in $(seq 1 800); do
+    for i in $(seq 0 799); do
+      if [ $((i % 10)) -eq 0 ] && [ "$(reply_owner)" != live ]; then
+        remote_env "$ROOT/bin/fm-procevent.sh" start "$SID" >/dev/null 2>&1 &
+      fi
       now_results=$(find "$PARENT/state/procevent-inbox" -name "$SID.*.result" 2>/dev/null | wc -l | tr -d ' ')
       pending_result=$(find "$PARENT/state/procevent-inbox" -name "$SID.*.result" -print 2>/dev/null | sort | tail -1)
       if [ "$now_results" -gt "$before_results" ] && [ -n "$pending_result" ] \

@@ -1500,8 +1500,8 @@ test_extra_merge_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "extra-args: branch deletion must be refused without --attended-override"
-  assert_grep 'pass --attended-override only for an explicit captain instruction' "$case_dir/stderr" \
-    "extra-args: refusal did not name --attended-override"
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+    "extra-args: refusal did not preserve captain-only override limits"
   assert_no_grep 'pr merge' "$case_dir/gh.log" \
     "extra-args: gh pr merge ran despite the denylist"
 
@@ -1676,8 +1676,8 @@ test_bundled_repo_override_args_refuse_before_recording() {
   rc=$?
   set -e
   expect_code 1 "$rc" "bundled-non-repo-cluster: -d is branch deletion and must be refused"
-  assert_grep 'pass --attended-override only for an explicit captain instruction' "$case_dir/stderr" \
-    "bundled-non-repo-cluster: refusal did not name --attended-override"
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+    "bundled-non-repo-cluster: refusal did not preserve captain-only override limits"
 
   case_dir=$(make_case bundled-delete-attended)
   mkdir -p "$case_dir/wt"
@@ -1811,8 +1811,8 @@ test_gitlab_extra_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "gitlab-extra-args: source-branch deletion must be refused without --attended-override"
-  assert_grep 'pass --attended-override only for an explicit captain instruction' "$case_dir/stderr" \
-    "gitlab-extra-args: refusal did not name --attended-override"
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+    "gitlab-extra-args: refusal did not preserve captain-only override limits"
   [ ! -s "$case_dir/glab.log" ] || fail "gitlab-extra-args: glab ran despite the denylist"
 
   case_dir=$(make_gitlab_case gitlab-extra-args-attended)
@@ -2590,7 +2590,7 @@ test_backend_override_bypasses_unreadable_user_config() {
 }
 
 test_github_red_checks_refuse_and_allow_red_waives_named() {
-  local case_dir rc head
+  local case_dir rc head kind
   head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   case_dir=$(make_case github-red-checks)
   mkdir -p "$case_dir/wt"
@@ -2616,6 +2616,26 @@ test_github_red_checks_refuse_and_allow_red_waives_named() {
     --allow-red lint \
     > "$case_dir/stdout" 2> "$case_dir/stderr" || fail "github-allow-red: named waiver should merge"
   assert_logged_gh_merge "$case_dir" 81 example/repo --squash
+  for kind in classic ruleset; do
+    case_dir=$(make_case "github-allow-red-admin-$kind")
+    add_gh_mocks "$case_dir" "$head"
+    write_github_red_json "$case_dir" "$head" lint
+    write_github_required "$case_dir" "$kind:lint"
+    set +e
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/81 \
+      --allow-red lint -- --admin > "$case_dir/stdout" 2> "$case_dir/stderr"
+    rc=$?
+    set -e
+    expect_code 1 "$rc" "allow-red-admin-$kind: admin must require attended override"
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
+      "allow-red-admin-$kind: refusal did not name firstmate waiver authority"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" \
+      "allow-red-admin-$kind: merge ran without attended override"
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/81 \
+      --attended-override --allow-red lint -- --admin \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || fail "allow-red-admin-$kind: attended named waiver should merge"
+    assert_logged_gh_merge "$case_dir" 81 example/repo --squash --admin
+  done
   pass "fm-pr-merge refuses red GitHub checks and waives only a named --allow-red check"
 }
 
@@ -3739,7 +3759,7 @@ test_unreadable_required_set_refuses() {
 }
 
 test_allow_missing_waives_only_the_named_unreported_check() {
-  local case_dir head
+  local case_dir head kind
   head=a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
 
   case_dir=$(make_case github-allow-missing-named)
@@ -3748,6 +3768,20 @@ test_allow_missing_waives_only_the_named_unreported_check() {
   run_required_case "$case_dir" 96 --allow-missing validate
   expect_code 0 "$RC" "allow-missing-named: the named waiver should merge: $(cat "$case_dir/stderr")"
   assert_logged_gh_merge "$case_dir" 96 example/repo --squash
+  for kind in classic ruleset; do
+    case_dir=$(make_case "github-allow-missing-admin-$kind")
+    add_gh_mocks "$case_dir" "$head"
+    write_github_required "$case_dir" "$kind:validate"
+    run_required_case "$case_dir" 96 --allow-missing validate -- --admin
+    expect_code 1 "$RC" "allow-missing-admin-$kind: admin must require attended override"
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
+      "allow-missing-admin-$kind: refusal did not name firstmate waiver authority"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" \
+      "allow-missing-admin-$kind: merge ran without attended override"
+    run_required_case "$case_dir" 96 --attended-override --allow-missing validate -- --admin
+    expect_code 0 "$RC" "allow-missing-admin-$kind: attended named waiver should merge: $(cat "$case_dir/stderr")"
+    assert_logged_gh_merge "$case_dir" 96 example/repo --squash --admin
+  done
 
   case_dir=$(make_case github-allow-missing-other-missing)
   add_gh_mocks "$case_dir" "$head"
@@ -3917,3 +3951,192 @@ test_allow_missing_follows_the_allow_red_rules
 test_required_producer_identity
 test_app_bound_required_status_context_matches_by_name
 test_required_partial_reads_report_all_failures
+
+# A real linked Git worktree supplies revert source; only forge reads/merges
+# are mocked, keeping source construction independent of the guard fixture.
+make_revert_case() {
+  local case_dir=$1 mode=${2:-single} head original_base original_head first commits line integration_base
+  for line in {1..40}; do printf 'base line %s\n' "$line"; done > "$case_dir/wt/shared"
+  printf 'base\0binary\n' > "$case_dir/wt/binary"
+  printf 'rename content\n' > "$case_dir/wt/original-name"
+  git -C "$case_dir/wt" add shared binary original-name
+  git -C "$case_dir/wt" commit -qm 'Shared baseline'
+  original_base=$(git -C "$case_dir/wt" rev-parse HEAD)
+  integration_base=$original_base
+  printf 'regression\n' > "$case_dir/wt/regression"
+  sed '2s/.*/first regression/' "$case_dir/wt/shared" > "$case_dir/shared.new"
+  mv "$case_dir/shared.new" "$case_dir/wt/shared"
+  printf 'regression\0binary\n' > "$case_dir/wt/binary"
+  git -C "$case_dir/wt" add regression shared binary
+  git -C "$case_dir/wt" commit -qm 'Introduce regression'
+  first=$(git -C "$case_dir/wt" rev-parse HEAD)
+  commits="[{\"oid\":\"$first\"}]"
+  if [ "$mode" != single ]; then
+    printf 'second regression\n' > "$case_dir/wt/second-regression"
+    sed '12s/.*/second regression/' "$case_dir/wt/shared" > "$case_dir/shared.new"
+    mv "$case_dir/shared.new" "$case_dir/wt/shared"
+    git -C "$case_dir/wt" mv original-name renamed
+    git -C "$case_dir/wt" add second-regression shared
+    git -C "$case_dir/wt" commit -qm 'Introduce second regression'
+    original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+    commits="[{\"oid\":\"$first\"},{\"oid\":\"$original_head\"}]"
+    git -C "$case_dir/wt" switch -qc integration "$original_base"
+    case "$mode" in
+      squash-drift|squash-synced|rebase)
+        sed '35s/.*/independent main change/' "$case_dir/wt/shared" > "$case_dir/shared.new"
+        mv "$case_dir/shared.new" "$case_dir/wt/shared"
+        git -C "$case_dir/wt" commit -qam 'Independent main change'
+        integration_base=$(git -C "$case_dir/wt" rev-parse HEAD)
+        if [ "$mode" = squash-synced ]; then
+          git -C "$case_dir/wt" switch -qc synchronized "$original_head"
+          git -C "$case_dir/wt" merge --no-ff -qm 'Synchronize main' integration
+          original_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+          commits=$(printf '%s' "$commits" | jq --arg head "$original_head" '. + [{oid:$head}]')
+          git -C "$case_dir/wt" switch -q integration
+        fi
+        ;;
+    esac
+    case "$mode" in
+      merge) git -C "$case_dir/wt" merge --no-ff -qm 'Merge regressions' "$original_head" ;;
+      squash|squash-drift|squash-synced) git -C "$case_dir/wt" merge --squash -q "$original_head"; git -C "$case_dir/wt" commit -qm 'Squash regressions' ;;
+      partial) git -C "$case_dir/wt" cherry-pick "$original_head" >/dev/null ;;
+      rebase|rebase-original) git -C "$case_dir/wt" cherry-pick "$first" "$original_head" >/dev/null ;;
+    esac
+  else
+    original_head=$first
+  fi
+  head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  git -C "$case_dir/wt" rev-parse "$integration_base^{tree}" > "$case_dir/integration-base-tree"
+  git -C "$case_dir/wt" update-ref refs/remotes/origin/main "$head"
+  git -C "$case_dir/wt" worktree add -qb revert-source "$case_dir/source" "$head" \
+    || fail 'could not create isolated revert source'
+  sed -i.bak "s|worktree=.*|worktree=$case_dir/source|;s|project=.*|project=$case_dir/wt|" "$case_dir/state/task-x1.meta"
+  add_gh_mocks "$case_dir" "$head"
+  printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"baseRefName":"main","baseRefOid":"%s","headRefOid":"%s","commits":%s}\n' \
+    "$head" "$head" "$original_head" "$commits" > "$case_dir/github-view.json.prepare"
+  mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh.merge"
+  cat > "$case_dir/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case " $* " in
+  *mergeCommit*) cat "$FM_TEST_GH_VIEW_JSON.prepare" ;;
+  *) exec "$0.merge" "$@" ;;
+esac
+SH
+  chmod +x "$case_dir/fakebin/gh"
+}
+
+run_prepare_revert() {
+  local case_dir=$1
+  (cd "$case_dir/source" && FM_TASK_ID="${REVERT_WORKER_ID-task-x1}" \
+    run_pr_merge "$case_dir" task-x1 https://github.com/acme/widget/pull/31 --prepare-revert) \
+    > "$case_dir/prepare.out" 2> "$case_dir/prepare.err"
+}
+
+test_worker_revert_preparation_and_guarded_pr() {
+  local case_dir old_head revert_head rc
+  case_dir=$(make_case worker-revert)
+  make_revert_case "$case_dir"
+  old_head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  run_prepare_revert "$case_dir" \
+    || fail "isolated worker revert refused: $(cat "$case_dir/prepare.err")"
+  revert_head=$(git -C "$case_dir/source" rev-parse HEAD)
+  [ "$revert_head" != "$old_head" ] || fail 'revert prepared no commit'
+  [ ! -e "$case_dir/source/regression" ] || fail 'revert did not undo regression'
+  [ "$(git -C "$case_dir/source" rev-parse 'HEAD^{tree}')" = "$(cat "$case_dir/integration-base-tree")" ] \
+    || fail 'single-commit revert did not restore the integration base'
+  [ "$(git -C "$case_dir/wt" rev-parse HEAD)" = "$old_head" ] \
+    && [ -f "$case_dir/wt/regression" ] || fail 'preparation changed primary source'
+  [ -z "$(git -C "$case_dir/source" status --porcelain)" ] || fail 'revert source not clean'
+  assert_no_grep 'pr=' "$case_dir/state/task-x1.meta" 'preparation bound the old PR as the revert PR'
+  assert_no_grep 'pr merge' "$case_dir/gh.log" 'preparation attempted a merge'
+  # A separately published PR at that actual revert commit still goes through
+  # every existing check and the head-bound merge command.
+  write_github_red_json "$case_dir" "$revert_head" classify
+  rc=0
+  run_pr_merge "$case_dir" task-x1 https://github.com/acme/widget/pull/32 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 1 "$rc" 'red revert classify must refuse'
+  assert_no_grep 'pr merge' "$case_dir/gh.log" 'red revert was merged'
+  write_github_live_json "$case_dir" "$revert_head"
+  run_pr_merge "$case_dir" task-x1 https://github.com/acme/widget/pull/32 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || fail 'green revert guard refused'
+  assert_logged_gh_merge "$case_dir" 32 acme/widget --squash
+  pass 'worker prepares isolated revert; separately published revert PR must pass the verified-head guard'
+}
+
+test_worker_revert_preparation_refuses_unsafe_source() {
+  local case_dir fault before rc
+  for fault in supervisor dirty primary stale-base unmerged unknown-commit; do
+    case_dir=$(make_case "worker-revert-$fault")
+    make_revert_case "$case_dir"
+    before=$(git -C "$case_dir/source" rev-parse HEAD)
+    case "$fault" in
+      supervisor) REVERT_WORKER_ID= ;;
+      dirty) printf 'uncommitted\n' >> "$case_dir/source/regression" ;;
+      primary) sed -i.bak "s|worktree=.*|worktree=$case_dir/wt|" "$case_dir/state/task-x1.meta" ;;
+      stale-base) jq '.baseRefOid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+        "$case_dir/github-view.json.prepare" > "$case_dir/new.json"; mv "$case_dir/new.json" "$case_dir/github-view.json.prepare" ;;
+      unmerged) jq '.state = "OPEN"' "$case_dir/github-view.json.prepare" > "$case_dir/new.json"; mv "$case_dir/new.json" "$case_dir/github-view.json.prepare" ;;
+      unknown-commit) jq '.mergeCommit.oid = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' \
+        "$case_dir/github-view.json.prepare" > "$case_dir/new.json"; mv "$case_dir/new.json" "$case_dir/github-view.json.prepare" ;;
+    esac
+    rc=0
+    run_prepare_revert "$case_dir" || rc=$?
+    unset REVERT_WORKER_ID
+    [ "$rc" -ne 0 ] || fail "unsafe revert preparation accepted: $fault"
+    [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$before" ] || fail "unsafe preparation changed source: $fault"
+    assert_no_grep 'pr merge' "$case_dir/gh.log" "unsafe preparation merged: $fault"
+  done
+  pass 'revert preparation refuses supervisor, dirty, primary, stale, unmerged and unproved source'
+}
+
+test_worker_revert_preparation_and_guarded_pr
+test_worker_revert_preparation_refuses_unsafe_source
+
+test_worker_reverts_complete_merge_and_squash_only() {
+  local mode case_dir before rc
+  for mode in merge squash squash-drift squash-synced partial rebase rebase-original; do
+    case_dir=$(make_case "worker-revert-$mode")
+    make_revert_case "$case_dir" "$mode"
+    before=$(git -C "$case_dir/source" rev-parse HEAD)
+    rc=0
+    run_prepare_revert "$case_dir" || rc=$?
+    if [ "$mode" = partial ] || [ "$mode" = rebase ] || [ "$mode" = rebase-original ]; then
+      [ "$rc" -ne 0 ] || fail "$mode integration was reverted as a complete PR"
+      [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$before" ] || fail "$mode refusal changed source"
+      [ -z "$(git -C "$case_dir/source" status --porcelain)" ] || fail "$mode refusal dirtied source"
+      assert_grep 'complete PR patch' "$case_dir/prepare.err" 'partial revert refusal not explained'
+    else
+      expect_code 0 "$rc" "$mode revert failed: $(cat "$case_dir/prepare.err")"
+      [ ! -e "$case_dir/source/regression" ] && [ ! -e "$case_dir/source/second-regression" ] \
+        || fail "$mode revert left part of the regression"
+      [ "$(git -C "$case_dir/source" rev-parse 'HEAD^{tree}')" = "$(cat "$case_dir/integration-base-tree")" ] \
+        || fail "$mode revert did not restore the complete integration base"
+      [ "$(git -C "$case_dir/wt" rev-parse HEAD)" = "$before" ] || fail "$mode revert changed primary source"
+    fi
+  done
+  pass 'revert preserves main changes, restores binary files and renames, and refuses incomplete rebased PR reverts'
+}
+
+test_worker_revert_preserves_conflict() {
+  local case_dir merged head rc
+  case_dir=$(make_case worker-revert-conflict)
+  make_revert_case "$case_dir"
+  merged=$(git -C "$case_dir/source" rev-parse HEAD)
+  printf 'later main change\n' > "$case_dir/source/regression"
+  git -C "$case_dir/source" commit -qam 'Subsequent main change'
+  head=$(git -C "$case_dir/source" rev-parse HEAD)
+  git -C "$case_dir/source" update-ref refs/remotes/origin/main "$head"
+  jq --arg head "$head" '.baseRefOid = $head' "$case_dir/github-view.json.prepare" > "$case_dir/new.json"
+  mv "$case_dir/new.json" "$case_dir/github-view.json.prepare"
+  rc=0
+  run_prepare_revert "$case_dir" || rc=$?
+  [ "$rc" -ne 0 ] || fail 'conflicting revert succeeded'
+  [ "$(git -C "$case_dir/source" rev-parse REVERT_HEAD)" = "$merged" ] || fail 'failed revert discarded conflict custody'
+  [ "$(git -C "$case_dir/source" rev-parse HEAD)" = "$head" ] || fail 'failed revert changed head'
+  [ -n "$(git -C "$case_dir/source" ls-files -u)" ] || fail 'conflicting source no longer retained'
+  pass 'conflicting revert refuses and preserves isolated unresolved source without aborting'
+}
+
+test_worker_reverts_complete_merge_and_squash_only
+test_worker_revert_preserves_conflict

@@ -3,20 +3,17 @@
 # Usage: fm-stow-cascade.sh [--help]
 #
 # The internal /stow skill owns curation judgement; this command owns only the
-# mechanical inputs a cascade needs: which homes exist, what each home's own
-# startup-memory accounting says right now, and how the sweep can reach it.
+# mechanical inputs a cascade needs: which homes exist and how the sweep can
+# reach each one.
 #
 # Enumeration comes from data/secondmates.md, the registry that already refuses
 # a duplicate id, a duplicate home, and an overlapping home, so each registered
-# secondmate is emitted exactly once and no home is accounted twice. A home's
-# budget is that home's alone: this command never sums a fleet total, because
-# config/startup-memory-budget is a per-home allowance.
+# secondmate is emitted exactly once.
 #
 # Each home is reported as one blank-line-separated key=value stanza:
 #   secondmate=<id>
 #   placement=local|remote            (host=<alias> on a remote route)
 #   home=<path>
-#   budget_report=ok|error|timeout    (report lines follow on ok)
 #   transport=agent|direct|deferred|unavailable
 #   reason=<one line>                 (whenever a step did not complete)
 #
@@ -28,13 +25,12 @@
 #               files in place.
 #   deferred  - a remote home with no live agent. There is deliberately no
 #               generic remote write path (bin/fm-remote-file.sh put reaches
-#               only the handoff outbox), so that home is accounted read-only
-#               and curated by its next cascade once its agent is back.
-#   unavailable - the home's own accounting did not complete, so no transport
-#               conclusion is safe.
+#               only the handoff outbox), so that home is curated by its next
+#               cascade once its agent is back.
+#   unavailable - the local home failed validation or the remote endpoint probe
+#               failed, so no transport conclusion is safe.
 #
-# Every step that crosses a host, plus each home's own accounting, runs under
-# one hard bound (FM_STOW_CASCADE_TIMEOUT seconds, default 60), so a slow or
+# Every step that crosses a host runs under one hard bound (FM_STOW_CASCADE_TIMEOUT seconds, default 60), so a slow or
 # unreachable home reports an exception and the sweep continues instead of
 # blocking the primary's own /stow. A local endpoint probe reads this host's
 # recorded backend in process, like every other caller of that contract.
@@ -48,7 +44,7 @@
 set -u
 
 usage() {
-  sed -n '2,47{s/^# \{0,1\}//;p;}' "$0"
+  sed -n '2,43{s/^# \{0,1\}//;p;}' "$0"
 }
 
 case "${1:-}" in
@@ -64,7 +60,6 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 REGISTRY="$DATA/secondmates.md"
-BUDGET_CMD=fm-startup-memory-budget.sh
 SUB_HOME_MARKER="${SUB_HOME_MARKER:-.fm-secondmate-home}"
 
 # shellcheck source=bin/fm-ff-lib.sh
@@ -146,11 +141,11 @@ resolve_remote_transport() { # <id>
   fi
   run_step "$SCRIPT_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" || rc=$?
   if [ "$rc" -eq 124 ]; then
-    set_transport deferred "remote endpoint probe exceeded the ${BOUND}s bound"
+    set_transport unavailable "remote endpoint probe exceeded the ${BOUND}s bound"
     return 0
   fi
   if [ "$rc" -ne 0 ]; then
-    set_transport deferred 'remote endpoint probe failed'
+    set_transport unavailable 'remote endpoint probe failed'
     return 0
   fi
   case "$(tail -1 "$STEP_OUT")" in
@@ -188,19 +183,17 @@ while IFS= read -r line || [ -n "$line" ]; do
   remote=$SECONDMATE_REGISTRY_REMOTE
   host=$SECONDMATE_REGISTRY_HOST
   total=$((total + 1))
-  rc=0
   printf '\n'
   emit "secondmate=$id"
   if [ "$remote" -eq 1 ]; then
     emit 'placement=remote'
     emit "host=$host"
     emit "home=$home"
-    run_step "$SCRIPT_DIR/fm-on.sh" "$id" "$BUDGET_CMD" report || rc=$?
+    resolve_remote_transport "$id"
   else
     emit 'placement=local'
     if ! validate_secondmate_home "$id" "$home"; then
       emit "home=$home"
-      emit 'budget_report=error'
       emit 'transport=unavailable'
       emit "reason=$VALIDATION_ERROR"
       exceptions=$((exceptions + 1))
@@ -208,35 +201,6 @@ while IFS= read -r line || [ -n "$line" ]; do
     fi
     resolved=$VALIDATED_HOME
     emit "home=$resolved"
-    # Every FM_*_OVERRIDE is restated so a caller's own override cannot leak
-    # this home's memory files into the accounting of another home.
-    run_step env \
-      FM_ROOT_OVERRIDE="$FM_ROOT" \
-      FM_HOME="$resolved" \
-      FM_STATE_OVERRIDE="$resolved/state" \
-      FM_DATA_OVERRIDE="$resolved/data" \
-      FM_CONFIG_OVERRIDE="$resolved/config" \
-      "$SCRIPT_DIR/$BUDGET_CMD" report || rc=$?
-  fi
-  if [ "$rc" -eq 124 ]; then
-    emit 'budget_report=timeout'
-    emit 'transport=unavailable'
-    emit "reason=this home's own accounting exceeded the ${BOUND}s bound"
-    exceptions=$((exceptions + 1))
-    continue
-  fi
-  if [ "$rc" -ne 0 ]; then
-    emit 'budget_report=error'
-    emit 'transport=unavailable'
-    emit "reason=this home's own accounting failed"
-    exceptions=$((exceptions + 1))
-    continue
-  fi
-  emit 'budget_report=ok'
-  cat "$STEP_OUT"
-  if [ "$remote" -eq 1 ]; then
-    resolve_remote_transport "$id"
-  else
     resolve_local_transport "$id" "$resolved"
   fi
   emit "transport=$TRANSPORT"

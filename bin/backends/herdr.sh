@@ -2189,6 +2189,25 @@ fm_backend_herdr_pane_process_state() {  # <session> <pane_id>
   printf '%s' "$verdict"
 }
 
+fm_backend_herdr_process_info_valid() {
+  printf '%s' "$1" | jq -e --arg pane "$2" '
+    def valid_pid: type == "number" and . > 0 and . == floor;
+    def optional_string: . == null or type == "string";
+    .result.type == "pane_process_info"
+    and .result.process_info.pane_id == $pane
+    and (.result.process_info as $info
+      | ($info.shell_pid | valid_pid and . > 1)
+      and ($info.foreground_processes | type == "array" and all(.[];
+        type == "object"
+        and (.pid | valid_pid)
+        and (.name | type == "string" and length > 0)
+        and (.argv0 | optional_string)
+        and (.argv | . == null or (type == "array" and all(.[]; type == "string")))
+        and (.cmdline | optional_string)
+      )))
+  ' >/dev/null 2>&1
+}
+
 # SIGTERM each foreground process of <target>'s exact pane that classifies as
 # an agent, read from the same process-info the state probe below trusts.
 fm_backend_herdr_stop_agent() {  # <target>
@@ -2196,17 +2215,14 @@ fm_backend_herdr_stop_agent() {  # <target>
   fm_backend_herdr_parse_target "$1" || return 1
   info=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane process-info --pane "$FM_BACKEND_HERDR_PANE" 2>/dev/null) \
     || return 1
-  printf '%s' "$info" | jq -e --arg pane "$FM_BACKEND_HERDR_PANE" '
-    .result.type == "pane_process_info"
-    and .result.process_info.pane_id == $pane
-  ' >/dev/null 2>&1 || return 1
+  fm_backend_herdr_process_info_valid "$info" "$FM_BACKEND_HERDR_PANE" || return 1
   count=$(printf '%s' "$info" | jq -er \
-    '.result.process_info.foreground_processes | select(type == "array") | length' 2>/dev/null) \
+    '.result.process_info.foreground_processes | length' 2>/dev/null) \
     || return 1
   i=0
   while [ "$i" -lt "$count" ]; do
     pid=$(printf '%s' "$info" | jq -r --argjson i "$i" \
-      '.result.process_info.foreground_processes[$i].pid | select(type == "number" and . > 1) | floor' 2>/dev/null)
+      '.result.process_info.foreground_processes[$i].pid | select(. > 1)' 2>/dev/null)
     name=$(printf '%s' "$info" | jq -r --argjson i "$i" \
       '.result.process_info.foreground_processes[$i].name // empty' 2>/dev/null)
     argv0=$(printf '%s' "$info" | jq -r --argjson i "$i" '
@@ -2231,20 +2247,17 @@ fm_backend_herdr_pane_process_state_sample() {  # <session> <pane_id>
   local others=0 ps_bin rows
   info=$(fm_backend_herdr_cli "$session" pane process-info --pane "$pane_id" 2>/dev/null) \
     || { printf 'unreadable'; return 0; }
-  printf '%s' "$info" | jq -e --arg pane "$pane_id" '
-    .result.type == "pane_process_info"
-    and .result.process_info.pane_id == $pane
-  ' >/dev/null 2>&1 || { printf 'unreadable'; return 0; }
+  fm_backend_herdr_process_info_valid "$info" "$pane_id" || { printf 'unreadable'; return 0; }
   shell_pid=$(printf '%s' "$info" | jq -er \
-    '.result.process_info.shell_pid | select(type == "number" and . > 1) | floor' 2>/dev/null) \
+    '.result.process_info.shell_pid' 2>/dev/null) \
     || { printf 'unreadable'; return 0; }
   count=$(printf '%s' "$info" | jq -er \
-    '.result.process_info.foreground_processes | select(type == "array") | length' 2>/dev/null) \
+    '.result.process_info.foreground_processes | length' 2>/dev/null) \
     || { printf 'unreadable'; return 0; }
   i=0
   while [ "$i" -lt "$count" ]; do
     pid=$(printf '%s' "$info" | jq -r --argjson i "$i" \
-      '.result.process_info.foreground_processes[$i].pid | select(type == "number") | floor' 2>/dev/null)
+      '.result.process_info.foreground_processes[$i].pid' 2>/dev/null)
     name=$(printf '%s' "$info" | jq -r --argjson i "$i" \
       '.result.process_info.foreground_processes[$i].name // empty' 2>/dev/null)
     argv0=$(printf '%s' "$info" | jq -r --argjson i "$i" '
@@ -3808,18 +3821,21 @@ fm_backend_herdr_agent_status_raw() {  # <session> <pane_id>
 # mapping.
 #
 # A `busy` verdict is proven at process level before it is reported: a
-# lingering `working` registration over a shell-only pane (an agent killed
-# mid-turn, issue #4115) reads `unknown`, never busy, so the recovery classifier
-# cannot report a shell-only pane as working. Only the busy case pays the extra
+# lingering `working` registration after an agent dies (issue #4115) cannot
+# substitute for valid agent or foreground-tool corroboration. A shell-only,
+# unreadable, or malformed process view reads `unknown`, never busy.
+# Only the busy case pays the extra
 # process read; idle and unknown are never trusted as busy by any consumer.
 fm_backend_herdr_busy_state() {  # <target>
   local verdict
   fm_backend_herdr_target_ready "$1" || { printf 'unknown'; return 0; }
   verdict=$(fm_backend_herdr_classify_agent_status \
     "$(fm_backend_herdr_agent_status_raw "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")")
-  if [ "$verdict" = busy ] \
-    && [ "$(fm_backend_herdr_pane_process_state "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")" = shell ]; then
-    verdict=unknown
+  if [ "$verdict" = busy ]; then
+    case "$(fm_backend_herdr_pane_process_state "$FM_BACKEND_HERDR_SESSION" "$FM_BACKEND_HERDR_PANE")" in
+      agent|other) ;;
+      *) verdict=unknown ;;
+    esac
   fi
   printf '%s' "$verdict"
 }

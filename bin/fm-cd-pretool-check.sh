@@ -4,13 +4,14 @@
 # A stray persistent top-level `cd projects/<clone>` in the PRIMARY firstmate
 # shell silently relocates the shell, so a later firstmate-owned command (a
 # backlog write, an fm-* lifecycle call, tasks-axi) runs inside a project clone
-# instead of the home. This seatbelt denies such a command before it runs.
+# instead of the home. This seatbelt denies a persistent move into that
+# projects folder before it runs. A directory change to anywhere else is allowed.
 # bin/fm-cd-command-policy.mjs is the sole owner of the block/allow decision; it
 # reuses the shell classifier owned by bin/fm-arm-command-policy.mjs. This
 # wrapper only scopes the guard to the real primary checkout, acquires the
 # harness payload, invokes that policy, and renders the established harness
 # responses. It never executes, sources, evaluates, or expands the command.
-# See docs/cd-guard.md for the complete contract and validation record.
+# See docs/cd-guard.md for the contract and native verification pointer.
 #
 # Usage:
 #   <PreToolUse JSON on stdin> | bin/fm-cd-pretool-check.sh
@@ -42,18 +43,25 @@ set -u
 
 CMD=""
 CMD_SET=0
+EXECUTION_CWD=$(pwd -P) || exit 0
+CWD_SET=0
 CLAUDE_MODE=0
 CURSOR_MODE=0
+CODEX_MODE=0
 
 usage() {
   cat <<'EOF'
-Usage: fm-cd-pretool-check.sh [--command <cmd>] [--claude|--cursor]
+Usage: fm-cd-pretool-check.sh [--command <cmd>] [--cwd <dir>] [--claude|--cursor|--codex]
 
 With no --command, reads a PreToolUse-style JSON payload on stdin (Grok
 toolInput.command, or Claude/Codex tool_input.command).
+Stdin cwd comes from the payload cwd and any tool workdir/cwd override.
+With --codex, only a tool workdir/cwd supplies execution cwd; the top-level
+session cwd is not a fallback. Without it, only absolute/home targets are checked.
+CLI cwd defaults to the calling directory; adapters supply --cwd explicitly.
 Fires only in the real primary firstmate checkout; it is a silent no-op in a
 crewmate/scout task worktree or any non-firstmate repo.
-Exits 0 to allow and 2 to deny a persistent top-level cwd change.
+Exits 0 to allow and 2 to deny a persistent move into the home's projects folder.
 The deny reason is written to stderr, with a Grok decision object on stdout
 unless --claude is supplied.
 With --cursor, a deny is Cursor's own decision object on stdout and exit 0,
@@ -75,12 +83,27 @@ while [ "$#" -gt 0 ]; do
       CMD_SET=1
       shift
       ;;
+    --cwd)
+      [ "$#" -gt 1 ] || { echo "error: --cwd requires a value" >&2; exit 2; }
+      EXECUTION_CWD=$2
+      CWD_SET=1
+      shift 2
+      ;;
+    --cwd=*)
+      EXECUTION_CWD=${1#--cwd=}
+      CWD_SET=1
+      shift
+      ;;
     --claude)
       CLAUDE_MODE=1
       shift
       ;;
     --cursor)
       CURSOR_MODE=1
+      shift
+      ;;
+    --codex)
+      CODEX_MODE=1
       shift
       ;;
     -h|--help)
@@ -108,6 +131,16 @@ if [ "$CMD_SET" -eq 0 ]; then
     exit 0
   fi
   CMD=$(printf '%s' "$PAYLOAD" | jq -r '(.toolInput.command // .tool_input.command // empty)' 2>/dev/null) || exit 0
+  if [ "$CWD_SET" -eq 0 ]; then
+    EXECUTION_CWD=$(printf '%s' "$PAYLOAD" | jq -r --argjson codex "$CODEX_MODE" '
+      (.cwd // "" | select(type == "string")) as $base |
+      (.tool_input.workdir // .tool_input.cwd // .toolInput.cwd //
+        (if $codex == 1 then "" else $base end)) |
+      select(type == "string") |
+      if . == "" or startswith("/") or test("^[A-Za-z]:[\\\\/]") then .
+      elif $base != "" then $base + "/" + . else "" end
+    ' 2>/dev/null) || exit 0
+  fi
 fi
 
 [ -n "$CMD" ] || exit 0
@@ -163,7 +196,8 @@ POLICY="$FM_ROOT/bin/fm-cd-command-policy.mjs"
 command -v node >/dev/null 2>&1 || exit 0
 [ -f "$POLICY" ] || exit 0
 
-POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" 2>/dev/null) || exit 0
+PROJECTS_ROOT=${FM_HOME:-$FM_ROOT}/projects
+POLICY_OUTPUT=$(node "$POLICY" --command "$CMD" --projects-root "$PROJECTS_ROOT" --cwd "$EXECUTION_CWD" 2>/dev/null) || exit 0
 [ -n "$POLICY_OUTPUT" ] || exit 0
 
 TAB=$(printf '\t')

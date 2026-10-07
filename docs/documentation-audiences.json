@@ -249,6 +249,10 @@
       "audience": "agent-runtime"
     },
     {
+      "path": ".agents/skills/retro/SKILL.md",
+      "audience": "agent-runtime"
+    },
+    {
       "path": ".agents/skills/quota-array-dispatch/SKILL.md",
       "audience": "agent-runtime"
     },
@@ -427,10 +431,6 @@
     {
       "path": "docs/sessionstart-nudge.md",
       "audience": "operator-current"
-    },
-    {
-      "path": "docs/subagent-guard.md",
-      "audience": "maintainer-architecture"
     },
     {
       "path": "docs/supervision-protocols/claude.md",

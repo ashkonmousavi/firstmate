@@ -1,8 +1,8 @@
 ---
 name: push
 description: >-
-  Take one bounded pass over the live Firstmate fleet when the captain invokes /push, $push, or explicitly asks to check and push the fleet forward.
-  Advance work within current authority and report only changed outcomes, current failures or waits, and captain decisions in Captain Signal v2 style.
+  Take over the live Firstmate fleet for one bounded pass when the captain invokes /push, $push, or asks to check and push the fleet forward, during a tangle, as reinforcement, or as a routine check against waste.
+  Map every tangle to its one cause from live evidence, untangle by hand where the machinery refuses, judge every rule or gate that cost time, correct the work sequence and method on every machine, fill every lane, and report outcomes in minutes saved in Captain Signal v2 style.
 user-invocable: true
 metadata:
   internal: true
@@ -10,53 +10,48 @@ metadata:
 
 # push
 
-The captain wants every currently actionable item advanced as far as Firstmate's present authority allows in one pass.
-Finish the pass with a short account of what changed and what genuinely needs the captain.
+Take over the fleet for one bounded pass, the way a hands-on operator would: find exactly where work is tangled, untangle it by hand where the machinery refuses, and leave every lane doing the right work, in the right order, by the right method.
+The pass is the same whether it is called during a tangle, as reinforcement, or as a routine push to catch waste.
+It is judged in minutes saved, because the fleet loses hours to machinery (a refusing installer, a queue switched on before its proof, a protection rule that blocks every merge, a long preparation gate on a small change, backlog items pointing at merged PRs, a top priority with no lane) more often than to code, and the captain treats lost time as the real loss.
 
 ## Gather
 
 Confirm this home has completed the session-start digest and holds its required lock before any fleet mutation, as `AGENTS.md` section 3 requires.
-Start by draining the durable wake queue, unless the session-start digest already presented it, as `AGENTS.md` section 8 requires.
-Use `bin/fm-bearings-snapshot.sh --json --include-prs --all-pr-repos --all-in-flight --all-decisions --all-secondmates --all-queued --all-unhealthy` for a fresh fleet and open-PR view.
-If its `omitted[]` still names an actionable surface, rerun with that entry's reveal flag so no lane is skipped.
-Cover every active project's open PRs, including projects known only through a secondmate; disclose unreadable or incomplete coverage.
-Reconcile each PR to its owning home and current worker or authoritative pipeline, or an explicit supervised wait with an owner, unmet resume condition and next check.
-A recorded URL, surviving terminal, delivered steer or old status is not proof of an active owner; route missing ownership through the owning home's recovery procedure.
-For each stuck item, read the previous intervention and retain its current head or run/step, blocker, last substantive movement and next expected observable change in its existing task note.
-Handle and acknowledge every presented wake under the emitted supervision protocol and `AGENTS.md` section 8.
-Use current-state readers before acting on an old status event, and refresh the snapshot with the same flags as needed after material changes.
-Read current project registry, delivery posture, captain preferences, and task records where an action depends on them; do not infer today's projects or priorities from this skill or memory.
+Drain the durable wake queue first unless the session-start digest already presented it, as `AGENTS.md` section 8 requires.
+Use `bin/fm-bearings-snapshot.sh --json --include-prs --all-pr-repos --all-in-flight --all-decisions --all-secondmates --all-queued --all-unhealthy` for a fresh fleet and open-PR view; if its `omitted[]` names an actionable surface, rerun with that entry's reveal flag.
+Build the tangle map from live evidence only: each PR's checks, each worker's current state from `bin/fm-crew-state.sh`, the merge queue, the served commit from the project's served-version reader, and every mate's backlog on its own machine.
+The backlog's own notes, a recorded URL, a surviving terminal, a delivered steer or an old status line are not evidence of an active owner or of current state.
+Group every stuck item by its one cause: a rule, a tool, a missing right, or a person.
+Read the captain's standing decisions in `data/captain-shared.md` and `data/captain.md` before raising anything; a question they already answer is applied, not re-asked.
+Before sequencing, read the backlog's blocked-by links and priorities, the latest planner roadmap wave file, and the Q bug list.
+The [backlog contract](../../../AGENTS.md#10-backlog-contract) identifies the configured backlog where the blocked-by links and priorities are recorded.
+The latest roadmap wave file is the current wave file the registered navigation-scoped planner already publishes, and the Q bug list is the list that project already keeps.
+Find the wave file and the bug list through that home or project's existing discovery, and do not copy private paths or file contents into these instructions.
 
-## Advance once
+## Untangle and correct
 
-Review every actionable wake and each ready, blocked, paused, stale, and queued lane visible in the current fleet view.
-Resolve decisions within standing authority and record them through their owning lifecycle; load `ask-user-authority` for review findings and `captain-hold-lifecycle` for captain-held calls.
-For ready work, use `AGENTS.md` section 7 to verify current checks, merge authority, guarded landing, post-merge checks, and cleanup before calling it landed.
-For landed work with a deploy target, route any pending install through the project's established worker and verify deploy health and the served version before describing it as live.
-For blocked or unresponsive work, inspect its current state, steer or recover through the owning procedure, and preserve unlanded changes.
-Group repeated blockers by demonstrated cause; route one repair through its existing owner before repeating dependent retries.
-Use the home's stuck-validation playbook when present, applying current authority over superseded examples.
+For each tangle, untangle it by hand this pass (install, merge, relaunch, re-file, re-sequence) through the owning guarded path, or name the single thing still blocking it and who owns that.
+Fix by hand before fixing the tool, because the hand fix lands in minutes and the tool fix is a PR; file the tool fix as a separate item.
+Treat repeated failures as one class fixed at the root through its existing owner, because one-by-one fixes multiply.
+Judge every rule, gate, hook, queue or check that cost time in this period: name its cost in minutes and decide keep, cut, or make advisory; cut directly where the fleet is empty and by PR otherwise, and prefer removing a rule to adding one.
+Check the sequence of every in-flight item and every ready item: its stage, whether it serves the stable base in the captain's recorded priority order, and whether it is duplicated, stale, out of order, or on the wrong method.
+Wrong methods include a class of failures fixed one by one, review rounds beyond the selected delivery contract in [`bin/fm-dod-lib.sh`](../../../bin/fm-dod-lib.sh), a worker parked on CI, a redesign delivered as a bandaid, and, for fixes outside the [class-fix rule](../diagnostic-reasoning/SKILL.md#class-fix), a quick or surgical fix pushed through full review or test rounds when a live journey walk or another checkpoint already tests it.
+Correct each such item: close, re-sequence, bundle, merge, or hand it to the right mate through the parent channel, with the planner confirming readiness before any handoff.
+Keep every lane full on every machine: no idle lane while ready work exists, and a worker waiting on CI gets its next job.
 Recheck every wait's actual release condition, including supervisor-imposed holds; when it clears, notify its owner in the same pass and verify continuation.
-For queued work, reassess blockers, dates, priorities, dependencies, and available writing capacity before dispatching eligible items in order.
-For an active live journey walk, load `journey-walk` and route actionable fixes and dependent validation through its recorded stage and evidence contract.
-Handle due reminders and follow-ups through their existing owners.
-Use the parent channel for secondmate work rather than supervising a secondmate's child lanes directly.
+Never park work behind "wait for my go"; decide alone on relaunches, re-sequencing, waivers, cancelling doomed CI, hand installs, closing stale items, and cutting a rule the captain already ruled against.
+Ask the captain only for discarding unlanded work, money, destructive or irreversible steps, product choices, and cutting a safety boundary the captain never addressed.
+Claim "live" only from the served commit, because the deploy target is not the served version.
+For ready work, `AGENTS.md` section 7 owns checks, merge authority, guarded landing, post-merge checks, and cleanup; for an active live journey walk, load `journey-walk`; for escalated findings, load `ask-user-authority` and `captain-hold-lifecycle`.
 Before closing the pass, read back each intervention once against its expected change and record the evidence in the same task note.
-Count movement only for observed resumed work, a substantive execution or validation milestone, a cleared blocker with continuation, or verified delivery.
-Sending or acknowledging a message, relaunching an idle endpoint, retrying the same failure, and an unchanged queued/running CI label do not count.
-If an action has not taken effect yet, report it as pending verification and give ordinary supervision its completion condition and next check; do not wait through a whole CI run.
-If nothing moved, name the limiting cause, owner and next check; if the previous intervention also produced no movement, inspect why and use the next supported recovery or shared-cause action instead of repeating the same steer.
-If an external wait is healthy, preserve it without needless retries; escalate only a concrete missing authority or exhausted recovery path.
+Count movement only for observed resumed work, a substantive execution or validation milestone, a cleared blocker with continuation, or verified delivery; sending a message, relaunching an idle endpoint, retrying the same failure, or an unchanged CI label does not count.
 Stop after this bounded pass; ordinary supervision continues under its existing cycle.
 
 ## Report
 
-Follow `AGENTS.md` section 9 for captain-facing authority, plain language, full PR URLs, and a self-contained final reply.
-Report only changed outcomes, current failures or waits, and decisions that truly require the captain; omit unchanged fleet inventory.
-State how many stuck items measurably moved and the evidence for those changes; separate actions awaiting verification and healthy external waits.
+Follow `AGENTS.md` section 9 for captain-facing authority, plain language, full PR URLs, and a self-contained final reply, in Captain Signal v2 style with its five status emoji only.
+Report, in this order: what was tangled and its cause, what was cut or changed and why, what each lane does now and its stage, what is owed and when the captain will see it live, and minutes saved or lost.
+Keep it under 60 lines, with each full `https://` link on its own line and no PR numbers in prose.
+Put captain actions first, with short lettered choices and a marked recommendation; ask at most two decisions in one reply.
 Work that remains stuck is not the no-op case, even when no new action was possible.
-Use Captain Signal v2's five status emoji only: 👉 for a captain action, ❌ for a problem, ⏳ for work still moving, ✅ for completed work not yet verified live, and 🎉 only for verified live behavior.
-Address the captain once early and bold one key phrase on each status line.
-Put captain actions first, with short lettered choices and a marked recommendation when a decision is needed; ask at most two decisions in one reply.
-Keep the reply scannable, normally three to eight short lines, with each full `https://` link on its own line.
 If the pass changed nothing, found no current failure or wait to report, and nothing needs the captain, reply exactly `Captain, shipshape.`

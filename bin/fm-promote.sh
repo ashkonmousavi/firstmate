@@ -15,6 +15,10 @@
 # They include a currently complete preparation record's acceptance handoff and
 # current intent overlay in no-mistakes mode, so promotion and later relaunch
 # retain the same specification boundary owned by bin/fm-dod-lib.sh.
+# An active Delivery risk declaration uses that owner to validate risk/depth
+# and compare the selected publishing mode before any locks or mutation.
+# Historical scouts without that schema retain explicit-mode promotion;
+# local-only validates an authored risk/depth but keeps its branch lifecycle.
 # The instructions also carry `# Task` with
 # `## Captain's intent` preserved from the scout brief and promotion's ship-time
 # instructions under `## Firstmate spec`; the scout-time spec remains context but
@@ -136,6 +140,17 @@ refuse_impossible_forge_posture || exit 1
 
 ID=${POS[0]}
 fm_task_id_creation_valid "$ID" || { echo "error: invalid task id" >&2; exit 2; }
+PREP_FILE=$(fm_prep_path "$DATA" "$ID")
+if fm_prep_tier_read "$PREP_FILE" | grep '^- Delivery risk:' >/dev/null; then
+  if ! PREP_DEPTH_MODE=$(fm_prep_delivery_mode "$PREP_FILE"); then
+    echo "error: $ID cannot promote: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in $PREP_FILE" >&2
+    exit 1
+  fi
+  if [ "$MODE" != local-only ] && [ "$MODE" != "$PREP_DEPTH_MODE" ]; then
+    echo "error: $ID cannot promote: --mode $MODE disagrees with Delivery risk/depth mode=$PREP_DEPTH_MODE in $PREP_FILE; reconcile before promotion" >&2
+    exit 1
+  fi
+fi
 BRANCH="$BRANCH_PREFIX$ID"
 if ! git check-ref-format --branch "$BRANCH" >/dev/null 2>&1; then
   echo "error: --branch-prefix and task id must form a valid git branch (got '$BRANCH')" >&2
@@ -234,13 +249,16 @@ fi
 # the --yes ban is the delivery hole this file used to leave open.
 INSTRUCTIONS="$DATA/$ID/ship-instructions.md"
 PROMOTION_PREP=
-PREP_FILE=$(fm_prep_path "$DATA" "$ID")
-if ! fm_prep_unfilled_reason "$PREP_FILE" >/dev/null; then
+if ! fm_prep_unfilled_reason "$PREP_FILE" historical >/dev/null; then
   PROMOTION_PREP=$PREP_FILE
 fi
 PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
+fi
+PROMOTION_FOLLOWUP_BLOCK=
+if [ "$MODE" != local-only ]; then
+  PROMOTION_FOLLOWUP_BLOCK=$(fm_review_followup_block "$FM_ROOT" "$DATA" "$ID" "$MODE")
 fi
 IFS= read -r -d '' PROMOTION_SHIP_SPEC <<EOF || true
 If these promotion steps were already completed before a relaunch, preserve the existing \`$BRANCH_Q\` branch and continue from its current state; do not repeat them destructively.
@@ -267,6 +285,9 @@ EOF
   if [ -n "$PROMOTION_ASK_USER_BLOCK" ]; then
     printf '\nThe no-mistakes stop-set escalation below supersedes the scout rule 6 escalation shape.\n'
     printf '%s\n' "$PROMOTION_ASK_USER_BLOCK"
+  fi
+  if [ -n "$PROMOTION_FOLLOWUP_BLOCK" ]; then
+    printf '\n%s\n' "$PROMOTION_FOLLOWUP_BLOCK"
   fi
   printf '\n'
   fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE"
