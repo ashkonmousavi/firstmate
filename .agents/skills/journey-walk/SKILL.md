@@ -39,12 +39,12 @@ Walk only when the version carrying the needed fixes is live.
 Do not send a re-walk against a build that does not yet include the fix.
 
 A posted blocker is evidence, not authorization to change code, under `AGENTS.md` section 7.
-When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start a class-fix lane for a posted blocker at once.
+When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start the fix lane after that batch's collection, triage, and required reproduction, following the cluster routing and priority below.
 Otherwise raise the blocker to the captain under section 7 before any lane starts.
-Do not wait for the whole walk to finish before filing the fix or raising the blocker.
+Once that batch's triage and required reproduction are complete, file the fix or raise the blocker without waiting for later walk batches.
 
 Triage once per walk batch, not once per report: collect every problem from all walkers of the batch before filing.
-Cluster the problems by same component and same symptom, within the earliest confirmed cause named in the project's walk procedure, and mark each cluster cosmetic or behaviour.
+Cluster the problems by same component and same symptom, and mark each cluster cosmetic or behaviour.
 Reproduce a behaviour cluster with your own eyes before filing it; when it does not reproduce, the failed reproduction is the finding.
 Cosmetic and copy clusters from all walks of the day go into one bundle per code area, shipped as a direct change with one review on the Grok lane the same day.
 Never file one item per cosmetic finding, and never put a behaviour cluster inside a cosmetic bundle.
