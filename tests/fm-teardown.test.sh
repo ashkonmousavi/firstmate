@@ -4334,8 +4334,9 @@ test_teardown_walk_tokens_and_failed_release() (
     else
       expect_code 1 "$rc" "a refused release refuses teardown ($scenario): $out"
       assert_present "$meta" "a failed release retains the retry record"
-      assert_absent "$case_dir/state/task-x1.backlog-close" "failed release cannot authorize recovery to erase its retry record"
-      assert_present "$case_dir/wt" "a failed release precedes worktree cleanup"
+      if [ "$scenario" = malformed ]; then
+        assert_absent "$case_dir/state/task-x1.backlog-close" "a malformed claim refuses before any pending close"
+      fi
       assert_not_contains "$out" 'teardown task-x1 complete' "a failed release never reports a clean teardown"
       assert_equals "$before" "$(cat "$marker")" "failed cleanup leaves both claims untouched"
       if [ "$scenario" != malformed ]; then
@@ -4379,7 +4380,76 @@ test_forced_secondmate_walk_release_failure() (
   pass "forced secondmate cleanup uses the same token-bound child release gate"
 )
 
+# shellcheck disable=SC2030,SC2031 # Each walk fixture owns its subshell environment.
+test_teardown_walk_survives_unproven_termination() (
+  local case_dir scenario receipt marker meta before out rc
+  local -a force
+  export FM_WALK_MARKER_TRANSPORT FM_WALK_TEST_STATE FM_WALK_TEST_LOG
+  export FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z
+  for scenario in lsof close force-close herdr; do
+    case_dir=$(make_case "walk-unproven-$scenario")
+    write_meta "$case_dir" local-only ship
+    FM_WALK_TEST_STATE="$case_dir/walk-state"
+    FM_WALK_TEST_LOG="$case_dir/walk.log"
+    FM_WALK_MARKER_TRANSPORT=$(fm_test_walk_transport "$case_dir/walk-transport")
+    marker="$FM_WALK_TEST_STATE/q-walk/in-progress.json"
+    meta="$case_dir/state/task-x1.meta"
+    receipt=$(XDG_STATE_HOME="$FM_WALK_TEST_STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-A firstmate-main 300)
+    expect_code 0 "$?" "the unproven-termination fixture creates its claim"
+    XDG_STATE_HOME="$FM_WALK_TEST_STATE" python3 "$ROOT/bin/fm-walk-marker.py" claim QW-B firstmate-main 600 >/dev/null \
+      || fail "the unproven-termination fixture cannot add a sibling claim"
+    printf 'walk_id=QW-A\nwalk_owner=firstmate-main\nwalk_token=%s\nwalk_expires_at=%s\n' \
+      "$(jq -r .token <<<"$receipt")" "$(jq -r .expires_at <<<"$receipt")" >> "$meta"
+    force=()
+    case "$scenario" in
+      lsof)
+        printf '#!/usr/bin/env bash\nexit 1\n' > "$case_dir/fakebin/lsof"
+        chmod +x "$case_dir/fakebin/lsof"
+        ;;
+      close|force-close)
+        cat > "$case_dir/fakebin/tmux" <<EOF
+#!/usr/bin/env bash
+case "\${1:-}" in
+  kill-window) : > "$case_dir/kill-attempted"; exit 1 ;;
+  list-windows) [ ! -e "$case_dir/kill-attempted" ] || printf 'fm-task-x1\n' ;;
+esac
+exit 0
+EOF
+        chmod +x "$case_dir/fakebin/tmux"
+        [ "$scenario" != force-close ] || force=(--force)
+        ;;
+      herdr)
+        configure_herdr_projection_teardown_case "$case_dir"
+        force=(--force)
+        ;;
+    esac
+    before=$(cat "$marker")
+    rc=0
+    out=$(FM_FAKE_HERDR_LOG="$case_dir/herdr.log" FM_FAKE_HERDR_CLOSED="$case_dir/closed" \
+      FM_FAKE_HERDR_RESTORED="$case_dir/restored" FM_FAKE_HERDR_PRESENCE_UNKNOWN=1 \
+      run_teardown "$case_dir" "${force[@]+"${force[@]}"}" 2>&1) || rc=$?
+    assert_equals "$before" "$(cat "$marker")" "unproven termination keeps the walk and its token ($scenario)"
+    assert_not_contains "$(cat "$FM_WALK_TEST_LOG" 2>/dev/null)" release "unproven termination never sends a release ($scenario)"
+    if [ "$scenario" = force-close ]; then
+      expect_code 0 "$rc" "a forced past failed close still completes: $out"
+      assert_contains "$out" 'walk QW-A (firstmate-main) stays claimed until expires_at=2026-10-07T10:05:00Z' \
+        "a forced unconfirmed close names the claim it leaves held"
+    else
+      [ "$rc" -ne 0 ] || fail "teardown reported success without proving termination ($scenario): $out"
+      assert_present "$meta" "unproven termination retains the retry record ($scenario)"
+      assert_not_contains "$out" 'teardown task-x1 complete' "unproven termination never reports a clean teardown ($scenario)"
+    fi
+    case "$scenario" in
+      lsof) assert_contains "$out" 'lsof failed' "the process-scan failure is reported" ;;
+      close) assert_contains "$out" 'could not be closed' "the endpoint close refusal is reported" ;;
+      herdr) assert_contains "$out" 'not confirmed gone' "the Herdr confirmation refusal is reported" ;;
+    esac
+  done
+  pass "a walk claim survives every teardown abort before worker termination is proven"
+)
+
 test_teardown_walk_tokens_and_failed_release || exit 1
+test_teardown_walk_survives_unproven_termination || exit 1
 test_forced_secondmate_walk_release_failure || exit 1
 
 test_missing_startup_source_refuses_before_cleanup

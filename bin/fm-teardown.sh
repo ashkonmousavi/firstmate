@@ -5,9 +5,11 @@
 # scout tasks before reporting success (a secondmate teardown transitions none,
 # since secondmates are not backlog items), then refresh/prune the project's
 # clone for PR-based ship tasks.
-# Walk claims in task metadata are released through fm-walk-marker-lib.sh before
-# worktree cleanup. A failed release refuses cleanup and retains the retry record,
-# naming the walk, owner and expires_at; expiry remains the timeout boundary.
+# Walk claims in task metadata are validated before any cleanup and released
+# through fm-walk-marker-lib.sh only once the worker's termination is verified,
+# before its record is retired. A failed release refuses and retains the retry
+# record, naming the walk, owner and expires_at. A close --force carries past
+# leaves the claim held until expires_at, which remains the timeout boundary.
 # An endpoint whose close could not do its job REFUSES before any record naming
 # it is removed: those records are the only thing that names what survived, so
 # reporting such a close as a completed cleanup strands the endpoint instead of
@@ -3525,7 +3527,8 @@ if [ "$BACKEND" = herdr ]; then
   TEARDOWN_HERDR_PANE=$FM_BACKEND_HERDR_PANE
 fi
 
-fm_walk_release_meta "$META" || exit 1
+fm_walk_meta_read "$META" || exit 1
+TEARDOWN_ENDPOINT_UNCONFIRMED=0
 
 BACKLOG_CLOSED=0
 BACKLOG_TRANSITION=$TEARDOWN_BACKLOG_TRANSITION
@@ -3737,8 +3740,10 @@ elif [ "$BACKEND" = herdr ]; then
     echo "warning: herdr session presentation lock path is unavailable; skipping the pane close rather than closing unlocked" >&2
   fi
 elif [ "$BACKEND" != orca ] && [ "$TEARDOWN_WINDOWLESS" != 1 ]; then
-  fm_backend_kill "$BACKEND" "$T" "$(meta_value "$META" zellij_tab_id)" "fm-$ID" \
-    || endpoint_close_refusal "$ID" "$BACKEND" "$T" 1 || exit 1
+  if ! fm_backend_kill "$BACKEND" "$T" "$(meta_value "$META" zellij_tab_id)" "fm-$ID"; then
+    endpoint_close_refusal "$ID" "$BACKEND" "$T" 1 || exit 1
+    TEARDOWN_ENDPOINT_UNCONFIRMED=1
+  fi
 fi
 if [ "$HERDR_PRESENTATION_RETIRE_CANDIDATE" = 1 ]; then
   if [ "$(fm_backend_herdr_pane_agent_state "$HERDR_PRESENTATION_SESSION" "$HERDR_PRESENTATION_PANE")" = dead ]; then
@@ -3766,6 +3771,11 @@ if [ "$BACKEND" = herdr ]; then
     echo "error: herdr pane $T for $ID is not confirmed gone after its close was refused, skipped, or failed; retaining every durable task record - rerun teardown once the close can run under the session lock" >&2
     exit 1
   fi
+fi
+if [ "$TEARDOWN_ENDPOINT_UNCONFIRMED" = 0 ]; then
+  fm_walk_release_meta "$META" || exit 1
+elif [ -n "$FM_WALK_META_ID" ]; then
+  echo "warning: walk $FM_WALK_META_ID ($FM_WALK_META_OWNER) stays claimed until expires_at=$FM_WALK_META_EXPIRES because its worker's close was not confirmed" >&2
 fi
 if [ "$KIND" != secondmate ]; then
   if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \

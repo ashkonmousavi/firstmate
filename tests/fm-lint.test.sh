@@ -840,11 +840,17 @@ SH
   pass "fm-lint.sh changed mode excludes cross-file codes that explicit paths still report"
 }
 
-# One ShellCheck process per root. Passing the whole canonical set in a
+# One ShellCheck process per root, under fm-lint.sh's local per-root memory
+# budget where the host enforces it. Passing the whole canonical set in a
 # single invocation still follows in-set sources and is not the no-x posture.
 fm_lint_nox_one_root() {
-  local index=$1 path=$2 outdir=$3
-  shellcheck --norc --format gcc -- "$path" > "$outdir/$index" || true
+  local index=$1 path=$2 outdir=$3 budget=6291456 rc=0
+  if fm_lint_bounds_supported; then
+    ( ulimit -v "$budget" && exec shellcheck --norc --format gcc -- "$path" ) > "$outdir/$index" || rc=$?
+  else
+    shellcheck --norc --format gcc -- "$path" > "$outdir/$index" || rc=$?
+  fi
+  [ "$rc" -le 1 ] || printf '%s exited %s (memory budget %s KiB)\n' "$path" "$rc" "$budget" > "$outdir.failed.$index"
 }
 
 test_local_exclusion_list_covers_every_no_external_sources_code() {
@@ -852,7 +858,7 @@ test_local_exclusion_list_covers_every_no_external_sources_code() {
     pass "SKIP (ShellCheck $REQUIRED not resolved): local exclusion completeness"
     return
   fi
-  local tmp files_file out unexpected code path found i batch
+  local tmp files_file out unexpected code path found i
   local -a files
   tmp=$(fm_test_tmproot fm-lint-nox-complete)
   files_file="$tmp/files"
@@ -866,17 +872,12 @@ test_local_exclusion_list_covers_every_no_external_sources_code() {
   [ "${#files[@]}" -gt 0 ] || fail "CI --list-files returned no readable lint roots"
   mkdir -p "$tmp/gcc"
   i=0
-  batch=0
   for path in "${files[@]}"; do
     i=$((i + 1))
-    fm_lint_nox_one_root "$i" "$path" "$tmp/gcc" &
-    batch=$((batch + 1))
-    if [ "$batch" -eq 4 ]; then
-      wait
-      batch=0
-    fi
+    fm_lint_nox_one_root "$i" "$path" "$tmp/gcc"
   done
-  wait
+  ! compgen -G "$tmp/gcc.failed.*" >/dev/null \
+    || fail "completeness sweep roots failed: $(cat "$tmp"/gcc.failed.*)"
   found=$(find "$tmp/gcc" -type f | wc -l | tr -d '[:space:]')
   [ "$found" = "${#files[@]}" ] \
     || fail "completeness sweep linted $found roots, expected ${#files[@]}"
@@ -1440,42 +1441,49 @@ test_root_deadline_names_the_root_and_reaps_the_tree() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$blocker"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$ok"
 
-  sleep 300 &
-  sentinel_pid=$!
-  rc=0
-  out=$(PATH="$fakebin:$PATH" FM_LINT_JOBS=1 \
-    FM_LINT_REQUIRE_BOUNDS=1 \
-    FM_LINT_ROOT_SECONDS=1 FM_LINT_ROOT_GRACE=1 \
-    FM_TEST_STUB_LOG="$stub_log" FM_TEST_CHILD_PID="$child_pid_file" \
-    FM_TEST_STUB_PID="$stub_pid_file" FM_TEST_BLOCK_SECS=300 \
-    "$LINT" --telemetry "$telemetry" "$ok" "$blocker" 2>&1) || rc=$?
-  [ "$rc" -ne 0 ] || fail "a root pinned at the wall deadline unexpectedly passed"
-  assert_contains "$out" "blocker.sh" "the timed-out root was not named"
-  assert_contains "$out" "reason=timeout" "the timed-out root was not reported as a timeout"
-  kill -0 "$sentinel_pid" 2>/dev/null \
-    || fail "the lint deadline killed an unrelated sentinel process"
-  kill -KILL "$sentinel_pid" 2>/dev/null || true
-  wait "$sentinel_pid" 2>/dev/null || true
-  if [ -s "$child_pid_file" ]; then
-    child_pid=$(cat "$child_pid_file")
-    kill -0 "$child_pid" 2>/dev/null \
-      && fail "the blocked root's child survived the deadline kill"
-  else
-    fail "the blocked root never recorded its child pid"
-  fi
-  if [ -s "$stub_pid_file" ]; then
-    stub_pid=$(cat "$stub_pid_file")
-    kill -0 "$stub_pid" 2>/dev/null \
-      && fail "the blocked root's ShellCheck process survived the deadline kill"
-  else
-    fail "the blocked root never recorded its ShellCheck pid"
-  fi
-  [ -f "$roots_log" ] || fail "the run kept no retained per-root sidecar"
-  awk -F '\t' '$1 == "end" && $3 ~ /ok\.sh$/ && $10 == "ok" { found=1 } END { exit !found }' \
-    "$roots_log" || fail "the sidecar lost the completed root's ok record"
-  awk -F '\t' '$1 == "end" && $3 ~ /blocker\.sh$/ && $10 == "timeout" { found=1 } END { exit !found }' \
-    "$roots_log" || fail "the sidecar did not record the timed-out root by name"
-  pass "a root pinned at the wall deadline fails by name, reaps its tree, and leaves the sentinel alive"
+  local require_bounds
+  for require_bounds in 0 1; do
+    rm -f "$child_pid_file" "$stub_pid_file"
+    sleep 300 &
+    sentinel_pid=$!
+    rc=0
+    out=$(PATH="$fakebin:$PATH" FM_LINT_JOBS=1 \
+      FM_LINT_REQUIRE_BOUNDS="$require_bounds" \
+      FM_LINT_ROOT_SECONDS=1 FM_LINT_ROOT_GRACE=1 \
+      FM_TEST_STUB_LOG="$stub_log" FM_TEST_CHILD_PID="$child_pid_file" \
+      FM_TEST_STUB_PID="$stub_pid_file" FM_TEST_BLOCK_SECS=300 \
+      "$LINT" --telemetry "$telemetry" "$ok" "$blocker" 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "a root pinned at the wall deadline unexpectedly passed (required=$require_bounds)"
+    assert_contains "$out" "blocker.sh" "the timed-out root was not named"
+    assert_contains "$out" "reason=timeout" "the timed-out root was not reported as a timeout"
+    assert_contains "$out" "blocker.sh exhausted its per-root budget (reason=timeout" \
+      "the timed-out root's budget was not named (required=$require_bounds)"
+    assert_contains "$out" "deadline 1s)" "the exhausted deadline was not named"
+    kill -0 "$sentinel_pid" 2>/dev/null \
+      || fail "the lint deadline killed an unrelated sentinel process"
+    kill -KILL "$sentinel_pid" 2>/dev/null || true
+    wait "$sentinel_pid" 2>/dev/null || true
+    if [ -s "$child_pid_file" ]; then
+      child_pid=$(cat "$child_pid_file")
+      kill -0 "$child_pid" 2>/dev/null \
+        && fail "the blocked root's child survived the deadline kill"
+    else
+      fail "the blocked root never recorded its child pid"
+    fi
+    if [ -s "$stub_pid_file" ]; then
+      stub_pid=$(cat "$stub_pid_file")
+      kill -0 "$stub_pid" 2>/dev/null \
+        && fail "the blocked root's ShellCheck process survived the deadline kill"
+    else
+      fail "the blocked root never recorded its ShellCheck pid"
+    fi
+    [ -f "$roots_log" ] || fail "the run kept no retained per-root sidecar"
+    awk -F '\t' '$1 == "end" && $3 ~ /ok\.sh$/ && $10 == "ok" { found=1 } END { exit !found }' \
+      "$roots_log" || fail "the sidecar lost the completed root's ok record"
+    awk -F '\t' '$1 == "end" && $3 ~ /blocker\.sh$/ && $10 == "timeout" { found=1 } END { exit !found }' \
+      "$roots_log" || fail "the sidecar did not record the timed-out root by name"
+  done
+  pass "a root pinned at the wall deadline fails by name in local and required modes, reaps its tree, and leaves the sentinel alive"
 }
 
 test_root_memory_limit_reports_a_named_death() {
@@ -1496,39 +1504,46 @@ test_root_memory_limit_reports_a_named_death() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$hoarder"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$ok"
 
-  # Control: with no memory limit the same allocator succeeds, so a memory
-  # death below can only come from the enforced cap.
+  # Control: under the local default budget the same allocator succeeds, so
+  # a memory death below can only come from the smaller enforced cap.
   rc=0
   out=$(PATH="$fakebin:$PATH" FM_LINT_JOBS=1 \
     FM_TEST_STUB_LOG="$stub_log" \
     "$LINT" --telemetry "$tmp/control.tsv" "$ok" "$hoarder" 2>&1) || rc=$?
-  [ "$rc" -eq 0 ] || fail "the allocator failed without any memory limit"$'\n'"$out"
-  grep -q $'^meta\tbounds_enforced\t0$' "$tmp/control.roots.tsv" \
-    || fail "the control run was not unbounded"
+  [ "$rc" -eq 0 ] || fail "the allocator failed under the local default budget"$'\n'"$out"
+  grep -q $'^meta\tbounds_enforced\t1$' "$tmp/control.roots.tsv" \
+    || fail "local lint did not enforce its default per-root bounds"
+  grep -q $'^meta\troot_memory_limit_kib\t6291456$' "$tmp/control.roots.tsv" \
+    || fail "local lint did not apply its default memory budget"
   awk -F '\t' '$1 == "end" && $3 ~ /hoarder\.sh$/ && $10 == "ok" { found=1 } END { exit !found }' \
-    "$tmp/control.roots.tsv" || fail "the uncapped allocator root did not complete ok"
+    "$tmp/control.roots.tsv" || fail "the allocator root did not complete ok under the default budget"
 
   # The hoarder stub allocates 512 MiB; under a 256 MiB address-space limit
   # the allocator is refused and the run must name the root, not survive.
-  sleep 300 &
-  sentinel_pid=$!
-  rc=0
-  out=$(PATH="$fakebin:$PATH" FM_LINT_JOBS=1 \
-    FM_LINT_REQUIRE_BOUNDS=1 FM_LINT_ROOT_MEMORY_KIB=262144 \
-    FM_TEST_STUB_LOG="$stub_log" \
-    "$LINT" --telemetry "$telemetry" "$ok" "$hoarder" 2>&1) || rc=$?
-  [ "$rc" -ne 0 ] || fail "a root killed by its memory limit unexpectedly passed"
-  assert_contains "$out" "hoarder.sh" "the memory-limited root was not named"
-  assert_contains "$out" "reason=memory" "the memory-limit death was not classified as memory"
-  kill -0 "$sentinel_pid" 2>/dev/null \
-    || fail "the memory-limit kill took an unrelated sentinel process with it"
-  kill -KILL "$sentinel_pid" 2>/dev/null || true
-  wait "$sentinel_pid" 2>/dev/null || true
-  awk -F '\t' '$1 == "end" && $3 ~ /hoarder\.sh$/ && $10 == "memory" { found=1 } END { exit !found }' \
-    "$roots_log" || fail "the sidecar did not record the memory-limited root by name"
-  awk -F '\t' '$1 == "end" && $3 ~ /ok\.sh$/ && $10 == "ok" { found=1 } END { exit !found }' \
-    "$roots_log" || fail "the sidecar lost the clean root's record"
-  pass "a root refused by its enforced memory limit fails by name with a memory reason"
+  local require_bounds
+  for require_bounds in 0 1; do
+    sleep 300 &
+    sentinel_pid=$!
+    rc=0
+    out=$(PATH="$fakebin:$PATH" FM_LINT_JOBS=1 \
+      FM_LINT_REQUIRE_BOUNDS="$require_bounds" FM_LINT_ROOT_MEMORY_KIB=262144 \
+      FM_TEST_STUB_LOG="$stub_log" \
+      "$LINT" --telemetry "$telemetry" "$ok" "$hoarder" 2>&1) || rc=$?
+    [ "$rc" -ne 0 ] || fail "a root killed by its memory limit unexpectedly passed (required=$require_bounds)"
+    assert_contains "$out" "hoarder.sh" "the memory-limited root was not named"
+    assert_contains "$out" "reason=memory" "the memory-limit death was not classified as memory"
+    assert_contains "$out" "hoarder.sh exhausted its per-root budget (reason=memory, memory limit 262144 KiB" \
+      "the memory-limited root's budget was not named (required=$require_bounds)"
+    kill -0 "$sentinel_pid" 2>/dev/null \
+      || fail "the memory-limit kill took an unrelated sentinel process with it"
+    kill -KILL "$sentinel_pid" 2>/dev/null || true
+    wait "$sentinel_pid" 2>/dev/null || true
+    awk -F '\t' '$1 == "end" && $3 ~ /hoarder\.sh$/ && $10 == "memory" { found=1 } END { exit !found }' \
+      "$roots_log" || fail "the sidecar did not record the memory-limited root by name"
+    awk -F '\t' '$1 == "end" && $3 ~ /ok\.sh$/ && $10 == "ok" { found=1 } END { exit !found }' \
+      "$roots_log" || fail "the sidecar lost the clean root's record"
+  done
+  pass "a root refused by its enforced memory limit fails by name and budget in local and required modes"
 }
 
 test_memory_failure_retries_without_external_sources() {
@@ -1586,7 +1601,7 @@ SH
     awk -F '\t' '$1 == "end" && $3 ~ /teardown\.sh$/ && $9 == 0 && $10 == "memory-fallback" { found=1 } END { exit !found }' \
       "$tmp/pass.$mode.roots.tsv" || fail "the clean fallback was not recorded distinctly"
     rss_kib=$(awk -F '\t' '$1 == "end" && $3 ~ /teardown\.sh$/ { print $11 }' "$tmp/pass.$mode.roots.tsv")
-    if [ "$mode" -eq 1 ]; then
+    if [ "$require_bounds" -eq 1 ]; then
       assert_grep $'meta\tbounds_enforced\t1' "$tmp/pass.$mode.roots.tsv" \
         "the bounded fallback did not enforce bounds"
       case "$rss_kib" in ''|*[!0-9]*) fail "the fallback attempts lost per-root RSS reporting: $rss_kib" ;; esac
@@ -1809,6 +1824,13 @@ test_require_bounds_refuses_when_enforcement_is_missing() {
   assert_contains "$out" "refusing to lint uncapped" "the refusal did not explain itself"
   [ ! -s "$stub_log" ] \
     || fail "a watchdog-refused run still invoked ShellCheck"
+  rc=0
+  out=$(PATH="$fakebin:$PATH" "$lone_dir/fm-lint.sh" "$fixture" 2>&1) || rc=$?
+  [ "$rc" -eq 0 ] || fail "a watchdog-less local run did not keep linting"$'\n'"$out"
+  assert_contains "$out" "warning: bin/fm-timeout-lib.sh is missing" "the local run did not name its missing bound"
+  assert_contains "$out" "without the per-root deadline and memory limit" "the local warning did not explain the missing bound"
+  [ -s "$stub_log" ] || fail "a watchdog-less local run never invoked ShellCheck"
+  : > "$stub_log"
 
   if ( ulimit -v 65536 ) 2>/dev/null; then
     # The host accepts the memory limit, so a required-bounds run proceeds and
@@ -1941,14 +1963,21 @@ test_roots_sidecar_records_per_root_lifecycle() {
   [ -f "$roots_log" ] || fail "the run wrote no per-root sidecar beside telemetry"
   grep -q $'^format\tfm-lint-roots-v1$' "$roots_log" \
     || fail "the sidecar is missing its format header"
-  grep -q $'^meta\tbounds_enforced\t0$' "$roots_log" \
-    || fail "the sidecar did not record the unenforced bounds state"
-  grep -q $'^meta\ttiming_mechanism\tnone$' "$roots_log" \
-    || fail "the sidecar did not record the timing mechanism"
-  grep -q $'^meta\troot_deadline_seconds\tunbounded$' "$roots_log" \
-    || fail "the sidecar did not record the unbounded deadline state"
-  grep -q $'^meta\troot_memory_limit_kib\tunbounded$' "$roots_log" \
-    || fail "the sidecar did not record the unbounded memory state"
+  if fm_lint_bounds_supported; then
+    grep -q $'^meta\tbounds_enforced\t1$' "$roots_log" \
+      || fail "the sidecar did not record the enforced local bounds"
+    grep -q $'^meta\ttiming_mechanism\tperl$' "$roots_log" \
+      || fail "the sidecar did not record the timing mechanism"
+    grep -q $'^meta\troot_deadline_seconds\t1200$' "$roots_log" \
+      || fail "the sidecar did not record the local deadline"
+    grep -q $'^meta\troot_memory_limit_kib\t6291456$' "$roots_log" \
+      || fail "the sidecar did not record the local memory budget"
+  else
+    grep -q $'^meta\tbounds_enforced\t0$' "$roots_log" \
+      || fail "the sidecar did not record the unenforced bounds state"
+    grep -q $'^meta\troot_memory_limit_kib\tunbounded$' "$roots_log" \
+      || fail "the sidecar did not record the unbounded memory state"
+  fi
   grep -q $'^meta\troots_completed\t3$' "$roots_log" \
     || fail "the sidecar did not count three completed roots"
   [ "$(grep -c '^begin' "$roots_log")" -eq 3 ] \
