@@ -1,0 +1,6 @@
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4AHC8K4DTK2MWYEWJS0FRWA/.l
+codex-cli 0.160.1
+missing source plus stale working history: state: unknown · source: pane · harness state unavailable (unknown codex-unverified)
+malformed stored state plus stale working history: state: unknown · source: pane · harness state unavailable (unknown malformed)
+unverified hook record cannot assert working: state: unknown · source: pane · harness state unavailable (unknown source-mismatch)
+private lab cleanup follows on EXIT

@@ -1,0 +1,8 @@
+Installed versions: Herdr 0.9.1; Codex CLI 0.160.1.
+Normal guarded prepare succeeded with helper state inside the worktree; no session was provisioned.
+A read-only session list with HERDR_CONFIG_PATH inside the worktree still reported session_dir under /home/tegris/.config/herdr/sessions. Config-path redirection alone does not confine session state.
+Redirecting XDG_CONFIG_HOME and HERDR_CONFIG_PATH into the worktree caused guarded prepare to refuse: fleet-state tripwire requires exactly one running default session.
+No default session was created or changed, no fleet pane was driven, and no named Herdr server was provisioned. The prepare-only worktree tripwire was removed with the temporary test directory.
+Live Herdr working/capture-loss/process-info scenarios require scoped permission for the helper's normal disposable named-session files outside the worktree, or a helper-supported workspace-local state route preserving an independently verified default-session tripwire. No lifecycle bypass or synthetic default-session record was used.
+Working/capture-loss/malformed-process and run-priority regressions passed against fixture backend responses. This is supporting regression evidence, not live Herdr or native-server adoption evidence.
+Fleet rollout, live server count confirmation, and hosted CI remain owned by their respective outer delivery phases. This test phase cannot update homes or control another no-mistakes run.
