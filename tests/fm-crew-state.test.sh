@@ -226,6 +226,17 @@ SH
   cat > "$fb/herdr" <<'SH'
 #!/usr/bin/env bash
 set -u
+# Optional immutable native receipts replayed through the actual backend reader.
+if [ -n "${FM_FAKE_HERDR_NATIVE_FILE:-}" ]; then
+  case "${1:-} ${2:-}" in
+    'agent get'|'pane process-info')
+      receipt=$(jq -c --arg one "$1" --arg two "$2" \
+        '.receipts[] | select(.command[1] == $one and .command[2] == $two)' "$FM_FAKE_HERDR_NATIVE_FILE") || exit 1
+      printf '%s' "$receipt" | jq -r '.json | if type == "string" then . else tojson end'
+      printf '%s' "$receipt" | jq -r '.stderr' >&2
+      exit "$(printf '%s' "$receipt" | jq -r '.exit_code')" ;;
+  esac
+fi
 case "${1:-}" in
   status)
     [ "${2:-}" = --json ] && {
@@ -239,6 +250,7 @@ case "${1:-}" in
       read)
         [ "${FM_FAKE_HERDR_MISSING:-0}" = 1 ] && exit 1
         [ "${FM_FAKE_HERDR_READ_FAIL:-0}" = 1 ] && exit 1
+        if [ -n "${FM_FAKE_HERDR_PANE_FILE:-}" ]; then cat "$FM_FAKE_HERDR_PANE_FILE"; exit 0; fi
         if [ "${FM_FAKE_HERDR_BUSY:-0}" = 1 ]; then printf 'work in progress\nesc to interrupt\n'
         else printf 'all quiet\n> \n'; fi
         exit 0 ;;
@@ -2540,6 +2552,87 @@ test_no_run_grok_uses_isolated_fallback() {
   assert_contains "$out" "state: working" "grok busy tail -> working"
   assert_contains "$out" "grok-regex" "the grok verdict names its isolated fallback source"
   pass "grok still reads working through its isolated rendered-tail fallback"
+}
+
+# The real server Codex pane is a reproduction input, never busy authority.
+# Native activity and rendered activity deliberately diverge in both directions.
+test_codex_native_fallback() {
+  reset_fakes
+  local d out native
+  d=$(new_case codex-native)
+  make_repo_on_branch "$d/wt" fm/codex-native
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/codex-native.meta" "window=default:w1:p2" \
+    "worktree=$d/wt" "kind=ship" "backend=herdr" "harness=codex"
+  FM_FAKE_HERDR_PANE_FILE=${FM_CODEX_SERVER_CAPTURE:-}
+  export FM_FAKE_HERDR_PANE_FILE
+  FM_FAKE_HERDR_BUSY=1
+  FM_FAKE_HERDR_AGENT_STATUS=working
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'Codex without hooks must reach native busy fallback'
+  assert_contains "$out" 'herdr-native' 'Codex must name independent native source'
+
+  # Removing the entire rendered surface must not erase native working proof.
+  FM_FAKE_HERDR_PANE_FILE=
+  FM_FAKE_HERDR_READ_FAIL=1
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'native busy survives capture loss'
+  FM_FAKE_HERDR_READ_FAIL=0
+  FM_FAKE_HERDR_PANE_FILE=${FM_CODEX_SERVER_CAPTURE:-}
+  for native in idle 'done' blocked unknown ''; do
+    FM_FAKE_HERDR_AGENT_STATUS=$native
+    printf 'working: stale historical event\n' > "$d/state/codex-native.status"
+    out=$(run_crew_state "$d" codex-native)
+    assert_contains "$out" 'state: unknown' 'stale pane/status cannot replace lost native activity'
+  done
+  # A bound pipeline remains the higher-priority independent source, even
+  # when the pane's native activity source is lost or reads idle.
+  FM_FAKE_AXI_STATUS=$(run_running fm/codex-native)
+  FM_FAKE_HERDR_AGENT_STATUS=idle
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: working' 'native run survives loss of pane activity'
+  assert_contains "$out" 'source: run-step' 'native run retains priority for Codex'
+  FM_FAKE_AXI_STATUS=$(run_parked fm/codex-native)
+  FM_FAKE_HERDR_AGENT_STATUS=working
+  out=$(run_crew_state "$d" codex-native)
+  assert_contains "$out" 'state: parked' 'native parked run outranks busy pane'
+  assert_contains "$out" 'source: run-step' 'parked run retains priority for Codex'
+  FM_FAKE_AXI_STATUS=
+  FM_FAKE_HERDR_AGENT_STATUS=working
+  FM_FAKE_HERDR_PROCESS=shell
+  FM_FAKE_HERDR_SHELL_PID=$$
+  out=$(run_crew_state "$d" codex-native)
+  assert_not_contains "$out" 'state: working' 'stale registration over shell cannot assert working'
+  unset FM_FAKE_HERDR_PANE_FILE
+  pass 'Codex native fallback survives capture loss and refuses stale pane/status/registration'
+}
+
+# Optional local proof against retained real server responses, not a claim
+# that the candidate was installed there. CI uses the hermetic cases above.
+test_codex_captured_native_pairs() {
+  [ -n "${FM_CODEX_SERVER_NATIVE:-}" ] || return 0
+  local d out kind pane
+  for kind in working-study stopped-apps; do
+    reset_fakes
+    d=$(new_case "codex-captured-$kind")
+    make_repo_on_branch "$d/wt" fm/codex-captured
+    make_fakebin "$d" >/dev/null
+    FM_FAKE_HERDR_NATIVE_FILE="$FM_CODEX_SERVER_NATIVE/native-paired-$kind.json"
+    FM_FAKE_HERDR_PANE_FILE="$FM_CODEX_SERVER_NATIVE/native-paired-$kind.pane.txt"
+    export FM_FAKE_HERDR_NATIVE_FILE FM_FAKE_HERDR_PANE_FILE
+    pane=$(jq -r '.receipts[] | select(.command[1:3] == ["pane","process-info"]) | .json.result.process_info.pane_id' "$FM_FAKE_HERDR_NATIVE_FILE")
+    fm_write_meta "$d/state/captured.meta" "window=fm-remote:$pane" \
+      "worktree=$d/wt" "kind=ship" "backend=herdr" "harness=codex"
+    out=$(run_crew_state "$d" captured)
+    if [ "$kind" = working-study ]; then
+      assert_contains "$out" 'state: working' 'captured native Codex activity must survive loss of run source'
+      assert_contains "$out" 'herdr-native' 'captured activity must name native source'
+    else
+      assert_contains "$out" 'state: unknown' 'captured stopped pane must remain conservative'
+    fi
+    pass "Codex captured native $kind: $out"
+    unset FM_FAKE_HERDR_NATIVE_FILE FM_FAKE_HERDR_PANE_FILE
+  done
 }
 
 test_no_run_herdr_unknown_uses_backend_capture() {
@@ -5607,6 +5700,8 @@ test_unpushed_ship_done_is_blocked
 test_merged_pr_reads_done_under_captured_meta
 test_no_mistakes_prevalidation_done_stays_done
 test_moved_remote_branch_without_named_head_is_blocked
+test_codex_native_fallback
+test_codex_captured_native_pairs
 test_no_run_busy_pane
 test_no_run_launch_prompt_parked_is_not_working
 test_no_run_footer_text_alone_is_not_working

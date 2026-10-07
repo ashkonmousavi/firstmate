@@ -119,8 +119,9 @@
 # fm_busy_codex_hooks_verified): the approved contract prefers Codex's
 # app-server turn lifecycle with capability negotiation, and sanctions its
 # stable lifecycle hooks as the intermediate. Neither is usable on the
-# installed binary, so Codex classifies unknown codex-unverified rather than
-# falling back to idle, and fm-spawn installs no Codex busy wiring.
+# installed binary, so fm-spawn installs no Codex busy wiring. With no record,
+# Codex may use the independent Herdr native busy source; without that positive
+# evidence it remains unknown codex-unverified, never idle from a pane footer.
 # docs/verification/supervision.md owns the evidence for both probes.
 #
 # Sourcing: set -u and set -e safe; no subshell-unfriendly globals.
@@ -180,7 +181,7 @@ fm_busy_codex_hooks_verified() {
 
 # fm_busy_codex_semantic_source: 0 when ANY verified Codex semantic source
 # exists. fm-spawn arms and wires Codex only behind this gate, and the
-# classifier reports unknown codex-unverified until it opens.
+# classifier still permits independent native backend busy evidence.
 fm_busy_codex_semantic_source() {
   fm_busy_codex_appserver_observable || fm_busy_codex_hooks_verified
 }
@@ -996,8 +997,8 @@ fm_busy_gemini_launch_prompt_tail() {
 # or fail when this harness has none. Consumes the tail on stdin. Scoped to
 # exactly the harnesses fm-spawn.sh arms with the fm-spawn busy source
 # (claude*, opencode*, pi, pi-signed, omp, gemini) since only those can ever
-# read a pinned "busy fm-spawn" record; codex and standalone Kimi already
-# classify unknown before a record is ever consulted, and opencode ships no
+# read a pinned "busy fm-spawn" record; Codex trusts no stored sources and
+# standalone Kimi returns unknown before records, and opencode ships no
 # trust dialog at all.
 fm_busy_launch_prompt_parked() {  # <harness>
   case "${1:-}" in
@@ -1024,12 +1025,6 @@ fm_busy_classify() {  # <backend> <target> <harness> <id> <state-dir> [tail40]
     kimi*)
       if ! fm_busy_kimi_verified; then
         printf 'unknown kimi-unverified'
-        return 0
-      fi
-      ;;
-    codex*)
-      if ! fm_busy_codex_semantic_source; then
-        printf 'unknown codex-unverified'
         return 0
       fi
       ;;
@@ -1087,6 +1082,13 @@ fm_busy_classify() {  # <backend> <target> <harness> <id> <state-dir> [tail40]
     fi
   fi
   case "$harness" in
+    codex*)
+      # Writer capability gates do not gate the independent native backend
+      # source above. Without that positive evidence, remain unknown; neither
+      # a rendered footer nor native idle proves this pane's turn state.
+      printf 'unknown codex-unverified'
+      return 0
+      ;;
     muse*)
       # Semantic, on demand: fold this task's bound session log. An open run is
       # positive proof of a turn in flight and a settled log is a finished turn.
