@@ -39,8 +39,11 @@ Walk only when the version carrying the needed fixes is live.
 Do not send a re-walk against a build that does not yet include the fix.
 
 A posted blocker is evidence, not authorization to change code, under `AGENTS.md` section 7.
-When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start the fix lane after that batch's collection, triage, and required reproduction, following the cluster routing and priority below.
+When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start the fix lane after that batch's collection, triage, and required reproduction, following the cluster routing and priority below; a fleet blocker, defined next, opens its lane the same turn.
 Otherwise raise the blocker to the captain under section 7 before any lane starts.
+A blocker that stopped every walker of the last batch (no sign-in, no AI answer, no live build) is a fleet blocker: open its fix lane the same turn, using the fastest route that restores access before any code change, and dispatch no new walk that needs that stage until a walker re-proves it live.
+A walk sent into a known blocker is wasted and is never relabelled "no AI steps" to keep walking.
+Read every walk report the turn it lands; a report that says BLOCKED is a wake, not a note.
 Once that batch's triage and required reproduction are complete, file the fix or raise the blocker without waiting for later walk batches.
 
 Triage once per walk batch, not once per report: collect every problem from all walkers of the batch before filing.
