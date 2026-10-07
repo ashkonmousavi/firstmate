@@ -1382,6 +1382,9 @@ EOF
 fm_dod_block() {  # <mode> <task-id> [branch] [<forge>]
   local mode=$1 id=$2 forge=${4:-none}
   local branch=${3:-fm/$id}
+  # The captain's class-fix line, verbatim in every mode; the
+  # diagnostic-reasoning skill owns what makes a repair a class fix.
+  local class_fix='class fix: test fails without the fix; symptom seen twice.'
   fm_forge_valid_for_mode "$forge" "$mode" fm_dod_block || return 1
   case "$mode:$forge" in
     direct-PR:gerrit)
@@ -1389,6 +1392,7 @@ fm_dod_block() {  # <mode> <task-id> [branch] [<forge>]
 # Definition of done
 Delivery contract: mode=direct-PR forge=gerrit shape=squash
 Ship branch: $branch
+$class_fix
 This task ships **direct-PR** to a Gerrit review server: you publish the change yourself, without the no-mistakes pipeline.
 Gerrit has no pull requests, so there is nothing to open; publishing creates the change.
 The task is complete only when committed on your branch.
@@ -1405,6 +1409,7 @@ EOF
 # Definition of done
 Delivery contract: mode=no-mistakes forge=gerrit shape=squash
 Ship branch: $branch
+$class_fix
 This project's review server is Gerrit: it has no pull requests and no forge CI the pipeline can watch, so **no-mistakes runs here as a review pass that ends at a ready branch**, and you then publish that branch as one change.
 Pass \`--skip push,pr,ci\` on every \`no-mistakes axi run\` for this task, and skip nothing else: \`review\`, \`test\`, \`document\`, and \`lint\` are the whole point of the run.
 Those three are the only steps that reach a forge, and skipping them is a supported outcome, not a degraded one.
@@ -1437,6 +1442,7 @@ EOF
 # Definition of done
 Delivery contract: mode=direct-PR
 Ship branch: $branch
+$class_fix
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
 EOF
       fm_direct_review_block
@@ -1458,6 +1464,7 @@ EOF
 # Definition of done
 Delivery contract: mode=local-only
 Ship branch: $branch
+$class_fix
 This task ships **local-only**: no remote, no PR, no pipeline.
 The task is complete only when committed on your branch \`$branch\`. Do NOT push, do NOT open a PR, do NOT merge.
 A \`done:\` is accepted when the named head is on this project's shared local branch, not only on a detached copy; the check tests that head, not merely that a branch moved.
@@ -1471,6 +1478,7 @@ EOF
 # Definition of done
 Delivery contract: mode=no-mistakes
 Ship branch: $branch
+$class_fix
 This task is complete only with an existing non-draft PR and every required check green for its current head.
 After your implementation commit, append a \`working [at=<epoch>]: implementation committed; starting validation\` milestone and start the pipeline yourself immediately with \`no-mistakes axi run\`, supplying \`--intent\` under the contract below.
 The pipeline owns the push; follow its version-matched skill and help to drive every gate through the green PR return.

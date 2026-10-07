@@ -577,6 +577,20 @@ test_pr_based_dod_draft_check_uses_gh_axi() {
   pass "PR-based DoD draft check uses gh-axi"
 }
 
+# Every ship mode's Definition of done carries the class-fix line exactly once,
+# on both forges where the mode publishes.
+test_every_ship_dod_carries_class_fix_line() {
+  local combo mode forge out
+  for combo in no-mistakes:none no-mistakes:gerrit direct-PR:none direct-PR:gerrit local-only:none; do
+    mode=${combo%%:*} forge=${combo#*:}
+    out="$TMP_ROOT/dod-class-fix-$mode-$forge.md"
+    fm_dod_block "$mode" class-fix-task fm/class-fix-task "$forge" > "$out"
+    [ "$(grep -cxF 'class fix: test fails without the fix; symptom seen twice.' "$out")" = 1 ] \
+      || fail "$mode/$forge: DoD must carry the class-fix line exactly once"
+  done
+  pass "every ship DoD carries the class-fix line once"
+}
+
 test_common_review_triage_contract
 test_third_review_list_is_last
 test_review_list_ledger_failures
@@ -599,5 +613,6 @@ test_standalone_local_only_needs_project_ref
 test_non_done_lines_are_not_gated
 test_fenced_and_indented_captain_lines_are_not_intent
 test_pr_based_dod_draft_check_uses_gh_axi
+test_every_ship_dod_carries_class_fix_line
 
 echo "all fm-dod-lib tests passed"

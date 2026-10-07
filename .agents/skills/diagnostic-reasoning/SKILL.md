@@ -3,7 +3,7 @@ name: diagnostic-reasoning
 description: >-
   Agent-only procedure for diagnosing reported bugs.
   Use before scoping a reported bug and before acting on a diagnostic report.
-  Owns end-user-aligned reproduction, causal separation, divergent-path and history inspection, counterfactual testing, and disconfirming evidence.
+  Owns end-user-aligned reproduction, causal separation, divergent-path and history inspection, counterfactual testing, disconfirming evidence, and the class-fix rule.
 user-invocable: false
 metadata:
   internal: true
@@ -51,3 +51,11 @@ Before acting on the report, verify that its claimed cause explains the end-user
 If a load-bearing element is missing, route a focused follow-up investigation instead of treating confidence or implementation detail as proof.
 A diagnosis or implementation-ready recommendation is evidence, not authorization to change code.
 Implementation still requires the captain's request or another existing lifecycle authority, and the reproduction should become the regression test when a fix is authorized.
+
+## Class fix
+
+A behaviour problem that fails a journey step, or any symptom seen twice (two walks, two reports, or fixed once and back), is a class fix.
+Brief it root cause first: systematic-debugging phase 1 in the instructions, one hypothesis, the smallest fix at the source, and a test that fails without the fix, as one change with one owner.
+A surgical patch on such a symptom is allowed only as a labelled workaround that stops the bleeding, with the class item filed the same day.
+Three fix rounds on the item without progress end it: route a redesign or a follow-up, never a fourth round.
+Those rounds count fix attempts on the item across installs and re-walks; a single no-mistakes run's Review finding lists follow their own limit in `bin/fm-dod-lib.sh`.
