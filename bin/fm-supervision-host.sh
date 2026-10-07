@@ -465,9 +465,9 @@ start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pi
   shift
   out=$(mktemp "$STATE/.supervision-host-arm.XXXXXX") || return 1
   if [ -n "$predecessor" ]; then
-    FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 &
+    FM_CHECKPOINT_DEADLINE=${FM_SUPERVISION_WATCH_DEADLINE:-} FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 &
   else
-    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 &
+    FM_CHECKPOINT_DEADLINE=${FM_SUPERVISION_WATCH_DEADLINE:-} FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 &
   fi
   pid=$!
   record_process arm "$pid"
@@ -1068,6 +1068,10 @@ ARM_OUT=$STARTED_ARM_OUT
 while :; do
   boundary_reached && boundary_exit
   await_close || boundary_exit
+  if [ -n "${FM_SUPERVISION_WATCH_DEADLINE:-}" ] && printf '%s\n' "$ARM_TEXT" | grep -Fxq 'watcher: quiet checkpoint'; then
+    ARM_TEXT=
+    boundary_exit
+  fi
   REASON=$(printf '%s\n' "$ARM_TEXT" | grep -E '^(signal:|stale:|check:|heartbeat($|:))' || true)
 
   # The away daemon owns triage while its flag exists; the owner stands down.

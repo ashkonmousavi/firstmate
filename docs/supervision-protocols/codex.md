@@ -5,12 +5,15 @@ Whenever this session owns supervision, including while the away-posture record 
    After handling all emitted wakes and reconciling open decisions and unread status lines, run the exact `--ack-through` command printed as `WAKE_ACK_REQUIRED`; until then the work remains durable for idempotent re-handling after interruption.
 2. Source `__FM_X_MODE_ENV__` first when Relay is active.
 3. First cycle: run one foreground watcher checkpoint with `bin/fm-watch-checkpoint.sh --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"`.
-4. Ordinary wake: if the command prints `signal:`, `stale:`, `check:`, or `heartbeat`, drain queued wakes, handle that wake, then start the next checkpoint.
-5. If the command prints `checkpoint:` or exits 124 with no wake, drain queued wakes anyway, process any queued user message now visible to Codex, then start the next checkpoint.
-6. Never use shell `&` or Codex background tasks for firstmate watcher supervision.
-7. Do not run `bin/fm-watch-arm.sh` as Codex's normal supervision command.
+4. A `check: recovery cycle required` wake requires `bin/fm-watch-checkpoint.sh --recover` before acknowledgement.
+   This foreground cycle invokes the existing recovery owners with their existing stage bounds and no short quiet deadline.
+   A further bounded checkpoint returns that durable obligation until it is handled and acknowledged.
+5. Ordinary wake: if the command prints `signal:`, `stale:`, `check:`, or `heartbeat`, drain queued wakes, handle that wake, then start the next checkpoint.
+6. If the command prints `checkpoint:` or exits 124 with no wake, drain queued wakes anyway, process any queued user message now visible to Codex, then start the next checkpoint.
+7. Never use shell `&` or Codex background tasks for firstmate watcher supervision.
+8. Do not run `bin/fm-watch-arm.sh` as Codex's normal supervision command.
    If it is ever shelled anyway, a backgrounded, piped, or bundled anti-pattern is denied automatically by the PreToolUse seatbelt (`bin/fm-arm-pretool-check.sh`) registered in `.codex/hooks.json`.
-8. Failure or missing cycle only: drain queued wakes, inspect the failure, then start a fresh foreground checkpoint.
+9. Failure or missing cycle only: drain queued wakes, inspect the failure, then start a fresh foreground checkpoint.
 
 Away mode changes notification and decision handling, not this ownership loop.
 Do not launch `bin/fm-afk-launch.sh start` except when the repair line identifies a live legacy away daemon for its guarded handoff, and do not finalize to an idle prompt while supervision is needed.

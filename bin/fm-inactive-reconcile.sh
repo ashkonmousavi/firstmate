@@ -281,6 +281,7 @@ last_activity_age() { # <meta> <status> <turn-ended>
 scan_marker_age() {
   local now m
   [ -e "$SCAN_MARKER" ] && [ ! -L "$SCAN_MARKER" ] || { printf '999999\n'; return; }
+  if grep -qx 'complete=0' "$SCAN_MARKER"; then printf '999999\n'; return; fi
   now=$(reconcile_now)
   m=$(file_mtime "$SCAN_MARKER" 2>/dev/null || true)
   case "$m" in ''|*[!0-9]*) printf '999999\n'; return ;; esac
@@ -298,6 +299,7 @@ write_scan_marker() { # <cursor>
   {
     printf 'epoch=%s\n' "$(reconcile_now)"
     printf 'cursor=%s\n' "$cursor"
+    if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then printf 'complete=%s\n' "${2:-0}"; fi
   } > "$marker_tmp" || { rm -f "$marker_tmp"; return 1; }
   chmod 600 "$marker_tmp" 2>/dev/null || true
   mv -f "$marker_tmp" "$SCAN_MARKER" || { rm -f "$marker_tmp"; return 1; }
@@ -422,11 +424,14 @@ report_child_ledger_locked() { # <id> <meta>
   fingerprint=$(sha256_text "$incarnation|$id|$state|ledger|$last")
   if [ "$state" = "done" ] && [ ! -f "$(record_path "$fingerprint" reported)" ] \
     && [ ! -f "$(record_path "$fingerprint" pending)" ] \
-    && ! fm_dod_accept_ship_done "$(meta_field "$meta" kind)" "$(meta_field "$meta" mode)" \
+    && ! fm_checkpoint_read "$SCRIPT_DIR/fm-dod-lib.sh" fm_dod_accept_ship_done "$(meta_field "$meta" kind)" "$(meta_field "$meta" mode)" \
       "$(meta_field "$meta" worktree)" "$(meta_field "$meta" project)" "$last" \
       "$STATE" "$id" "$meta" >/dev/null; then
     return 0
   fi
+  [ ! -f "$(record_path "$fingerprint" reported)" ] || return 0
+  fm_checkpoint_expired && return 124
+  fm_checkpoint_admit "$id" ledger-report || return 124
   outcome_key="child-outcome-$id-$state-${fingerprint:0:8}"
   ensure_record "$fingerprint" "$id" "$incarnation" "$state" "$outcome_key" direct upstream "$pr" || return 1
   [ -n "$RECORD_PENDING" ] || return 0
@@ -466,7 +471,9 @@ report_child_ledger_locked() { # <id> <meta>
 # notice and never fails the scan.
 ledger_pass() {
   local meta id lock
-  for meta in "$STATE"/*.meta; do
+  while IFS= read -r -d '' meta; do
+    fm_checkpoint_expired && return 124
+    fm_checkpoint_cursor ledgers "${meta##*/}" || return 1
     [ -f "$meta" ] || continue
     id=$(basename "$meta" .meta)
     valid_id "$id" || continue
@@ -480,7 +487,7 @@ ledger_pass() {
     fi
     report_child_ledger_locked "$id" "$meta" || true
     fm_lock_release "$lock"
-  done
+  done < <(fm_checkpoint_files ledgers "$STATE" .meta)
 }
 
 # The `report <task-id>` entry point: the caller holds the child's meta lock.
@@ -511,9 +518,11 @@ reconcile_direct_child_locked() { # <id> <meta> <secondmate-id-or-empty> <timeou
   fi
   age=$(last_activity_age "$meta" "$status" "$turn")
   [ "$age" -ge "$FM_INACTIVE_RECONCILE_SECS" ] || return 0
+  timeout=$(fm_checkpoint_budget "$timeout") || return 3
   state_line=$(fm_run_timed "$timeout" env FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CREW_STATE_NO_FORGE=1 \
     "$CREW_STATE_BIN" "$id" 2>/dev/null) || state_rc=$?
   [ "$state_rc" -ne 124 ] || return 3
+  fm_checkpoint_expired && return 3
   last=$(last_status_line "$status")
   if [ -n "$self" ]; then
     child_terminal_ledger_line "$status" >/dev/null
@@ -524,6 +533,7 @@ reconcile_direct_child_locked() { # <id> <meta> <secondmate-id-or-empty> <timeou
     'state: failed '*) state='failed' ;;
     *) return 0 ;;
   esac
+  if [ -n "$self" ]; then fm_checkpoint_admit "$id" inactive-report || return 3; fi
   pr=$(pr_for_task "$meta")
   incarnation=$(meta_incarnation "$meta")
   # The receipt identity binds structured fields only: a persistent child that
@@ -556,7 +566,8 @@ reconcile_direct_child_locked() { # <id> <meta> <secondmate-id-or-empty> <timeou
 reconcile_direct_child() { # <id> <meta> <secondmate-id-or-empty> <timeout>
   local id=$1 meta=$2 self=${3:-} timeout=$4 lock rc=0
   lock=$(fm_meta_lock_path "$meta") || return 1
-  fm_lock_acquire_wait "$lock" || return 1
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then fm_lock_try_acquire "$lock" || return 3;
+  else fm_lock_acquire_wait "$lock" || return 1; fi
   reconcile_direct_child_locked "$id" "$meta" "$self" "$timeout" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -578,7 +589,7 @@ scan_pass() { # <cursor> <after|through> <deadline> <secondmate-id-or-empty>
       through) [ -n "$cursor" ] && [[ "$id" > "$cursor" ]] && continue ;;
     esac
     first=0
-    if [ "${SCAN_FIRST_VISIT_PENDING:-0}" -eq 1 ]; then
+    if [ -z "${FM_CHECKPOINT_DEADLINE:-}" ] && [ "${SCAN_FIRST_VISIT_PENDING:-0}" -eq 1 ]; then
       first=1
       SCAN_FIRST_VISIT_PENDING=0
     fi
@@ -606,6 +617,7 @@ scan() {
   if self=$(home_secondmate_id); then
     # The ledger-first delivery is per poll, not per cadence.
     ledger_pass
+    fm_checkpoint_expired && return 0
   else
     marker_rc=$?
     self=''
@@ -622,13 +634,14 @@ scan() {
     return 0
   fi
   deadline=$(( $(date +%s) + FM_INACTIVE_RECONCILE_BUDGET_SECS ))
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] && [ "$deadline" -gt "$FM_CHECKPOINT_DEADLINE" ]; then deadline=$FM_CHECKPOINT_DEADLINE; fi
   SCAN_FIRST_VISIT_PENDING=1
   scan_pass "$cursor" after "$deadline" "$self" || rc=$?
   if [ "$rc" -eq 0 ] && [ -n "$cursor" ]; then
     scan_pass "$cursor" through "$deadline" "$self" || rc=$?
   fi
   if [ "$rc" -eq 0 ]; then
-    write_scan_marker '' || return 1
+    write_scan_marker '' 1 || return 1
   elif [ "$rc" -ne 3 ]; then
     return "$rc"
   fi
@@ -668,7 +681,11 @@ case "$mode" in
     # process-group kill is only the backstop for a scan wedged outside every
     # bounded section (an unbounded lock wait), so it fires one second after
     # the deadline instead of racing the clean bounded exit it exists to guard.
-    if fm_run_timed $((FM_INACTIVE_RECONCILE_BUDGET_SECS + 1)) "$0" _scan-locked "$startup"; then
+    if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then
+      "$0" _scan-locked "$startup"
+      rc=$?
+      [ "$rc" -eq 0 ] || [ "$rc" -eq 124 ] || exit 1
+    elif fm_run_timed $((FM_INACTIVE_RECONCILE_BUDGET_SECS + 1)) "$0" _scan-locked "$startup"; then
       :
     elif [ "$?" -ne 124 ]; then
       exit 1
@@ -676,9 +693,13 @@ case "$mode" in
     ;;
   _scan-locked)
     [ "$#" -eq 2 ] || exit 2
-    fm_lock_acquire_wait "$SCAN_LOCK" || exit 1
+    if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then fm_lock_try_acquire "$SCAN_LOCK" || exit 124;
+    else fm_lock_acquire_wait "$SCAN_LOCK" || exit 1; fi
     trap 'fm_lock_release "$SCAN_LOCK"' EXIT
-    scan "$2"
+    rc=0
+    scan "$2" || rc=$?
+    [ -z "${FM_CHECKPOINT_RECOVERY_REASON:-}" ] || printf '%s\n' "$FM_CHECKPOINT_RECOVERY_REASON"
+    exit "$rc"
     ;;
   report)
     if [ "$#" -ne 2 ] || ! valid_id "$2"; then

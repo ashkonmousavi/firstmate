@@ -430,7 +430,7 @@ fm_pending_reply_confirm_delivery() {  # <state-dir> <corr_id>
   STATE=$state
   lock="$state/.pending-reply-$corr.lock"
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   _fm_pending_reply_confirm_delivery_locked "$@" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -511,7 +511,7 @@ fm_pending_reply_reconcile_delivery() {  # <state-dir> <corr_id>
   STATE=$state
   lock="$state/.pending-reply-$corr.lock"
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   _fm_pending_reply_reconcile_delivery_locked "$@" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -542,7 +542,7 @@ fm_pending_reply_reset_known_undelivered() {  # <state-dir> <corr_id>
   STATE=$state
   lock="$state/.pending-reply-$corr.lock"
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   _fm_pending_reply_reset_known_undelivered_locked "$@" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -663,7 +663,7 @@ fm_pending_reply_try_resolve() {  # <state-dir> <corr_id> [status-file-override]
   lock="$state/.pending-reply-$corr.lock"
   # shellcheck source=bin/fm-wake-lib.sh
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   _fm_pending_reply_try_resolve_locked "$@" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -992,7 +992,8 @@ fm_pending_reply_send_recovery() {  # <state-dir> <corr_id>
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
   # The phase is re-read after the resolve attempt, whatever it returned: a
   # resolve that failed on a later field write has still committed resolved.
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_admit "$task_id" reply-recovery || return 124
+  fm_checkpoint_lock "$lock" || return 1
   if _fm_pending_reply_try_resolve_locked "$state" "$corr" "$status_file" \
     || [ "$(fm_pending_reply_get "$rec" phase)" != awaiting_report ] \
     || ! fm_pending_reply_set "$rec" recovery_sender_pid "$sender_pid" \
@@ -1185,7 +1186,7 @@ fm_pending_reply_close_escalation() {  # <state-dir> <corr_id>
   # fm_pending_reply_try_resolve site; each directed site would re-expand its
   # whole transitive graph under ShellCheck's external-source traversal.
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   _fm_pending_reply_close_escalation_locked "$@" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -1211,7 +1212,7 @@ fm_pending_reply_retire_notice() {  # <parent-home> <task-id> <corr_id>
   # fm_pending_reply_try_resolve site; each directed site would re-expand its
   # whole transitive graph under ShellCheck's external-source traversal.
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   if [ "$(fm_pending_reply_get "$rec" schema)" != "$FM_PENDING_REPLY_SCHEMA" ] ||
      [ "$(fm_pending_reply_get "$rec" corr_id)" != "$corr" ] ||
      [ "$(fm_pending_reply_get "$rec" task_id)" != "$task_id" ] ||
@@ -1299,7 +1300,7 @@ fm_pending_reply_maybe_escalate() {  # <state-dir> <corr_id>
   # fm_pending_reply_try_resolve site; each directed site would re-expand its
   # whole transitive graph under ShellCheck's external-source traversal.
   . "$_FM_PENDING_REPLY_LIB_DIR/fm-wake-lib.sh"
-  fm_lock_acquire_wait "$lock" || return 1
+  fm_checkpoint_lock "$lock" || return 1
   _fm_pending_reply_maybe_escalate_locked "$@" || rc=$?
   fm_lock_release "$lock"
   return "$rc"
@@ -1581,7 +1582,8 @@ fm_pending_reply_tick() {  # <state-dir>
   local -a observation_tasks=() observation_values=() records=() selected=()
   dir=$(fm_pending_reply_dir "$state")
   [ -d "$dir" ] || return 0
-  for rec in "$dir"/*; do
+  while IFS= read -r -d '' rec; do
+    fm_checkpoint_expired && return 124
     [ -f "$rec" ] || continue
     case "${rec##*/}" in
       .*) continue ;;
@@ -1592,11 +1594,13 @@ fm_pending_reply_tick() {  # <state-dir>
       *$'\n'*) selected+=("$rec") ;;
       *) records+=("$rec") ;;
     esac
-  done
+  done < <(fm_checkpoint_files replies "$dir" '')
   while IFS= read -r rec; do
     selected+=("$rec")
   done < <(_fm_pending_reply_select_needing_work ${records[@]+"${records[@]}"})
   for rec in ${selected[@]+"${selected[@]}"}; do
+    fm_checkpoint_expired && return 124
+    fm_checkpoint_cursor replies "${rec##*/}" || return 1
     corr=$(fm_pending_reply_get "$rec" corr_id)
     [ -n "$corr" ] || corr=$(basename "$rec")
     task_id=$(fm_pending_reply_get "$rec" task_id)
@@ -1686,12 +1690,13 @@ fm_pending_reply_tick() {  # <state-dir>
             # is the same unknown as any other failed observation.
             observe_budget=${FM_PENDING_REPLY_OBSERVE_BUDGET:-30}
             case "$observe_budget" in ''|*[!0-9]*|0) observe_budget=30 ;; esac
-            observation=$(fm_run_timed "$observe_budget" "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
+            observation=$(fm_checkpoint_read "$_FM_PENDING_REPLY_LIB_DIR/fm-pending-reply-lib.sh" fm_run_timed "$observe_budget" "$_FM_PENDING_REPLY_LIB_DIR/fm-on.sh" "$task_id" \
               fm-remote-secondmate-control.sh observe "$task_id" < /dev/null 2>/dev/null || printf 'unknown')
             case "$observation" in busy|idle|fallback-idle|unknown) ;; *) observation=unknown ;; esac
           else
-            observation=$(fm_pending_reply_backend_observation "$backend" "$target" "$label" "$harness")
+            observation=$(fm_checkpoint_read "$_FM_PENDING_REPLY_LIB_DIR/fm-pending-reply-lib.sh" fm_pending_reply_backend_observation "$backend" "$target" "$label" "$harness")
           fi
+          fm_checkpoint_expired && return 124
           observation_tasks+=("$task_id")
           observation_values+=("$observation")
         fi

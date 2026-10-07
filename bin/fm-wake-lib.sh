@@ -755,7 +755,7 @@ _fm_recovery_marker_publish() {
   if [ -n "$bound" ]; then
     fm_lock_acquire_wait_max "$lock" "$bound" || return 1
   else
-    fm_lock_acquire_wait "$lock" || return 1
+    fm_checkpoint_lock "$lock" || return $?
   fi
   if [ -d "$marker" ] && [ ! -L "$marker" ]; then
     fm_lock_release "$lock"
@@ -901,13 +901,14 @@ _fm_recovery_marker_ack() {
 }
 
 _fm_recovery_marker_arm_check() {
-  local marker=$1 lock line quarantine
+  local marker=$1 lock line quarantine rc=0
   FM_RECOVERY_MARKER_ACTION='none'
   lock="${marker}.lock"
-  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
-  if ! fm_lock_acquire_wait "$lock"; then
+  fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || return $?
+  if fm_checkpoint_lock "$lock"; then :; else
+    rc=$?
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
-    return 1
+    return "$rc"
   fi
   if [ ! -e "$marker" ] && [ ! -L "$marker" ]; then
     if [ -s "$FM_WAKE_QUEUE" ]; then
@@ -977,12 +978,13 @@ _fm_recovery_marker_arm_check() {
 # Apply the owner-documented announced-episode arm transition atomically with
 # the queue read. Handling successors must not call this transition.
 _fm_recovery_marker_reopen_announced() {
-  local marker=$1 lock
+  local marker=$1 lock rc=0
   lock="${marker}.lock"
-  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
-  if ! fm_lock_acquire_wait "$lock"; then
+  fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || return $?
+  if fm_checkpoint_lock "$lock"; then :; else
+    rc=$?
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
-    return 1
+    return "$rc"
   fi
   if ! fm_recovery_marker_read "$marker"; then
     fm_lock_release "$lock"
@@ -1012,14 +1014,15 @@ _fm_recovery_marker_reopen_announced() {
 FM_RECOVERY_HANDOVER_TOKEN=
 FM_RECOVERY_HANDOVER_SEQ=
 fm_recovery_marker_handover_snapshot() {  # <marker>
-  local marker=$1 lock
+  local marker=$1 lock rc=0
   FM_RECOVERY_HANDOVER_TOKEN=
   FM_RECOVERY_HANDOVER_SEQ=
   lock="${marker}.lock"
-  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
-  if ! fm_lock_acquire_wait "$lock"; then
+  fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || return $?
+  if fm_checkpoint_lock "$lock"; then :; else
+    rc=$?
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
-    return 1
+    return "$rc"
   fi
   if fm_recovery_marker_read "$marker"; then
     # shellcheck disable=SC2034 # Read by callers after this function returns.
@@ -1032,13 +1035,14 @@ fm_recovery_marker_handover_snapshot() {  # <marker>
 }
 
 _fm_recovery_marker_handover_restore() {
-  local marker=$1 token=$2 seq=$3 lock status=0
+  local marker=$1 token=$2 seq=$3 lock status=0 rc=0
   case "$token" in acked:*) ;; *) return 0 ;; esac
   lock="${marker}.lock"
-  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
-  if ! fm_lock_acquire_wait "$lock"; then
+  fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || return $?
+  if fm_checkpoint_lock "$lock"; then :; else
+    rc=$?
     fm_lock_release "$FM_WAKE_QUEUE_LOCK"
-    return 1
+    return "$rc"
   fi
   if [ "$(cat "$STATE/.wake-queue.seq" 2>/dev/null || true)" = "$seq" ] \
     && fm_recovery_marker_read "$marker"; then
@@ -2162,7 +2166,7 @@ fm_wake_clean_field() {
 
 fm_wake_append() {
   local status=0
-  fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK"
+  fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || return $?
   fm_wake_append_locked "$@" || status=$?
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
   return "$status"

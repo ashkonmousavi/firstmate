@@ -338,6 +338,254 @@ SH
   pass 'checkpoint defers a slow dependent crew read without inventing a stale verdict'
 }
 
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
+
+make_mate_checkpoint_home() {
+  local home
+  home=$(make_sweep_home "$1" 0)
+  mkdir -p "$home/child/state"
+  printf 'mate\n' > "$home/child/.fm-secondmate-home"
+  printf 'kind=secondmate\nbackend=tmux\nharness=codex\nwindow=fixture:mate\nhome=%s/child\n' "$home" > "$home/state/mate.meta"
+  printf '100\t7\tcheck\trouted\tcheck: retained child row\n' > "$home/child/state/.wake-queue"
+  printf '%s\t100-7\n' "$(( $(date +%s) - 5 ))" > "$home/state/.secondmate-wake-progress-mate"
+  touch "$home/state/.secondmate-liveness-tick"
+  printf '%s\n' "$home"
+}
+
+run_mate_checkpoint() {
+  local home=$1
+  shift
+  MATE_RC=0
+  fm_run_timed 18 env PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+    FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_SECONDMATE_WAKE_STALL_SECS=1 "$CHECKPOINT" "$@" > "$home/out.txt" 2> "$home/err.txt" || MATE_RC=$?
+}
+
+ack_checkpoint_wakes() {
+  local home=$1 seq generation
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" > "$home/drained" 2> "$home/drain.err"
+  seq=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9]*\) --recovery-generation .*/\1/p' "$home/drain.err")
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([^ ]*\)$/\1/p' "$home/drain.err")
+  [ -n "$seq" ] && [ -n "$generation" ] || fail 'missing generation-bound recovery acknowledgement'
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" --ack-through "$seq" --recovery-generation "$generation" >/dev/null || fail 'recovery acknowledgement failed'
+}
+
+test_secondmate_stall_read_is_bounded_and_resumes() {
+  local home before started elapsed i
+  home=$(make_mate_checkpoint_home sibling-stall)
+  before=$(cat "$home/state/mate.meta" "$home/child/state/.wake-queue" "$home/state/.secondmate-wake-progress-mate")
+  started=$SECONDS
+  FM_FIXTURE_CAPTURE_DELAY=30 run_mate_checkpoint "$home" --seconds 3
+  elapsed=$((SECONDS - started))
+  expect_code 124 "$MATE_RC" "secondmate stall checkpoint: $(cat "$home/err.txt")"
+  [ "$elapsed" -le 6 ] || fail "stall read exceeded independent close bound: ${elapsed}s"
+  assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'stall read missed the quiet contract'
+  [ -s "$home/captures" ] || fail 'the stall capture was never entered'
+  [ "$before" = "$(cat "$home/state/mate.meta" "$home/child/state/.wake-queue" "$home/state/.secondmate-wake-progress-mate")" ] || fail 'timed-out observation changed child custody or progress'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'unknown stalled observation produced a wake'
+  assert_absent "$home/state/.secondmate-wake-stall-mate" 'unknown stalled observation completed the tick'
+  for i in 1 2 3 4; do
+    FM_FIXTURE_CAPTURE_DELAY=0 run_mate_checkpoint "$home" --seconds 3
+    [ "$MATE_RC" -ne 0 ] || break
+    expect_code 124 "$MATE_RC" 'resumed stall observation failed'
+  done
+  expect_code 0 "$MATE_RC" 'the restored stall owner never resumed'
+  assert_contains "$(cat "$home/out.txt")" 'secondmate wake-loop stalled: mate=mate row=7' 'restored owner lost its row'
+  [ "$(awk -F '\t' '$3 == "check" && $4 == "secondmate-wake-loop-mate-100-7" { n++ } END { print n+0 }' "$home/state/.wake-queue")" -eq 1 ] || fail 'restored stall row was not delivered exactly once'
+  ack_checkpoint_wakes "$home"
+  FM_FIXTURE_CAPTURE_DELAY=0 run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" 'acknowledged stall was replayed'
+  pass 'secondmate capture exhaustion preserves the row and resumes one acknowledged wake'
+}
+
+test_short_checkpoint_hands_relaunch_to_foreground_owner_once() {
+  local home before i
+  home=$(make_mate_checkpoint_home sibling-relaunch)
+  rm -f "$home/state/.secondmate-liveness-tick" "$home/child/state/.wake-queue"
+  mkdir -p "$home/fixture-root/bin"
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in list-windows) printf 'main\n'; exit 0 ;; esac
+exit 1
+SH
+  cat > "$home/fixture-root/bin/fm-spawn.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_HOME/spawn-entered"
+sleep 1
+exit 0
+SH
+  chmod +x "$home/fixture-root/bin/fm-spawn.sh"
+  before=$(cat "$home/state/mate.meta")
+  FM_ROOT_OVERRIDE="$home/fixture-root" run_mate_checkpoint "$home" --seconds 3
+  expect_code 0 "$MATE_RC" "short recovery admission: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'recovery cycle required for relaunch mate' 'short checkpoint failed to hand back the owed recovery'
+  assert_absent "$home/spawn-entered" 'short checkpoint started the indivisible spawn'
+  assert_absent "$home/state/.secondmate-relaunch-mate" 'deferral consumed a relaunch attempt'
+  assert_absent "$home/state/.secondmate-liveness-tick" 'deferral completed liveness cadence'
+  [ "$before" = "$(cat "$home/state/mate.meta")" ] || fail 'deferral changed ownership'
+  FM_ROOT_OVERRIDE="$home/fixture-root" run_mate_checkpoint "$home" --seconds 3
+  expect_code 0 "$MATE_RC" 'a repeated short checkpoint bypassed its owed recovery'
+  assert_absent "$home/spawn-entered" 'repeated short checkpoint admitted the spawn'
+  for i in 1 2; do
+    FM_ROOT_OVERRIDE="$home/fixture-root" run_mate_checkpoint "$home" --recover
+    expect_code 0 "$MATE_RC" "foreground recovery cycle $i: $(cat "$home/err.txt")"
+  done
+  [ "$(wc -l < "$home/spawn-entered")" -eq 1 ] || fail 'the recovery owner spawned more than once'
+  [ "$(awk -F '\t' '$2 == "attempt" {n++} END {print n+0}' "$home/state/.secondmate-relaunch-mate")" -eq 1 ] || fail 'wrong relaunch attempt count'
+  [ "$(awk -F '\t' '$2 == "relaunched" {n++} END {print n+0}' "$home/state/.secondmate-relaunch-mate")" -eq 1 ] || fail 'missing exactly one successful relaunch outcome'
+  [ "$(awk -F '\t' '$3 == "check" && $4 ~ /^secondmate-relaunch-mate-/ {n++} END {print n+0}' "$home/state/.wake-queue")" -eq 1 ] || fail 'wrong successful recovery wake count'
+  ack_checkpoint_wakes "$home"
+  FM_ROOT_OVERRIDE="$home/fixture-root" run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" 'handled recovery did not return to ordinary quiet supervision'
+  pass 'short checkpoints preserve recovery and the explicit foreground owner completes it once'
+}
+
+test_sibling_pending_observation_preserves_unknown() {
+  local home corr rec
+  home=$(make_mate_checkpoint_home sibling-reply)
+  rm -f "$home/child/state/.wake-queue"
+  corr=$(FM_HOME="$home" bash -c '. "$1"; corr=$(fm_pending_reply_create "$2" "$2/state" mate "report the retained work"); fm_pending_reply_mark_delivered "$2/state" "$corr"; printf "%s\n" "$corr"' _ "$ROOT/bin/fm-pending-reply-lib.sh" "$home")
+  rec="$home/state/pending-replies/$corr"
+  FM_FIXTURE_CAPTURE_DELAY=30 run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" "pending observation: $(cat "$home/err.txt")"
+  [ -s "$home/captures" ] || fail 'pending-reply capture was not exercised'
+  grep -Fxq 'phase=awaiting_report' "$rec" || fail 'a timed-out observation closed the expectation'
+  grep -Fxq 'request_turn_completed_epoch=' "$rec" || fail 'unknown became a completed turn'
+  grep -Fxq 'recovery_attempted_epoch=' "$rec" || fail 'unknown started recovery'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'unknown became a missed-report wake'
+  pass 'pending-reply read exhaustion retains the expectation without a fabricated completion'
+}
+
+test_capacity_read_cannot_starve_later_lane() {
+  local home i
+  home=$(make_sweep_home sibling-capacity 0)
+  printf '2\n' > "$home/config/writing-lane-cap"
+  cat > "$home/fakebin/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_HOME/ready-entered"
+sleep 30
+printf 'ready[0]\n'
+SH
+  chmod +x "$home/fakebin/tasks-axi"
+  run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" "capacity read: $(cat "$home/err.txt")"
+  [ -s "$home/ready-entered" ] || fail 'the capacity owner was not exercised'
+  assert_absent "$home/state/.last-idle-lane-check" 'incomplete capacity read completed its cadence'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'unknown ready data became a capacity wake'
+  printf 'kind=ship\nbackend=tmux\nharness=codex\nwindow=fixture:later\n' > "$home/state/later.meta"
+  printf '%s 4242\n' "$(date +%s)" > "$home/state/later.prompt-waiting"
+  for i in 1 2 3; do
+    run_mate_checkpoint "$home" --seconds 3
+    [ "$MATE_RC" -ne 0 ] || break
+    expect_code 124 "$MATE_RC" 'deferred global read failed on continuation'
+  done
+  expect_code 0 "$MATE_RC" 'a hung early owner permanently starved the later lane'
+  assert_contains "$(cat "$home/out.txt")" 'stale: fixture:later (a permission or question prompt is waiting in the pane)' 'later lane witness missing'
+  ack_checkpoint_wakes "$home"
+  pass 'an expired capacity owner leaves cadence due and cannot starve a later recorded lane'
+}
+
+test_inactive_read_shares_deadline_and_keeps_cadence_due() {
+  local home
+  home=$(make_sweep_home sibling-inactive 1)
+  touch -t 202001010000 "$home/state/lane-001.meta"
+  cat > "$home/fakebin/inactive-state" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$FM_HOME/inactive-entered"
+sleep 30
+printf 'state: done · source: status · delayed outcome\n'
+SH
+  chmod +x "$home/fakebin/inactive-state"
+  FM_INACTIVE_CREW_STATE_BIN="$home/fakebin/inactive-state" run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" "inactive read: $(cat "$home/err.txt")"
+  [ -s "$home/inactive-entered" ] || fail 'inactive reconciliation was not exercised'
+  grep -Fxq 'complete=0' "$home/state/.inactive-outcome-reconcile" || fail 'incomplete scan consumed cadence'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'a timed-out state read fabricated a terminal outcome'
+  pass 'inactive reconciliation shares the checkpoint deadline and retains its incomplete cursor'
+}
+
+test_unknown_liveness_keeps_checkpoint_cadence_due() {
+  local home
+  home=$(make_mate_checkpoint_home unknown-liveness)
+  rm -f "$home/state/.secondmate-liveness-tick" "$home/child/state/.wake-queue"
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_HOME/agent-reads"
+exit 1
+SH
+  run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" 'unknown liveness checkpoint'
+  [ -s "$home/agent-reads" ] || fail 'unknown endpoint observation was not exercised'
+  assert_absent "$home/state/.secondmate-liveness-tick" 'unknown checkpoint observation completed cadence'
+  assert_absent "$home/state/.secondmate-relaunch-mate" 'unknown endpoint started recovery'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'unknown endpoint produced a recovery verdict'
+  run_mate_checkpoint "$home" --recover
+  expect_code 0 "$MATE_RC" 'ordinary recovery owner with an unknown endpoint'
+  [ -e "$home/state/.secondmate-liveness-tick" ] || fail 'ordinary unbounded liveness cadence changed'
+  assert_absent "$home/state/.secondmate-relaunch-mate" 'ordinary unknown endpoint started recovery'
+  pass 'unknown checkpoint observations leave cadence due without changing ordinary supervision'
+}
+
+test_queue_contention_preserves_park_and_surfaces_known_sibling() {
+  local home now i
+  local STATE FM_WAKE_QUEUE FM_WAKE_QUEUE_LOCK FM_HOME FM_STATE_OVERRIDE
+  home=$(make_sweep_home queue-contention 0)
+  FM_HOME=$home
+  FM_STATE_OVERRIDE="$home/state"
+  printf 'kind=secondmate\nbackend=tmux\nharness=codex\nwindow=unreadable:unknown\n' > "$home/state/a-unknown.meta"
+  printf 'kind=secondmate\nbackend=tmux\nharness=codex\nwindow=fixture:mate\n' > "$home/state/mate.meta"
+  now=$(date +%s)
+  for i in 1 2 3; do printf '%s\tattempt\n' "$now" >> "$home/state/.secondmate-relaunch-mate"; done
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  list-windows)
+    case "$*" in *unreadable*) exit 1 ;; esac
+    printf 'main\n'; exit 0 ;;
+esac
+exit 1
+SH
+  # shellcheck source=bin/fm-wake-lib.sh
+  . "$ROOT/bin/fm-wake-lib.sh"
+  fm_lock_try_acquire "$FM_WAKE_QUEUE_LOCK" || fail 'could not hold the fixture queue'
+  run_mate_checkpoint "$home" --seconds 3
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  expect_code 124 "$MATE_RC" "contended queue checkpoint: $(cat "$home/err.txt")"
+  assert_absent "$home/state/.secondmate-relaunch-bound-mate" 'an unpublished wake consumed its park marker'
+  assert_absent "$home/state/.secondmate-liveness-tick" 'contention completed cadence'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'contention fabricated a queued wake'
+  for i in 1 2 3 4; do
+    run_mate_checkpoint "$home" --seconds 3
+    [ "$MATE_RC" -ne 0 ] || break
+    expect_code 124 "$MATE_RC" 'queue contention continuation failed'
+  done
+  expect_code 0 "$MATE_RC" 'restored queue suppressed the known sibling wake'
+  assert_contains "$(cat "$home/out.txt")" 'auto-relaunch paused after 3 attempts' 'known sibling wake missing'
+  [ -e "$home/state/.secondmate-relaunch-bound-mate" ] || fail 'durable known wake lacks its park marker'
+  assert_absent "$home/state/.secondmate-liveness-tick" 'unknown sibling completed checkpoint cadence'
+  [ "$(awk -F '\t' '$3 == "check" && $4 == "secondmate-relaunch-bound-mate" {n++} END {print n+0}' "$home/state/.wake-queue")" -eq 1 ] || fail 'known sibling wake was not queued once'
+  [ "$(awk -F '\t' '$2 == "attempt" {n++} END {print n+0}' "$home/state/.secondmate-relaunch-mate")" -eq 3 ] || fail 'contention consumed an extra recovery attempt'
+  ack_checkpoint_wakes "$home"
+  pass 'contended startup preserves ownership and an unknown sibling cannot suppress a durable known wake'
+}
+
+test_checkpoint_deadline_is_scoped_to_watch_reads() {
+  local home status=0
+  home=$(make_home deadline-scope)
+  printf 'kind=ship\nwindow=fixture:scope\n' > "$home/state/scope.meta"
+  FM_HOME="$home" FM_WATCH_CHECKPOINT_SECONDS=3 bash -c '
+    . "$1/bin/fm-watch.sh"
+    [ -n "$FM_CHECKPOINT_DEADLINE" ] || exit 1
+    result=$(bash -c '\''[ -z "${FM_CHECKPOINT_DEADLINE:-}" ] || exit 9; . "$1"; fm_meta_get "$2" window'\'' _ "$1/bin/fm-backend.sh" "$2/state/scope.meta")
+    [ "$result" = fixture:scope ] || exit 1
+    captured=$(checkpoint_read fm_backend_meta_for_window fixture:scope "$2/state")
+    [ "$captured" = "$2/state/scope.meta" ]
+  ' _ "$ROOT" "$home" || status=$?
+  expect_code 0 "$status" 'watch deadline leaked into ordinary child metadata reads or lost its bounded read context'
+  pass 'watch deadlines stay scoped to observations and do not alter ordinary child consumers'
+}
+
 test_quiet_checkpoint_exits_124_cleanly
 test_signal_passes_through_and_exits_zero
 test_registered_check_uses_preserved_watcher_environment
@@ -354,3 +602,13 @@ test_deferred_later_lane_survives_and_is_delivered_once
 test_slow_crew_read_defers_without_false_stale
 
 test_duplicate_target_cannot_pin_sweep_continuation
+
+test_secondmate_stall_read_is_bounded_and_resumes
+test_short_checkpoint_hands_relaunch_to_foreground_owner_once
+test_sibling_pending_observation_preserves_unknown
+test_capacity_read_cannot_starve_later_lane
+test_inactive_read_shares_deadline_and_keeps_cadence_due
+
+test_unknown_liveness_keeps_checkpoint_cadence_due
+test_queue_contention_preserves_park_and_surfaces_known_sibling
+test_checkpoint_deadline_is_scoped_to_watch_reads

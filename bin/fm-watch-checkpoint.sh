@@ -24,25 +24,32 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 SECONDS_ARG=${FM_CODEX_WATCH_CHECKPOINT:-180}
+RECOVER=0
+EXPLICIT_SECONDS=0
 
 usage() {
   cat <<'EOF'
-Usage: fm-watch-checkpoint.sh [--seconds <n>]
+Usage: fm-watch-checkpoint.sh [--seconds <n> | --recover]
 
 Run bin/fm-watch.sh in the foreground for a bounded checkpoint.
 On an actionable watcher wake, pass through the watcher output and exit 0.
+With --recover, run one foreground recovery cycle through the existing watcher,
+without a quiet deadline; each recovery owner retains its existing stage bounds.
 On a quiet checkpoint, print "checkpoint: no actionable wake within <n>s" and exit 124.
 EOF
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --recover) RECOVER=1; shift ;;
     --seconds)
+      EXPLICIT_SECONDS=1
       [ "$#" -gt 1 ] || { echo "error: --seconds requires a value" >&2; exit 2; }
       SECONDS_ARG=$2
       shift 2
       ;;
     --seconds=*)
+      EXPLICIT_SECONDS=1
       SECONDS_ARG=${1#--seconds=}
       shift
       ;;
@@ -57,6 +64,8 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+[ "$RECOVER" -eq 0 ] || [ "$EXPLICIT_SECONDS" -eq 0 ] || { echo 'error: --recover cannot carry a quiet checkpoint bound' >&2; exit 2; }
 
 case "$SECONDS_ARG" in
   ''|*[!0-9]*) echo "error: --seconds must be a positive integer" >&2; exit 2 ;;
@@ -156,6 +165,27 @@ positive_or() {  # <value> <default>
 
 # shellcheck source=bin/fm-supervision-engine-lib.sh
 . "$SCRIPT_DIR/fm-supervision-engine-lib.sh"
+if [ "$RECOVER" -eq 1 ]; then
+  FM_WATCH_CHECKPOINT_SECONDS= FM_CHECKPOINT_DEADLINE= FM_WATCH_RECOVERY_CYCLE=1 \
+    "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+  RC=$?
+  if grep -q '^watcher: already running' "$OUT" "$ERR"; then
+    echo 'checkpoint: watcher is already running outside this foreground recovery cycle' >&2
+    RC=1
+  fi
+  [ ! -s "$OUT" ] || cat "$OUT"
+  [ ! -s "$ERR" ] || cat "$ERR" >&2
+  checkpoint_finish_watcher_lock || exit 1
+  checkpoint_finish_handling || exit 1
+  [ "$RC" -ne 75 ] || RC=0
+  exit "$RC"
+fi
+recovery_reason=$(awk -F '\t' '$3 == "check" && $4 ~ /^checkpoint-recovery-/ { print $5; exit }' "$STATE/.wake-queue" 2>/dev/null || true)
+if [ -n "$recovery_reason" ]; then
+  printf '%s\n' "$recovery_reason"
+  checkpoint_finish_handling || exit 1
+  exit 0
+fi
 if fm_supervision_host_enabled "$CONFIG" codex; then
   BOUND=$SECONDS_ARG
   if [ -f "$STATE/.afk-contract" ] \
@@ -169,7 +199,7 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
   set +e
   # The host ends its own park; the outer bound only catches a host that
   # outlived every one of its own bounds.
-  FM_SUPERVISION_HOST_PRIMARY=codex FM_SUPERVISION_HOST_PARK_SECONDS=$BOUND FM_SUPERVISION_HOST_PARK_LIMIT=$LIMIT \
+  FM_SUPERVISION_WATCH_DEADLINE=$(( $(date +%s) + BOUND )) FM_SUPERVISION_HOST_PRIMARY=codex FM_SUPERVISION_HOST_PARK_SECONDS=$BOUND FM_SUPERVISION_HOST_PARK_LIMIT=$LIMIT \
     run_bounded $((LIMIT + 120)) "$SCRIPT_DIR/fm-supervision-host.sh" park >"$OUT" 2>"$ERR"
   RC=$?
   set -e
