@@ -226,6 +226,10 @@ hold_source_lock_then_handle() {  # <home> <source-id> <sequence> <ready-file> <
   HOLDER_PID=$!
 }
 
+# Keep full ShellCheck dataflow within the per-root memory budget by splitting
+# the long scenario sequence at function boundaries. Fixtures remain global,
+# and each section runs immediately in the original order and shell.
+test_capture_and_rounds() {
 # --- inert with nothing configured ------------------------------------------
 IDLE="$TMP_ROOT/idle"; mkdir -p "$IDLE"
 out=$(pe "$IDLE" list)
@@ -1496,6 +1500,10 @@ assert_grep 'ship it' "$(first_result "$HRETRY" "$retry_id")" \
   "the announced result is the captain's feedback, not the interruption"
 pass "a transient Lavish poll interruption is retried quietly and never announced"
 
+}
+test_capture_and_rounds
+
+test_recovery_and_claims() {
 # --- end-user-aligned regression: a retried poll does not resubmit the reply ---
 # The worker hands its round reply to the adapter once. When the first poll of
 # that round comes back as the transient interruption, the adapter's own quiet
@@ -2454,6 +2462,10 @@ pe "$HFC" retire aa-fast-src >/dev/null 2>&1 || true
 pe "$HFC" retire zz-hold-src >/dev/null 2>&1 || true
 pass "a launch that finished before confirmation looked is still reported as started"
 
+}
+test_recovery_and_claims
+
+test_validation_and_cleanup() {
 # --- a zero-padded confirm window is read as base 10 -------------------------
 # The window's validator reads base 10, so `08` is a value it accepts. Read as
 # octal in arithmetic it is not a number at all, which under `set -u` takes the
@@ -3830,8 +3842,14 @@ ORPHAN_DESCENDANT=$(cat "$TMP_ROOT/orphan-dead.descendant")
 
 # The reproduction condition itself: the listener is already an orphan in the
 # kernel's sense before anything is asserted about reaping it.
+# Observe the host's reaper independently: WSL and subreaper-backed sessions
+# adopt orphans without handing them to PID 1.
+orphan_probe_pid=$(bash -c 'sleep 30 </dev/null >/dev/null 2>&1 & printf "%s\n" "$!"')
+orphan_reaper_ppid=$(ps -o ppid= -p "$orphan_probe_pid" 2>/dev/null | tr -d '[:space:]')
+kill "$orphan_probe_pid" 2>/dev/null || true
+[ -n "$orphan_reaper_ppid" ] || fail "could not observe the host's orphan reaper"
 orphan_ppid=$(ps -o ppid= -p "$ORPHAN_PID" 2>/dev/null | tr -d '[:space:]')
-[ "$orphan_ppid" = 1 ] \
+[ "$orphan_ppid" = "$orphan_reaper_ppid" ] \
   || fail "the listener under test was not reparented away from its session (ppid $orphan_ppid)"
 kill -0 -"$ORPHAN_PID" 2>/dev/null \
   || fail "the listener's process group was not running"
@@ -4978,3 +4996,5 @@ PATH="$UNDISP/bin:$PATH" FM_HOME="$UNDISP/home" \
 pass "arm does not launch beside a stale claim whose process group is alive"
 
 printf '\nall procevent tests passed\n'
+}
+test_validation_and_cleanup

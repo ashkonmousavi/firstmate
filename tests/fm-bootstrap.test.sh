@@ -833,7 +833,6 @@ make_routine_bootstrap_fixture() {
     printf '%s\n' '.fm-secondmate-home'
     printf '%s\n' 'config/crew-harness'
     printf '%s\n' 'config/crew-dispatch.json'
-    printf '%s\n' 'config/startup-memory-budget'
   } > "$root/.gitignore"
   printf '%s\n' 'instructions' > "$root/AGENTS.md"
   mkdir -p "$root/bin" "$root/.agents/skills"
@@ -887,6 +886,19 @@ test_routine_bootstrap_confirmations_are_silent() {
   out=$(run_routine_bootstrap_fixture bash "$TMP_ROOT/routine-silent")
   [ -z "$out" ] || fail "routine bootstrap confirmations should be silent, got: $out"
   pass "bootstrap keeps routine tasks-axi, harness, dispatch, and already-live liveness confirmations silent"
+}
+
+# A primary bootstrap materializes no local setting the captain did not choose:
+# the config directory holds exactly what the fixture seeded.
+test_primary_bootstrap_adds_no_config() {
+  local case_dir out listing
+  case_dir="$TMP_ROOT/routine-config"
+  out=$(run_routine_bootstrap_fixture bash "$case_dir")
+  [ -z "$out" ] || fail "routine bootstrap should be silent, got: $out"
+  listing=$(find "$case_dir/home/config" -mindepth 1 -maxdepth 1 -exec basename {} \; | LC_ALL=C sort | tr '\n' ' ')
+  [ "$listing" = "crew-dispatch.json crew-harness " ] \
+    || fail "primary bootstrap created config the captain did not choose: $listing"
+  pass "primary bootstrap adds no config file of its own"
 }
 
 test_routine_bootstrap_contract_runs_under_system_bash() {
@@ -1272,6 +1284,7 @@ test_fleet_sync_timeout_explicit_override_wins
 test_fleet_sync_timeout_empty_override_uses_default
 test_fleet_sync_timeout_is_computed_before_launch
 test_routine_bootstrap_confirmations_are_silent
+test_primary_bootstrap_adds_no_config
 test_routine_bootstrap_contract_runs_under_system_bash
 test_network_phase_partitions_the_run
 test_network_sweeps_recheck_lock_ownership

@@ -166,7 +166,7 @@ Setup guides for tmux (the default) and every other supported backend (herdr, ze
      │
      ├─ ship: project mode ► PR/local merge ► teardown
      │
-     └─ scout: report at data/<id>/report.md ► decision inventory ► relay findings ► teardown
+     └─ scout: report at data/<id>/report.md ► relay findings ► teardown
 ```
 
 You chat with the first mate.
@@ -188,7 +188,7 @@ Claude and grok use the slash form shown here; codex uses the same names with `$
 | `/ahoy`            | Recap visible session events since the prior real captain message plus visibly unanswered captain decisions, then guide the captain through any open decisions one at a time in agent-judged impact order; fall back to Bearings when invoked as the session's first real captain message |
 | `/bearings`        | Generate a concise four-section chat digest from bounded fleet state, including registered remote-home ledgers and measured follow-up for owned contributions; use `/bearings file` to also replace today's dated report in `data/`, and add `include PRs` for live GitHub enrichment |
 | `/updatefirstmate` | Guardedly update the running firstmate and its secondmates - fast-forward, or reconcile a redundant post-squash-merge divergence - then persist and restart every live mate successfully left on the target commit - including already-current homes - with an honest re-read nudge only when restart cannot be proven |
-| `/stow`            | Sweep the session for uncaptured durable knowledge, persist the open work records this session knows are unfiled or now wrong, curate tiered startup memory with decay and cold archival, enforce each home's budget or surface the required decision, cascade to registered second mates, and report what is safe to reset |
+| [`/stow`](.agents/skills/stow/SKILL.md) | Sweep the session for uncaptured durable knowledge, persist the open work records this session knows are unfiled or now wrong, curate tiered startup memory with decay and cold archival, cascade to registered second mates, and report what is safe to reset |
 | `/push`            | Take over the fleet for one bounded pass: map each tangle to its cause from live evidence, untangle by hand where the machinery refuses, judge rules and gates by minutes cost, correct sequence and method on every machine, fill every lane, and report in minutes saved. |
 | `/retro`           | After a push or a hard period, route each lesson to one owner at the decision point, cut rules that cost time, keep `AGENTS.md` from growing, wake sleeping work on every machine, reconcile disagreeing records, and propagate to all mates. |
 

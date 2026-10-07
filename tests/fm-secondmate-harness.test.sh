@@ -15,11 +15,10 @@
 #   B) Inheritance. The primary pushes a declared, extensible set of LOCAL
 #      (gitignored) config items - config/crew-dispatch.json, config/crew-harness,
 #      config/backlog-backend, config/backend, config/herdr-presentation-spaces,
-#      config/startup-memory-budget, config/trace-context, and
-#      config/supervision-host-off -
+#      config/trace-context, and config/supervision-host-off -
 #      down into each secondmate home's config/, so the secondmate's OWN crewmates,
 #      dispatch profiles, backlog backend, runtime-backend default, Herdr
-#      presentation choice, startup-memory budget, and trace context inherit the
+#      presentation choice, and trace context inherit the
 #      primary's settings. For config/herdr-presentation-spaces, an absent
 #      primary file and an absent destination file both mean the same
 #      unconfigured default, so the generic absence mirror converges that item
@@ -1072,7 +1071,7 @@ new_world() {
     printf 'projects/\nstate/\ndata/\n.no-mistakes/\n'
     [ "$dispatch_ignore" = no ] || printf 'config/crew-dispatch.json\n'
     printf 'config/crew-harness\nconfig/secondmate-harness\nconfig/backlog-backend\n'
-    printf 'config/backend\nconfig/herdr-presentation-spaces\nconfig/startup-memory-budget\n'
+    printf 'config/backend\nconfig/herdr-presentation-spaces\n'
     printf 'config/claude-permission-mode\nconfig/claude-worker-settings.json\n'
   } > "$w/main/.gitignore"
   printf 'v1\n' > "$w/main/AGENTS.md"
@@ -1238,15 +1237,15 @@ inbox_stream() {  # <parent-state-dir> <task-id>
 }
 
 reread_instruction_path() {
-  local home=$1 state path latest=
+  local home=$1 state path latest
   state="$(cd "$home/state" && pwd -P)"
-  for path in "$state"/.fm-inherited-config-reread.*; do
-    case "$path" in
-      *.pending) continue ;;
-    esac
-    [ -f "$path" ] && [ ! -L "$path" ] || continue
-    latest="$path"
-  done
+  latest=$(
+    for path in "$state"/.fm-inherited-config-reread.*; do
+      [[ "$path" == *.pending ]] && continue
+      [ -f "$path" ] && [ ! -L "$path" ] || continue
+      printf '%s\n' "$path"
+    done | fm_config_reread_sort_generations | tail -n 1
+  )
   [ -n "$latest" ] || return 1
   printf '%s\n' "$latest"
 }
@@ -1428,10 +1427,9 @@ test_bootstrap_sweep_defers_dispatch_on_stale_unignored_home() {
   pass "B9 bootstrap sweep defers new inherited config until the home ignores it"
 }
 
-# The primary bootstrap always materializes the startup-memory default, so an
-# otherwise empty inherited surface converges that one visible value while
+# An empty inherited surface pushes nothing into the secondmate home, while
 # ordinary tracked-file fast-forward behavior remains unchanged.
-test_bootstrap_sweep_materializes_and_inherits_memory_default() {
+test_bootstrap_sweep_default_only_inherits_nothing() {
   local w c1
   w=$(new_world boot-noop)
   c1=$(git -C "$w/main" rev-parse HEAD)
@@ -1448,13 +1446,16 @@ test_bootstrap_sweep_materializes_and_inherits_memory_default() {
   [ -e "$w/sm/config/crew-dispatch.json" ] && fail "default-only sweep created a home crew-dispatch.json"
   [ -e "$w/sm/config/crew-harness" ] && fail "default-only sweep created a home crew-harness"
   [ -e "$w/sm/config/backend" ] && fail "default-only sweep created a home backend"
-  [ "$(cat "$w/home/config/startup-memory-budget")" = 7500 ] \
-    || fail "primary bootstrap did not materialize the startup-memory default"
-  [ "$(cat "$w/sm/config/startup-memory-budget")" = 7500 ] \
-    || fail "default-only sweep did not converge startup-memory-budget"
+  local created
+  created=$(find "$w/home/config" -mindepth 1 -maxdepth 1)
+  [ -z "$created" ] || fail "primary bootstrap created config of its own: $created"
+  if [ -d "$w/sm/config" ]; then
+    created=$(find "$w/sm/config" -mindepth 1 -maxdepth 1)
+    [ -z "$created" ] || fail "default-only sweep pushed config into the home: $created"
+  fi
   [ "$(git -C "$w/sm" rev-parse HEAD)" = "$head" ] \
     || fail "default-only sweep did not still fast-forward the tracked files"
-  pass "B10 bootstrap sweep materializes and inherits the startup-memory default while fast-forwarding"
+  pass "B10 bootstrap sweep inherits nothing from an empty primary config while fast-forwarding"
 }
 
 # config/backend: present and absent primary state converges exactly.
@@ -2175,8 +2176,8 @@ SH
 
 test_config_reread_write_failure_retains_exact_retry_generation() {
   local w head fakebin real_mv retry_dir out status stage_path log retry_out retry_status instr
-  local old_instr new_instr
-  w=$(new_world config-reread-write-retry)
+  local old_instr new_instr real_date clock=${1:-normal}
+  w=$(new_world "config-reread-write-retry-$clock")
   head=$(git -C "$w/main" rev-parse HEAD)
   add_sm_worktree "$w" sm "$head"
   mkdir -p "$w/sm/config" "$w/sm/state"
@@ -2184,6 +2185,23 @@ test_config_reread_write_failure_retains_exact_retry_generation() {
   printf 'codex\n' > "$w/home/config/crew-harness"
   fakebin=$(make_fake_toolchain "$w")
   real_mv=$(command -v mv)
+  if [ "$clock" = backwards ]; then
+    real_date=$(command -v date)
+    cat > "$fakebin/date" <<SH
+#!/usr/bin/env bash
+if [ "\$*" = '-u +%Y%m%dT%H%M%S' ]; then
+  if [ -f '$w/clock-read' ]; then
+    printf '%s\n' 20261006T120000
+  else
+    touch '$w/clock-read'
+    printf '%s\n' 20261006T120001
+  fi
+  exit 0
+fi
+exec "$real_date" "\$@"
+SH
+    chmod +x "$fakebin/date"
+  fi
   mkdir -p "$w/home/state/.fm-inherited-config-reread-retry/sm"
   retry_dir=$(cd "$w/home/state/.fm-inherited-config-reread-retry/sm" && pwd -P)
   cat > "$fakebin/mv" <<SH
@@ -2642,7 +2660,6 @@ cat > "$w/main/bin/fm-spawn.sh" <<SH
 . '$w/main/bin/fm-config-inherit-lib.sh'
 printf '%s' spawn >> '$log'
 printf '%s' codex > '$w/sm/config/crew-harness'
-printf '%s\n' 7500 > '$w/sm/config/startup-memory-budget'
 SH
   chmod +x "$w/main/bin/fm-spawn.sh"
   fakebin=$(make_fake_toolchain "$w")
@@ -2770,7 +2787,7 @@ test_spawn_fallback_chain_and_crew_scout_unaffected
 test_bootstrap_sweep_propagates_and_reconverges
 test_bootstrap_sweep_propagates_when_tracked_current
 test_bootstrap_sweep_defers_dispatch_on_stale_unignored_home
-test_bootstrap_sweep_materializes_and_inherits_memory_default
+test_bootstrap_sweep_default_only_inherits_nothing
 test_backend_inheritance_present_and_absent
 test_spawn_secondmate_claude_permission_mode_auto
 test_spawn_secondmate_claude_grants_parent_inbox_dir
@@ -2787,6 +2804,7 @@ test_config_reread_per_home_changed_sets_and_exact_bytes
 test_config_reread_isolation_and_absent_and_send_failure
 test_config_reread_publication_failure_retries_exact_generation
 test_config_reread_write_failure_retains_exact_retry_generation
+test_config_reread_write_failure_retains_exact_retry_generation backwards
 test_config_reread_exact_temp_survives_adoption_failure
 test_config_reread_serializes_concurrent_pushes
 test_config_reread_full_retry_queue_drains_before_new_push

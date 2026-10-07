@@ -58,6 +58,7 @@ Handle it start to finish in one turn sequence:
 A crash after the report but before acknowledgement re-presents the wake, and re-handling may append a second outcome note; that benign over-reporting is deliberately accepted because replay is preferred over loss, and no idempotency machinery exists for it by design.
 
 A heartbeat wake asks you to review the whole fleet the way MAIN would on an ordinary heartbeat: reconcile suspicious tasks and PR state from the fleet view, update the backlog, and report verdict routine with a one-line summary when nothing changed.
+Before sequencing queued work, read the planner wave plan and Q bug list that `.agents/skills/push/SKILL.md` Gather requires.
 Also verify, for each project with a deploy target, that its health answers and that the live server serves the commit the deploy workflow's last successful run targeted, not the default-branch head, reporting verdict captain only for a failed health check or drift: the newest deploy run failed, or the live server serves a commit other than that last successful deploy's target.
 Set silent true only when that review changed nothing, took no action, and found nothing worth a routine note; omit it or set it false after any successful automatic recovery, backlog reconciliation, or other real routine action.
 Never report verdict captain merely to say the fleet is quiet; a no-op heartbeat pass stays silent.

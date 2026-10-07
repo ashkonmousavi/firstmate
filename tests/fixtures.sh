@@ -345,6 +345,26 @@ fm_test_make_spawn_fakebin() {
   printf '%s\n' "$fakebin"
 }
 
+fm_test_walk_transport() {
+  local dir=$1
+  mkdir -p "$dir"
+  cat > "$dir/transport" <<'SH'
+#!/usr/bin/env bash
+set -u
+printf '%s\n' "$1" >> "$FM_WALK_TEST_LOG"
+if [ "${FM_WALK_TEST_TRANSPORT_FAIL:-}" = "$1" ]; then
+  echo 'fixture transport refused' >&2
+  exit 1
+fi
+if [ "${FM_WALK_TEST_TRANSPORT_SLEEP_OP:-}" = "$1" ]; then
+  exec "$FM_WALK_TEST_SLEEP" 5
+fi
+XDG_STATE_HOME="$FM_WALK_TEST_STATE" exec python3 - "$@"
+SH
+  chmod +x "$dir/transport"
+  printf '%s\n' "$dir/transport"
+}
+
 # Drop-in name used by the spawn suites. Extra args are additional exit-0 tools
 # (gh, gh-axi, pi, ...).
 make_spawn_fakebin() {

@@ -40,15 +40,16 @@ fm_test_prep_record() {
 
 # Fill the real scaffold's common fields with concrete fixture checks.
 fm_test_fill_prep_common() {  # <prep-file> [<depth-mode>]
-  local prep=$1 depth
+  local prep=$1 depth risk
   # Shared spawn fixtures exercise no-mistakes unless a caller authors another choice.
   case "${2:-no-mistakes}" in
-    direct-PR) depth='checks-only (direct-PR)' ;;
-    no-mistakes) depth='checks + AI review (no-mistakes)' ;;
+    direct-PR) depth='checks-only (direct-PR)'; risk=other ;;
+    no-mistakes) depth='checks + AI review (no-mistakes)'; risk=money ;;
     *) return 1 ;;
   esac
-  awk -v depth="$depth" '
-    { gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
+  awk -v depth="$depth" -v risk="$risk" '
+    { gsub(/\{DELIVERY_RISK\}/, risk ", inspected fixture scope and callers.")
+      gsub(/\{DELIVERY_DEPTH\}/, depth ", exercise the declared fixture delivery contract.")
       gsub(/\{CAPTAIN_RULINGS\}/, "Intent: exercise delivery admission; ruling: use an isolated fixture (test brief).")
       gsub(/\{STILL_VALID\}/, "proceed: inspected fixture base and task sources; delivery admission remains needed with no dependency.")
       gsub(/\{SIBLINGS_NAMED\}/, "Not a defect; searched fixture task records and delivery owners, none found.")
@@ -69,15 +70,15 @@ fm_test_fill_prep_common() {  # <prep-file> [<depth-mode>]
 
 # Set an explicit fixture decision, independent of tier and surgical format.
 fm_test_prep_depth() {  # <prep-file> <direct-PR|no-mistakes>
-  local prep=$1 depth
+  local prep=$1 depth risk
   case "$2" in
-    direct-PR) depth='checks-only (direct-PR)' ;;
-    no-mistakes) depth='checks + AI review (no-mistakes)' ;;
+    direct-PR) depth='checks-only (direct-PR)'; risk=other ;;
+    no-mistakes) depth='checks + AI review (no-mistakes)'; risk=money ;;
     *) return 1 ;;
   esac
-  awk -v depth="$depth" '
-    /^- Delivery depth:/ { next }
+  awk -v depth="$depth" -v risk="$risk" '
+    /^- Delivery (risk|depth):/ { next }
     { print }
-    $0 == "## Tier" { print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
+    $0 == "## Tier" { print "- Delivery risk: " risk ", inspected fixture scope and callers."; print "- Delivery depth: " depth ", exercise the declared fixture delivery contract." }
   ' "$prep" > "$prep.depth" && mv "$prep.depth" "$prep"
 }

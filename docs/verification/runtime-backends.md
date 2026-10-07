@@ -6,6 +6,29 @@ This record contains reusable version-scoped evidence for active runtime guarant
 The backend guides own current setup, safety boundaries, and limitations.
 Exact task chronology, branch names, temporary homes, local paths, process ids, thread ids, and delivery transcripts remain in private reports or PR evidence.
 
+## Codex idle refusal guard
+
+On 2026-10-07, installed `codex-cli 0.160.1` passed the native idle guard on Linux.
+The guard launches Codex with hooks disabled, matching a worker launch, in an isolated tmux server without submitting a model prompt.
+It verifies composer readability and passes that same captured screen to the semantic busy classifier.
+Without a verified semantic source, an idle prompt remains unknown rather than asserting working.
+Refresh after a Codex upgrade with:
+
+```sh
+FM_COMPOSER_CODEX_IDLE_LIVE=1 bash bin/fm-test-run.sh tests/fm-composer-codex-idle-live-e2e.test.sh
+```
+
+Observed output:
+
+```text
+# codex (codex-cli 0.160.1): starfield furniture observed=yes placeholder observed=yes
+ok - codex (codex-cli 0.160.1): real idle screen classifies empty on the cursor-anchored tmux read and the cursorless styled read
+ok - codex (codex-cli 0.160.1): native idle screen remains unknown without semantic evidence
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=3681
+```
+
+This proves the installed idle refusal only; it does not verify Herdr native activity or deployment to another home.
+
 ## Codex launcher placement in a named Herdr lab, 2026-09-27
 
 Herdr 0.7.3 exposed a pane's terminal id through `pane get` and its foreground process ids through `pane process-info`.
@@ -2168,7 +2191,7 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --backend tmux` o
 4. `bin/fm-send.sh` delivered a steer through the then-current typed path and exited 0;
 5. `bin/fm-control.sh <id> interrupt` cancelled a running turn;
 6. `bin/fm-control.sh <id> exit` stopped the agent;
-7. `bin/fm-teardown.sh` refused until the scout's report and decision gate were satisfied, then removed the session record.
+7. `bin/fm-teardown.sh` removed the session record.
 
 ### Herdr backend
 
@@ -2198,7 +2221,7 @@ The rest of the lifecycle was driven end to end on that worker:
 2. the transcript fold read `busy` mid-turn and `idle` after, unchanged from tmux, so the recorded worker state is backend-agnostic;
 3. `bin/fm-control.sh <id> interrupt` reported `cancel=unconfirmed` by design and the pane showed `Cancelled`, with the footer and the fold both returning to idle;
 4. `bin/fm-control.sh <id> exit` stopped the agent through the slash popup and the pane returned to its shell;
-5. `bin/fm-teardown.sh` refused until the scout's report and decision gate were satisfied, then removed the session record and returned the worktree.
+5. `bin/fm-teardown.sh` removed the session record and returned the worktree.
 
 Other harnesses on Herdr are unaffected by the edge-detector change.
 All seven live panes of the running default session - one Pi, four Claude, two plain shells - classified identically under the pre-fix and current classifiers.
@@ -2533,3 +2556,103 @@ A throwaway scout was spawned through `bin/fm-spawn.sh --scout --harness omp --m
 6. `bin/fm-control.sh <id> exit` stopped the agent and `bin/fm-teardown.sh` returned the worktree and closed the item.
 
 `FM_OMP_LIVE_E2E=1 tests/fm-omp-primary-live-e2e.test.sh` refreshes the primary evidence; the worker path above is refreshed by repeating the scout dispatch after any omp upgrade.
+
+## Project-directory guard execution cwd, 2026-10-06
+
+Live cwd delivery for the project-directory guard remains unverified for the pending consumers below.
+Codex's supported partial coverage is defined in [the cd-guard contract](../cd-guard.md#transport-and-fail-open-behavior); its native readback is recorded below.
+The portable suite exercises the registered hook commands and adapter callbacks with supplied payloads and contexts, which proves local forwarding but does not establish what a vendor emits.
+To refresh native evidence, record each installed harness's exact version, invocation, emitted cwd or tool directory override, guard response, and observable sentinel outcomes.
+Use an isolated primary-shaped checkout with real guard code, a `bin` directory, and a protected `projects/foo` directory; do not run these probes against an operational home.
+Capture the real vendor's hook payload or callback context when the guard runs, without fabricating the cwd field.
+An unattempted tool call or a missing control sentinel cannot establish a guard verdict.
+
+The relative-target probes below apply to harnesses that deliver the command execution cwd.
+For Codex payloads that omit it, use the supported-coverage cases in the native readback below.
+
+| Live probe | Required observable result |
+| --- | --- |
+| From the home: `cd bin || true; cd ../projects/foo && touch <absolute-deny-sentinel>` | Guard denial and absent deny sentinel; a separate permitted control tool call creates its sentinel. |
+| Actual execution cwd at `<home>/bin`: `cd ../projects/foo` | The vendor emits that execution cwd and the guard denies the protected destination. |
+| Actual execution cwd at `/tmp`: `cd projects/foo; touch <absolute-allow-sentinel>` | The vendor emits `/tmp` or its documented tool-directory override, the guard allows, and the allow sentinel is created inside the isolated fixture. |
+| From the home: `cd /tmp || true; cd projects/foo; touch <absolute-allow-sentinel>` | The guard allows the unrelated destination and the allow sentinel is created. |
+
+| Consumer | Required live source | Current status |
+| --- | --- | --- |
+| Claude | Delivered hook execution `.cwd` | Retained native Test payloads; replay preserves protected denial and unrelated allowance. |
+| Codex | Delivered hook payload with explicit tool `workdir` requests | Codex 0.160.0 omits tool `workdir`; supported coverage passed seven native calls below. |
+| Cursor | Delivered Shell hook cwd and Cursor's returned decision object | Pending dedicated Test; portable object-shape checks are insufficient. |
+| Grok | Delivered `run_terminal_command` hook cwd or documented tool cwd | API emission remains unverified; report the exact missing field if absent. |
+| OpenCode | Real plugin directory and bash `workdir` | Not exercised; the CLI was absent from PATH during the earlier local review. |
+| Pi and pi-signed | Real bash callback `ctx.cwd` | Pending dedicated Test; source inspection and synthetic contexts are insufficient. |
+| omp | Real bash callback session cwd | Pending dedicated Test; synthetic contexts are insufficient. |
+| Native Windows | Native harness cwd delivery and path conversion | Not exercised in the Linux Review; no Windows adoption or availability claim. |
+
+Record unavailable tools and API gaps explicitly, use only tools already on PATH, and never treat checking no real harness as a pass.
+The remaining pending consumers require their own native evidence; the Codex result does not establish their coverage or native Windows adoption.
+
+### Codex supported-coverage readback, 2026-10-06
+
+Version: `codex-cli 0.160.0`.
+The isolated plain checkout used the current registered cd hook, wrapped only to capture its real stdin payload, and the real transport and policy.
+The native invocation was:
+
+```sh
+codex exec --ephemeral --ignore-user-config --ignore-rules --enable hooks \
+  --dangerously-bypass-hook-trust -s workspace-write \
+  -c 'approval_policy="never"' \
+  -c 'projects={"<lab>"={trust_level="trusted"}}' \
+  -c 'log_dir="<lab>/logs"' --cd '<lab>' "$PROMPT"
+```
+
+Seven separate real `exec_command` calls supplied explicit workdirs.
+Every captured PreToolUse payload reported the session cwd and omitted tool `workdir`.
+The process exited 0 and the native readback was:
+
+| Native command target | Hook outcome | Write sentinel |
+| --- | --- | --- |
+| Relative protected target from `bin` | Allowed under supported coverage | Present |
+| Relative unrelated target from `outside` | Allowed | Present |
+| Absolute protected target | `persistent-cd` denial | Absent |
+| Absolute unrelated target | Allowed | Present |
+| Home-anchored protected target with quoted suffix | `persistent-cd` denial | Absent |
+| Home-anchored unrelated target | Allowed | Present |
+| Independent control write | Allowed | Present |
+
+`tests/fm-cd-pretool-check.test.sh` contains the executable registered-hook regression for this supported boundary and the explicit-tool-directory contrast.
+The Test-phase evidence retains the native transcript, payloads, sentinel state, and original captured-payload RED/GREEN replay.
+
+### Earlier guard integration evidence, 2026-07-11
+
+These observations predate the project-only narrowing and execution-cwd handling.
+They establish earlier hook integration, not current relative-target coverage; the current contract is owned by [cd-guard.md](../cd-guard.md).
+
+Each harness ran against a scratch primary-shaped firstmate checkout: a plain git repo with `AGENTS.md`, `bin/` holding the real `fm-cd-pretool-check.sh`, `fm-cd-command-policy.mjs`, and `fm-arm-command-policy.mjs` plus a no-op dummy `fm-arm-pretool-check.sh`, a `projects/foo/` stand-in clone, and the tracked harness hook config.
+No live watcher, fleet state, or the captain's real primary checkout was involved.
+Each harness was told to run, as separate tool calls, a top-level `cd projects/foo && touch <abs>/BLOCKED` (must be denied) and a subshell `(cd projects/foo && touch <abs>/ALLOWED)` (must run), with the sentinel files as the observable.
+
+Harness versions and outcomes:
+
+- **Claude Code 2.1.207** - blocked.
+  Claude reported the top-level command "denied by the `PreToolUse` hook (`fm-cd-pretool-check.sh`)", the `BLOCKED` sentinel was absent, and the subshell form was permitted to run.
+  A prior control `touch` proved the harness executed commands.
+- **codex-cli 0.144.0** - blocked.
+  Codex logged `error=Command blocked by PreToolUse hook: {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny"},"systemMessage":"[persistent-cd] a persistent top-level directory change ..."}`, the `BLOCKED` sentinel was absent, and the subshell `ALLOWED` sentinel was created.
+  Both the arm and cd PreToolUse hooks ran per command (two `hook: PreToolUse Completed` lines), confirming Codex re-feeds the payload to each hook in the array.
+- **OpenCode 1.17.18** - blocked.
+  `opencode run` printed `✗ cd projects/foo && touch ... failed` with `Error: {"hookSpecificOutput":...,"permissionDecision":"deny"},"systemMessage":"[persistent-cd] ..."}`, the `BLOCKED` sentinel was absent, and the subshell `ALLOWED` sentinel was created.
+- **Pi 0.80.6** - blocked.
+  The `BLOCKED` sentinel was absent while the subshell `ALLOWED` sentinel was created; that differential (top-level denied, subshell run, in the same session) can only come from the guard.
+- **grok 0.2.93** - inconclusive live run: the Grok Build API returned `402 Payment Required: Grok Build usage balance exhausted`, so the model never issued the probe commands.
+  The grok cd hook (`.grok/hooks/fm-primary-cd-check.json`) is structurally identical to the arm-seatbelt grok hook already live-validated on 2026-07-09 (`docs/arm-pretool-check.md`) - same `${GROK_WORKSPACE_ROOT:-}` anchoring and same PreToolUse deny consumption - and the grok-shaped stdin path (`.toolInput.command` in, `{"decision":"deny"}` out) is covered by `tests/fm-cd-pretool-check.test.sh`.
+  Re-run once the Grok balance is restored to close the live gap.
+
+The launch commands mirrored `docs/arm-pretool-check.md`'s validation:
+
+```sh
+claude -p "$PROMPT" --dangerously-skip-permissions --output-format text
+codex exec --dangerously-bypass-hook-trust --dangerously-bypass-approvals-and-sandbox --skip-git-repo-check "$PROMPT"
+OPENCODE_CONFIG_CONTENT='{"permission":{"*":"allow"}}' opencode run --print-logs --log-level INFO "$PROMPT"
+pi -p -e .pi/extensions/fm-primary-turnend-guard.ts --no-context-files --no-session "$PROMPT"
+grok --trust -p "$PROMPT" --permission-mode bypassPermissions --output-format plain
+```

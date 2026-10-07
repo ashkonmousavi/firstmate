@@ -1290,7 +1290,7 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
     sed 's/{TASK}/Fix the promotion relaunch contract./; s/{FIRSTMATE_SPEC}/Preserve the current delivery mode./' \
       "$brief" > "$brief.filled"
     mv "$brief.filled" "$brief"
-    fm_test_prep_record "$home/data" "$id" || fail "$mode: could not fill preparation"
+    fm_test_prep_record "$home/data" "$id" no no no "${mode/local-only/direct-PR}" || fail "$mode: could not fill preparation"
     {
       echo "window=fmses:fm-$id"
       echo "endpoint_task_id=$id"
@@ -1310,7 +1310,11 @@ test_promoted_scout_relaunch_receives_the_current_delivery_contract() {
       || fail "$mode: scout promotion should succeed: $out"
     assert_grep 'This is a SCOUT task' "$brief" \
       "$mode: the reproduction fixture lost the original scout delivery text"
-    assert_grep 'Never push to any remote and never open a PR' "$brief" \
+    # The compact scout brief still points at the scout contract after promotion.
+    # shellcheck disable=SC2016 # Fences are literal generated Markdown.
+    bash -c "$(sed -n '/^```bash$/,/^```$/p' "$brief" | sed '1d;$d')" > "$dir/scout-contract.md" \
+      || fail "$mode: the scout contract pointer did not render"
+    assert_grep 'Never push to any remote and never open a PR' "$dir/scout-contract.md" \
       "$mode: the reproduction fixture lost the stale scout prohibition"
 
     out=$(run_control "$dir" "$id" relaunch --note 'reproduced the crash in parser.go') \

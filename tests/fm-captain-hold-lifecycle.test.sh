@@ -675,12 +675,11 @@ test_hold_creates_a_captain_row_when_beads_requires_due_without_custom_type() {
   pass "hold creates a captain row when Beads requires due and has no captain type"
 }
 
-# Reproduces the loss exactly with privacy-safe synthetic names: the investigation
-# and visual review have ended, the only genuine unresolved captain call is report
-# prose, no held backlog item or open status exists, and the authoritative
-# Bearings view correctly omits it. Completion must now refuse before teardown can
-# erase the source.
-test_uninventoried_report_decision_refuses_completion() {
+# The investigation and visual review have ended. The only captain choice is
+# report prose: no held backlog item and no open status decision. Bearings
+# omits it. A report with no completion attestation is enough for cleanup,
+# and that cleanup removes the scout metadata.
+test_scout_with_report_cleans_up_without_a_decision_item() {
   local home id json rc
   home=$(make_home omitted-decision)
   id=sample-route-review
@@ -713,10 +712,27 @@ EOF
   run_teardown "$home" "$id" > "$home/teardown.out" 2> "$home/teardown.err"
   rc=$?
   set -e
-  [ "$rc" -ne 0 ] || fail "completed investigation teardown erased a report-only unresolved captain call"
-  assert_present "$home/state/$id.meta" "refused completion must preserve investigation metadata"
-  assert_grep "REFUSED" "$home/teardown.err" "refusal must be explicit"
-  pass "report-only unresolved captain call is reproduced and completion refuses before loss"
+  [ "$rc" -eq 0 ] || fail "scout with a report and no completion attestation was not cleaned up: $(cat "$home/teardown.err")"
+  [ ! -e "$home/state/$id.meta" ] || fail "cleanup left scout metadata in place"
+  pass "a scout with a report and no decision item cleans up"
+}
+
+# The report is still the work product. Cleanup without one is refused.
+test_scout_without_a_report_is_still_refused() {
+  local home id rc
+  home=$(make_home missing-report)
+  id=sample-missing-report
+  write_origin_meta "$home" "$id"
+  printf 'done: investigation ended without a report\n' > "$home/state/$id.status"
+
+  set +e
+  run_teardown "$home" "$id" > "$home/teardown.out" 2> "$home/teardown.err"
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "scout teardown without a report succeeded"
+  assert_grep "has no report" "$home/teardown.err" "missing-report refusal must name the report"
+  assert_present "$home/state/$id.meta" "refused teardown removed scout metadata"
+  pass "a scout with no report is still refused"
 }
 
 # The completion gate on the collapsed primitive: an origin with open keyed
@@ -1191,10 +1207,6 @@ test_out_of_band_close_is_recordable() {
   if run_captain "$home" verify "$id" > "$home/broken-verify.out" 2> "$home/broken-verify.err"; then
     fail "verification passed a captain call closed with no recorded answer"
   fi
-  if run_teardown "$home" "$id" > "$home/broken-teardown.out" 2> "$home/broken-teardown.err"; then
-    fail "teardown proceeded while a captain call had no recorded answer"
-  fi
-  assert_present "$home/state/$id.meta" "refused teardown removed investigation metadata"
 
   printf 'Declined: do not submit the sample full run upstream.\n' > "$home/submission.txt"
   run_captain "$home" answer sample-submission-call --decision-file "$home/submission.txt" >/dev/null \
@@ -4635,7 +4647,8 @@ test_historical_self_inventory_has_workable_repair
 test_inventory_compares_backend_identities
 test_origin_is_never_its_own_inventory_entry
 test_complete_refuses_an_entry_held_for_another_origin
-test_uninventoried_report_decision_refuses_completion
+test_scout_with_report_cleans_up_without_a_decision_item
+test_scout_without_a_report_is_still_refused
 test_hold_decodes_a_bare_scalar_body_without_the_nonref_default
 test_retained_body_keeps_its_utf8_bytes
 test_completion_gate_attests_and_transfers

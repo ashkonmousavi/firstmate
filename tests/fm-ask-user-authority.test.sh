@@ -16,6 +16,12 @@ test_primary_and_secondmate_instruction_generation() {
   FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
     "$BRIEF" authority-worker sample --mode no-mistakes >/dev/null 2>&1
   ship="$home/data/authority-worker/brief.md"
+  # Compact briefs point at the contract owner; inspect what the worker actually runs.
+  # shellcheck disable=SC2016 # Fences are literal generated Markdown.
+  bash -c "$(sed -n '/^```bash$/,/^```$/p' "$ship" | sed '1d;$d')" > "$ship.contract" \
+    || fail "generated implementation brief contract pointer did not render"
+  cat "$ship" "$ship.contract" > "$ship.resolved"
+  ship="$ship.resolved"
   assert_grep 'Every other finding, ask-user ones included, is yours to batch-fix' "$ship" \
     "generated implementation brief omitted autonomous batch triage"
   assert_grep "Firstmate applies \`ask-user-authority\` and obtains any required captain decision" "$ship" \

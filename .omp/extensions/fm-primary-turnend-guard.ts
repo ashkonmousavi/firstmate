@@ -482,9 +482,9 @@ function runGuard(stopHookActive: boolean): Promise<{ code: number; stderr: stri
 // omp 18.1.2: returning {block: true, reason} refused the bash command and
 // surfaced the reason verbatim to the model). Each owner script owns its own
 // decision and is inert outside the real primary checkout.
-function runChecker(script: string, command: string): Promise<{ code: number; stderr: string }> {
+function runChecker(script: string, command: string, cwd?: string): Promise<{ code: number; stderr: string }> {
   return new Promise((resolveResult) => {
-    const child = spawn(`${root}/bin/${script}`, ["--command", command], {
+    const child = spawn(`${root}/bin/${script}`, ["--command", command, ...(cwd === undefined ? [] : ["--cwd", cwd])], {
       stdio: ["ignore", "ignore", "pipe"],
     });
     let stderr = "";
@@ -500,8 +500,8 @@ function runPretoolCheck(command: string): Promise<{ code: number; stderr: strin
   return runChecker("fm-arm-pretool-check.sh", command);
 }
 
-function runCdCheck(command: string): Promise<{ code: number; stderr: string }> {
-  return runChecker("fm-cd-pretool-check.sh", command);
+function runCdCheck(command: string, cwd: string): Promise<{ code: number; stderr: string }> {
+  return runChecker("fm-cd-pretool-check.sh", command, cwd);
 }
 
 export default function (pi: ExtensionAPI) {
@@ -580,11 +580,11 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  pi.on?.("tool_call", async (event) => {
+  pi.on?.("tool_call", async (event, ctx) => {
     if (!event || event.type !== "tool_call" || event.toolName !== "bash") return {};
     const command = String((event.input as { command?: unknown })?.command ?? "");
     if (!command) return {};
-    const cdResult = await runCdCheck(command);
+    const cdResult = await runCdCheck(command, typeof ctx?.cwd === "string" ? ctx.cwd : "");
     if (cdResult.code === 2) {
       return { block: true, reason: cdResult.stderr.trim() || "denied by the cd-guard PreToolUse seatbelt" };
     }

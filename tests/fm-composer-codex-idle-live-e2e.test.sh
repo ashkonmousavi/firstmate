@@ -67,12 +67,14 @@ PATH="$SHIM_DIR:$PATH"
 . "$ROOT/bin/fm-tmux-lib.sh"
 # shellcheck source=/dev/null
 . "$ROOT/bin/fm-composer-lib.sh"
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-busy-lib.sh"
 
 VERSION=$(codex --version 2>/dev/null | head -1)
 [ -n "$VERSION" ] || VERSION='version-unknown'
 
 tmux -L "$SOCKET" new-session -d -s "$SESSION" -x 160 -y 45 -c "$ROOT"
-tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$WIN" -c "$ROOT" -- codex \
+tmux -L "$SOCKET" new-window -d -t "$SESSION:" -n "$WIN" -c "$ROOT" -- codex --disable hooks \
   || fail "codex ($VERSION): could not launch in the isolated tmux server"
 
 # The cursorless styled read exactly as bin/backends/herdr.sh describes its
@@ -140,6 +142,14 @@ else
   printf '%s\n' "$plain" | grep '[^[:space:]]' | tail -8 | sed 's/^/#   /' >&2
   fail "codex ($VERSION): idle screen never classified empty (tmux read: ${tmux_verdict:-unreadable}, cursorless styled read: ${cursorless_verdict:-unreadable})"
 fi
+
+# A real idle Codex screen is not positive semantic turn evidence. In
+# particular its visible input prompt must not make the worker look busy.
+mkdir -p "$SHIM_DIR/state"
+verdict=$(fm_busy_classify tmux "$SESSION:$WIN" codex idle "$SHIM_DIR/state" "$plain")
+[ "$verdict" = 'unknown codex-unverified' ] \
+  || fail "codex ($VERSION): native idle screen asserted unsupported state: $verdict"
+pass "codex ($VERSION): native idle screen remains unknown without semantic evidence"
 
 [ "$CHECKED" -gt 0 ] || fail "live codex idle-screen guard verified nothing; refusing a vacuous pass"
 pass "live codex idle-screen guard verified $CHECKED live surface(s)"

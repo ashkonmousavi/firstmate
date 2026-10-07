@@ -447,7 +447,7 @@ test_codex_unverified_gate() {
   gen=$("$EV" arm "$state" t1)
   "$EV" apply "$state" t1 busy --gen "$gen" --source codex-hook --event user-prompt-submit
   out=$(fm_busy_classify tmux w1 codex t1 "$state")
-  [ "$out" = "unknown codex-unverified" ] || fail "unverified codex must classify unknown, got '$out'"
+  [ "$out" = "unknown source-mismatch" ] || fail "unverified codex writer must classify unknown, got '$out'"
   [ -z "$(fm_busy_sources_for_harness codex)" ] \
     || fail "codex must trust no semantic source until one is verified"
   pass "codex classifies unknown until a semantic source passes its verification gate"
@@ -508,6 +508,27 @@ test_dead_endpoint_overrides() {
   [ "$out" = "unknown no-target" ] || fail "empty target must classify unknown, got '$out'"
   unset -f fm_backend_target_exists
   pass "endpoint death is the only process-level override and yields dead, never busy"
+}
+
+test_codex_native_without_semantic_writer() {
+  local state out native
+  state=$(new_state_dir codex-native)
+  # shellcheck disable=SC2329 # invoked indirectly through fm_busy_classify
+  fm_backend_busy_state() { printf '%s' "$FAKE_NATIVE"; }
+  FAKE_NATIVE=busy
+  out=$(fm_busy_classify herdr s:p codex t1 "$state")
+  [ "$out" = 'busy herdr-native' ] || fail "Codex native busy hidden by writer gate: $out"
+  for native in idle unknown ''; do
+    FAKE_NATIVE=$native
+    out=$(fm_busy_classify herdr s:p codex t1 "$state" '• Working (43m 24s • esc to interrupt)')
+    [ "$out" = 'unknown codex-unverified' ] || fail "Codex must refuse stale text: $out"
+  done
+  FAKE_NATIVE=busy
+  printf 'bad record\n' > "$state/t1.busy-state"
+  out=$(fm_busy_classify herdr s:p codex t1 "$state")
+  [ "${out%% *}" = unknown ] || fail "malformed record must refuse fallback: $out"
+  unset -f fm_backend_busy_state
+  pass 'Codex reaches native busy without claiming an unverified writer'
 }
 
 test_herdr_native_busy_only() {
@@ -622,6 +643,7 @@ test_codex_unverified_gate
 test_kimi_unverified_gate
 test_cursor_ignores_rendered_and_native_signals
 test_dead_endpoint_overrides
+test_codex_native_without_semantic_writer
 test_herdr_native_busy_only
 test_record_read_leaves_caller_shell_intact
 test_boolean_view_never_promotes_unknown
