@@ -4,6 +4,7 @@
 #
 # Usage:
 #   fm-grok-bot-dispatch.sh <brief-file> --bot <name> [--timeout <sec>]
+#                           [--walk <walk-id> --walk-owner <owner-id>]
 #
 # Grok Bot is not a launchable harness: it has no worktree, hooks, or access
 # to local files, so route it only file-free work such as web research and
@@ -25,15 +26,32 @@
 #   `grok-bot: unverified` line. The reply is unverified: firstmate has it
 #   checked by a candidate from another vendor before relaying or acting on it.
 #
+# Walk marker (--walk): a live walk holds every restart on the walked host.
+#   After the Bot resolves and before anything is sent, the walk is claimed in
+#   that host's walk marker for --timeout seconds; when the reply lands, the
+#   timeout passes, or the send fails, only this walk is released again.
+#   bin/fm-walk-marker.py owns the marker format, overlap and expiry rules; it
+#   runs through the home-private transport $FM_HOME/data/walk-marker/transport,
+#   or FM_WALK_MARKER_TRANSPORT when set: an executable run as
+#   `<transport> claim|release <walk> <owner> [<sec>] < bin/fm-walk-marker.py`
+#   that executes the program from stdin with python3 and those arguments as
+#   the marker's account on the walked host. Ids match [A-Za-z0-9][A-Za-z0-9._:-]*.
+#   A missing transport, a failed claim, another owner's active claim, or a
+#   malformed marker refuses the walk before anything is sent.
+#
 # Exit codes: 0 reply received; 3 the Bot was still working at the timeout
 #   (read the rest later with the bridge's `transcript <id>`); 2 usage,
-#   missing bridge or tool, unknown or ambiguous Bot name, or a bridge failure.
+#   missing bridge or tool, unknown or ambiguous Bot name, a bridge failure, or
+#   a refused walk claim; 4 the reply was returned (or the timeout passed) but
+#   the walk's release failed, so its claim holds restarts until it expires.
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-$FM_ROOT}"
 BRIDGE="${FM_GROKBOT_BRIDGE:-$FM_HOME/data/grok-bot-bridge/grokbot.mjs}"
+WALK_TRANSPORT="${FM_WALK_MARKER_TRANSPORT:-$FM_HOME/data/walk-marker/transport}"
+WALK_PROGRAM="$SCRIPT_DIR/fm-walk-marker.py"
 
 # shellcheck source=bin/fm-brief-heading-lib.sh
 . "$SCRIPT_DIR/fm-brief-heading-lib.sh"
@@ -47,11 +65,13 @@ usage() {
   ' "$0"
 }
 
-BRIEF='' BOT='' TIMEOUT=300
+BRIEF='' BOT='' TIMEOUT=300 WALK='' WALK_OWNER=''
 while [ $# -gt 0 ]; do
   case "$1" in
     --bot) [ $# -ge 2 ] || die "--bot needs a value"; BOT=$2; shift 2 ;;
     --timeout) [ $# -ge 2 ] || die "--timeout needs a value"; TIMEOUT=$2; shift 2 ;;
+    --walk) [ $# -ge 2 ] || die "--walk needs a value"; WALK=$2; shift 2 ;;
+    --walk-owner) [ $# -ge 2 ] || die "--walk-owner needs a value"; WALK_OWNER=$2; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     -*) die "unknown flag $1" ;;
     *) [ -z "$BRIEF" ] || die "one brief file only"; BRIEF=$1; shift ;;
@@ -65,6 +85,12 @@ done
 [ -f "$BRIDGE" ] || die "Grok Bot bridge not found: $BRIDGE; Grok Bot targets run only in the home that holds the bridge (the primary), so treat this candidate as unavailable and fall to the rule's other candidates"
 command -v node >/dev/null 2>&1 || die "node required"
 command -v jq >/dev/null 2>&1 || die "jq required"
+if [ -n "$WALK$WALK_OWNER" ]; then
+  id_re='^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$'
+  [[ "$WALK" =~ $id_re && "$WALK_OWNER" =~ $id_re ]] \
+    || die "--walk and --walk-owner both need an id matching [A-Za-z0-9][A-Za-z0-9._:-]*"
+  [ -x "$WALK_TRANSPORT" ] || die "walk marker transport not found: $WALK_TRANSPORT; the walk is not sent"
+fi
 
 task_text() {
   local heading sections=''
@@ -81,6 +107,29 @@ ID=$(jq -r --arg n "$BOT" '
   [.[] | select(.name == $n) | .id] |
   if length == 1 then .[0] else error("\(length)") end' <<<"$LIST" 2>/dev/null) \
   || die "expected exactly one Grok Bot named $BOT"
+
+WALK_CLAIMED=''
+walk_marker() {  # <claim|release> [<sec>]: prints the program's one JSON line
+  "$WALK_TRANSPORT" "$1" "$WALK" "$WALK_OWNER" "${@:2}" < "$WALK_PROGRAM"
+}
+# shellcheck disable=SC2329 # Invoked by the EXIT trap below.
+walk_release_on_exit() {
+  local rc=$? result
+  [ -n "$WALK_CLAIMED" ] || exit "$rc"
+  if result=$(walk_marker release 2>&1); then exit "$rc"; fi
+  printf 'walk-marker: release failed for %s (%s); the claim holds restarts until %s: %s\n' \
+    "$WALK" "$WALK_OWNER" "$WALK_CLAIMED" "${result:0:300}" >&2
+  case "$rc" in 0|3) exit 4 ;; *) exit "$rc" ;; esac
+}
+if [ -n "$WALK" ]; then
+  CLAIM=$(walk_marker claim "$TIMEOUT" 2>&1) \
+    || die "walk marker not claimed for $WALK, so nothing was sent: ${CLAIM:0:300}"
+  WALK_CLAIMED=$(jq -r '.expires_at // empty' <<<"$CLAIM" 2>/dev/null)
+  [ -n "$WALK_CLAIMED" ] || WALK_CLAIMED='its recorded expiry'
+  trap walk_release_on_exit EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+fi
 
 CHAT=$(node "$BRIDGE" chat "$ID" "$PROMPT" "$TIMEOUT") || die "Grok Bot bridge chat failed"
 # The bridge prints two JSON documents: the send receipt, then the new entries.
