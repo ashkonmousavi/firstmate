@@ -982,6 +982,53 @@ test_teardown_preserves_metadata_when_orca_remove_error_json() {
   pass "fm-teardown.sh backend=orca: preserves metadata on remove ok:false JSON"
 }
 
+test_teardown_keeps_walk_claim_when_orca_close_refuses() {
+  local proj wt data state config id out rc neutral walk_state transport receipt marker before
+  id="orcawalkclosez8"
+  proj="$TMP_ROOT/walk-close-project"
+  wt="$TMP_ROOT/walk-close-wt"
+  data="$TMP_ROOT/walk-close-data"
+  state="$TMP_ROOT/walk-close-state"
+  config="$TMP_ROOT/walk-close-config"
+  walk_state="$TMP_ROOT/walk-close-marker"
+  mkdir -p "$data/$id" "$state" "$config"
+  printf 'report\n' > "$data/$id/report.md"
+  touch "$state/.last-watcher-beat"
+  receipt=$(XDG_STATE_HOME="$walk_state" FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z \
+    python3 "$ROOT/bin/fm-walk-marker.py" claim QW-A firstmate-main 300) \
+    || fail "the Orca walk fixture could not create its claim"
+  fm_write_meta "$state/$id.meta" \
+    "window=fm-$id" "endpoint_task_id=$id" "terminal=term-walk-close" "worktree=$wt" "project=$proj" \
+    "harness=claude" "kind=scout" "mode=no-mistakes" "yolo=off" \
+    "backend=orca" "orca_worktree_id=wt-walk-close::/orca/wt-walk-close" \
+    "decisions_reviewed=1" "decision_keys=" \
+    "walk_id=QW-A" "walk_owner=firstmate-main" "walk_token=$(jq -r .token <<<"$receipt")" \
+    "walk_expires_at=$(jq -r .expires_at <<<"$receipt")"
+  orca_case walk-close
+  transport="$CASE_DIR/transport"
+  cat > "$transport" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$1" >> "$CASE_DIR/transport.log"
+XDG_STATE_HOME="$walk_state" exec python3 - "\$@"
+SH
+  chmod +x "$transport"
+  marker="$walk_state/q-walk/in-progress.json"
+  before=$(cat "$marker")
+  neutral=$(neutral_fm_root "$CASE_DIR/neutral")
+  set +e
+  out=$( FM_WALK_MARKER_TRANSPORT="$transport" FM_ORCA_LOG="$LOG" FM_ORCA_RESPONSES="$RESP" \
+    FM_ROOT_OVERRIDE="$neutral" FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$data" FM_CONFIG_OVERRIDE="$config" \
+    "$ROOT/bin/fm-teardown.sh" "$id" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || fail "an Orca teardown whose close refused reported success"$'\n'"$out"
+  assert_contains "$out" "could not be closed" "the Orca close refusal was not reported"
+  assert_present "$state/$id.meta" "an Orca close refusal must retain the walk record"
+  [ "$(cat "$marker")" = "$before" ] || fail "an Orca close refusal changed the walk marker"
+  [ ! -s "$CASE_DIR/transport.log" ] || fail "an Orca close refusal sent a walk release"
+  pass "fm-teardown.sh backend=orca: a refused close keeps the walk claim and its record"
+}
+
 test_scout_teardown_refuses_orca_missing_report_when_path_missing() {
   local proj wt data state config id out rc neutral
   id="orcanoreportz4"
@@ -1391,6 +1438,7 @@ test_target_exists_rejects_orca_error_json
 test_scout_teardown_removes_orca_worktree_via_helper
 test_scout_teardown_refuses_orca_id_path_mismatch
 test_teardown_removes_orca_worktree_when_path_missing
+test_teardown_keeps_walk_claim_when_orca_close_refuses
 test_teardown_preserves_metadata_when_orca_remove_error_json
 test_scout_teardown_refuses_orca_missing_report_when_path_missing
 test_ship_teardown_refuses_orca_missing_worktree_path

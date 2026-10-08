@@ -2,8 +2,8 @@
 name: journey-walk
 description: >-
   Agent-only procedure for commissioning and supervising a live end-to-end journey walk.
-  Load before commissioning, scheduling, or supervising a live end-to-end journey walk, and when a walk blocker's fix is installed.
-  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, one triage pass per walk batch, same-day cosmetic bundles, class-fix lanes, oldest-break-first ordering, regression-first focused re-walk after install, the project's walk health record currency, batch reports, and captain-language outcomes.
+  Load before commissioning, scheduling, or supervising a live end-to-end journey walk, when a walk blocker's fix is installed, and on a served-build check wake reporting a newly served commit.
+  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, one triage pass per walk batch, same-day cosmetic bundles, class-fix lanes, oldest-break-first ordering, regression-first focused re-walk after install and its automatic served-commit dispatch, the project's walk health record currency, batch reports, and captain-language outcomes.
   The project's own walk procedure owns the walk itself.
 user-invocable: false
 metadata:
@@ -12,7 +12,7 @@ metadata:
 
 # journey-walk
 
-Load this before commissioning, scheduling, or supervising a live end-to-end journey walk, and when a walk blocker's fix is installed.
+Load this before commissioning, scheduling, or supervising a live end-to-end journey walk, when a walk blocker's fix is installed, and on a served-build check wake reporting a newly served commit.
 
 The project's own walk procedure is the walk contract.
 Read that procedure and the stage, health, and run records it names rather than reconstructing the method here.
@@ -32,11 +32,12 @@ Name one walk owner for the run, the version reservation, the stage ledger, defe
 Do not split those across lanes.
 
 Hold installs for the walk window and its cleanup.
+Q walk dispatch uses `bin/fm-grok-bot-dispatch.sh --walk <id> --walk-owner <owner>` or `bin/fm-spawn.sh --walk <id> --walk-owner <owner> --walk-timeout <seconds>`; `bin/fm-walk-marker-lib.sh` and the dispatch/teardown headers own the lifecycle.
 Record that freeze in the walk task's durable records the same turn it starts, and record its release the same turn it ends.
 A walk that cannot hold the installed version does not start acceptance evidence.
 
 Walk only when the version carrying the needed fixes is live.
-Do not send a re-walk against a build that does not yet include the fix.
+Do not send a re-walk against a build that does not yet include the fix; the project's served-build check, not the merge, says when it does.
 
 A posted blocker is evidence, not authorization to change code, under `AGENTS.md` section 7.
 When the walk's commissioning or a standing captain instruction authorizes fixing its blockers, start the fix lane after that batch's collection, triage, and required reproduction, following the cluster routing and priority below; a fleet blocker, defined next, opens its lane the same turn.
@@ -54,8 +55,11 @@ Never file one item per cosmetic finding, and never put a behaviour cluster insi
 A behaviour cluster that fails a journey step, or any symptom seen twice, is a class fix under `diagnostic-reasoning`, which owns its root-cause-first repair, labelled-workaround exception, and three-round limit.
 Work the oldest failing journey step first; cosmetic bundles never starve a real break.
 
-After each fix is installed, send the focused re-walk of that repaired stage and its dependents; that re-walk is verification, not a code change, and needs no extra authority.
+After each fix is installed, send the focused re-walk of that repaired stage and its dependents; that re-walk is verification, not a code change, and needs no extra authority, so never ask the captain whether to send it.
 A re-walk waits for the installed build that contains the fix.
+When the served-build check wakes with a newly served commit, send at once the focused re-check for each landed user-visible task (its preparation answers Q1 yes) whose walk assignment is recorded and whose merge that commit serves, whether the install was automatic or by hand.
+Skip a task with no recorded assignment or whose merge is not yet served, and send nothing for a wake that reports no new served commit.
+Send a Grok Bot walker through `bin/fm-grok-bot-dispatch.sh` with the walk-marker flags above and `--once-key <assignment>@<served-commit>`, so a repeated wake for the same commit sends nothing new.
 Every walker first re-runs the reproduction of each fix installed since its last walk, so a fix that did not hold is caught before new ground, then walks its assigned journey ids and records everything it sees.
 Do not restart the walk from step 1.
 The project's walk procedure and the walker's own instructions own how that re-walk is executed.

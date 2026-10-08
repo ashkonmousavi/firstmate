@@ -1747,6 +1747,146 @@ SH
   done
 }
 
+
+# shellcheck disable=SC2030,SC2031 # Each walk fixture owns its subshell environment.
+test_spawn_walk_lifecycle() (
+  local rec id=walk-ordinary out status meta token before
+  rec=$(make_spawn_case walk-ordinary claude "$id")
+  read_case_record "$rec"
+  export FM_WALK_MARKER_TRANSPORT FM_WALK_TEST_STATE="$CASE_DIR/walk-state"
+  export FM_WALK_TEST_LOG="$CASE_DIR/walk.log" FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z
+  export FM_WALK_TEST_SLEEP FM_WALK_TEST_BASE_TMUX="$CASE_DIR/tmux-base"
+  export FM_WALK_TEST_MARKER="$FM_WALK_TEST_STATE/q-walk/in-progress.json"
+  export FM_WALK_TEST_SNAP="$CASE_DIR/claim-at-launch.json"
+  FM_WALK_MARKER_TRANSPORT=$(fm_test_walk_transport "$CASE_DIR/walk-transport")
+  FM_WALK_TEST_SLEEP=$(command -v sleep)
+  mv "$FAKEBIN_DIR/tmux" "$FM_WALK_TEST_BASE_TMUX"
+  cat > "$FAKEBIN_DIR/tmux" <<'SH'
+#!/usr/bin/env bash
+for arg in "$@"; do
+  case "$arg" in
+    ". '"*"launch."*".sh'")
+      printf 'launch\n' >> "$FM_WALK_TEST_LOG"
+      [ -s "$FM_WALK_TEST_MARKER" ] || exit 55
+      cp "$FM_WALK_TEST_MARKER" "$FM_WALK_TEST_SNAP"
+      ;;
+  esac
+done
+exec "$FM_WALK_TEST_BASE_TMUX" "$@"
+SH
+  chmod +x "$FAKEBIN_DIR/tmux"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --walk QW-A --walk-owner firstmate-main --walk-timeout 300)
+  status=$?
+  expect_code 0 "$status" "ordinary walk spawn succeeds: $out"
+  assert_equals 'claim launch ' "$(tr '\n' ' ' < "$FM_WALK_TEST_LOG")" "claim publication precedes launch"
+  meta="$HOME_DIR/state/$id.meta"
+  assert_grep 'walk_id=QW-A' "$meta" "walk identity is durable"
+  assert_grep 'walk_owner=firstmate-main' "$meta" "walk owner is durable"
+  token=$(jq -r '.claims["QW-A"]' "$FM_WALK_TEST_SNAP")
+  assert_grep "walk_token=$token" "$meta" "meta carries the claimed operation token"
+  assert_grep 'walk_expires_at=2026-10-07T10:05:00Z' "$meta" "meta carries the canonical timeout"
+  before=$(awk -F= '$1 ~ /^walk_/' "$meta")
+  : > "$FM_WALK_TEST_LOG"
+  out=$(FM_FAKE_PANE_COMMAND=bash run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" --relaunch)
+  status=$?
+  expect_code 0 "$status" "relaunch preserves an ordinary walk: $out"
+  assert_equals "$before" "$(awk -F= '$1 ~ /^walk_/' "$meta")" "relaunch preserves every claim field"
+  assert_equals 'launch ' "$(tr '\n' ' ' < "$FM_WALK_TEST_LOG")" "relaunch makes no marker transport call"
+  pass "ordinary spawn publishes before launch and relaunch preserves its exact claim"
+)
+
+# shellcheck disable=SC2030,SC2031 # Each walk fixture owns its subshell environment.
+test_spawn_walk_refusals_and_nonwalk() (
+  local reason rec id out status marker opts
+  local -a args
+  export FM_WALK_MARKER_TRANSPORT FM_WALK_TEST_STATE FM_WALK_TEST_LOG FM_WALK_TEST_SLEEP
+  export FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z FM_WALK_MARKER_TEST_BOUND=1
+  FM_WALK_TEST_SLEEP=$(command -v sleep)
+  for reason in owner malformed transport timeout nonwalk; do
+    id="walk-refuse-$reason"
+    rec=$(make_spawn_case "$id" claude "$id")
+    read_case_record "$rec"
+    FM_WALK_TEST_STATE="$CASE_DIR/walk-state"
+    FM_WALK_TEST_LOG="$CASE_DIR/walk.log"
+    FM_WALK_MARKER_TRANSPORT=$(fm_test_walk_transport "$CASE_DIR/walk-transport")
+    : > "$FM_WALK_TEST_LOG"
+    marker="$FM_WALK_TEST_STATE/q-walk/in-progress.json"
+    mkdir -p "$(dirname "$marker")"
+    unset FM_WALK_TEST_TRANSPORT_FAIL FM_WALK_TEST_TRANSPORT_SLEEP_OP
+    args=(--walk QW-A --walk-owner firstmate-main --walk-timeout 300)
+    case "$reason" in
+      owner) printf '%s\n' '{"walks":["QW-Z"],"owner":"other","started":"2026-10-07T10:00:00Z","expires_at":"2026-10-07T10:05:00Z"}' > "$marker" ;;
+      malformed) printf 'broken\n' > "$marker" ;;
+      transport) export FM_WALK_TEST_TRANSPORT_FAIL=claim ;;
+      timeout) export FM_WALK_TEST_TRANSPORT_SLEEP_OP=claim ;;
+      nonwalk) args=() ;;
+    esac
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" "${args[@]}")
+    status=$?
+    if [ "$reason" = nonwalk ]; then
+      expect_code 0 "$status" "a non-walk spawn is unchanged: $out"
+      [ ! -s "$FM_WALK_TEST_LOG" ] || fail "a non-walk spawn invoked marker transport"
+      assert_no_grep 'walk_token=' "$HOME_DIR/state/$id.meta" "a non-walk spawn has no claim"
+    else
+      expect_code 1 "$status" "walk publication failure refuses spawn ($reason): $out"
+      [ ! -s "$LAUNCH_LOG" ] || fail "a refused walk launched a worker ($reason)"
+      assert_contains "$out" 'not claimed' "publication refusal is explained"
+      [ "$reason" != timeout ] || assert_contains "$out" 'transport timeout after 1s' "the bounded refusal names its timeout"
+    fi
+  done
+  unset FM_WALK_TEST_TRANSPORT_SLEEP_OP
+  for opts in '--walk QW-A' '--walk-owner firstmate-main' '--walk-timeout 300' \
+    '--walk QW-A --walk-owner firstmate-main' '--walk QW-A --walk-timeout 300' \
+    '--walk-owner firstmate-main --walk-timeout 300'; do
+    read -r -a args <<< "$opts"
+    out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" missing-walk "$PROJ_DIR" "${args[@]}")
+    expect_code 1 "$?" "partial walk option tuples refuse"
+    assert_contains "$out" 'required together' "the tuple refusal names the invariant"
+  done
+  pass "walk publication failures launch nothing; complete opt-in tuples are required"
+)
+
+test_spawn_walk_lifecycle || exit 1
+test_spawn_walk_refusals_and_nonwalk || exit 1
+
+# shellcheck disable=SC2030,SC2031 # Each walk fixture owns its subshell environment.
+test_spawn_walk_failed_backlog_commit() (
+  local rec id=walk-backlog-fail out status meta real_tasks
+  rec=$(make_spawn_case "$id" claude "$id")
+  read_case_record "$rec"
+  real_tasks=$(command -v tasks-axi) || fail 'tasks-axi required for the backlog commit fixture'
+  printf '# Backlog\n\n## In flight\n\n## Queued\n\n## Done\n' > "$HOME_DIR/data/backlog.md"
+  "$real_tasks" add "$id" 'walk backlog failure' --kind ship --file "$HOME_DIR/data/backlog.md" >/dev/null || fail 'cannot seed backlog'
+  export FM_WALK_MARKER_TRANSPORT FM_WALK_TEST_STATE="$CASE_DIR/walk-state"
+  export FM_WALK_TEST_LOG="$CASE_DIR/walk.log" FM_WALK_MARKER_NOW=2026-10-07T10:00:00Z
+  export FM_WALK_TEST_REAL_TASKS="$real_tasks"
+  FM_WALK_MARKER_TRANSPORT=$(fm_test_walk_transport "$CASE_DIR/walk-transport")
+  rm -f "$FAKEBIN_DIR/timeout"
+  cat > "$FAKEBIN_DIR/tasks-axi" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = start ]; then
+  echo 'fixture backlog commit failure' >&2
+  exit 1
+fi
+exec "$FM_WALK_TEST_REAL_TASKS" "$@"
+SH
+  chmod +x "$FAKEBIN_DIR/tasks-axi"
+  out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR" \
+    --walk QW-A --walk-owner firstmate-main --walk-timeout 300)
+  status=$?
+  expect_code 1 "$status" "backlog commit failure refuses spawn: $out"
+  [ -s "$LAUNCH_LOG" ] || fail "fixture did not reach launch before the backlog failure: $out"
+  meta="$HOME_DIR/state/$id.meta"
+  assert_present "$meta" 'a launched walk retains its reconciliation record'
+  assert_grep "walk_token=$(jq -r '.claims["QW-A"]' "$FM_WALK_TEST_STATE/q-walk/in-progress.json")" "$meta" 'the surviving record names the exact live claim'
+  assert_equals 'claim ' "$(tr '\n' ' ' < "$FM_WALK_TEST_LOG")" 'uncertain worker termination never releases its walk'
+  assert_contains "$out" 'worker termination not confirmed' 'aborted spawn states the remaining gate'
+  pass 'a backlog commit failure retains the launched walk and its retry record'
+)
+
+test_spawn_walk_failed_backlog_commit || exit 1
+
 test_launch_environment_allowlist
 test_launch_environment_invalid_config_refuses
 test_launch_environment_inaccessible_config_refuses
