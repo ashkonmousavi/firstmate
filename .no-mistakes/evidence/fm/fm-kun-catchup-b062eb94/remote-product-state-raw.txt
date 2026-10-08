@@ -1,0 +1,5 @@
+job=job-eNWKj6 state=done exit=0 elapsed=-2s
+executed job side effect: ran
+worker readiness: 2841224
+
+expired claim 1 exists=no; fresh claim 8731 exists=yes

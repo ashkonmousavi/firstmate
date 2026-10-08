@@ -1,0 +1,5 @@
+codex-idle: composer=empty dialog=none
+codex-pending: composer=pending dialog=none
+codex-cleared: composer=empty dialog=none
+shell-unknown: composer=unknown dialog=none
+No live Codex working signal observed

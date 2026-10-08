@@ -1,0 +1,6 @@
+Codex 0.161.0; live 120x40 private tmux lab.
+dialog-composer: pending
+dialog-name: Codex background-server settings dialog
+error: blocked on a prompt: Codex background-server settings dialog
+submission exit=1
+Screen byte-identical after refusal; Cancel remains selected.

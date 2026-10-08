@@ -1,0 +1,17 @@
+not ok - expired eligible claim 1 survived
+ok - original reaper leaves expired claims when touch rejects -d
+# installed harness: claude (2.1.294 (Claude Code))
+# installed harness: codex (codex-cli 0.161.0)
+skip: live: dialog panes unavailable; 2 installed harnesses; claude (2.1.294 (Claude Code)): FM_DIALOG_CLAUDE_DIALOG unavailable; claude (2.1.294 (Claude Code)): FM_DIALOG_CLAUDE_IDLE unavailable; claude (2.1.294 (Claude Code)): FM_DIALOG_CLAUDE_PENDING unavailable; claude (2.1.294 (Claude Code)): FM_DIALOG_CLAUDE_WORKING unavailable; codex (codex-cli 0.161.0): FM_DIALOG_CODEX_DIALOG unavailable; codex (codex-cli 0.161.0): FM_DIALOG_CODEX_IDLE unavailable; codex (codex-cli 0.161.0): FM_DIALOG_CODEX_PENDING unavailable; codex (codex-cli 0.161.0): FM_DIALOG_CODEX_WORKING unavailable; FM_DIALOG_UNKNOWN unavailable
+ok - original default-on guard incorrectly succeeds without live inputs
+wait_for_exit: owned pid 995603 exceeded 100 polls; sending TERM
+ 995603  989313 S    bash /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT/bin/.review-watch-before.Thqd7P.sh
+not ok - codex replacement dialog was suppressed without an intervening clear screen
+ok - original watcher suppresses a same-pane replacement dialog
+ok - claim sweep preserves numeric-name eligibility and whole-second expiry
+ok - a due claim sweep over ~17460 dirs does not starve job serving
+ok - dialog guard fails missing inputs by default and preserves disable and absent-harness handling
+ok - codex secondmate dialog wakes per spawn generation; repeats and idle panes stay quiet
+ok - claude secondmate dialog wakes per spawn generation; repeats and idle panes stay quiet
+ok - changed shell scripts parse
+ok - focused review verification completed

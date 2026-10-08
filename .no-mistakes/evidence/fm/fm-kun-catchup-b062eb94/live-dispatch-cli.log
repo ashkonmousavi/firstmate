@@ -1,0 +1,10 @@
+Configured ordered dispatch, no launch or account effects:
+selection: ordered
+selected[0]: {"harness":"codex"}
+Uncertain quota does not skip Codex:
+selection: ordered
+selected[0]: {"harness":"codex"}
+Established exhausted quota advances to Claude:
+selection: ordered
+skipped[0]: quota: openai exhausted_now (established); profile={"harness":"codex"}
+selected[1]: {"harness":"claude"}

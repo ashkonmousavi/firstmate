@@ -1,0 +1,7 @@
+job=job-eNWKj6 state=done exit=0
+executed job side effect: ran
+worker readiness: 2841224
+
+expired claim 1 exists=no; fresh claim 8731 exists=yes
+The latency assertion ran before fm_remote_job_wait: completion was within the 15-second bound.
+The raw driver's later elapsed variable was overwritten by library calls and is not a timing measurement.

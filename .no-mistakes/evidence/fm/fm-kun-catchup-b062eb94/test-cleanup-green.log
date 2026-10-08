@@ -1,0 +1,3 @@
+GREEN: the same read-only fixture was removed.
+GREEN: an out-of-root symlink target retained mode 500.
+GREEN: this run's retained Herdr fixture was removed.

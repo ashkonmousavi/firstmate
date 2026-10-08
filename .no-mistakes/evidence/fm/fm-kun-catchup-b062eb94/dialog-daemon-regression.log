@@ -1,0 +1,6 @@
+ok - Claude background-task exit picker reaches supervision in away mode regardless of status and survives buffering failure
+ok - Claude background-task exit picker reaches supervision in quiet mode regardless of status and survives buffering failure
+ok - Codex background-server settings dialog reaches supervision in away mode regardless of status and survives buffering failure
+ok - Codex background-server settings dialog reaches supervision in quiet mode regardless of status and survives buffering failure
+ok - inbox dispatch preserves ordinary stale, busy-turn, and other doorbell routing
+ok - classify_stale dedupes against the signal path seen marker

@@ -1,0 +1,6 @@
+Claude 2.1.294; disposable config; native ! sleep 300 then Ctrl-B then /exit; no model login needed.
+composer: pending
+dialog-name: Claude background-task exit picker
+error: blocked on a prompt: Claude background-task exit picker
+submit-exit=1
+Screen byte-identical after refusal; Exit and stop tasks remains selected.

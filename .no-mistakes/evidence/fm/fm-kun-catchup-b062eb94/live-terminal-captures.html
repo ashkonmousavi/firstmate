@@ -1,0 +1,361 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Firstmate live terminal evidence</title><style>body{background:#11151d;color:#e6eaf2;font:16px system-ui;margin:32px}main{max-width:1240px;margin:auto}h1{font-size:26px}h2{font-size:19px}p{color:#aeb8cb}section{margin:26px 0;padding:20px;border:1px solid #344056;border-radius:8px;min-width:0}pre{font:13px/1.45 ui-monospace,Consolas,monospace;white-space:pre;overflow:auto;background:#090c12;padding:18px;color:#e8edf6}</style><main><h1>Live Firstmate terminal captures</h1><p>Codex 0.161.0 and Claude Code 2.1.294. These are rendered captures of actual terminal surfaces, not screenshots or synthetic fixtures. The labs were disposable; Claude used its local shell mode without a model login.</p><section><h2>Codex server-settings dialog</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre>
+  Background server has incompatible feature settings
+  This session requires api_key_model_discovery to be disabled
+  Restart will use these shared feature settings:
+    api_key_model_discovery = false
+    auth_elicitation = true
+    code_mode_host = true
+    mcp_oauth_refresh_coordination = false
+  These settings persist and can disable functionality for other clients. Restart may interrupt active or queued work.
+
+
+  1. Run without daemon this time
+  2. Restart with these settings
+› 3. Cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Codex idle composer</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre>
+  &gt;_ OpenAI Codex (v0.161.0)
+     ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+  Tip: Use /vim to toggle Vim editing in the composer.
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol xhigh · ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT          ⚠ 3 warnings · f2 to view
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Codex unsubmitted text</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre>
+  &gt;_ OpenAI Codex (v0.161.0)
+     ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+  Tip: Use /vim to toggle Vim editing in the composer.
+
+
+› Background server has incompatible feature settings - unsubmitted user text
+
+  GPT-6-Sol xhigh · ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT          ⚠ 3 warnings · f2 to view
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Codex working turn</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre>
+  &gt;_ OpenAI Codex (v0.161.0)
+     ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+  Tip: Use /vim to toggle Vim editing in the composer.
+
+
+› This is a disposable validation turn. Do not use tools, read or modify any files, or operate Firstmate. Output the
+  integers 1 through 200, one per line. Do nothing else.
+
+
+• Working (0s • esc to interrupt)
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol xhigh · ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT          ⚠ 3 warnings · f2 to view
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Unknown plain shell</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre>bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Claude background-task exit picker</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre> ▐▛███▛█   Claude Code v2.1.294
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+▎ Auto mode is now Claude Code&#x27;s default permission mode.
+▎ Auto mode lets Claude handle permission prompts automatically. Claude checks each tool call for risky actions and
+▎ prompt injection before executing, runs the ones it assesses as lower-risk, and blocks the rest.
+▎ https://code.claude.com/docs/en/permission-modes
+
+!  sleep 300
+  ⎿  Command was manually backgrounded by user with ID: bhqbaqci7. Output is being written to:
+     /tmp/claude-1000/-home-tegris--no-mistakes-worktrees-92d12cd65d25-01M4DT9WJSM59MB5VKZWYZCKXT/2d761362-73be-43e6-b03
+     b-5f38dce01152/tasks/bhqbaqci7.output.
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Background work is running
+  The following will stop when you exit:
+
+  shell · sleep 300
+
+  ❯ 1. Exit and stop tasks
+    2. Move to background and exit
+    3. Stay
+
+  Enter to confirm · Esc to cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Claude idle composer</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre> ▐▛███▛█   Claude Code v2.1.294
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+▎ Auto mode is now Claude Code&#x27;s default permission mode.
+▎ Auto mode lets Claude handle permission prompts automatically. Claude checks each tool call for risky actions and
+▎ prompt injection before executing, runs the ones it assesses as lower-risk, and blocks the rest.
+▎ https://code.claude.com/docs/en/permission-modes
+
+!  sleep 300
+  ⎿  Command was manually backgrounded by user with ID: bhqbaqci7. Output is being written to:
+     /tmp/claude-1000/-home-tegris--no-mistakes-worktrees-92d12cd65d25-01M4DT9WJSM59MB5VKZWYZCKXT/2d761362-73be-43e6-b03
+     b-5f38dce01152/tasks/bhqbaqci7.output.
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on · 1 shell · ← for agents · ↓ to manage                                    Not logged in · Run /login
+                                                                                                    ◐ medium · /effort
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Claude unsubmitted text</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre> ▐▛███▛█   Claude Code v2.1.294
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+▎ Auto mode is now Claude Code&#x27;s default permission mode.
+▎ Auto mode lets Claude handle permission prompts automatically. Claude checks each tool call for risky actions and
+▎ prompt injection before executing, runs the ones it assesses as lower-risk, and blocks the rest.
+▎ https://code.claude.com/docs/en/permission-modes
+
+!  sleep 300
+  ⎿  Command was manually backgrounded by user with ID: bhqbaqci7. Output is being written to:
+     /tmp/claude-1000/-home-tegris--no-mistakes-worktrees-92d12cd65d25-01M4DT9WJSM59MB5VKZWYZCKXT/2d761362-73be-43e6-b03
+     b-5f38dce01152/tasks/bhqbaqci7.output.
+
+❯ /exit
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Background work is running - unsubmitted user text
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on · 1 shell                                                                 Not logged in · Run /login
+                                                                                                    ◐ medium · /effort
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section><section><h2>Claude foreground shell task</h2><p>Unaltered text from a live 120-column by 40-row private tmux pane.</p><pre> ▐▛███▛█   Claude Code v2.1.294
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/92d12cd65d25/01M4DT9WJSM59MB5VKZWYZCKXT
+
+▎ Auto mode is now Claude Code&#x27;s default permission mode.
+▎ Auto mode lets Claude handle permission prompts automatically. Claude checks each tool call for risky actions and
+▎ prompt injection before executing, runs the ones it assesses as lower-risk, and blocks the rest.
+▎ https://code.claude.com/docs/en/permission-modes
+
+!  sleep 300
+  ⎿  Command was manually backgrounded by user with ID: bhqbaqci7. Output is being written to:
+     /tmp/claude-1000/-home-tegris--no-mistakes-worktrees-92d12cd65d25-01M4DT9WJSM59MB5VKZWYZCKXT/2d761362-73be-43e6-b03
+     b-5f38dce01152/tasks/bhqbaqci7.output.
+
+❯ /exit
+
+!  sleep 20
+  ⎿  Running…
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on · 1 shell · esc to interrupt · ← for agents · ↓ to manage                 Not logged in · Run /login
+                                                                                          Ctrl+Y to paste deleted text
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</pre></section></main></html>

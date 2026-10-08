@@ -1,0 +1,5 @@
+claude-idle: empty dialog=none
+claude-pending: pending dialog=none
+claude-cleared: empty
+claude-working: busy
+working-dialog=none
