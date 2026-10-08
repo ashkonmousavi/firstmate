@@ -107,6 +107,8 @@
 # The legacy checks-only depth spelling remains readable; its generated
 # direct-PR contract now requires the same one-round review as the new spelling.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
+# whitespace after the risk/depth label's colon is optional, and only
+# surrounding answer whitespace is trimmed.
 # bin/fm-spawn.sh's header owns fresh-ship depth admission and recovery.
 # Review artifacts and old server-install declarations do not affect admission.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
@@ -445,7 +447,7 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   printf -- '- UI wiring: {UI_WIRING}\n'
   printf -- '- Delivery risk: {DELIVERY_RISK}\n'
   printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. -->\n'
+  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -710,13 +712,28 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
     }'
 }
 
+# Prints the one active Tier "- Work class:" answer (feature, fix, revert or
+# live-breakage); fails when it is missing, repeated or anything else.
+# bin/fm-start-gate-lib.sh's header owns where the class is required.
+fm_prep_work_class() {  # <file>
+  local value
+  value=$(fm_prep_tier_read "$1" | awk '
+    /^- Work class:/ { seen++; value=substr($0,length("- Work class:")+1) }
+    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
+  ')
+  case "$value" in
+    feature|fix|revert|live-breakage) printf '%s\n' "$value" ;;
+    *) return 1 ;;
+  esac
+}
+
 # Prints direct-PR or no-mistakes only for one complete active Tier declaration.
 # Examples are cleaned in context; continuations cannot supply the line's reason.
 fm_prep_delivery_mode() {  # <file>
   local value reason mode risk
   value=$(fm_prep_tier_read "$1" | awk '
-    /^- Delivery depth:/ { seen++; value=substr($0,19) }
-    END { if (seen == 1) print value }
+    /^- Delivery depth:/ { seen++; value=substr($0,length("- Delivery depth:")+1) }
+    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
   ')
   case "$value" in
     'checks + one review (direct-PR), '*) mode=direct-PR; reason=${value#'checks + one review (direct-PR), '} ;;
@@ -733,8 +750,8 @@ fm_prep_delivery_mode() {  # <file>
     return 0
   fi
   value=$(fm_prep_tier_read "$1" | awk '
-    /^- Delivery risk:/ { seen++; value=substr($0,18) }
-    END { if (seen == 1) print value }
+    /^- Delivery risk:/ { seen++; value=substr($0,length("- Delivery risk:")+1) }
+    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
   ')
   case "$value" in
     'money, '*) risk=money; reason=${value#'money, '} ;;

@@ -304,12 +304,13 @@ EOF
     fm_test_prep_depth "$prep" direct-PR
     baseline="$home/$format-risk-valid.md"
     cp "$prep" "$baseline"
-    for change in absent empty unknown duplicate comment fence indented continuation placeholder; do
+    for change in absent empty unknown duplicate comment fence indented continuation placeholder prefixed; do
       awk -v c="$change" '
         /^- Delivery risk:/ {
           if (c == "absent") next
           if (c == "empty") { print "- Delivery risk:"; next }
           if (c == "unknown") { print "- Delivery risk: low, inspected output."; next }
+          if (c == "prefixed") { sub(/: /, ":x"); print; next }
           if (c == "placeholder") { print "- Delivery risk: other, {REASON}"; next }
           if (c == "continuation") { print "- Delivery risk: other,"; print "  inspected output."; next }
           if (c == "comment") { print "<!--"; print; print "-->"; next }
@@ -329,6 +330,17 @@ EOF
     cp "$baseline" "$prep"
     out=$(fm_prep_delivery_mode "$prep") || fail "$format valid risk refused"
     [ "$out" = direct-PR ] || fail "$format certainty changed depth"
+    for change in no-separator surrounding-whitespace; do
+      awk -v c="$change" '
+        /^- Delivery (risk|depth):/ {
+          if (c == "no-separator") sub(/: /, ":")
+          else { sub(/: /, ": \t "); $0=$0 " \t" }
+        }
+        { print }
+      ' "$baseline" > "$prep"
+      out=$(fm_prep_delivery_mode "$prep") || fail "$format $change valid delivery answers refused"
+      assert_equals direct-PR "$out" "$format $change delivery answers changed mode"
+    done
     # Even perfect C1-C5 evidence cannot select the fast path for money/security.
     for risk in money security; do
       awk -v r="$risk" '/^- Delivery risk:/ { print "- Delivery risk: " r ", changed the named risk behavior."; next } { print }' "$baseline" > "$prep"
@@ -490,13 +502,14 @@ EOF
     fm_test_prep_depth "$prep" direct-PR
     baseline="$home/$format.baseline"
     cp "$prep" "$baseline"
-    for change in absent empty placeholder unknown both duplicate conflict no-reason placeholder-reason na continuation fenced indented comment; do
+    for change in absent empty placeholder unknown both duplicate conflict no-reason placeholder-reason na continuation fenced indented comment prefixed; do
       awk -v c="$change" '
         /^- Delivery depth:/ {
           if (c == "absent") next
           if (c == "empty") { print "- Delivery depth:"; next }
           if (c == "placeholder") { print "- Delivery depth: {DELIVERY_DEPTH}"; next }
           if (c == "unknown") { print "- Delivery depth: fast, fixture reason"; next }
+          if (c == "prefixed") { sub(/: /, ":x"); print; next }
           if (c == "both") { print $0 " checks + AI review (no-mistakes)"; next }
           if (c == "no-reason" || c == "continuation") { print "- Delivery depth: checks-only (direct-PR),"; if (c == "continuation") print "  reason on next line"; next }
           if (c == "placeholder-reason") { print "- Delivery depth: checks-only (direct-PR), {REASON}"; next }

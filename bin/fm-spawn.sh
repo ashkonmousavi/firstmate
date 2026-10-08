@@ -49,6 +49,9 @@
 #   same-line reasons that agree under bin/fm-dod-lib.sh before task allocation;
 #   direct-PR/no-mistakes must agree with that authored choice. Local-only
 #   validates depth without comparing its branch lifecycle.
+#   A fresh ship of a project named in config/start-gate.json then passes the
+#   new-feature start gate, still before any lock or allocation;
+#   bin/fm-start-gate-lib.sh's header owns that contract.
 #   Scouts and secondmates are not gated, and --relaunch preserves recovery for
 #   tasks dispatched before the current preparation contract.
 #   When the record exists, the launch brief points the worker at it as the
@@ -622,6 +625,14 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 DATA="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 PROJECTS="${FM_PROJECTS_OVERRIDE:-$FM_HOME/projects}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
+resolve_project_dir_arg() {
+  local path=$1
+  case "$path" in
+  projects/*) printf '%s/%s\n' "$PROJECTS" "${path#projects/}" ;;
+  *) printf '%s\n' "$path" ;;
+  esac
+}
+
 # shellcheck source=bin/fm-config-inherit-lib.sh
 . "$SCRIPT_DIR/fm-config-inherit-lib.sh"
 if ! LAUNCH_ENV_ENABLED=$(fm_config_source_present "$CONFIG/launch-env-allowlist"); then
@@ -742,6 +753,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-pr-lib.sh"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$SCRIPT_DIR/fm-dod-lib.sh"
+# shellcheck source=bin/fm-start-gate-lib.sh
+. "$SCRIPT_DIR/fm-start-gate-lib.sh"
 # shellcheck source=bin/fm-trace-context-lib.sh
 . "$SCRIPT_DIR/fm-trace-context-lib.sh"
 # shellcheck source=bin/fm-remote-readiness-lib.sh
@@ -1727,6 +1740,11 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = ship ]; then
     echo "error: task $ID selected --mode $MODE but declared Delivery depth: $PREP_DEPTH; reconcile the flag and preparation before spawn" >&2
     exit 1
   fi
+  # New-feature start gate (bin/fm-start-gate-lib.sh owns the contract), still
+  # before any lock or allocation so a refusal is a no-allocation dry run.
+  GATE_PROJECT=$(resolve_project_dir_arg "${POS[1]:-}")
+  GATE_PROJECT=$(cd "$GATE_PROJECT" 2>/dev/null && pwd) || GATE_PROJECT=${POS[1]:-}
+  fm_start_gate_admit "$CONFIG/start-gate.json" "$(basename "$GATE_PROJECT")" "$PREP_FILE" || exit 1
 fi
 # Role partition: spawning NEW work is MAIN-owned while attended. A relaunch of
 # an existing task is legitimate branch recovery (fm-control drives it through
@@ -3068,14 +3086,6 @@ resolved_existing_dir() {
     return 1
   }
   cd "$path" && pwd -P
-}
-
-resolve_project_dir_arg() {
-  local path=$1
-  case "$path" in
-  projects/*) printf '%s/%s\n' "$PROJECTS" "${path#projects/}" ;;
-  *) printf '%s\n' "$path" ;;
-  esac
 }
 
 path_is_ancestor_of() {
