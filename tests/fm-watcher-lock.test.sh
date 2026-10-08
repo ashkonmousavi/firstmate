@@ -701,8 +701,10 @@ test_lock_refuses_a_plain_file_lock_path() {
   lockdir="$state/.contend.lock"
   mkdir -p "$state"
   printf 'held by a foreign flock\n' > "$lockdir"
-  touch -d '1 hour ago' "$lockdir"
-  before=$(stat -c '%i %Y %s' "$lockdir")
+  fm_touch_epoch "$(($(date +%s) - 3600))" "$lockdir"
+  before=$(stat -c '%i %Y %s' "$lockdir" 2>/dev/null || stat -f '%i %m %z' "$lockdir") \
+    || fail "could not snapshot plain-file lock metadata before acquisition"
+  [ -n "$before" ] || fail "plain-file lock metadata before acquisition was empty"
 
   # No set -e, as in the scripts that call the wait unchecked.
   FM_STATE_OVERRIDE="$state" bash -c '
@@ -752,7 +754,9 @@ test_lock_refuses_a_plain_file_lock_path() {
   ! grep -q 'already running' "$out" "$err" || fail "watcher reported a plain-file lock as a running watcher"
   grep -qF "$state/.watch.lock is a" "$err" || fail "watcher refusal did not name its lock path: $(cat "$err")"
 
-  after=$(stat -c '%i %Y %s' "$lockdir")
+  after=$(stat -c '%i %Y %s' "$lockdir" 2>/dev/null || stat -f '%i %m %z' "$lockdir") \
+    || fail "could not snapshot plain-file lock metadata after acquisition"
+  [ -n "$after" ] || fail "plain-file lock metadata after acquisition was empty"
   [ "$before" = "$after" ] || fail "plain-file lock path was modified: $before -> $after"
   [ "$(cat "$lockdir")" = 'held by a foreign flock' ] || fail "plain-file lock content changed"
   [ -f "$state/.watch.lock" ] && [ ! -L "$state/.watch.lock" ] || fail "watcher replaced the plain-file lock"
