@@ -226,6 +226,11 @@ test_unknown_release_state_suppresses_capacity_notices() {
     'state: unknown · source: pane · harness state unavailable' \
     'state: unknown · source: none · no current-state source available' \
     'state: unknown · source: status-log · unavailable' \
+    'state: blocked · source: status-log · daemon socket down despite attributed run record' \
+    'state: parked · source: status-log · decision open · UNVERIFIED daemon-down record · run: fixture-run' \
+    'state: working · source: status-log · working declaration' \
+    'state: paused · source: status-log · external wait' \
+    'state: failed · source: status-log · validation failed' \
     'state: working · source: unrecognized · unavailable' \
     'state: unrecognized · source: run-step · unavailable' \
     'state: working source: pane' \
@@ -260,7 +265,7 @@ SH
     grep -F 'lane backpressure: 1/1 lanes awaiting validation or release' "$out" >/dev/null \
       || fail "recorded PR pressure depended on unavailable crew state: $verdict"
   done
-  pass "unknown or unreadable crew states suppress capacity notices unless a recorded PR establishes pressure"
+  pass "unknown, unreadable, or noncompletion status-log states suppress capacity notices unless a recorded PR establishes pressure"
 }
 
 test_idle_capacity_wake
