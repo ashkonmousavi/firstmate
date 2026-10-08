@@ -1,0 +1,40 @@
+ ▐▛███▛█   Claude Code v2.1.293
+▝▜██████▀  Opus 5.5 with high effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7
+
+
+❯ This is an isolated live-validation primary with FM_HOME set to a disposable lab. For this test only, run exactly
+  bash bin/fm-lock.sh via Bash, then reply LAB_READY. Do not inspect or act on any real fleet, do not run
+  session-start, do not spawn or delegate, and do not run any other command. Let the registered Stop hook park
+  automatically after your reply.
+
+● Bash(bash bin/fm-lock.sh)
+  ⎿  lock acquired: harness pid 1820681
+  ⎿  Allowed by auto mode classifier
+
+● LAB_READY
+
+  Captain, the lab session lock was acquired (harness pid 1820681). I ran nothing else.
+
+✻ Sautéed for 5s · done 9:58 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Fleet lock live validation · WORKTREE:01M4CTRP889M62SSJ6FJ... · opus/high · default · 7% · 5h22%/7d71% · $0.43   /rc
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

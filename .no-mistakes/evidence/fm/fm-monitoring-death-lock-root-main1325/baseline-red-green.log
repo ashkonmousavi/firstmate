@@ -1,0 +1,8 @@
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-baseline-lab
+Plain-file acquisition using bin/.nm-baseline-wake-lib.sh: exit=124 elapsed=2.002s
+Plain-file acquisition using bin/fm-wake-lib.sh: exit=78 elapsed=0.016s
+error: lock /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-baseline-lab/state/.plain.lock cannot be acquired: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-baseline-lab/state/.plain.lock is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)
+Unrelated claim during guarded mutation using bin/.nm-baseline-lease-lib.sh: exit=124 elapsed=2.016s
+Unrelated claim during guarded mutation using bin/fm-lease-lib.sh: exit=0 elapsed=0.057s
+Terminated
+Both reported failures reproduce at base and pass at target.

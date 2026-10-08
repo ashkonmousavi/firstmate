@@ -1,0 +1,18 @@
+Private fm-lab tmux server stop: exit 0 
+Stopped lab-recorded process 1820681 signal 15
+Stopped lab-recorded process 2167851 signal 15
+Stopped lab-recorded process 2159853 signal 15
+Stopped lab-recorded process 1820681 signal 9
+Private socket directory teardown: exit 0 
+Traceback (most recent call last):
+  File "/home/tegris/.no-mistakes/evidence/01M4CTRP889M62SSJ6FJS0DFN7/cleanup-live-lab.py", line 42, in <module>
+    shutil.rmtree(lab)
+  File "/usr/lib/python3.12/shutil.py", line 785, in rmtree
+    _rmtree_safe_fd(fd, path, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 686, in _rmtree_safe_fd
+    _rmtree_safe_fd(dirfd, fullname, onexc)
+  File "/usr/lib/python3.12/shutil.py", line 717, in _rmtree_safe_fd
+    onexc(os.unlink, fullname, err)
+  File "/usr/lib/python3.12/shutil.py", line 715, in _rmtree_safe_fd
+    os.unlink(entry.name, dir_fd=topfd)
+FileNotFoundError: [Errno 2] No such file or directory: '.watch-arm-output.7NEyzH'

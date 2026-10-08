@@ -1,0 +1,4 @@
+ok - disposable watcher refuses inherited state outside its marked lab
+ok - a plain-file lock path is refused promptly, by name, and left untouched
+ok - live-held lock is not stolen
+ok - lock wait refuses a removed lock directory instead of spinning

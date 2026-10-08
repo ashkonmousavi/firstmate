@@ -1,0 +1,40 @@
+ ▐▛███▛█   Claude Code v2.1.293
+▝▜██████▀  Opus 5.5 with high effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "edit board-template.html to..."
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  session · WORKTREE:01M4CTRP889M62SSJ6FJ... · opus/high · default · -- · 5h--/7d-- · $0.00
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
+                  tmux focus-events off · add 'set -g focus-events on' to ~/.tmux.conf and reattach for focus tracking
+                                                                                                                   /rc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

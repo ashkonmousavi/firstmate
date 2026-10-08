@@ -1,0 +1,1 @@
+ok - host: a held lease-command lock cannot stop a park from arming, and the release failure is logged

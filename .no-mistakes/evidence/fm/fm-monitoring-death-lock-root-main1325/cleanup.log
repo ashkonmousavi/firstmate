@@ -1,0 +1,5 @@
+Private fm-lab tmux server and socket directory were stopped and removed.
+All lab-recorded processes were confirmed exited or zombie before lab removal.
+The first directory-removal attempt raced a hook deleting its own temporary output; after its cleanup completed, lab removal succeeded.
+Removed all disposable lab homes, the temporary primary-scope marker, extracted base libraries, selected-case runners, and targeted-test temporary directory.
+No source changes retained.

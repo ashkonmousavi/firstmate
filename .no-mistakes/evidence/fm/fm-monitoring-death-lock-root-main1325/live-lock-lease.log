@@ -1,0 +1,26 @@
+/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab
+$ bash bin/fm-lease.sh claim malformed --actor branch
+exit=78 elapsed=0.036s
+error: lock /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.fm-lease-command.lock cannot be acquired: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.fm-lease-command.lock is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=78 elapsed=0.022s
+error: lock /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.fm-lease-command.lock cannot be acquired: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.fm-lease-command.lock is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)
+Observed: foreign-held regular file kept its inode, modification time, size, and exact contents; no lease published.
+$ bash -c STATE="$FM_HOME/state"; . bin/fm-wake-lib.sh; fm_lock_acquire_wait "$STATE/.steal-probe.lock"; echo UNLOCKED_ENTRY
+exit=78 elapsed=0.013s
+error: lock /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.steal-probe.lock cannot be acquired: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.steal-probe.lock.steal is a regular empty file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)
+$ bash bin/fm-watch.sh
+exit=1 elapsed=0.222s
+error: lock /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.watch.lock cannot be acquired: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.watch.lock is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)
+Observed: malformed steal mutex and watcher lock refuse promptly by name.
+$ bash bin/fm-lease.sh claim kept --actor branch
+exit=0 elapsed=0.048s
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=7 elapsed=6.099s
+error: release-actor gave up after 5s - the lease-command lock /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-lock-lab/state/.fm-lease-command.lock is held by pid 1916590; branch leases were left in place for the next release
+Observed: a 3600-second legacy environment override cannot extend the fixed bound; holder pid named and lease byte-identical.
+Terminated
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=0 elapsed=0.035s
+Observed: after contention clears, a real release removes the branch lease.
+Disposable lock/lease lab removed.

@@ -1,0 +1,99 @@
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=0 elapsed=0.030s
+Real fm-send waiting on the task metadata lock; task guard held; lease-command lock free.
+$ bash bin/fm-lease.sh claim send-other --actor branch
+exit=0 elapsed=0.052s
+$ bash bin/fm-lease.sh check send-other
+exit=0 elapsed=0.042s
+branch 1820681 1791435758 live
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=0 elapsed=0.034s
+Competing branch claim remains blocked and publishes no lease while fm-send is pending.
+fm-send completed with one durable inbox record; competing claim proceeded only afterward:
+schema=fm-task-inbox.v1
+at=2026-10-08T05:02:39Z
+--
+Disposable concurrency validation: no action required.
+$ bash bin/fm-send.sh send-slow must be refused under branch lease
+exit=6 elapsed=0.446s
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+error: steer (fm-send) refused - task 'send-slow' is leased to the branch supervision actor (state/.lease-send-slow), which is handling that task right now; leave the lease alone (never remove or clear it) and retry after that actor releases it, which it does when its handling ends
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=0 elapsed=0.032s
+$ git init -q -b main /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-project
+exit=0 elapsed=0.005s
+$ git -C /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-project -c user.name=Lab fixture -c user.email=fixture@example.invalid commit -q --allow-empty -m fixture
+exit=0 elapsed=0.005s
+$ git -C /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-project worktree add -q -b fm-lab-control /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-worktree
+exit=0 elapsed=0.008s
+$ tmux -L fm-lab rename-window -t primary:fm-slow fm-control-slow
+exit=0 elapsed=0.003s
+$ tmux -L fm-lab send-keys -t primary:fm-control-slow -l cd -- /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-worktree
+exit=0 elapsed=0.002s
+$ tmux -L fm-lab send-keys -t primary:fm-control-slow Enter
+exit=0 elapsed=0.002s
+Real fm-control reached fm-spawn relaunch and is waiting on the held metadata lock; global lease-command lock is free.
+$ bash bin/fm-lease.sh claim control-other --actor branch
+exit=0 elapsed=0.045s
+$ bash bin/fm-lease.sh check control-other
+exit=0 elapsed=0.037s
+branch 1820681 1791435760 live
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=0 elapsed=0.030s
+Competing branch claim remains blocked throughout the real relaunch wait.
+After cancellation, the task guard clears and the competing claim proceeds. Control journal/output retained below.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+Terminated
+error: control-slow's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-worktree
+Terminated
+
+state/control-slow.control-relaunch.brief-prior:
+# Disposable concurrency probe
+Do not change files.
+
+state/control-slow.control-relaunch.note:
+Disposable concurrency test; leave all files alone.
+
+state/control-slow.meta:
+window=primary:fm-control-slow
+harness=codex
+kind=scout
+mode=local-only
+yolo=false
+worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-worktree
+project=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-project
+
+state/control-slow.control-relaunch:
+v1
+task=control-slow
+phase=failed:launching
+ts=2026-10-08T05:02:41Z
+backend=tmux
+endpoint=primary:fm-control-slow
+worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-worktree
+kind=scout
+from_harness=codex
+from_model=default
+from_effort=default
+to_harness=codex
+to_model=default
+to_effort=default
+rollback=prior-record-kept
+
+state/control-slow.control-relaunch.meta-prior:
+window=primary:fm-control-slow
+harness=codex
+kind=scout
+mode=local-only
+yolo=false
+worktree=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-worktree
+project=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7/.nm-live-lab/control-project
+
+state/.lease-control-slow:
+branch	1820681	1791435761
+
+$ bash bin/fm-lease.sh release-actor --actor branch
+exit=0 elapsed=0.030s

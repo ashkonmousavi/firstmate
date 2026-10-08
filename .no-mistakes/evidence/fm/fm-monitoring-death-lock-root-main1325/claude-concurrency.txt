@@ -1,0 +1,60 @@
+ ▐▛███▛█   Claude Code v2.1.293
+▝▜██████▀  Opus 5.5 with high effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7
+▝▜██████▀  Opus 5.5 with high effort · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/befb827bbae4/01M4CTRP889M62SSJ6FJS0DFN7
+
+
+❯ This is an isolated live-validation primary with FM_HOME set to a disposable lab. For this test only, run exactly
+  bash bin/fm-lock.sh via Bash, then reply LAB_READY. Do not inspect or act on any real fleet, do not run
+  session-start, do not spawn or delegate, and do not run any other command. Let the registered Stop hook park
+  automatically after your reply.
+
+● Bash(bash bin/fm-lock.sh)
+  ⎿  lock acquired: harness pid 1820681
+  ⎿  Allowed by auto mode classifier
+
+● LAB_READY
+
+  Captain, the lab session lock was acquired (harness pid 1820681). I ran nothing else.
+
+✻ Sautéed for 5s · done 9:58 PM
+
+● Stop hook feedback
+
+● Captain, the Stop hook asked me to drain and handle a supervision wake. I did not, because for this test you told me
+  to run only bin/fm-lock.sh and no other command. The wake is still stored, so a later session can handle it safely. If
+  you want me to run the drain in this lab, say so and I will.
+
+  LAB_READY
+
+✻ Worked for 5s · done 10:01 PM
+
+● Stop hook feedback
+
+● Captain, the Stop hook raised another supervision wake, a re-arm notice. I'm still holding to your test instruction to
+  run only bin/fm-lock.sh, so I have not drained or handled it. Both wakes are still stored and can be handled later.
+  Tell me if you want them drained in this lab.
+
+  LAB_READY
+
+✻ Worked for 2s · done 10:01 PM
+
+● Stop hook feedback
+
+● Captain, a third supervision wake came in. It reports that a lab worker named "slow" has a steer it never read, and
+  that the worker's agent has exited, so it needs recovery. I have not handled it. Recovering a worker would mean
+  relaunching it, and you ruled that out for this test, along with any command besides bin/fm-lock.sh. All three wakes
+  are still stored in the lab and can be handled later.
+
+  LAB_READY
+
+✻ Cogitated for 1s · done 10:02 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ run bin/fm-wake-drain.sh and handle the wakes
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Fleet lock live validation · WORKTREE:01M4CTRP889M62SSJ6FJ... · opus/high · default · 8% · 5h23%/7d71% · $1.42   /rc
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← 2 agents
+
+
