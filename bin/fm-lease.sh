@@ -23,8 +23,8 @@
 #       nothing (exit 1) when the task is unleased.
 #   fm-lease.sh release-actor --actor main|branch
 #       Drop every lease the named actor holds; the Pi branch extension runs
-#       this at generation activation so a replaced branch conversation's
-#       leases never outlive it, and the supervision host runs it around every
+#       this at generation activation to clear a replaced branch conversation's
+#       leases, and the supervision host runs it around every
 #       park and engine turn. It uses a fixed 5-second wait bound for the
 #       lease-command lock, then exits 7 naming
 #       the holder, so no long guarded operation can stop a park from arming;

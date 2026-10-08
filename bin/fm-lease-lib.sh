@@ -215,11 +215,9 @@ fm_lease_clear_stale() {
   rm -f -- "$file"
 }
 
-# fm_lease_guard <task> <action-label>: refuse (exit FM_LEASE_REFUSE_EXIT) when
-# a live lease held by the OTHER actor exists for <task>. Once engaged (the
-# guard semantics above), a successful guard retains the command lock across
-# the caller's mutation; the caller must invoke fm_lease_guard_release from its
-# EXIT cleanup. This closes the check/use race with a concurrent claim.
+# fm_lease_guard <task> <action-label>: see Guard semantics in CONTRACT above
+# for refusal and claim serialization. The caller must invoke
+# fm_lease_guard_release from its EXIT cleanup.
 fm_lease_guard() {
   local task=$1 action=$2 actor lock lease_actor
   fm_lease_valid_id "$task" || return 0

@@ -164,7 +164,8 @@ On each actionable close the engine takes, the host runs these steps:
 2. It computes the branch-claimable rows in the turn's posture and publishes the grant.
 3. It runs one bounded engine turn with the branch prompt and the wake message carrying, attended, the dialog mirror and, away, the record's read-back.
    The engine drains, handles, reports through `bin/fm-branch-report.sh`, and acknowledges, exactly as the Pi branch does.
-4. It releases the branch's leases and grant, whether or not the wake was handled.
+4. It releases the grant and attempts branch-lease cleanup, whether or not the wake was handled.
+   The [host header](../bin/fm-supervision-host.sh) owns release-failure logging and retry without blocking arming; [fm-lease.sh](../bin/fm-lease.sh) owns the wait bound and refusal contract.
 5. It parks on the successor only for a handled wake.
    A main-only pass-through is not a park: the host exits after leaving that cycle running, as [Attended](#attended) describes.
 
