@@ -826,7 +826,7 @@ fm_remote_job_stage_owner_alive() { # <stage-dir>
 
 fm_remote_job_reap_stale() { # <account-home>
   local account_home=$1 job id state mtime now stage marker tmp reap_claims=0
-  local cutoff stamp ref
+  local cutoff ref
   fm_remote_job_prepare_state "$account_home" || return 1
   now=$(date +%s)
   for job in "$FM_REMOTE_JOB_JOBS"/job-*; do
@@ -847,26 +847,18 @@ fm_remote_job_reap_stale() { # <account-home>
     *) [ $((now - mtime)) -lt "$FM_REMOTE_JOB_SEQ_CLAIM_REAP_INTERVAL" ] || reap_claims=1 ;;
   esac
   if [ "$reap_claims" -eq 1 ]; then
-    # Prepare the age beacon before advancing the marker so a touch/date failure
-    # retries on the next sweep instead of skipping a whole interval.
     ref=
-    stamp=
     if [ -d "$FM_REMOTE_JOB_SEQ_CLAIMS" ] && [ ! -L "$FM_REMOTE_JOB_SEQ_CLAIMS" ]; then
       cutoff=$((now - FM_REMOTE_JOB_SEQ_CLAIM_REAP_SECONDS))
       ref=$(umask 077; mktemp "$FM_REMOTE_JOB_STATE/.seqreap-ref.XXXXXX") || ref=
-      if [ -n "$ref" ]; then
-        # touch -d ISO-8601 is POSIX; date(1) needs a host-specific epoch
-        # conversion. The beacon sits at the last instant of the cutoff second
-        # so fractional claim mtimes keep the former whole-second expiry.
-        stamp=$(TZ=UTC0 date -d "@$cutoff" +%Y-%m-%dT%H:%M:%S 2>/dev/null) \
-          || stamp=$(TZ=UTC0 date -r "$cutoff" +%Y-%m-%dT%H:%M:%S 2>/dev/null) \
-          || stamp=
-        if [ -n "$stamp" ]; then
-          touch -d "$stamp.999999999Z" "$ref" 2>/dev/null || stamp=
-        fi
-      fi
     fi
-    if [ -n "$stamp" ]; then
+    if [ -n "$ref" ] && python3 - "$ref" "$cutoff" <<'PY'
+import os, sys
+
+stamp = int(sys.argv[2]) * 1_000_000_000 + 999_999_999
+os.utime(sys.argv[1], ns=(stamp, stamp))
+PY
+    then
       tmp=$(umask 077; mktemp "$FM_REMOTE_JOB_STATE/.seqreap.XXXXXX") || tmp=
       if [ -n "$tmp" ] && printf '%s\n' "$now" > "$tmp" && chmod 600 "$tmp" \
         && mv -f -- "$tmp" "$marker"; then

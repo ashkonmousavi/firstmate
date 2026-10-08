@@ -2419,12 +2419,14 @@ prompt_waiting_check() {  # <window> <task> <window-key>
 # fm_composer_blocking_dialog owns which screens are dialogs; a 120-line read
 # reaches a heading the composer's short tail can miss, and the dialog's last
 # row must still be the screen's last, so scrollback cannot match. Each dialog
-# episode wakes once: .dialog-surfaced-<key> holds the name already surfaced,
+# episode wakes once: .dialog-surfaced-<key> holds the task, generation and name,
 # written after the wake was durably appended, and is cleared when the pane no
 # longer shows a dialog. A failed capture leaves the marker as it was.
 secondmate_dialog_check() {  # <window> <window-key>
-  local w=$1 key=$2 backend name reason marker
+  local w=$1 key=$2 backend name reason marker task generation identity
   marker="$STATE/.dialog-surfaced-$key"
+  task=$(window_to_task "$w" "$STATE")
+  generation=$(fm_meta_get "$STATE/$task.meta" spawn_gen)
   backend=$(window_backend "$w")
   fm_backend_source "$backend" || return 0
   watcher_capture "$backend" "$w" 120 "$(window_label "$w")" || return 0
@@ -2432,10 +2434,11 @@ secondmate_dialog_check() {  # <window> <window-key>
     rm -f "$marker"
     return 0
   fi
-  [ "$(cat "$marker" 2>/dev/null || true)" != "$name" ] || return 0
+  identity="$task:$generation:$name"
+  [ "$(cat "$marker" 2>/dev/null || true)" != "$identity" ] || return 0
   reason="stale: $w (a $name is waiting in the pane; it needs a human answer)"
   fm_wake_append stale "$w" "$reason" || checkpoint_wake_failed $?
-  printf '%s' "$name" > "$marker"
+  printf '%s' "$identity" > "$marker"
   wake "$reason"
 }
 

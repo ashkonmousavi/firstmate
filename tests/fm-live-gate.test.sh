@@ -304,6 +304,50 @@ EOF
   pass "all $checked live guards refuse together on FM_LIVE=0"
 }
 
+test_dialog_guard_requires_installed_inputs() {
+  local bin script out rc mode tool
+  bin="$TMP_ROOT/dialog-tools"; mkdir "$bin"
+  script="$ROOT/tests/fm-composer-dialog-live-e2e.test.sh"
+  for tool in tmux claude codex; do
+    printf '#!/usr/bin/env bash\nprintf "%%s\\n" "%s fixture-version"\n' "$tool" > "$bin/$tool"
+    chmod +x "$bin/$tool"
+  done
+  for mode in default forced; do
+    if out=$(clean_env PATH="$bin:/usr/bin:/bin" FM_COMPOSER_DIALOG_LIVE="$([ "$mode" = forced ] && printf 1)" \
+      bash "$script" 2>&1); then rc=0; else rc=$?; fi
+    [ "$rc" -ne 0 ] || fail "$mode dialog guard passed without live inputs"
+    assert_contains "$out" 'claude (claude fixture-version): FM_DIALOG_CLAUDE_DIALOG unavailable' 'Claude missing-input diagnostic lost its version'
+    assert_contains "$out" 'codex (codex fixture-version): FM_DIALOG_CODEX_DIALOG unavailable' 'Codex missing-input diagnostic lost its version'
+    assert_contains "$out" 'FM_DIALOG_UNKNOWN unavailable' 'unknown control was silently omitted'
+    assert_not_contains "$out" 'skip: live:' 'installed harness inputs must not capability-skip'
+  done
+  if out=$(clean_env PATH="$bin:/usr/bin:/bin" \
+    FM_DIALOG_CLAUDE_DIALOG=%1 FM_DIALOG_CLAUDE_IDLE=%2 FM_DIALOG_CLAUDE_PENDING=%3 FM_DIALOG_CLAUDE_WORKING=%4 \
+    FM_DIALOG_CODEX_DIALOG=%5 FM_DIALOG_CODEX_IDLE=%6 FM_DIALOG_CODEX_PENDING=%7 FM_DIALOG_CODEX_WORKING=%8 \
+    bash "$script" 2>&1); then rc=0; else rc=$?; fi
+  [ "$rc" -ne 0 ] || fail 'dialog guard passed with only its unknown control missing'
+  assert_contains "$out" 'FM_DIALOG_UNKNOWN unavailable' 'missing shared unknown control did not fail'
+  if out=$(clean_env PATH="$bin:/usr/bin:/bin" FM_COMPOSER_DIALOG_LIVE=0 bash "$script" 2>&1); then rc=0; else rc=$?; fi
+  [ "$rc" -eq 0 ] || fail 'explicitly disabled dialog guard failed'
+  assert_contains "$out" 'skip: live: disabled by FM_COMPOSER_DIALOG_LIVE=0' 'explicit opt-out was lost'
+  rm "$bin/claude" "$bin/codex"
+  if out=$(clean_env PATH="$bin:/usr/bin:/bin" bash "$script" 2>&1); then rc=0; else rc=$?; fi
+  [ "$rc" -eq 0 ] || fail 'absent harnesses did not capability-skip'
+  assert_contains "$out" 'harness absent, not verified here: claude' 'absent Claude was not named'
+  assert_contains "$out" 'harness absent, not verified here: codex' 'absent Codex was not named'
+  assert_contains "$out" 'skip: live: no installed dialog harnesses' 'absent-harness skip was not explicit'
+  if out=$(clean_env PATH="$bin:/usr/bin:/bin" FM_COMPOSER_DIALOG_LIVE=1 bash "$script" 2>&1); then rc=0; else rc=$?; fi
+  [ "$rc" -ne 0 ] || fail 'forced dialog guard passed without installed harnesses'
+  assert_contains "$out" 'verified nothing; no installed harnesses' 'forced empty-run refusal was lost'
+  pass 'dialog guard fails missing inputs by default and preserves disable and absent-harness handling'
+}
+
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY"
+  exit 0
+fi
+
+test_dialog_guard_requires_installed_inputs
 test_default_on_runs_when_the_tool_is_installed
 pass "a default-on guard runs wherever its tools are installed"
 test_default_on_skips_and_names_the_absent_tool

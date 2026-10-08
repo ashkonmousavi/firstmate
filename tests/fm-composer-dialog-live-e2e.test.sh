@@ -35,13 +35,14 @@ for harness in claude codex; do
     fi
   done
 done
-[ -n "${FM_DIALOG_UNKNOWN:-}" ] || missing="${missing}${missing:+; }FM_DIALOG_UNKNOWN unavailable"
-if [ "$installed" -eq 0 ] || [ -n "$missing" ]; then
+if [ "$installed" -eq 0 ]; then
   case "${FM_COMPOSER_DIALOG_LIVE:-${FM_LIVE:-}}" in
-    1) fail "live dialog guard verified nothing; $installed installed harnesses; $missing" ;;
-    *) printf 'skip: live: dialog panes unavailable; %s installed harnesses; %s\n' "$installed" "$missing"; exit 0 ;;
+    1) fail 'live dialog guard verified nothing; no installed harnesses' ;;
+    *) printf 'skip: live: no installed dialog harnesses\n'; exit 0 ;;
   esac
 fi
+[ -n "${FM_DIALOG_UNKNOWN:-}" ] || missing="${missing}${missing:+; }FM_DIALOG_UNKNOWN unavailable"
+[ -z "$missing" ] || fail "live dialog guard verified nothing; $installed installed harnesses; $missing"
 
 lab=$(fm_test_tmproot fm-dialog-live)
 export FM_COMPOSER_DIALOG_SINK="$lab/dialog"
