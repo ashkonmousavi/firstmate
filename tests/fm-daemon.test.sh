@@ -424,6 +424,56 @@ EOF
   pass "$variant inbox escalation reaches supervision in $mode mode and survives buffering failure"
 }
 
+test_dialog_escalation_reaches_supervision() {
+  local mode=$1 dialog=$2 dir state win reason buffer sent drain status offset
+  dir=$(make_supercase "dialog-$mode-${dialog%% *}"); state="$dir/state"
+  win='sess:fm-dialog-mate'; buffer="$state/.subsuper-escalations"
+  sent="$dir/sent.log"; drain="$dir/daemon-bin"
+  printf '%s\n' "$mode" > "$state/.afk"
+  fm_write_meta "$state/dialog-mate.meta" "window=$win" 'kind=secondmate' 'backend=tmux'
+  reason="stale: $win (a $dialog is waiting in the pane; it needs a human answer)"
+  mkdir "$drain"
+  cat > "$drain/fm-wake-drain.sh" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" = --ack-through ]; then printf '%s\n' ack >> "$dir/acked"; exit 0; fi
+if [ "\${FM_TEST_WAKE_FALLBACK:-0}" != 1 ]; then
+  printf '1\t1\tstale\t$win\t%s\n' "$reason"
+fi
+printf 'WAKE_ACK_REQUIRED: inbox --ack-through 1 --recovery-generation gen\n' >&2
+EOF
+  chmod +x "$drain/fm-wake-drain.sh"
+  for status in 'done: previous launch finished' 'paused: awaiting external work' 'working: processing instructions' ''; do
+    printf '%s\n' "$status" > "$state/dialog-mate.status"
+    seen_through "$state" dialog-mate
+    offset=$(status_seen_offset "$state" dialog-mate)
+    FM_DAEMON_DIR="$drain" FM_ESCALATE_BATCH_SECS=999999 handle_durable_wakes "$reason" "$state" \
+      || fail "$dialog $mode wake was not handled"
+    [ "$(cat "$buffer" 2>/dev/null)" = "${reason#stale: }" ] \
+      || fail "$dialog $mode wake was absorbed under '$status'"
+    [ "$(cat "$dir/acked")" = ack ] || fail "dialog wake was not acknowledged once"
+    [ "$(status_seen_offset "$state" dialog-mate)" = "$offset" ] \
+      || fail "dialog escalation consumed unrelated status"
+    [ ! -e "$state/.subsuper-stale-dialog-mate" ] || fail "dialog entered transient stale recovery"
+    printf '❯ \n' > "$dir/pane.txt"
+    PATH="$dir/fakebin:$PATH" FM_FAKE_TMUX_SENT="$sent" FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" \
+      FM_SUPERVISOR_BACKEND=tmux FM_SUPERVISOR_TARGET=sess:supervisor escalate_flush "$state" \
+      || fail "$dialog $mode escalation did not reach supervision"
+    assert_contains "$(delivered_digest "$sent")" "${reason#stale: }" 'supervisor digest lost the dialog name'
+    [ ! -s "$buffer" ] || fail "delivered dialog stayed buffered"
+    rm "$buffer" "$dir/acked"
+  done
+  mkdir "$buffer"
+  ! FM_DAEMON_DIR="$drain" FM_ESCALATE_BATCH_SECS=999999 handle_durable_wakes "$reason" "$state" 2>/dev/null \
+    || fail "unwritable dialog escalation buffer acknowledged its wake"
+  [ ! -e "$dir/acked" ] || fail "failed dialog buffering acknowledged the wake"
+  rmdir "$buffer"
+  FM_DAEMON_DIR="$drain" FM_ESCALATE_BATCH_SECS=999999 FM_TEST_WAKE_FALLBACK=1 \
+    handle_durable_wakes "$reason" "$state" || fail "dialog fallback did not recover"
+  [ "$(cat "$buffer")" = "${reason#stale: }" ] || fail "fallback lost the dialog name"
+  [ "$(cat "$dir/acked")" = ack ] || fail "recovered dialog buffering did not acknowledge the wake"
+  pass "$dialog reaches supervision in $mode mode regardless of status and survives buffering failure"
+}
+
 test_busy_inbox_dispatch_preserves_other_stale_reasons() {
   local dir state detail
   dir=$(make_supercase inbox-dispatch-scope); state="$dir/state"
@@ -440,6 +490,15 @@ test_busy_inbox_dispatch_preserves_other_stale_reasons() {
     [ -e "$state/.subsuper-stale-ordinary" ] || fail "inbox dispatch bypassed ordinary stale recovery"
   done
   pass "inbox dispatch preserves ordinary stale, busy-turn, and other doorbell routing"
+}
+
+test_dialog_dispatch_round() {
+  test_dialog_escalation_reaches_supervision away 'Claude background-task exit picker'
+  test_dialog_escalation_reaches_supervision quiet 'Claude background-task exit picker'
+  test_dialog_escalation_reaches_supervision away 'Codex background-server settings dialog'
+  test_dialog_escalation_reaches_supervision quiet 'Codex background-server settings dialog'
+  test_busy_inbox_dispatch_preserves_other_stale_reasons
+  test_classify_stale_dedup_against_signal
 }
 
 test_catchall_buffer_failure_preserves_position() {
@@ -3228,6 +3287,11 @@ test_inject_msg_defers_on_unrecognized_composer_state() {
   pass "inject_msg: unrecognized composer states defer by default"
 }
 
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY"
+  exit 0
+fi
+
 test_afk_start_refuses_when_flag_cannot_be_written
 test_afk_start_ignores_stale_pidfile_without_lock
 test_afk_start_reclaims_stale_daemon_lock_reused_pid
@@ -3311,6 +3375,10 @@ test_busy_inbox_escalation_reaches_supervision write away
 test_busy_inbox_escalation_reaches_supervision write quiet
 test_busy_inbox_escalation_reaches_supervision reset away
 test_busy_inbox_escalation_reaches_supervision reset quiet
+test_dialog_escalation_reaches_supervision away 'Claude background-task exit picker'
+test_dialog_escalation_reaches_supervision quiet 'Claude background-task exit picker'
+test_dialog_escalation_reaches_supervision away 'Codex background-server settings dialog'
+test_dialog_escalation_reaches_supervision quiet 'Codex background-server settings dialog'
 test_busy_inbox_dispatch_preserves_other_stale_reasons
 test_catchall_buffer_failure_preserves_position
 test_durable_wake_failure_retains_entire_batch

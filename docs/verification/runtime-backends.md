@@ -1376,6 +1376,12 @@ Exit does not report a stopped agent whose pane still shows the picker text as b
 A worker pane parked on it keeps the ordinary stale triage; a secondmate pane is read for recognised dialogs as the Codex section below describes.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
 Refusing an Enter that would confirm a dialog restores an existing safety path, so it is not gated behind a flag.
+The read-only refresh guard for this picker and the Codex dialog is [`fm-composer-dialog-live-e2e.test.sh`](../../tests/fm-composer-dialog-live-e2e.test.sh).
+Supply operator-prepared, isolated tmux pane IDs in `FM_DIALOG_CLAUDE_DIALOG`, `FM_DIALOG_CLAUDE_IDLE`, `FM_DIALOG_CLAUDE_PENDING`, and `FM_DIALOG_CLAUDE_WORKING`, and the corresponding `FM_DIALOG_CODEX_*` variables for every installed harness, plus `FM_DIALOG_UNKNOWN` for an unrecognized shell pane.
+The pending controls must contain an unsubmitted draft; the working controls must be live turns.
+Run `FM_COMPOSER_DIALOG_LIVE=1 bash tests/fm-composer-dialog-live-e2e.test.sh` after an upgrade to check real visible dialog recognition, sink propagation, and ordinary composer controls with both cursor and cursorless reads.
+The guard reads only those panes, reports installed versions and absent harnesses, and fails a requested run with unavailable inputs rather than certifying a fixture or an empty run.
+The dated observations above and below remain historical until refreshed by a successful live guard run.
 
 ### Codex background-server settings dialog
 
@@ -1388,6 +1394,8 @@ The dialog is recognised by its recorded structure only: the heading on its own 
 The same rows quoted above a live composer, a heading inside a sentence, options with no selected row, and option text typed into a composer are not the dialog.
 Submit retries and exit refuse a confirming Enter on it exactly as for the Claude picker.
 The watcher reads each secondmate pane for a recognised dialog with a 120-line capture and wakes once per dialog episode with the dialog's name; a worker pane keeps the ordinary stale triage.
+Away and quiet supervision escalate the named dialog wake at the dispatch boundary, even when the mate's previous terminal status was already consumed or its status declares an external wait.
+The executable regression in `tests/fm-daemon.test.sh` covers both dialogs, both modes, queued and fallback delivery, and failed escalation buffering.
 Controls were recorded on codex-cli 0.161.0 with update checks disabled: a real idle composer read empty, typed text read pending, and a cleared composer read empty, and none of them matched the dialog.
 A second launch against the shared server on 0.161.0 went straight to the composer, so the dialog was not reproduced again on demand.
 A live Herdr pane and a remote secondmate were not exercised; the remote steer path has no watcher pane read.
