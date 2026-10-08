@@ -50,6 +50,11 @@
 FM_BACKEND_SCRIPT=${BASH_SOURCE[0]:-$0}
 FM_BACKEND_LIB_DIR="$(cd "$(dirname "$FM_BACKEND_SCRIPT")" && pwd)"
 unset FM_BACKEND_SCRIPT
+if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then
+  # shellcheck source=bin/fm-timeout-lib.sh
+  . "$FM_BACKEND_LIB_DIR/fm-timeout-lib.sh"
+fi
+
 FM_BACKEND_DEFAULT_ROOT="$(cd "$FM_BACKEND_LIB_DIR/.." && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-${FM_ROOT:-$FM_BACKEND_DEFAULT_ROOT}}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
@@ -336,6 +341,7 @@ fm_meta_get() {  # <meta-file> <key>
   local meta=$1 key=$2 line value=''
   [ -f "$meta" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
+    if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] && fm_checkpoint_expired; then return 124; fi
     case "$line" in
       "$key="*) value=${line#*=} ;;
     esac
@@ -553,6 +559,10 @@ fm_backend_validate_task_endpoint() {  # <meta-file> <task-id>
 }
 
 fm_backend_meta_for_window() {  # <target> <state-dir>
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] && [ "${FM_CHECKPOINT_READING:-0}" != 1 ]; then
+    fm_checkpoint_read "$FM_BACKEND_LIB_DIR/fm-backend.sh" fm_backend_meta_for_window "$@"
+    return
+  fi
   local target=$1 state=$2 meta window terminal
   for meta in "$state"/*.meta; do
     [ -e "$meta" ] || continue

@@ -1242,6 +1242,10 @@ _fm_status_span_scratch() {  # <status-file>
 }
 
 _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] && [ "${FM_CHECKPOINT_READING:-0}" != 1 ]; then
+    fm_checkpoint_read "$_FM_CLASSIFY_LIB_DIR/fm-classify-lib.sh" _fm_status_read_span "$@"
+    return
+  fi
   local f=$1 start=$2 length=$3
   if [ -n "${FM_STATUS_SPAN_READER:-}" ]; then
     "$FM_STATUS_SPAN_READER" "$f" "$start" "$length"
@@ -2129,6 +2133,10 @@ status_open_activities() {  # <status-file-or-dash>
 # task id from a recorded window target, falling back to the tmux-shaped
 # "<session>:fm-<id>" form when no metadata state is available.
 window_to_task() {
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] && [ "${FM_CHECKPOINT_READING:-0}" != 1 ]; then
+    fm_checkpoint_read "$_FM_CLASSIFY_LIB_DIR/fm-classify-lib.sh" window_to_task "$@"
+    return
+  fi
   local w=$1 state=${2:-${STATE:-${FM_STATE_OVERRIDE:-}}} meta mw mt t line
   if [ -n "$state" ]; then
     for meta in "$state"/*.meta; do

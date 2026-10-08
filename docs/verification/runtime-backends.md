@@ -106,6 +106,8 @@ The portable regression asserts both directions of that case: a host-shaped pid 
 
 Run on the host under Claude Code 2.1.252 with the same two markers set, the same probe reports `claude`, `comm claude`, and Claude's Stop-owned protocol, so the correction does not trade one misidentification for its inverse.
 
+The earlier native Codex foreground checkpoint probe is recorded in [Recorded-lane checkpoint deadline](supervision.md#recorded-lane-checkpoint-deadline-2026-10-07).
+
 ### Real harness process names behind the walk
 
 The detection half of the opt-in drift guard asks the ancestry walk what it makes of each INSTALLED harness's real running process:

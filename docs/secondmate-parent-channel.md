@@ -18,13 +18,13 @@ The design goal is therefore: the parent channel must not depend on the model re
 ## The design
 
 The delivery rule has one sentence: the scripts report facts, the mate reports judgement.
-Every captain-facing outcome that leaves durable evidence in the mate home is published on the channel by the script that records that evidence, at record time or on the next supervision poll, and the charter reserves the mate's own appends for judgement.
+Every captain-facing outcome that leaves durable evidence in the mate home is published on the channel by its owning script, at record time or through its supervision delivery path, and the charter reserves the mate's own appends for judgement.
 
 | Outcome | Durable evidence in the mate home | Published by |
 |---|---|---|
-| Ship child PR ready | the child's `done:` PR ready line, whose accepted spellings the publisher below owns; `pr=` in the child's record once registered | `bin/fm-inactive-reconcile.sh` on the next poll with the child's line; `bin/fm-pr-check.sh` at registration with the canonical URL |
-| Scout child findings | the child's `done:` line plus `data/<child>/report.md` | `bin/fm-inactive-reconcile.sh` on the next poll, with the report pointer |
-| Child failed | the child's `failed:` line | `bin/fm-inactive-reconcile.sh` on the next poll |
+| Ship child PR ready | the child's `done:` PR ready line, whose accepted spellings the publisher below owns; `pr=` in the child's record once registered | `bin/fm-inactive-reconcile.sh` ledger delivery; `bin/fm-pr-check.sh` at registration with the canonical URL |
+| Scout child findings | the child's `done:` line plus `data/<child>/report.md` | `bin/fm-inactive-reconcile.sh` ledger delivery, with the report pointer |
+| Child failed | the child's `failed:` line | `bin/fm-inactive-reconcile.sh` ledger delivery |
 | Child decision escalated to the captain | the task held for the captain in the mate backlog | `bin/fm-captain-hold.sh hold`, and its answer by `answer` |
 | PR merged | the merge poll or the mate's own merge | `bin/fm-merge-outcome-lib.sh` |
 | Child leaving the home | its final ledger line | `bin/fm-teardown.sh`, which refuses to remove the child while that line is undelivered |
@@ -49,7 +49,7 @@ It resolves that exact record with `resolved_via=notice` and closes only its own
 
 - No mirror of the mate's chat: chat can mix outcomes with other conversation, so choosing which sentence is an outcome would itself be model behavior, and every harness exposes turn text differently.
 - No threshold escalation of a child's open decision or blocker: a decision the mate escalates is a captain hold, which is published; a decision the mate neither answers nor escalates is a supervision-quality question, separable from channel delivery.
-- No second watcher or standalone scanner: a lightweight ledger pass runs inside the existing inactive-outcome command on every watcher poll and reuses its receipts and upstream append.
+- No second watcher or standalone scanner: a ledger pass inside the existing inactive-outcome command reuses its receipts and upstream append; the [script header](../bin/fm-inactive-reconcile.sh) owns scheduling and checkpoint deferral.
 - No orphan lifecycle: teardown refuses instead of removing an undelivered outcome, the same way it refuses on other unlanded conditions.
 
 ## Regression coverage

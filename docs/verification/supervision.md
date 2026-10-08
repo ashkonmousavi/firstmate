@@ -37,6 +37,43 @@ The current running primary was not relaunched with this checkout's wrapper, so 
 The next primary launch must use `bin/fm-codex-primary.sh` for the new binding.
 A wrapped client attached to a shared managed daemon with `--remote` has not been proven live against an isolated daemon and home; only the simulated shared daemon in `tests/fm-codex-session.test.sh` covers that path.
 
+## Recorded-lane checkpoint deadline, 2026-10-07
+
+`tests/fm-watch-checkpoint.test.sh` exercises the foreground executable with long and short recorded inventories, stalled pane and crew-state reads, duplicate endpoint aliases, and a deferred later-lane wake acknowledged through the real durable queue.
+The checkpoint header and help in [`bin/fm-watch-checkpoint.sh`](../../bin/fm-watch-checkpoint.sh) own invocation mechanics, and [Codex's supervision protocol](../supervision-protocols/codex.md) owns recovery handling.
+[`bin/fm-timeout-lib.sh`](../../bin/fm-timeout-lib.sh) owns shared read deadlines and continuation mechanics.
+`tests/fm-watch-checkpoint.test.sh` also exercises secondmate stall and pending-reply captures, capacity and inactive reads, and an exactly-once recovery handoff.
+`tests/fm-wake-checkpoint-publication.test.sh` exercises interruption after one signal row is published, then acknowledges that row and verifies later publication without replaying it.
+`tests/fm-timeout-lib.test.sh` exercises reads with detached output holders, suppression of incomplete output, and preservation of completed output and exit status.
+The earlier native source observation below does not qualify this later propagation or recovery change against a native harness.
+The dependent-read fixture keeps a mandatory reader-entry witness so a quiet checkpoint that expires before reaching that reader cannot pass its coverage assertion.
+
+A foreground source probe ran on Linux with installed `codex-cli 0.160.1`, an isolated empty lab home and a guarded non-default Herdr 0.9.1 lab session.
+After provisioning through `bin/fm-herdr-lab.sh` and `bin/fm-lab-home.sh`, the native command was:
+
+```sh
+FM_HOME="$LAB_HOME" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+  FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+  codex sandbox -c 'sandbox_mode="workspace-write"' bash -c '
+    "$1/bin/fm-harness.sh"
+    "$1/bin/fm-harness.sh" ancestry
+    "$1/bin/fm-watch-checkpoint.sh" --seconds 3
+  ' _ "$PWD"
+```
+
+It returned exit 124 with:
+
+```text
+codex
+comm codex
+checkpoint: no actionable wake within 3s
+```
+
+Guarded lab teardown passed the default-session tripwire.
+This proves execution under the native binary, separately from the portable recorded-lane fixtures; it does not requalify an interactive Codex client's session lock, exercise real retained panes across every backend, or prove installation in a running home.
+The existing tmux, Herdr, Zellij, Orca and cmux capture adapters retain their target and output contracts; the checkpoint bounds their caller's read without changing vendor-output classification.
+Other primary protocols continue using their existing watcher integration, and an unbounded watcher has no checkpoint read cap.
+
 ## Native session-start delivery
 
 The cross-harness transport pass ran on 2026-07-17 with Codex 0.144.4, Grok 0.2.103, OpenCode 1.17.18, Pi 0.80.10, and the tracked Claude hook wiring.

@@ -160,7 +160,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
     # never as a dead endpoint, so the watcher cycle cannot stall here.
     probe_budget=${FM_SECONDMATE_LIVENESS_PROBE_BUDGET:-30}
     case "$probe_budget" in ''|*[!0-9]*|0) probe_budget=30 ;; esac
-    if out=$(fm_run_timed "$probe_budget" "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
+    if out=$(fm_checkpoint_read "$FM_SM_LIVE_LIB_DIR/fm-secondmate-liveness-lib.sh" fm_run_timed "$probe_budget" "$FM_SM_LIVE_LIB_DIR/fm-on.sh" "$id" fm-remote-secondmate-control.sh state "$id" < /dev/null 2>/dev/null); then
       remote_rc=0
     else
       remote_rc=$?
@@ -222,7 +222,7 @@ fm_secondmate_liveness_probe() {  # <meta> <id> <full|poll>
   backend=$(fm_backend_of_meta "$meta")
   target=$(fm_backend_target_of_meta "$meta")
   [ -n "$target" ] || target="$window"
-  agent_state=$(fm_backend_agent_state "$backend" "$target" 2>/dev/null) || agent_state=unreadable
+  agent_state=$(fm_checkpoint_read "$FM_SM_LIVE_LIB_DIR/fm-secondmate-liveness-lib.sh" fm_backend_agent_state "$backend" "$target" 2>/dev/null) || agent_state=unreadable
   case "$harness" in
     claude|codex|opencode|pi|pi-signed|grok|kimi|omp) ;;
     *)

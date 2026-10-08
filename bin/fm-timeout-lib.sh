@@ -281,3 +281,112 @@ fm_exec_timed() {  # <seconds> <grace-seconds> <command...>
   printf 'fm_exec_timed: cannot bound %s within %ss: none of perl, timeout, or gtimeout is available\n' "${1##*/}" "$seconds" >&2
   exit 127
 }
+
+fm_checkpoint_clock() {
+  if [ -z "${FM_CHECKPOINT_CLOCK_OFFSET:-}" ]; then FM_CHECKPOINT_CLOCK_OFFSET=$(( $(date +%s) - SECONDS )); fi
+  FM_CHECKPOINT_NOW=$((FM_CHECKPOINT_CLOCK_OFFSET + SECONDS))
+}
+
+fm_checkpoint_budget() {
+  local budget=$1 remaining whole
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then
+    fm_checkpoint_clock
+    remaining=$((FM_CHECKPOINT_DEADLINE - FM_CHECKPOINT_NOW))
+    [ "$remaining" -gt 0 ] || return 124
+    whole=${budget%%.*}
+    [ "${whole:-0}" -lt "$remaining" ] || budget=$remaining
+  fi
+  printf '%s\n' "$budget"
+}
+
+fm_checkpoint_expired() {
+  [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] || return 1
+  fm_checkpoint_clock
+  [ "$FM_CHECKPOINT_NOW" -ge "$FM_CHECKPOINT_DEADLINE" ]
+}
+
+fm_checkpoint_read() {
+  local source=$1 budget capture rc=0
+  shift
+  if [ -z "${FM_CHECKPOINT_DEADLINE:-}" ] || [ "${FM_CHECKPOINT_READING:-0}" = 1 ]; then
+    "$@"
+    return
+  fi
+  budget=$(fm_checkpoint_budget 2147483647) || return 124
+  capture=$(mktemp -d "${TMPDIR:-/tmp}/fm-checkpoint-read.XXXXXX") || return 124
+  # A backend server can inherit the read's output descriptors outside the
+  # timed process group. Files keep it from holding the caller's pipe open.
+  {
+    if [ -n "$source" ]; then
+      # shellcheck disable=SC2016
+      FM_CHECKPOINT_DEADLINE="$FM_CHECKPOINT_DEADLINE" FM_CHECKPOINT_READING=1 fm_run_timed "$budget" bash -c '. "$1"; shift; "$@"' _ "$source" "$@"
+    else
+      fm_run_timed "$budget" "$@"
+    fi
+  } > "$capture/stdout" 2> "$capture/stderr" || rc=$?
+  if ! fm_timed_out "$rc"; then
+    cat "$capture/stdout"
+    cat "$capture/stderr" >&2
+  fi
+  rm -rf "$capture"
+  return "$rc"
+}
+
+fm_checkpoint_admit() {
+  local task=$1 operation=$2 key queued rc=0
+  [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] || return 0
+  fm_checkpoint_expired && return 124
+  key="checkpoint-recovery-$operation-$task"
+  local reason="check: recovery cycle required for $operation $task; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake"
+  queued=$(fm_wake_queued_keys check) || exit 1
+  if ! printf '%s\n' "$queued" | grep -Fx "$key" >/dev/null; then
+    fm_wake_append check "$key" "$reason" || rc=$?
+    case "$rc" in 0) ;; 124) return 124 ;; *) exit 1 ;; esac
+  fi
+  # shellcheck disable=SC2034 # Caller output consumed by watcher and inactive reconciliation.
+  FM_CHECKPOINT_RECOVERY_REASON=$reason
+  return 124
+}
+
+fm_checkpoint_cursor() {
+  local owner=$1 path="${FM_STATE_OVERRIDE:-${STATE:-${FM_HOME:-}/state}}/.watch-window-cursor" line tmp found=0
+  [ -n "${FM_CHECKPOINT_DEADLINE:-}" ] || return 0
+  if [ "$#" -eq 1 ]; then
+    [ -f "$path" ] || return 0
+    while IFS= read -r line; do
+      case "$line" in "$owner="*) printf '%s\n' "${line#*=}"; return ;; esac
+      if [ "$owner" = panes ]; then case "$line" in *=*) ;; *.meta) printf '%s\n' "$line"; return ;; esac; fi
+    done < "$path" 2>/dev/null
+    return 0
+  fi
+  case "$2" in *$'\n'*|*$'\r'*) return 0 ;; esac
+  tmp="$path.tmp.$$"
+  : > "$tmp" || return 1
+  if [ -f "$path" ]; then
+    while IFS= read -r line; do
+      case "$line" in "$owner="*) found=1; printf '%s=%s\n' "$owner" "$2" ;; *=*) printf '%s\n' "$line" ;; *.meta) [ "$owner" = panes ] || printf 'panes=%s\n' "$line" ;; *) printf '%s\n' "$line" ;; esac >> "$tmp" || return 1
+    done < "$path"
+  fi
+  [ "$found" -eq 1 ] || printf '%s=%s\n' "$owner" "$2" >> "$tmp" || return 1
+  mv -f "$tmp" "$path"
+}
+
+fm_checkpoint_files() {
+  local owner=$1 dir=$2 suffix=$3 cursor pass path name
+  local LC_ALL=${LC_ALL:-}
+  [ -z "${FM_CHECKPOINT_DEADLINE:-}" ] || LC_ALL=C
+  cursor=$(fm_checkpoint_cursor "$owner")
+  for pass in after before; do
+    [ "$pass" != before ] || [ -n "$cursor" ] || break
+    for path in "$dir"/*"$suffix"; do
+      fm_checkpoint_expired && return 124
+      [ -f "$path" ] || continue
+      name=${path##*/}
+      if [ -n "$cursor" ]; then
+        if [ "$pass" = after ]; then [[ "$name" > "$cursor" ]] || continue;
+        else [[ "$name" > "$cursor" ]] && continue; fi
+      fi
+      printf '%s\0' "$path"
+    done
+  done
+}
