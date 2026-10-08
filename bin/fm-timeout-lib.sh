@@ -343,6 +343,7 @@ fm_checkpoint_admit() {
     fm_wake_append check "$key" "$reason" || rc=$?
     case "$rc" in 0) ;; 124) return 124 ;; *) exit 1 ;; esac
   fi
+  # shellcheck disable=SC2034 # Caller output consumed by watcher and inactive reconciliation.
   FM_CHECKPOINT_RECOVERY_REASON=$reason
   return 124
 }

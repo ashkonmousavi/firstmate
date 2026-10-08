@@ -12,6 +12,9 @@ set -u
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
+
 TMP_ROOT=$(fm_test_tmproot fm-timeout-lib)
 
 # A PATH with perl and the shell tools the bounded commands use, and no
@@ -22,14 +25,13 @@ for tool in perl bash sleep; do
   ln -s "$(command -v "$tool")" "$PERL_ONLY/$tool"
 done
 
-# exec_timed <path> <seconds> <grace> <command...>: source the library under
-# the ordinary PATH, then run the bounded call under <path> as the last command
+# exec_timed <path> <seconds> <grace> <command...>: use the library loaded under
+# the ordinary PATH and run the bounded call under <path> as the last command
 # of a subshell, exactly as a real caller does.
 exec_timed() {
   local path=$1
   shift
   (
-    . "$ROOT/bin/fm-timeout-lib.sh"
     PATH=$path fm_exec_timed "$@"
   )
 }
@@ -41,7 +43,6 @@ chmod +x "$RUN124/timeout"
 
 run_timed() {
   (
-    . "$ROOT/bin/fm-timeout-lib.sh"
     PATH="$RUN124:$PATH" fm_run_timed "$@"
   )
 }
@@ -108,7 +109,6 @@ test_the_bound_replaces_the_calling_shell() {
   for path in "$PATH" "$PERL_ONLY"; do
     rm -f "$dir/caller" "$dir/parent"
     (
-      . "$ROOT/bin/fm-timeout-lib.sh"
       printf '%s\n' "$BASHPID" > "$dir/caller"
       PATH=$path fm_exec_timed 5 1 bash -c 'echo "$PPID" > "$1"' _ "$dir/parent"
     ) || fail "the bounded probe failed under PATH=$path"
@@ -155,7 +155,6 @@ test_a_signal_to_the_bounding_process_reaches_the_command() {
   # The positional parameters belong to the bounded shell.
   # shellcheck disable=SC2016
   (
-    . "$ROOT/bin/fm-timeout-lib.sh"
     PATH=$PERL_ONLY
     fm_exec_timed 60 30 bash -c '
       trap "echo forwarded > \"\$2\"; exit 3" TERM
@@ -185,7 +184,6 @@ test_a_named_owner_that_is_gone_ends_the_command() {
   wait "$gone" 2>/dev/null || true
   started=$SECONDS
   (
-    . "$ROOT/bin/fm-timeout-lib.sh"
     PATH=$PERL_ONLY FM_EXEC_TIMED_OWNER_PID=$gone \
       fm_exec_timed 60 1 bash -c 'echo $$ > "$1"; exec sleep 300' _ "$dir/pid"
   ) || rc=$?
@@ -293,7 +291,7 @@ test_gnu_timeout_kills_a_term_ignoring_command_after_the_grace() {
   started=$SECONDS
   exec_timed "$fb" 1 2 bash -c 'trap "" TERM; exec sleep 300' || rc=$?
   elapsed=$((SECONDS - started))
-  verdict=$( . "$ROOT/bin/fm-timeout-lib.sh"; fm_timed_out "$rc" && echo expired)
+  verdict=$(fm_timed_out "$rc" && echo expired)
   [ "$verdict" = expired ] || fail "the GNU path's expiry status $rc is not a timed-out status"
   [ "$elapsed" -ge 3 ] || fail "the GNU path ended a TERM-ignoring command before bound plus grace (${elapsed}s)"
   [ "$elapsed" -lt 20 ] || fail "the GNU path did not kill a TERM-ignoring command after the grace (${elapsed}s)"
@@ -303,7 +301,7 @@ test_gnu_timeout_kills_a_term_ignoring_command_after_the_grace() {
 test_timed_out_names_exactly_the_bound_statuses() {
   local status verdict
   for status in 124 137 0 1 125 127 143 ''; do
-    verdict=$( . "$ROOT/bin/fm-timeout-lib.sh"; if fm_timed_out "$status"; then echo yes; else echo no; fi)
+    verdict=$(if fm_timed_out "$status"; then echo yes; else echo no; fi)
     case "$status" in
       124|137) [ "$verdict" = yes ] || fail "status '$status' was not read as the bound" ;;
       *) [ "$verdict" = no ] || fail "status '$status' was misread as the bound" ;;
@@ -364,10 +362,10 @@ PL
     started=$SECONDS
     rc=0
     out=$(
-      . "$ROOT/bin/fm-timeout-lib.sh"
       # shellcheck disable=SC2030 # This observation owns its subshell-local deadline.
       export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 1 ))
       unset FM_CHECKPOINT_READING FM_TIMEOUT_MECHANISM_OVERRIDE
+      # shellcheck disable=SC2030 # The forced mechanism belongs only to this observation.
       [ "$mechanism" != bash ] || export FM_TIMEOUT_MECHANISM_OVERRIDE=bash
       PATH="$dir/bin" fm_checkpoint_read '' perl "$dir/holder.pl" "$dir" 2>&1
     ) || rc=$?
@@ -394,7 +392,6 @@ test_checkpoint_read_preserves_completed_output_and_status() {
   for source in '' "$dir/source.sh"; do
     rc=0
     out=$(
-      . "$ROOT/bin/fm-timeout-lib.sh"
       # shellcheck disable=SC2031 # This observation sets a fresh subshell-local deadline.
       export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 5 ))
       unset FM_CHECKPOINT_READING

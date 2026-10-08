@@ -76,7 +76,7 @@ test_supervision_host_protocol_on_every_arm_owner() {
     body=$(printf '%s\n' "$hosted" | sed -n '/^Supervision host: on for this home/,$p')
     [ -n "$body" ] || fail "$harness: the host protocol is missing"
     printf '%s\n' "$body" | grep -E '^\{[a-z,]+\} ' >/dev/null && fail "$harness: a harness tag leaked into the rendered protocol: $body"
-    [ "$(printf '%s\n' "$body" | grep -c 'runs the supervision host')" -eq 1 ] \
+    [ "$(printf '%s\n' "$body" | grep -Ec 'runs? the supervision host')" -eq 1 ] \
       || fail "$harness: the protocol must name exactly one arm owner: $body"
     [ "$(printf '%s\n' "$body" | grep -c '^ *Only a wake the host hands back reaches you')" -eq 1 ] \
       || fail "$harness: the protocol must name exactly one wake path: $body"
