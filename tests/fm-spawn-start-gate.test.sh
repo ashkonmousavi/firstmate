@@ -190,6 +190,89 @@ EOF
   pass "G4 unknown facts and classification are diagnosed; a repair stays independent of them"
 }
 
+test_invalid_configuration_is_refused() {
+  local n=0 spec id out status
+  for spec in entry-false entry-null entry-string entry-array entry-number empty-file multiple-objects mixed-documents \
+    age-false age-null age-string age-zero age-negative age-fraction; do
+    n=$((n + 1))
+    id="gate-config-$n"
+    make_gate_case "config-$n" "$id"
+    write_facts '[]'
+    case "$spec" in
+    entry-false) printf '{"project":false}\n' > "$HOME_DIR/config/start-gate.json" ;;
+    entry-null) printf '{"project":null}\n' > "$HOME_DIR/config/start-gate.json" ;;
+    entry-string) printf '{"project":"facts"}\n' > "$HOME_DIR/config/start-gate.json" ;;
+    entry-array) printf '{"project":[]}\n' > "$HOME_DIR/config/start-gate.json" ;;
+    entry-number) printf '{"project":1}\n' > "$HOME_DIR/config/start-gate.json" ;;
+    empty-file) : > "$HOME_DIR/config/start-gate.json" ;;
+    multiple-objects) printf '{}\n{}\n' >> "$HOME_DIR/config/start-gate.json" ;;
+    mixed-documents) printf 'false\n' >> "$HOME_DIR/config/start-gate.json" ;;
+    age-false) printf '{"project":{"facts":"%s","max_age_seconds":false}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    age-null) printf '{"project":{"facts":"%s","max_age_seconds":null}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    age-string) printf '{"project":{"facts":"%s","max_age_seconds":"900"}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    age-zero) printf '{"project":{"facts":"%s","max_age_seconds":0}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    age-negative) printf '{"project":{"facts":"%s","max_age_seconds":-1}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    age-fraction) printf '{"project":{"facts":"%s","max_age_seconds":1.5}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    esac
+    out=$(spawn_ship "$id")
+    status=$?
+    case "$spec" in
+    age-*) assert_refused "$id" "$status" "$out" 'optional positive integer "max_age_seconds"' ;;
+    *) assert_refused "$id" "$status" "$out" "is not one JSON object with an object entry" ;;
+    esac
+  done
+
+  id=gate-config-age
+  make_gate_case config-age "$id"
+  printf '{"project":{"facts":"%s","max_age_seconds":900}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json"
+  write_facts '[]' "$((NOW - 1000))"
+  out=$(spawn_ship "$id")
+  status=$?
+  assert_refused "$id" "$status" "$out" "over the 900s limit"
+  write_facts '[]'
+  out=$(spawn_ship "$id")
+  status=$?
+  assert_spawned "$id" "$status" "$out"
+  pass "malformed configuration refuses before allocation; explicit valid age enforces freshness"
+}
+
+test_owner_task_identity_is_validated() {
+  local kind state owner n=0 id out status
+  for kind in main-failure frozen-machine; do
+    for state in working validating paused; do
+      for owner in '" "' '"a b"' '".hidden"' '"../task"' '"a/b"' '"a\nb"' '"a\u0000b"' '"fix-\u00e9"' 'false' '1' '[]' '{}'; do
+        n=$((n + 1))
+        id="gate-owner-$n"
+        make_gate_case "owner-$n" "$id"
+        write_facts "[{\"id\":\"cause\",\"kind\":\"$kind\",\"detail\":\"broken\",\"owner_task\":$owner,\"owner_state\":\"$state\"}]"
+        out=$(spawn_ship "$id")
+        status=$?
+        assert_refused "$id" "$status" "$out" "facts unknown: a cause lacks"
+      done
+    done
+    for owner in null '""'; do
+      n=$((n + 1))
+      id="gate-owner-$n"
+      make_gate_case "owner-$n" "$id"
+      write_facts "[{\"id\":\"cause\",\"kind\":\"$kind\",\"detail\":\"broken\",\"owner_task\":$owner,\"owner_state\":\"working\"}]"
+      out=$(spawn_ship "$id")
+      status=$?
+      assert_refused "$id" "$status" "$out" "no worker on $kind cause"
+      assert_not_contains "$out" "facts unknown" "empty ownership was treated as malformed"
+    done
+    for owner in '"Main_9.fix-2"' '"_"' '"-"'; do
+      n=$((n + 1))
+      id="gate-owner-$n"
+      make_gate_case "owner-$n" "$id"
+      write_facts "[{\"id\":\"cause\",\"kind\":\"$kind\",\"detail\":\"broken\",\"owner_task\":$owner,\"owner_state\":\"working\"}]"
+      out=$(spawn_ship "$id")
+      status=$?
+      assert_spawned "$id" "$status" "$out"
+    done
+  done
+  pass "both cause kinds validate owner task identity independently of worker state"
+}
+
 # G5: an ungated project, an absent config and a scout keep today's contract
 # with no class line at all.
 test_ungated_paths_keep_existing_contract() {
@@ -223,6 +306,8 @@ test_feature_refused_naming_each_uncovered_cause
 test_repairs_pass_same_unhealthy_facts
 test_covered_or_clear_facts_permit_feature
 test_unknown_facts_and_class_are_diagnosed
+test_invalid_configuration_is_refused
+test_owner_task_identity_is_validated
 test_ungated_paths_keep_existing_contract
 
 echo "# all fm-spawn-start-gate tests passed"

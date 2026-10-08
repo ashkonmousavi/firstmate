@@ -39,8 +39,8 @@
 # causes lists every current main failure cause and frozen machine; an empty
 # array is the healthy claim. owner_state is the producer's reconciled live
 # worker state (bin/fm-crew-state.sh from a live source, never a status line).
-# A cause is covered only when owner_task is a nonempty string and owner_state
-# is working or validating.
+# A cause is covered only when owner_task satisfies fm-pr-lib.sh's
+# fm_task_id_path_safe contract and owner_state is working or validating.
 #
 # A feature start is refused, naming the reason, when the snapshot is missing,
 # unreadable, not that schema, for another project, older than the configured
@@ -64,18 +64,22 @@ fm_start_gate_admit() {
     echo "error: start gate: jq is required to read $config" >&2
     return 1
   }
-  if ! entry=$(jq -ce --arg p "$project" '
-      if type != "object" then error("config must be one JSON object") else .[$p] // empty end
+  if ! entry=$(jq -cs --arg p "$project" '
+      if length != 1 or (.[0] | type) != "object" then error("config must be one JSON object")
+      else .[0] |
+        if has($p) then .[$p] |
+          if type == "object" then . else error("project entry must be an object") end
+        else empty end
+      end
     ' "$config" 2>/dev/null); then
-    jq -e 'type == "object"' "$config" >/dev/null 2>&1 || {
-      echo "error: start gate: $config is not one JSON object; correct it before spawning" >&2
-      return 1
-    }
-    return 0
+    echo "error: start gate: $config is not one JSON object with an object entry for $project; correct it before spawning" >&2
+    return 1
   fi
+  [ -n "$entry" ] || return 0
   facts=$(printf '%s\n' "$entry" | jq -r 'if (.facts | type) == "string" and (.facts | startswith("/")) then .facts else empty end')
   max_age=$(printf '%s\n' "$entry" | jq -r --argjson d "$FM_START_GATE_DEFAULT_MAX_AGE" '
-    (.max_age_seconds // $d) | if type == "number" and . > 0 and . == floor then . else empty end')
+    (if has("max_age_seconds") then .max_age_seconds else $d end)
+    | if type == "number" and . > 0 and . == floor then . else empty end')
   if [ -z "$facts" ] || [ -z "$max_age" ]; then
     echo "error: start gate: $config entry for $project needs an absolute \"facts\" path and an optional positive integer \"max_age_seconds\"" >&2
     return 1
@@ -109,8 +113,9 @@ fm_start_gate_admit() {
           or (.kind | IN("main-failure", "frozen-machine") | not)
           or (.detail | type) != "string"
           or ((.owner_task | type) | IN("string", "null") | not)
+          or (.owner_task | if type == "string" and . != "" then test("\\A[A-Za-z0-9_-][A-Za-z0-9._-]*\\z") | not else false end)
           or ((.owner_state | type) | IN("string", "null") | not))
-        then bad("a cause lacks a string id, a main-failure or frozen-machine kind, a string detail, or string-or-null owner fields")
+        then bad("a cause lacks a string id, a main-failure or frozen-machine kind, a string detail, a valid task id or empty/null owner_task, or string-or-null owner_state")
       else
         [.causes[] | select(((.owner_task // "") == "") or ((.owner_state // "") | IN("working", "validating") | not))]
         | if length == 0 then "permit"
