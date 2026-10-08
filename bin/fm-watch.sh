@@ -2452,16 +2452,25 @@ idle_lane_tick() {
       released=$((released + 1))
     elif [ -n "$rcap" ]; then
       task=${meta##*/}; task=${task%.meta}
-      line=$(checkpoint_read "$FM_CREW_STATE_BIN" "$task" 2>/dev/null) || line=''
+      if ! line=$(checkpoint_read "$FM_CREW_STATE_BIN" "$task" 2>/dev/null); then
+        checkpoint_deadline_passed && return 124
+        triage_log "idle-lane release state unavailable: $task"
+        return 1
+      fi
       checkpoint_deadline_passed && return 124
       case "$line" in
-        state:*)
+        *$'\n'*) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
+        'state: '*' · source: '*)
           state=${line#state: }; state=${state%% *}
           src=${line#*source: }; src=${src%% *}
           case "$state/$src" in
-            working/run-step|parked/run-step) released=$((released + 1)) ;;
+            working/run-step|parked/run-step|done/run-step|failed/run-step|done/status-log)
+              released=$((released + 1)) ;;
+            working/pane|working/status-log|parked/status-log|blocked/status-log|paused/status-log|failed/status-log) ;;
+            *) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
           esac
           ;;
+        *) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
       esac
     fi
     [ "$occupied" -lt "$cap" ] || break

@@ -149,13 +149,34 @@ SH
   run_watch "$home" "$out"
   stop_quiet_watch "$out"
 
-  printf 'state: done · source: run-step · run completed\n' > "$state/one.crew-state"
+  printf 'state: done · source: run-step · checks green: PR ready for review (still monitoring for merge/close): https://github.com/example/repo/pull/7\n' > "$state/one.crew-state"
   : > "$out"
   run_watch "$home" "$out"
-  wait_for_exit "$WATCH_PID" 100 || fail "completed validation did not release capacity"
-  grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null \
-    || fail "completed validation still counted as pressure: $(cat "$out")"
+  stop_quiet_watch "$out"
 
+  printf 'state: done · source: run-step · run passed: PR open\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  stop_quiet_watch "$out"
+
+  printf 'state: done · source: status-log · PR https://github.com/example/repo/pull/7 checks green\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  stop_quiet_watch "$out"
+
+  printf 'state: failed · source: run-step · run failed\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  stop_quiet_watch "$out"
+
+  rm "$state/one.meta"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "retired validation did not release capacity"
+  grep -F 'idle writing lanes: 0/3 occupied' "$out" >/dev/null \
+    || fail "retired validation still counted as pressure: $(cat "$out")"
+
+  printf 'kind=ship\n' > "$state/one.meta"
   printf 'state: parked · source: run-step · parked at fix_review\n' > "$state/one.crew-state"
   : > "$out"
   run_watch "$home" "$out"
@@ -195,9 +216,54 @@ SH
   grep -F 'invalid config/release-capacity' "$home/state/.triage.log" >/dev/null 2>&1 \
     || grep -rF 'invalid config/release-capacity' "$home/state" >/dev/null 2>&1 \
     || fail "an invalid release capacity was not reported"
-  pass "watcher counts unpublished working and parked validation and published work once per lane while still listing dispatchable repairs"
+  pass "watcher retains validation and ready-PR pressure until retirement and counts each published lane once"
+}
+
+test_unknown_release_state_suppresses_capacity_notices() {
+  local home state out verdict index=0
+  for verdict in \
+    'state: unknown · source: run-step · selected run unreadable' \
+    'state: unknown · source: pane · harness state unavailable' \
+    'state: unknown · source: none · no current-state source available' \
+    'state: unknown · source: status-log · unavailable' \
+    'state: working · source: unrecognized · unavailable' \
+    'state: unrecognized · source: run-step · unavailable' \
+    'state: working source: pane' \
+    $'state: working · source: pane · writing\nstate: unknown · source: run-step · unreadable' \
+    'unparseable crew state' '' read-failed; do
+    index=$((index + 1))
+    home=$(make_case "unknown-release-$index")
+    state="$home/state"; out="$home/watch.out"
+    mkdir -p "$home/config" "$home/data"
+    cat > "$home/fakebin/crew-state" <<'SH'
+#!/usr/bin/env bash
+[ ! -e "$FM_HOME/state/$1.read-failed" ] || exit 1
+cat "$FM_HOME/state/$1.crew-state"
+SH
+    chmod +x "$home/fakebin/crew-state"
+    printf '3\n' > "$home/config/writing-lane-cap"
+    printf '1\n' > "$home/config/release-capacity"
+    printf '# Backlog\n\n## Queued\n- [ ] repair-one - A dispatchable repair (kind: ship)\n' > "$home/data/backlog.md"
+    printf 'kind=ship\n' > "$state/one.meta"
+    printf '%s\n' "$verdict" > "$state/one.crew-state"
+    [ "$verdict" != read-failed ] || touch "$state/one.read-failed"
+    run_watch "$home" "$out"
+    stop_quiet_watch "$out"
+    [ ! -e "$state/.last-idle-lane-wake" ] || fail "unknown release state committed a capacity notice: $verdict"
+    grep -F 'idle-lane release state unavailable: one' "$state/.watch-triage.log" >/dev/null \
+      || fail "unknown release state did not name the unavailable lane: $verdict"
+
+    printf 'pr=https://github.com/example/repo/pull/7\n' >> "$state/one.meta"
+    : > "$out"
+    run_watch "$home" "$out"
+    wait_for_exit "$WATCH_PID" 100 || fail "recorded PR did not establish release pressure: $verdict"
+    grep -F 'lane backpressure: 1/1 lanes awaiting validation or release' "$out" >/dev/null \
+      || fail "recorded PR pressure depended on unavailable crew state: $verdict"
+  done
+  pass "unknown or unreadable crew states suppress capacity notices unless a recorded PR establishes pressure"
 }
 
 test_idle_capacity_wake
 test_public_followups_are_not_ready_work
 test_release_backpressure_names_the_bottleneck
+test_unknown_release_state_suppresses_capacity_notices
