@@ -717,8 +717,8 @@ fm_prep_work_class() {  # <file>
   local value
   value=$(fm_prep_tier_read "$1" | awk '
     /^- Work class:/ { seen++; value=substr($0,15) }
-    END { if (seen == 1) print value }
-  ' | tr -d '[:space:]')
+    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
+  ')
   case "$value" in
     feature|fix|revert|live-breakage) printf '%s\n' "$value" ;;
     *) return 1 ;;

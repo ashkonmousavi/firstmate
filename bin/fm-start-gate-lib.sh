@@ -12,16 +12,18 @@
 #
 # Applicability is configured, never inferred: only a project named in this
 # home's config/start-gate.json is gated, so an absent file or an unnamed
-# project keeps today's spawn contract unchanged. docs/configuration.md
-# ("Feature start gate") owns that file's schema.
+# project keeps today's spawn contract unchanged. The map is inherited into
+# secondmate homes by bin/fm-config-inherit-lib.sh; enabling a project is the
+# home's adoption step. docs/configuration.md ("Feature start gate") owns
+# that file's schema.
 #
 # Task class is authored in the preparation record's Tier section as one line,
 #   - Work class: <feature|fix|revert|live-breakage>
 # read by bin/fm-dod-lib.sh's fm_prep_work_class. It is never guessed from a
 # title, model or UI tier. A gated project refuses a fresh ship whose class is
 # missing or unrecognised, naming the line to add, without consulting facts.
-# Any class other than feature passes without reading facts, so a repair is
-# never refused by fact health.
+# A valid repair class passes before reading configuration or requiring jq,
+# so a repair is never refused by configuration or fact health.
 #
 # Facts are produced outside spawn by the project's fact owner (the private
 # collector registered as a check), never by a fleet scan here. The locator is
@@ -40,26 +42,29 @@
 # array is the healthy claim. owner_state is the producer's reconciled live
 # worker state (bin/fm-crew-state.sh from a live source, never a status line).
 # A cause is covered only when owner_task satisfies fm-pr-lib.sh's
-# fm_task_id_path_safe contract and owner_state is working or validating.
+# fm_task_id_path_safe contract and owner_state is working.
 #
 # A feature start is refused, naming the reason, when the snapshot is missing,
-# unreadable, not that schema, for another project, older than the configured
-# max_age_seconds (default 900) or dated more than 300 seconds ahead, or any
-# cause is malformed; unknown facts are never treated as healthy. Otherwise it
-# is refused naming each uncovered cause, or permitted.
+# unreadable, not that schema, for another project, older than 900 seconds,
+# dated in the future, or has any malformed cause; unknown facts are never
+# treated as healthy. Otherwise it is refused naming each uncovered cause,
+# or permitted.
 #
 # Requires bin/fm-dod-lib.sh already sourced and jq on PATH for a gated
 # project. No side effects on source; set -u / set -e safe.
 
-FM_START_GATE_DEFAULT_MAX_AGE=900
-FM_START_GATE_FUTURE_SKEW=300
+FM_START_GATE_MAX_AGE=900
 
-# fm_start_gate_admit <config-file> <project> <prep-file> [now]
-# Exit 0 permits (stderr carries one notice when the project is gated);
+# fm_start_gate_admit <config-file> <project> <prep-file>
+# Exit 0 permits (stderr reports a repair exemption or a gated feature permit);
 # exit 1 refuses with one stderr error line per reason.
 fm_start_gate_admit() {
-  local config=$1 project=$2 prep=$3 now=${4:-} entry facts max_age class verdict
+  local config=$1 project=$2 prep=$3 now entry facts class verdict
   [ -e "$config" ] || return 0
+  if class=$(fm_prep_work_class "$prep") && [ "$class" != feature ]; then
+    echo "notice: start gate: $project work class $class is never refused by main or machine health" >&2
+    return 0
+  fi
   command -v jq >/dev/null 2>&1 || {
     echo "error: start gate: jq is required to read $config" >&2
     return 1
@@ -76,36 +81,28 @@ fm_start_gate_admit() {
     return 1
   fi
   [ -n "$entry" ] || return 0
-  facts=$(printf '%s\n' "$entry" | jq -r 'if (.facts | type) == "string" and (.facts | startswith("/")) then .facts else empty end')
-  max_age=$(printf '%s\n' "$entry" | jq -r --argjson d "$FM_START_GATE_DEFAULT_MAX_AGE" '
-    (if has("max_age_seconds") then .max_age_seconds else $d end)
-    | if type == "number" and . > 0 and . == floor then . else empty end')
-  if [ -z "$facts" ] || [ -z "$max_age" ]; then
-    echo "error: start gate: $config entry for $project needs an absolute \"facts\" path and an optional positive integer \"max_age_seconds\"" >&2
-    return 1
-  fi
-  if ! class=$(fm_prep_work_class "$prep"); then
+  if [ -z "$class" ]; then
     echo "error: start gate: $project gates new features, so $prep must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again" >&2
     return 1
   fi
-  if [ "$class" != feature ]; then
-    echo "notice: start gate: $project work class $class is never refused by main or machine health" >&2
-    return 0
+  facts=$(printf '%s\n' "$entry" | jq -r 'if (.facts | type) == "string" and (.facts | startswith("/")) then .facts else empty end')
+  if [ -z "$facts" ]; then
+    echo "error: start gate: $config entry for $project needs an absolute \"facts\" path" >&2
+    return 1
   fi
-  [ -n "$now" ] || now=$(date +%s)
+  now=$(date +%s)
   if [ ! -f "$facts" ] || [ ! -r "$facts" ]; then
     echo "error: start gate: $project feature start refused - facts unknown: no readable snapshot at $facts" >&2
     return 1
   fi
-  verdict=$(jq -r -s --arg p "$project" --argjson now "$now" --argjson age "$max_age" \
-    --argjson skew "$FM_START_GATE_FUTURE_SKEW" '
+  verdict=$(jq -r -s --arg p "$project" --argjson now "$now" --argjson age "$FM_START_GATE_MAX_AGE" '
     def bad($m): "unknown\t" + $m;
     if length != 1 or (.[0] | type) != "object" then bad("snapshot is not one JSON object")
     else .[0] |
       if .schema != "fm-start-facts.v1" then bad("schema is not fm-start-facts.v1")
       elif .project != $p then bad("snapshot is for project \(.project | tojson), not \($p)")
       elif (.generated_at | type) != "number" or .generated_at != (.generated_at | floor) then bad("generated_at is not integer epoch seconds")
-      elif .generated_at > $now + $skew then bad("generated_at is in the future")
+      elif .generated_at > $now then bad("generated_at is in the future")
       elif $now - .generated_at > $age then bad("snapshot is \($now - .generated_at)s old, over the \($age)s limit")
       elif (.causes | type) != "array" then bad("causes is not an array")
       elif any(.causes[]; type != "object"
@@ -117,7 +114,7 @@ fm_start_gate_admit() {
           or ((.owner_state | type) | IN("string", "null") | not))
         then bad("a cause lacks a string id, a main-failure or frozen-machine kind, a string detail, a valid task id or empty/null owner_task, or string-or-null owner_state")
       else
-        [.causes[] | select(((.owner_task // "") == "") or ((.owner_state // "") | IN("working", "validating") | not))]
+        [.causes[] | select(((.owner_task // "") == "") or .owner_state != "working")]
         | if length == 0 then "permit"
           else .[] | "uncovered\t\(.kind) \(.id): \(.detail) (owner: \(.owner_task // "none")\(if .owner_task then ", " + (.owner_state // "unknown") else "" end))"
           end

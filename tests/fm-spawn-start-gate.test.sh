@@ -2,7 +2,7 @@
 # Behavior tests for the new-feature start gate in a fresh ship spawn
 # (bin/fm-start-gate-lib.sh, configured by config/start-gate.json).
 #
-# Every case drives the real bin/fm-spawn.sh in a disposable fixture home with
+# Spawn cases drive the real bin/fm-spawn.sh in a disposable fixture home with
 # the fake tmux and treehouse from tests/fixtures.sh and a synthetic fact
 # snapshot. A refused feature start must allocate nothing: no task record, no
 # inbox, no launch brief, and the copy's branch left alone. Repairs, scouts,
@@ -49,7 +49,7 @@ write_facts() {
 }
 
 UNOWNED='[{"id":"q-main-nightly","kind":"main-failure","detail":"main nightly red on e2e","owner_task":null,"owner_state":null},{"id":"q-zenbook","kind":"frozen-machine","detail":"zenbook ready work, 0 working","owner_task":"zb-fix","owner_state":"paused"}]'
-COVERED='[{"id":"q-main-nightly","kind":"main-failure","detail":"main nightly red on e2e","owner_task":"main-fix","owner_state":"working"},{"id":"q-zenbook","kind":"frozen-machine","detail":"zenbook ready work, 0 working","owner_task":"zb-fix","owner_state":"validating"}]'
+COVERED='[{"id":"q-main-nightly","kind":"main-failure","detail":"main nightly red on e2e","owner_task":"main-fix","owner_state":"working"},{"id":"q-zenbook","kind":"frozen-machine","detail":"zenbook ready work, 0 working","owner_task":"zb-fix","owner_state":"working"}]'
 
 spawn_ship() {  # <id> [extra args]
   local id=$1
@@ -192,8 +192,7 @@ EOF
 
 test_invalid_configuration_is_refused() {
   local n=0 spec id out status
-  for spec in entry-false entry-null entry-string entry-array entry-number empty-file multiple-objects mixed-documents \
-    age-false age-null age-string age-zero age-negative age-fraction; do
+  for spec in entry-false entry-null entry-string entry-array entry-number empty-file multiple-objects mixed-documents bad-json bad-map unreadable; do
     n=$((n + 1))
     id="gate-config-$n"
     make_gate_case "config-$n" "$id"
@@ -207,33 +206,161 @@ test_invalid_configuration_is_refused() {
     empty-file) : > "$HOME_DIR/config/start-gate.json" ;;
     multiple-objects) printf '{}\n{}\n' >> "$HOME_DIR/config/start-gate.json" ;;
     mixed-documents) printf 'false\n' >> "$HOME_DIR/config/start-gate.json" ;;
-    age-false) printf '{"project":{"facts":"%s","max_age_seconds":false}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
-    age-null) printf '{"project":{"facts":"%s","max_age_seconds":null}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
-    age-string) printf '{"project":{"facts":"%s","max_age_seconds":"900"}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
-    age-zero) printf '{"project":{"facts":"%s","max_age_seconds":0}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
-    age-negative) printf '{"project":{"facts":"%s","max_age_seconds":-1}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
-    age-fraction) printf '{"project":{"facts":"%s","max_age_seconds":1.5}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json" ;;
+    bad-json) printf 'not json\n' > "$HOME_DIR/config/start-gate.json" ;;
+    bad-map) printf '[1]\n' > "$HOME_DIR/config/start-gate.json" ;;
+    unreadable) rm "$HOME_DIR/config/start-gate.json"; mkdir "$HOME_DIR/config/start-gate.json" ;;
+    esac
+    out=$(spawn_ship "$id")
+    status=$?
+    assert_refused "$id" "$status" "$out" "is not one JSON object with an object entry"
+  done
+  pass "malformed configuration refuses features before allocation"
+}
+
+test_repairs_bypass_configuration_and_dependency_failures() {
+  local class spec id out status n=0
+  for class in fix revert live-breakage; do
+    for spec in bad-json bad-map bad-entry unreadable relative missing-facts; do
+      n=$((n + 1))
+      id="gate-repair-$n"
+      make_gate_case "repair-$n" "$id" "$class"
+      case "$spec" in
+      bad-json) printf 'not json\n' > "$HOME_DIR/config/start-gate.json" ;;
+      bad-map) printf '[1]\n' > "$HOME_DIR/config/start-gate.json" ;;
+      bad-entry) printf '{"project":null}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      unreadable) rm "$HOME_DIR/config/start-gate.json"; mkdir "$HOME_DIR/config/start-gate.json" ;;
+      relative) printf '{"project":{"facts":"relative.json"}}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      missing-facts) : ;;
+      esac
+      out=$(spawn_ship "$id")
+      status=$?
+      assert_spawned "$id" "$status" "$out"
+      assert_contains "$out" "work class $class is never refused" "repair exemption was not reported"
+    done
+  done
+
+  # shellcheck source=bin/fm-dod-lib.sh
+  . "$ROOT/bin/fm-dod-lib.sh"
+  # shellcheck source=bin/fm-start-gate-lib.sh
+  . "$ROOT/bin/fm-start-gate-lib.sh"
+  make_gate_case no-jq gate-no-jq fix
+  mkdir "$CASE_DIR/no-jq"
+  ln -s "$(command -v awk)" "$CASE_DIR/no-jq/awk"
+  for class in fix revert live-breakage; do
+    set_class "$HOME_DIR" gate-no-jq "$class"
+    out=$(PATH="$CASE_DIR/no-jq" fm_start_gate_admit "$HOME_DIR/config/start-gate.json" project "$HOME_DIR/data/gate-no-jq/prep.md" 2>&1)
+    status=$?
+    expect_code 0 "$status" "repair must pass without jq"
+    assert_contains "$out" "work class $class is never refused" "missing-jq repair exemption was not reported"
+  done
+  set_class "$HOME_DIR" gate-no-jq feature
+  out=$(PATH="$CASE_DIR/no-jq" fm_start_gate_admit "$HOME_DIR/config/start-gate.json" project "$HOME_DIR/data/gate-no-jq/prep.md" 2>&1)
+  status=$?
+  expect_code 1 "$status" "feature must refuse without jq"
+  assert_contains "$out" "jq is required" "missing-jq feature refusal was not diagnosed"
+  pass "all repair classes bypass malformed configuration, bad locators, missing facts, and missing jq"
+}
+
+test_classification_preserves_internal_whitespace() {
+  local class id out status n=0
+  for class in 'f eature' 'f ix' 'r evert' 'live- breakage' $'f\tix'; do
+    n=$((n + 1))
+    id="gate-class-$n"
+    make_gate_case "class-$n" "$id" "$class"
+    write_facts '[]'
+    out=$(spawn_ship "$id")
+    status=$?
+    assert_refused "$id" "$status" "$out" "must declare one Tier line '- Work class:"
+  done
+  for class in feature fix revert live-breakage; do
+    n=$((n + 1))
+    id="gate-class-$n"
+    make_gate_case "class-$n" "$id" $' \t'"$class"$' \t'
+    write_facts '[]'
+    out=$(spawn_ship "$id")
+    status=$?
+    assert_spawned "$id" "$status" "$out"
+  done
+  pass "internal class whitespace is invalid; surrounding whitespace preserves canonical classes"
+}
+
+test_fact_clock_and_reconciled_state_contract() {
+  local spec kind id out status real_date n=0
+  real_date=$(command -v date)
+  for spec in future stale boundary; do
+    id="gate-clock-$spec"
+    make_gate_case "clock-$spec" "$id"
+    cat > "$FAKEBIN_DIR/date" <<SH
+#!/usr/bin/env bash
+if [ "\$#" -eq 1 ] && [ "\$1" = +%s ]; then
+  printf '%s\n' "$NOW"
+else
+  exec "$real_date" "\$@"
+fi
+SH
+    chmod +x "$FAKEBIN_DIR/date"
+    case "$spec" in
+    future) write_facts '[]' "$((NOW + 1))" ;;
+    stale) write_facts '[]' "$((NOW - 901))" ;;
+    boundary) write_facts '[]' "$((NOW - 900))" ;;
     esac
     out=$(spawn_ship "$id")
     status=$?
     case "$spec" in
-    age-*) assert_refused "$id" "$status" "$out" 'optional positive integer "max_age_seconds"' ;;
-    *) assert_refused "$id" "$status" "$out" "is not one JSON object with an object entry" ;;
+    future) assert_refused "$id" "$status" "$out" "generated_at is in the future" ;;
+    stale) assert_refused "$id" "$status" "$out" "over the 900s limit" ;;
+    boundary) assert_spawned "$id" "$status" "$out" ;;
     esac
   done
+  for kind in main-failure frozen-machine; do
+    n=$((n + 1))
+    id="gate-state-$n"
+    make_gate_case "state-$n" "$id"
+    write_facts "[{\"id\":\"cause\",\"kind\":\"$kind\",\"detail\":\"broken\",\"owner_task\":\"repair\",\"owner_state\":\"validating\"}]"
+    out=$(spawn_ship "$id")
+    status=$?
+    assert_refused "$id" "$status" "$out" "no worker on $kind cause"
+  done
+  pass "facts after now or older than 900 seconds refuse; only reconciled working covers causes"
+}
 
-  id=gate-config-age
-  make_gate_case config-age "$id"
-  printf '{"project":{"facts":"%s","max_age_seconds":900}}\n' "$FACTS" > "$HOME_DIR/config/start-gate.json"
-  write_facts '[]' "$((NOW - 1000))"
+test_inherited_map_controls_feature_admission() {
+  local id=gate-inherited out status primary remote_home bytes hash
+  # shellcheck source=bin/fm-config-inherit-lib.sh
+  . "$ROOT/bin/fm-config-inherit-lib.sh"
+  make_gate_case inherited "$id"
+  primary="$CASE_DIR/primary-config"
+  remote_home="$CASE_DIR/remote-home"
+  mkdir -p "$primary" "$remote_home/state"
+  cp "$HOME_DIR/config/start-gate.json" "$primary/start-gate.json"
+  printf '{}\n' > "$HOME_DIR/config/start-gate.json"
+  propagate_inheritable_config "$primary" "$HOME_DIR/config" || fail "local map inheritance failed"
+  cmp -s "$primary/start-gate.json" "$HOME_DIR/config/start-gate.json" || fail "local map bytes were not inherited"
+  write_facts "$UNOWNED"
   out=$(spawn_ship "$id")
   status=$?
-  assert_refused "$id" "$status" "$out" "over the 900s limit"
-  write_facts '[]'
+  assert_refused "$id" "$status" "$out" "no worker on main-failure"
+
+  bytes=$(wc -c < "$primary/start-gate.json" | tr -d ' ')
+  hash=$(fm_inherit_sha256 "$primary/start-gate.json")
+  out=$(FM_HOME="$remote_home" FM_STATE_OVERRIDE="$remote_home/state" bash "$ROOT/bin/fm-remote-inherit.sh" \
+    put config/start-gate.json "$bytes" "$hash" 1 < "$primary/start-gate.json" 2>&1) || fail "remote map inheritance failed: $out"
+  cmp -s "$primary/start-gate.json" "$remote_home/config/start-gate.json" || fail "remote map bytes were not inherited"
+  : > "$CASE_DIR/empty"
+  hash=$(fm_inherit_sha256 "$CASE_DIR/empty")
+  out=$(FM_HOME="$remote_home" FM_STATE_OVERRIDE="$remote_home/state" bash "$ROOT/bin/fm-remote-inherit.sh" \
+    absent config/start-gate.json 0 "$hash" 2 2>&1) || fail "remote map absence failed: $out"
+  assert_absent "$remote_home/config/start-gate.json" "remote map absence was not mirrored"
+
+  rm "$primary/start-gate.json"
+  propagate_inheritable_config "$primary" "$HOME_DIR/config" || fail "local map absence failed"
+  assert_absent "$HOME_DIR/config/start-gate.json" "local map absence was not mirrored"
+  set_class "$HOME_DIR" "$id" none
   out=$(spawn_ship "$id")
   status=$?
   assert_spawned "$id" "$status" "$out"
-  pass "malformed configuration refuses before allocation; explicit valid age enforces freshness"
+  assert_not_contains "$out" "start gate" "absent inherited map produced gate output"
+  pass "local and remote inheritance copy and remove the map; inherited unhealthy facts refuse features"
 }
 
 test_owner_task_identity_is_validated() {
@@ -307,6 +434,10 @@ test_repairs_pass_same_unhealthy_facts
 test_covered_or_clear_facts_permit_feature
 test_unknown_facts_and_class_are_diagnosed
 test_invalid_configuration_is_refused
+test_repairs_bypass_configuration_and_dependency_failures
+test_classification_preserves_internal_whitespace
+test_fact_clock_and_reconciled_state_contract
+test_inherited_map_controls_feature_admission
 test_owner_task_identity_is_validated
 test_ungated_paths_keep_existing_contract
 

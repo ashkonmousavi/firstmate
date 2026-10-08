@@ -1088,19 +1088,23 @@ Secondmate homes inherit this file from the primary, so a secondmate's own crewm
 `config/start-gate.json` is an optional local, gitignored file that stops a fresh ship spawn from starting new feature work while its project has a main failure cause or frozen machine with no active worker.
 Fixes, reverts, live-breakage work, relaunches of open work, and scouts are never refused by this gate, and it never holds a merge.
 An absent file, or a project it does not name, keeps the spawn contract unchanged.
+Secondmate homes inherit this map through `bin/fm-config-inherit-lib.sh` like other local configuration.
+Enabling a project in the map is the home's adoption step.
 
 The file is one JSON object keyed by registered project name, the basename of the project directory passed to `fm-spawn.sh`:
 
 ```json
 {
-  "Q": { "facts": "/absolute/path/to/start-facts.json", "max_age_seconds": 900 }
+  "Q": { "facts": "/absolute/path/to/start-facts.json" }
 }
 ```
 
-`facts` is the absolute path of the fact snapshot the project's fact owner writes outside spawn, and `max_age_seconds` (default 900) is how old that snapshot may be.
+`facts` is the absolute path of the fact snapshot the project's fact owner writes outside spawn.
 A gated project's preparation record must declare `- Work class: <feature|fix|revert|live-breakage>` in its Tier section; a missing or unknown class refuses the spawn and names the line to add.
 The snapshot schema, its freshness and owner rules, and every refusal are owned by the header of `bin/fm-start-gate-lib.sh`.
-A malformed file refuses every fresh ship spawn until it is corrected, because it cannot say which projects are gated.
+A declared fix, revert, or live-breakage class passes before configuration or facts are read.
+Unreadable or malformed configuration refuses only ships without a valid repair class, because applicability cannot be determined.
+For a named project, classification is checked before the feature-only facts locator and snapshot validation.
 
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
