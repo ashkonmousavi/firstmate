@@ -902,6 +902,31 @@ test_branch_outcomes_keep_a_drain_presented_outcome_across_an_index_repair() {
   pass "drain: an outcome the host drain presented but main never acknowledged survives an outcome index repair"
 }
 
+# A long guarded operation (a relaunch) holding the lease-command lock must
+# not stop a park from arming: the host's branch-lease release gives up within
+# its bound, logs why, and the watcher cycle still starts.
+test_park_arms_while_the_lease_command_lock_is_held() {
+  local home holder_pid
+  local -x FM_LEASE_RELEASE_ACTOR_WAIT=1
+  home=$(make_home lease-lock-held attended)
+  FM_STATE_OVERRIDE="$home/state" FM_TEST_READY="$home/holder-ready" bash -c '
+      . "$1"
+      fm_lock_acquire_wait "$2"
+      : > "$FM_TEST_READY"
+      sleep 60
+    ' _ "$ROOT/bin/fm-wake-lib.sh" "$home/state/.fm-lease-command.lock" >/dev/null 2>&1 &
+  holder_pid=$!
+  wait_until 50 test -e "$home/holder-ready" || fail "lease lock held: the fixture holder never took the lock"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" \
+    || { kill "$holder_pid" 2>/dev/null; fail "lease lock held: the park never armed a watcher: $(cat "$home/host.out" "$home/state/.supervision-host.log" 2>/dev/null)"; }
+  assert_re "	lease-release-failed	.*held by pid $holder_pid" "$home/state/.supervision-host.log" \
+    "lease lock held: the host hid the bounded release failure"
+  kill "$holder_pid" 2>/dev/null
+  wait "$holder_pid" 2>/dev/null
+  pass "host: a held lease-command lock cannot stop a park from arming, and the release failure is logged"
+}
+
 test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main() {
   local home first drained
   home=$(make_home attended-routine attended)
@@ -2984,7 +3009,8 @@ run_test test_branch_outcomes_date_an_outcome_carried_across_a_switch_off_pi
 run_test test_branch_outcomes_keep_an_unshown_outcome_until_acknowledged
 run_test test_branch_outcomes_keep_a_drain_presented_outcome_across_a_switch_to_pi
 run_test test_branch_outcomes_keep_a_drain_presented_outcome_across_an_index_repair
-run_test test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main
+run_test test_park_arms_while_the_lease_command_lock_is_held
+test_attended_routine_wake_is_handled_on_the_engine_and_stays_off_main
 run_test test_attended_captain_outcome_reaches_main_through_branch_outcomes
 run_test test_captain_leaving_mid_turn_keeps_its_captain_outcome_for_the_return
 run_test test_quiet_record_without_its_daemon_is_a_present_captain

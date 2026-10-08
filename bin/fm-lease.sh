@@ -24,7 +24,12 @@
 #   fm-lease.sh release-actor --actor main|branch
 #       Drop every lease the named actor holds; the Pi branch extension runs
 #       this at generation activation so a replaced branch conversation's
-#       leases never outlive it.
+#       leases never outlive it, and the supervision host runs it around every
+#       park and engine turn. It waits at most FM_LEASE_RELEASE_ACTOR_WAIT
+#       seconds (default 5) for the lease-command lock, then exits 7 naming
+#       the holder, so no long guarded operation can stop a park from arming;
+#       5 seconds is far above an ordinary lease command and far below the
+#       park's own budgets.
 #   fm-lease.sh sweep
 #       Remove every provably stale lease in this home. Run at session start
 #       (a lease held by a dead actor is cleared at session start); safe to
@@ -32,7 +37,13 @@
 #
 # The default actor is $FM_SUPERVISION_ACTOR (else main); when --actor is
 # supplied for a mutation, it must name that calling actor. Exit codes: 0 ok,
-# 1 check-miss, 2 usage, 6 refused (other actor holds or actor mismatch).
+# 1 check-miss, 2 usage, 6 refused (other actor holds or actor mismatch),
+# 7 release-actor timed out on the lease-command lock, 78 a lock path is
+# malformed (bin/fm-wake-lib.sh fm_lock_path_malformed).
+#
+# Every verb serializes on the short-held lease-command lock; claim first takes
+# the task's guard hold, in the same order fm_lease_guard does
+# (bin/fm-lease-lib.sh owns that contract).
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,8 +57,7 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 mkdir -p "$STATE"
 LEASE_COMMAND_LOCK="$STATE/.fm-lease-command.lock"
-fm_lock_acquire_wait "$LEASE_COMMAND_LOCK"
-trap 'fm_lock_release "$LEASE_COMMAND_LOCK"' EXIT
+LEASE_TASK_LOCK=
 
 usage() {
   echo "usage: fm-lease.sh claim|release <task> [--actor main|branch] | release-actor --actor main|branch | check <task> | sweep" >&2
@@ -100,6 +110,23 @@ case "$CMD" in
     ;;
   *) usage ;;
 esac
+
+trap 'fm_lock_release "$LEASE_COMMAND_LOCK"; [ -z "$LEASE_TASK_LOCK" ] || fm_lock_release "$LEASE_TASK_LOCK"' EXIT
+if [ "$CMD" = claim ]; then
+  LEASE_TASK_LOCK=$(fm_lease_task_lock "$TASK")
+  fm_lock_acquire_wait "$LEASE_TASK_LOCK"
+fi
+if [ "$CMD" = release-actor ]; then
+  RELEASE_ACTOR_WAIT=${FM_LEASE_RELEASE_ACTOR_WAIT:-5}
+  case "$RELEASE_ACTOR_WAIT" in ''|*[!0-9]*|0) RELEASE_ACTOR_WAIT=5 ;; esac
+  if ! fm_lock_acquire_wait_max "$LEASE_COMMAND_LOCK" "$RELEASE_ACTOR_WAIT"; then
+    [ -z "$FM_LOCK_MALFORMED" ] || exit "$FM_LOCK_MALFORMED_EXIT"
+    echo "error: release-actor gave up after ${RELEASE_ACTOR_WAIT}s - the lease-command lock $LEASE_COMMAND_LOCK is held by pid ${FM_LOCK_HELD_PID:-unknown}; $ACTOR leases were left in place for the next release" >&2
+    exit "$FM_LEASE_BUSY_EXIT"
+  fi
+else
+  fm_lock_acquire_wait "$LEASE_COMMAND_LOCK"
+fi
 
 case "$CMD" in
   claim)

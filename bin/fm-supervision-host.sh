@@ -339,8 +339,14 @@ branch_env() {  # <command...>: run with the branch actor identity
   FM_SUPERVISION_ACTOR=branch "$@"
 }
 
+# Bounded by fm-lease.sh itself; a failure is logged and never stops the
+# caller from arming, since the next park or turn releases again.
 release_branch_leases() {
-  branch_env "$SCRIPT_DIR/fm-lease.sh" release-actor --actor branch >/dev/null 2>&1 || true
+  local err
+  if ! err=$(branch_env "$SCRIPT_DIR/fm-lease.sh" release-actor --actor branch 2>&1 >/dev/null); then
+    log_line "lease-release-failed	$(printf '%s' "$err" | tr '\t\n' '  ')"
+  fi
+  return 0
 }
 
 # Stop whatever a predecessor host left running, then take the record. The
