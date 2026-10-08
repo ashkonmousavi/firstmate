@@ -616,6 +616,18 @@ The flag is a home-local supervision-noise preference and is not inherited by se
 
 [`architecture.md`](architecture.md) owns the wait-evidence contract and which records may take the ladder away; `bin/fm-watch.sh`'s `wedge_wait_evidence` owns the exact derivation and its fail-closed boundaries.
 
+## Writing-lane capacity (config/writing-lane-cap, config/release-capacity)
+
+The optional local, gitignored `config/writing-lane-cap` holds one positive integer: the maximum number of live ship lanes, never a number to fill.
+While fewer lanes are occupied and dispatchable work is ready, the watcher raises one capacity notice naming the free lanes and the ready items.
+
+The optional `config/release-capacity` holds one positive integer bounding how many of those lanes may already have recorded a PR, that is, work in validation, CI, the merge queue, or landing.
+Once that bound is reached, the capacity notice becomes a backpressure notice that names the release bottleneck and still lists the ready items, so firstmate lands or repairs published work before starting more.
+Backpressure never refuses a spawn, so a named repair or independent item can still be dispatched.
+An invalid value in either file is reported in the watcher log and suppresses the notice rather than guessing a bound.
+Both files are home-local and not inherited by secondmate homes.
+`bin/fm-watch.sh`'s `idle_lane_tick` owns the exact counting.
+
 ## Gate defaults (.no-mistakes.yaml)
 
 The tracked `.no-mistakes.yaml` sets `test.evidence.store_in_repo: true` and pins `commands.lint` to `bin/fm-lint.sh`, the same owner CI invokes.

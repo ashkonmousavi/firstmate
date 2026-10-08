@@ -1500,7 +1500,7 @@ test_extra_merge_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "extra-args: branch deletion must be refused without --attended-override"
-  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+  assert_grep 'other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
     "extra-args: refusal did not preserve captain-only override limits"
   assert_no_grep 'pr merge' "$case_dir/gh.log" \
     "extra-args: gh pr merge ran despite the denylist"
@@ -1676,7 +1676,7 @@ test_bundled_repo_override_args_refuse_before_recording() {
   rc=$?
   set -e
   expect_code 1 "$rc" "bundled-non-repo-cluster: -d is branch deletion and must be refused"
-  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+  assert_grep 'other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
     "bundled-non-repo-cluster: refusal did not preserve captain-only override limits"
 
   case_dir=$(make_case bundled-delete-attended)
@@ -1811,7 +1811,7 @@ test_gitlab_extra_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "gitlab-extra-args: source-branch deletion must be refused without --attended-override"
-  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+  assert_grep 'other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
     "gitlab-extra-args: refusal did not preserve captain-only override limits"
   [ ! -s "$case_dir/glab.log" ] || fail "gitlab-extra-args: glab ran despite the denylist"
 
@@ -2627,7 +2627,7 @@ test_github_red_checks_refuse_and_allow_red_waives_named() {
     rc=$?
     set -e
     expect_code 1 "$rc" "allow-red-admin-$kind: admin must require attended override"
-    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --auto solely to enroll a green PR in the merge queue its base branch requires and --admin solely for a named repair CI waiver, both under AGENTS.md section 7' "$case_dir/stderr" \
       "allow-red-admin-$kind: refusal did not name firstmate waiver authority"
     assert_no_grep 'pr merge' "$case_dir/gh.log" \
       "allow-red-admin-$kind: merge ran without attended override"
@@ -3774,7 +3774,7 @@ test_allow_missing_waives_only_the_named_unreported_check() {
     write_github_required "$case_dir" "$kind:validate"
     run_required_case "$case_dir" 96 --allow-missing validate -- --admin
     expect_code 1 "$RC" "allow-missing-admin-$kind: admin must require attended override"
-    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --auto solely to enroll a green PR in the merge queue its base branch requires and --admin solely for a named repair CI waiver, both under AGENTS.md section 7' "$case_dir/stderr" \
       "allow-missing-admin-$kind: refusal did not name firstmate waiver authority"
     assert_no_grep 'pr merge' "$case_dir/gh.log" \
       "allow-missing-admin-$kind: merge ran without attended override"
@@ -4140,3 +4140,102 @@ test_worker_revert_preserves_conflict() {
 
 test_worker_reverts_complete_merge_and_squash_only
 test_worker_revert_preserves_conflict
+
+# A project registered landing=mergify hands an authorized green PR to its
+# Mergify queue instead of merging it, and every existing guard still decides
+# whether that handoff happens. Args: case_dir landing-token
+register_landing() {
+  local case_dir=$1 token=$2
+  printf -- '- project [no-mistakes +yolo %s] - fixture project (added 2026-10-08)\n' "$token" \
+    > "$case_dir/home/data/projects.md"
+}
+
+queue_comment_count() {
+  grep -c '^pr comment ' "$1/gh.log" || true
+}
+
+test_mergify_landing_hands_green_pr_to_the_queue() {
+  local case_dir rc head=4141414141414141414141414141414141414141
+  case_dir=$(make_case mergify-handoff)
+  add_gh_mocks "$case_dir" "$head"
+  register_landing "$case_dir" landing=mergify
+  write_github_outcome "$case_dir" OPEN false false main
+  rc=0
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "mergify-handoff: an authorized green PR was not handed off: $(cat "$case_dir/stderr")"
+  grep -qxF 'pr comment 61 --repo example/repo --body @mergifyio queue' "$case_dir/gh.log" \
+    || fail "mergify-handoff: no queue command was posted: $(cat "$case_dir/gh.log")"
+  assert_no_grep 'pr merge ' "$case_dir/gh.log" "mergify-handoff: the queue was bypassed by a direct merge"
+  assert_grep "queued: https://github.com/example/repo/pull/61 handed to the Mergify queue at head $head" \
+    "$case_dir/stdout" "mergify-handoff: the handoff did not name the exact head"
+  assert_no_grep 'is merged' "$case_dir/stdout" "mergify-handoff: a queue handoff was reported as landed"
+  assert_grep "pr_head=$head" "$case_dir/state/task-x1.meta" "mergify-handoff: the handed-off head was not recorded"
+  assert_present "$case_dir/state/task-x1.check.sh" "mergify-handoff: the merge poll was not left armed"
+  pass "fm-pr-merge hands an authorized green PR to the configured Mergify queue at its exact head"
+}
+
+test_mergify_landing_guards_refuse_before_any_queue_command() {
+  local fault case_dir rc reason head=4242424242424242424242424242424242424242
+  for fault in red-check missing-required unknown-landing waiver head-moved away; do
+    case_dir=$(make_case "mergify-refuse-$fault")
+    add_gh_mocks "$case_dir" "$head"
+    register_landing "$case_dir" landing=mergify
+    write_github_outcome "$case_dir" OPEN false false main
+    set -- task-x1 https://github.com/example/repo/pull/62
+    case "$fault" in
+      red-check) write_github_red_json "$case_dir" "$head" ci; reason='checks are not green: ci' ;;
+      missing-required) write_github_required "$case_dir" classic:candidate; reason='have not reported: candidate' ;;
+      unknown-landing) register_landing "$case_dir" landing=queue; reason='registered landing for project project is invalid' ;;
+      waiver)
+        write_github_red_json "$case_dir" "$head" ci; set -- "$@" --allow-red ci
+        reason='waivers and extra merge arguments apply only to the attended repair path' ;;
+      head-moved)
+        printf '%s\n' 4343434343434343434343434343434343434343 > "$case_dir/github-head"
+        reason="verified $head, read 4343434343434343434343434343434343434343" ;;
+      away) write_away_record "$case_dir" --words 'land green work'; reason='queue handoff is attended-only' ;;
+    esac
+    rc=0
+    run_pr_merge "$case_dir" "$@" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    [ "$rc" -ne 0 ] || fail "mergify-refuse-$fault: the handoff was accepted"
+    assert_grep "$reason" "$case_dir/stderr" "mergify-refuse-$fault: refused for another reason"
+    [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "mergify-refuse-$fault: a queue command was posted"
+    assert_no_grep 'pr merge ' "$case_dir/gh.log" "mergify-refuse-$fault: a direct merge bypassed the queue"
+  done
+  pass "fm-pr-merge refuses red, missing, unknown-landing, waived, moved-head and away handoffs before any queue command"
+}
+
+test_mergify_landing_attended_override_is_the_named_repair_path() {
+  local case_dir rc head=4444444444444444444444444444444444444444
+  case_dir=$(make_case mergify-repair-path)
+  add_gh_mocks "$case_dir" "$head"
+  register_landing "$case_dir" landing=mergify
+  rc=0
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "mergify-repair-path: the attended repair merge refused: $(cat "$case_dir/stderr")"
+  assert_logged_gh_merge "$case_dir" 63 example/repo --squash
+  [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "mergify-repair-path: the repair merge also queued"
+  assert_grep 'bypasses the configured Mergify queue' "$case_dir/stderr" \
+    "mergify-repair-path: the queue bypass was not made observable"
+  pass "fm-pr-merge keeps the attended direct merge as an observable repair path on a queue project"
+}
+
+test_direct_landing_projects_keep_the_synchronous_merge() {
+  local case_dir rc
+  case_dir=$(make_case direct-landing-unchanged)
+  add_gh_mocks "$case_dir" 4545454545454545454545454545454545454545
+  register_landing "$case_dir" landing=direct
+  rc=0
+  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/64 \
+    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+  expect_code 0 "$rc" "direct-landing-unchanged: the direct merge refused: $(cat "$case_dir/stderr")"
+  assert_logged_gh_merge "$case_dir" 64 example/repo --squash
+  [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "direct-landing-unchanged: a direct project queued"
+  pass "fm-pr-merge keeps the synchronous verified merge for direct-landing projects"
+}
+
+test_mergify_landing_hands_green_pr_to_the_queue
+test_mergify_landing_guards_refuse_before_any_queue_command
+test_mergify_landing_attended_override_is_the_named_repair_path
+test_direct_landing_projects_keep_the_synchronous_merge

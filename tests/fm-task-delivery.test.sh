@@ -2208,6 +2208,38 @@ ROWS
 # to "no registered forge" would hand a Gerrit project the pull-request contract.
 # Those refuse, naming the token, in both output forms. A key one or two edits
 # from `forge` keeps the old result and only warns.
+# The landing path is read only through --landing, so the default output and
+# the forge stay unchanged for every registry row that carries one.
+test_project_mode_reads_the_landing_orthogonally() {
+  local home out status label registry expect landing
+  home="$TMP_ROOT/landing-binding/home"
+  mkdir -p "$home/data"
+  while IFS='|' read -r label registry expect landing; do
+    [ -n "$label" ] || continue
+    printf '%s\n' "$registry" > "$home/data/projects.md"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" fp 2>/dev/null)
+    [ "$out" = "$expect" ] || fail "$label: expected default output '$expect', got '$out'"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" --landing fp 2>/dev/null)
+    [ "$out" = "$landing" ] || fail "$label: expected --landing '$landing', got '$out'"
+  done <<'ROWS'
+no landing token|- fp [no-mistakes +yolo] - fixture (added 2026-01-01)|no-mistakes on|direct
+queue beside yolo|- fp [no-mistakes +yolo landing=mergify] - fixture (added 2026-01-01)|no-mistakes on|mergify
+landing as the only token leaves the default mode|- fp [landing=mergify] - fixture (added 2026-01-01)|no-mistakes off|mergify
+explicit direct|- fp [direct-PR landing=direct branch=q/] - fixture (added 2026-01-01)|direct-PR off|direct
+an unregistered project|- other [direct-PR landing=mergify] - fixture (added 2026-01-01)|no-mistakes off|direct
+ROWS
+
+  for registry in '- fp [no-mistakes landing=queue] - fixture' '- fp [no-mistakes landing=] - fixture' \
+    '- fp [local-only landing=mergify] - fixture'; do
+    printf '%s\n' "$registry" > "$home/data/projects.md"
+    out=$(FM_HOME="$home" "$PROJECT_MODE" --landing fp 2>/dev/null)
+    status=$?
+    [ "$status" -eq 3 ] || fail "'$registry' did not refuse under --landing (status $status, got '$out')"
+    [ -z "$out" ] || fail "a refused landing still handed the caller a path: '$out'"
+  done
+  pass "fm-project-mode: the landing binds from its own token, defaults to direct, and refuses unknown or local-only values"
+}
+
 test_project_mode_refuses_only_a_malformed_forge_binding() {
   local home out err status label registry token flag expect
   home="$TMP_ROOT/forge-token/home"
@@ -3776,6 +3808,7 @@ test_local_merge_uses_the_recorded_ship_branch
 test_project_mode_matches_whole_multiword_names
 test_project_mode_maps_the_conditional_policy
 test_project_mode_binds_the_forge_orthogonally
+test_project_mode_reads_the_landing_orthogonally
 test_project_mode_refuses_only_a_malformed_forge_binding
 test_forge_gerrit_refuses_yolo
 test_forge_gerrit_changes_what_no_mistakes_means
