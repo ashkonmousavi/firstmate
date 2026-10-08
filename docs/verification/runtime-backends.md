@@ -1366,16 +1366,8 @@ The Herdr lab was not running, so the Herdr path is covered by the existing fake
 Typing `/exit` while a background shell is still running opens a picker whose selected row is "Exit and stop tasks" and whose footer is "Enter to confirm · Esc to cancel".
 That screen still classifies as pending, the same verdict as unsubmitted composer text.
 A second Enter would confirm the selected row.
-The picker is recognised by its recorded structure only: the heading on its own line, then the selected row alone on its row, with `Enter to confirm · Esc to cancel` as the last non-blank row.
-The same strings quoted above a normal composer, as a diff, this note, or a test fixture shows them, are not a picker.
-Submit retries now stop after the Enter that opened the picker and report unknown.
-A typed submit to a pane that already shows the picker types nothing and sends no Enter.
-Exit reports that the worker is blocked on the Claude background-task exit picker and does not type another Enter.
-A submit can return before any read sees the picker, so exit reads the screen once more when its wait for the agent to stop times out, and names the picker there too.
-Exit does not report a stopped agent whose pane still shows the picker text as blocked on a prompt.
-A worker pane parked on it keeps the ordinary stale triage; a secondmate pane is read for recognised dialogs as the Codex section below describes.
+[`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns submit and exit refusal, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
-Refusing an Enter that would confirm a dialog restores an existing safety path, so it is not gated behind a flag.
 The read-only refresh guard for this picker and the Codex dialog is [`fm-composer-dialog-live-e2e.test.sh`](../../tests/fm-composer-dialog-live-e2e.test.sh).
 Supply operator-prepared, isolated tmux pane IDs in `FM_DIALOG_CLAUDE_DIALOG`, `FM_DIALOG_CLAUDE_IDLE`, `FM_DIALOG_CLAUDE_PENDING`, and `FM_DIALOG_CLAUDE_WORKING`, and the corresponding `FM_DIALOG_CODEX_*` variables for every installed harness, plus `FM_DIALOG_UNKNOWN` for an unrecognized shell pane.
 The pending controls must contain an unsubmitted draft; the working controls must be live turns.
@@ -1388,17 +1380,12 @@ The dated observations above and below remain historical until refreshed by a su
 Measured 2026-10-08 against codex-cli 0.160.1 in an isolated tmux session on the PC.
 A launch that could not join the shared background server stopped on "Background server has incompatible feature settings" with options "1. Run without daemon this time", "2. Restart with these settings" and "3. Cancel", the selected row marked by Codex's `›`.
 Option 2 restarts the shared server under every other Codex client on the machine.
-That screen classified as pending, so steering doorbells were skipped as if a draft were waiting, and an idle secondmate, which is exempt from pane staleness, read as healthy.
-The same incident wedged a Codex secondmate on the PC for about an hour.
-The dialog is recognised by its recorded structure only: the heading on its own line, the three options in order with exactly one selected, and option 3 as the last non-blank row.
-The same rows quoted above a live composer, a heading inside a sentence, options with no selected row, and option text typed into a composer are not the dialog.
-Submit retries and exit refuse a confirming Enter on it exactly as for the Claude picker.
-The watcher reads each secondmate pane for a recognised dialog with a 120-line capture and wakes once per task spawn generation and dialog episode with the dialog's name; a worker pane keeps the ordinary stale triage.
-Away and quiet supervision escalate the named dialog wake at the dispatch boundary, even when the mate's previous terminal status was already consumed or its status declares an external wait.
-The executable regression in `tests/fm-daemon.test.sh` covers both dialogs, both modes, queued and fallback delivery, and failed escalation buffering.
+That screen classified as pending, the same verdict as an unsubmitted draft.
+The [recognition, submit, and monitoring owners](#claude-background-task-exit-picker) apply to this dialog too; [Classification policy](../../.agents/skills/afk/SKILL.md#classification-policy) owns away and quiet routing.
+The portable regressions are [`tests/fm-composer-lib.test.sh`](../../tests/fm-composer-lib.test.sh), [`tests/fm-watch-triage.test.sh`](../../tests/fm-watch-triage.test.sh), and [`tests/fm-daemon.test.sh`](../../tests/fm-daemon.test.sh).
 Controls were recorded on codex-cli 0.161.0 with update checks disabled: a real idle composer read empty, typed text read pending, and a cleared composer read empty, and none of them matched the dialog.
 A second launch against the shared server on 0.161.0 went straight to the composer, so the dialog was not reproduced again on demand.
-A live Herdr pane and a remote secondmate were not exercised; the remote steer path has no watcher pane read.
+A live Herdr pane and a remote secondmate were not exercised.
 
 ### Prune and respawn
 
@@ -1542,10 +1529,7 @@ ok - real Herdr lab validation completed on Herdr 0.8.0 with the default-session
 ```
 
 The projected spawn in that run used the historical empty opt-in file, so a home that had already enabled the projection keeps it without any migration step.
-One concurrent cross-home recovery case refused under contention on a loaded machine and passed on an immediate rerun; recovery-path presentation lock contention remains a deliberate hard refusal by default rather than a flat fallback, which default-on makes reachable from any Herdr home.
-Callers that need concurrent recoveries to serialize can pass `fm-spawn.sh --herdr-resume-lock-wait`.
-The flag applies to a fresh ship or scout spawn, and the multi-task path forwards it to each per-pair spawn.
-It has no effect on `--relaunch` and `--secondmate`, because those paths take no exact-resume presentation-order lock.
+One concurrent cross-home recovery case refused under contention on a loaded machine and passed on an immediate rerun; the current refusal and opt-in serialization contract is owned by [Herdr's operational compromises](../herdr-backend.md#operational-compromises).
 That run measured the default-on projection on Herdr 0.8.0 only, while the focus-flash regression below was last run on 0.7.5 before the flip, so neither run covered a defective release under default-on projection; the version floor and the focus-flash suite's Part C close that gap.
 
 The restored-shell session-start cleanup ran on 2026-07-24 against Herdr 0.7.5 protocol 17:

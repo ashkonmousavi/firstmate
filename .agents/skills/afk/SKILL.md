@@ -168,10 +168,12 @@ The digest is byte-bounded so every transport can carry it; when it cuts an even
 The captain-relevant verb set, declared-wait vocabulary, status-span classifier, and presentation-marker contract live in shared `bin/fm-classify-lib.sh`, while each supervisor owns its routing and fleet scan as a consumer of that policy.
 While `state/.afk` exists the daemon owns the watcher, so the watcher reverts to one-shot and lets the daemon do the triage - the two never run their triage at the same time.
 
-Classify each wake this way, applying the steering-inbox exception before status-based routing:
+Classify each wake this way, applying the steering-inbox and recognised-dialog exceptions before status-based routing:
 
 - `stale` whose detail begins `unread firstmate instruction: stuck-busy ` or `steering-inbox busy bookkeeping unwritable: ` -> buffer the explicit inbox escalation for supervision in away and quiet mode, without consuming worker status or entering transient-stale recovery.
   [`bin/fm-task-inbox-lib.sh`](../../../bin/fm-task-inbox-lib.sh) owns the busy budget and bookkeeping contract; `tests/fm-daemon.test.sh` covers this consumer boundary.
+- `stale` naming a waiting Claude background-task exit picker or Codex background-server settings dialog -> buffer the named dialog for supervision in away and quiet mode, without consuming worker status or entering transient-stale recovery, even when the latest status was already consumed or declares a wait.
+  [`bin/fm-composer-lib.sh`](../../../bin/fm-composer-lib.sh) owns recognition; `tests/fm-daemon.test.sh` covers queued and fallback delivery and failed escalation buffering.
 - `signal` whose newly classified status span contains captain-relevant events -> escalate every event in source order.
   A nonterminal progress verb remains nonterminal even when its prose contains a legacy free-text token such as `PR ready`, `checks green`, `ready in branch`, or `merged`; only a bare legacy line with such a token escalates.
   Other signals with no captain-relevant event in the span -> self-handle.

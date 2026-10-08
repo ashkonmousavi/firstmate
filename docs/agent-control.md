@@ -53,6 +53,8 @@ The clear is refused before anything is sent when the recorded backend cannot de
 `exit` also refuses, naming the dialog as `blocked on a prompt`, when the screen shows a recognised dialog that a further Enter would answer, whether the dialog was open before the exit command was typed or the submitting Enter opened it; it sends no Escape and chooses no option, so closing the dialog is left to the operator.
 A stopped agent whose pane still shows the dialog text is not refused.
 [`fm_composer_blocking_dialog`](../bin/fm-composer-lib.sh) owns the recognised set, which today is Claude's background-task exit picker and Codex's background-server settings dialog; their verification records ([Claude](verification/runtime-backends.md#claude-background-task-exit-picker), [Codex](verification/runtime-backends.md#codex-background-server-settings-dialog)) list the dialogs that are not covered.
+The shared typed-submit path refuses before typing into an already recognised dialog, and submit retries stop with `unknown` when an Enter opens one, so another Enter cannot confirm it.
+If the exit wait times out, `exit` reads the composer again to detect a dialog that rendered after the initial submit read.
 
 **Teardown and discard are not verbs and will not become verbs.**
 `exit` stops an agent and preserves everything else.

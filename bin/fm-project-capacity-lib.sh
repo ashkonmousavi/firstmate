@@ -9,8 +9,8 @@
 # bin/fm-spawn.sh defers a fresh worker beyond that number instead of launching
 # it only to spend full-context turns retrying the resource. A deferred task
 # keeps its queued backlog item and is dispatched again when a place frees.
-# Without a declaration nothing changes and dispatch stays uncapped
-# (AGENTS.md section 7).
+# Without a declaration no additional per-project cap applies; the lane limits
+# and resource-admission rules in AGENTS.md section 7 still apply.
 #
 # This file is the single owner of the declaration format, of what holds a
 # place, and of the admission verdict. docs/configuration.md "Project capacity"
