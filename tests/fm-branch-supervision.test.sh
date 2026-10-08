@@ -1281,14 +1281,14 @@ test_release_actor_is_bounded_and_named() {
   printf 'branch\t%s\t1\n' "$$" > "$home/state/.lease-task-kept"
 
   started=$SECONDS
-  out=$(FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_RELEASE_ACTOR_WAIT=1 \
+  out=$(FM_HOME="$home" FM_SUPERVISION_ACTOR=branch \
     fm_run_timed 10 "$ROOT/bin/fm-lease.sh" release-actor --actor branch 2>&1)
   status=$?
   elapsed=$((SECONDS - started))
   kill "$holder_pid" 2>/dev/null
   wait_for_exit "$holder_pid" 20 2>/dev/null || true
   [ "$status" -eq 7 ] || fail "contended release-actor exited $status, not 7: $out"
-  [ "$elapsed" -le 4 ] || fail "contended release-actor took ${elapsed}s against a 1s bound"
+  [ "$elapsed" -le 8 ] || fail "contended release-actor took ${elapsed}s against a 5s bound"
   assert_contains "$out" "held by pid $holder_pid" "contended release-actor did not name the holder"
   [ -e "$home/state/.lease-task-kept" ] || fail "a timed-out release-actor still removed a lease"
   pass "release-actor gives up within its bound, names the holder, and changes nothing"

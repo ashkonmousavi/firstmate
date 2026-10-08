@@ -25,8 +25,8 @@
 #       Drop every lease the named actor holds; the Pi branch extension runs
 #       this at generation activation so a replaced branch conversation's
 #       leases never outlive it, and the supervision host runs it around every
-#       park and engine turn. It waits at most FM_LEASE_RELEASE_ACTOR_WAIT
-#       seconds (default 5) for the lease-command lock, then exits 7 naming
+#       park and engine turn. It uses a fixed 5-second wait bound for the
+#       lease-command lock, then exits 7 naming
 #       the holder, so no long guarded operation can stop a park from arming;
 #       5 seconds is far above an ordinary lease command and far below the
 #       park's own budgets.
@@ -117,8 +117,7 @@ if [ "$CMD" = claim ]; then
   fm_lock_acquire_wait "$LEASE_TASK_LOCK"
 fi
 if [ "$CMD" = release-actor ]; then
-  RELEASE_ACTOR_WAIT=${FM_LEASE_RELEASE_ACTOR_WAIT:-5}
-  case "$RELEASE_ACTOR_WAIT" in ''|*[!0-9]*|0) RELEASE_ACTOR_WAIT=5 ;; esac
+  RELEASE_ACTOR_WAIT=5
   if ! fm_lock_acquire_wait_max "$LEASE_COMMAND_LOCK" "$RELEASE_ACTOR_WAIT"; then
     [ -z "$FM_LOCK_MALFORMED" ] || exit "$FM_LOCK_MALFORMED_EXIT"
     echo "error: release-actor gave up after ${RELEASE_ACTOR_WAIT}s - the lease-command lock $LEASE_COMMAND_LOCK is held by pid ${FM_LOCK_HELD_PID:-unknown}; $ACTOR leases were left in place for the next release" >&2

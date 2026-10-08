@@ -907,7 +907,6 @@ test_branch_outcomes_keep_a_drain_presented_outcome_across_an_index_repair() {
 # its bound, logs why, and the watcher cycle still starts.
 test_park_arms_while_the_lease_command_lock_is_held() {
   local home holder_pid
-  local -x FM_LEASE_RELEASE_ACTOR_WAIT=1
   home=$(make_home lease-lock-held attended)
   FM_STATE_OVERRIDE="$home/state" FM_TEST_READY="$home/holder-ready" bash -c '
       . "$1"
