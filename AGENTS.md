@@ -189,7 +189,7 @@ Classify the deliverable:
 Resolve every ship task's concrete delivery mode and `yolo` merge posture at intake.
 Pass the mode explicitly to the brief, and pass both values explicitly to the spawn and any scout promotion; each command refuses to guess the values it consumes.
 A current explicit captain instruction wins; preserve registered `local-only` delivery, merge posture and branch/forge bindings.
-For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else, except a presentation-only move or rename of a page or control, which `bin/fm-dod-lib.sh` admits as other on that same direct-PR path and still requires the walk after install; `bin/fm-dod-lib.sh` owns the authored risk/depth answers and that exception, and `bin/fm-spawn.sh` owns their admission.
+For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else; `bin/fm-dod-lib.sh` owns the authored risk/depth answers and the author-certified presentation-only exception, and `bin/fm-spawn.sh` owns their admission.
 Preparation size and surgical certainty never choose delivery depth.
 Resolve the project's registered ship-branch prefix the same way, via `bin/fm-project-mode.sh --branch-prefix <project>`, and pass it explicitly to the brief, ship spawn, and scout promotion as `--branch-prefix` (default `fm/` needs no flag).
 The risk decision also applies to publishing tasks on a `no-mistakes-prod-only` project; unresolved risk classification must be settled before admission.
