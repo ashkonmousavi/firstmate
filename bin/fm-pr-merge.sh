@@ -912,6 +912,9 @@ github_verify_mergeable() {
   done <<FIELDS
 $fields
 FIELDS
+  if fm_pr_head_valid "$live_head" && ! grep -qxF "pr_head=$live_head" "$META"; then
+    invalidate_queue_head_authority || return 1
+  fi
   if [ "$named" -ne 5 ] || [ "$total" -ne 5 ] || [ -z "$base" ]; then
     echo "error: could not read the GitHub pull request state before merging" >&2
     return 1

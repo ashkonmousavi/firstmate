@@ -6693,6 +6693,90 @@ test_prompt_waiting_marker_wakes_through_a_declared_pause() {
   pass "a waiting permission or question prompt wakes firstmate through a declared paused-until wait, once per prompt"
 }
 
+# --- a secondmate parked on a recognised dialog is surfaced once ------------
+# An idle secondmate is exempt from pane staleness, so a Codex mate stopped on
+# its background-server choice (recorded 2026-10-08, codex-cli 0.160.1) read
+# as healthy while steers went unread. The watcher names the dialog once per
+# episode; an ordinary idle composer never wakes.
+mate_dialog_watch() {  # <dir> -> pid in MATE_DIALOG_PID
+  local dir=$1
+  PATH="$dir/fakebin:$PATH" FM_FAKE_TMUX_WINDOW=test:fm-mate-dialog FM_FAKE_TMUX_CAPTURE="$dir/pane.txt" \
+    FM_FAKE_CREW_STATE='state: unknown · source: none · no current-state source available' \
+    FM_WATCH_HANDLING_SUCCESSOR=1 \
+    FM_STATE_OVERRIDE="$dir/state" FM_CREW_STATE_BIN="$dir/fakebin/fm-crew-state.sh" \
+    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_SECONDMATE_LIVENESS_SECS=99999999 "$WATCH" > "$dir/watch.out" 2>&1 &
+  MATE_DIALOG_PID=$!
+}
+
+test_secondmate_dialog_wakes_once_and_idle_mate_stays_quiet() {
+  local harness=${1:-codex} dir state reason dialog
+  case "$harness" in
+    codex) dialog='Codex background-server settings dialog' ;;
+    claude) dialog='Claude background-task exit picker' ;;
+  esac
+  reason="stale: test:fm-mate-dialog (a $dialog is waiting in the pane; it needs a human answer)"
+  dir=$(make_case "secondmate-dialog-$harness"); state="$dir/state"
+  printf 'window=test:fm-mate-dialog\nkind=secondmate\nharness=%s\nbackend=tmux\nspawn_gen=first\n' "$harness" > "$state/mate.meta"
+  printf '%s\n' '› Ask Codex to do anything' '  ? for shortcuts' > "$dir/pane.txt"
+
+  mate_dialog_watch "$dir"
+  if ! wait_poll_cycle "$state" "$MATE_DIALOG_PID" || ! wait_poll_cycle "$state" "$MATE_DIALOG_PID"; then
+    reap "$MATE_DIALOG_PID"; fail "an idle secondmate composer woke the watcher: $(cat "$dir/watch.out")"
+  fi
+  reap "$MATE_DIALOG_PID"
+  [ ! -s "$state/.wake-queue" ] || fail "an idle secondmate composer queued a wake: $(cat "$state/.wake-queue")"
+
+  if [ "$harness" = codex ]; then
+    printf '%s\n' '' \
+    '  Background server has incompatible feature settings' \
+    '  This session requires api_key_model_discovery to be disabled' \
+    '  These settings persist and can disable functionality for other clients. Restart may interrupt active or queued work.' \
+    '' \
+    '  1. Run without daemon this time' \
+    '  2. Restart with these settings' \
+    '› 3. Cancel' '' '' > "$dir/pane.txt"
+  else
+    printf '%s\n' 'Background work is running' '❯ 1. Exit and stop tasks' \
+      'Enter to confirm · Esc to cancel' > "$dir/pane.txt"
+  fi
+  mate_dialog_watch "$dir"
+  wait_for_exit "$MATE_DIALOG_PID" 100 \
+    || fail "a secondmate parked on the $harness dialog did not wake the watcher: $(cat "$dir/watch.out")"
+  grep -Fx "$reason" "$dir/watch.out" >/dev/null \
+    || fail "the dialog wake gave the wrong reason: $(cat "$dir/watch.out")"
+  grep -F "$dialog is waiting" "$state/.wake-queue" >/dev/null \
+    || fail "the dialog wake was not durably queued: $(cat "$state/.wake-queue" 2>/dev/null)"
+
+  ack_stopped_cycle "$state" || fail "could not acknowledge the dialog wake"
+  : > "$dir/watch.out"
+  mate_dialog_watch "$dir"
+  if ! wait_poll_cycle "$state" "$MATE_DIALOG_PID" || ! wait_poll_cycle "$state" "$MATE_DIALOG_PID"; then
+    reap "$MATE_DIALOG_PID"; fail "the same dialog woke the watcher again: $(cat "$dir/watch.out")"
+  fi
+  reap "$MATE_DIALOG_PID"
+  printf 'window=test:fm-mate-dialog\nkind=secondmate\nharness=%s\nbackend=tmux\nspawn_gen=replacement\n' "$harness" > "$state/mate.meta"
+  mate_dialog_watch "$dir"
+  wait_for_exit "$MATE_DIALOG_PID" 100 \
+    || fail "$harness replacement dialog was suppressed without an intervening clear screen"
+  grep -Fx "$reason" "$dir/watch.out" >/dev/null \
+    || fail 'replacement wake lost its dialog name'
+  grep -F "$dialog is waiting" "$state/.wake-queue" >/dev/null \
+    || fail 'replacement dialog was not durably queued'
+  ack_stopped_cycle "$state" || fail 'could not acknowledge the replacement dialog wake'
+  mate_dialog_watch "$dir"
+  if ! wait_poll_cycle "$state" "$MATE_DIALOG_PID" || ! wait_poll_cycle "$state" "$MATE_DIALOG_PID"; then
+    reap "$MATE_DIALOG_PID"; fail 'same-generation replacement dialog woke again'
+  fi
+  reap "$MATE_DIALOG_PID"
+  pass "$harness secondmate dialog wakes per spawn generation; repeats and idle panes stay quiet"
+}
+
+test_secondmate_dialog_generation_round() {
+  test_secondmate_dialog_wakes_once_and_idle_mate_stays_quiet codex
+  test_secondmate_dialog_wakes_once_and_idle_mate_stays_quiet claude
+}
+
 # CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
 # churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
 if [ -n "${FM_TEST_ONLY:-}" ]; then
@@ -6842,3 +6926,4 @@ test_paused_until_near_future_is_quiet_before_the_cadence
 test_paused_until_wrong_year_is_bounded_by_the_cadence
 test_paused_until_that_passed_is_rechecked_before_the_cadence
 test_prompt_waiting_marker_wakes_through_a_declared_pause
+test_secondmate_dialog_generation_round

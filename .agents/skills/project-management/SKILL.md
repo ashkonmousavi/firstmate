@@ -54,6 +54,9 @@ The optional `landing=mergify` token records that the project lands green pull r
 Default it off for every project and every posture, and enable it only on the captain's explicit instruction.
 `AGENTS.md` section 7 owns the merge-authority contract.
 
+The optional `landing=mergify` token selects the project's configured Mergify queue; register it only once that queue is configured and proved on the project.
+`bin/fm-pr-merge.sh`'s header owns the queue handoff and the bounded bootstrap/incident exception.
+
 The optional `forge=` token records which forge the project's remote actually is; its one value is `forge=gerrit`.
 It is orthogonal to the mode and to `+yolo`, so it is never derived from either, and it is never inferred at use time from a remote name, host, port, or push target.
 At add or create intake, run `bin/fm-forge-detect.sh projects/<name>` once the clone exists and propose its answer alongside the posture; the captain's confirmation is what binds it, and the registry token is the durable record of that confirmation.
@@ -85,7 +88,7 @@ The captain's request to create that local project authorizes this local initial
 Run no-mistakes initialization only for `no-mistakes` and `no-mistakes-prod-only` projects:
 
 ```sh
-cd projects/<name> && no-mistakes init && no-mistakes doctor
+(cd projects/<name> && no-mistakes init && no-mistakes doctor)
 ```
 
 Initialization configures the local gate and does not vendor a no-mistakes skill into the project.

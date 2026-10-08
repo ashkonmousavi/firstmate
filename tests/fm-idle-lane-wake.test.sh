@@ -111,6 +111,37 @@ SH
   pass "watcher names only dispatchable ready rows, not public follow-up obligations"
 }
 
+test_local_completion_links_do_not_consume_release_capacity() {
+  local home state out url index=0 failures=0
+  for url in \
+    'https://docs.example.test/setup' \
+    'https://github.com/example/repo/issues/7'; do
+    index=$((index + 1))
+    home=$(make_case "local-completion-link-$index")
+    state="$home/state"; out="$home/watch.out"
+    mkdir -p "$home/config" "$home/data"
+    cat > "$home/fakebin/crew-state" <<'SH'
+#!/usr/bin/env bash
+cat "$FM_HOME/state/$1.crew-state"
+SH
+    chmod +x "$home/fakebin/crew-state"
+    printf '3\n' > "$home/config/writing-lane-cap"
+    printf '1\n' > "$home/config/release-capacity"
+    printf '# Backlog\n\n## Queued\n- [ ] repair-one - A dispatchable repair (kind: ship)\n' > "$home/data/backlog.md"
+    printf 'kind=ship\nmode=local-only\n' > "$state/one.meta"
+    printf 'state: done · source: status-log · local branch ready: 4646464646464646464646464646464646464646; reference: %s\n' "$url" > "$state/one.crew-state"
+    run_watch "$home" "$out"
+    wait_for_exit "$WATCH_PID" 100 || fail "completed local-only work with a reference did not wake: $url"
+    if ! grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null \
+      || grep -F 'lane backpressure' "$out" >/dev/null; then
+      printf 'not ok - local-only reference consumed release capacity: %s: %s\n' "$url" "$(cat "$out")" >&2
+      failures=$((failures + 1))
+    fi
+  done
+  [ "$failures" -eq 0 ] || fail "$failures local-only reference cases consumed release capacity"
+  pass "documentation and issue links on completed local-only lanes preserve ordinary idle wakes"
+}
+
 test_release_backpressure_names_the_bottleneck() {
   local home state out
   home=$(make_case release-backpressure)
@@ -290,5 +321,6 @@ SH
 
 test_idle_capacity_wake
 test_public_followups_are_not_ready_work
+test_local_completion_links_do_not_consume_release_capacity
 test_release_backpressure_names_the_bottleneck
 test_unknown_release_state_suppresses_capacity_notices

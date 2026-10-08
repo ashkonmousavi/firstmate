@@ -74,7 +74,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `backends/orca.sh`       | Experimental Orca backend adapter owning both worktree and terminal                  |
 | `backends/cmux.sh`       | Experimental cmux session-provider adapter                                           |
 | `fm-config-push.sh`      | Push declared inherited local material to live local or remote secondmates and send the placement-specific config reread when changed |
-| `fm-project-mode.sh`     | Resolve a project's registered delivery posture, forge binding, or ship-branch prefix from `data/projects.md` for fleet sync, home seeding, and the forge agreement a ship spawn or scout promotion applies |
+| `fm-project-mode.sh`     | Resolve a project's registered delivery posture, forge binding, landing path, or ship-branch prefix from `data/projects.md` for mechanical consumers |
 | `fm-forge-detect.sh`     | Propose a clone's forge binding from its origin remote for project-add intake, never recording it |
 | `fm-merge-local.sh`      | Fast-forward a `local-only` project's local default branch after approval            |
 | `fm-review-diff.sh`      | Review a crewmate branch or resolved PR head against the authoritative base          |
@@ -104,6 +104,7 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-supervise-daemon.sh` | Presence-gated away-mode sub-supervisor: self-handle routine wakes, guard injection by the detected primary harness, escalate batched digests, alert on failed delivery |
 | `fm-crew-state.sh`       | Print one deterministic current-state line for a crew                                |
 | `fm-nm-run-lib.sh`       | Single owner of shared no-mistakes run-attribution primitives and rules             |
+| `fm-pipeline-spend.sh`   | Attribute a task's no-mistakes pipeline spend to the task and keep it in the private spend ledger |
 | `fm-tangle-lib.sh`       | Shared default-branch resolution and primary-checkout tangle classification          |
 | `fm-timeout-lib.sh`      | Single owner of hard-bounded command execution and its fallback watchdog |
 | `fm-timing-lib.sh`       | Single owner of the deferred network stage's per-step elapsed-time records, inert unless a run asks for them |
@@ -141,7 +142,8 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-pr-poll.sh`          | Provide the byte-static watcher program for validated pull-request, merge-request, and Gerrit-change poll sidecars |
 | `fm-contributions.sh`    | Observe owned publications, retain exact-head judgments, measure required actors, and wake on maintainer signals |
 | `fm-pr-check.sh`         | Record validated task `pr=` and `pr_head=` values, then atomically arm a static merge poll; refuses GitHub drafts and persistent secondmate records (see [architecture.md](architecture.md)) |
-| `fm-pr-merge.sh`         | Record PR metadata, merge a task's canonical full GitHub or GitLab URL, refuse a Gerrit change because firstmate never submits one, then refuse an outcome it cannot prove landed or queued |
+| `fm-pr-merge.sh`         | Guard a task's direct merge or configured Mergify handoff and report the observed outcome; refuse Gerrit submission |
+| `fm-main-proof.sh`       | Judge complete required-check proof on one named commit independently of daily audit and live health |
 | `fm-q-premerge-plan-check.sh` | Check a Q PR merged with current main using trusted BASE plan tools in private scratch; see its `--help` for the portable clone-path interface |
 | `fm-pr-state.sh`         | Read-only: print one line per GitHub pull-request blocker it can see, reporting on checks that have reported rather than verdicting merge-readiness |
 | `fm-pr-reviewers.sh`     | Read-only: suggest reviewers from GitHub's own author mapping of recent commits on a pull request's changed files, never requesting one |

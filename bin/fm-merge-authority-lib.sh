@@ -2,8 +2,8 @@
 # Durable ownership of the authority under which a task's merge was accepted.
 #
 # The away-posture record (state/.afk-contract) is resolved only at the merge
-# gate. After a forge accepts the merge, bin/fm-pr-merge.sh persists that answer
-# as:
+# gate. bin/fm-pr-merge.sh's header owns the acceptance conditions for a direct
+# merge or configured queue handoff. Once accepted, it persists that answer as:
 #   state/<task-id>.merge-authority
 #   fm-merge-authority-v1
 #   <provider>
@@ -27,8 +27,11 @@
 # away-posture record.
 #
 # Resolution authorizes nothing by itself. bin/fm-pr-merge.sh owns the merge
-# gate and persists only after a forge command succeeds, before releasing the
-# task lifecycle lock. After observing a landed merge, bin/fm-watch.sh acquires
+# gate and persists only after acceptance under that contract, before releasing
+# the task lifecycle lock. A GitHub metadata refresh or merge preflight that
+# observes a head different from recorded pr_head retires matching authority;
+# an unconfirmed request at an unchanged head preserves an existing record.
+# After observing a landed merge, bin/fm-watch.sh acquires
 # that same lock, revalidates the poll, publishes its durable outcome, and
 # retires only the exact authority record it read. Teardown uses the same lock,
 # so it cannot interleave with that consumption transaction, and removes any
