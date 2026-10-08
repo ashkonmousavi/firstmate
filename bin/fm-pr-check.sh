@@ -19,6 +19,8 @@
 # skips this refusal, because its own merge-time draft refusal is authoritative.
 # The recorded pr= also frees the task's place in a declared project capacity
 # (bin/fm-project-capacity-lib.sh).
+# bin/fm-merge-authority-lib.sh's header owns retirement of accepted authority
+# when a GitHub metadata refresh observes a changed head.
 # Usage: fm-pr-check.sh <task-id> <pr-url>
 set -eu
 
