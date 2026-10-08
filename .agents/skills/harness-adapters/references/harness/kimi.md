@@ -2,7 +2,7 @@
 
 Verified on 2026-09-17 with Kimi Code CLI 2.0.0.
 
-Managed ship/scout global-rule delivery is owned by the launch-overlay contract in `../../../bin/fm-spawn.sh`; native prompt acceptance remains separate from portable transport tests.
+Managed ship/scout global-rule delivery is owned by the launch-overlay contract in [bin/fm-spawn.sh](../../../../../bin/fm-spawn.sh); native prompt acceptance remains separate from portable transport tests.
 
 ## Operating facts
 
