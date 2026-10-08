@@ -191,41 +191,51 @@ EOF
 }
 
 test_invalid_configuration_is_refused() {
-  local n=0 spec id out status
+  local n=0 spec class id out status
   for spec in entry-false entry-null entry-string entry-array entry-number empty-file multiple-objects mixed-documents bad-json bad-map unreadable dangling-absolute dangling-relative link-loop; do
-    n=$((n + 1))
-    id="gate-config-$n"
-    make_gate_case "config-$n" "$id"
-    write_facts '[]'
-    case "$spec" in
-    entry-false) printf '{"project":false}\n' > "$HOME_DIR/config/start-gate.json" ;;
-    entry-null) printf '{"project":null}\n' > "$HOME_DIR/config/start-gate.json" ;;
-    entry-string) printf '{"project":"facts"}\n' > "$HOME_DIR/config/start-gate.json" ;;
-    entry-array) printf '{"project":[]}\n' > "$HOME_DIR/config/start-gate.json" ;;
-    entry-number) printf '{"project":1}\n' > "$HOME_DIR/config/start-gate.json" ;;
-    empty-file) : > "$HOME_DIR/config/start-gate.json" ;;
-    multiple-objects) printf '{}\n{}\n' >> "$HOME_DIR/config/start-gate.json" ;;
-    mixed-documents) printf 'false\n' >> "$HOME_DIR/config/start-gate.json" ;;
-    bad-json) printf 'not json\n' > "$HOME_DIR/config/start-gate.json" ;;
-    bad-map) printf '[1]\n' > "$HOME_DIR/config/start-gate.json" ;;
-    unreadable) rm "$HOME_DIR/config/start-gate.json"; mkdir "$HOME_DIR/config/start-gate.json" ;;
-    dangling-absolute)
-      mv "$HOME_DIR/config/start-gate.json" "$CASE_DIR/map-target.json"
-      ln -s "$CASE_DIR/map-target.json" "$HOME_DIR/config/start-gate.json"
-      rm "$CASE_DIR/map-target.json"
-      ;;
-    dangling-relative)
-      mv "$HOME_DIR/config/start-gate.json" "$HOME_DIR/config/map-target.json"
-      ln -s map-target.json "$HOME_DIR/config/start-gate.json"
-      rm "$HOME_DIR/config/map-target.json"
-      ;;
-    link-loop) rm "$HOME_DIR/config/start-gate.json"; ln -s start-gate.json "$HOME_DIR/config/start-gate.json" ;;
-    esac
-    out=$(spawn_ship "$id")
-    status=$?
-    assert_refused "$id" "$status" "$out" "is not one JSON object with an object entry"
+    for class in feature none chore; do
+      n=$((n + 1))
+      id="gate-config-$n"
+      make_gate_case "config-$n" "$id" "$class"
+      write_facts '[]'
+      case "$spec" in
+      entry-false) printf '{"project":false}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      entry-null) printf '{"project":null}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      entry-string) printf '{"project":"facts"}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      entry-array) printf '{"project":[]}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      entry-number) printf '{"project":1}\n' > "$HOME_DIR/config/start-gate.json" ;;
+      empty-file) : > "$HOME_DIR/config/start-gate.json" ;;
+      multiple-objects) printf '{}\n{}\n' >> "$HOME_DIR/config/start-gate.json" ;;
+      mixed-documents) printf 'false\n' >> "$HOME_DIR/config/start-gate.json" ;;
+      bad-json) printf 'not json\n' > "$HOME_DIR/config/start-gate.json" ;;
+      bad-map) printf '[1]\n' > "$HOME_DIR/config/start-gate.json" ;;
+      unreadable) rm "$HOME_DIR/config/start-gate.json"; mkdir "$HOME_DIR/config/start-gate.json" ;;
+      dangling-absolute)
+        mv "$HOME_DIR/config/start-gate.json" "$CASE_DIR/map-target.json"
+        ln -s "$CASE_DIR/map-target.json" "$HOME_DIR/config/start-gate.json"
+        rm "$CASE_DIR/map-target.json"
+        ;;
+      dangling-relative)
+        mv "$HOME_DIR/config/start-gate.json" "$HOME_DIR/config/map-target.json"
+        ln -s map-target.json "$HOME_DIR/config/start-gate.json"
+        rm "$HOME_DIR/config/map-target.json"
+        ;;
+      link-loop) rm "$HOME_DIR/config/start-gate.json"; ln -s start-gate.json "$HOME_DIR/config/start-gate.json" ;;
+      esac
+      out=$(spawn_ship "$id")
+      status=$?
+      if [ "$class" = feature ]; then
+        assert_refused "$id" "$status" "$out" "is not one JSON object with an object entry"
+      else
+        assert_spawned "$id" "$status" "$out"
+        assert_contains "$out" "warning: start gate:" "unknown applicability did not warn"
+        assert_contains "$out" "$HOME_DIR/config/start-gate.json" "warning did not name the broken map"
+        assert_equals 1 "$(printf '%s\n' "$out" | awk '/^warning: start gate:/ { n++ } END { print n+0 }')" "unknown applicability must warn exactly once"
+        assert_not_contains "$out" "feature start permitted" "unknown applicability claimed healthy facts"
+      fi
+    done
   done
-  pass "malformed configuration refuses features before allocation"
+  pass "broken maps refuse features before allocation; absent or invalid classes warn and spawn"
 }
 
 test_repairs_bypass_configuration_and_dependency_failures() {
@@ -273,14 +283,28 @@ test_repairs_bypass_configuration_and_dependency_failures() {
   status=$?
   expect_code 1 "$status" "feature must refuse without jq"
   assert_contains "$out" "jq is required" "missing-jq feature refusal was not diagnosed"
+  for class in none chore; do
+    set_class "$HOME_DIR" gate-no-jq "$class"
+    out=$(PATH="$CASE_DIR/no-jq" fm_start_gate_admit "$HOME_DIR/config/start-gate.json" project "$HOME_DIR/data/gate-no-jq/prep.md" 2>&1)
+    status=$?
+    expect_code 0 "$status" "unclassified task must pass without jq"
+    assert_contains "$out" "warning: start gate:" "missing-jq applicability did not warn"
+    assert_contains "$out" "$HOME_DIR/config/start-gate.json" "missing-jq warning did not name the map"
+    assert_equals 1 "$(printf '%s\n' "$out" | awk '/^warning: start gate:/ { n++ } END { print n+0 }')" "missing-jq applicability must warn exactly once"
+  done
   printf 'file\n' > "$CASE_DIR/not-a-directory"
-  for class in feature fix revert live-breakage; do
+  for class in feature fix revert live-breakage none chore; do
     set_class "$HOME_DIR" gate-no-jq "$class"
     out=$(fm_start_gate_admit "$CASE_DIR/not-a-directory/start-gate.json" project "$HOME_DIR/data/gate-no-jq/prep.md" 2>&1)
     status=$?
     if [ "$class" = feature ]; then
       expect_code 1 "$status" "feature must refuse an uninspectable map"
       assert_contains "$out" "cannot inspect configuration" "map inspection failure was not diagnosed"
+    elif [ "$class" = none ] || [ "$class" = chore ]; then
+      expect_code 0 "$status" "unclassified task must pass an uninspectable map"
+      assert_contains "$out" "warning: start gate:" "uninspectable applicability did not warn"
+      assert_contains "$out" "$CASE_DIR/not-a-directory/start-gate.json" "inspection warning did not name the map"
+      assert_equals 1 "$(printf '%s\n' "$out" | awk '/^warning: start gate:/ { n++ } END { print n+0 }')" "inspection failure must warn exactly once"
     else
       expect_code 0 "$status" "repair must pass an uninspectable map"
       assert_contains "$out" "work class $class is never refused" "map inspection refused a repair"
@@ -329,6 +353,33 @@ test_classification_preserves_internal_whitespace() {
     assert_spawned "$id" "$status" "$out"
   done
   pass "internal class whitespace is invalid; surrounding whitespace preserves canonical classes"
+}
+
+test_class_label_preserves_the_entire_answer() {
+  local value id out status n=0 prep
+  for value in xfeature xfix xrevert xlive-breakage feature fix revert live-breakage; do
+    n=$((n + 1))
+    id="gate-label-$n"
+    make_gate_case "label-$n" "$id" "$value"
+    prep="$HOME_DIR/data/$id/prep.md"
+    awk '/^- Work class:/ { sub(/: /, ":") } { print }' "$prep" > "$prep.label"
+    mv "$prep.label" "$prep"
+    case "$value" in
+    x*) write_facts '[]' ;;
+    *) write_facts "$UNOWNED" ;;
+    esac
+    out=$(spawn_ship "$id")
+    status=$?
+    case "$value" in
+    x*) assert_refused "$id" "$status" "$out" "must declare one Tier line '- Work class:" ;;
+    feature) assert_refused "$id" "$status" "$out" "no worker on main-failure" ;;
+    *)
+      assert_spawned "$id" "$status" "$out"
+      assert_contains "$out" "work class $value is never refused" "no-separator repair was not classified"
+      ;;
+    esac
+  done
+  pass "no-separator labels retain every answer character and recognize only canonical classes"
 }
 
 test_fact_clock_and_reconciled_state_contract() {
@@ -484,6 +535,7 @@ test_invalid_configuration_is_refused
 test_repairs_bypass_configuration_and_dependency_failures
 test_readable_configuration_links_permit_features
 test_classification_preserves_internal_whitespace
+test_class_label_preserves_the_entire_answer
 test_fact_clock_and_reconciled_state_contract
 test_inherited_map_controls_feature_admission
 test_owner_task_identity_is_validated

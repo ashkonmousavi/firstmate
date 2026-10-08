@@ -716,7 +716,7 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
 fm_prep_work_class() {  # <file>
   local value
   value=$(fm_prep_tier_read "$1" | awk '
-    /^- Work class:/ { seen++; value=substr($0,15) }
+    /^- Work class:/ { seen++; value=substr($0,length("- Work class:")+1) }
     END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
   ')
   case "$value" in
@@ -730,8 +730,8 @@ fm_prep_work_class() {  # <file>
 fm_prep_delivery_mode() {  # <file>
   local value reason mode risk
   value=$(fm_prep_tier_read "$1" | awk '
-    /^- Delivery depth:/ { seen++; value=substr($0,19) }
-    END { if (seen == 1) print value }
+    /^- Delivery depth:/ { seen++; value=substr($0,length("- Delivery depth:")+1) }
+    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
   ')
   case "$value" in
     'checks + one review (direct-PR), '*) mode=direct-PR; reason=${value#'checks + one review (direct-PR), '} ;;
@@ -748,8 +748,8 @@ fm_prep_delivery_mode() {  # <file>
     return 0
   fi
   value=$(fm_prep_tier_read "$1" | awk '
-    /^- Delivery risk:/ { seen++; value=substr($0,18) }
-    END { if (seen == 1) print value }
+    /^- Delivery risk:/ { seen++; value=substr($0,length("- Delivery risk:")+1) }
+    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
   ')
   case "$value" in
     'money, '*) risk=money; reason=${value#'money, '} ;;

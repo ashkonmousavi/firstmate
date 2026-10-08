@@ -24,6 +24,8 @@
 # missing or unrecognised, naming the line to add, without consulting facts.
 # A valid repair class passes before reading configuration or requiring jq,
 # so a repair is never refused by configuration or fact health.
+# When applicability is unknown because the map is broken or jq unavailable,
+# only a declared feature refuses; an invalid or absent class warns and permits.
 #
 # Facts are produced outside spawn by the project's fact owner (the private
 # collector registered as a check), never by a fleet scan here. The locator is
@@ -59,10 +61,10 @@
 FM_START_GATE_MAX_AGE=900
 
 # fm_start_gate_admit <config-file> <project> <prep-file>
-# Exit 0 permits (stderr reports a repair exemption or a gated feature permit);
+# Exit 0 permits (stderr reports an exemption, feature permit or unknown-applicability warning);
 # exit 1 refuses with one stderr error line per reason.
 fm_start_gate_admit() {
-  local config=$1 project=$2 prep=$3 now entry facts class verdict config_present
+  local config=$1 project=$2 prep=$3 now entry facts class verdict config_present config_error
   config_present=$(fm_config_source_present "$config" 2>/dev/null) || config_present=
   [ "$config_present" != 0 ] || return 0
   if class=$(fm_prep_work_class "$prep") && [ "$class" != feature ]; then
@@ -70,14 +72,10 @@ fm_start_gate_admit() {
     return 0
   fi
   if [ "$config_present" != 1 ]; then
-    echo "error: start gate: cannot inspect configuration at $config; correct it before spawning" >&2
-    return 1
-  fi
-  command -v jq >/dev/null 2>&1 || {
-    echo "error: start gate: jq is required to read $config" >&2
-    return 1
-  }
-  if ! entry=$(jq -cs --arg p "$project" '
+    config_error="cannot inspect configuration at $config"
+  elif ! command -v jq >/dev/null 2>&1; then
+    config_error="jq is required to read $config"
+  elif ! entry=$(jq -cs --arg p "$project" '
       if length != 1 or (.[0] | type) != "object" then error("config must be one JSON object")
       else .[0] |
         if has($p) then .[$p] |
@@ -85,8 +83,17 @@ fm_start_gate_admit() {
         else empty end
       end
     ' "$config" 2>/dev/null); then
-    echo "error: start gate: $config is not one JSON object with an object entry for $project; correct it before spawning" >&2
-    return 1
+    config_error="$config is not one JSON object with an object entry for $project"
+  else
+    config_error=
+  fi
+  if [ -n "$config_error" ]; then
+    if [ "$class" = feature ]; then
+      echo "error: start gate: $config_error; correct it before spawning" >&2
+      return 1
+    fi
+    echo "warning: start gate: $config_error; applicability unknown and no valid Work class declared; keeping existing spawn behavior" >&2
+    return 0
   fi
   [ -n "$entry" ] || return 0
   if [ -z "$class" ]; then
