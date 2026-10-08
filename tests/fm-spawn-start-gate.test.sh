@@ -192,7 +192,7 @@ EOF
 
 test_invalid_configuration_is_refused() {
   local n=0 spec id out status
-  for spec in entry-false entry-null entry-string entry-array entry-number empty-file multiple-objects mixed-documents bad-json bad-map unreadable; do
+  for spec in entry-false entry-null entry-string entry-array entry-number empty-file multiple-objects mixed-documents bad-json bad-map unreadable dangling-absolute dangling-relative link-loop; do
     n=$((n + 1))
     id="gate-config-$n"
     make_gate_case "config-$n" "$id"
@@ -209,6 +209,17 @@ test_invalid_configuration_is_refused() {
     bad-json) printf 'not json\n' > "$HOME_DIR/config/start-gate.json" ;;
     bad-map) printf '[1]\n' > "$HOME_DIR/config/start-gate.json" ;;
     unreadable) rm "$HOME_DIR/config/start-gate.json"; mkdir "$HOME_DIR/config/start-gate.json" ;;
+    dangling-absolute)
+      mv "$HOME_DIR/config/start-gate.json" "$CASE_DIR/map-target.json"
+      ln -s "$CASE_DIR/map-target.json" "$HOME_DIR/config/start-gate.json"
+      rm "$CASE_DIR/map-target.json"
+      ;;
+    dangling-relative)
+      mv "$HOME_DIR/config/start-gate.json" "$HOME_DIR/config/map-target.json"
+      ln -s map-target.json "$HOME_DIR/config/start-gate.json"
+      rm "$HOME_DIR/config/map-target.json"
+      ;;
+    link-loop) rm "$HOME_DIR/config/start-gate.json"; ln -s start-gate.json "$HOME_DIR/config/start-gate.json" ;;
     esac
     out=$(spawn_ship "$id")
     status=$?
@@ -220,7 +231,7 @@ test_invalid_configuration_is_refused() {
 test_repairs_bypass_configuration_and_dependency_failures() {
   local class spec id out status n=0
   for class in fix revert live-breakage; do
-    for spec in bad-json bad-map bad-entry unreadable relative missing-facts; do
+    for spec in bad-json bad-map bad-entry unreadable relative missing-facts dangling-absolute dangling-relative link-loop; do
       n=$((n + 1))
       id="gate-repair-$n"
       make_gate_case "repair-$n" "$id" "$class"
@@ -231,6 +242,9 @@ test_repairs_bypass_configuration_and_dependency_failures() {
       unreadable) rm "$HOME_DIR/config/start-gate.json"; mkdir "$HOME_DIR/config/start-gate.json" ;;
       relative) printf '{"project":{"facts":"relative.json"}}\n' > "$HOME_DIR/config/start-gate.json" ;;
       missing-facts) : ;;
+      dangling-absolute) rm "$HOME_DIR/config/start-gate.json"; ln -s "$CASE_DIR/missing-map.json" "$HOME_DIR/config/start-gate.json" ;;
+      dangling-relative) rm "$HOME_DIR/config/start-gate.json"; ln -s missing-map.json "$HOME_DIR/config/start-gate.json" ;;
+      link-loop) rm "$HOME_DIR/config/start-gate.json"; ln -s start-gate.json "$HOME_DIR/config/start-gate.json" ;;
       esac
       out=$(spawn_ship "$id")
       status=$?
@@ -246,6 +260,7 @@ test_repairs_bypass_configuration_and_dependency_failures() {
   make_gate_case no-jq gate-no-jq fix
   mkdir "$CASE_DIR/no-jq"
   ln -s "$(command -v awk)" "$CASE_DIR/no-jq/awk"
+  ln -s "$(command -v perl)" "$CASE_DIR/no-jq/perl"
   for class in fix revert live-breakage; do
     set_class "$HOME_DIR" gate-no-jq "$class"
     out=$(PATH="$CASE_DIR/no-jq" fm_start_gate_admit "$HOME_DIR/config/start-gate.json" project "$HOME_DIR/data/gate-no-jq/prep.md" 2>&1)
@@ -258,7 +273,39 @@ test_repairs_bypass_configuration_and_dependency_failures() {
   status=$?
   expect_code 1 "$status" "feature must refuse without jq"
   assert_contains "$out" "jq is required" "missing-jq feature refusal was not diagnosed"
+  printf 'file\n' > "$CASE_DIR/not-a-directory"
+  for class in feature fix revert live-breakage; do
+    set_class "$HOME_DIR" gate-no-jq "$class"
+    out=$(fm_start_gate_admit "$CASE_DIR/not-a-directory/start-gate.json" project "$HOME_DIR/data/gate-no-jq/prep.md" 2>&1)
+    status=$?
+    if [ "$class" = feature ]; then
+      expect_code 1 "$status" "feature must refuse an uninspectable map"
+      assert_contains "$out" "cannot inspect configuration" "map inspection failure was not diagnosed"
+    else
+      expect_code 0 "$status" "repair must pass an uninspectable map"
+      assert_contains "$out" "work class $class is never refused" "map inspection refused a repair"
+    fi
+  done
   pass "all repair classes bypass malformed configuration, bad locators, missing facts, and missing jq"
+}
+
+test_readable_configuration_links_permit_features() {
+  local spec id out status
+  for spec in absolute relative; do
+    id="gate-link-$spec"
+    make_gate_case "link-$spec" "$id"
+    write_facts '[]'
+    mv "$HOME_DIR/config/start-gate.json" "$HOME_DIR/config/map-target.json"
+    case "$spec" in
+    absolute) ln -s "$HOME_DIR/config/map-target.json" "$HOME_DIR/config/start-gate.json" ;;
+    relative) ln -s map-target.json "$HOME_DIR/config/start-gate.json" ;;
+    esac
+    out=$(spawn_ship "$id")
+    status=$?
+    assert_spawned "$id" "$status" "$out"
+    assert_contains "$out" "feature start permitted" "readable linked map was not evaluated"
+  done
+  pass "readable relative and absolute map links still permit healthy features"
 }
 
 test_classification_preserves_internal_whitespace() {
@@ -435,6 +482,7 @@ test_covered_or_clear_facts_permit_feature
 test_unknown_facts_and_class_are_diagnosed
 test_invalid_configuration_is_refused
 test_repairs_bypass_configuration_and_dependency_failures
+test_readable_configuration_links_permit_features
 test_classification_preserves_internal_whitespace
 test_fact_clock_and_reconciled_state_contract
 test_inherited_map_controls_feature_admission

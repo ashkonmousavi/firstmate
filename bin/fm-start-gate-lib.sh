@@ -53,17 +53,25 @@
 # Requires bin/fm-dod-lib.sh already sourced and jq on PATH for a gated
 # project. No side effects on source; set -u / set -e safe.
 
+# shellcheck source=bin/fm-config-inherit-lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-config-inherit-lib.sh"
+
 FM_START_GATE_MAX_AGE=900
 
 # fm_start_gate_admit <config-file> <project> <prep-file>
 # Exit 0 permits (stderr reports a repair exemption or a gated feature permit);
 # exit 1 refuses with one stderr error line per reason.
 fm_start_gate_admit() {
-  local config=$1 project=$2 prep=$3 now entry facts class verdict
-  [ -e "$config" ] || return 0
+  local config=$1 project=$2 prep=$3 now entry facts class verdict config_present
+  config_present=$(fm_config_source_present "$config" 2>/dev/null) || config_present=
+  [ "$config_present" != 0 ] || return 0
   if class=$(fm_prep_work_class "$prep") && [ "$class" != feature ]; then
     echo "notice: start gate: $project work class $class is never refused by main or machine health" >&2
     return 0
+  fi
+  if [ "$config_present" != 1 ]; then
+    echo "error: start gate: cannot inspect configuration at $config; correct it before spawning" >&2
+    return 1
   fi
   command -v jq >/dev/null 2>&1 || {
     echo "error: start gate: jq is required to read $config" >&2
