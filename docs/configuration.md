@@ -1083,6 +1083,25 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
+## Feature start gate (config/start-gate.json)
+
+`config/start-gate.json` is an optional local, gitignored file that stops a fresh ship spawn from starting new feature work while its project has a main failure cause or frozen machine with no active worker.
+Fixes, reverts, live-breakage work, relaunches of open work, and scouts are never refused by this gate, and it never holds a merge.
+An absent file, or a project it does not name, keeps the spawn contract unchanged.
+
+The file is one JSON object keyed by registered project name, the basename of the project directory passed to `fm-spawn.sh`:
+
+```json
+{
+  "Q": { "facts": "/absolute/path/to/start-facts.json", "max_age_seconds": 900 }
+}
+```
+
+`facts` is the absolute path of the fact snapshot the project's fact owner writes outside spawn, and `max_age_seconds` (default 900) is how old that snapshot may be.
+A gated project's preparation record must declare `- Work class: <feature|fix|revert|live-breakage>` in its Tier section; a missing or unknown class refuses the spawn and names the line to add.
+The snapshot schema, its freshness and owner rules, and every refusal are owned by the header of `bin/fm-start-gate-lib.sh`.
+A malformed file refuses every fresh ship spawn until it is corrected, because it cannot say which projects are gated.
+
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.

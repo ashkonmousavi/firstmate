@@ -445,7 +445,7 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   printf -- '- UI wiring: {UI_WIRING}\n'
   printf -- '- Delivery risk: {DELIVERY_RISK}\n'
   printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. -->\n'
+  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -708,6 +708,21 @@ fm_prep_answer_complete() {  # <cleaned-body> <allow-na>
       }
       if (text == "" || text ~ /^[{][A-Z0-9_]+[}]$/ || text ~ /^<[^>]+>$/ || tolower(text) ~ /^(example|e[.]g[.]|todo|tbd)([ :]|$)/) exit 1
     }'
+}
+
+# Prints the one active Tier "- Work class:" answer (feature, fix, revert or
+# live-breakage); fails when it is missing, repeated or anything else.
+# bin/fm-start-gate-lib.sh's header owns where the class is required.
+fm_prep_work_class() {  # <file>
+  local value
+  value=$(fm_prep_tier_read "$1" | awk '
+    /^- Work class:/ { seen++; value=substr($0,15) }
+    END { if (seen == 1) print value }
+  ' | tr -d '[:space:]')
+  case "$value" in
+    feature|fix|revert|live-breakage) printf '%s\n' "$value" ;;
+    *) return 1 ;;
+  esac
 }
 
 # Prints direct-PR or no-mistakes only for one complete active Tier declaration.
