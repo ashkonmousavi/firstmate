@@ -285,6 +285,159 @@ EOF
   pass "risk admission: money, security and shared code require no-mistakes; other requires direct-PR and one round"
 }
 
+# The presentation-only marker certifies the author's other classification,
+# including in a shared file; admission checks completeness, not prose effects.
+# Unmarked other with Q2=yes stays refused, while security uses the full path.
+# The scaffold must name the light path and the walk after install.
+test_presentation_only_shared_change_is_other() {
+  local rec home proj fakebin prep out status id reason risk mode
+  rec=$(make_home presentation-only)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for id in presentation-move presentation-certificate presentation-unmarked presentation-full; do
+    risk=other
+    mode=direct-PR
+    case "$id" in
+      presentation-move) reason='presentation-only: moves the settings link into the account menu and renames it.' ;;
+      presentation-certificate) reason='presentation-only: renames the sign-in button and changes which session cookie it writes.' ;;
+      presentation-full) risk=security; mode=no-mistakes; reason='renames the sign-in button and changes which session cookie it writes.' ;;
+      *) reason='renames the sign-in button and changes which session cookie it writes.' ;;
+    esac
+    write_brief "$home" "$id" "$mode"
+    prep="$home/data/$id/prep.md"
+    answer_tier "$prep" no yes
+    awk -v r="$reason" -v risk="$risk" '/^- Delivery risk:/ { next }
+      { print } $0 == "## Tier" { print "- Delivery risk: " risk ", " r }
+    ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+    sed 's/checks-only (direct-PR)/checks + one review (direct-PR)/' "$prep" > "$prep.new" && mv "$prep.new" "$prep"
+    rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off); status=$?
+    [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
+    if [ "$id" = presentation-unmarked ]; then
+      assert_contains "$out" 'Delivery' 'unmarked other with Q2=yes was admitted'
+      assert_absent "$home/data/$id/launch-brief.md" 'unmarked other with Q2=yes rendered launch'
+      assert_absent "$fakebin/tmux.calls" 'unmarked other with Q2=yes reached backend'
+      assert_absent "$fakebin/treehouse.calls" 'unmarked other with Q2=yes allocated worktree'
+    else
+      assert_present "$home/data/$id/launch-brief.md" "$id authored $mode classification was refused: $out"
+      assert_present "$fakebin/tmux.calls" "$id authored $mode classification missed backend"
+      assert_grep "Delivery contract: mode=$mode" "$home/data/$id/launch-brief.md" "$id launch lost authored mode"
+    fi
+    printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
+    cp "$home/state/$id.meta" "$home/original-meta"
+    cp "$home/data/$id/brief.md" "$home/original-brief"
+    out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1); status=$?
+    if [ "$id" = presentation-unmarked ]; then
+      [ "$status" -ne 0 ] || fail 'unmarked other with Q2=yes was promoted'
+      assert_contains "$out" 'Delivery risk' 'unmarked other promotion refusal unnamed'
+      cmp -s "$home/state/$id.meta" "$home/original-meta" || fail 'unmarked other refusal changed metadata'
+      cmp -s "$home/data/$id/brief.md" "$home/original-brief" || fail 'unmarked other refusal changed brief'
+      assert_absent "$home/data/$id/ship-instructions.md" 'unmarked other refusal published instructions'
+    else
+      expect_code 0 "$status" "$id authored $mode promotion was refused: $out"
+      assert_grep 'kind=ship' "$home/state/$id.meta" "$id promotion did not become ship"
+      assert_grep "Delivery contract: mode=$mode" "$home/data/$id/ship-instructions.md" "$id promotion lost authored mode"
+    fi
+  done
+  id=presentation-certificate
+  cat > "$fakebin/tmux" <<'EOF'
+#!/bin/sh
+case "$1" in
+  list-windows) printf 'fm-%s\n' "$FM_REFRESH_ID" ;;
+  display-message)
+    case "$*" in
+      *pane_current_command*) printf 'bash\n' ;;
+      *) exit 1 ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+EOF
+  rm "$home/data/$id/launch-brief.md"
+  out=$(FM_REFRESH_ID="$id" run_spawn "$home" "$fakebin" "$id" --relaunch)
+  assert_present "$home/data/$id/launch-brief.md" "marked certification promotion relaunch failed: $out"
+  assert_grep 'Delivery contract: mode=direct-PR' "$home/data/$id/launch-brief.md" 'promoted certificate launch lost direct-PR'
+  assert_contains "$(cat "$home/data/$id/launch-brief.md")" "$home/data/$id/prep.md" \
+    'promoted certificate launch lost the preparation record reference'
+  FM_HOME="$home" "$BRIEF" presentation-scaffold --prep >/dev/null 2>&1 || fail "presentation scaffold"
+  out=$(cat "$home/data/presentation-scaffold/prep.md")
+  assert_contains "$out" 'other, presentation-only:' "the scaffold guidance does not print the presentation-only spelling"
+  assert_contains "$out" 'reconcile' "the scaffold guidance does not name the reclassification path"
+  assert_contains "$out" 'direct-PR' "the scaffold guidance does not name the light path"
+  assert_contains "$out" 'exactly one code review round' "the scaffold guidance does not keep one review"
+  assert_contains "$out" 'walk after install' "the scaffold guidance does not require the walk after install"
+  pass 'risk admission: marked certification admits other; unmarked Q2=yes refuses; authored security uses no-mistakes'
+}
+
+test_presentation_only_reason_completeness() {
+  local rec home proj fakebin format q2 label reason id prep out status valid
+  rec=$(make_home presentation-reasons)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for format in full surgical; do
+    for q2 in no yes; do
+      for label in empty whitespace angle brace todo move literal; do
+        valid=no
+        case "$label" in
+          empty) reason='' ;;
+          whitespace) reason='   ' ;;
+          angle) reason='<what moves or is renamed>' ;;
+          brace) reason='{REASON}' ;;
+          todo) reason=TODO ;;
+          move) reason='moves the settings link into the account menu.'; valid=yes ;;
+          literal) reason='renames the {SETTINGS} label in the account menu.'; valid=yes ;;
+        esac
+        id="presentation-$format-$q2-$label"
+        write_brief "$home" "$id" direct-PR
+        prep="$home/data/$id/prep.md"
+        if [ "$format" = surgical ]; then
+          rm "$prep"
+          FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail 'presentation surgical scaffold'
+          fill_current_work_fixture "$prep" yes
+          fm_test_fill_prep_common "$prep" direct-PR || fail 'presentation common fields'
+        fi
+        answer_tier "$prep" no "$q2"
+        awk -v r="$reason" '/^- Delivery risk:/ { print "- Delivery risk: other, presentation-only: " r; next } { print }' \
+          "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+        rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off); status=$?
+        [ "$status" -ne 0 ] || fail 'refusing fixture backend launched'
+        if [ "$valid:$format:$q2" = yes:surgical:yes ]; then
+          assert_contains "$out" 'C2 contradicts' "$id bypassed surgical shared-module refusal"
+          assert_absent "$home/data/$id/launch-brief.md" "$id contradictory certificate rendered launch"
+        elif [ "$valid" = yes ]; then
+          assert_present "$home/data/$id/launch-brief.md" "$id valid spawn refused: $out"
+          assert_present "$fakebin/tmux.calls" "$id valid spawn missed backend"
+        else
+          assert_contains "$out" 'Delivery risk' "$id spawn refusal unnamed"
+          assert_absent "$home/data/$id/launch-brief.md" "$id invalid spawn rendered launch"
+          assert_absent "$fakebin/tmux.calls" "$id invalid spawn reached backend"
+          assert_absent "$fakebin/treehouse.calls" "$id invalid spawn allocated worktree"
+        fi
+        printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
+        cp "$home/state/$id.meta" "$home/original-meta"
+        cp "$home/data/$id/brief.md" "$home/original-brief"
+        out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+          "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1); status=$?
+        if [ "$valid" = yes ]; then
+          expect_code 0 "$status" "$id valid promotion refused: $out"
+          assert_grep 'kind=ship' "$home/state/$id.meta" "$id promotion did not become ship"
+          assert_present "$home/data/$id/ship-instructions.md" "$id promotion omitted instructions"
+        else
+          [ "$status" -ne 0 ] || fail "$id invalid promotion accepted"
+          assert_contains "$out" 'Delivery risk' "$id promotion refusal unnamed"
+          cmp -s "$home/state/$id.meta" "$home/original-meta" || fail "$id refusal changed metadata"
+          cmp -s "$home/data/$id/brief.md" "$home/original-brief" || fail "$id refusal changed brief"
+          assert_absent "$home/data/$id/ship-instructions.md" "$id refusal published instructions"
+        fi
+      done
+    done
+  done
+  pass 'presentation reasons: spawn and promotion reject unfinished payloads across prep formats and Q2 answers'
+}
+
 test_risk_fields_and_certainty_controls() {
   local rec home proj fakebin prep baseline change out status risk mode format id
   rec=$(make_home risk-fields)
@@ -3568,6 +3721,8 @@ test_prep_current_work_checks() {
 
 test_promotion_risk_admission
 test_risk_delivery_admission
+test_presentation_only_shared_change_is_other
+test_presentation_only_reason_completeness
 test_risk_fields_and_certainty_controls
 test_prep_current_work_checks
 test_prep_block_transitions
