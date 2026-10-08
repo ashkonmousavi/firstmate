@@ -1231,7 +1231,64 @@ test_quoted_exit_picker_text_is_not_a_dialog() {
   pass "picker text quoted above a normal composer is not read as a live picker"
 }
 
+# Recorded 2026-10-08 on codex-cli 0.160.1 (tmux capture, plain text): a launch
+# that cannot join the shared background server stops on this choice. The
+# selected row starts with Codex's agent glyph, so the composer reads pending.
+codex_daemon_dialog_screen() {  # [selected-option]
+  local selected=${1:-3} n prefix
+  printf '%s\n' \
+    '' \
+    '  Background server has incompatible feature settings' \
+    '  This session requires api_key_model_discovery to be disabled' \
+    '  Restart will use these shared feature settings:' \
+    '    api_key_model_discovery = false' \
+    '    auth_elicitation = true' \
+    '  These settings persist and can disable functionality for other clients. Restart may interrupt active or queued work.' \
+    '' \
+    ''
+  for n in 1 2 3; do
+    prefix='  '
+    [ "$n" != "$selected" ] || prefix='› '
+    case "$n" in
+      1) printf '%s%s\n' "$prefix" '1. Run without daemon this time' ;;
+      2) printf '%s%s\n' "$prefix" '2. Restart with these settings' ;;
+      3) printf '%s%s\n' "$prefix" '3. Cancel' ;;
+    esac
+  done
+  printf '\n\n\n'
+}
+
+test_codex_daemon_dialog_is_named_and_quotes_are_not() {
+  local out rc sel sink
+  for sel in 1 2 3; do
+    out=$(fm_composer_blocking_dialog "$(codex_daemon_dialog_screen "$sel")"); rc=$?
+    [ "$rc" -eq 0 ] || fail "the recorded Codex background-server dialog (option $sel selected) should match"
+    [ "$out" = 'Codex background-server settings dialog' ] || fail "dialog name was '$out'"
+  done
+  sink=$(mktemp)
+  FM_COMPOSER_DIALOG_SINK=$sink
+  out=$(fm_composer_classify_screen 'styled=1' "$(codex_daemon_dialog_screen)")
+  [ "$(cat "$sink")" = 'Codex background-server settings dialog' ] \
+    || fail "classify should note the Codex dialog, got '$(cat "$sink")' (verdict $out)"
+  unset FM_COMPOSER_DIALOG_SINK
+  rm -f "$sink"
+  # The option rows quoted above a live composer are not the dialog.
+  out=$(fm_composer_blocking_dialog "$(printf '%s\n' "$(codex_daemon_dialog_screen)" '› Ask Codex to do anything' '  GPT-6-Sol default · /tmp/w')"); rc=$?
+  [ "$rc" -eq 1 ] || fail "dialog text above a live composer must not match"
+  out=$(fm_composer_blocking_dialog "$(printf '%s\n' '  The Background server has incompatible feature settings warning' '  1. Run without daemon this time' '  2. Restart with these settings' '› 3. Cancel')"); rc=$?
+  [ "$rc" -eq 1 ] || fail "a heading inside a sentence must not match"
+  out=$(fm_composer_blocking_dialog "$(printf '%s\n' '  Background server has incompatible feature settings' '  1. Run without daemon this time' '  2. Restart with these settings' '  3. Cancel')"); rc=$?
+  [ "$rc" -eq 1 ] || fail "options with no selected row must not match"
+  # Real 0.161.0 idle and typed-but-unsent composers are never the dialog.
+  out=$(fm_composer_blocking_dialog "$(printf '%s\n' '› Ask Codex to do anything' '  ? for shortcuts')"); rc=$?
+  [ "$rc" -eq 1 ] || fail "an idle Codex composer must not match"
+  out=$(fm_composer_blocking_dialog "$(printf '%s\n' '› 3. Cancel' '  GPT-6-Sol default · /tmp/w')"); rc=$?
+  [ "$rc" -eq 1 ] || fail "typed option text in a Codex composer must not match"
+  pass "the recorded Codex background-server dialog is named; quoted or partial text is not"
+}
+
 test_background_exit_picker_stays_pending_and_blocks_retry
+test_codex_daemon_dialog_is_named_and_quotes_are_not
 test_dialog_heading_and_footer_must_be_the_recorded_lines
 test_dialog_note_skips_the_match_when_no_sink_is_set
 test_quoted_exit_picker_text_is_not_a_dialog

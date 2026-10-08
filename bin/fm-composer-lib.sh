@@ -1829,6 +1829,30 @@ fm_composer_blocking_dialog() {  # <screen> -> dialog name
     printf '%s' 'Claude background-task exit picker'
     return 0
   fi
+  # Recorded 2026-10-08 on codex-cli 0.160.1: a launch that cannot join the
+  # shared background server stops on this choice, and option 2 restarts that
+  # server under every other Codex client. Its heading is alone on a row, the
+  # three options follow in order with exactly one selected by Codex's `›`,
+  # and option 3 is the last non-blank row.
+  if printf '%s\n' "$screen" | fm_composer_strip_ansi | LC_ALL=C awk '
+    /^[ \t]*Background server has incompatible feature settings[ \t\r]*$/ { heading = 1; next_opt = 1; selected = 0; next }
+    heading && match($0, /^[ \t]*(› )?[123]\. /) {
+      row = $0
+      sel = (row ~ /^[ \t]*› /)
+      sub(/^[ \t]*(› )?/, "", row)
+      sub(/[ \t\r]+$/, "", row)
+      if (next_opt == 1 && row == "1. Run without daemon this time") next_opt = 2
+      else if (next_opt == 2 && row == "2. Restart with these settings") next_opt = 3
+      else if (next_opt == 3 && row == "3. Cancel") next_opt = 4
+      else next_opt = 0
+      selected += sel
+    }
+    /[^ \t\r]/ { last = $0 }
+    END { exit !(next_opt == 4 && selected == 1 && last ~ /^[ \t]*(› )?3\. Cancel[ \t\r]*$/) }
+  '; then
+    printf '%s' 'Codex background-server settings dialog'
+    return 0
+  fi
   return 1
 }
 

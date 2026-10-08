@@ -2413,6 +2413,32 @@ prompt_waiting_check() {  # <window> <task> <window-key>
   wake "$reason"
 }
 
+# Surface a recognised blocking dialog on a secondmate pane. An idle mate is
+# exempt from pane staleness, so a mate parked on a choice only a human can
+# answer otherwise reads as healthy while its steers go unread.
+# fm_composer_blocking_dialog owns which screens are dialogs; a 120-line read
+# reaches a heading the composer's short tail can miss, and the dialog's last
+# row must still be the screen's last, so scrollback cannot match. Each dialog
+# episode wakes once: .dialog-surfaced-<key> holds the name already surfaced,
+# written after the wake was durably appended, and is cleared when the pane no
+# longer shows a dialog. A failed capture leaves the marker as it was.
+secondmate_dialog_check() {  # <window> <window-key>
+  local w=$1 key=$2 backend name reason marker
+  marker="$STATE/.dialog-surfaced-$key"
+  backend=$(window_backend "$w")
+  fm_backend_source "$backend" || return 0
+  watcher_capture "$backend" "$w" 120 "$(window_label "$w")" || return 0
+  if ! name=$(fm_composer_blocking_dialog "$WATCHER_CAPTURE"); then
+    rm -f "$marker"
+    return 0
+  fi
+  [ "$(cat "$marker" 2>/dev/null || true)" != "$name" ] || return 0
+  reason="stale: $w (a $name is waiting in the pane; it needs a human answer)"
+  fm_wake_append stale "$w" "$reason" || checkpoint_wake_failed $?
+  printf '%s' "$name" > "$marker"
+  wake "$reason"
+}
+
 # Check and heartbeat cadence must survive actionable exits and restarts: the
 # watcher may be relaunched before in-memory counters reach their threshold on a
 # busy fleet. Persist the schedule as file mtimes instead.
@@ -3759,6 +3785,7 @@ EOF
     [ -z "$task" ] || inbox_steer_check "$w" "$task"
     key=$(window_key "$w")
     [ -z "$task" ] || prompt_waiting_check "$w" "$task" "$key"
+    [ "$kind" != secondmate ] || secondmate_dialog_check "$w" "$key"
     last=$(status_declared_wait_line "$STATE/$task.status")
     if ! status_is_paused_or_captain_held "$last" && [ -e "$STATE/.paused-$key" ]; then
       clear_pause_tracking "$key"
