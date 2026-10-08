@@ -8,10 +8,11 @@
 #
 # This is an adjunct to the existing watcher poll loop and session-start path,
 # not a watcher, daemon, PR poll, or forge client of its own.
-# In a secondmate home every `scan` invocation, which is every watcher poll,
+# In a secondmate home every `scan` invocation
 # first runs the LEDGER-FIRST parent delivery: a direct child whose status
 # ledger ends in a whole `done:` or `failed:` line has stated its own outcome,
-# so that line is published on the parent channel at once through
+# so outside a bounded checkpoint that line is published on the parent channel
+# at once through
 # bin/fm-parent-channel-lib.sh from this unstamped payload:
 #   <state> [key=child-outcome-<child>-<state>-<fp8>]: child <child> <state>: <note> [pr=<url>] [mode=<mode>] [yolo=<posture>] [report=data/<child>/report.md]
 # carrying the child's recorded PR, delivery mode, merge posture, and scout
@@ -39,13 +40,18 @@
 # FM_INACTIVE_RECONCILE_BUDGET_SECS deadline (default 10, valid 1..30) and
 # resumes after its last visited child on the next scan.
 # The scan enforces that budget itself through a whole-second deadline, and the
-# first due child of every scan is always visited with at least a one-second
+# first due child of a standalone scan is visited with at least a one-second
 # state-read bound: whole-second arithmetic can otherwise round a small budget
 # to zero mid-scan, and an invocation that exits having visited nothing would
 # advance the durable cursor past a child it never examined. A process-group
 # kill one second after the budget remains as a backstop for a scan wedged in
 # an unbounded wait (for example a live-held wake-queue lock), so the clean
 # deadline path is not racing its own backstop.
+# Under FM_CHECKPOINT_DEADLINE the scan instead shares the earlier deadline,
+# uses nonblocking scan/meta lock acquisition, and omits that first-visit
+# exception and process-group backstop so an entered delivery is not killed.
+# Parent-channel delivery uses the checkpoint recovery admission owner in
+# bin/fm-timeout-lib.sh; docs/supervision-protocols/codex.md owns that handoff.
 #
 # It considers only a direct ordinary crewmate whose newest meta, status, or
 # turn-ended mtime is older than that interval and whose last status is not
@@ -82,6 +88,7 @@
 # Pending atomically becomes reported after parent append or presented after
 # main-home acknowledgement. The atomic epoch/cursor marker's mtime gates scans,
 # and its cursor records the last child visited within the aggregate budget.
+# A checkpoint marker with complete=0 keeps the scan due on the next cycle.
 #
 # The scan reads only durable local state and fm-crew-state.sh; it never invokes
 # gh, gh-axi, curl, fm-pr-check.sh, fm-pr-poll.sh, or a state *.check.sh.
@@ -467,7 +474,7 @@ report_child_ledger_locked() { # <id> <meta>
 
 # Every direct child's ledger, under its meta lock. File reads, plus a local
 # git reachability check for a ship done: with no delivery record yet, so it
-# runs on every poll in a secondmate home; a delivery failure is already queued as a
+# runs before the scan's cadence gate in a secondmate home; a delivery failure is queued as a
 # notice and never fails the scan.
 ledger_pass() {
   local meta id lock
@@ -573,7 +580,8 @@ reconcile_direct_child() { # <id> <meta> <secondmate-id-or-empty> <timeout>
   return "$rc"
 }
 
-# SCAN_FIRST_VISIT_PENDING is armed by scan() before its passes. The deadline
+# SCAN_FIRST_VISIT_PENDING is armed by scan() before its passes; its first-visit
+# exception applies only outside a checkpoint deadline. The deadline
 # below is whole-second arithmetic, so a small budget can quantize to zero
 # between the deadline computation and these checks; without the guaranteed
 # first visit, such a scan would return 3 having examined no child at all while
@@ -615,7 +623,7 @@ scan() {
   mkdir -p "$STATE" "$OUTCOME_DIR" || return 1
   [ ! -L "$OUTCOME_DIR" ] || return 1
   if self=$(home_secondmate_id); then
-    # The ledger-first delivery is per poll, not per cadence.
+    # The ledger-first path must remain outside the inactive scan's cadence gate.
     ledger_pass
     fm_checkpoint_expired && return 0
   else

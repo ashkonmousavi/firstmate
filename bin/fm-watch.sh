@@ -3352,8 +3352,8 @@ while :; do
   # Endpoint liveness runs before queue observation: a positively dead or
   # missing secondmate endpoint is relaunched here on a bounded cadence, which
   # is also what unsticks that mate's foreign wake queue. The tick's single
-  # wake exits the cycle like every other wake, so its marker is stamped before
-  # any relaunch and the restarted watcher will not re-probe early.
+  # wake exits the cycle like every other wake. Incomplete checkpoint
+  # observations must leave the cadence due instead of delaying recovery.
   if checkpoint_stage liveness stall; then
   liveness_rc=0
   secondmate_liveness_tick || liveness_rc=$?

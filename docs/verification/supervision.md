@@ -40,13 +40,11 @@ A wrapped client attached to a shared managed daemon with `--remote` has not bee
 ## Recorded-lane checkpoint deadline, 2026-10-07
 
 `tests/fm-watch-checkpoint.test.sh` exercises the foreground executable with long and short recorded inventories, stalled pane and crew-state reads, duplicate endpoint aliases, and a deferred later-lane wake acknowledged through the real durable queue.
-The watcher establishes the checkpoint deadline and the shared read owner in `bin/fm-timeout-lib.sh` propagates it through recorded-lane observations.
-Continuation in the existing `.watch-window-cursor` record rotates both sweeps and entries so an expired early owner cannot starve later lanes.
-The quiet checkpoint contract and watchdog remain unchanged.
-Recovery that cannot fit a bounded checkpoint stays owed and queues a recovery-cycle wake before any attempt, inbox or delivery mutation.
-`bin/fm-watch-checkpoint.sh --recover` runs the existing foreground watcher for one recovery cycle without the short quiet deadline, while its owners retain their own stage bounds.
-Until the recovery wake is handled and acknowledged, another bounded checkpoint returns that obligation instead of silently continuing.
+The checkpoint header and help in [`bin/fm-watch-checkpoint.sh`](../../bin/fm-watch-checkpoint.sh) own invocation mechanics, and [Codex's supervision protocol](../supervision-protocols/codex.md) owns recovery handling.
+[`bin/fm-timeout-lib.sh`](../../bin/fm-timeout-lib.sh) owns shared read deadlines and continuation mechanics.
 `tests/fm-watch-checkpoint.test.sh` also exercises secondmate stall and pending-reply captures, capacity and inactive reads, and an exactly-once recovery handoff.
+`tests/fm-wake-checkpoint-publication.test.sh` exercises interruption after one signal row is published, then acknowledges that row and verifies later publication without replaying it.
+`tests/fm-timeout-lib.test.sh` exercises reads with detached output holders, suppression of incomplete output, and preservation of completed output and exit status.
 The earlier native source observation below does not qualify this later propagation or recovery change against a native harness.
 The dependent-read fixture keeps a mandatory reader-entry witness so a quiet checkpoint that expires before reaching that reader cannot pass its coverage assertion.
 

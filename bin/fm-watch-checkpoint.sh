@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
-# Run one bounded foreground watcher checkpoint for harnesses that should not
-# rely on background-task completion to wake the model.
+# Run a foreground watcher checkpoint or recovery cycle for harnesses that
+# should not rely on background-task completion to wake the model.
+# --seconds <n> selects the quiet bound. --recover cannot be combined with it:
+# it runs the watcher directly for one cycle with no checkpoint deadline,
+# bypassing the supervision host while recovery owners keep their stage bounds.
+# A queued checkpoint-recovery check is returned before a bounded cycle starts;
+# docs/supervision-protocols/codex.md owns its handling and acknowledgement.
 #
-# SUPERVISION HOST. A home opted in with config/supervision-host
+# SUPERVISION HOST (bounded cycles only). A home opted in with config/supervision-host
 # (docs/configuration.md "Supervision host" owns the gate;
 # config/supervision-host-off opts out, and a Codex home without the file does not run the host) runs
 # bin/fm-supervision-host.sh in the watcher's place for the checkpoint's bound,

@@ -6,7 +6,6 @@ Whenever this session owns supervision, including while the away-posture record 
 2. Source `__FM_X_MODE_ENV__` first when Relay is active.
 3. First cycle: run one foreground watcher checkpoint with `bin/fm-watch-checkpoint.sh --seconds "${FM_CODEX_WATCH_CHECKPOINT:-180}"`.
 4. A `check: recovery cycle required` wake requires `bin/fm-watch-checkpoint.sh --recover` before acknowledgement.
-   This foreground cycle invokes the existing recovery owners with their existing stage bounds and no short quiet deadline.
    A further bounded checkpoint returns that durable obligation until it is handled and acknowledged.
 5. Ordinary wake: if the command prints `signal:`, `stale:`, `check:`, or `heartbeat`, drain queued wakes, handle that wake, then start the next checkpoint.
 6. If the command prints `checkpoint:` or exits 124 with no wake, drain queued wakes anyway, process any queued user message now visible to Codex, then start the next checkpoint.
