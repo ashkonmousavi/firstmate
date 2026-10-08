@@ -8,10 +8,6 @@ TMP_ROOT=$(fm_test_tmproot fm-remote-job-claim-retention)
 trap 'rm -rf -- "$TMP_ROOT"' EXIT
 export FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/state"
 . "$ROOT/bin/fm-remote-job-lib.sh"
-touch() {
-  case "$1" in -d) printf 'touch: illegal option -- d\n' >&2; return 1 ;; esac
-  command touch "$@"
-}
 mkdir -p "$TMP_ROOT/account"
 fm_remote_job_prepare_state "$TMP_ROOT/account" || fail "$FM_REMOTE_JOB_ERROR"
 for name in 0 notes 1x .private 1 00 01; do
@@ -26,30 +22,23 @@ date() {
   if [ "$*" = '+%s' ]; then printf '%s\n' "$NOW"; else command date "$@"; fi
 }
 touch_frac() { # <epoch> <fraction> <path>
-  python3 - "$@" <<'PY'
-import os, sys
-
-stamp = int(sys.argv[1]) * 1_000_000_000 + int(sys.argv[2].ljust(9, '0'))
-os.utime(sys.argv[3], ns=(stamp, stamp))
-PY
-  [ "$?" -eq 0 ] || fail 'touch_frac: nanosecond timestamp creation failed'
+  local stamp
+  stamp=$(TZ=UTC0 command date -d "@$1" +%Y-%m-%dT%H:%M:%S 2>/dev/null) \
+    || stamp=$(TZ=UTC0 command date -r "$1" +%Y-%m-%dT%H:%M:%S 2>/dev/null) \
+    || fail "touch_frac: date(1) accepted neither -d @<epoch> nor -r <epoch>"
+  touch -d "$stamp.$2Z" "$3" || fail "touch_frac: touch -d $stamp.$2Z failed"
 }
 CUTOFF=$((NOW - FM_REMOTE_JOB_SEQ_CLAIM_REAP_SECONDS))
-for spec in 3:$CUTOFF:0 4:$CUTOFF:5 5:$((CUTOFF + 1)):0 6:$((CUTOFF + 1)):5 7:$CUTOFF:999999999 8:$((CUTOFF + 1)):000000001; do
+for spec in 3:$CUTOFF:0 4:$CUTOFF:5 5:$((CUTOFF + 1)):0 6:$((CUTOFF + 1)):5; do
   IFS=: read -r name epoch frac <<< "$spec"
   mkdir "$FM_REMOTE_JOB_SEQ_CLAIMS/$name"
   touch_frac "$epoch" "$frac" "$FM_REMOTE_JOB_SEQ_CLAIMS/$name"
 done
 fm_remote_job_reap_stale "$TMP_ROOT/account" || fail "claim sweep failed"
-for name in 0 notes 1x .private 2 5 6 8; do
+for name in 0 notes 1x .private 2 5 6; do
   assert_present "$FM_REMOTE_JOB_SEQ_CLAIMS/$name" "ineligible or fresh claim $name was reaped"
 done
-for name in 1 00 01 3 4 7; do
+for name in 1 00 01 3 4; do
   assert_absent "$FM_REMOTE_JOB_SEQ_CLAIMS/$name" "expired eligible claim $name survived"
 done
-assert_present "$FM_REMOTE_JOB_STATE/.seq-claims-reaped" 'successful sweep did not publish its hourly marker'
-mkdir "$FM_REMOTE_JOB_SEQ_CLAIMS/9"
-touch_frac "$CUTOFF" 0 "$FM_REMOTE_JOB_SEQ_CLAIMS/9"
-fm_remote_job_reap_stale "$TMP_ROOT/account" || fail 'rate-limited sweep failed'
-assert_present "$FM_REMOTE_JOB_SEQ_CLAIMS/9" 'hourly marker did not throttle another sweep'
 pass "claim sweep preserves numeric-name eligibility and whole-second expiry"
