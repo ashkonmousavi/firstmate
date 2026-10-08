@@ -2500,7 +2500,7 @@ idle_lane_tick() {
               released=$((released + 1)) ;;
             done/status-log)
               case "$line" in
-                *'run still monitoring PR'*|*'https://'*) released=$((released + 1)) ;;
+                *'run still monitoring PR'*|*'PR https://'*) released=$((released + 1)) ;;
                 *)
                   if ! grep -qx 'mode=local-only' "$meta" 2>/dev/null; then
                     released=$((released + 1))
