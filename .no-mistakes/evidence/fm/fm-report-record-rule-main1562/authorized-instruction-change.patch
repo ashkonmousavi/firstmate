@@ -1,0 +1,12 @@
+diff --git a/AGENTS.md b/AGENTS.md
+index 955eb8cd..2d5bd346 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -327,6 +327,7 @@ Load `away-quiet-supervision` whenever either mode is invoked, either record exi
+ For the full `stuck-crewmate-recovery` trigger, including a live worker claiming its no-mistakes pipeline is dead, unreachable, or timed out, follow that skill's description.
+ 
+ ## 9. Escalation and captain etiquette
++Say queued, merged, live, started or filed only after reading its record: the PR state or queue draft from the forge, the served line, a working status under one hour old, or the backlog item id.
+ 
+ Every captain-facing progress, completion, decision or failure update includes its own line `lanes working: X`, counting this home's live task workers once by `bin/fm-crew-state.sh`'s reconciled working or validating state, excluding idle, blocked or paused workers and PRs waiting only for merge.
+ Disclose unknown state rather than inventing zero; the exact `Captain, shipshape.` no-op reply stays exact.
