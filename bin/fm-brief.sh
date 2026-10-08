@@ -18,8 +18,8 @@
 # Ship/scout scaffolds are about 3 KB before task fills, opt-in safety/review
 # sections and private inserts. Their executable pointer renders the rules,
 # conditional walk evidence and delivery contract from bin/fm-dod-lib.sh.
-# Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--branch-prefix <prefix>] [--forge <none|gerrit> [--shape squash]] [--herdr-lab]
-#        fm-brief.sh <task-id> <repo-name> --scout [--prep-review <task-id> ...] [--herdr-lab]
+# Usage: fm-brief.sh <task-id> <repo-name> --mode <no-mistakes|direct-PR|local-only> [--branch-prefix <prefix>] [--base-branch <branch>] [--forge <none|gerrit> [--shape squash]] [--herdr-lab]
+#        fm-brief.sh <task-id> <repo-name> --scout [--base-branch <branch>] [--prep-review <task-id> ...] [--herdr-lab]
 #        fm-brief.sh <task-id> --secondmate {<project>...|--no-projects}
 #        fm-brief.sh <task-id> --prep [--surgical]
 #   --prep scaffolds the task's PREPARATION RECORD at data/<task-id>/prep.md and
@@ -135,6 +135,14 @@
 # standing per-project preference, and firstmate resolves it per task at intake
 # and passes the explicit flag. Refused on --scout and --secondmate: a scout
 # makes no branch and a charter is not a delivery contract.
+# --base-branch <branch> starts the task from origin's <branch> instead of the
+# repository default, for work that belongs on a named integration, feature, or
+# release branch. It writes a "Base branch: <branch>" line under `# Setup`, which
+# bin/fm-spawn.sh requires to agree with the same --base-branch it is passed to
+# choose the copy's starting point, and a ship's
+# Definition of done then targets that branch with its pull request.
+# bin/fm-dod-lib.sh's fm_base_branch_valid owns which deliveries accept one.
+# Refused on --secondmate.
 # --forge names the project's forge, defaults to none, and is orthogonal to --mode
 # exactly as the registry's `forge=` token is. It is the captain's confirmed
 # registry binding, read from data/projects.md at intake and passed here; this
@@ -258,6 +266,8 @@ MODE=
 MODE_SET=0
 BRANCH_PREFIX=fm/
 BRANCH_PREFIX_SET=0
+BASE_BRANCH=
+BASE_BRANCH_SET=0
 FORGE=none
 FORGE_SET=0
 SHAPE=
@@ -275,6 +285,7 @@ for a in "$@"; do
     case "$want_value" in
       mode) MODE=$a; MODE_SET=1 ;;
       branch-prefix) BRANCH_PREFIX=$a; BRANCH_PREFIX_SET=1 ;;
+      base-branch) BASE_BRANCH=$a; BASE_BRANCH_SET=1 ;;
       forge) FORGE=$a; FORGE_SET=1 ;;
       shape) SHAPE=$a; SHAPE_SET=1 ;;
       prep-review) PREP_REVIEWS+=("$a"); PREP_REVIEWS_N=$((PREP_REVIEWS_N + 1)) ;;
@@ -296,6 +307,8 @@ for a in "$@"; do
     --mode=*) MODE=${a#--mode=}; MODE_SET=1 ;;
     --branch-prefix) want_value="branch-prefix" ;;
     --branch-prefix=*) BRANCH_PREFIX=${a#--branch-prefix=}; BRANCH_PREFIX_SET=1 ;;
+    --base-branch) want_value="base-branch" ;;
+    --base-branch=*) BASE_BRANCH=${a#--base-branch=}; BASE_BRANCH_SET=1 ;;
     --forge) want_value=forge ;;
     --forge=*) FORGE=${a#--forge=}; FORGE_SET=1 ;;
     --shape) want_value=shape ;;
@@ -393,6 +406,13 @@ if [ "$KIND" = ship ]; then
 elif [ "$FORGE_SET" -eq 1 ] || [ "$SHAPE_SET" -eq 1 ]; then
   echo "error: --forge and --shape apply only to ship briefs; a scout delivers a report and a secondmate charter is not a delivery contract" >&2
   exit 1
+fi
+if [ "$BASE_BRANCH_SET" -eq 1 ]; then
+  if [ "$KIND" = secondmate ] || [ -z "$BASE_BRANCH" ]; then
+    echo "error: --base-branch takes a branch name and applies only to ship and scout briefs" >&2
+    exit 1
+  fi
+  fm_base_branch_valid "$BASE_BRANCH" "$MODE" "$FORGE" "fm-brief.sh --base-branch" || exit 1
 fi
 ID=${POS[0]}
 if [ "$PREP_REVIEWS_N" -gt 0 ]; then
@@ -617,6 +637,17 @@ TASK_SECTION=${TASK_SECTION%$'\n'}
 
 CONTRACT_COMMAND="FM_CLASSIFY_PAUSED_VERB=$(fm_worker_shell_quote "$PAUSED_VERB") bash -c '. \"\$1\" || exit; shift; fm_worker_contract_block \"\$@\"' _ $(fm_worker_shell_quote "$FM_ROOT/bin/fm-dod-lib.sh") $(fm_worker_shell_quote "$FM_ROOT") $(fm_worker_shell_quote "$DATA") $(fm_worker_shell_quote "$STATE") $(fm_worker_shell_quote "$CONFIG") $(fm_worker_shell_quote "$ID") $(fm_worker_shell_quote "$KIND") $(fm_worker_shell_quote "$MODE") $(fm_worker_shell_quote "$BRANCH") $(fm_worker_shell_quote "$FORGE")"
 
+if [ -n "$BASE_BRANCH" ]; then
+  SETUP_BASE="You are in a disposable git worktree of $REPO, at a detached HEAD on a clean copy of its base branch.
+Base branch: $BASE_BRANCH"
+else
+  SETUP_BASE="You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch."
+fi
+
+if [ "$KIND" = ship ] && [ -n "$BASE_BRANCH" ]; then
+  CONTRACT_COMMAND+=" '' $(fm_worker_shell_quote "$BASE_BRANCH")"
+fi
+
 if [ "$KIND" = scout ]; then
 SCOUT_RULE2='2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'
 PREP_REVIEW_SECTION=
@@ -653,7 +684,7 @@ $PREP_REVIEW_SECTION
 $HERDR_SECTION
 
 # Setup
-You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
+$SETUP_BASE
 This is a SCOUT task: write \`$DATA/$ID/report.md\`; no branch, push or PR.
 Confirm \`pwd -P\` and \`git rev-parse --show-toplevel\` name the assigned isolated worktree, never the primary checkout.
 Read \`$DATA/$ID/prep.md\` when present; its expected outcomes govern verification.
@@ -710,7 +741,7 @@ $TASK_SECTION
 $HERDR_SECTION
 
 # Setup
-You are in a disposable git worktree of $REPO, at a detached HEAD on a clean default branch.
+$SETUP_BASE
 
 **Verify isolation before anything else.** Run \`pwd -P\` and \`git rev-parse --show-toplevel\`; both must resolve to the disposable task worktree you were launched in, such as a treehouse pool path or an Orca-managed worktree, not the primary checkout firstmate operates from.
 The path check is authoritative: \`git rev-parse --git-dir\` and \`git rev-parse --git-common-dir\` can help inspect the repo, but they do not prove you are outside the primary checkout.

@@ -59,7 +59,6 @@ Tracked files hold shared instructions and tooling; `data/` holds durable privat
 
 Load `operational-home-layout` when locating, interpreting, or changing Firstmate home, config, data, state, project, or generated runtime paths.
 
-
 A `state/<id>.status` line is a wake event, not current-state truth; `bin/fm-crew-state.sh` owns current-state reconciliation.
 Treat `data/captain.md` as the domain-local record of captain preferences, optional `data/captain-shared.md` as the main-authoritative shared captain-preference file for secondmate inheritance, and `data/learnings.md` as curated home-local knowledge, regardless of harness memory.
 
@@ -192,6 +191,7 @@ A current explicit captain instruction wins; preserve registered `local-only` de
 For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else; `bin/fm-dod-lib.sh` owns the authored risk/depth answers and `bin/fm-spawn.sh` owns their admission.
 Preparation size and surgical certainty never choose delivery depth.
 Resolve the project's registered ship-branch prefix the same way, via `bin/fm-project-mode.sh --branch-prefix <project>`, and pass it explicitly to the brief, ship spawn, and scout promotion as `--branch-prefix` (default `fm/` needs no flag).
+When the work must start from and target a branch other than the project's default, such as a named feature or release branch, pass it to the ship or scout brief and spawn as `--base-branch <branch>`; any promotion reads it from task meta.
 The risk decision also applies to publishing tasks on a `no-mistakes-prod-only` project; unresolved risk classification must be settled before admission.
 An unregistered project or absent registry resolves to `no-mistakes` with yolo off, and the registration gap goes to the captain.
 Record the resulting mode, `yolo` merge posture, and the one-line reason for any deviation in the backlog item note.
@@ -200,6 +200,7 @@ Treat file or subsystem overlap as a risk signal rather than an automatic reason
 Load `wayfinding` for shared-seam ownership, parallel batches and the preparation horizon; `bin/fm-dod-lib.sh` owns the preparation Size guide for splitting by behaviour.
 Use as many isolated ship/scout lanes as this home's presequenced, currently parallel-safe work needs, up to seven; never create idle work to fill slots, and retain existing resource and ownership restrictions.
 Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB and no sustained swap-in or memory pressure; load average and busy cores never refuse admission, and missing or failing readings prevent it.
+A project's declared machine capacity (`config/project-capacity`) still bounds that dispatch: a spawn beyond it exits 75 without launching, and its item stays queued rather than blocked.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
 Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns the common author checks, outcome table, tier completeness and surgical certainty.
 The preparation author fills the common checks and explicit expected outcomes, then runs that owner's completeness gate on final bytes and records its actual result in the handoff; separate prep review is optional when explicitly requested.
@@ -389,7 +390,7 @@ A decision is simply a task held for the captain: create the task with `bin/fm-t
 When a main-side thread such as a pending captain decision or relay reminder is worth durable tracking, file it as its own work item and hold it through that wrapper.
 Captain calls discovered by investigations or visual reviews follow `captain-hold-lifecycle`, which owns their completion gate and recorded-answer rules.
 When the automatic transition gate applies, dispatch and completion move the item themselves - `bin/fm-spawn.sh` and `bin/fm-teardown.sh` own those transitions and refuse rather than report success without them - so what remains yours is filing the item before dispatch, recording decisions, and keeping notes current; `docs/configuration.md` owns gate applicability and the manual-backend exception.
-Re-evaluate queued work after every teardown and heartbeat, dispatching items only when dependencies and time gates have cleared.
+Re-evaluate queued work after every teardown and heartbeat, and also after a recorded PR-ready handoff when `config/project-capacity` caps that project, dispatching items only when dependencies, time gates, and project capacity have cleared.
 
 `.tasks.toml`, `docs/configuration.md`, and current `tasks-axi --help` own the backlog schema, compatibility, retention, and routine command syntax.
 Use compatible `tasks-axi` when the configured backend selects it, always through `bin/fm-tasks-axi.sh` so the call reaches this home's backlog from any directory, and the documented manual path otherwise; keep only the configured recent Done entries.
