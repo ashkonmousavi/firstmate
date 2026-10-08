@@ -285,6 +285,61 @@ EOF
   pass "risk admission: money, security and shared code require no-mistakes; other requires direct-PR and one round"
 }
 
+# A change whose only effect is where a page or control appears, or what it is
+# called, is other even in a shared file, when its risk line carries the
+# printed presentation-only marker; any other reason keeps the shared-code
+# refusal. A sign-in or stored-data behavior change is admitted only on the
+# full path. The scaffold must name that light path and the walk after install.
+test_presentation_only_shared_change_is_other() {
+  local rec home proj fakebin prep out status id reason
+  rec=$(make_home presentation-only)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for id in presentation-move presentation-behavior; do
+    case "$id" in
+      presentation-move) reason='presentation-only: moves the settings link into the account menu and renames it.' ;;
+      *) reason='renames the sign-in button and changes which session cookie it writes.' ;;
+    esac
+    write_brief "$home" "$id" direct-PR
+    prep="$home/data/$id/prep.md"
+    answer_tier "$prep" no yes
+    awk -v r="$reason" '/^- Delivery risk:/ { next }
+      { print } $0 == "## Tier" { print "- Delivery risk: other, " r }
+    ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+    sed 's/checks-only (direct-PR)/checks + one review (direct-PR)/' "$prep" > "$prep.new" && mv "$prep.new" "$prep"
+    rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off); status=$?
+    [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
+    if [ "$id" = presentation-behavior ]; then
+      assert_contains "$out" 'Delivery' "a behavioral shared change classified other was admitted"
+      assert_absent "$home/data/$id/launch-brief.md" "a behavioral shared change classified other launched"
+    else
+      assert_present "$home/data/$id/launch-brief.md" "a presentation-only shared change was refused: $out"
+    fi
+  done
+  id=presentation-full
+  reason='changes which session cookie the sign-in button writes.'
+  write_brief "$home" "$id" no-mistakes
+  prep="$home/data/$id/prep.md"
+  answer_tier "$prep" no yes
+  awk -v r="$reason" '/^- Delivery risk:/ { next }
+    { print } $0 == "## Tier" { print "- Delivery risk: security, " r }
+  ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+  rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls" "$home/data/$id/launch-brief.md"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off); status=$?
+  [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
+  assert_present "$home/data/$id/launch-brief.md" "a stored-data behavior change was refused on the full path: $out"
+  FM_HOME="$home" "$BRIEF" presentation-scaffold --prep >/dev/null 2>&1 || fail "presentation scaffold"
+  out=$(cat "$home/data/presentation-scaffold/prep.md")
+  assert_contains "$out" 'other, presentation-only:' "the scaffold guidance does not print the presentation-only spelling"
+  assert_contains "$out" 'reconcile' "the scaffold guidance does not name the reclassification path"
+  assert_contains "$out" 'direct-PR' "the scaffold guidance does not name the light path"
+  assert_contains "$out" 'exactly one code review round' "the scaffold guidance does not keep one review"
+  assert_contains "$out" 'walk after install' "the scaffold guidance does not require the walk after install"
+  pass "risk admission: a presentation-only change in a shared file is other with one review; a behavioral reason stays refused"
+}
+
 test_risk_fields_and_certainty_controls() {
   local rec home proj fakebin prep baseline change out status risk mode format id
   rec=$(make_home risk-fields)
@@ -3568,6 +3623,7 @@ test_prep_current_work_checks() {
 
 test_promotion_risk_admission
 test_risk_delivery_admission
+test_presentation_only_shared_change_is_other
 test_risk_fields_and_certainty_controls
 test_prep_current_work_checks
 test_prep_block_transitions
