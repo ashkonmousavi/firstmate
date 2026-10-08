@@ -1,0 +1,47 @@
+{
+  "candidate": "5575db2df9959ecd8fe2422ebf68f488b02abad6",
+  "earlier_candidate": "4c86c7fe04da4d08560bdb3d1ec9971584588fb0",
+  "retained_artifacts": {
+    "targeted-test-exits.json": {
+      "sha256": "0bc8fd8c35fb4e06ee72e63fec0194c289cea82b3936b8d5b99598702bc08e63",
+      "matches_retained_record": true
+    },
+    "main-proof-tests.log": {
+      "sha256": "f9a792f4d923beae81c73fd6083058a9a54136799184c6080b72b9c738beed17",
+      "matches_retained_record": true
+    },
+    "idle-lane-tests.log": {
+      "sha256": "4e683e9e1a627185112172a32b77866670346d13fa1325945560a4c8f5a05804",
+      "matches_retained_record": true
+    },
+    "pr-merge-tests.log": {
+      "sha256": "bcd5b754bf3176cad6da50eee825d98c3628a34f7cd239cb32b2d03da8b8fb11",
+      "matches_retained_record": true
+    },
+    "task-delivery-tests.log": {
+      "sha256": "16b06b1128ab598133766b44e8fcd12c74811f32364a8066d666e3cfa72afa33",
+      "matches_retained_record": true
+    },
+    "live-local-results.json": {
+      "sha256": "d1eb2b25ba9696be82197d7946bc3999a8717d535dc203d8cd92777357560ab6",
+      "matches_retained_record": true
+    },
+    "live-local-transcript.txt": {
+      "sha256": "f7b088bbde04e807c96ee98eed912193d0d42af70bac3c26830ad407e7e51f00",
+      "matches_retained_record": true
+    },
+    "validation-boundaries.txt": {
+      "sha256": "4d6c921ebf47146b3bb5614d892aafd4fd98516e7d13eb203c1fcbe30f589707",
+      "matches_retained_record": true
+    },
+    "test2-local-seams-driver.py": {
+      "sha256": "b9ca313c3a48bcbe1d7937e66083acd794f80d267704d1e6bff7c08d8dd61532",
+      "matches_retained_record": true
+    },
+    "test2-local-seams-results.json": {
+      "sha256": "74c40c606fa686216b196665166c64c18899513bd3f4a78ed5d4ecf42f366cb2",
+      "matches_retained_record": true
+    }
+  },
+  "qualification": "Historical results retained from this same run. Fresh current-head results are separate. No historical result is relabelled current."
+}

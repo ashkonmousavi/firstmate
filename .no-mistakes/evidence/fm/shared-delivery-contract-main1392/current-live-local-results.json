@@ -1,0 +1,63 @@
+[
+  {
+    "name": "Ready work below the lane and release limits produces an idle-capacity wake",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "An unchanged ready set does not repeat the capacity wake",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A recorded PR saturates release capacity and the wake still names repair and independent work",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Retiring a published lane restores available capacity",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "An unreadable unpublished lane suppresses capacity advice and names the lane",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A completed local-only lane with a documentation link preserves ordinary idle advice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A completed local-only lane with a issue link preserves ordinary idle advice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A real-format completed PR report consumes release capacity without pr metadata",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Invalid release capacity refuses to invent a capacity notice",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "Selecting queue landing preserves delivery posture and refuses invalid or local-only queue configuration",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "The public merge command refuses invalid landing and routine queue waivers before contacting the forge",
+    "result": "pass",
+    "live": true
+  },
+  {
+    "name": "A full writing-lane maximum emits no request for additional starts",
+    "result": "fail",
+    "live": true,
+    "error": "(False, 'stale: %0\\n', '')"
+  }
+]

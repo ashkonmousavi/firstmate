@@ -1,0 +1,205 @@
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v
+exit=0
+$ tmux -L fm-lab new-session -d -s observer -x 120 -y 40 -c /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29 bash
+exit=0
+$ tmux -L fm-lab display-message -p -t observer #{socket_path}
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/tmux/tmux-1000/fm-lab
+exit=0
+$ tmux -L fm-lab display-message -p -t observer #{pane_id}
+%0
+exit=0
+$ bin/fm-tasks-axi.sh ready
+count: 2
+ready[2]{id,state,kind,repo,title}:
+  repair-one,queued,ship,"-",Dispatchable repair
+  independent-one,queued,ship,"-",Independent admitted item
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+exit=0
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+OBSERVED PASS: Ready work below the lane and release limits produces an idle-capacity wake
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+exit=-15
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+OBSERVED PASS: An unchanged ready set does not repeat the capacity wake
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+OBSERVED PASS: A recorded PR saturates release capacity and the wake still names repair and independent work
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+OBSERVED PASS: Retiring a published lane restores available capacity
+$ bin/fm-crew-state.sh one
+state: unknown · source: none · worktree gone (torn down?)
+exit=0
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+exit=-15
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+Watcher triage:
+[2026-10-08T12:00:21-0700] idle-lane release state unavailable: one
+[2026-10-08T12:00:22-0700] idle-lane release state unavailable: one
+[2026-10-08T12:00:23-0700] idle-lane release state unavailable: one
+OBSERVED PASS: An unreadable unpublished lane suppresses capacity advice and names the lane
+$ git init -q /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/projects/fixture
+exit=0
+$ git -C /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/projects/fixture -c user.name=Fixture -c user.email=fixture@example.invalid commit -q --allow-empty -m Disposable data fixture
+exit=0
+$ git clone -q /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/projects/fixture /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/worker
+exit=0
+$ git -C /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/worker checkout -q --detach
+exit=0
+$ git -C /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/worker rev-parse HEAD
+019b26976ab76caf263aa9547556f068f1315ae6
+exit=0
+$ bin/fm-busy-event.sh arm /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/state one --state idle --source fm-recovery --event fixture-input
+g1791486023.1828062.26164
+exit=0
+$ bin/fm-crew-state.sh one
+state: done · source: status-log · local branch ready: 019b26976ab76caf263aa9547556f068f1315ae6; reference: https://docs.example.test/setup
+exit=0
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486024	4	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+OBSERVED PASS: A completed local-only lane with a documentation link preserves ordinary idle advice
+$ bin/fm-crew-state.sh one
+state: done · source: status-log · local branch ready: 019b26976ab76caf263aa9547556f068f1315ae6; reference: https://github.com/example/repo/issues/7
+exit=0
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486024	4	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	5	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+OBSERVED PASS: A completed local-only lane with a issue link preserves ordinary idle advice
+$ bin/fm-crew-state.sh one
+state: done · source: status-log · PR https://github.com/example/repo/pull/7 checks green
+exit=0
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486024	4	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	5	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	6	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+OBSERVED PASS: A real-format completed PR report consumes release capacity without pr metadata
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+exit=-15
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486024	4	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	5	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	6	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+Watcher triage:
+[2026-10-08T12:00:21-0700] idle-lane release state unavailable: one
+[2026-10-08T12:00:22-0700] idle-lane release state unavailable: one
+[2026-10-08T12:00:23-0700] idle-lane release state unavailable: one
+[2026-10-08T12:00:26-0700] invalid config/release-capacity
+[2026-10-08T12:00:27-0700] invalid config/release-capacity
+[2026-10-08T12:00:28-0700] invalid config/release-capacity
+OBSERVED PASS: Invalid release capacity refuses to invent a capacity notice
+$ bin/fm-project-mode.sh fp
+no-mistakes on
+exit=0
+$ bin/fm-project-mode.sh --landing fp
+mergify
+exit=0
+$ bin/fm-project-mode.sh --forge fp
+none
+exit=0
+$ bin/fm-project-mode.sh fp
+direct-PR off
+exit=0
+$ bin/fm-project-mode.sh --landing fp
+direct
+exit=0
+$ bin/fm-project-mode.sh --forge fp
+none
+exit=0
+$ bin/fm-project-mode.sh fp
+local-only off
+exit=0
+$ bin/fm-project-mode.sh --landing fp
+refused: fp is registered local-only with landing=mergify in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/data/projects.md; local-only publishes no pull request for a queue to land
+exit=3
+$ bin/fm-project-mode.sh --forge fp
+none
+exit=0
+$ bin/fm-project-mode.sh fp
+no-mistakes off
+exit=0
+$ bin/fm-project-mode.sh --landing fp
+refused: unknown landing "landing=queue" registered for fp in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/data/projects.md; use landing=mergify or no landing token for direct; correct the registry entry
+exit=3
+$ bin/fm-project-mode.sh --forge fp
+none
+exit=0
+$ bin/fm-project-mode.sh fp
+no-mistakes off
+exit=0
+$ bin/fm-project-mode.sh --landing fp
+refused: unknown landing "landing=" registered for fp in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/data/projects.md; use landing=mergify or no landing token for direct; correct the registry entry
+exit=3
+$ bin/fm-project-mode.sh --forge fp
+none
+exit=0
+$ bin/fm-project-mode.sh --landing unregistered
+direct
+warn: project "unregistered" not in registry; defaulting to no-mistakes off
+exit=0
+OBSERVED PASS: Selecting queue landing preserves delivery posture and refuses invalid or local-only queue configuration
+$ bin/fm-pr-merge.sh guard https://github.com/example/repo/pull/7
+error: PR merge refused: the registered landing for project fp is invalid or unreadable; nothing was handed to the forge
+exit=2
+$ bin/fm-pr-merge.sh guard https://github.com/example/repo/pull/7
+error: PR merge refused: the registered landing for project fp is invalid or unreadable; nothing was handed to the forge
+exit=2
+$ bin/fm-pr-merge.sh guard https://github.com/example/repo/pull/7 --allow-red unit
+error: PR merge refused: the Mergify queue owns the merge method and the combined-candidate proof, so waivers and extra merge arguments apply only to the attended repair path; nothing was handed to the forge
+exit=2
+OBSERVED PASS: The public merge command refuses invalid landing and routine queue waivers before contacting the forge
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+stale: %0
+exit=0
+Persisted wake queue:
+1791486016	1	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486019	2	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486020	3	check	idle-writing-lanes	check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486024	4	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	5	check	idle-writing-lanes	check: idle writing lanes: 1/3 occupied, 0 working, 2 ready: repair-one,independent-one
+1791486025	6	check	lane-backpressure	check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 2 ready: repair-one,independent-one
+1791486030	7	stale	%0	stale: %0
+OBSERVED FAILURE: A full writing-lane maximum emits no request for additional starts: (False, 'stale: %0\n', '')
+$ tmux -L fm-lab kill-server
+exit=0
+Disposable lab, private tmux socket, fixture repositories and state removed.

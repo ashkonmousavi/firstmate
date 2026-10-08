@@ -1,0 +1,8 @@
+ok - fm-pr-merge hands an authorized green PR to the configured Mergify queue at its exact head
+ok - Mergify receipts distinguish requested enrollment, confirmed enrollment and moved-head invalidation
+ok - changed heads retire prior queue authority across retries, refusal and public metadata refresh
+ok - fm-pr-merge refuses red, missing, unknown-landing, waived, moved-head and away handoffs before any queue command
+ok - fm-pr-merge permits a recorded exact-head current-main bootstrap before native queue landing
+ok - Mergify overrides refuse missing or stale targeted proof and stop at the recorded queue landing receipt
+ok - bootstrap and incident cutoff ignore skipped-candidate bot history and make no merged-history API call
+ok - fm-pr-merge keeps the synchronous verified merge for direct-landing projects

@@ -1,0 +1,23 @@
+$ bin/fm-lab-home.sh create /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v
+exit=0
+$ tmux -L fm-lab new-session -d -s observer -x 120 -y 40 -c /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29 bash
+exit=0
+$ tmux -L fm-lab display-message -p -t observer #{socket_path}
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.v/tmux/tmux-1000/fm-lab
+exit=0
+$ bin/fm-tasks-axi.sh ready
+count: 2
+ready[2]{id,state,kind,repo,title}:
+  repair-one,queued,ship,"-",Dispatchable repair
+  independent-one,queued,ship,"-",Independent admitted item
+ready_public_followups: 0 delivery-ready obligations
+help[1]:
+  - Run `tasks-axi start <id>` to dispatch one of these
+exit=0
+$ FM_HOME=<disposable home> bin/fm-watch.sh
+exit=-15
+OBSERVED PASS: A full writing-lane maximum emits no request for additional starts
+$ tmux -L fm-lab kill-server
+exit=0
+Disposable lab and private tmux socket removed.

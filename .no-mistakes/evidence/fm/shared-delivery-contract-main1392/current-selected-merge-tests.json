@@ -1,0 +1,15 @@
+{
+  "candidate": "5575db2df9959ecd8fe2422ebf68f488b02abad6",
+  "source": "tests/fm-pr-merge.test.sh",
+  "selectors": [
+    "test_mergify_landing_hands_green_pr_to_the_queue",
+    "test_mergify_requested_receipts_and_head_movement",
+    "test_mergify_authority_tracks_head_between_attempts",
+    "test_mergify_landing_guards_refuse_before_any_queue_command",
+    "test_mergify_landing_attended_override_is_the_named_repair_path",
+    "test_mergify_repair_refuses_unproved_bypasses",
+    "test_mergify_bootstrap_cutoff_ignores_candidate_skipped_history",
+    "test_direct_landing_projects_keep_the_synchronous_merge"
+  ],
+  "selection": "Original function definitions and setup; only named top-level test invocations executed."
+}

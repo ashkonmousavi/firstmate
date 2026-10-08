@@ -1,0 +1,7 @@
+[
+  {
+    "name": "A full writing-lane maximum emits no request for additional starts",
+    "result": "pass",
+    "live": true
+  }
+]
