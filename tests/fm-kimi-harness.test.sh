@@ -2,8 +2,8 @@
 # Behavior tests for the verified Kimi Code CLI crewmate adapter.
 set -u
 
-# shellcheck source=tests/lib.sh
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/fixtures.sh
+. "$(dirname "${BASH_SOURCE[0]}")/fixtures.sh"
 
 # bin/fm-harness.sh answers from environment markers and process ancestry. A
 # suite run from inside Cursor, Claude, Pi, or Grok inherits those markers and
@@ -233,6 +233,7 @@ make_spawn_case() {
   wt="$case_dir/wt"
   fakebin=$(make_spawn_fakebin "$case_dir/fake")
   mkdir -p "$home/data/$id" "$home/projects" "$home/state" "$home/config" "$home/.kimi-code"
+  fm_test_global_rules "$home/AGENTS.md"
   printf '# Kimi test config\ndefault_model = "test"\n' > "$home/.kimi-code/config.toml"
   fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
   cat > "$home/data/$id/brief.md" <<'EOF'
@@ -258,6 +259,11 @@ EOF
 run_spawn() {
   local case_dir=$1 home=$2 proj=$3 wt=$4 fakebin=$5 id=$6
   shift 6
+  local -a delivery_args=(--mode no-mistakes --yolo off)
+  if [ "${1:-}" = --scout ]; then
+    delivery_args=(--scout)
+    shift
+  fi
   HOME="$home" FM_ROOT_OVERRIDE='' FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
     FM_PROJECTS_OVERRIDE="$home/projects" FM_CONFIG_OVERRIDE="$home/config" \
@@ -279,7 +285,7 @@ run_spawn() {
     FM_FAKE_BRIEF_REAL="$(cd "$home/data/$id" && pwd -P)/launch-brief.md" \
     FM_KIMI_READY_POLLS="${FM_KIMI_READY_POLLS:-2}" FM_KIMI_DELIVERY_POLLS=2 FM_KIMI_POLL_INTERVAL=0 \
     PATH="$fakebin:$BASE_PATH" \
-    "$SPAWN" "$id" "$proj" --harness kimi --mode no-mistakes --yolo off "$@" 2>&1
+    "$SPAWN" "$id" "$proj" --harness kimi "${delivery_args[@]}" "$@" 2>&1
 }
 
 read_spawn_record() {
@@ -317,6 +323,7 @@ test_kimi_launch_then_send_is_verified() {
   pointer=$(cat "$CASE_DIR/pointer.log")
   [ "$pointer" = "Read the brief at $brief_real and follow it exactly." ] \
     || fail "kimi pointer was not the exact absolute-path-only instruction: $pointer"
+  fm_test_assert_global_rules "$HOME_DIR/AGENTS.md" "$brief_real"
   meta="$HOME_DIR/state/$id.meta"
   assert_grep 'model=kimi-code/k3' "$meta" "kimi meta lost the requested model"
   assert_grep 'effort=high' "$meta" "kimi meta did not retain the unsupported effort axis"
@@ -1128,6 +1135,38 @@ test_kimi_bordered_prompt_needs_no_override() {
   pass "composer classifier: kimi's existing bordered > shape is already safe without an override"
 }
 
+test_kimi_global_rules_scout_and_refusal() {
+  local rec id out rc state
+  id=kimi-global-scout-z2
+  rec=$(make_spawn_case global-scout "$id")
+  read_spawn_record "$rec"
+  out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" --scout)
+  rc=$?
+  expect_code 0 "$rc" "Kimi scout should deliver canonical rules: $out"
+  fm_test_assert_global_rules "$HOME_DIR/AGENTS.md" "$HOME_DIR/data/$id/launch-brief.md"
+  assert_contains "$(cat "$CASE_DIR/pointer.log")" "$HOME_DIR/data/$id/launch-brief.md" "scout pointer lost rendered artifact"
+  for state in missing unreadable; do
+    id="kimi-global-$state-z3"
+    rec=$(make_spawn_case "global-$state" "$id")
+    read_spawn_record "$rec"
+    if [ "$state" = missing ]; then
+      rm "$HOME_DIR/AGENTS.md"
+    else
+      chmod 000 "$HOME_DIR/AGENTS.md"
+    fi
+    out=$(run_spawn "$CASE_DIR" "$HOME_DIR" "$PROJ_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id")
+    rc=$?
+    [ "$rc" -ne 0 ] || fail "Kimi $state rules must refuse"
+    assert_contains "$out" 'canonical global rules unavailable' "Kimi source refusal missing"
+    assert_absent "$HOME_DIR/data/$id/launch-brief.md" "Kimi refusal published launch artifact"
+    assert_absent "$HOME_DIR/state/$id.meta" "Kimi refusal published worker metadata"
+    [ ! -s "$CASE_DIR/launch.log" ] || fail "Kimi refusal launched worker"
+    chmod 600 "$HOME_DIR/AGENTS.md" 2>/dev/null || true
+  done
+  pass "Kimi scout receives exact rules and unavailable source refuses before launch"
+}
+
+test_kimi_global_rules_scout_and_refusal
 test_kimi_hook_install_is_surgical_idempotent_and_removable
 test_kimi_hook_remove_preserves_owned_newline_boundary
 test_kimi_hook_fails_closed_on_missing_malformed_or_partial_config

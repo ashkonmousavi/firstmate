@@ -412,3 +412,34 @@ make_stubs() {
   fm_test_fake_sleep_noop "$fakebin"
   printf '%s\n' "$fakebin"
 }
+
+# Canonical-rule fixture and byte contract for managed worker launch artifacts.
+fm_test_global_rules() { # <canonical-file>
+  mkdir -p "$(dirname "$1")"
+  # No final newline: renderer separators must not modify the source bytes.
+  # shellcheck disable=SC2016 # Literal rule bytes, not shell expansion.
+  printf '%s' '# Distinctive account rules
+Preserve literal $HOME, `backticks`, and unicode: λ.
+```markdown
+# Current no-mistakes intent contract
+# Task preparation record
+<!-- marker-like rule content -->
+```
+Rule tail' > "$1"
+}
+
+fm_test_assert_global_rules() { # <canonical-file> <delivered-body>
+  python3 - "$1" "$2" <<'PYRULES' || fail "canonical rules byte/order contract failed"
+import pathlib
+import sys
+rules = pathlib.Path(sys.argv[1]).read_bytes()
+body = pathlib.Path(sys.argv[2]).read_bytes()
+assert body.startswith(b"# Current worker role contract\n"), "worker role must be first"
+assert body.count(rules) == 1, "exact canonical bytes must occur once"
+assert body.count(b"# Account-local global rules\n") == 1, "one provenance block required"
+role = body.index(b"You are a crewmate")
+global_rules = body.index(rules)
+task = body.index(b"# Task\n", global_rules + len(rules))
+assert role < global_rules < task, "role, rules, task order"
+PYRULES
+}

@@ -72,7 +72,11 @@
 #   already guarantees the worker's instructions match the branch.
 #   Ship/scout launches always put fm-dod-lib.sh's current worker role scope
 #   first in the private launch-brief overlay, including the exact task-owned
-#   steering inbox. The overlay supplies the Opus advisor line only for a
+#   steering inbox. Kimi/Cursor worker overlays then include exact account-local
+#   ~/AGENTS.md bytes with provenance before task instructions; an unavailable
+#   canonical file refuses before launch publication. Relaunch renders afresh,
+#   and other harnesses and secondmate charters retain their existing payload.
+#   The overlay supplies the Opus advisor line only for a
 #   claude worker whose --model is set, not default, and not Fable, stripping
 #   any stale copy from an older source brief. This never rewrites a project's
 #   instruction files or a secondmate's charter.
@@ -3341,9 +3345,23 @@ if [ "$KIND" = ship ] || [ "$KIND" = scout ]; then
   BRIEF="$DATA/$ID/launch-brief.md"
   BRIEF_TMP="$DATA/$ID/.launch-brief.md.${BASHPID:-$$}"
   ADVISOR_LINE=$(fm_brief_advisor_line)
+  GLOBAL_RULES=
+  case "$HARNESS" in
+  kimi|cursor)
+    GLOBAL_RULES="$HOME/AGENTS.md"
+    if [ ! -f "$GLOBAL_RULES" ] || [ ! -r "$GLOBAL_RULES" ]; then
+      echo "error: canonical global rules unavailable: $GLOBAL_RULES" >&2
+      exit 1
+    fi
+    ;;
+  esac
   {
     fm_brief_worker_role "$STATE" "$ID" &&
       printf '\n' &&
+      if [ -n "$GLOBAL_RULES" ]; then
+        printf '# Account-local global rules\nSource: ~/AGENTS.md, included verbatim by the managed worker launch.\nThe current worker role contract above retains priority.\n\n' &&
+          cat -- "$GLOBAL_RULES" && printf '\n\n'
+      fi &&
       awk -v advisor="$ADVISOR_LINE" '
         {
           scan=$0; sub(/^ ? ? ?/, "", scan)

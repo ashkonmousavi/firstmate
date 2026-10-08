@@ -3,6 +3,8 @@
 Verified for crew and scout work on tmux on 2026-08-11 and Herdr on 2026-08-12, and for secondmate and primary work on 2026-08-13, with Cursor Agent CLI 2026.08.11-e8db854.
 Cross-harness provider and credential identity is owned by `references/common/model-and-effort.md`.
 
+Managed ship/scout global-rule delivery is owned by the launch-overlay contract in [bin/fm-spawn.sh](../../../../../bin/fm-spawn.sh); native prompt acceptance remains separate from portable transport tests.
+
 ## Operating facts
 
 | Fact | Value |
