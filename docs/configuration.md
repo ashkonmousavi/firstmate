@@ -623,6 +623,7 @@ While fewer lanes are occupied and dispatchable work is ready, the watcher raise
 
 The optional `config/release-capacity` holds one positive integer bounding how many of those lanes have an attributed validation run, a completed delivery report, or a recorded PR in CI, the merge queue, or landing.
 Attributed runs retain pressure when working, parked, done, or failed until the lane retires or returns to writing without an attributed run.
+A completed local-only lane with no PR or attributed run does not consume release capacity.
 Each lane counts once even when both conditions hold.
 Once that bound is reached, the capacity notice becomes a backpressure notice that names the validation or release bottleneck and still lists the ready items, so firstmate completes validation, lands work, or repairs it before starting more.
 Backpressure never refuses a spawn, so a named repair or independent item can still be dispatched.

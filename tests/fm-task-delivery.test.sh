@@ -2225,12 +2225,12 @@ test_project_mode_reads_the_landing_orthogonally() {
 no landing token|- fp [no-mistakes +yolo] - fixture (added 2026-01-01)|no-mistakes on|direct
 queue beside yolo|- fp [no-mistakes +yolo landing=mergify] - fixture (added 2026-01-01)|no-mistakes on|mergify
 landing as the only token leaves the default mode|- fp [landing=mergify] - fixture (added 2026-01-01)|no-mistakes off|mergify
-explicit direct|- fp [direct-PR landing=direct branch=q/] - fixture (added 2026-01-01)|direct-PR off|direct
+default direct beside branch|- fp [direct-PR branch=q/] - fixture (added 2026-01-01)|direct-PR off|direct
 an unregistered project|- other [direct-PR landing=mergify] - fixture (added 2026-01-01)|no-mistakes off|direct
 ROWS
 
   for registry in '- fp [no-mistakes landing=queue] - fixture' '- fp [no-mistakes landing=] - fixture' \
-    '- fp [local-only landing=mergify] - fixture'; do
+    '- fp [no-mistakes landing=direct] - fixture' '- fp [local-only landing=mergify] - fixture'; do
     printf '%s\n' "$registry" > "$home/data/projects.md"
     out=$(FM_HOME="$home" "$PROJECT_MODE" --landing fp 2>/dev/null)
     status=$?

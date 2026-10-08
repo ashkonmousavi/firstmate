@@ -86,18 +86,28 @@
 # captain-hold check and the away-record read still run first; the head is then
 # re-read and must still equal the verified head, and only then is the
 # documented `@mergifyio queue` command posted
-# (https://docs.mergify.com/commands/queue/). The run reports `queued:` with that
-# head and leaves the merge poll armed: queued is pending, never landed, and the
-# landed outcome is the PR's later merged state. The queue's own merge
+# (https://docs.mergify.com/commands/queue/). The comment is not atomic with
+# the head; head binding is unsupported and remains unverified. The default
+# receipt is `queue requested, enrollment unconfirmed` naming the requested
+# verified head. Only `mergify queue show --json` enrollment read-back and an
+# unchanged live PR head permit `queued:` attribution and accepted authority.
+# A moved head invalidates the old proof and authority. The merge poll remains
+# armed: queued is pending, never landed. The queue's own merge
 # conditions retest the combined candidate, and whether it lands a batch as one
 # fast-forward of the tested batch head or as individual merges is the
 # project's queue configuration. The Mergify app's authority is exactly that:
 # merging queued PRs whose queue conditions passed; no agent merges around it.
 # On such a project, --allow-red, --allow-missing and extra forge arguments are
 # refused without --attended-override, because the queue owns the method and
-# the proof. --attended-override keeps the direct merge, announced as a queue
-# bypass, as the named bootstrap or incident repair path under AGENTS.md
-# section 7. An unknown or unreadable landing value, a GitLab URL, or the away
+# the proof. --attended-override permits a direct bootstrap or incident merge
+# only with data/<task-id>/landing-proof.json in the existing task record.
+# The record requires kind=bootstrap|incident, a named incident, repository,
+# head and base full SHAs, result=success, nonempty modules and direct_consumers
+# lists, first_queue_landing=null and the configured queue_merge_actor.
+# The base must equal the live base tip and the head the verified PR head.
+# Merged PR history must be readable and show no landing by queue_merge_actor;
+# any such landing ends the direct path. The bypass notice follows these checks.
+# AGENTS.md section 7 owns authority. An invalid landing, a GitLab URL, or the away
 # posture refuses before any forge command; a task record without project=
 # keeps the direct merge.
 #
@@ -535,8 +545,9 @@ fi
 
 # The task's project registers its landing path (bin/fm-project-mode.sh
 # --landing). A queue project's ordinary landing is the Mergify handoff below;
-# --attended-override keeps the direct merge as the named repair path.
+# --attended-override requests the recorded, pre-first-landing repair path.
 LANDING=direct
+MERGIFY_REPAIR=false
 LANDING_PROJECT=$(sed -n 's/^project=//p' "$META" | tail -1)
 if [ -n "$LANDING_PROJECT" ]; then
   if ! LANDING=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-project-mode.sh" --landing "${LANDING_PROJECT##*/}" 2>/dev/null); then
@@ -550,8 +561,8 @@ if [ "$LANDING" = mergify ]; then
     exit 2
   fi
   if [ "$ATTENDED_OVERRIDE" = true ]; then
+    MERGIFY_REPAIR=true
     LANDING=direct
-    printf 'notice: this attended direct merge bypasses the configured Mergify queue; it is reserved for a named bootstrap or incident repair (AGENTS.md section 7)\n' >&2
   elif [ "${#ALLOW_RED[@]}" -gt 0 ] || [ "${#ALLOW_MISSING[@]}" -gt 0 ] || [ "$#" -gt 0 ]; then
     echo "error: PR merge refused: the Mergify queue owns the merge method and the combined-candidate proof, so waivers and extra merge arguments apply only to the attended repair path; nothing was handed to the forge" >&2
     exit 2
@@ -1480,29 +1491,98 @@ gitlab_confirm_merged() {
   [ "$state" = merged ]
 }
 
-# Hand the verified head to the Mergify queue with its documented queue command
-# (https://docs.mergify.com/commands/queue/). The comment cannot carry a head,
-# so the head is re-read immediately before it, and the queue's own merge
-# conditions retest the combined candidate before anything lands. Queued is
-# pending: the armed merge poll reports the landed outcome.
+# The header owns queue receipts and bootstrap proof; the existing authority
+# reader and conditional remover own retirement of a matching accepted record.
+invalidate_queue_head_authority() {
+  if fm_merge_authority_read "$STATE" "$ID" "$PROVIDER" "$PR_HOST" "$PR_PATH" "$PR_NUMBER"; then
+    fm_merge_authority_remove_if_matches "$STATE" "$ID" "$PROVIDER" "$PR_HOST" "$PR_PATH" \
+      "$PR_NUMBER" "$FM_MERGE_AUTHORITY" "$FM_MERGE_AUTHORITY_RECORD_IDENTITY" || return 1
+  fi
+}
+
+require_mergify_repair_proof() {
+  local proof="$FM_HOME/data/$ID/landing-proof.json" base actor mergers
+  if [ ! -f "$proof" ] || [ -L "$proof" ] || [ ! -r "$proof" ] \
+    || ! jq -e --arg repo "$PR_OWNER/$PR_REPO" --arg head "$FM_PR_MERGE_HEAD" '
+      def names: type == "array" and length > 0 and all(.[]; type == "string" and test("[^[:space:]]"));
+      type == "object" and (.kind == "bootstrap" or .kind == "incident")
+      and (.incident | type == "string" and test("[^[:space:]]"))
+      and .repository == $repo and .head == $head
+      and (.base | type == "string" and test("^[0-9a-f]{40}$"))
+      and .result == "success" and (.modules | names) and (.direct_consumers | names)
+      and has("first_queue_landing") and .first_queue_landing == null
+      and (.queue_merge_actor | type == "string" and test("^[A-Za-z0-9_.\\[\\]-]+$"))
+    ' "$proof" >/dev/null 2>&1; then
+    printf 'error: Mergify bypass refused: missing, unreadable or incomplete exact-head bootstrap/incident targeted proof in %s; nothing was handed to the forge\n' "$proof" >&2
+    return 1
+  fi
+  if ! base=$(gh api "repos/$PR_OWNER/$PR_REPO/git/ref/heads/$FM_PR_GITHUB_BASE" --jq .object.sha 2>/dev/null) \
+    || [ "$base" != "$(jq -r .base "$proof")" ]; then
+    printf 'error: Mergify bypass refused: targeted proof is not on current %s; nothing was handed to the forge\n' "$FM_PR_GITHUB_BASE" >&2
+    return 1
+  fi
+  actor=$(jq -r .queue_merge_actor "$proof") || return 1
+  # shellcheck disable=SC2016
+  if ! mergers=$(gh api graphql --paginate \
+    -f query='query($owner:String!,$repo:String!,$base:String!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequests(states:MERGED,baseRefName:$base,first:100,after:$endCursor){nodes{mergedBy{login}} pageInfo{hasNextPage endCursor}}}}' \
+    -F "owner=$PR_OWNER" -F "repo=$PR_REPO" -f "base=$FM_PR_GITHUB_BASE" \
+    --jq '.data.repository.pullRequests.nodes[] | .mergedBy.login // "unknown"' 2>/dev/null); then
+    echo 'error: Mergify bypass refused: native queue landing history is unreadable; nothing was handed to the forge' >&2
+    return 1
+  fi
+  if printf '%s\n' "$mergers" | grep -qxF "$actor" \
+    || printf '%s\n' "$mergers" | grep -qxF 'mergify[bot]'; then
+    echo 'error: Mergify bypass refused: a native queue landing already exists; queue is the only path' >&2
+    return 1
+  fi
+  if printf '%s\n' "$mergers" | grep -qxF unknown; then
+    echo 'error: Mergify bypass refused: a previous landing has unknown ownership; nothing was handed to the forge' >&2
+    return 1
+  fi
+  printf 'notice: this recorded %s direct merge bypasses the configured Mergify queue before its first native landing; targeted proof: %s\n' \
+    "$(jq -r .kind "$proof")" "$proof" >&2
+}
+
 mergify_queue_handoff() {
-  local live_head
+  local live_head queue_json='' enrolled=false
   if ! live_head=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
     --json headRefOid --jq .headRefOid 2>/dev/null) || [ "$live_head" != "$FM_PR_MERGE_HEAD" ]; then
     printf 'error: the head of %s changed or could not be re-read after verification (verified %s, read %s); nothing was handed to the queue\n' \
       "$URL" "$FM_PR_MERGE_HEAD" "${live_head:-unreadable}" >&2
+    invalidate_queue_head_authority || return 1
     return 1
   fi
   if ! gh pr comment "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" --body '@mergifyio queue' >/dev/null; then
     printf 'error: the Mergify queue command could not be posted on %s; nothing was queued\n' "$URL" >&2
     return 1
   fi
-  persist_accepted_merge_authority || return 1
+  if command -v mergify >/dev/null 2>&1 \
+    && queue_json=$(mergify queue show "$PR_NUMBER" --repository "$PR_OWNER/$PR_REPO" --json 2>/dev/null) \
+    && printf '%s' "$queue_json" | jq -e --argjson pr "$PR_NUMBER" '
+      type == "object" and .number == $pr and ((has("queued") | not) or .queued == true)
+      and (.queued_at | type == "string" and length > 0)
+      and (.position | type == "number" and . >= 0 and floor == .)
+    ' >/dev/null 2>&1; then
+    enrolled=true
+  fi
+  if ! live_head=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
+    --json headRefOid --jq .headRefOid 2>/dev/null) || [ "$live_head" != "$FM_PR_MERGE_HEAD" ]; then
+    invalidate_queue_head_authority || return 1
+    printf 'queue requested: %s for verified head %s; head moved or is unreadable (live %s), old proof and authority invalidated, enrollment not attributed; the queue retests its current-main candidate\n' \
+      "$URL" "$FM_PR_MERGE_HEAD" "${live_head:-unreadable}"
+    return 0
+  fi
+  if [ "$enrolled" = true ]; then
+    persist_accepted_merge_authority || return 1
+    printf 'queued: %s in the Mergify queue at verified head %s; enrollment read back, the queue retests its current-main candidate; the merge poll remains armed\n' \
+      "$URL" "$FM_PR_MERGE_HEAD"
+  else
+    printf 'queue requested, enrollment unconfirmed: %s for verified head %s; the merge poll remains armed\n' \
+      "$URL" "$FM_PR_MERGE_HEAD"
+  fi
   fm_afk_contract_lock_release || true
   fm_lock_release "$MERGE_CONTROL_LOCK" || true
   MERGE_CONTROL_LOCK=
-  printf 'queued: %s handed to the Mergify queue at head %s; the queue tests the combined candidate and lands it, and the armed merge poll reports the landed outcome\n' \
-    "$URL" "$FM_PR_MERGE_HEAD"
 }
 
 # Record before either forge call. This arms the merge poll without claiming a
@@ -1563,6 +1643,9 @@ case "$PROVIDER" in
     require_current_away_authority || away_status=$?
     [ "$away_status" -eq 0 ] || exit "$away_status"
     refuse_github_queue_while_away || exit 2
+    if [ "$MERGIFY_REPAIR" = true ]; then
+      require_mergify_repair_proof || exit 1
+    fi
     if [ "$LANDING" = mergify ]; then
       mergify_queue_handoff
       exit $?
