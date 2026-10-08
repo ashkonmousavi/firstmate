@@ -50,6 +50,7 @@ Existing registry entries keep the meaning they already have and are never migra
 Registering a conditional policy is a one-time choice and never requires classifying any change; the per-task surface classification happens at each task's intake, and internal-only is never inferred from file location or project name.
 
 The optional `+yolo` posture changes merge authority only and does not change the delivery mode.
+The optional `landing=mergify` token records that the project lands green pull requests through its configured Mergify queue; register it only once that queue is configured and proved on the project, because `bin/fm-pr-merge.sh` then stops merging that project's pull requests directly.
 Default it off for every project and every posture, and enable it only on the captain's explicit instruction.
 `AGENTS.md` section 7 owns the merge-authority contract.
 
