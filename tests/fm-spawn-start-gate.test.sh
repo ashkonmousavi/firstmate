@@ -431,8 +431,11 @@ test_inherited_map_controls_feature_admission() {
   remote_home="$CASE_DIR/remote-home"
   mkdir -p "$primary" "$remote_home/state"
   cp "$HOME_DIR/config/start-gate.json" "$primary/start-gate.json"
+  # Inheritance mirrors absent settings too; keep the spawn harness explicit.
+  cp "$HOME_DIR/config/crew-harness" "$primary/crew-harness"
   printf '{}\n' > "$HOME_DIR/config/start-gate.json"
   propagate_inheritable_config "$primary" "$HOME_DIR/config" || fail "local map inheritance failed"
+  assert_equals codex "$(cat "$HOME_DIR/config/crew-harness")" "map inheritance lost the spawn harness"
   cmp -s "$primary/start-gate.json" "$HOME_DIR/config/start-gate.json" || fail "local map bytes were not inherited"
   write_facts "$UNOWNED"
   out=$(spawn_ship "$id")
@@ -452,6 +455,7 @@ test_inherited_map_controls_feature_admission() {
 
   rm "$primary/start-gate.json"
   propagate_inheritable_config "$primary" "$HOME_DIR/config" || fail "local map absence failed"
+  assert_equals codex "$(cat "$HOME_DIR/config/crew-harness")" "map absence lost the spawn harness"
   assert_absent "$HOME_DIR/config/start-gate.json" "local map absence was not mirrored"
   set_class "$HOME_DIR" "$id" none
   out=$(spawn_ship "$id")
