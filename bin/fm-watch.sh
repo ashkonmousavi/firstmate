@@ -2459,13 +2459,13 @@ age_of() {  # seconds since file mtime; "due immediately" if missing
 # gate, or paused; the shared current-state proof only reports how many of those
 # crews are provably working. The marker resets when full or empty.
 # The cap is a maximum, not a target: with an optional config/release-capacity,
-# lanes whose ship already recorded a PR (in validation, CI, queue or landing)
+# lanes whose ship is validating or already recorded a PR (in CI, queue or landing)
 # count against that bound, and once it is reached the wake names that release
 # bottleneck instead of asking for more starts. The wake still lists the ready
 # work, and spawn admission is unchanged, so a repair or independent item can
 # still be dispatched.
 idle_lane_tick() {
-  local cap rcap='' ready ids count occupied=0 working=0 released=0 meta task signature marker previous reason
+  local cap rcap='' ready ids count occupied=0 working=0 released=0 meta task signature marker previous reason line state src
   marker="$STATE/.last-idle-lane-wake"
   [ -f "$CONFIG/writing-lane-cap" ] || return 0
   cap=$(cat "$CONFIG/writing-lane-cap" 2>/dev/null) || return 1
@@ -2480,7 +2480,22 @@ idle_lane_tick() {
     [ -f "$meta" ] || continue
     grep -qx 'kind=ship' "$meta" 2>/dev/null || continue
     occupied=$((occupied + 1))
-    ! grep -q '^pr=' "$meta" 2>/dev/null || released=$((released + 1))
+    if grep -q '^pr=' "$meta" 2>/dev/null; then
+      released=$((released + 1))
+    elif [ -n "$rcap" ]; then
+      task=${meta##*/}; task=${task%.meta}
+      line=$(checkpoint_read "$FM_CREW_STATE_BIN" "$task" 2>/dev/null) || line=''
+      checkpoint_deadline_passed && return 124
+      case "$line" in
+        state:*)
+          state=${line#state: }; state=${state%% *}
+          src=${line#*source: }; src=${src%% *}
+          case "$state/$src" in
+            working/run-step|parked/run-step) released=$((released + 1)) ;;
+          esac
+          ;;
+      esac
+    fi
     [ "$occupied" -lt "$cap" ] || break
   done < <(fm_checkpoint_files capacity "$STATE" .meta)
   if [ "$occupied" -ge "$cap" ]; then rm -f "$marker"; return 0; fi
