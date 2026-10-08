@@ -1534,6 +1534,9 @@ require_mergify_repair_proof() {
 
 mergify_queue_handoff() {
   local live_head queue_json='' enrolled=false
+  if ! grep -qxF "pr_head=$FM_PR_MERGE_HEAD" "$META"; then
+    invalidate_queue_head_authority || return 1
+  fi
   if ! live_head=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
     --json headRefOid --jq .headRefOid 2>/dev/null) || [ "$live_head" != "$FM_PR_MERGE_HEAD" ]; then
     printf 'error: the head of %s changed or could not be re-read after verification (verified %s, read %s); nothing was handed to the queue\n' \

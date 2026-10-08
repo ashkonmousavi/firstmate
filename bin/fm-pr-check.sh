@@ -29,6 +29,8 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
+# shellcheck source=bin/fm-merge-authority-lib.sh
+. "$SCRIPT_DIR/fm-merge-authority-lib.sh"
 # shellcheck source=bin/fm-wake-lib.sh
 . "$SCRIPT_DIR/fm-wake-lib.sh"
 # shellcheck source=bin/fm-parent-channel-lib.sh
@@ -181,9 +183,11 @@ META_DEVICE=$(fm_pr_file_device "$META") || exit 1
 STATE_DEVICE=$(fm_pr_file_device "$STATE") || exit 1
 [ "$META_DEVICE" = "$STATE_DEVICE" ] || { echo "error: task metadata is unavailable" >&2; exit 1; }
 META_TMP=$(mktemp "$STATE/.fm-pr-meta.XXXXXX") || exit 1
+PREVIOUS_PR_HEAD=
 while IFS= read -r line || [ -n "$line" ]; do
   case "$line" in
-    pr=*|pr_head=*) ;;
+    pr=*) ;;
+    pr_head=*) PREVIOUS_PR_HEAD=${line#pr_head=} ;;
     *) printf '%s\n' "$line" >> "$META_TMP" || exit 1 ;;
   esac
 done < "$META"
@@ -196,6 +200,11 @@ fm_pr_metadata_identity_parse "$META_TMP" || exit 1
   && [ "$FM_PR_META_HOST" = "$HOST" ] && [ "$FM_PR_META_PATH" = "$PROJECT_PATH" ] \
   && [ "$FM_PR_META_NUMBER" = "$NUMBER" ] || exit 1
 fm_pr_regular_destination_on_device_or_absent "$META" "$STATE_DEVICE" || exit 1
+if [ "$PROVIDER" = github ] && [ "$PREVIOUS_PR_HEAD" != "$PR_HEAD" ] \
+  && fm_merge_authority_read "$STATE" "$ID" "$PROVIDER" "$HOST" "$PROJECT_PATH" "$NUMBER"; then
+  fm_merge_authority_remove_if_matches "$STATE" "$ID" "$PROVIDER" "$HOST" "$PROJECT_PATH" \
+    "$NUMBER" "$FM_MERGE_AUTHORITY" "$FM_MERGE_AUTHORITY_RECORD_IDENTITY" || exit 1
+fi
 mv -f -- "$META_TMP" "$META" || exit 1
 META_TMP=
 fm_pr_private_file_valid "$META" 600 "$STATE_DEVICE" || exit 1
