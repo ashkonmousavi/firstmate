@@ -1,0 +1,39 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+
+SCENARIO no-jq-public-spawn
+COMMAND: PATH=<workspace tools excluding jq> bin/fm-spawn.sh no-jq-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+error: start gate: jq is required to read /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO/config/start-gate.json; correct it before spawning
+EXIT=1
+OBSERVED: dependency failure preserves authored repair/unknown-applicability boundaries; no allocation
+COMMAND: PATH=<workspace tools excluding jq> bin/fm-spawn.sh no-jq-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task no-jq-fix rather than racing it
+EXIT=1
+OBSERVED: dependency failure preserves authored repair/unknown-applicability boundaries; no allocation
+COMMAND: PATH=<workspace tools excluding jq> bin/fm-spawn.sh no-jq-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task no-jq-revert rather than racing it
+EXIT=1
+OBSERVED: dependency failure preserves authored repair/unknown-applicability boundaries; no allocation
+COMMAND: PATH=<workspace tools excluding jq> bin/fm-spawn.sh no-jq-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task no-jq-live-breakage rather than racing it
+EXIT=1
+OBSERVED: dependency failure preserves authored repair/unknown-applicability boundaries; no allocation
+COMMAND: PATH=<workspace tools excluding jq> bin/fm-spawn.sh no-jq-none projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+warning: start gate: jq is required to read /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO/config/start-gate.json; applicability unknown and no valid Work class declared; keeping existing spawn behavior
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task no-jq-none rather than racing it
+EXIT=1
+OBSERVED: dependency failure preserves authored repair/unknown-applicability boundaries; no allocation
+COMMAND: PATH=<workspace tools excluding jq> bin/fm-spawn.sh no-jq-chore projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO
+warning: start gate: jq is required to read /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.RSGKeO/config/start-gate.json; applicability unknown and no valid Work class declared; keeping existing spawn behavior
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task no-jq-chore rather than racing it
+EXIT=1
+OBSERVED: dependency failure preserves authored repair/unknown-applicability boundaries; no allocation
+LIVE MISSING-JQ CHECKS COMPLETE; disposable lab removed by EXIT trap

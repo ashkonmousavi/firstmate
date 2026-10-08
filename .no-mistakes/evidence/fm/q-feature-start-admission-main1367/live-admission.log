@@ -1,0 +1,411 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+
+SCENARIO unowned-feature: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh unowned-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - no worker on main-failure main-e2e-red: main e2e failure (owner: none)
+error: start gate: Q feature start refused - no worker on frozen-machine zenbook-frozen: Zenbook has no working worker (owner: zb-repair, paused)
+error: start gate: start a fix, revert or live-breakage task for each cause above, or wait until its worker is active; open work is unaffected
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO misleading-status: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh misleading-status projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - no worker on main-failure main-e2e-red: main e2e failure (owner: none)
+error: start gate: Q feature start refused - no worker on frozen-machine zenbook-frozen: Zenbook has no working worker (owner: zb-repair, paused)
+error: start gate: start a fix, revert or live-breakage task for each cause above, or wait until its worker is active; open work is unaffected
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO repair-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh repair-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task repair-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO repair-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh repair-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task repair-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO repair-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh repair-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task repair-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO covered-feature: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh covered-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q feature start permitted - every main failure and frozen machine has an active worker
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task covered-feature rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO healthy-feature: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh healthy-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q feature start permitted - every main failure and frozen machine has an active worker
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task healthy-feature rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-missing: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-missing projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - facts unknown: no readable snapshot at /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/facts.json
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO missing-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh missing-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task missing-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO missing-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh missing-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task missing-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO missing-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh missing-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task missing-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-badjson: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-badjson projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - facts unknown: snapshot is not valid JSON (/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/facts.json)
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badjson-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badjson-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badjson-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badjson-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badjson-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badjson-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badjson-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badjson-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badjson-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-stale: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-stale projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - facts unknown: snapshot is 1010s old, over the 900s limit (/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/facts.json)
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO stale-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh stale-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task stale-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO stale-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh stale-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task stale-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO stale-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh stale-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task stale-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-future: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-future projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - facts unknown: generated_at is in the future (/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/facts.json)
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO future-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh future-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task future-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO future-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh future-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task future-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO future-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh future-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task future-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-badowner: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-badowner projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - facts unknown: a cause lacks a string id, a main-failure or frozen-machine kind, a string detail, a valid task id or empty/null owner_task, or string-or-null owner_state (/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/facts.json)
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badowner-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badowner-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badowner-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badowner-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badowner-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badowner-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badowner-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badowner-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badowner-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-badstate: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-badstate projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - no worker on main-failure main: failure (owner: repair, validating)
+error: start gate: start a fix, revert or live-breakage task for each cause above, or wait until its worker is active; open work is unaffected
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badstate-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badstate-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badstate-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badstate-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badstate-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badstate-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO badstate-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh badstate-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task badstate-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-wrong-project: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-wrong-project projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q feature start refused - facts unknown: snapshot is for project "Other", not Q (/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/facts.json)
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO wrong-project-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh wrong-project-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task wrong-project-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO wrong-project-revert: class=revert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh wrong-project-revert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task wrong-project-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO wrong-project-live-breakage: class=live-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh wrong-project-live-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task wrong-project-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO class-none: class=none project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh class-none projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/data/class-none/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO class-xfix: class=xfix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh class-xfix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/data/class-xfix/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO class-xrevert: class=xrevert project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh class-xrevert projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/data/class-xrevert/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO class-xlive-breakage: class=xlive-breakage project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh class-xlive-breakage projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/data/class-xlive-breakage/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO class-xfeature: class=xfeature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh class-xfeature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/data/class-xfeature/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO class-f-ix: class=f ix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh class-f-ix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/data/class-f-ix/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO malformed-feature: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh malformed-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/config/start-gate.json is not one JSON object with an object entry for Q; correct it before spawning
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO malformed-none: class=none project=Other
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh malformed-none projects/Other --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+warning: start gate: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/config/start-gate.json is not one JSON object with an object entry for Other; applicability unknown and no valid Work class declared; keeping existing spawn behavior
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task malformed-none rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO malformed-chore: class=chore project=Other
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh malformed-chore projects/Other --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+warning: start gate: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/config/start-gate.json is not one JSON object with an object entry for Other; applicability unknown and no valid Work class declared; keeping existing spawn behavior
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task malformed-chore rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO malformed-fix: class=fix project=Other
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh malformed-fix projects/Other --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Other work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task malformed-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO malformed-revert: class=revert project=Other
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh malformed-revert projects/Other --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Other work class revert is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task malformed-revert rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO malformed-live-breakage: class=live-breakage project=Other
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh malformed-live-breakage projects/Other --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Other work class live-breakage is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task malformed-live-breakage rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO dangling-feature: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh dangling-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: start gate: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK/config/start-gate.json is not one JSON object with an object entry for Q; correct it before spawning
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO dangling-fix: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh dangling-fix projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task dangling-fix rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO unnamed-project: class=none project=Other
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh unnamed-project projects/Other --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task unnamed-project rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO absent-map: class=none project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh absent-map projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task absent-map rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO existing-work-recovery
+COMMAND: bin/fm-spawn.sh existing --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.Y5J6OK
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+error: another lifecycle action is already running for task existing
+EXIT=1
+OBSERVED: existing record unchanged; recovery bypassed feature health and respected its existing lifecycle guard
+
+LIVE COMMAND ADMISSION CHECKS COMPLETE; disposable lab removed by EXIT trap

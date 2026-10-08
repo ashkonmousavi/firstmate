@@ -1,0 +1,22 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c
+
+SCENARIO invalid-delivery-risk: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-delivery-risk projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c
+error: task invalid-delivery-risk cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c/data/invalid-delivery-risk/prep.md; scaffold with bin/fm-brief.sh invalid-delivery-risk --prep and reconcile Delivery risk/depth
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-delivery-depth: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-delivery-depth projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c
+error: task invalid-delivery-depth cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c/data/invalid-delivery-depth/prep.md; scaffold with bin/fm-brief.sh invalid-delivery-depth --prep and reconcile Delivery risk/depth
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO valid-delivery-no-space: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh valid-delivery-no-space projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c
+error: start gate: Q gates new features, so /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.yGQ38c/data/valid-delivery-no-space/prep.md must declare one Tier line '- Work class: <feature|fix|revert|live-breakage>'; add it and spawn again
+EXIT=1
+ASSERTION FAILED: expected diagnostic absent

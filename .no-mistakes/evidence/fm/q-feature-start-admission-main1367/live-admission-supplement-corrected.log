@@ -1,0 +1,54 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+
+SCENARIO invalid-delivery-risk: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-delivery-risk projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+error: task invalid-delivery-risk cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz/data/invalid-delivery-risk/prep.md; scaffold with bin/fm-brief.sh invalid-delivery-risk --prep and reconcile Delivery risk/depth
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO invalid-delivery-depth: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh invalid-delivery-depth projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+error: task invalid-delivery-depth cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz/data/invalid-delivery-depth/prep.md; scaffold with bin/fm-brief.sh invalid-delivery-depth --prep and reconcile Delivery risk/depth
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO valid-delivery-no-space: class=fix project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh valid-delivery-no-space projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+notice: start gate: Q work class fix is never refused by main or machine health
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task valid-delivery-no-space rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+
+SCENARIO scout-on-unhealthy-Q
+COMMAND: bin/fm-spawn.sh scout projects/Q --scout --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task scout rather than racing it
+EXIT=1
+OBSERVED: scout bypassed feature health; no endpoint or record allocated
+
+SCENARIO inherited-map-adoption
+COMMAND: FM_HOME=<disposable lab> bin/fm-remote-inherit.sh put config/start-gate.json <bytes> <sha256> 1 < primary-map.json
+pushed: config/start-gate.json
+OBSERVED: receiver persisted byte-identical applicability map
+
+SCENARIO inherited-feature: class=feature project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh inherited-feature projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+error: start gate: Q feature start refused - no worker on main-failure main-e2e-red: main e2e failure (owner: none)
+error: start gate: Q feature start refused - no worker on frozen-machine zenbook-frozen: Zenbook has no working worker (owner: zb-repair, paused)
+error: start gate: start a fix, revert or live-breakage task for each cause above, or wait until its worker is active; open work is unaffected
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+COMMAND: bin/fm-remote-inherit.sh absent config/start-gate.json 0 <empty-sha256> 2
+removed: config/start-gate.json
+
+SCENARIO inheritance-absent: class=none project=Q
+COMMAND: FM_HOME=<disposable marked lab> bin/fm-spawn.sh inheritance-absent projects/Q --mode no-mistakes --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4DGV9CBW7VD4WRCHY5X7TZK/.gate-live.ihf7Pz
+error: this home's task set is locked by another operation (a forced teardown is enumerating or removing its tasks); refusing to create task inheritance-absent rather than racing it
+EXIT=1
+OBSERVED: no metadata, inbox, launch brief or endpoint allocated; existing task-set lock still held
+SUPPLEMENTAL LIVE CHECKS COMPLETE; lab removed by EXIT trap

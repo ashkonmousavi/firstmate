@@ -1,0 +1,14 @@
+ok - G1 a new feature start is refused before allocation, naming every uncovered cause
+ok - G2 fix, revert and live-breakage pass unhealthy facts; existing guards still refuse
+ok - G3 covered or clear facts permit a feature; a status line never covers a cause
+ok - G4 unknown facts and classification are diagnosed; a repair stays independent of them
+ok - broken maps refuse features before allocation; absent or invalid classes warn and spawn
+ok - all repair classes bypass malformed configuration, bad locators, missing facts, and missing jq
+ok - readable relative and absolute map links still permit healthy features
+ok - internal class whitespace is invalid; surrounding whitespace preserves canonical classes
+ok - no-separator labels retain every answer character and recognize only canonical classes
+ok - facts after now or older than 900 seconds refuse; only reconciled working covers causes
+ok - local and remote inheritance copy and remove the map; inherited unhealthy facts refuse features
+ok - both cause kinds validate owner task identity independently of worker state
+ok - G5 ungated projects, an absent config and scouts are unaffected
+# all fm-spawn-start-gate tests passed
