@@ -7,6 +7,8 @@ set -u
 
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 WATCH="$ROOT/bin/fm-watch.sh"
 WATCH_ARM="$ROOT/bin/fm-watch-arm.sh"
@@ -726,7 +728,7 @@ test_lock_refuses_a_plain_file_lock_path() {
 
   # The positional parameters belong to the nested shell.
   # shellcheck disable=SC2016
-  out=$(FM_STATE_OVERRIDE="$state" timeout 10 bash -c '
+  out=$(FM_STATE_OVERRIDE="$state" fm_run_timed 10 bash -c '
     . "$1"
     if fm_lock_acquire_wait_max "$2" 30; then rc=0; else rc=$?; fi
     printf "max=%s " "$rc"
@@ -739,7 +741,7 @@ test_lock_refuses_a_plain_file_lock_path() {
   : > "$state/.steal-probe.lock.steal"
   # The positional parameters belong to the nested shell.
   # shellcheck disable=SC2016
-  out=$(FM_STATE_OVERRIDE="$state" timeout 10 bash -c '. "$1"; fm_lock_acquire_wait "$2"' _ "$LIB" "$state/.steal-probe.lock" 2>&1)
+  out=$(FM_STATE_OVERRIDE="$state" fm_run_timed 10 bash -c '. "$1"; fm_lock_acquire_wait "$2"' _ "$LIB" "$state/.steal-probe.lock" 2>&1)
   rc=$?
   [ "$rc" -eq 78 ] || fail "a plain-file steal mutex did not refuse its lock wait: $rc: $out"
   case "$out" in *"$state/.steal-probe.lock.steal is a"*) ;; *) fail "steal refusal did not name the steal path: $out" ;; esac
@@ -749,7 +751,7 @@ test_lock_refuses_a_plain_file_lock_path() {
   status=0
   cp -p "$lockdir" "$state/.watch.lock"
   PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_GUARD_GRACE=1 FM_POLL=5 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
-    timeout 20 "$WATCH" > "$out" 2> "$err" || status=$?
+    fm_run_timed 20 "$WATCH" > "$out" 2> "$err" || status=$?
   [ "$status" -eq 1 ] || fail "watcher on a plain-file lock exited $status, not 1: $(cat "$out" "$err")"
   ! grep -q 'already running' "$out" "$err" || fail "watcher reported a plain-file lock as a running watcher"
   grep -qF "$state/.watch.lock is a" "$err" || fail "watcher refusal did not name its lock path: $(cat "$err")"

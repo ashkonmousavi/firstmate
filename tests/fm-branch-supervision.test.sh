@@ -8,11 +8,24 @@
 # is untouched by all of it.
 set -u
 
-# shellcheck source=tests/lib.sh
-. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=tests/wake-helpers.sh
+. "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-branch-supervision)
 fm_git_identity fmtest fmtest@example.invalid
+
+wait_for_lease_fixture() {
+  local pid=$1 ready=$2 i=0 status=0
+  while [ ! -e "$ready" ] && [ "$i" -lt 1500 ] && is_live_non_zombie "$pid"; do
+    sleep 0.01
+    i=$((i + 1))
+  done
+  [ -e "$ready" ] && return 0
+  wait_for_exit "$pid" 1 || status=$?
+  fail "lease fixture pid $pid did not publish $ready (exit $status)"
+}
 
 # --- byte-stable branch prompt ------------------------------------------------
 
@@ -945,9 +958,10 @@ test_unmarked_guard_with_a_lease_file_holds_exclusivity_through_mutation() {
       : > "$FM_TEST_READY"
       i=0
       while [ ! -e "$FM_TEST_RELEASE" ] && [ "$i" -lt 1500 ]; do sleep 0.01; i=$((i + 1)); done
+      [ -e "$FM_TEST_RELEASE" ]
     ' _ "$ROOT/bin/fm-lease-lib.sh" >/dev/null 2>&1 &
   operation_pid=$!
-  while [ ! -e "$home/operation-ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$operation_pid" "$home/operation-ready"
   [ ! -e "$home/state/.lease-task-race" ] || fail "the unmarked guard kept the dead session's lease"
 
   env -u PI_CODING_AGENT FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_HOLDER_PID=$$ \
@@ -960,8 +974,8 @@ test_unmarked_guard_with_a_lease_file_holds_exclusivity_through_mutation() {
     || fail "the concurrent claim published a lease before the unmarked guarded mutation ended"
 
   : > "$home/operation-release"
-  wait "$operation_pid" || fail "unmarked guarded mutation fixture failed"
-  wait "$claim_pid"; claim_status=$?
+  wait_for_exit "$operation_pid" 150 || fail "unmarked guarded mutation fixture failed"
+  wait_for_exit "$claim_pid" 150; claim_status=$?
   [ "$claim_status" -eq 0 ] || fail "claim did not proceed after the unmarked guarded mutation ended: $claim_status"
   pass "a lease file makes an unmarked guard exclude a concurrent claim for the complete mutation"
 }
@@ -1013,9 +1027,10 @@ test_host_home_unmarked_guard_excludes_the_first_claim() {
       : > "$FM_TEST_READY"
       i=0
       while [ ! -e "$FM_TEST_RELEASE" ] && [ "$i" -lt 1500 ]; do sleep 0.01; i=$((i + 1)); done
+      [ -e "$FM_TEST_RELEASE" ]
     ' _ "$ROOT/bin/fm-lease-lib.sh" >/dev/null 2>&1 &
   operation_pid=$!
-  while [ ! -e "$home/operation-ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$operation_pid" "$home/operation-ready"
   [ ! -e "$home/state/.lease-task-first" ] || fail "the guard created a lease for an unleased task"
 
   env -u PI_CODING_AGENT FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_HOLDER_PID=$$ \
@@ -1028,8 +1043,8 @@ test_host_home_unmarked_guard_excludes_the_first_claim() {
     || fail "the first claim published a lease before main's guarded mutation ended"
 
   : > "$home/operation-release"
-  wait "$operation_pid" || fail "host-home guarded mutation fixture failed"
-  wait "$claim_pid"; claim_status=$?
+  wait_for_exit "$operation_pid" 150 || fail "host-home guarded mutation fixture failed"
+  wait_for_exit "$claim_pid" 150; claim_status=$?
   [ "$claim_status" -eq 0 ] || fail "the first claim did not proceed after main's guarded mutation ended: $claim_status"
   out=$(FM_HOME="$home" "$ROOT/bin/fm-lease.sh" check task-first) || fail "the first claim left no lease"
   case "$out" in
@@ -1095,7 +1110,9 @@ test_concurrent_stale_lease_claims_have_one_winner() {
 last=${!#}
 if [ "$last" = "$FM_TEST_LEASE_PATH" ] && mkdir "$FM_TEST_GATE.once" 2>/dev/null; then
   : > "$FM_TEST_GATE.ready"
-  while [ ! -e "$FM_TEST_GATE.release" ]; do sleep 0.01; done
+  i=0
+  while [ ! -e "$FM_TEST_GATE.release" ] && [ "$i" -lt 1500 ]; do sleep 0.01; i=$((i + 1)); done
+  [ -e "$FM_TEST_GATE.release" ] || exit 1
 fi
 exec "$FM_TEST_REAL_MV" "$@"
 SH
@@ -1105,15 +1122,15 @@ SH
     FM_TEST_REAL_MV="$real_mv" FM_TEST_LEASE_PATH="$home/state/.lease-task-race" FM_TEST_GATE="$home/state/gate" \
     "$ROOT/bin/fm-lease.sh" claim task-race --actor branch >/dev/null 2>&1 &
   branch_pid=$!
-  while [ ! -e "$home/state/gate.ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$branch_pid" "$home/state/gate.ready"
   PATH="$fakebin:$PATH" FM_HOME="$home" FM_SUPERVISION_ACTOR=main FM_LEASE_HOLDER_PID=$$ \
     FM_TEST_REAL_MV="$real_mv" FM_TEST_LEASE_PATH="$home/state/.lease-task-race" FM_TEST_GATE="$home/state/gate" \
     "$ROOT/bin/fm-lease.sh" claim task-race --actor main >/dev/null 2>&1 &
   main_pid=$!
   sleep 0.1
   : > "$home/state/gate.release"
-  wait "$branch_pid"; branch_status=$?
-  wait "$main_pid"; main_status=$?
+  wait_for_exit "$branch_pid" 150; branch_status=$?
+  wait_for_exit "$main_pid" 150; main_status=$?
   [ "$branch_status" -eq 0 ] || fail "first serialized lease claim failed with $branch_status"
   [ "$main_status" -eq 6 ] || fail "concurrent lease claim also succeeded or returned $main_status"
   pass "concurrent stale-lease claims serialize so exactly one actor succeeds"
@@ -1133,7 +1150,9 @@ test_guard_stale_clear_cannot_delete_a_new_claim() {
 last=${!#}
 if [ "$last" = "$FM_TEST_STALE_PATH" ] && mkdir "$FM_TEST_GATE.once" 2>/dev/null; then
   : > "$FM_TEST_GATE.ready"
-  while [ ! -e "$FM_TEST_GATE.release" ]; do sleep 0.01; done
+  i=0
+  while [ ! -e "$FM_TEST_GATE.release" ] && [ "$i" -lt 1500 ]; do sleep 0.01; i=$((i + 1)); done
+  [ -e "$FM_TEST_GATE.release" ] || exit 1
 fi
 exec "$FM_TEST_REAL_RM" "$@"
 SH
@@ -1143,15 +1162,15 @@ SH
     FM_TEST_STALE_PATH="$home/state/.lease-task-race" FM_TEST_GATE="$home/state/gate" \
     bash -c '. "$1"; fm_lease_guard task-race "probe"' _ "$ROOT/bin/fm-lease-lib.sh" &
   guard_pid=$!
-  while [ ! -e "$home/state/gate.ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$guard_pid" "$home/state/gate.ready"
   PATH="$fakebin:$PATH" FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_HOLDER_PID=$$ \
     FM_TEST_REAL_RM="$real_rm" FM_TEST_STALE_PATH="$home/state/.lease-task-race" FM_TEST_GATE="$home/state/gate" \
     "$ROOT/bin/fm-lease.sh" claim task-race --actor branch >/dev/null 2>&1 &
   claim_pid=$!
   sleep 0.1
   : > "$home/state/gate.release"
-  wait "$guard_pid"; guard_status=$?
-  wait "$claim_pid"; claim_status=$?
+  wait_for_exit "$guard_pid" 150; guard_status=$?
+  wait_for_exit "$claim_pid" 150; claim_status=$?
   [ "$guard_status" -eq 0 ] || fail "guard stale cleanup failed with $guard_status"
   [ "$claim_status" -eq 0 ] || fail "serialized claim failed with $claim_status"
   out=$(FM_HOME="$home" "$ROOT/bin/fm-lease.sh" check task-race) || fail "guard deleted the newer lease claim"
@@ -1174,10 +1193,12 @@ test_guard_holds_exclusivity_through_mutation() {
       fm_lease_guard task-race "probe"
       trap "fm_lease_guard_release" EXIT
       : > "$FM_TEST_READY"
-      while [ ! -e "$FM_TEST_RELEASE" ]; do sleep 0.01; done
+      i=0
+      while [ ! -e "$FM_TEST_RELEASE" ] && [ "$i" -lt 1500 ]; do sleep 0.01; i=$((i + 1)); done
+      [ -e "$FM_TEST_RELEASE" ]
     ' _ "$ROOT/bin/fm-lease-lib.sh" &
   operation_pid=$!
-  while [ ! -e "$home/operation-ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$operation_pid" "$home/operation-ready"
 
   PI_CODING_AGENT=true FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_HOLDER_PID=$$ \
     "$ROOT/bin/fm-lease.sh" claim task-race --actor branch >/dev/null 2>&1 &
@@ -1189,8 +1210,8 @@ test_guard_holds_exclusivity_through_mutation() {
     || fail "the concurrent claim published a lease before the guarded mutation ended"
 
   : > "$home/operation-release"
-  wait "$operation_pid" || fail "guarded mutation fixture failed"
-  wait "$claim_pid"; claim_status=$?
+  wait_for_exit "$operation_pid" 150 || fail "guarded mutation fixture failed"
+  wait_for_exit "$claim_pid" 150; claim_status=$?
   [ "$claim_status" -eq 0 ] || fail "claim did not proceed after guarded mutation ended: $claim_status"
   pass "lease guard excludes a concurrent actor for the complete mutation"
 }
@@ -1216,16 +1237,17 @@ test_guard_mutation_does_not_block_other_lease_commands() {
       : > "$FM_TEST_READY"
       i=0
       while [ ! -e "$FM_TEST_RELEASE" ] && [ "$i" -lt 1500 ]; do sleep 0.01; i=$((i + 1)); done
+      [ -e "$FM_TEST_RELEASE" ]
     ' _ "$ROOT/bin/fm-lease-lib.sh" >/dev/null 2>&1 &
   operation_pid=$!
-  while [ ! -e "$home/operation-ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$operation_pid" "$home/operation-ready"
 
-  out=$(FM_HOME="$home" timeout 5 "$ROOT/bin/fm-lease.sh" check task-old 2>&1)
+  out=$(FM_HOME="$home" fm_run_timed 5 "$ROOT/bin/fm-lease.sh" check task-old 2>&1)
   status=$?
   [ "$status" -eq 0 ] || fail "check of another task waited on the guarded mutation: $status: $out"
-  FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_HOLDER_PID=$$ timeout 5 "$ROOT/bin/fm-lease.sh" claim task-other --actor branch \
+  FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_HOLDER_PID=$$ fm_run_timed 5 "$ROOT/bin/fm-lease.sh" claim task-other --actor branch \
     || fail "claim of another task waited on the guarded mutation"
-  FM_HOME="$home" FM_SUPERVISION_ACTOR=branch timeout 5 "$ROOT/bin/fm-lease.sh" release-actor --actor branch \
+  FM_HOME="$home" FM_SUPERVISION_ACTOR=branch fm_run_timed 5 "$ROOT/bin/fm-lease.sh" release-actor --actor branch \
     || fail "release-actor waited on the guarded mutation"
   [ ! -e "$home/state/.lease-task-old" ] && [ ! -e "$home/state/.lease-task-other" ] \
     || fail "release-actor did not drop the branch leases during the guarded mutation"
@@ -1237,8 +1259,8 @@ test_guard_mutation_does_not_block_other_lease_commands() {
   kill -0 "$claim_pid" 2>/dev/null || fail "the same task's claim did not wait for the guarded mutation"
   [ ! -e "$home/state/.lease-task-slow" ] || fail "the same task was claimed during its guarded mutation"
   : > "$home/operation-release"
-  wait "$operation_pid" || fail "guarded mutation fixture failed"
-  wait "$claim_pid" || fail "the same task's claim did not proceed after the guarded mutation"
+  wait_for_exit "$operation_pid" 150 || fail "guarded mutation fixture failed"
+  wait_for_exit "$claim_pid" 150 || fail "the same task's claim did not proceed after the guarded mutation"
   pass "a guarded mutation holds only its own task, never the whole lease command surface"
 }
 
@@ -1255,15 +1277,16 @@ test_release_actor_is_bounded_and_named() {
       sleep 30
     ' _ "$ROOT/bin/fm-wake-lib.sh" "$home/state/.fm-lease-command.lock" >/dev/null 2>&1 &
   holder_pid=$!
-  while [ ! -e "$home/holder-ready" ]; do sleep 0.01; done
+  wait_for_lease_fixture "$holder_pid" "$home/holder-ready"
   printf 'branch\t%s\t1\n' "$$" > "$home/state/.lease-task-kept"
 
   started=$SECONDS
   out=$(FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_LEASE_RELEASE_ACTOR_WAIT=1 \
-    timeout 10 "$ROOT/bin/fm-lease.sh" release-actor --actor branch 2>&1)
+    fm_run_timed 10 "$ROOT/bin/fm-lease.sh" release-actor --actor branch 2>&1)
   status=$?
   elapsed=$((SECONDS - started))
-  kill "$holder_pid" 2>/dev/null; wait "$holder_pid" 2>/dev/null
+  kill "$holder_pid" 2>/dev/null
+  wait_for_exit "$holder_pid" 20 2>/dev/null || true
   [ "$status" -eq 7 ] || fail "contended release-actor exited $status, not 7: $out"
   [ "$elapsed" -le 4 ] || fail "contended release-actor took ${elapsed}s against a 1s bound"
   assert_contains "$out" "held by pid $holder_pid" "contended release-actor did not name the holder"
