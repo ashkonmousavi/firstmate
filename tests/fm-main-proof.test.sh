@@ -18,21 +18,34 @@ cat > "$TMP_ROOT/fakebin/gh" <<'SH'
 printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
 [ ! -e "$FM_TEST_RUNS.fail" ] || { echo 'error: API unreachable' >&2; exit 1; }
 case "$*" in
-  *"repos/example/q/commits/$FM_TEST_SHA/check-runs"*) cat "$FM_TEST_RUNS" ;;
+  *"repos/example/q/commits/$FM_TEST_SHA/check-runs"*)
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = --jq ]; then
+        jq -r "$2" "$FM_TEST_RUNS.json"
+        exit $?
+      fi
+      shift
+    done
+    exit 1
+    ;;
   *) exit 1 ;;
 esac
 SH
 chmod +x "$TMP_ROOT/fakebin/gh"
 
-# One check run per line: id name head_sha status conclusion, as the --jq
-# filter in bin/fm-main-proof.sh emits it.
+# One check run per line: id name head_sha status conclusion producer, converted
+# into the API's JSON response for the fake gh to project.
 write_runs() {
   : > "$TMP_ROOT/runs"
   rm -f "$TMP_ROOT/runs.fail"
   local row
   for row in "$@"; do
-    printf '%s\n' "$row" | tr ' ' '\t' >> "$TMP_ROOT/runs"
+    printf '%s\n' "$row" >> "$TMP_ROOT/runs"
   done
+  jq -Rn '{check_runs: [inputs | split(" ") | {
+    id: (.[0] | tonumber), name: .[1], head_sha: .[2], status: .[3],
+    conclusion: .[4], app: (if .[5] == "-" then null else {slug: (.[5] // "github-actions")} end)
+  }]}' < "$TMP_ROOT/runs" > "$TMP_ROOT/runs.json"
 }
 
 run_proof() {
@@ -77,6 +90,22 @@ test_legs_from_another_commit_do_not_count() {
   pass "a required check that succeeded on a newer commit does not prove the named commit"
 }
 
+test_checks_remain_bound_to_their_producer() {
+  write_runs "1 unit $SHA completed success" "2 e2e $SHA completed success other-app"
+  expect_verdict wrong-producer-only 1 "unproven $SHA: e2e=missing"
+  write_runs "1 unit $SHA completed success" "2 e2e $SHA completed cancelled" "3 e2e $SHA completed success other-app"
+  expect_verdict wrong-producer-success 1 "unproven $SHA: e2e=cancelled"
+  write_runs "1 unit $SHA completed success" "2 e2e $SHA in_progress -" "3 e2e $SHA completed success other-app"
+  expect_verdict wrong-producer-pending 1 "unproven $SHA: e2e=in_progress"
+  write_runs "1 unit $SHA completed success" "2 e2e $SHA completed success" "3 e2e $SHA completed cancelled other-app"
+  expect_verdict unrelated-producer-cancel 0 "proved $SHA"
+  write_runs "1 unit $SHA completed success" "2 e2e $SHA completed cancelled" "3 e2e $SHA completed success other-app" "4 e2e $SHA completed success"
+  expect_verdict bound-producer-rerun 0 "proved $SHA"
+  write_runs "1 unit $SHA completed success" "2 e2e $SHA completed success -"
+  expect_verdict missing-producer 1 "unproven $SHA: e2e=missing"
+  pass "only the latest GitHub Actions check can prove or invalidate each required workflow leg"
+}
+
 test_unreadable_checks_are_unknown() {
   write_runs
   : > "$TMP_ROOT/runs.fail"
@@ -97,5 +126,6 @@ test_invalid_requests_refuse() {
 test_complete_proof_on_the_named_commit
 test_incomplete_proof_never_passes
 test_legs_from_another_commit_do_not_count
+test_checks_remain_bound_to_their_producer
 test_unreadable_checks_are_unknown
 test_invalid_requests_refuse

@@ -118,19 +118,59 @@ test_release_backpressure_names_the_bottleneck() {
   mkdir -p "$home/config" "$home/data"
   cat > "$home/fakebin/crew-state" <<'SH'
 #!/usr/bin/env bash
-printf 'state: parked · source: run-step · ci fixture\n'
+if [ -e "$FM_HOME/state/$1.crew-state" ]; then
+  cat "$FM_HOME/state/$1.crew-state"
+else
+  printf 'state: working · source: pane · writing fixture\n'
+fi
 SH
   chmod +x "$home/fakebin/crew-state"
   printf '3\n' > "$home/config/writing-lane-cap"
   printf '1\n' > "$home/config/release-capacity"
   printf '# Backlog\n\n## Queued\n' > "$home/data/backlog.md"
   printf '%s\n' '- [ ] repair-one - A dispatchable repair (kind: ship)' >> "$home/data/backlog.md"
-  printf 'window=fixture:one\nkind=ship\n' > "$state/one.meta"
+  printf 'kind=ship\n' > "$state/one.meta"
   run_watch "$home" "$out"
   wait_for_exit "$WATCH_PID" 100 || fail "free capacity under the release bound did not wake"
   grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null \
     || fail "an unpublished lane was counted as release pressure: $(cat "$out")"
 
+  printf 'state: working · source: run-step · validating (running)\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "unpublished validation backpressure did not wake"
+  grep -F 'lane backpressure: 1/1 lanes awaiting validation or release' "$out" >/dev/null \
+    || fail "unpublished validation did not count as release pressure: $(cat "$out")"
+  grep -F '1 ready: repair-one' "$out" >/dev/null \
+    || fail "validation backpressure hid the dispatchable repair: $(cat "$out")"
+
+  printf 'state: parked · source: run-step · parked at fix_review\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  stop_quiet_watch "$out"
+
+  printf 'state: done · source: run-step · run completed\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "completed validation did not release capacity"
+  grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null \
+    || fail "completed validation still counted as pressure: $(cat "$out")"
+
+  printf 'state: parked · source: run-step · parked at fix_review\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "parked unpublished validation backpressure did not wake"
+  grep -F 'lane backpressure: 1/1 lanes awaiting validation or release' "$out" >/dev/null \
+    || fail "parked unpublished validation did not count as pressure: $(cat "$out")"
+
+  printf 'state: working · source: pane · writing fixture\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "resumed writing did not release validation capacity"
+  grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null \
+    || fail "writing through the pane still counted as validation pressure: $(cat "$out")"
+
+  printf 'state: working · source: run-step · validating (fixing)\n' > "$state/one.crew-state"
   printf 'pr=https://github.com/example/repo/pull/7\n' >> "$state/one.meta"
   : > "$out"
   run_watch "$home" "$out"
@@ -143,6 +183,11 @@ SH
     fail "backpressure still asked to fill idle lanes: $(cat "$out")"
   fi
 
+  printf 'state: done · source: run-step · run completed\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  stop_quiet_watch "$out"
+
   printf 'zero\n' > "$home/config/release-capacity"
   : > "$out"
   run_watch "$home" "$out"
@@ -150,7 +195,7 @@ SH
   grep -F 'invalid config/release-capacity' "$home/state/.triage.log" >/dev/null 2>&1 \
     || grep -rF 'invalid config/release-capacity' "$home/state" >/dev/null 2>&1 \
     || fail "an invalid release capacity was not reported"
-  pass "watcher replaces the fill-lanes wake with named release backpressure while still listing dispatchable repairs"
+  pass "watcher counts unpublished working and parked validation and published work once per lane while still listing dispatchable repairs"
 }
 
 test_idle_capacity_wake

@@ -6,9 +6,10 @@
 #
 # The required checks are the project's full-proof legs, named by the caller
 # from the project's own workflow definitions (AGENTS.md section 6 routes that
-# workflow map into data/learnings.md). Each check is judged by its latest run
-# on the named commit, so a rerun that succeeded replaces an earlier failure and
-# a later cancellation replaces an earlier success. A check that is missing,
+# workflow map into data/learnings.md). Each check is judged by its latest
+# GitHub Actions run on the named commit, so a rerun that succeeded replaces
+# an earlier failure and a later cancellation replaces an earlier success.
+# A check that is missing,
 # still running, cancelled, skipped, neutral, or failed leaves the commit
 # unproven; a run on any other commit, including a newer main merge, never
 # counts. The verdict therefore stays bound to the named commit: a newer commit
@@ -42,16 +43,16 @@ esac
 [ "${#SHA}" -eq 40 ] || { echo "error: commit must be a full 40-character lowercase sha" >&2; exit 2; }
 
 if ! runs=$(gh api --paginate "repos/$REPO/commits/$SHA/check-runs?per_page=100" \
-  --jq '.check_runs[] | [.id, .name, .head_sha, .status, (.conclusion // "-")] | @tsv'); then
+  --jq '.check_runs[] | [.id, .name, .head_sha, .status, (.conclusion // "-"), (.app.slug // "-")] | @tsv'); then
   echo "unknown $SHA: check runs could not be read"
   exit 2
 fi
 
 missing=''
 for check in "$@"; do
-  # Latest run of this exact name on this exact commit, by run id.
+  # Latest GitHub Actions run of this exact name on this exact commit, by run id.
   latest=$(printf '%s\n' "$runs" | awk -F '\t' -v n="$check" -v s="$SHA" '
-    $2 == n && $3 == s && ($1 + 0) > best { best = $1 + 0; st = $4; co = $5 }
+    $2 == n && $3 == s && $6 == "github-actions" && ($1 + 0) > best { best = $1 + 0; st = $4; co = $5 }
     END { if (best) print st, co }')
   if [ -z "$latest" ]; then
     state=missing

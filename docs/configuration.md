@@ -615,8 +615,9 @@ The flag is a home-local supervision-noise preference and is not inherited by se
 The optional local, gitignored `config/writing-lane-cap` holds one positive integer: the maximum number of live ship lanes, never a number to fill.
 While fewer lanes are occupied and dispatchable work is ready, the watcher raises one capacity notice naming the free lanes and the ready items.
 
-The optional `config/release-capacity` holds one positive integer bounding how many of those lanes may already have recorded a PR, that is, work in validation, CI, the merge queue, or landing.
-Once that bound is reached, the capacity notice becomes a backpressure notice that names the release bottleneck and still lists the ready items, so firstmate lands or repairs published work before starting more.
+The optional `config/release-capacity` holds one positive integer bounding how many of those lanes are working or parked in an attributed validation run, or have recorded a PR in CI, the merge queue, or landing.
+Each lane counts once even when both conditions hold.
+Once that bound is reached, the capacity notice becomes a backpressure notice that names the validation or release bottleneck and still lists the ready items, so firstmate completes validation, lands work, or repairs it before starting more.
 Backpressure never refuses a spawn, so a named repair or independent item can still be dispatched.
 An invalid value in either file is reported in the watcher log and suppresses the notice rather than guessing a bound.
 Both files are home-local and not inherited by secondmate homes.
