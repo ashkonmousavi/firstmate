@@ -1,0 +1,38 @@
+Test phase boundaries and evidence classes
+
+Live local evidence: real fm-watch.sh, fm-tasks-axi.sh/tasks-axi, fm-crew-state.sh, fm-busy-event.sh, fm-project-mode.sh and early fm-pr-merge.sh refusal paths.
+All consumed backlog, metadata, status and busy-protocol records were disposable input data under a marked worktree-local home.
+The tmux observer was an ordinary shell on that home's private fm-lab socket, sized to 120 columns and 40 rows.
+No native agent/harness turn, real PR, queue enrollment, candidate CI, merge, installation or fleet adoption is claimed by these local scenarios.
+No fake executable was used by the manual live driver.
+The disposable Git repositories had a detached worker HEAD to avoid querying any no-mistakes pipeline.
+The full-lane-cap check used a private nonexistent socket, so no default tmux session was read.
+
+Initial manual setup correction: the invalid-release-capacity case first surfaced an independent status-file signal while expecting silence:
+  signal: <disposable home>/state/one.status
+This was an incorrect test setup expectation, not release-capacity advice.
+The retained status file was removed before re-driving this scenario.
+The re-drive passed; the watcher logged invalid config/release-capacity and issued no capacity notice.
+
+Fixture evidence: tests/fm-main-proof.test.sh and tests/fm-pr-merge.test.sh replace forge/queue commands; tests/fm-idle-lane-wake.test.sh replaces crew-state and tmux inputs; tests/fm-task-delivery.test.sh uses isolated launch fixtures.
+These tests are non-live supporting regression evidence.
+They cannot establish genuine GitHub producer results, Mergify enrollment or actual native-harness permission behavior.
+
+Unavailable remote acceptance: a live Mergify scenario needs an authorized disposable GitHub repository with a configured/installed Mergify app, a writable PR, candidate Actions workflows and current-main proof data.
+This assigned Test phase forbids PR, push and CI phase execution, shared-service mutations and credential/configuration changes.
+Neither a local Git repository nor a fake gh/mergify response can supply that live proof.
+Provide a pre-provisioned isolated repository/PR and explicitly delegated lab-only queue/CI authority to re-run those scenarios; the outer executor remains the publication/CI owner.
+No external network calls or operator data/credentials were accessed by the manual driver.
+
+Contract-only limitations: designated-proof scheduling, bot/batch authority, daily-audit separation, revert detectors and unknown-harness escalation were inspected as changed policy guidance.
+No scheduler, real native development turn or installed fleet was exercised to demonstrate agents following that guidance.
+Historical retained-handoff concerns were preserved as decided and were not reopened.
+
+There is no changed graphical UI surface; the reviewer-visible CLI and persisted-state transcript is the product artifact.
+All disposable homes, repositories, protocol records and private sockets were torn down.
+No source changes are retained from this Test phase.
+
+Final targeted regression results: all four named shell test files exited 0, as returned by their execution sessions.
+All twelve final live local scenario results passed.
+Final git status --short was empty; the manual driver and disposable lab were removed.
+No lint, formatter, static analyzer or full repository suite was run.

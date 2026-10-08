@@ -1,0 +1,6 @@
+ok - a commit whose every required check latest run succeeded is proved
+ok - cancelled, skipped, missing, pending and superseded-by-cancellation checks leave the commit unproven
+ok - a required check that succeeded on a newer commit does not prove the named commit
+ok - only the latest GitHub Actions check can prove or invalidate each required workflow leg
+ok - an unreadable check-run list is unknown, never proved or failed
+ok - a malformed commit or an empty required-check list refuses

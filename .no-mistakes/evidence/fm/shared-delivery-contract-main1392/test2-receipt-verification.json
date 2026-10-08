@@ -1,0 +1,19 @@
+{
+  "candidate": "4c86c7fe04da4d08560bdb3d1ec9971584588fb0",
+  "retained_receipt_hashes_verified": [
+    "targeted-test-exits.json",
+    "main-proof-tests.log",
+    "idle-lane-tests.log",
+    "pr-merge-tests.log",
+    "task-delivery-tests.log",
+    "live-local-results.json",
+    "live-local-transcript.txt",
+    "validation-boundaries.txt",
+    "test2-local-seams-driver.py",
+    "test2-local-seams-results.json"
+  ],
+  "worktree_clean": true,
+  "disposable_labs_absent": true,
+  "new_test_runs": 0,
+  "qualification": "Retained evidence from this same native run; fixture proof is not hosted or native-model adoption proof."
+}

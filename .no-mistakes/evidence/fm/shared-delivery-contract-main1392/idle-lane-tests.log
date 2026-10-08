@@ -1,0 +1,5 @@
+ok - watcher wakes once for configured free writing lanes and a changed ready set, not for empty capacity or a cap filled by parked crews
+ok - watcher names only dispatchable ready rows, not public follow-up obligations
+ok - documentation and issue links on completed local-only lanes preserve ordinary idle wakes
+ok - watcher retains validation and ready-PR pressure until retirement and counts each published lane once
+ok - unknown, unreadable, or noncompletion status-log states suppress capacity notices unless a recorded PR establishes pressure

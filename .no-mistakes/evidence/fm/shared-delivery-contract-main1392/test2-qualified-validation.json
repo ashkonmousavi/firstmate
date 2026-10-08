@@ -1,0 +1,246 @@
+{
+  "tested_head_sha": "4c86c7fe04da4d08560bdb3d1ec9971584588fb0",
+  "selected_finding": "test-2",
+  "diagnosis": {
+    "trigger": "Five scenario definitions required hosted services or model/supervisor behavior beyond the assigned public executable and contract seams.",
+    "symptom": "The original report labelled those five scenarios untested despite passing focused public-command regressions.",
+    "cause": "Evidence classes and acceptance owners were conflated in scenario qualification; no failing code/test was identified.",
+    "correction": "Map retained fixture/local runtime receipts to D1-D6, fill only missing local launch/identity evidence, and preserve unavailable hosted/installed/adoption evidence as unverified.",
+    "source_changes": "none"
+  },
+  "retained_receipts": {
+    "prior_tests": {
+      "bash tests/fm-main-proof.test.sh": {
+        "exit_code": 0,
+        "live": false
+      },
+      "bash tests/fm-idle-lane-wake.test.sh": {
+        "exit_code": 0,
+        "live": false
+      },
+      "bash tests/fm-pr-merge.test.sh": {
+        "exit_code": 0,
+        "live": false
+      },
+      "bash tests/fm-task-delivery.test.sh": {
+        "exit_code": 0,
+        "live": false
+      }
+    },
+    "prior_local_runtime_scenarios": [
+      {
+        "name": "Ready work below the lane and release limits produces an idle-capacity wake",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "An unchanged ready set does not repeat the capacity wake",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "A recorded PR saturates release capacity and the wake still names repair and independent work",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "Retiring a published lane restores available capacity",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "An unreadable unpublished lane suppresses capacity advice and names the lane",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "A completed local-only lane with a documentation link preserves ordinary idle advice",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "A completed local-only lane with a issue link preserves ordinary idle advice",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "A real-format completed PR report consumes release capacity without pr metadata",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "Invalid release capacity refuses to invent a capacity notice",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "Selecting queue landing preserves delivery posture and refuses invalid or local-only queue configuration",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "The public merge command refuses invalid landing and routine queue waivers before contacting the forge",
+        "result": "pass",
+        "live": true
+      },
+      {
+        "name": "A full writing-lane maximum emits no request for additional starts",
+        "result": "pass",
+        "live": true
+      }
+    ],
+    "new_focused_command": "python3 /home/tegris/.no-mistakes/evidence/01M4E7BAHBXQ3NWFFXVXNYRF29/test2-local-seams-driver.py",
+    "new_focused_results": "test2-local-seams-results.json: four public-command fixture cases passed; recording Codex executable, no model call; disposable worktree-local lab removed",
+    "rerun_policy": "The four previously passing shell test files and twelve local runtime scenarios were not rerun; their original results are carried forward."
+  },
+  "outcomes": [
+    {
+      "id": "D1",
+      "qualification": "public-command fixture pass; hosted enrollment unverified",
+      "receipts": [
+        "pr-merge-tests.log: final Mergify cases",
+        "live-local-transcript.txt: early merge refusals",
+        "tests/fm-pr-merge.test.sh:4178,4203,4252"
+      ],
+      "observations": "Authorized exact-head queue handoff, requested versus confirmed enrollment, moved/unreadable head invalidation, and red/missing/waived/away refusal exercised through real merge command with fake forge responses. No genuine Mergify app was driven.",
+      "acceptance_owner": "Main/Q and outer publication/CI executor"
+    },
+    {
+      "id": "D2",
+      "qualification": "public-command fixture pass; real repository history unverified",
+      "receipts": [
+        "main-proof-tests.log",
+        "tests/fm-main-proof.test.sh: named-commit and required-producer cases",
+        "pr-merge-tests.log: bootstrap/cutoff cases",
+        "tests/fm-pr-merge.test.sh:4292,4309,4359"
+      ],
+      "observations": "Complete named-commit proof passed; cancelled/skipped/missing/pending/wrong-head/wrong-producer/unreadable cases refused. Bootstrap exact current-main/source-head proof and recorded first_queue_landing cutoff passed fixture controls, including no merged-history API call for skipped-candidate history. Daily audit and live health remain separate contracts, not observations of those services.",
+      "acceptance_owner": "Main/Q for hosted proof and landing; outer executor for CI"
+    },
+    {
+      "id": "D3",
+      "qualification": "contract inspection plus supporting executable head/proof guards; supervisor/batch runtime unverified",
+      "receipts": [
+        "AGENTS.md:244-254",
+        "bin/fm-main-proof.sh: named-commit interface",
+        "pr-merge-tests.log: head movement guards",
+        ".agents/skills/ship-landing/SKILL.md:20-27"
+      ],
+      "observations": "Retained executable tests prevent proof from another head and refuse incomplete named proof. They do not demonstrate pending whole-proof scheduling, exact tested-batch fast-forward execution, bot authority enforcement by a remote queue, or a model following policy. The change adds policy guidance and no executable local scheduler implementing those behaviors; a source scan is not runtime proof.",
+      "acceptance_owner": "Main/Q supervisor and queue/workflow owners"
+    },
+    {
+      "id": "D4",
+      "qualification": "launch/admission and identity public-command fixture pass; model adoption unverified",
+      "receipts": [
+        "task-delivery-tests.log",
+        "test2-local-seams-results.json",
+        "test2-local-seams-driver.py",
+        ".agents/skills/harness-adapters/SKILL.md:31"
+      ],
+      "observations": "Original spawn/promotion fixtures reach launch contract rendering on valid authored records and refuse malformed/mismatched records. New Codex launcher fixture reaches a recording executable with closed stdin and correct client home/pid/birth, drops inherited session/thread identity, and refuses incomplete Herdr identity before execution. Known supervision harness resolves; unknown configured identity returns exit 2 and a named refusal without stdin. Recording executable evidence cannot establish real harness permission dialogs or a model obeying the unknown-harness routing guidance. Prior native Test execution as Codex pid2133192 is supplied prior-run context, separate from future installed policy adoption.",
+      "acceptance_owner": "Main/coordinator for installed harness adoption"
+    },
+    {
+      "id": "D5",
+      "qualification": "public-command fixture and observed local runtime pass",
+      "receipts": [
+        "idle-lane-tests.log",
+        "live-local-results.json",
+        "live-local-transcript.txt",
+        "validation-boundaries.txt"
+      ],
+      "observations": "Capacity below/full maximum, deduplication, recorded PR and attributed-validation release pressure, retirement, independent/repair ready items, unknown-read/config refusal, local documentation/issue URL exclusion, and real PR-report positive control have retained evidence. Listing ready repair/independent items does not prove a subsequent fleet dispatch. One invalid-capacity setup had an unrelated status event; corrected local setup re-drive passed.",
+      "acceptance_owner": "Main/coordinator for actual fleet scheduling/adoption"
+    },
+    {
+      "id": "D6",
+      "qualification": "scoped person-stop contract/tool inventory, with executable controls where available; policy effectiveness unverified",
+      "receipts": [
+        "AGENTS.md:240-255",
+        ".agents/skills/harness-adapters/SKILL.md:26-32",
+        ".agents/skills/harness-adapters/references/harness/codex.md: Hook trust",
+        "bin/fm-dod-lib.sh:1334-1352",
+        "pr-merge-tests.log",
+        "test2-local-seams-results.json"
+      ],
+      "inventory": [
+        {
+          "condition": "Green ordinary PR on configured queue",
+          "disposition": "No added approval for queue enrollment; fixture handoff/readback passed.",
+          "owner": "Firstmate/queue"
+        },
+        {
+          "condition": "Known scoped CI waiver decision and non-stop-set validation finding",
+          "disposition": "Firstmate owns waiver decisions and worker owns routine batch fixes; no captain wait added; waiver/head/away guards retained in executable fixtures.",
+          "owner": "Firstmate/task worker"
+        },
+        {
+          "condition": "Unknown harness or invalid identity/configuration",
+          "disposition": "Named refusal routed to Firstmate; no guessing. New executable identity/config cases refused without interactive input; model routing remains contract-only.",
+          "owner": "Firstmate configuration/identity repair"
+        },
+        {
+          "condition": "Project intake posture/forge binding or nonconfigured non-yolo merge",
+          "disposition": "Existing explicit project/merge authority remains; this run does not broaden authorization.",
+          "owner": "Captain for standing authority; Firstmate for routing"
+        },
+        {
+          "condition": "Destructive, irreversible, security-sensitive, money, product choice or stop-set escalation",
+          "disposition": "Human authority remains per accepted scope; worker reports escalation instead of bypassing guards.",
+          "owner": "Firstmate routes to captain"
+        },
+        {
+          "condition": "Native primary/secondmate untrusted Codex hooks, real sign-in, live person settings",
+          "disposition": "Operator hook review and person-controlled access/settings remain outside development fixture authority; no trust store, credentials or settings changed.",
+          "owner": "Operator/captain; Main/coordinator for isolated adoption validation"
+        }
+      ],
+      "acceptance_owner": "Firstmate/Main for remaining authority handoffs and installed behavior"
+    }
+  ],
+  "five_originally_untested_scenarios": [
+    {
+      "scenario": "Ordinary queue enrollment/readback/head movement",
+      "local_result": "qualified fixture pass from retained pr-merge receipts",
+      "hosted_result": "unverified"
+    },
+    {
+      "scenario": "Bootstrap current-main exact-head proof and cutoff",
+      "local_result": "qualified fixture pass from retained pr-merge receipts",
+      "hosted_result": "unverified"
+    },
+    {
+      "scenario": "Required-producer named-commit complete proof",
+      "local_result": "qualified fixture pass from retained main-proof receipts",
+      "hosted_result": "unverified"
+    },
+    {
+      "scenario": "Designated pending proof and tested batch policy",
+      "local_result": "contract inspection and executable head/proof controls only; no local scheduler added",
+      "supervisor_queue_result": "unverified"
+    },
+    {
+      "scenario": "Granted development and unknown identity",
+      "local_result": "original launch admission fixtures plus four new launcher/identity fixture cases passed",
+      "native_model_adoption_result": "unverified"
+    }
+  ],
+  "source_local_qualification": "The assigned public command fixtures and retained local runtime checks support the executable source changes. Policy-only supervisor and model outcomes retain explicit runtime limitations.",
+  "overall_verdict": "inconclusive",
+  "exact_verdict_limitation": "The original stock live scenario verdict requires genuine hosted Mergify/candidate history and actual supervisor/model adoption evidence. This Test phase excludes PR/push/CI control, real queue mutations, live accounts, and all-home configuration changes. Local fixtures cannot satisfy those live labels. No go verdict or gate configuration change is fabricated.",
+  "excluded_work": "No source edits, lint, formatter, static analysis, full-suite walk, extra manual review, network call, credentials read, model invocation, pipeline control, PR/push/CI phase, installation or all-home changes.",
+  "preserved_history": "Historical evidence-retention finding remains declined; this report addresses current Test qualification and does not reconstruct missing historical receipts.",
+  "receipt_integrity": {
+    "targeted-test-exits.json": "0bc8fd8c35fb4e06ee72e63fec0194c289cea82b3936b8d5b99598702bc08e63",
+    "main-proof-tests.log": "f9a792f4d923beae81c73fd6083058a9a54136799184c6080b72b9c738beed17",
+    "idle-lane-tests.log": "4e683e9e1a627185112172a32b77866670346d13fa1325945560a4c8f5a05804",
+    "pr-merge-tests.log": "bcd5b754bf3176cad6da50eee825d98c3628a34f7cd239cb32b2d03da8b8fb11",
+    "task-delivery-tests.log": "16b06b1128ab598133766b44e8fcd12c74811f32364a8066d666e3cfa72afa33",
+    "live-local-results.json": "d1eb2b25ba9696be82197d7946bc3999a8717d535dc203d8cd92777357560ab6",
+    "live-local-transcript.txt": "f7b088bbde04e807c96ee98eed912193d0d42af70bac3c26830ad407e7e51f00",
+    "validation-boundaries.txt": "4d6c921ebf47146b3bb5614d892aafd4fd98516e7d13eb203c1fcbe30f589707",
+    "test2-local-seams-driver.py": "b9ca313c3a48bcbe1d7937e66083acd794f80d267704d1e6bff7c08d8dd61532",
+    "test2-local-seams-results.json": "74c40c606fa686216b196665166c64c18899513bd3f4a78ed5d4ecf42f366cb2"
+  }
+}

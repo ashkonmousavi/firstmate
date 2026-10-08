@@ -1,0 +1,18 @@
+{
+  "bash tests/fm-main-proof.test.sh": {
+    "exit_code": 0,
+    "live": false
+  },
+  "bash tests/fm-idle-lane-wake.test.sh": {
+    "exit_code": 0,
+    "live": false
+  },
+  "bash tests/fm-pr-merge.test.sh": {
+    "exit_code": 0,
+    "live": false
+  },
+  "bash tests/fm-task-delivery.test.sh": {
+    "exit_code": 0,
+    "live": false
+  }
+}

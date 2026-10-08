@@ -1,0 +1,68 @@
+{
+  "tested_head_sha": "4c86c7fe04da4d08560bdb3d1ec9971584588fb0",
+  "records": [
+    {
+      "name": "valid launcher identity reaches recording executable without interactive input",
+      "command": [
+        "bash",
+        "bin/fm-codex-primary.sh",
+        "--fixture-development"
+      ],
+      "environment_overrides": {},
+      "exit_code": 0,
+      "stdout": "{\"argv\": [\"-c\", \"shell_environment_policy.set.FM_CODEX_CLIENT_PID=\\\"3318987\\\"\", \"-c\", \"shell_environment_policy.set.FM_CODEX_CLIENT_BIRTH=\\\"proc:42115117\\\"\", \"-c\", \"shell_environment_policy.set.FM_CODEX_CLIENT_HOME=\\\"/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4E7BAHBXQ3NWFFXVXNYRF29/.test2-local-seams-1y_so_2k/home\\\"\", \"-c\", \"shell_environment_policy.set.TMUX=\\\"\\\"\", \"-c\", \"shell_environment_policy.set.TMUX_PANE=\\\"\\\"\", \"-c\", \"shell_environment_policy.set.HERDR_ENV=\\\"\\\"\", \"-c\", \"shell_environment_policy.set.HERDR_PANE_ID=\\\"\\\"\", \"-c\", \"shell_environment_policy.set.HERDR_SESSION=\\\"\\\"\", \"-c\", \"shell_environment_policy.set.HERDR_SOCKET_PATH=\\\"\\\"\", \"--fixture-development\"], \"inherited_thread\": null, \"inherited_session\": null}\n",
+      "stderr": "",
+      "evidence_class": "public-command fixture; no model session",
+      "result": "pass"
+    },
+    {
+      "name": "incomplete Herdr identity refuses before executable launch",
+      "command": [
+        "bash",
+        "bin/fm-codex-primary.sh",
+        "--fixture-development"
+      ],
+      "environment_overrides": {
+        "HERDR_ENV": "1"
+      },
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "error: incomplete Herdr pane identity at Codex launch\n",
+      "evidence_class": "public-command fixture; no model session",
+      "result": "pass"
+    },
+    {
+      "name": "configured supervision identity permits known harness",
+      "command": [
+        "bash",
+        "bin/fm-harness.sh"
+      ],
+      "environment_overrides": {
+        "FM_SUPERVISION_ACTOR": "branch",
+        "FM_SUPERVISION_PRIMARY_HARNESS": "codex"
+      },
+      "exit_code": 0,
+      "stdout": "codex\n",
+      "stderr": "",
+      "evidence_class": "public-command fixture; no model session",
+      "result": "pass"
+    },
+    {
+      "name": "unknown supervision identity returns named refusal without interactive input",
+      "command": [
+        "bash",
+        "bin/fm-harness.sh"
+      ],
+      "environment_overrides": {
+        "FM_SUPERVISION_ACTOR": "branch",
+        "FM_SUPERVISION_PRIMARY_HARNESS": "fixture-unknown"
+      },
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "error: FM_SUPERVISION_PRIMARY_HARNESS='fixture-unknown' names no known harness; refusing to resolve the supervision branch's harness\n",
+      "evidence_class": "public-command fixture; no model session",
+      "result": "pass"
+    }
+  ],
+  "lab_removed": true
+}
