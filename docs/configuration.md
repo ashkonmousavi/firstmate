@@ -627,7 +627,7 @@ Each lane counts once even when both conditions hold.
 Once that bound is reached, the capacity notice becomes a backpressure notice that names the validation or release bottleneck and still lists the ready items, so firstmate completes validation, lands work, or repairs it before starting more.
 Backpressure never refuses a spawn, so a named repair or independent item can still be dispatched.
 An invalid value in either file is reported in the watcher log and suppresses the notice rather than guessing a bound.
-With release capacity configured, an unreadable, unknown, or malformed crew state for a lane without a recorded PR also suppresses the notice and names the unavailable lane in the watcher log.
+With release capacity configured, an unreadable, unknown, or malformed crew state, or a status-log state other than done, for a lane without a recorded PR suppresses the notice and names the unavailable lane in the watcher log.
 Both files are home-local and not inherited by secondmate homes.
 `bin/fm-watch.sh`'s `idle_lane_tick` owns the exact counting.
 

@@ -2498,7 +2498,7 @@ idle_lane_tick() {
           case "$state/$src" in
             working/run-step|parked/run-step|done/run-step|failed/run-step|done/status-log)
               released=$((released + 1)) ;;
-            working/pane|working/status-log|parked/status-log|blocked/status-log|paused/status-log|failed/status-log) ;;
+            working/pane) ;;
             *) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
           esac
           ;;
