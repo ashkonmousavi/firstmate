@@ -768,6 +768,7 @@ test_named_base_branch_starts_from_that_branch() {
     publish_feature_branch feature/hub
     brief_with_base "$id" feature/hub
     if [ "$kind" = ship ]; then
+      fm_test_prep_depth "$HOME_DIR/data/$id/prep.md" direct-PR || fail "direct-PR prep fixture"
       out=$(run_spawn "$id" --mode direct-PR --yolo off --base-branch feature/hub)
     else
       out=$(run_spawn "$id" --scout --base-branch feature/hub)
