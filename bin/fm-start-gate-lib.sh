@@ -10,34 +10,32 @@
 # secondmates never reach it, and every existing allocation, isolation and
 # account guard keeps its own authority after this gate permits.
 #
-# Applicability is configured, never inferred: only a project named in this
-# home's config/start-gate.json is gated, so an absent file or an unnamed
-# project keeps today's spawn contract unchanged. The map is inherited into
-# secondmate homes by bin/fm-config-inherit-lib.sh; enabling a project is the
-# home's adoption step. docs/configuration.md ("Feature start gate") owns
-# that file's schema.
+# docs/configuration.md ("Feature start gate") owns config/start-gate.json's
+# applicability, schema, inheritance and adoption contract.
 #
 # Task class is authored in the preparation record's Tier section as one line,
 #   - Work class: <feature|fix|revert|live-breakage>
-# read by bin/fm-dod-lib.sh's fm_prep_work_class. It is never guessed from a
-# title, model or UI tier. A gated project refuses a fresh ship whose class is
-# missing or unrecognised, naming the line to add, without consulting facts.
-# A valid repair class passes before reading configuration or requiring jq,
+# read by bin/fm-dod-lib.sh's fm_prep_work_class. Whitespace after the colon
+# is optional; only surrounding answer whitespace is trimmed.
+# It is never guessed from a title, model or UI tier. A gated project refuses
+# a fresh ship with a missing or unrecognised class, naming the line to add,
+# without consulting facts.
+# A valid repair class passes before validating configuration or requiring jq,
 # so a repair is never refused by configuration or fact health.
 # When applicability is unknown because the map is broken or jq unavailable,
 # only a declared feature refuses; an invalid or absent class warns and permits.
 #
-# Facts are produced outside spawn by the project's fact owner (the private
-# collector registered as a check), never by a fleet scan here. The locator is
-# the configured "facts" path; the snapshot is one JSON object:
+# Facts are produced outside spawn by the project's fact owner, never by a
+# fleet scan here. The locator is the configured "facts" path; the snapshot
+# is one JSON object:
 #   {"schema": "fm-start-facts.v1",
 #    "generated_at": <integer epoch seconds>,
-#    "project": "<registered project name>",
+#    "project": "<project directory basename matching the map key>",
 #    "causes": [
 #      {"id": "<stable cause id>",
 #       "kind": "main-failure" | "frozen-machine",
 #       "detail": "<one-line human cause>",
-#       "owner_task": "<task id>" | null,
+#       "owner_task": "<task id>" | "" | null,
 #       "owner_state": "<reconciled worker state>" | null}
 #    ]}
 # causes lists every current main failure cause and frozen machine; an empty
@@ -45,6 +43,7 @@
 # worker state (bin/fm-crew-state.sh from a live source, never a status line).
 # A cause is covered only when owner_task satisfies fm-pr-lib.sh's
 # fm_task_id_path_safe contract and owner_state is working.
+# Missing or empty ownership fields leave the cause uncovered.
 #
 # A feature start is refused, naming the reason, when the snapshot is missing,
 # unreadable, not that schema, for another project, older than 900 seconds,
@@ -52,8 +51,8 @@
 # treated as healthy. Otherwise it is refused naming each uncovered cause,
 # or permitted.
 #
-# Requires bin/fm-dod-lib.sh already sourced and jq on PATH for a gated
-# project. No side effects on source; set -u / set -e safe.
+# Requires bin/fm-dod-lib.sh already sourced; jq is needed to inspect a present
+# map for non-repair work. No side effects on source; set -u / set -e safe.
 
 # shellcheck source=bin/fm-config-inherit-lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-config-inherit-lib.sh"

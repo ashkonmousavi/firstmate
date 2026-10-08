@@ -107,6 +107,8 @@
 # The legacy checks-only depth spelling remains readable; its generated
 # direct-PR contract now requires the same one-round review as the new spelling.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
+# whitespace after the risk/depth label's colon is optional, and only
+# surrounding answer whitespace is trimmed.
 # bin/fm-spawn.sh's header owns fresh-ship depth admission and recovery.
 # Review artifacts and old server-install declarations do not affect admission.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate

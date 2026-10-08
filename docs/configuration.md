@@ -1085,13 +1085,13 @@ Secondmate homes inherit this file from the primary, so a secondmate's own crewm
 
 ## Feature start gate (config/start-gate.json)
 
-`config/start-gate.json` is an optional local, gitignored file that stops a fresh ship spawn from starting new feature work while its project has a main failure cause or frozen machine with no active worker.
-Fixes, reverts, live-breakage work, relaunches of open work, and scouts are never refused by this gate, and it never holds a merge.
+`config/start-gate.json` is an optional local, gitignored applicability map for the [new-feature start gate](../bin/fm-start-gate-lib.sh).
 An absent file, or a project it does not name, keeps the spawn contract unchanged.
 Secondmate homes inherit this map through `bin/fm-config-inherit-lib.sh` like other local configuration.
+Inheritance copies the map's bytes, not the fact snapshots; the configured absolute path must be readable from each home that starts features for that project.
 Enabling a project in the map is the home's adoption step.
 
-The file is one JSON object keyed by registered project name, the basename of the project directory passed to `fm-spawn.sh`:
+The file is one JSON object keyed by the basename of the resolved project directory passed to `fm-spawn.sh`:
 
 ```json
 {
@@ -1100,13 +1100,7 @@ The file is one JSON object keyed by registered project name, the basename of th
 ```
 
 `facts` is the absolute path of the fact snapshot the project's fact owner writes outside spawn.
-A gated project's preparation record must declare `- Work class: <feature|fix|revert|live-breakage>` in its Tier section; a missing or unknown class refuses the spawn and names the line to add.
-Whitespace after the label's colon is optional; only surrounding answer whitespace is trimmed.
-The snapshot schema, its freshness and owner rules, and every refusal are owned by the header of `bin/fm-start-gate-lib.sh`.
-A declared fix, revert, or live-breakage class passes before configuration or facts are read.
-Unreadable or malformed configuration, or unavailable jq, refuses only a declared feature.
-When applicability cannot be determined and no valid Work class is declared, the gate warns once naming the configuration and preserves existing spawn behavior.
-For a named project, classification is checked before the feature-only facts locator and snapshot validation.
+The [gate library header](../bin/fm-start-gate-lib.sh) owns the required Work class declaration, repair and recovery exemptions, configuration failure behavior, and snapshot schema, freshness, ownership, and refusal rules.
 
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
