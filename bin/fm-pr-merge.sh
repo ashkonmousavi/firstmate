@@ -103,10 +103,12 @@
 # only with data/<task-id>/landing-proof.json in the existing task record.
 # The record requires kind=bootstrap|incident, a named incident, repository,
 # head and base full SHAs, result=success, nonempty modules and direct_consumers
-# lists, first_queue_landing=null and the configured queue_merge_actor.
+# lists and first_queue_landing: null before the first verified end-to-end
+# queue landing, a nonempty receipt string afterwards. A recorded receipt
+# refuses direct landing with "queue is the only path"; missing or invalid
+# fields refuse as incomplete proof. Merger identity never decides the cutoff.
 # The base must equal the live base tip and the head the verified PR head.
-# Merged PR history must be readable and show no landing by queue_merge_actor;
-# any such landing ends the direct path. The bypass notice follows these checks.
+# The bypass notice follows these checks.
 # AGENTS.md section 7 owns authority. An invalid landing, a GitLab URL, or the away
 # posture refuses before any forge command; a task record without project=
 # keeps the direct merge.
@@ -1501,7 +1503,7 @@ invalidate_queue_head_authority() {
 }
 
 require_mergify_repair_proof() {
-  local proof="$FM_HOME/data/$ID/landing-proof.json" base actor mergers
+  local proof="$FM_HOME/data/$ID/landing-proof.json" base receipt
   if [ ! -f "$proof" ] || [ -L "$proof" ] || [ ! -r "$proof" ] \
     || ! jq -e --arg repo "$PR_OWNER/$PR_REPO" --arg head "$FM_PR_MERGE_HEAD" '
       def names: type == "array" and length > 0 and all(.[]; type == "string" and test("[^[:space:]]"));
@@ -1510,33 +1512,20 @@ require_mergify_repair_proof() {
       and .repository == $repo and .head == $head
       and (.base | type == "string" and test("^[0-9a-f]{40}$"))
       and .result == "success" and (.modules | names) and (.direct_consumers | names)
-      and has("first_queue_landing") and .first_queue_landing == null
-      and (.queue_merge_actor | type == "string" and test("^[A-Za-z0-9_.\\[\\]-]+$"))
+      and has("first_queue_landing")
+      and (.first_queue_landing == null or (.first_queue_landing | type == "string" and test("[^[:space:]]")))
     ' "$proof" >/dev/null 2>&1; then
     printf 'error: Mergify bypass refused: missing, unreadable or incomplete exact-head bootstrap/incident targeted proof in %s; nothing was handed to the forge\n' "$proof" >&2
+    return 1
+  fi
+  receipt=$(jq -c .first_queue_landing "$proof") || return 1
+  if [ "$receipt" != null ]; then
+    echo 'error: Mergify bypass refused: a verified end-to-end queue landing is recorded; queue is the only path' >&2
     return 1
   fi
   if ! base=$(gh api "repos/$PR_OWNER/$PR_REPO/git/ref/heads/$FM_PR_GITHUB_BASE" --jq .object.sha 2>/dev/null) \
     || [ "$base" != "$(jq -r .base "$proof")" ]; then
     printf 'error: Mergify bypass refused: targeted proof is not on current %s; nothing was handed to the forge\n' "$FM_PR_GITHUB_BASE" >&2
-    return 1
-  fi
-  actor=$(jq -r .queue_merge_actor "$proof") || return 1
-  # shellcheck disable=SC2016
-  if ! mergers=$(gh api graphql --paginate \
-    -f query='query($owner:String!,$repo:String!,$base:String!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequests(states:MERGED,baseRefName:$base,first:100,after:$endCursor){nodes{mergedBy{login}} pageInfo{hasNextPage endCursor}}}}' \
-    -F "owner=$PR_OWNER" -F "repo=$PR_REPO" -f "base=$FM_PR_GITHUB_BASE" \
-    --jq '.data.repository.pullRequests.nodes[] | .mergedBy.login // "unknown"' 2>/dev/null); then
-    echo 'error: Mergify bypass refused: native queue landing history is unreadable; nothing was handed to the forge' >&2
-    return 1
-  fi
-  if printf '%s\n' "$mergers" | grep -qxF "$actor" \
-    || printf '%s\n' "$mergers" | grep -qxF 'mergify[bot]'; then
-    echo 'error: Mergify bypass refused: a native queue landing already exists; queue is the only path' >&2
-    return 1
-  fi
-  if printf '%s\n' "$mergers" | grep -qxF unknown; then
-    echo 'error: Mergify bypass refused: a previous landing has unknown ownership; nothing was handed to the forge' >&2
     return 1
   fi
   printf 'notice: this recorded %s direct merge bypasses the configured Mergify queue before its first native landing; targeted proof: %s\n' \
