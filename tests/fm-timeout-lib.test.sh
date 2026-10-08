@@ -327,6 +327,90 @@ test_run_timed_passes_a_natural_exit_through_a_fired_bound() {
   pass 'fm_run_timed passes a natural exit through when the bound fired after completion'
 }
 
+test_checkpoint_read_bounds_detached_output_holders() {
+  local mechanism dir tool release out rc started elapsed pid
+  for mechanism in bash perl timeout gtimeout; do
+    command -v "$mechanism" >/dev/null 2>&1 || continue
+    dir="$TMP_ROOT/read-$mechanism"
+    mkdir -p "$dir/bin"
+    for tool in bash perl sleep date mktemp cat rm; do
+      ln -s "$(command -v "$tool")" "$dir/bin/$tool"
+    done
+    case "$mechanism" in
+      timeout|gtimeout) ln -s "$(command -v "$mechanism")" "$dir/bin/$mechanism" ;;
+    esac
+    # Like a tmux server receiving capture-pane's descriptors, this process
+    # leaves the bounded group and keeps both output streams open.
+    cat > "$dir/holder.pl" <<'PL'
+use POSIX qw(setsid);
+my $dir = shift;
+my $pid = fork;
+die "fork failed" unless defined $pid;
+if (!$pid) {
+  setsid() >= 0 or die "setsid failed";
+  $| = 1;
+  print "incomplete stdout\n";
+  print STDERR "incomplete stderr\n";
+  open my $record, ">", "$dir/pid" or die $!;
+  print {$record} "$$\n";
+  close $record;
+  while (!-e "$dir/release") { select undef, undef, undef, 0.02 }
+  exit 0;
+}
+sleep 30;
+PL
+    (sleep 4; touch "$dir/release") &
+    release=$!
+    started=$SECONDS
+    rc=0
+    out=$(
+      . "$ROOT/bin/fm-timeout-lib.sh"
+      export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 1 ))
+      unset FM_CHECKPOINT_READING FM_TIMEOUT_MECHANISM_OVERRIDE
+      [ "$mechanism" != bash ] || export FM_TIMEOUT_MECHANISM_OVERRIDE=bash
+      PATH="$dir/bin" fm_checkpoint_read '' perl "$dir/holder.pl" "$dir" 2>&1
+    ) || rc=$?
+    elapsed=$((SECONDS - started))
+    # Release the private holder even if an assertion below fails.
+    touch "$dir/release"
+    kill "$release" 2>/dev/null || true
+    wait "$release" 2>/dev/null || true
+    [ -s "$dir/pid" ] || fail "$mechanism did not reach the detached output holder"
+    pid=$(cat "$dir/pid")
+    kill -TERM "$pid" 2>/dev/null || true
+    [ "$rc" -eq 124 ] || fail "$mechanism read did not defer with 124 (rc=$rc)"
+    [ "$elapsed" -lt 3 ] || fail "$mechanism read waited ${elapsed}s for detached output after a 1s bound"
+    [ -z "$out" ] || fail "$mechanism read returned incomplete output: $out"
+    pass "$mechanism checkpoint read bounds output collection and discards incomplete observations"
+  done
+}
+
+test_checkpoint_read_preserves_completed_output_and_status() {
+  local dir out source rc
+  dir="$TMP_ROOT/completed-read"
+  mkdir -p "$dir"
+  printf 'observation() { echo stdout; echo stderr >&2; return 7; }\n' > "$dir/source.sh"
+  for source in '' "$dir/source.sh"; do
+    rc=0
+    out=$(
+      . "$ROOT/bin/fm-timeout-lib.sh"
+      export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 5 ))
+      unset FM_CHECKPOINT_READING
+      if [ -n "$source" ]; then
+        fm_checkpoint_read "$source" observation
+      else
+        fm_checkpoint_read '' bash -c 'echo stdout; echo stderr >&2; exit 7'
+      fi 2>&1
+    ) || rc=$?
+    [ "$rc" -eq 7 ] || fail "a completed checkpoint read lost its status (rc=$rc)"
+    assert_contains "$out" stdout 'a completed checkpoint read lost stdout'
+    assert_contains "$out" stderr 'a completed checkpoint read lost stderr'
+  done
+  pass 'checkpoint reads preserve completed output and status for commands and sourced functions'
+}
+
+test_checkpoint_read_bounds_detached_output_holders
+test_checkpoint_read_preserves_completed_output_and_status
 test_passes_the_command_status_and_output_through
 test_run_timed_reports_the_bound_when_the_wrapper_records_a_signal_death
 test_run_timed_passes_a_natural_exit_through_a_fired_bound

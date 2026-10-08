@@ -306,19 +306,30 @@ fm_checkpoint_expired() {
 }
 
 fm_checkpoint_read() {
-  local source=$1 budget
+  local source=$1 budget capture rc=0
   shift
   if [ -z "${FM_CHECKPOINT_DEADLINE:-}" ] || [ "${FM_CHECKPOINT_READING:-0}" = 1 ]; then
     "$@"
     return
   fi
   budget=$(fm_checkpoint_budget 2147483647) || return 124
-  if [ -n "$source" ]; then
-    # shellcheck disable=SC2016
-    FM_CHECKPOINT_DEADLINE="$FM_CHECKPOINT_DEADLINE" FM_CHECKPOINT_READING=1 fm_run_timed "$budget" bash -c '. "$1"; shift; "$@"' _ "$source" "$@"
-  else
-    fm_run_timed "$budget" "$@"
+  capture=$(mktemp -d "${TMPDIR:-/tmp}/fm-checkpoint-read.XXXXXX") || return 124
+  # A backend server can inherit the read's output descriptors outside the
+  # timed process group. Files keep it from holding the caller's pipe open.
+  {
+    if [ -n "$source" ]; then
+      # shellcheck disable=SC2016
+      FM_CHECKPOINT_DEADLINE="$FM_CHECKPOINT_DEADLINE" FM_CHECKPOINT_READING=1 fm_run_timed "$budget" bash -c '. "$1"; shift; "$@"' _ "$source" "$@"
+    else
+      fm_run_timed "$budget" "$@"
+    fi
+  } > "$capture/stdout" 2> "$capture/stderr" || rc=$?
+  if ! fm_timed_out "$rc"; then
+    cat "$capture/stdout"
+    cat "$capture/stderr" >&2
   fi
+  rm -rf "$capture"
+  return "$rc"
 }
 
 fm_checkpoint_admit() {
