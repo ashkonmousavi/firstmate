@@ -27,12 +27,14 @@ _fm_wake_require_classify() {
   . "$FM_WAKE_LIB_DIR/fm-classify-lib.sh"
 }
 
-# Load the bounded-execution owner only for callers that use the presentation
-# lock deadline. Most wake-library consumers need no timeout machinery.
 _fm_wake_require_timeout() {
   command -v fm_run_timed >/dev/null 2>&1 && return 0
+  local nounset=off status=0
+  case $- in *u*) nounset=on ;; esac
   # shellcheck source=bin/fm-timeout-lib.sh
-  . "$FM_WAKE_LIB_DIR/fm-timeout-lib.sh"
+  . "$FM_WAKE_LIB_DIR/fm-timeout-lib.sh" || status=$?
+  [ "$nounset" = on ] || set +u
+  return "$status"
 }
 
 # Pass a variable name to capture this frame's pid without forking it in $().
@@ -1336,6 +1338,14 @@ _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
     return 1
   fi
   trap - TERM INT
+}
+
+fm_checkpoint_lock() {
+  local budget
+  if [ -z "${FM_CHECKPOINT_DEADLINE:-}" ]; then fm_lock_acquire_wait "$1"; return; fi
+  _fm_wake_require_timeout || return 1
+  budget=$(fm_checkpoint_budget 2147483647) || return 124
+  fm_lock_acquire_wait_bounded "$1" "$budget"
 }
 
 # fm_lock_acquire_wait_bounded <lockdir> <positive-seconds>

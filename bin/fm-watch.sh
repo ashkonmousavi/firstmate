@@ -2736,6 +2736,30 @@ check_run_record() {
   fi
 }
 
+signal_publish_file() {
+  local sf=$1 sig=$2 f=$3 payload=$4 status=0 classified_file surface_end surface_ident
+  fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || checkpoint_wake_failed $?
+  fm_wake_append_locked signal "$(basename "$f")" "$payload" || status=$?
+  if [ "$status" -eq 0 ]; then
+    case "$f" in
+      *.status)
+        fm_wake_status_reported_commit "$STATE" "$f" "$sig" || true
+        mark_surface_reported "$f" "$sig" || true
+        ;;
+      *) printf '%s' "$sig" > "$sf" ;;
+    esac
+    while IFS=$(printf '\t') read -r classified_file surface_end surface_ident; do
+      [ "$classified_file" = "$f" ] || continue
+      fm_wake_status_seen_commit "$STATE" "$f" "$surface_end" "$surface_ident" || true
+      mark_surfaced "$f" "$surface_end" "$surface_ident"
+    done <<EOF
+$FM_SIGNAL_SURFACE_ENDPOINTS
+EOF
+  fi
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  [ "$status" -eq 0 ] || checkpoint_wake_failed "$status"
+}
+
 # 0 when any signaled status file carries a captain-relevant event in the bytes
 # appended since this watcher last classified it. The start offset is the
 # classified-position field in that file's .seen-* marker, and fm-classify-lib.sh's
@@ -3563,7 +3587,10 @@ EOF
       fi
       sleep "$grace"
     fi
-    pending=$(printf '%s\n%s' "$pending" "$(checkpoint_read scan_signals)")
+    pending=$(printf '%s\n%s\n' "$pending" "$(checkpoint_read scan_signals)" | awk -F '\t' '
+      NF == 3 { if (!seen[$3]++) order[++n] = $3; latest[$3] = $0 }
+      END { for (i = 1; i <= n; i++) print latest[order[i]] }
+    ')
     # The final coalesced signal set is the watcher-carried status-change
     # trigger for this home's published summary. Start it before either
     # surfacing or absorbing the signal, but never wait on it: see
@@ -3626,33 +3653,9 @@ EOF
         [ -n "$sf" ] || continue
         file_reason="$reason"
         case " $FM_SIGNAL_NEEDS_DECISION_FILES " in *" $f "*) file_reason="needs-decision:$files" ;; esac
-        fm_wake_append signal "$(basename "$f")" "$file_reason" || checkpoint_wake_failed $?
+        signal_publish_file "$sf" "$sig" "$f" "$file_reason"
       done <<EOF
 $pending
-EOF
-      # The wake signature advances for every file in this batch, including one
-      # whose span could not be classified: it has now been reported, and this is
-      # what bounds an unreadable log to one report per distinct file state. Only
-      # a SUCCESSFULLY classified log commits a classification position below, so
-      # an unreadable log's content is still classified once it becomes readable.
-      while IFS=$(printf '\t') read -r sf sig f; do
-        [ -n "$sf" ] || continue
-        case "$f" in
-          *.status)
-            fm_wake_status_reported_commit "$STATE" "$f" "$sig" || true
-            mark_surface_reported "$f" "$sig" || true
-            ;;
-          *) printf '%s' "$sig" > "$sf" ;;
-        esac
-      done <<EOF
-$pending
-EOF
-      while IFS=$(printf '\t') read -r f surface_end surface_ident; do
-        [ -n "$f" ] || continue
-        fm_wake_status_seen_commit "$STATE" "$f" "$surface_end" "$surface_ident" || true
-        mark_surfaced "$f" "$surface_end" "$surface_ident"
-      done <<EOF
-$FM_SIGNAL_SURFACE_ENDPOINTS
 EOF
       wake "$reason"
     else
@@ -3673,7 +3676,7 @@ EOF
       if [ "$signal_commit_error" -ne 0 ]; then
         while IFS=$(printf '\t') read -r sf sig f; do
           [ -n "$sf" ] || continue
-          fm_wake_append signal "$(basename "$f")" "$reason" || checkpoint_wake_failed $?
+          signal_publish_file "$sf" "$sig" "$f" "$reason"
         done <<EOF
 $pending
 EOF
