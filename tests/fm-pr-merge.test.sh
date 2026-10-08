@@ -4255,8 +4255,11 @@ test_mergify_requested_receipts_and_head_movement() {
 }
 
 test_mergify_authority_tracks_head_between_attempts() {
-  local fault case_dir rc head=4141414141414141414141414141414141414141 moved=4343434343434343434343434343434343434343
-  for fault in unavailable not-enrolled malformed wrong-pr post-failed preflight-refused confirmed metadata-refresh preflight-head-moved; do
+  local fault case_dir rc view_change sequence head=4141414141414141414141414141414141414141 moved=4343434343434343434343434343434343434343
+  for fault in unavailable not-enrolled malformed wrong-pr post-failed preflight-refused confirmed metadata-refresh preflight-head-moved \
+    preflight-head-moved-red preflight-head-moved-pending preflight-head-moved-unknown \
+    preflight-head-moved-unreadable-rollup preflight-head-moved-missing-base \
+    preflight-head-moved-required-read-error preflight-head-moved-missing-required preflight-head-moved-recovered; do
     case_dir=$(make_case "mergify-between-attempts-$fault")
     add_gh_mocks "$case_dir" "$head"
     register_landing "$case_dir" landing=mergify
@@ -4266,6 +4269,7 @@ test_mergify_authority_tracks_head_between_attempts() {
       > "$case_dir/initial" 2> "$case_dir/initial.err" || fail "$fault: initial enrollment refused"
     assert_present "$case_dir/state/task-x1.merge-authority" "$fault: initial authority missing"
     write_github_live_json "$case_dir" "$moved"
+    sequence=
     case "$fault" in
       unavailable) rm "$case_dir/mergify.json" ;;
       not-enrolled) printf '%s\n' '{"number":61,"queued":false}' > "$case_dir/mergify.json" ;;
@@ -4274,11 +4278,25 @@ test_mergify_authority_tracks_head_between_attempts() {
       post-failed) : > "$case_dir/comment-failed" ;;
       preflight-refused) write_github_red_json "$case_dir" "$moved" ci ;;
       confirmed|metadata-refresh) ;;
-      preflight-head-moved)
-        cp "$case_dir/github-view.json" "$case_dir/view-after-preflight"
+      preflight-head-moved*)
+        view_change='.'
+        case "$fault" in
+          preflight-head-moved-red) view_change='.statusCheckRollup[0].conclusion = "FAILURE"' ;;
+          preflight-head-moved-pending) view_change='.statusCheckRollup[0].status = "IN_PROGRESS" | .statusCheckRollup[0].conclusion = null' ;;
+          preflight-head-moved-unknown) view_change='.mergeable = "UNKNOWN"' ;;
+          preflight-head-moved-unreadable-rollup) view_change='.statusCheckRollup = null' ;;
+          preflight-head-moved-missing-base) view_change='del(.baseRefName)' ;;
+          preflight-head-moved-required-read-error) printf 'unavailable\n' > "$case_dir/github-branch-fail" ;;
+          preflight-head-moved-missing-required) write_github_required "$case_dir" classic:candidate ;;
+          preflight-head-moved-recovered)
+            sequence="$case_dir/mergeable-sequence"
+            printf 'UNKNOWN\nMERGEABLE\n' > "$sequence"
+            ;;
+        esac
+        jq "$view_change" "$case_dir/github-view.json" > "$case_dir/view-after-preflight"
         cp "$case_dir/github-head" "$case_dir/head-after-preflight"
         write_github_live_json "$case_dir" "$head"
-        rm "$case_dir/mergify.json"
+        [ "$fault" = preflight-head-moved-recovered ] || rm "$case_dir/mergify.json"
         mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-fixture"
         cat > "$case_dir/fakebin/gh" <<'SH'
 #!/usr/bin/env bash
@@ -4299,15 +4317,18 @@ SH
       PR_MERGE="$ROOT/bin/fm-pr-check.sh" run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
         > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
     else
-      run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
+      FM_TEST_GH_MERGEABLE_SEQUENCE="$sequence" FM_PR_GITHUB_MERGEABLE_RETRY_DELAY=0 \
+        run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
         > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
     fi
     assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: retry bypassed the queue"
     case "$fault" in
-      post-failed|preflight-refused) expect_code 1 "$rc" "$fault: failed retry accepted" ;;
+      post-failed|preflight-refused|preflight-head-moved-red|preflight-head-moved-pending|preflight-head-moved-unknown|preflight-head-moved-unreadable-rollup|preflight-head-moved-missing-base|preflight-head-moved-required-read-error|preflight-head-moved-missing-required)
+        expect_code 1 "$rc" "$fault: failed retry accepted"
+        ;;
       *) expect_code 0 "$rc" "$fault: retry refused: $(cat "$case_dir/stderr")" ;;
     esac
-    if [ "$fault" = confirmed ]; then
+    if [ "$fault" = confirmed ] || [ "$fault" = preflight-head-moved-recovered ]; then
       assert_present "$case_dir/state/task-x1.merge-authority" "$fault: new enrollment lost authority"
       assert_grep "queued: https://github.com/example/repo/pull/61 in the Mergify queue at verified head $moved" \
         "$case_dir/stdout" "$fault: new head enrollment missing"
@@ -4324,8 +4345,23 @@ SH
           "$case_dir/stdout" "$fault: retry receipt named the wrong head"
         ;;
     esac
-    [ "$fault" = preflight-head-moved ] \
-      || assert_grep "pr_head=$moved" "$case_dir/state/task-x1.meta" "$fault: metadata did not record the new head"
+    case "$fault" in
+      preflight-head-moved*)
+        assert_grep "pr_head=$head" "$case_dir/state/task-x1.meta" "$fault: fixture did not isolate movement after metadata recording"
+        case "$fault" in
+          preflight-head-moved|preflight-head-moved-recovered) ;;
+          *) [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$fault: preflight refusal posted a queue command" ;;
+        esac
+        case "$fault" in
+          preflight-head-moved-red|preflight-head-moved-pending) assert_grep 'checks are not green: ci' "$case_dir/stderr" "$fault: wrong refusal" ;;
+          preflight-head-moved-unknown) assert_grep 'still being computed' "$case_dir/stderr" "$fault: wrong refusal" ;;
+          preflight-head-moved-unreadable-rollup|preflight-head-moved-missing-base) assert_grep 'could not read the GitHub pull request state' "$case_dir/stderr" "$fault: wrong refusal" ;;
+          preflight-head-moved-required-read-error) assert_grep 'branch protection summary for base branch main could not be read' "$case_dir/stderr" "$fault: wrong refusal" ;;
+          preflight-head-moved-missing-required) assert_grep 'required checks have not reported: candidate' "$case_dir/stderr" "$fault: wrong refusal" ;;
+        esac
+        ;;
+      *) assert_grep "pr_head=$moved" "$case_dir/state/task-x1.meta" "$fault: metadata did not record the new head" ;;
+    esac
     assert_present "$case_dir/state/task-x1.check.sh" "$fault: merge poll lost"
   done
   pass "changed heads retire prior queue authority across retries, refusal and public metadata refresh"
