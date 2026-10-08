@@ -33,7 +33,7 @@
 #   - <name> [<mode> forge=gerrit] - <desc> (added <date>)           -> <mode> off, --forge gerrit
 #   - <name> [<mode> +yolo landing=mergify] - <desc> (added <date>)  -> <mode> <yolo>, --landing mergify
 #   <name> may contain spaces; it ends at the literal " [" or " - " that follows it.
-#   Bracket tokens are order-independent: +yolo, branch=<prefix>, and forge=<value>
+#   Bracket tokens are order-independent: +yolo, branch=<prefix>, forge=<value>, and landing=<value>
 #   are recognized by their own shape wherever they appear, and whichever token is
 #   left over is the mode. <prefix> must not contain a space; an empty override
 #   ("branch=") resolves to "" for a bare "<task-id>" ship branch instead of the

@@ -20,7 +20,7 @@ A captain instruction to merge is explicit authority; `yolo` is the only standin
 For a PR-based landing, retain the targeted current-main candidate proof required by `AGENTS.md` section 7 and confirm the forge's actual merged state; queue enrollment alone is pending.
 When the project has a deploy target, verify its deploy or release workflow, installed version, changed-area walk through `journey-walk`, and post-install health.
 Report those concrete results before declaring completion or tearing the task down; a local-only landing reports its local outcome once the fast-forward merge succeeds.
-The full default-branch run is a separate daily audit and never holds landing, completion or teardown; report it as a distinct fact and repair its failures in parallel.
+Report the full default-branch audit separately under `AGENTS.md` section 7's proof and audit policy.
 When the next queued change's targeted run fails on a module this merge touched, the installed changed-area walker re-check fails, or post-install health fails, firstmate lands a revert of the responsible merge within one hour of the failing result; never put a fix chain ahead of the revert.
 Dispatch a ship to prepare isolated revert source and publish its own real PR, then use the existing verified-head merge guard; `bin/fm-pr-merge.sh`'s header owns the worker preparation command and ordinary merge invocation.
 The revert lands on its own classify pass, with any other named-check disposition recorded by firstmate under the current waiver authority; the guard still refuses every unwaived or unproved condition.
