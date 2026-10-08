@@ -102,14 +102,15 @@
 # same-line reasons, common author checks and explicit outcomes.
 # Risk is money|security|shared code|other: one highest applicable class.
 # The first three require no-mistakes; other requires direct-PR and one code
-# review round. Q2=yes cannot be classified other unless the risk reason
-# starts with "presentation-only:", the printed spelling for a change whose only
-# effect is where a page or control appears or what it is called; a change to
-# how sign-in, permissions, money or stored data behave never takes it, and a
-# light change that review finds behavioral is reclassified through the
-# existing preparation and delivery-mode reconcile. The light path still
-# requires the walk after install. Surgical certainty concerns preparation
-# completeness only and never selects delivery depth.
+# review round. Q2=yes can be classified other with a complete reason starting
+# with "presentation-only: " (colon plus space), the author's certificate that
+# only a page or control's location or wording changes. Admission checks payload
+# completeness and does not infer effects from prose. Behavior changes authored
+# as money, security or shared code keep no-mistakes; review and the existing
+# preparation and delivery-mode reconcile reclassify a light change found to be
+# behavioral. The light path retains CI, exactly one review and the walk after
+# install. Surgical certainty concerns preparation completeness only and never
+# selects delivery depth.
 # The legacy checks-only depth spelling remains readable; its generated
 # direct-PR contract now requires the same one-round review as the new spelling.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;

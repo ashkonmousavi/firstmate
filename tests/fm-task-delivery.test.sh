@@ -285,51 +285,81 @@ EOF
   pass "risk admission: money, security and shared code require no-mistakes; other requires direct-PR and one round"
 }
 
-# A change whose only effect is where a page or control appears, or what it is
-# called, is other even in a shared file, when its risk line carries the
-# printed presentation-only marker; any other reason keeps the shared-code
-# refusal. A sign-in or stored-data behavior change is admitted only on the
-# full path. The scaffold must name that light path and the walk after install.
+# The presentation-only marker certifies the author's other classification,
+# including in a shared file; admission checks completeness, not prose effects.
+# Unmarked other with Q2=yes stays refused, while security uses the full path.
+# The scaffold must name the light path and the walk after install.
 test_presentation_only_shared_change_is_other() {
-  local rec home proj fakebin prep out status id reason
+  local rec home proj fakebin prep out status id reason risk mode
   rec=$(make_home presentation-only)
   IFS='|' read -r home proj fakebin <<EOF
 $rec
 EOF
-  for id in presentation-move presentation-behavior; do
+  for id in presentation-move presentation-certificate presentation-unmarked presentation-full; do
+    risk=other
+    mode=direct-PR
     case "$id" in
       presentation-move) reason='presentation-only: moves the settings link into the account menu and renames it.' ;;
+      presentation-certificate) reason='presentation-only: renames the sign-in button and changes which session cookie it writes.' ;;
+      presentation-full) risk=security; mode=no-mistakes; reason='renames the sign-in button and changes which session cookie it writes.' ;;
       *) reason='renames the sign-in button and changes which session cookie it writes.' ;;
     esac
-    write_brief "$home" "$id" direct-PR
+    write_brief "$home" "$id" "$mode"
     prep="$home/data/$id/prep.md"
     answer_tier "$prep" no yes
-    awk -v r="$reason" '/^- Delivery risk:/ { next }
-      { print } $0 == "## Tier" { print "- Delivery risk: other, " r }
+    awk -v r="$reason" -v risk="$risk" '/^- Delivery risk:/ { next }
+      { print } $0 == "## Tier" { print "- Delivery risk: " risk ", " r }
     ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
     sed 's/checks-only (direct-PR)/checks + one review (direct-PR)/' "$prep" > "$prep.new" && mv "$prep.new" "$prep"
     rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
-    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off); status=$?
+    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode "$mode" --yolo off); status=$?
     [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
-    if [ "$id" = presentation-behavior ]; then
-      assert_contains "$out" 'Delivery' "a behavioral shared change classified other was admitted"
-      assert_absent "$home/data/$id/launch-brief.md" "a behavioral shared change classified other launched"
+    if [ "$id" = presentation-unmarked ]; then
+      assert_contains "$out" 'Delivery' 'unmarked other with Q2=yes was admitted'
+      assert_absent "$home/data/$id/launch-brief.md" 'unmarked other with Q2=yes rendered launch'
+      assert_absent "$fakebin/tmux.calls" 'unmarked other with Q2=yes reached backend'
+      assert_absent "$fakebin/treehouse.calls" 'unmarked other with Q2=yes allocated worktree'
     else
-      assert_present "$home/data/$id/launch-brief.md" "a presentation-only shared change was refused: $out"
+      assert_present "$home/data/$id/launch-brief.md" "$id authored $mode classification was refused: $out"
+      assert_present "$fakebin/tmux.calls" "$id authored $mode classification missed backend"
+      assert_grep "Delivery contract: mode=$mode" "$home/data/$id/launch-brief.md" "$id launch lost authored mode"
+    fi
+    printf 'window=fixture:fm-%s\nkind=scout\nproject=%s\nworktree=%s\nharness=claude\n' "$id" "$proj" "$proj" > "$home/state/$id.meta"
+    cp "$home/state/$id.meta" "$home/original-meta"
+    cp "$home/data/$id/brief.md" "$home/original-brief"
+    out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      "$PROMOTE" "$id" --mode "$mode" --yolo off 2>&1); status=$?
+    if [ "$id" = presentation-unmarked ]; then
+      [ "$status" -ne 0 ] || fail 'unmarked other with Q2=yes was promoted'
+      assert_contains "$out" 'Delivery risk' 'unmarked other promotion refusal unnamed'
+      cmp -s "$home/state/$id.meta" "$home/original-meta" || fail 'unmarked other refusal changed metadata'
+      cmp -s "$home/data/$id/brief.md" "$home/original-brief" || fail 'unmarked other refusal changed brief'
+      assert_absent "$home/data/$id/ship-instructions.md" 'unmarked other refusal published instructions'
+    else
+      expect_code 0 "$status" "$id authored $mode promotion was refused: $out"
+      assert_grep 'kind=ship' "$home/state/$id.meta" "$id promotion did not become ship"
+      assert_grep "Delivery contract: mode=$mode" "$home/data/$id/ship-instructions.md" "$id promotion lost authored mode"
     fi
   done
-  id=presentation-full
-  reason='changes which session cookie the sign-in button writes.'
-  write_brief "$home" "$id" no-mistakes
-  prep="$home/data/$id/prep.md"
-  answer_tier "$prep" no yes
-  awk -v r="$reason" '/^- Delivery risk:/ { next }
-    { print } $0 == "## Tier" { print "- Delivery risk: security, " r }
-  ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
-  rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls" "$home/data/$id/launch-brief.md"
-  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off); status=$?
-  [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
-  assert_present "$home/data/$id/launch-brief.md" "a stored-data behavior change was refused on the full path: $out"
+  id=presentation-certificate
+  cat > "$fakebin/tmux" <<'EOF'
+#!/bin/sh
+case "$1" in
+  list-windows) printf 'fm-%s\n' "$FM_REFRESH_ID" ;;
+  display-message)
+    case "$*" in
+      *pane_current_command*) printf 'bash\n' ;;
+      *) exit 1 ;;
+    esac ;;
+  *) exit 1 ;;
+esac
+EOF
+  rm "$home/data/$id/launch-brief.md"
+  out=$(FM_REFRESH_ID="$id" run_spawn "$home" "$fakebin" "$id" --relaunch)
+  assert_present "$home/data/$id/launch-brief.md" "marked certification promotion relaunch failed: $out"
+  assert_grep 'Delivery contract: mode=direct-PR' "$home/data/$id/launch-brief.md" 'promoted certificate launch lost direct-PR'
+  assert_contains "$(cat "$home/data/$id/launch-brief.md")" "$home/data/$id/prep.md" \
+    'promoted certificate launch lost the preparation record reference'
   FM_HOME="$home" "$BRIEF" presentation-scaffold --prep >/dev/null 2>&1 || fail "presentation scaffold"
   out=$(cat "$home/data/presentation-scaffold/prep.md")
   assert_contains "$out" 'other, presentation-only:' "the scaffold guidance does not print the presentation-only spelling"
@@ -337,7 +367,7 @@ EOF
   assert_contains "$out" 'direct-PR' "the scaffold guidance does not name the light path"
   assert_contains "$out" 'exactly one code review round' "the scaffold guidance does not keep one review"
   assert_contains "$out" 'walk after install' "the scaffold guidance does not require the walk after install"
-  pass "risk admission: a presentation-only change in a shared file is other with one review; a behavioral reason stays refused"
+  pass 'risk admission: marked certification admits other; unmarked Q2=yes refuses; authored security uses no-mistakes'
 }
 
 test_presentation_only_reason_completeness() {
