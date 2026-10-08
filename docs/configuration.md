@@ -1098,6 +1098,25 @@ See [`docs/examples/crew-dispatch.json`](examples/crew-dispatch.json) for a star
 
 Secondmate homes inherit this file from the primary, so a secondmate's own crewmates apply the same dispatch profile behavior.
 
+## Feature start gate (config/start-gate.json)
+
+`config/start-gate.json` is an optional local, gitignored applicability map for the [new-feature start gate](../bin/fm-start-gate-lib.sh).
+An absent file, or a project it does not name, keeps the spawn contract unchanged.
+Secondmate homes inherit this map through `bin/fm-config-inherit-lib.sh` like other local configuration.
+Inheritance copies the map's bytes, not the fact snapshots; the configured absolute path must be readable from each home that starts features for that project.
+Enabling a project in the map is the home's adoption step.
+
+The file is one JSON object keyed by the basename of the resolved project directory passed to `fm-spawn.sh`:
+
+```json
+{
+  "Q": { "facts": "/absolute/path/to/start-facts.json" }
+}
+```
+
+`facts` is the absolute path of the fact snapshot the project's fact owner writes outside spawn.
+The [gate library header](../bin/fm-start-gate-lib.sh) owns the required Work class declaration, repair and recovery exemptions, configuration failure behavior, and snapshot schema, freshness, ownership, and refusal rules.
+
 ## Typed dispatch resolution (.env TYPESAFE_API_KEY)
 
 `bin/fm-dispatch-resolve.sh` resolves one concrete crewmate or scout profile from a written brief with typesafe.ai's System One model (Jev), so the rule match that firstmate otherwise reasons out in its own context becomes one short tool turn.
