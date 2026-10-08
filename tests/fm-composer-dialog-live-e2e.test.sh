@@ -91,8 +91,11 @@ for harness in claude codex; do
           || fail "$harness ($version): a live dialog read as an empty composer"
         ;;
       *)
-        [ -z "$name$plain_name$noted" ] && ! fm_composer_blocking_dialog_noted >/dev/null \
-          || fail "$harness ($version): $state control misidentified as a dialog"
+        if [ -z "$name$plain_name$noted" ] && ! fm_composer_blocking_dialog_noted >/dev/null; then
+          :
+        else
+          fail "$harness ($version): $state control misidentified as a dialog"
+        fi
         case "$state:$verdict:$cursorless" in
           IDLE:empty:empty|PENDING:pending:pending) ;;
           WORKING:*)
@@ -108,9 +111,12 @@ for harness in claude codex; do
   done
 done
 capture_live "$FM_DIALOG_UNKNOWN"
-[ "$(fm_tmux_composer_state "$FM_DIALOG_UNKNOWN")" = unknown ] \
+if [ "$(fm_tmux_composer_state "$FM_DIALOG_UNKNOWN")" = unknown ] \
   && ! fm_composer_blocking_dialog "$screen" >/dev/null \
-  && ! fm_composer_blocking_dialog_noted >/dev/null \
-  || fail 'live dialog guard: unrecognized pane did not remain unknown without a dialog'
+  && ! fm_composer_blocking_dialog_noted >/dev/null; then
+  :
+else
+  fail 'live dialog guard: unrecognized pane did not remain unknown without a dialog'
+fi
 [ "$checked" -gt 0 ] || fail 'live dialog guard verified nothing; refusing a vacuous pass'
 pass "live dialog guard verified $checked harness surfaces and an unknown control"
