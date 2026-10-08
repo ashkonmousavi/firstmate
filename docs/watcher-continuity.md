@@ -200,6 +200,8 @@ It enters its poll loop immediately and keeps scanning signals, stale panes, and
 No adapter starts a replacement with a fire-and-forget shell `&` from a model command.
 The Claude hook's detached handling successor is launched by the hook itself, which waits for the successor's status line before it exits.
 
+For a malformed lock-path error, [fm-wake-lib.sh](../bin/fm-wake-lib.sh)'s `fm_lock_path_malformed` and `fm_lock_report_malformed` own the format check and safe recovery diagnostic.
+
 The turn-end guard remains the final backstop rather than the normal continuity mechanism.
 In its `--claude` mode it cooperates with the auto-arm.
 

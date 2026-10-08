@@ -1188,15 +1188,50 @@ fm_lock_try_acquire_steal_mutex() {  # <steal-lock>
   fm_lock_try_create "$lockdir"
 }
 
+# Lock paths are only ever a symlink (current format) or a directory holding
+# pid (legacy format). A plain file at <lockdir> or its steal mutex that a
+# hand-rolled flock or editor left behind can never be reclaimed
+# and never clears on its own. Name it once per process and leave it untouched:
+# deleting it could break whatever wrote it, and only a person can tell.
+FM_LOCK_MALFORMED=
+FM_LOCK_MALFORMED_REPORTED=
+# Exit status of fm_lock_acquire_wait's refusal (EX_CONFIG: a broken home
+# invariant, distinct from contention, usage, lease refusal and timeouts).
+FM_LOCK_MALFORMED_EXIT=78
+
+fm_lock_path_malformed() {  # <lockdir>: 0 iff a plain regular file sits there
+  # Test the refused type positively: a released lock disappearing between
+  # observations must not look like a malformed path.
+  [ ! -L "$1" ] && [ -f "$1" ]
+}
+
+fm_lock_report_malformed() {  # <lockdir> <path>
+  local lockdir=$1 path=$2
+  FM_LOCK_MALFORMED=$path
+  case $'\n'"$FM_LOCK_MALFORMED_REPORTED"$'\n' in
+    *$'\n'"$path"$'\n'*) return 0 ;;
+  esac
+  FM_LOCK_MALFORMED_REPORTED=${FM_LOCK_MALFORMED_REPORTED:+$FM_LOCK_MALFORMED_REPORTED$'\n'}$path
+  printf 'error: lock %s cannot be acquired: %s is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)\n' \
+    "$lockdir" "$path" >&2
+}
+
 fm_lock_try_acquire() {
   local lockdir=$1 pid steal cur rc steal_owner primary_owner current
   FM_LOCK_HELD_PID=
   FM_LOCK_OWNER_DIR=
   FM_LOCK_RECOVERED_PID=
+  FM_LOCK_MALFORMED=
 
   if fm_lock_try_create "$lockdir"; then
     return 0
   fi
+  for steal in "$lockdir" "$lockdir.steal"; do
+    if fm_lock_path_malformed "$steal"; then
+      fm_lock_report_malformed "$lockdir" "$steal"
+      return 1
+    fi
+  done
 
   fm_current_pid current || return 1
   pid=$(cat "$lockdir/pid" 2>/dev/null || true)
@@ -1288,9 +1323,14 @@ fm_lock_try_acquire() {
   return "$rc"
 }
 
+# Unbounded acquire. A malformed lock path (fm_lock_path_malformed) exits the
+# calling process with FM_LOCK_MALFORMED_EXIT rather than returning: it never
+# clears, so spinning hangs the caller forever, while a return would let any
+# caller that ignores the status run its critical section unlocked.
 fm_lock_acquire_wait() {
   local lockdir=$1
   while ! fm_lock_try_acquire "$lockdir"; do
+    [ -z "$FM_LOCK_MALFORMED" ] || exit "$FM_LOCK_MALFORMED_EXIT"
     # Nothing on this path recreates a removed lock directory, so waiting on
     # one (a torn-down state tree) could only spin forever. Refuse instead.
     [ -d "$(dirname "$lockdir")" ] || return 1
@@ -1306,6 +1346,7 @@ fm_lock_acquire_wait_max() {  # <lockdir> <max-seconds>
   local lockdir=$1 seconds=$2 deadline
   deadline=$((SECONDS + seconds))
   while ! fm_lock_try_acquire "$lockdir"; do
+    [ -z "$FM_LOCK_MALFORMED" ] || return 1
     [ "$SECONDS" -lt "$deadline" ] || return 1
     sleep 0.1
   done
@@ -1364,6 +1405,7 @@ fm_lock_acquire_wait_bounded() {
   if fm_lock_try_acquire "$lockdir"; then
     return 0
   fi
+  [ -z "$FM_LOCK_MALFORMED" ] || return 1
 
   fm_current_pid caller_pid || return 1
   # shellcheck disable=SC2016 # Positional parameters expand in the child shell.

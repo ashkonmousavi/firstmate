@@ -73,7 +73,8 @@
 # (bin/fm-supervision-engine-lib.sh) with the generated branch prompt
 # (bin/fm-branch-prompt.sh), the dialog-mirror feed (bin/fm-host-mirror.sh)
 # at the head of an attended wake and the away tail instead when away,
-# releases the branch's leases and grant, and counts the wake handled only
+# attempts branch-lease cleanup (see OWNERSHIP below), releases the grant,
+# and counts the wake handled only
 # when that turn exited cleanly, recorded a durable report
 # (bin/fm-branch-report.sh), and left none of its granted rows in the wake
 # queue. A handled wake with only routine outcomes never wakes
@@ -134,8 +135,12 @@
 # the Pi branch. At activation the host stops anything a crashed predecessor
 # left running (recorded with identities, never by name), including the
 # engine descendants its turn recorded, removes that turn's files, and
-# releases the branch actor's leases; it releases them again after every
-# engine turn. It also reads the record of a successor a pass-through left for
+# attempts branch-lease cleanup; it repeats that attempt after every engine
+# turn. bin/fm-lease.sh owns the release-actor wait bound and refusal contract.
+# A release failure logs lease-release-failed with the diagnostic in
+# state/.supervision-host.log; it never prevents arming, and the next park
+# or engine turn retries cleanup of any unreleased leases.
+# It also reads the record of a successor a pass-through left for
 # main: while that arm still runs under its recorded identity, the first cycle
 # without --restart requests a take-over rather than an ordinary attach.
 # Activation removes the
@@ -339,8 +344,13 @@ branch_env() {  # <command...>: run with the branch actor identity
   FM_SUPERVISION_ACTOR=branch "$@"
 }
 
+# OWNERSHIP above owns failure handling; fm-lease.sh owns the wait bound.
 release_branch_leases() {
-  branch_env "$SCRIPT_DIR/fm-lease.sh" release-actor --actor branch >/dev/null 2>&1 || true
+  local err
+  if ! err=$(branch_env "$SCRIPT_DIR/fm-lease.sh" release-actor --actor branch 2>&1 >/dev/null); then
+    log_line "lease-release-failed	$(printf '%s' "$err" | tr '\t\n' '  ')"
+  fi
+  return 0
 }
 
 # Stop whatever a predecessor host left running, then take the record. The

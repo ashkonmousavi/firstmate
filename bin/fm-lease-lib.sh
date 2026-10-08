@@ -17,8 +17,9 @@
 # CONTRACT.
 #   - Lease file: $STATE/.lease-<task>, one line "<actor>\t<pid>\t<epoch>".
 #     Written atomically (temp + ln for claim, temp + mv for a same-actor
-#     refresh), with inspection and mutation serialized by the home-local
-#     lease-command lock; leases never coordinate across firstmate homes.
+#     refresh), with inspection and mutation serialized by the home-local,
+#     short-held lease-command lock; leases never coordinate across firstmate
+#     homes.
 #   - Actors: exactly "main" and "branch". The current actor is
 #     $FM_SUPERVISION_ACTOR when set, else "main". The branch's shell gets
 #     FM_SUPERVISION_ACTOR=branch injected deterministically by the process
@@ -57,10 +58,15 @@
 #     refuses with exit FM_LEASE_REFUSE_EXIT. Whenever the guard engages - a
 #     supervision context (Pi, or an explicit actor), a home that runs the
 #     supervision host (fm_supervision_host_enabled, whose host can claim a
-#     task that has no lease yet), or any lease file for the task - it retains the
-#     lease-command lock until fm_lease_guard_release, so the other actor
-#     cannot claim between the check and the guarded mutation, including the
-#     first claim of a task no one has leased. An unmarked caller in any other
+#     task that has no lease yet), or any lease file for the task - it retains
+#     that task's guard hold (fm_lease_task_lock) until fm_lease_guard_release,
+#     so the other actor cannot claim between the check and the guarded
+#     mutation, including the first claim of a task no one has leased. Claim
+#     takes the same hold, and both take it before the lease-command lock and
+#     keep that lock only around the check itself, so a slow guarded mutation
+#     (a relaunch's spawn, a slow send, a teardown) never blocks another
+#     task's guard or claim, or a release, check, release-actor, or sweep.
+#     An unmarked caller in any other
 #     home with no lease file for the task returns before taking any lock, so a
 #     home that never runs a branch is unchanged byte for byte.
 #   - Role partition (fm_lease_forbid_branch): actions MAIN alone owns -
@@ -101,6 +107,9 @@
 # unconfirmed submit (3): recognizable as "the other supervision actor holds
 # this task right now - retry after the lease clears".
 FM_LEASE_REFUSE_EXIT=6
+# fm-lease.sh release-actor could not take the lease-command lock in its bound.
+# shellcheck disable=SC2034 # Consumed by bin/fm-lease.sh.
+FM_LEASE_BUSY_EXIT=7
 FM_LEASE_LIB_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)"
 FM_LEASE_GUARD_LOCK=
 
@@ -148,6 +157,12 @@ fm_lease_valid_id() {
 
 fm_lease_path() {
   printf '%s/.lease-%s\n' "$STATE" "$1"
+}
+
+# The per-task guard hold; outside the .lease-* namespace that release-actor
+# and sweep enumerate.
+fm_lease_task_lock() {
+  printf '%s/.fm-lease-task-%s.lock\n' "$STATE" "$1"
 }
 
 # fm_lease_read <task>: read the lease into FM_LEASE_ACTOR/FM_LEASE_PID/
@@ -200,11 +215,9 @@ fm_lease_clear_stale() {
   rm -f -- "$file"
 }
 
-# fm_lease_guard <task> <action-label>: refuse (exit FM_LEASE_REFUSE_EXIT) when
-# a live lease held by the OTHER actor exists for <task>. Once engaged (the
-# guard semantics above), a successful guard retains the command lock across
-# the caller's mutation; the caller must invoke fm_lease_guard_release from its
-# EXIT cleanup. This closes the check/use race with a concurrent claim.
+# fm_lease_guard <task> <action-label>: see Guard semantics in CONTRACT above
+# for refusal and claim serialization. The caller must invoke
+# fm_lease_guard_release from its EXIT cleanup.
 fm_lease_guard() {
   local task=$1 action=$2 actor lock lease_actor
   fm_lease_valid_id "$task" || return 0
@@ -216,18 +229,25 @@ fm_lease_guard() {
       ;;
   esac
   fm_lease_lock_helpers
-  lock="$STATE/.fm-lease-command.lock"
+  lock=$(fm_lease_task_lock "$task")
   # A caller with more than one guarded phase already excludes claims until
-  # its shared cleanup; do not recursively acquire the non-reentrant lock.
+  # its shared cleanup; do not recursively acquire the non-reentrant hold.
   if [ "$FM_LEASE_GUARD_LOCK" != "$lock" ]; then
+    if [ -n "$FM_LEASE_GUARD_LOCK" ]; then
+      echo "error: $action refused - this process already holds the lease guard for another task ($FM_LEASE_GUARD_LOCK)" >&2
+      exit "$FM_LEASE_REFUSE_EXIT"
+    fi
     fm_lock_acquire_wait "$lock"
     FM_LEASE_GUARD_LOCK=$lock
   fi
+  fm_lock_acquire_wait "$STATE/.fm-lease-command.lock"
   if ! fm_lease_live "$task"; then
     fm_lease_clear_stale "$task" || { fm_lease_guard_release; return 1; }
+    fm_lock_release "$STATE/.fm-lease-command.lock"
     return 0
   fi
   lease_actor=$FM_LEASE_ACTOR
+  fm_lock_release "$STATE/.fm-lease-command.lock"
   if [ "$lease_actor" != "$actor" ]; then
     fm_lease_guard_release
     echo "error: $action refused - task '$task' is leased to the $lease_actor supervision actor (state/.lease-$task), which is handling that task right now; leave the lease alone (never remove or clear it) and retry after that actor releases it, which it does when its handling ends" >&2
@@ -235,12 +255,14 @@ fm_lease_guard() {
   fi
 }
 
-# Release the claim/guard serialization lock retained by fm_lease_guard.
+# Release the task guard hold retained by fm_lease_guard, plus the
+# lease-command lock if an interruption left it held mid-check.
 # Idempotent so callers can use it unconditionally from existing EXIT cleanup.
 fm_lease_guard_release() {
   local lock=$FM_LEASE_GUARD_LOCK
   [ -n "$lock" ] || return 0
   FM_LEASE_GUARD_LOCK=
+  fm_lock_release "$STATE/.fm-lease-command.lock"
   fm_lock_release "$lock"
 }
 

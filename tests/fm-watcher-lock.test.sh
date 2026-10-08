@@ -7,6 +7,8 @@ set -u
 
 # shellcheck source=tests/wake-helpers.sh
 . "$(dirname "${BASH_SOURCE[0]}")/wake-helpers.sh"
+# shellcheck source=bin/fm-timeout-lib.sh
+. "$ROOT/bin/fm-timeout-lib.sh"
 
 WATCH="$ROOT/bin/fm-watch.sh"
 WATCH_ARM="$ROOT/bin/fm-watch-arm.sh"
@@ -687,6 +689,117 @@ test_lock_wait_refuses_a_removed_lock_directory() {
   [ "$rc" -ne 0 ] || fail "lock wait reported success for a removed lock directory"
   [ ! -e "$dir/removed" ] || fail "lock wait recreated the removed lock directory"
   pass "lock wait refuses a removed lock directory instead of spinning"
+}
+
+# A plain file at a lock path (a hand-rolled flock or editor left it) has no
+# pid to reclaim and never clears. The unbounded wait must exit its caller with
+# a named refusal instead of spinning or proceeding unlocked, the bounded waits
+# must return, the watcher must not report "already running", and the file
+# must survive untouched.
+test_lock_refuses_a_plain_file_lock_path() {
+  local dir state lockdir before after pid rc out err status
+  dir=$(make_case lock-plain-file)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  mkdir -p "$state"
+  printf 'held by a foreign flock\n' > "$lockdir"
+  fm_touch_epoch "$(($(date +%s) - 3600))" "$lockdir"
+  before=$(stat -c '%i %Y %s' "$lockdir" 2>/dev/null || stat -f '%i %m %z' "$lockdir") \
+    || fail "could not snapshot plain-file lock metadata before acquisition"
+  [ -n "$before" ] || fail "plain-file lock metadata before acquisition was empty"
+
+  # No set -e, as in the scripts that call the wait unchecked.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    trap "fm_lock_release \"\$2\"" EXIT
+    fm_lock_acquire_wait "$2"
+    : > "$3"
+  ' _ "$LIB" "$lockdir" "$dir/entered" > "$dir/wait.out" 2> "$dir/wait.err" &
+  pid=$!
+  rc=0
+  wait_for_exit "$pid" 20 || rc=$?
+  [ "$rc" -ne 124 ] || fail "lock wait spun on a plain-file lock path"
+  [ "$rc" -eq 78 ] || fail "lock wait on a plain-file lock path exited $rc, not 78: $(cat "$dir/wait.err")"
+  [ ! -e "$dir/entered" ] || fail "lock wait let its caller into the critical section unlocked"
+  grep -qF "lock $lockdir cannot be acquired" "$dir/wait.err" \
+    || fail "plain-file refusal did not name the lock path: $(cat "$dir/wait.err")"
+  [ "$(grep -c 'cannot be acquired' "$dir/wait.err")" -eq 1 ] \
+    || fail "plain-file refusal was not reported exactly once: $(cat "$dir/wait.err")"
+
+  # The positional parameters belong to the nested shell.
+  # shellcheck disable=SC2016
+  out=$(FM_STATE_OVERRIDE="$state" fm_run_timed 10 bash -c '
+    . "$1"
+    if fm_lock_acquire_wait_max "$2" 30; then rc=0; else rc=$?; fi
+    printf "max=%s " "$rc"
+    if fm_lock_acquire_wait_bounded "$2" 30; then rc=0; else rc=$?; fi
+    printf "bounded=%s returned\n" "$rc"
+  ' _ "$LIB" "$lockdir" 2>/dev/null)
+  [ "$out" = "max=1 bounded=1 returned" ] \
+    || fail "bounded waits did not return a prompt refusal on a plain-file lock path: $out"
+
+  : > "$state/.steal-probe.lock.steal"
+  # The positional parameters belong to the nested shell.
+  # shellcheck disable=SC2016
+  out=$(FM_STATE_OVERRIDE="$state" fm_run_timed 10 bash -c '. "$1"; fm_lock_acquire_wait "$2"' _ "$LIB" "$state/.steal-probe.lock" 2>&1)
+  rc=$?
+  [ "$rc" -eq 78 ] || fail "a plain-file steal mutex did not refuse its lock wait: $rc: $out"
+  case "$out" in *"$state/.steal-probe.lock.steal is a"*) ;; *) fail "steal refusal did not name the steal path: $out" ;; esac
+
+  out="$dir/watch.out"
+  err="$dir/watch.err"
+  status=0
+  cp -p "$lockdir" "$state/.watch.lock"
+  PATH="$dir/fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_GUARD_GRACE=1 FM_POLL=5 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    fm_run_timed 20 "$WATCH" > "$out" 2> "$err" || status=$?
+  [ "$status" -eq 1 ] || fail "watcher on a plain-file lock exited $status, not 1: $(cat "$out" "$err")"
+  ! grep -q 'already running' "$out" "$err" || fail "watcher reported a plain-file lock as a running watcher"
+  grep -qF "$state/.watch.lock is a" "$err" || fail "watcher refusal did not name its lock path: $(cat "$err")"
+
+  after=$(stat -c '%i %Y %s' "$lockdir" 2>/dev/null || stat -f '%i %m %z' "$lockdir") \
+    || fail "could not snapshot plain-file lock metadata after acquisition"
+  [ -n "$after" ] || fail "plain-file lock metadata after acquisition was empty"
+  [ "$before" = "$after" ] || fail "plain-file lock path was modified: $before -> $after"
+  [ "$(cat "$lockdir")" = 'held by a foreign flock' ] || fail "plain-file lock content changed"
+  [ -f "$state/.watch.lock" ] && [ ! -L "$state/.watch.lock" ] || fail "watcher replaced the plain-file lock"
+  pass "a plain-file lock path is refused promptly, by name, and left untouched"
+}
+
+test_lock_disappearing_during_format_check_is_not_malformed() {
+  local dir state representation suffix lockdir rc
+  dir=$(make_case lock-format-release-race)
+  state="$dir/state"
+  for representation in directory symlink; do
+    for suffix in '' .steal; do
+      lockdir="$state/.contend.lock$suffix"
+      mkdir -p "$dir/owner"
+      if [ "$representation" = symlink ]; then
+        ln -s "$dir/owner" "$lockdir"
+      else
+        mkdir "$lockdir"
+      fi
+      rc=0
+      FM_STATE_OVERRIDE="$state" bash -c '
+        . "$1"
+        race_path=$2
+        # Release the lock just before its symlink observation. Both supported
+        # representations can disappear between filesystem observations.
+        [() {
+          if builtin [ "$#" -eq 4 ] && builtin [ "$1" = "!" ] \
+            && builtin [ "$2" = -L ] && builtin [ "$3" = "$race_path" ]; then
+            rm -rf -- "$race_path"
+            : > "$3.released"
+          fi
+          builtin [ "$@"
+        }
+        if fm_lock_path_malformed "$race_path"; then exit 20; fi
+        builtin [ -f "$race_path.released" ] || exit 21
+        builtin [ ! -e "$race_path" ] || exit 22
+      ' _ "$LIB" "$lockdir" || rc=$?
+      [ "$rc" -eq 0 ] || fail "$representation lock$suffix was classified as malformed during release (rc=$rc)"
+    done
+  done
+  pass "primary and steal locks disappearing during a format check are not malformed"
 }
 
 test_lock_empty_pid_uses_minimum_grace() {
@@ -1595,8 +1708,10 @@ test_lock_reclaims_self_held_steal_mutex
 test_lock_resumes_own_interrupted_steal_reap
 test_lock_live_steal_mutex_is_not_reclaimed
 test_lock_does_not_steal_live_lock
+test_lock_disappearing_during_format_check_is_not_malformed
 test_lock_empty_pid_uses_minimum_grace
 test_lock_wait_refuses_a_removed_lock_directory
+test_lock_refuses_a_plain_file_lock_path
 test_lock_late_claim_loses_after_recreate
 test_lock_paused_mid_acquire_claim_fails_during_steal
 test_watch_restart_rejects_reused_pid
