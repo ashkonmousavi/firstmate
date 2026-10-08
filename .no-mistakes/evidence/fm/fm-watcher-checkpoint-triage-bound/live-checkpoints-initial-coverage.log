@@ -1,0 +1,8 @@
+{"label": "native Codex quiet", "command": ["codex", "sandbox", "-c", "sandbox_mode=\"workspace-write\"", "bash", "bin/fm-watch-checkpoint.sh", "--seconds", "3"], "seconds": 3, "elapsed": 3.971, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": "", "cursor": "", "queue": ""}
+{"label": "one real pane quiet control", "command": ["bash", "bin/fm-watch-checkpoint.sh", "--seconds", "3"], "seconds": 3, "elapsed": 2.54, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": "", "cursor": "stage=panes\nliveness=one.meta\nstall=one.meta\npanes=one.meta\n", "queue": ""}
+{"label": "180 records / 30 real panes quiet", "command": ["bash", "bin/fm-watch-checkpoint.sh", "--seconds", "3"], "seconds": 3, "elapsed": 2.718, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": "", "cursor": "stage=capacity\nliveness=lane180.meta\nstall=lane180.meta\n", "queue": ""}
+Traceback (most recent call last):
+  File "/home/tegris/.no-mistakes/evidence/01M4C578R6BY8Y88P3P9QJDFDG/live-checkpoints.py", line 87, in <module>
+    assert 'panes=' in cursor, 'long control never reached pane observations'
+           ^^^^^^^^^^^^^^^^^^
+AssertionError: long control never reached pane observations

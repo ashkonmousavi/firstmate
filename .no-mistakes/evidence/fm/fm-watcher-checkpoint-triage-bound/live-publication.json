@@ -1,0 +1,111 @@
+[
+  {
+    "label": "mint marked lab",
+    "command": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1"
+    ],
+    "elapsed": 0.007,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1\n",
+    "stderr": ""
+  },
+  {
+    "label": "contended publication attempt 1",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 3.147,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  },
+  {
+    "label": "post-publication contention queue",
+    "queue": "1791421184\t1\tsignal\ta.status\tsignal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1/state/a.status /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1/state/b.status\n",
+    "holder_ready": true
+  },
+  {
+    "label": "durable publication drain",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "elapsed": 1.031,
+    "rc": 0,
+    "stdout": "1791421184\t1\tsignal\ta.status\tsignal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1/state/a.status /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1/state/b.status\nwake annotation: latest wake-EVENT observed at drain, not current state: a.status: done: a.status witness\nSTATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):\na done: a.status witness\nb done: b.status witness\n",
+    "stderr": "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 323122.1791421184.foya0t\n"
+  },
+  {
+    "label": "generation acknowledgement",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh",
+      "--ack-through",
+      "1",
+      "--recovery-generation",
+      "323122.1791421184.foya0t"
+    ],
+    "elapsed": 0.096,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "later signal resumed after lock release",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 1.081,
+    "rc": 0,
+    "stdout": "signal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1/state/b.status\n",
+    "stderr": ""
+  },
+  {
+    "label": "durable publication drain",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "elapsed": 1.023,
+    "rc": 0,
+    "stdout": "1791421188\t2\tsignal\tb.status\tsignal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-publication-lab/attempt1/state/b.status\nwake annotation: latest wake-EVENT observed at drain, not current state: b.status: done: b.status witness\n",
+    "stderr": "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 328772.1791421188.TmAiII\n"
+  },
+  {
+    "label": "generation acknowledgement",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh",
+      "--ack-through",
+      "2",
+      "--recovery-generation",
+      "328772.1791421188.TmAiII"
+    ],
+    "elapsed": 0.095,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "both acknowledged publications stay quiet",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 3.075,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  }
+]

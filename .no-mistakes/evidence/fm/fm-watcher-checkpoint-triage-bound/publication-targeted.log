@@ -1,0 +1,3 @@
+ok - minimal wake callers resolve checkpoint locking and retain shell options across recovery transitions
+ok - public process-event reconciliation publishes an ordinary capture until explicitly handled
+ok - contended primary and fallback publication commit each successful file before deferral without duplicate acknowledgement

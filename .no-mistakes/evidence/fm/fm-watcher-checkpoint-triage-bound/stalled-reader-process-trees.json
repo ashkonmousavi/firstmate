@@ -1,0 +1,212 @@
+[
+  {
+    "elapsed": 1.819,
+    "tree": [
+      {
+        "pid": 98854,
+        "ppid": 81775,
+        "pgid": 81772,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch-checkpoint.sh",
+          "--seconds",
+          "3",
+          ""
+        ]
+      },
+      {
+        "pid": 98897,
+        "ppid": 98854,
+        "pgid": 98897,
+        "exe": "timeout",
+        "args": [
+          "14",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 98899,
+        "ppid": 98897,
+        "pgid": 98897,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 100116,
+        "ppid": 98899,
+        "pgid": 98897,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 100226,
+        "ppid": 100116,
+        "pgid": 100226,
+        "exe": "timeout",
+        "args": [
+          "-k",
+          "1",
+          "2",
+          "bash"
+        ]
+      },
+      {
+        "pid": 100227,
+        "ppid": 100226,
+        "pgid": 100226,
+        "exe": "bash",
+        "args": [
+          "-c",
+          "\n    status_file=$1\n    shift\n    \"$@\"\n    command_rc=$?\n    printf \"%s\\n\" \"$command_rc\" > \"$status_file\"\n    exit \"$com",
+          "_",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-causal-lab/fm-timeout-status.a8o"
+        ]
+      },
+      {
+        "pid": 100228,
+        "ppid": 100227,
+        "pgid": 100226,
+        "exe": "bash",
+        "args": [
+          "-c",
+          ". \"$1\"; shift; \"$@\"",
+          "_",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh"
+        ]
+      },
+      {
+        "pid": 100421,
+        "ppid": 100228,
+        "pgid": 100226,
+        "exe": "tmux",
+        "args": [
+          "capture-pane",
+          "-p",
+          "-t",
+          "primary:0"
+        ]
+      }
+    ]
+  },
+  {
+    "elapsed": 3.535,
+    "tree": [
+      {
+        "pid": 98854,
+        "ppid": 81775,
+        "pgid": 81772,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch-checkpoint.sh",
+          "--seconds",
+          "3",
+          ""
+        ]
+      },
+      {
+        "pid": 98897,
+        "ppid": 98854,
+        "pgid": 98897,
+        "exe": "timeout",
+        "args": [
+          "14",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 98899,
+        "ppid": 98897,
+        "pgid": 98897,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      }
+    ]
+  },
+  {
+    "elapsed": 5.046,
+    "tree": [
+      {
+        "pid": 98854,
+        "ppid": 81775,
+        "pgid": 81772,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch-checkpoint.sh",
+          "--seconds",
+          "3",
+          ""
+        ]
+      },
+      {
+        "pid": 98897,
+        "ppid": 98854,
+        "pgid": 98897,
+        "exe": "timeout",
+        "args": [
+          "14",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 98899,
+        "ppid": 98897,
+        "pgid": 98897,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      }
+    ]
+  },
+  {
+    "elapsed": 12.043,
+    "tree": [
+      {
+        "pid": 98854,
+        "ppid": 81775,
+        "pgid": 81772,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch-checkpoint.sh",
+          "--seconds",
+          "3",
+          ""
+        ]
+      },
+      {
+        "pid": 98897,
+        "ppid": 98854,
+        "pgid": 98897,
+        "exe": "timeout",
+        "args": [
+          "14",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 98899,
+        "ppid": 98897,
+        "pgid": 98897,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      }
+    ]
+  }
+]

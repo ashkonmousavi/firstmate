@@ -1,0 +1,324 @@
+[
+  {
+    "label": "private 120x40 tmux",
+    "command": [
+      "tmux",
+      "-L",
+      "fm-lab",
+      "new-session",
+      "-d",
+      "-s",
+      "primary",
+      "-x",
+      "120",
+      "-y",
+      "40",
+      "-c",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG",
+      "sleep 300"
+    ],
+    "elapsed": 0.006,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "private socket identity",
+    "command": [
+      "tmux",
+      "-L",
+      "fm-lab",
+      "display-message",
+      "-p",
+      "#{socket_path},#{pid},0"
+    ],
+    "elapsed": 0.002,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.t3/tmux-1000/fm-lab,4167462,0\n",
+    "stderr": ""
+  },
+  {
+    "label": "create isolated home",
+    "command": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/recovery"
+    ],
+    "elapsed": 0.006,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/recovery\n",
+    "stderr": ""
+  },
+  {
+    "label": "create isolated home",
+    "command": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/child"
+    ],
+    "elapsed": 0.006,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/child\n",
+    "stderr": ""
+  },
+  {
+    "label": "bounded missing-mate handoff 1",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "6"
+    ],
+    "elapsed": 0.503,
+    "rc": 0,
+    "stdout": "check: recovery cycle required for relaunch mate; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake\n",
+    "stderr": ""
+  },
+  {
+    "label": "bounded missing-mate handoff 2",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "6"
+    ],
+    "elapsed": 0.015,
+    "rc": 0,
+    "stdout": "check: recovery cycle required for relaunch mate; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake\n",
+    "stderr": ""
+  },
+  {
+    "label": "recovery handoff custody",
+    "queue": "1791420828\t1\tcheck\tcheckpoint-recovery-relaunch-mate\tcheck: recovery cycle required for relaunch mate; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake\n",
+    "metadata": "kind=secondmate\nbackend=tmux\nharness=codex\nwindow=primary:absent-mate\nhome=/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/child\n",
+    "attempt_ledger_exists": false
+  },
+  {
+    "label": "explicit recovery reports invalid lab route",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--recover"
+    ],
+    "elapsed": 0.888,
+    "rc": 0,
+    "stdout": "check: secondmate mate auto-relaunch failed after recorded endpoint confidently missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/recovery\n",
+    "stderr": ""
+  },
+  {
+    "label": "failed recovery durable outcome",
+    "ledger": "1791420829\tattempt\n1791420829\tfailed\n",
+    "queue": "1791420828\t1\tcheck\tcheckpoint-recovery-relaunch-mate\tcheck: recovery cycle required for relaunch mate; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake\n1791420829\t2\tcheck\tsecondmate-relaunch-failed-mate-1791420829\tcheck: secondmate mate auto-relaunch failed after recorded endpoint confidently missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/recovery\n"
+  },
+  {
+    "label": "durable drain",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "elapsed": 1.028,
+    "rc": 0,
+    "stdout": "1791420828\t1\tcheck\tcheckpoint-recovery-relaunch-mate\tcheck: recovery cycle required for relaunch mate; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake\n1791420829\t2\tcheck\tsecondmate-relaunch-failed-mate-1791420829\tcheck: secondmate mate auto-relaunch failed after recorded endpoint confidently missing: fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/recovery\n",
+    "stderr": "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 4168601.1791420829.8jrJ7t\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\n\u25cf  WATCHER DOWN - SUPERVISION IS OFF\n\u25cf  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).\n\u25cf  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.\n\u25cf  This is a supervision warning only; the guarded operation WILL still run.\n\u25cf  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.\n\u25cf\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\nWARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.\n"
+  },
+  {
+    "label": "explicit generation acknowledgement",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh",
+      "--ack-through",
+      "2",
+      "--recovery-generation",
+      "4168601.1791420829.8jrJ7t"
+    ],
+    "elapsed": 0.099,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "create isolated home",
+    "command": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/status"
+    ],
+    "elapsed": 0.006,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/status\n",
+    "stderr": ""
+  },
+  {
+    "label": "default-grace status signal",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 1.017,
+    "rc": 0,
+    "stdout": "signal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/status/state/demo.status\n",
+    "stderr": ""
+  },
+  {
+    "label": "durable drain",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "elapsed": 0.982,
+    "rc": 0,
+    "stdout": "1791420831\t1\tsignal\tdemo.status\tsignal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/status/state/demo.status\nwake annotation: latest wake-EVENT observed at drain, not current state: demo.status: done: real signal witness\nSTATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):\ndemo done: real signal witness\n",
+    "stderr": "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 4171568.1791420831.aD8LBL\n"
+  },
+  {
+    "label": "explicit generation acknowledgement",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh",
+      "--ack-through",
+      "1",
+      "--recovery-generation",
+      "4171568.1791420831.aD8LBL"
+    ],
+    "elapsed": 0.108,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "acknowledged status signal does not repeat",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 3.409,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  },
+  {
+    "label": "create isolated home",
+    "command": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/turn-ended"
+    ],
+    "elapsed": 0.016,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/turn-ended\n",
+    "stderr": ""
+  },
+  {
+    "label": "default-grace turn-ended signal",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 1.473,
+    "rc": 0,
+    "stdout": "signal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/turn-ended/state/demo.turn-ended\n",
+    "stderr": ""
+  },
+  {
+    "label": "durable drain",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh"
+    ],
+    "elapsed": 0.74,
+    "rc": 0,
+    "stdout": "1791420837\t1\tsignal\tdemo.turn-ended\tsignal: /home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/turn-ended/state/demo.turn-ended\n",
+    "stderr": "WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 4183646.1791420837.YUwYcj\n"
+  },
+  {
+    "label": "explicit generation acknowledgement",
+    "command": [
+      "bash",
+      "bin/fm-wake-drain.sh",
+      "--ack-through",
+      "1",
+      "--recovery-generation",
+      "4183646.1791420837.YUwYcj"
+    ],
+    "elapsed": 0.095,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "label": "acknowledged turn-ended signal does not repeat",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 3.066,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  },
+  {
+    "label": "create isolated home",
+    "command": [
+      "bash",
+      "bin/fm-lab-home.sh",
+      "create",
+      "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/invalid-arguments"
+    ],
+    "elapsed": 0.006,
+    "rc": 0,
+    "stdout": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-handoff-lab/invalid-arguments\n",
+    "stderr": ""
+  },
+  {
+    "label": "invalid checkpoint arguments refused",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "0"
+    ],
+    "elapsed": 0.003,
+    "rc": 2,
+    "stdout": "",
+    "stderr": "error: --seconds must be greater than zero\n"
+  },
+  {
+    "label": "invalid checkpoint arguments refused",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--recover",
+      "--seconds",
+      "3"
+    ],
+    "elapsed": 0.003,
+    "rc": 2,
+    "stdout": "",
+    "stderr": "error: --recover cannot carry a quiet checkpoint bound\n"
+  },
+  {
+    "label": "private server teardown",
+    "command": [
+      "tmux",
+      "-L",
+      "fm-lab",
+      "kill-server"
+    ],
+    "elapsed": 0.002,
+    "rc": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

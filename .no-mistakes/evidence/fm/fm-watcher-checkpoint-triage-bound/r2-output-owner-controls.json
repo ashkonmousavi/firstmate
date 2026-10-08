@@ -1,0 +1,39 @@
+[
+  {
+    "label": "base-short-control",
+    "stopped_real_tmux": false,
+    "elapsed": 2.725,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  },
+  {
+    "label": "target-real-stalled-read-GREEN",
+    "stopped_real_tmux": true,
+    "elapsed": 3.785,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  },
+  {
+    "label": "target-old-output-owner-FAULT",
+    "stopped_real_tmux": true,
+    "elapsed": 14.049,
+    "rc": 1,
+    "stdout": "",
+    "stderr": "checkpoint: watcher exceeded the quiet bound without a clean close\n"
+  },
+  {
+    "label": "target-restored-control",
+    "stopped_real_tmux": false,
+    "elapsed": 2.613,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": ""
+  },
+  {
+    "label": "private causal lab teardown",
+    "rc": 0,
+    "stderr": ""
+  }
+]

@@ -1,0 +1,9 @@
+{"label": "base-short-control", "stopped_real_tmux": false, "elapsed": 2.682, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": ""}
+{"label": "base-real-stalled-read-RED", "stopped_real_tmux": true, "elapsed": 14.048, "rc": 1, "stdout": "", "stderr": "checkpoint: watcher exceeded the quiet bound without a clean close\n"}
+{"label": "target-real-stalled-read-GREEN", "stopped_real_tmux": true, "elapsed": 2.885, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": ""}
+{"label": "target-old-output-owner-FAULT", "stopped_real_tmux": true, "elapsed": 0.413, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": ""}
+Traceback (most recent call last):
+  File "/home/tegris/.no-mistakes/evidence/01M4C578R6BY8Y88P3P9QJDFDG/r2-slow-read-controls.py", line 115, in <module>
+    assert broken.returncode == 1 and 'exceeded the quiet bound' in broken.stderr
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

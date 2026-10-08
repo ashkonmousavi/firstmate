@@ -1,0 +1,24 @@
+ok - quiet checkpoint exits 124 with a clean checkpoint line and no live lock
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 3482208.1791420238.w0r4js
+ok - checkpoint passes through a real watcher wake and leaves the queue for drain
+ok - short checkpoints deliver status and bare turn-end signals once without spending their deadline on grace
+ok - affordable checkpoint grace and ordinary watcher grace coalesce trailing signals without hiding done
+ok - checkpoint preserves watcher environment for registered custom checks
+ok - checkpoint rejects an existing watcher singleton as unowned
+ok - checkpoint: an opted-in home runs the host for the checkpoint's bound, raised only while away
+ok - checkpoint: a handed-back wake passes through, and a host stand-down is a failure
+ok - checkpoint: a Codex home without config/supervision-host, or with an off file, never runs the host
+ok - checkpoint: the real host ends its park at the checkpoint bound as a quiet checkpoint
+ok - checkpoint bounds long recorded sweeps and preserves the short control
+ok - checkpoint bounds one stalled pane read without an outer-watchdog failure
+ok - deferred later lane retains custody and delivers one generation-bound wake
+ok - checkpoint defers a slow dependent crew read without inventing a stale verdict
+ok - duplicate recorded targets cannot pin checkpoint continuation
+ok - secondmate capture exhaustion preserves the row and resumes one acknowledged wake
+ok - short checkpoints preserve recovery and the explicit foreground owner completes it once
+ok - pending-reply read exhaustion retains the expectation without a fabricated completion
+ok - an expired capacity owner leaves cadence due and cannot starve a later recorded lane
+ok - inactive reconciliation shares the checkpoint deadline and retains its incomplete cursor
+ok - unknown checkpoint observations leave cadence due without changing ordinary supervision
+ok - contended startup preserves ownership and an unknown sibling cannot suppress a durable known wake
+ok - watch deadlines stay scoped to observations and do not alter ordinary child consumers

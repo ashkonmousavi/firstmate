@@ -1,0 +1,98 @@
+[
+  {
+    "elapsed": 1.822,
+    "tree": [
+      {
+        "pid": 1239326,
+        "ppid": 1213134,
+        "pgid": 1213069,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch-checkpoint.sh",
+          "--seconds",
+          "3",
+          ""
+        ]
+      },
+      {
+        "pid": 1239362,
+        "ppid": 1239326,
+        "pgid": 1239362,
+        "exe": "timeout",
+        "args": [
+          "14",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 1239366,
+        "ppid": 1239362,
+        "pgid": 1239362,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 1241103,
+        "ppid": 1239366,
+        "pgid": 1239362,
+        "exe": "bash",
+        "args": [
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh",
+          ""
+        ]
+      },
+      {
+        "pid": 1241230,
+        "ppid": 1241103,
+        "pgid": 1241230,
+        "exe": "timeout",
+        "args": [
+          "-k",
+          "1",
+          "2",
+          "bash"
+        ]
+      },
+      {
+        "pid": 1241231,
+        "ppid": 1241230,
+        "pgid": 1241230,
+        "exe": "bash",
+        "args": [
+          "-c",
+          "\n    status_file=$1\n    shift\n    \"$@\"\n    command_rc=$?\n    printf \"%s\\n\" \"$command_rc\" > \"$status_file\"\n    exit \"$com",
+          "_",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.checkpoint-causal-lab/fm-timeout-status.NeQ"
+        ]
+      },
+      {
+        "pid": 1241232,
+        "ppid": 1241231,
+        "pgid": 1241230,
+        "exe": "bash",
+        "args": [
+          "-c",
+          ". \"$1\"; shift; \"$@\"",
+          "_",
+          "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/bin/fm-watch.sh"
+        ]
+      },
+      {
+        "pid": 1241714,
+        "ppid": 1241232,
+        "pgid": 1241230,
+        "exe": "tmux",
+        "args": [
+          "capture-pane",
+          "-p",
+          "-t",
+          "primary:0"
+        ]
+      }
+    ]
+  }
+]

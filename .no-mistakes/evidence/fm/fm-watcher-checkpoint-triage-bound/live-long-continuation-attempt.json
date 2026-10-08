@@ -1,0 +1,308 @@
+[
+  {
+    "label": "private real tmux",
+    "server_pid": 3675768,
+    "socket": "/home/tegris/.no-mistakes/worktrees/befb827bbae4/01M4C578R6BY8Y88P3P9QJDFDG/.t/tmux-1000/fm-lab,3675768,0",
+    "grid": "120x40"
+  },
+  {
+    "label": "native Codex quiet",
+    "command": [
+      "codex",
+      "sandbox",
+      "-c",
+      "sandbox_mode=\"workspace-write\"",
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.77,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "one real pane quiet control",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.59,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=one.meta\nstall=one.meta\npanes=one.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "180 records / 30 real panes quiet",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.572,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=lane180.meta\nstall=lane180.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "long inventory continuation 1",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.988,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=lane180.meta\nstall=lane180.meta\npanes=lane004.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane first budget",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.144,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=zz-later.meta\nstall=zz-later.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 1",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.07,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane005.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 2",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.922,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane005.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 3",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.429,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane010.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 4",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.568,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane010.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 5",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.176,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane014.meta\n",
+    "queue": "",
+    "observed_backend_commands": [
+      "tmux capture-pane -p -t primary:lane012 -S -40"
+    ]
+  },
+  {
+    "label": "later-lane resumed cycle 6",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.827,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane014.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 7",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.076,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane018.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 8",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.924,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane018.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 9",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.125,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=zz-later.meta\nstall=zz-later.meta\npanes=lane021.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 10",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.167,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=inactive\nliveness=zz-later.meta\nstall=lane133.meta\npanes=lane021.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 11",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 2.867,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=capacity\nliveness=zz-later.meta\nstall=lane133.meta\npanes=lane021.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "later-lane resumed cycle 12",
+    "command": [
+      "bash",
+      "bin/fm-watch-checkpoint.sh",
+      "--seconds",
+      "3"
+    ],
+    "seconds": 3,
+    "elapsed": 3.07,
+    "rc": 124,
+    "stdout": "checkpoint: no actionable wake within 3s\n",
+    "stderr": "",
+    "cursor": "stage=heartbeat\nliveness=zz-later.meta\nstall=lane133.meta\npanes=lane025.meta\n",
+    "queue": "",
+    "observed_backend_commands": []
+  },
+  {
+    "label": "private tmux teardown",
+    "rc": 0,
+    "stderr": ""
+  }
+]

@@ -1,0 +1,8 @@
+{"label": "base-short-control", "stopped_real_tmux": false, "elapsed": 3.794, "rc": 124, "stdout": "checkpoint: no actionable wake within 3s\n", "stderr": ""}
+{"label": "base-real-stalled-read-RED", "stopped_real_tmux": true, "elapsed": 14.119, "rc": 1, "stdout": "", "stderr": "checkpoint: watcher exceeded the quiet bound without a clean close\n"}
+{"label": "target-real-stalled-read-GREEN", "stopped_real_tmux": true, "elapsed": 14.049, "rc": 1, "stdout": "", "stderr": "checkpoint: watcher exceeded the quiet bound without a clean close\n"}
+Traceback (most recent call last):
+  File "/home/tegris/.no-mistakes/evidence/01M4C578R6BY8Y88P3P9QJDFDG/slow-read-controls.py", line 63, in <module>
+    assert green.returncode == 124 and 'no actionable wake within 3s' in green.stdout
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
