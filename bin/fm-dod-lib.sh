@@ -766,7 +766,7 @@ fm_prep_delivery_mode() {  # <file>
     'other, '*) risk=other; reason=${value#'other, '} ;;
     *) return 1 ;;
   esac
-  fm_prep_answer_complete "$reason" no || return 1
+  fm_prep_answer_complete "${reason#'presentation-only:'}" no || return 1
   case "$risk:$mode" in
     other:direct-PR)
       case "$reason" in

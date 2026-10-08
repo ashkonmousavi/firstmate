@@ -340,6 +340,74 @@ EOF
   pass "risk admission: a presentation-only change in a shared file is other with one review; a behavioral reason stays refused"
 }
 
+test_presentation_only_reason_completeness() {
+  local rec home proj fakebin format q2 label reason id prep out status valid
+  rec=$(make_home presentation-reasons)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  for format in full surgical; do
+    for q2 in no yes; do
+      for label in empty whitespace angle brace todo move literal; do
+        valid=no
+        case "$label" in
+          empty) reason='' ;;
+          whitespace) reason='   ' ;;
+          angle) reason='<what moves or is renamed>' ;;
+          brace) reason='{REASON}' ;;
+          todo) reason=TODO ;;
+          move) reason='moves the settings link into the account menu.'; valid=yes ;;
+          literal) reason='renames the {SETTINGS} label in the account menu.'; valid=yes ;;
+        esac
+        id="presentation-$format-$q2-$label"
+        write_brief "$home" "$id" direct-PR
+        prep="$home/data/$id/prep.md"
+        if [ "$format" = surgical ]; then
+          rm "$prep"
+          FM_HOME="$home" "$BRIEF" "$id" --prep --surgical >/dev/null || fail 'presentation surgical scaffold'
+          fill_current_work_fixture "$prep" yes
+          fm_test_fill_prep_common "$prep" direct-PR || fail 'presentation common fields'
+        fi
+        answer_tier "$prep" no "$q2"
+        awk -v r="$reason" '/^- Delivery risk:/ { print "- Delivery risk: other, presentation-only: " r; next } { print }' \
+          "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
+        rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+        out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off); status=$?
+        [ "$status" -ne 0 ] || fail 'refusing fixture backend launched'
+        if [ "$valid:$format:$q2" = yes:surgical:yes ]; then
+          assert_contains "$out" 'C2 contradicts' "$id bypassed surgical shared-module refusal"
+          assert_absent "$home/data/$id/launch-brief.md" "$id contradictory certificate rendered launch"
+        elif [ "$valid" = yes ]; then
+          assert_present "$home/data/$id/launch-brief.md" "$id valid spawn refused: $out"
+          assert_present "$fakebin/tmux.calls" "$id valid spawn missed backend"
+        else
+          assert_contains "$out" 'Delivery risk' "$id spawn refusal unnamed"
+          assert_absent "$home/data/$id/launch-brief.md" "$id invalid spawn rendered launch"
+          assert_absent "$fakebin/tmux.calls" "$id invalid spawn reached backend"
+          assert_absent "$fakebin/treehouse.calls" "$id invalid spawn allocated worktree"
+        fi
+        printf 'window=fm-%s\nkind=scout\nworktree=%s\n' "$id" "$proj" > "$home/state/$id.meta"
+        cp "$home/state/$id.meta" "$home/original-meta"
+        cp "$home/data/$id/brief.md" "$home/original-brief"
+        out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+          "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1); status=$?
+        if [ "$valid" = yes ]; then
+          expect_code 0 "$status" "$id valid promotion refused: $out"
+          assert_grep 'kind=ship' "$home/state/$id.meta" "$id promotion did not become ship"
+          assert_present "$home/data/$id/ship-instructions.md" "$id promotion omitted instructions"
+        else
+          [ "$status" -ne 0 ] || fail "$id invalid promotion accepted"
+          assert_contains "$out" 'Delivery risk' "$id promotion refusal unnamed"
+          cmp -s "$home/state/$id.meta" "$home/original-meta" || fail "$id refusal changed metadata"
+          cmp -s "$home/data/$id/brief.md" "$home/original-brief" || fail "$id refusal changed brief"
+          assert_absent "$home/data/$id/ship-instructions.md" "$id refusal published instructions"
+        fi
+      done
+    done
+  done
+  pass 'presentation reasons: spawn and promotion reject unfinished payloads across prep formats and Q2 answers'
+}
+
 test_risk_fields_and_certainty_controls() {
   local rec home proj fakebin prep baseline change out status risk mode format id
   rec=$(make_home risk-fields)
@@ -3624,6 +3692,7 @@ test_prep_current_work_checks() {
 test_promotion_risk_admission
 test_risk_delivery_admission
 test_presentation_only_shared_change_is_other
+test_presentation_only_reason_completeness
 test_risk_fields_and_certainty_controls
 test_prep_current_work_checks
 test_prep_block_transitions
