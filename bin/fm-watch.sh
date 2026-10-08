@@ -2459,7 +2459,7 @@ age_of() {  # seconds since file mtime; "due immediately" if missing
 # gate, or paused; the shared current-state proof only reports how many of those
 # crews are provably working. The marker resets when full or empty.
 # The cap is a maximum, not a target: with an optional config/release-capacity,
-# lanes whose ship is validating or already recorded a PR (in CI, queue or landing)
+# lanes whose ship is validating or already recorded a PR (in CI or awaiting landing)
 # count against that bound, and once it is reached the wake names that release
 # bottleneck instead of asking for more starts. The wake still lists the ready
 # work, and spawn admission is unchanged, so a repair or independent item can

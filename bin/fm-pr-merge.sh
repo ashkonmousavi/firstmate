@@ -81,38 +81,6 @@
 # command's own output, marked as the forge's text and kept apart from this
 # script's verdict, including the refusal for an outcome that cannot be read;
 # a merge command that failed keeps its original error surfaced raw and first.
-# A project registered landing=mergify (bin/fm-project-mode.sh --landing) lands
-# through its Mergify queue instead. Every pre-merge condition above, the
-# captain-hold check and the away-record read still run first; the head is then
-# re-read and must still equal the verified head, and only then is the
-# documented `@mergifyio queue` command posted
-# (https://docs.mergify.com/commands/queue/). The comment is not atomic with
-# the head; head binding is unsupported and remains unverified. The default
-# receipt is `queue requested, enrollment unconfirmed` naming the requested
-# verified head. Only `mergify queue show --json` enrollment read-back and an
-# unchanged live PR head permit `queued:` attribution and accepted authority.
-# A moved head invalidates the old proof and authority. The merge poll remains
-# armed: queued is pending, never landed. The queue's own merge
-# conditions retest the combined candidate, and whether it lands a batch as one
-# fast-forward of the tested batch head or as individual merges is the
-# project's queue configuration. The Mergify app's authority is exactly that:
-# merging queued PRs whose queue conditions passed; no agent merges around it.
-# On such a project, --allow-red, --allow-missing and extra forge arguments are
-# refused without --attended-override, because the queue owns the method and
-# the proof. --attended-override permits a direct bootstrap or incident merge
-# only with data/<task-id>/landing-proof.json in the existing task record.
-# The record requires kind=bootstrap|incident, a named incident, repository,
-# head and base full SHAs, result=success, nonempty modules and direct_consumers
-# lists and first_queue_landing: null before the first verified end-to-end
-# queue landing, a nonempty receipt string afterwards. A recorded receipt
-# refuses direct landing with "queue is the only path"; missing or invalid
-# fields refuse as incomplete proof. Merger identity never decides the cutoff.
-# The base must equal the live base tip and the head the verified PR head.
-# The bypass notice follows these checks.
-# AGENTS.md section 7 owns authority. An invalid landing, a GitLab URL, or the away
-# posture refuses before any forge command; a task record without project=
-# keeps the direct merge.
-#
 # GitLab adds no method flag at all: its merge method is the project's own
 # setting, which the merge API applies, and imposing squash there would override
 # that convention rather than mirror the GitHub default.
@@ -166,15 +134,11 @@
 # --remove-source-branch) are refused by default; --attended-override, parsed
 # before the optional -- separator, re-enables those forge flags without
 # skipping the unwaived-check guards, away-record read, or a captain hold.
-# AGENTS.md section 7 owns landing and repair authority: under the project's
-# merge authority firstmate may use --attended-override -- --auto --<method>
-# solely to enroll a green PR in the merge queue its base branch requires, with
-# the exact flags a refusal names, because queue enrollment is the landing path
-# rather than a separate approval; and --attended-override -- --admin solely
-# for a named --allow-red or --allow-missing CI waiver on a named bootstrap or
-# incident repair if forge protection requires it, not to bypass non-CI
-# protections. Other auto-merge, branch deletion, non-CI protection bypass, and
-# security-sensitive merges still require an explicit captain instruction.
+# AGENTS.md section 7 owns waiver authority: on yolo projects firstmate may use
+# --attended-override -- --admin solely for a named --allow-red or --allow-missing
+# CI waiver if forge protection requires it, not to bypass non-CI protections.
+# Auto-merge, branch deletion, non-CI protection bypass, and security-sensitive
+# merges still require an explicit captain instruction.
 #
 # Usage: fm-pr-merge.sh <task-id> <pr-url> [--attended-override] [--allow-red <check-name>]... [--allow-missing <check-name>]... [-- <extra forge merge args>]
 #
@@ -458,14 +422,14 @@ reject_protected_forge_args() {
   for arg in "$@"; do
     case "$arg" in
       --auto|--auto=*|--admin|--admin=*|--delete-branch|--delete-branch=*|--remove-source-branch|--remove-source-branch=*)
-        echo "error: extra merge arguments require --attended-override; firstmate may use --auto solely to enroll a green PR in the merge queue its base branch requires and --admin solely for a named repair CI waiver, both under AGENTS.md section 7; other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction" >&2
+        echo "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction" >&2
         return 1
         ;;
       --*) ;;
       # A single-dash argument is a short-option cluster. -d is gh's
       # --delete-branch, and -yd carries it the same way -yR carries --repo.
       -*d*)
-        echo "error: extra merge arguments require --attended-override; firstmate may use --auto solely to enroll a green PR in the merge queue its base branch requires and --admin solely for a named repair CI waiver, both under AGENTS.md section 7; other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction" >&2
+        echo "error: extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7; --auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction" >&2
         return 1
         ;;
     esac
@@ -543,32 +507,6 @@ fi
 if [ "$FM_BACKLOG_META_SPAWN_GEN" != "$MERGE_EXPECTED_SPAWN_GEN" ]; then
   echo "error: task $ID changed incarnation while waiting to merge; refusing" >&2
   exit 1
-fi
-
-# The task's project registers its landing path (bin/fm-project-mode.sh
-# --landing). A queue project's ordinary landing is the Mergify handoff below;
-# --attended-override requests the recorded, pre-first-landing repair path.
-LANDING=direct
-MERGIFY_REPAIR=false
-LANDING_PROJECT=$(sed -n 's/^project=//p' "$META" | tail -1)
-if [ -n "$LANDING_PROJECT" ]; then
-  if ! LANDING=$(FM_HOME="$FM_HOME" "$SCRIPT_DIR/fm-project-mode.sh" --landing "${LANDING_PROJECT##*/}" 2>/dev/null); then
-    echo "error: PR merge refused: the registered landing for project ${LANDING_PROJECT##*/} is invalid or unreadable; nothing was handed to the forge" >&2
-    exit 2
-  fi
-fi
-if [ "$LANDING" = mergify ]; then
-  if [ "$PROVIDER" != github ]; then
-    echo "error: PR merge refused: landing=mergify applies only to GitHub pull requests; nothing was handed to the forge" >&2
-    exit 2
-  fi
-  if [ "$ATTENDED_OVERRIDE" = true ]; then
-    MERGIFY_REPAIR=true
-    LANDING=direct
-  elif [ "${#ALLOW_RED[@]}" -gt 0 ] || [ "${#ALLOW_MISSING[@]}" -gt 0 ] || [ "$#" -gt 0 ]; then
-    echo "error: PR merge refused: the Mergify queue owns the merge method and the combined-candidate proof, so waivers and extra merge arguments apply only to the attended repair path; nothing was handed to the forge" >&2
-    exit 2
-  fi
 fi
 
 # Reading the merge request state needs both tools. Report them together and
@@ -912,9 +850,6 @@ github_verify_mergeable() {
   done <<FIELDS
 $fields
 FIELDS
-  if fm_pr_head_valid "$live_head" && ! grep -qxF "pr_head=$live_head" "$META"; then
-    invalidate_queue_head_authority || return 1
-  fi
   if [ "$named" -ne 5 ] || [ "$total" -ne 5 ] || [ -z "$base" ]; then
     echo "error: could not read the GitHub pull request state before merging" >&2
     return 1
@@ -1287,10 +1222,6 @@ require_current_away_authority() {
   FM_PR_AWAY_POSTURE=false
   if fm_afk_contract_away_present "$STATE"; then
     FM_PR_AWAY_POSTURE=true
-    if [ "$PROVIDER" = github ] && [ "$LANDING" = mergify ]; then
-      echo "error: the Mergify queue handoff is attended-only; while the away-posture record exists only a synchronous merge may run under its authority lock, and nothing was handed to the queue" >&2
-      return 2
-    fi
     if [ "$PROVIDER" = github ] && [ "$FM_PR_GITHUB_AUTO_REQUESTED" = true ]; then
       echo "error: --auto is attended-only; while the away-posture record exists only a synchronous merge may run under its authority lock" >&2
       return 2
@@ -1496,87 +1427,6 @@ gitlab_confirm_merged() {
   [ "$state" = merged ]
 }
 
-# The header owns queue receipts and bootstrap proof; the existing authority
-# reader and conditional remover own retirement of a matching accepted record.
-invalidate_queue_head_authority() {
-  if fm_merge_authority_read "$STATE" "$ID" "$PROVIDER" "$PR_HOST" "$PR_PATH" "$PR_NUMBER"; then
-    fm_merge_authority_remove_if_matches "$STATE" "$ID" "$PROVIDER" "$PR_HOST" "$PR_PATH" \
-      "$PR_NUMBER" "$FM_MERGE_AUTHORITY" "$FM_MERGE_AUTHORITY_RECORD_IDENTITY" || return 1
-  fi
-}
-
-require_mergify_repair_proof() {
-  local proof="$FM_HOME/data/$ID/landing-proof.json" base receipt
-  if [ ! -f "$proof" ] || [ -L "$proof" ] || [ ! -r "$proof" ] \
-    || ! jq -e --arg repo "$PR_OWNER/$PR_REPO" --arg head "$FM_PR_MERGE_HEAD" '
-      def names: type == "array" and length > 0 and all(.[]; type == "string" and test("[^[:space:]]"));
-      type == "object" and (.kind == "bootstrap" or .kind == "incident")
-      and (.incident | type == "string" and test("[^[:space:]]"))
-      and .repository == $repo and .head == $head
-      and (.base | type == "string" and test("^[0-9a-f]{40}$"))
-      and .result == "success" and (.modules | names) and (.direct_consumers | names)
-      and has("first_queue_landing")
-      and (.first_queue_landing == null or (.first_queue_landing | type == "string" and test("[^[:space:]]")))
-    ' "$proof" >/dev/null 2>&1; then
-    printf 'error: Mergify bypass refused: missing, unreadable or incomplete exact-head bootstrap/incident targeted proof in %s; nothing was handed to the forge\n' "$proof" >&2
-    return 1
-  fi
-  receipt=$(jq -c .first_queue_landing "$proof") || return 1
-  if [ "$receipt" != null ]; then
-    echo 'error: Mergify bypass refused: a verified end-to-end queue landing is recorded; queue is the only path' >&2
-    return 1
-  fi
-  if ! base=$(gh api "repos/$PR_OWNER/$PR_REPO/git/ref/heads/$FM_PR_GITHUB_BASE" --jq .object.sha 2>/dev/null) \
-    || [ "$base" != "$(jq -r .base "$proof")" ]; then
-    printf 'error: Mergify bypass refused: targeted proof is not on current %s; nothing was handed to the forge\n' "$FM_PR_GITHUB_BASE" >&2
-    return 1
-  fi
-  printf 'notice: this recorded %s direct merge bypasses the configured Mergify queue before its first native landing; targeted proof: %s\n' \
-    "$(jq -r .kind "$proof")" "$proof" >&2
-}
-
-mergify_queue_handoff() {
-  local live_head queue_json='' enrolled=false
-  if ! live_head=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
-    --json headRefOid --jq .headRefOid 2>/dev/null) || [ "$live_head" != "$FM_PR_MERGE_HEAD" ]; then
-    printf 'error: the head of %s changed or could not be re-read after verification (verified %s, read %s); nothing was handed to the queue\n' \
-      "$URL" "$FM_PR_MERGE_HEAD" "${live_head:-unreadable}" >&2
-    invalidate_queue_head_authority || return 1
-    return 1
-  fi
-  if ! gh pr comment "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" --body '@mergifyio queue' >/dev/null; then
-    printf 'error: the Mergify queue command could not be posted on %s; nothing was queued\n' "$URL" >&2
-    return 1
-  fi
-  if command -v mergify >/dev/null 2>&1 \
-    && queue_json=$(mergify queue show "$PR_NUMBER" --repository "$PR_OWNER/$PR_REPO" --json 2>/dev/null) \
-    && printf '%s' "$queue_json" | jq -e --argjson pr "$PR_NUMBER" '
-      type == "object" and .number == $pr and ((has("queued") | not) or .queued == true)
-      and (.queued_at | type == "string" and length > 0)
-      and (.position | type == "number" and . >= 0 and floor == .)
-    ' >/dev/null 2>&1; then
-    enrolled=true
-  fi
-  if ! live_head=$(gh pr view "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
-    --json headRefOid --jq .headRefOid 2>/dev/null) || [ "$live_head" != "$FM_PR_MERGE_HEAD" ]; then
-    invalidate_queue_head_authority || return 1
-    printf 'queue requested: %s for verified head %s; head moved or is unreadable (live %s), old proof and authority invalidated, enrollment not attributed; the queue retests its current-main candidate\n' \
-      "$URL" "$FM_PR_MERGE_HEAD" "${live_head:-unreadable}"
-    return 0
-  fi
-  if [ "$enrolled" = true ]; then
-    persist_accepted_merge_authority || return 1
-    printf 'queued: %s in the Mergify queue at verified head %s; enrollment read back, the queue retests its current-main candidate; the merge poll remains armed\n' \
-      "$URL" "$FM_PR_MERGE_HEAD"
-  else
-    printf 'queue requested, enrollment unconfirmed: %s for verified head %s; the merge poll remains armed\n' \
-      "$URL" "$FM_PR_MERGE_HEAD"
-  fi
-  fm_afk_contract_lock_release || true
-  fm_lock_release "$MERGE_CONTROL_LOCK" || true
-  MERGE_CONTROL_LOCK=
-}
-
 # Record before either forge call. This arms the merge poll without claiming a
 # landed outcome, so even a provider read failure after a real merge cannot
 # leave teardown without the PR identity it needs to verify the result.
@@ -1635,13 +1485,6 @@ case "$PROVIDER" in
     require_current_away_authority || away_status=$?
     [ "$away_status" -eq 0 ] || exit "$away_status"
     refuse_github_queue_while_away || exit 2
-    if [ "$MERGIFY_REPAIR" = true ]; then
-      require_mergify_repair_proof || exit 1
-    fi
-    if [ "$LANDING" = mergify ]; then
-      mergify_queue_handoff
-      exit $?
-    fi
     merge_status=0
     merge_output=$(gh pr merge "$PR_NUMBER" --repo "$PR_OWNER/$PR_REPO" \
       --match-head-commit "$FM_PR_MERGE_HEAD" \

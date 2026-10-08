@@ -57,18 +57,6 @@ make_case() {
   # rule, so nothing is required unless a case says otherwise.
   write_github_required "$case_dir"
   : > "$case_dir/gh.log"
-  printf '%s\n' '1212121212121212121212121212121212121212' > "$case_dir/github-base"
-  cat > "$fakebin/mergify" <<'SH'
-#!/usr/bin/env bash
-printf '%s\n' "$*" >> "$FM_TEST_CASE_DIR/mergify.log"
-[ "$*" = "queue show 61 --repository example/repo --json" ] || exit 2
-[ -f "$FM_TEST_CASE_DIR/mergify.json" ] || exit 1
-cat "$FM_TEST_CASE_DIR/mergify.json"
-if [ -f "$FM_TEST_CASE_DIR/head-after-readback" ]; then
-  cp "$FM_TEST_CASE_DIR/head-after-readback" "$FM_TEST_GH_HEAD"
-fi
-SH
-  chmod +x "$fakebin/mergify"
   # The worktree is a git copy whose HEAD is on a remote-tracking ref, as a
   # pushed ship task's is, so fm-pr-check.sh's named-head gate accepts it when
   # the forge supplies no head (GitLab). No project clone exists on disk.
@@ -244,13 +232,6 @@ case "${1:-} ${2:-}" in
     fi
     exit "$merge_rc"
     ;;
-  "pr comment")
-    [ ! -f "$FM_TEST_CASE_DIR/comment-failed" ] || exit 1
-    if [ -f "$FM_TEST_CASE_DIR/head-after-comment" ]; then
-      cp "$FM_TEST_CASE_DIR/head-after-comment" "$FM_TEST_GH_HEAD"
-    fi
-    exit 0
-    ;;
   "api graphql")
     if [ -f "${FM_TEST_GH_GRAPHQL_FAIL:-}" ]; then
       echo 'error: could not reach the GitHub API' >&2
@@ -263,7 +244,6 @@ case "${1:-} ${2:-}" in
     # The required-check reads: the branch itself, and its rules read without
     # the merge-queue filter the queue reader below applies.
     case " $* " in
-      *"/git/ref/heads/"*) cat "$FM_TEST_CASE_DIR/github-base"; exit 0 ;;
       *" repos/"*"/commits/"*"/check-runs"*)
         case "$*" in
           *"/commits/$(cat "$FM_TEST_GH_HEAD")/check-runs"*) ;;
@@ -473,7 +453,6 @@ glab_merge_line() {
 run_pr_merge() {
   local case_dir=$1 rc; shift
   FM_ROOT_OVERRIDE="$ROOT" \
-  FM_TEST_CASE_DIR="$case_dir" \
   FM_HOME="${FM_TEST_HOME:-$case_dir/home}" \
   FM_STATE_OVERRIDE="$case_dir/state" \
   FM_TEST_GH_AXI_LOG="$case_dir/gh-axi.log" \
@@ -1521,7 +1500,7 @@ test_extra_merge_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "extra-args: branch deletion must be refused without --attended-override"
-  assert_grep 'other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
     "extra-args: refusal did not preserve captain-only override limits"
   assert_no_grep 'pr merge' "$case_dir/gh.log" \
     "extra-args: gh pr merge ran despite the denylist"
@@ -1697,7 +1676,7 @@ test_bundled_repo_override_args_refuse_before_recording() {
   rc=$?
   set -e
   expect_code 1 "$rc" "bundled-non-repo-cluster: -d is branch deletion and must be refused"
-  assert_grep 'other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
     "bundled-non-repo-cluster: refusal did not preserve captain-only override limits"
 
   case_dir=$(make_case bundled-delete-attended)
@@ -1832,7 +1811,7 @@ test_gitlab_extra_args_forwarded() {
   rc=$?
   set -e
   expect_code 1 "$rc" "gitlab-extra-args: source-branch deletion must be refused without --attended-override"
-  assert_grep 'other auto-merge, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
+  assert_grep '--auto, branch deletion, non-CI protection bypass, and security-sensitive merges require an explicit captain instruction' "$case_dir/stderr" \
     "gitlab-extra-args: refusal did not preserve captain-only override limits"
   [ ! -s "$case_dir/glab.log" ] || fail "gitlab-extra-args: glab ran despite the denylist"
 
@@ -2648,7 +2627,7 @@ test_github_red_checks_refuse_and_allow_red_waives_named() {
     rc=$?
     set -e
     expect_code 1 "$rc" "allow-red-admin-$kind: admin must require attended override"
-    assert_grep 'extra merge arguments require --attended-override; firstmate may use --auto solely to enroll a green PR in the merge queue its base branch requires and --admin solely for a named repair CI waiver, both under AGENTS.md section 7' "$case_dir/stderr" \
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
       "allow-red-admin-$kind: refusal did not name firstmate waiver authority"
     assert_no_grep 'pr merge' "$case_dir/gh.log" \
       "allow-red-admin-$kind: merge ran without attended override"
@@ -3795,7 +3774,7 @@ test_allow_missing_waives_only_the_named_unreported_check() {
     write_github_required "$case_dir" "$kind:validate"
     run_required_case "$case_dir" 96 --allow-missing validate -- --admin
     expect_code 1 "$RC" "allow-missing-admin-$kind: admin must require attended override"
-    assert_grep 'extra merge arguments require --attended-override; firstmate may use --auto solely to enroll a green PR in the merge queue its base branch requires and --admin solely for a named repair CI waiver, both under AGENTS.md section 7' "$case_dir/stderr" \
+    assert_grep 'extra merge arguments require --attended-override; firstmate may use --admin solely for a named CI waiver authorized by AGENTS.md section 7' "$case_dir/stderr" \
       "allow-missing-admin-$kind: refusal did not name firstmate waiver authority"
     assert_no_grep 'pr merge' "$case_dir/gh.log" \
       "allow-missing-admin-$kind: merge ran without attended override"
@@ -4161,372 +4140,3 @@ test_worker_revert_preserves_conflict() {
 
 test_worker_reverts_complete_merge_and_squash_only
 test_worker_revert_preserves_conflict
-
-# A project registered landing=mergify hands an authorized green PR to its
-# Mergify queue instead of merging it, and every existing guard still decides
-# whether that handoff happens. Args: case_dir landing-token
-register_landing() {
-  local case_dir=$1 token=$2
-  printf -- '- project [no-mistakes +yolo %s] - fixture project (added 2026-10-08)\n' "$token" \
-    > "$case_dir/home/data/projects.md"
-}
-
-queue_comment_count() {
-  grep -c '^pr comment ' "$1/gh.log" || true
-}
-
-test_mergify_landing_hands_green_pr_to_the_queue() {
-  local case_dir rc head=4141414141414141414141414141414141414141
-  case_dir=$(make_case mergify-handoff)
-  add_gh_mocks "$case_dir" "$head"
-  register_landing "$case_dir" landing=mergify
-  printf '%s\n' '{"number":61,"queued_at":"2026-10-08T13:00:00Z","position":0}' > "$case_dir/mergify.json"
-  write_github_outcome "$case_dir" OPEN false false main
-  rc=0
-  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
-    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  expect_code 0 "$rc" "mergify-handoff: an authorized green PR was not handed off: $(cat "$case_dir/stderr")"
-  grep -qxF 'pr comment 61 --repo example/repo --body @mergifyio queue' "$case_dir/gh.log" \
-    || fail "mergify-handoff: no queue command was posted: $(cat "$case_dir/gh.log")"
-  assert_no_grep 'pr merge ' "$case_dir/gh.log" "mergify-handoff: the queue was bypassed by a direct merge"
-  assert_grep "queued: https://github.com/example/repo/pull/61 in the Mergify queue at verified head $head" \
-    "$case_dir/stdout" "mergify-handoff: the handoff did not name the exact head"
-  assert_no_grep 'is merged' "$case_dir/stdout" "mergify-handoff: a queue handoff was reported as landed"
-  assert_grep "pr_head=$head" "$case_dir/state/task-x1.meta" "mergify-handoff: the handed-off head was not recorded"
-  assert_present "$case_dir/state/task-x1.check.sh" "mergify-handoff: the merge poll was not left armed"
-  assert_present "$case_dir/state/task-x1.merge-authority" "mergify-handoff: confirmed authority was not recorded"
-  grep -qxF 'queue show 61 --repository example/repo --json' "$case_dir/mergify.log" \
-    || fail "mergify-handoff: queue read-back was not qualified to the canonical repository"
-  pass "fm-pr-merge hands an authorized green PR to the configured Mergify queue at its exact head"
-}
-
-test_mergify_requested_receipts_and_head_movement() {
-  local fault case_dir rc head=4141414141414141414141414141414141414141 moved=4343434343434343434343434343434343434343
-  for fault in unavailable no-prior-authority not-enrolled malformed wrong-pr readback-head-moved comment-head-moved unreadable-head post-failed; do
-    case_dir=$(make_case "mergify-receipt-$fault")
-    add_gh_mocks "$case_dir" "$head"
-    register_landing "$case_dir" landing=mergify
-    write_github_outcome "$case_dir" OPEN false false main
-    printf '%s\n' '{"number":61,"queued_at":"2026-10-08T13:00:00Z","position":0}' > "$case_dir/mergify.json"
-    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
-      > "$case_dir/initial" 2> "$case_dir/initial.err" || fail "receipt setup refused"
-    assert_present "$case_dir/state/task-x1.merge-authority" "receipt setup did not persist authority"
-    case "$fault" in
-      unavailable) rm "$case_dir/mergify.json" ;;
-      no-prior-authority) rm "$case_dir/mergify.json" "$case_dir/state/task-x1.merge-authority" ;;
-      not-enrolled) printf '%s\n' '{"queued":false,"dequeued":false,"queue_leave":null}' > "$case_dir/mergify.json" ;;
-      malformed) printf '%s\n' '{"number":61,"queued":"true","queued_at":"date","position":0}' > "$case_dir/mergify.json" ;;
-      wrong-pr) printf '%s\n' '{"number":62,"queued_at":"date","position":0}' > "$case_dir/mergify.json" ;;
-      readback-head-moved) printf '%s\n' "$moved" > "$case_dir/head-after-readback" ;;
-      comment-head-moved) printf '%s\n' "$moved" > "$case_dir/head-after-comment" ;;
-      unreadable-head) : > "$case_dir/head-after-comment" ;;
-      post-failed) : > "$case_dir/comment-failed" ;;
-    esac
-    : > "$case_dir/gh.log"
-    rc=0
-    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
-      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-    assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: queue receipt bypassed the queue"
-    assert_no_grep 'queued:' "$case_dir/stdout" "$fault: unproved enrollment was attributed"
-    case "$fault" in
-      *head-moved|unreadable-head)
-        expect_code 0 "$rc" "$fault: posted request did not return its receipt"
-        assert_grep 'old proof and authority invalidated, enrollment not attributed' "$case_dir/stdout" "$fault: stale proof survived"
-        assert_absent "$case_dir/state/task-x1.merge-authority" "$fault: stale authority survived"
-        [ "$fault" = unreadable-head ] || assert_grep "live $moved" "$case_dir/stdout" "$fault: moved head not named"
-        ;;
-      post-failed)
-        expect_code 1 "$rc" "$fault: failed comment post accepted"
-        assert_present "$case_dir/state/task-x1.merge-authority" "$fault: unchanged-head authority was lost"
-        ;;
-      *)
-        expect_code 0 "$rc" "$fault: posted request did not return its receipt"
-        assert_grep "queue requested, enrollment unconfirmed: https://github.com/example/repo/pull/61 for verified head $head" "$case_dir/stdout" "$fault: incorrect request receipt"
-        if [ "$fault" = no-prior-authority ]; then
-          assert_absent "$case_dir/state/task-x1.merge-authority" "$fault: unconfirmed request persisted accepted authority"
-        else
-          assert_present "$case_dir/state/task-x1.merge-authority" "$fault: unchanged-head authority was lost"
-        fi
-        ;;
-    esac
-    assert_present "$case_dir/state/task-x1.check.sh" "$fault: the merge poll was lost"
-  done
-  pass "Mergify receipts distinguish requested enrollment, confirmed enrollment and moved-head invalidation"
-}
-
-test_mergify_authority_tracks_head_between_attempts() {
-  local fault case_dir rc view_change sequence head=4141414141414141414141414141414141414141 moved=4343434343434343434343434343434343434343
-  for fault in unavailable not-enrolled malformed wrong-pr post-failed preflight-refused confirmed metadata-refresh preflight-head-moved \
-    preflight-head-moved-red preflight-head-moved-pending preflight-head-moved-unknown \
-    preflight-head-moved-unreadable-rollup preflight-head-moved-missing-base \
-    preflight-head-moved-required-read-error preflight-head-moved-missing-required preflight-head-moved-recovered; do
-    case_dir=$(make_case "mergify-between-attempts-$fault")
-    add_gh_mocks "$case_dir" "$head"
-    register_landing "$case_dir" landing=mergify
-    write_github_outcome "$case_dir" OPEN false false main
-    printf '%s\n' '{"number":61,"queued_at":"2026-10-08T13:00:00Z","position":0}' > "$case_dir/mergify.json"
-    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
-      > "$case_dir/initial" 2> "$case_dir/initial.err" || fail "$fault: initial enrollment refused"
-    assert_present "$case_dir/state/task-x1.merge-authority" "$fault: initial authority missing"
-    write_github_live_json "$case_dir" "$moved"
-    sequence=
-    case "$fault" in
-      unavailable) rm "$case_dir/mergify.json" ;;
-      not-enrolled) printf '%s\n' '{"number":61,"queued":false}' > "$case_dir/mergify.json" ;;
-      malformed) printf '%s\n' '{"number":61,"queued":"true","queued_at":"date","position":0}' > "$case_dir/mergify.json" ;;
-      wrong-pr) printf '%s\n' '{"number":62,"queued_at":"date","position":0}' > "$case_dir/mergify.json" ;;
-      post-failed) : > "$case_dir/comment-failed" ;;
-      preflight-refused) write_github_red_json "$case_dir" "$moved" ci ;;
-      confirmed|metadata-refresh) ;;
-      preflight-head-moved*)
-        view_change='.'
-        case "$fault" in
-          preflight-head-moved-red) view_change='.statusCheckRollup[0].conclusion = "FAILURE"' ;;
-          preflight-head-moved-pending) view_change='.statusCheckRollup[0].status = "IN_PROGRESS" | .statusCheckRollup[0].conclusion = null' ;;
-          preflight-head-moved-unknown) view_change='.mergeable = "UNKNOWN"' ;;
-          preflight-head-moved-unreadable-rollup) view_change='.statusCheckRollup = null' ;;
-          preflight-head-moved-missing-base) view_change='del(.baseRefName)' ;;
-          preflight-head-moved-required-read-error) printf 'unavailable\n' > "$case_dir/github-branch-fail" ;;
-          preflight-head-moved-missing-required) write_github_required "$case_dir" classic:candidate ;;
-          preflight-head-moved-recovered)
-            sequence="$case_dir/mergeable-sequence"
-            printf 'UNKNOWN\nMERGEABLE\n' > "$sequence"
-            ;;
-        esac
-        jq "$view_change" "$case_dir/github-view.json" > "$case_dir/view-after-preflight"
-        cp "$case_dir/github-head" "$case_dir/head-after-preflight"
-        write_github_live_json "$case_dir" "$head"
-        [ "$fault" = preflight-head-moved-recovered ] || rm "$case_dir/mergify.json"
-        mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-fixture"
-        cat > "$case_dir/fakebin/gh" <<'SH'
-#!/usr/bin/env bash
-case "$*" in
-  *statusCheckRollup*)
-    cp "$FM_TEST_CASE_DIR/view-after-preflight" "$FM_TEST_GH_VIEW_JSON"
-    cp "$FM_TEST_CASE_DIR/head-after-preflight" "$FM_TEST_GH_HEAD"
-    ;;
-esac
-exec "$FM_TEST_CASE_DIR/fakebin/gh-fixture" "$@"
-SH
-        chmod +x "$case_dir/fakebin/gh"
-        ;;
-    esac
-    : > "$case_dir/gh.log"
-    rc=0
-    if [ "$fault" = metadata-refresh ]; then
-      PR_MERGE="$ROOT/bin/fm-pr-check.sh" run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
-        > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-    else
-      FM_TEST_GH_MERGEABLE_SEQUENCE="$sequence" FM_PR_GITHUB_MERGEABLE_RETRY_DELAY=0 \
-        run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
-        > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-    fi
-    assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: retry bypassed the queue"
-    case "$fault" in
-      post-failed|preflight-refused|preflight-head-moved-red|preflight-head-moved-pending|preflight-head-moved-unknown|preflight-head-moved-unreadable-rollup|preflight-head-moved-missing-base|preflight-head-moved-required-read-error|preflight-head-moved-missing-required)
-        expect_code 1 "$rc" "$fault: failed retry accepted"
-        ;;
-      *) expect_code 0 "$rc" "$fault: retry refused: $(cat "$case_dir/stderr")" ;;
-    esac
-    if [ "$fault" = confirmed ] || [ "$fault" = preflight-head-moved-recovered ]; then
-      assert_present "$case_dir/state/task-x1.merge-authority" "$fault: new enrollment lost authority"
-      assert_grep "queued: https://github.com/example/repo/pull/61 in the Mergify queue at verified head $moved" \
-        "$case_dir/stdout" "$fault: new head enrollment missing"
-    else
-      assert_absent "$case_dir/state/task-x1.merge-authority" "$fault: prior head authority survived"
-      assert_no_grep 'queued:' "$case_dir/stdout" "$fault: unproved enrollment attributed"
-    fi
-    case "$fault" in
-      metadata-refresh|preflight-refused)
-        [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$fault: unexpected queue post"
-        ;;
-      unavailable|not-enrolled|malformed|wrong-pr|preflight-head-moved)
-        assert_grep "queue requested, enrollment unconfirmed: https://github.com/example/repo/pull/61 for verified head $moved" \
-          "$case_dir/stdout" "$fault: retry receipt named the wrong head"
-        ;;
-    esac
-    case "$fault" in
-      preflight-head-moved*)
-        assert_grep "pr_head=$head" "$case_dir/state/task-x1.meta" "$fault: fixture did not isolate movement after metadata recording"
-        case "$fault" in
-          preflight-head-moved|preflight-head-moved-recovered) ;;
-          *) [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$fault: preflight refusal posted a queue command" ;;
-        esac
-        case "$fault" in
-          preflight-head-moved-red|preflight-head-moved-pending) assert_grep 'checks are not green: ci' "$case_dir/stderr" "$fault: wrong refusal" ;;
-          preflight-head-moved-unknown) assert_grep 'still being computed' "$case_dir/stderr" "$fault: wrong refusal" ;;
-          preflight-head-moved-unreadable-rollup|preflight-head-moved-missing-base) assert_grep 'could not read the GitHub pull request state' "$case_dir/stderr" "$fault: wrong refusal" ;;
-          preflight-head-moved-required-read-error) assert_grep 'branch protection summary for base branch main could not be read' "$case_dir/stderr" "$fault: wrong refusal" ;;
-          preflight-head-moved-missing-required) assert_grep 'required checks have not reported: candidate' "$case_dir/stderr" "$fault: wrong refusal" ;;
-        esac
-        ;;
-      *) assert_grep "pr_head=$moved" "$case_dir/state/task-x1.meta" "$fault: metadata did not record the new head" ;;
-    esac
-    assert_present "$case_dir/state/task-x1.check.sh" "$fault: merge poll lost"
-  done
-  pass "changed heads retire prior queue authority across retries, refusal and public metadata refresh"
-}
-
-test_mergify_landing_guards_refuse_before_any_queue_command() {
-  local fault case_dir rc reason head=4242424242424242424242424242424242424242
-  for fault in red-check missing-required unknown-landing waiver head-moved away; do
-    case_dir=$(make_case "mergify-refuse-$fault")
-    add_gh_mocks "$case_dir" "$head"
-    register_landing "$case_dir" landing=mergify
-    write_github_outcome "$case_dir" OPEN false false main
-    set -- task-x1 https://github.com/example/repo/pull/62
-    case "$fault" in
-      red-check) write_github_red_json "$case_dir" "$head" ci; reason='checks are not green: ci' ;;
-      missing-required) write_github_required "$case_dir" classic:candidate; reason='have not reported: candidate' ;;
-      unknown-landing) register_landing "$case_dir" landing=queue; reason='registered landing for project project is invalid' ;;
-      waiver)
-        write_github_red_json "$case_dir" "$head" ci; set -- "$@" --allow-red ci
-        reason='waivers and extra merge arguments apply only to the attended repair path' ;;
-      head-moved)
-        printf '%s\n' 4343434343434343434343434343434343434343 > "$case_dir/github-head"
-        reason="verified $head, read 4343434343434343434343434343434343434343" ;;
-      away) write_away_record "$case_dir" --words 'land green work'; reason='queue handoff is attended-only' ;;
-    esac
-    rc=0
-    run_pr_merge "$case_dir" "$@" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-    [ "$rc" -ne 0 ] || fail "mergify-refuse-$fault: the handoff was accepted"
-    assert_grep "$reason" "$case_dir/stderr" "mergify-refuse-$fault: refused for another reason"
-    [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "mergify-refuse-$fault: a queue command was posted"
-    assert_no_grep 'pr merge ' "$case_dir/gh.log" "mergify-refuse-$fault: a direct merge bypassed the queue"
-  done
-  pass "fm-pr-merge refuses red, missing, unknown-landing, waived, moved-head and away handoffs before any queue command"
-}
-
-write_mergify_repair_proof() {
-  local case_dir=$1 head=$2
-  mkdir -p "$case_dir/home/data/task-x1"
-  jq -n --arg head "$head" --arg base "$(cat "$case_dir/github-base")" \
-    '{kind:"bootstrap",incident:"initial native queue repair",repository:"example/repo",head:$head,base:$base,
-      result:"success",modules:["fm-pr-merge"],direct_consumers:["fm-pr-check"],
-      first_queue_landing:null}' \
-    > "$case_dir/home/data/task-x1/landing-proof.json"
-}
-
-test_mergify_landing_attended_override_is_the_named_repair_path() {
-  local case_dir rc head=4444444444444444444444444444444444444444
-  case_dir=$(make_case mergify-repair-path)
-  add_gh_mocks "$case_dir" "$head"
-  register_landing "$case_dir" landing=mergify
-  write_mergify_repair_proof "$case_dir" "$head"
-  rc=0
-  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
-    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  expect_code 0 "$rc" "mergify-repair-path: the attended repair merge refused: $(cat "$case_dir/stderr")"
-  assert_logged_gh_merge "$case_dir" 63 example/repo --squash
-  [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "mergify-repair-path: the repair merge also queued"
-  assert_grep 'bypasses the configured Mergify queue' "$case_dir/stderr" \
-    "mergify-repair-path: the queue bypass was not made observable"
-  pass "fm-pr-merge permits a recorded exact-head current-main bootstrap before native queue landing"
-}
-
-test_mergify_repair_refuses_unproved_bypasses() {
-  local fault case_dir rc proof filter head=4444444444444444444444444444444444444444
-  for fault in missing wrong-head wrong-base unreadable read-error symlink missing-incident empty-modules skipped missing-cutoff landed empty-receipt boolean-receipt number-receipt array-receipt object-receipt; do
-    case_dir=$(make_case "mergify-repair-refuse-$fault")
-    add_gh_mocks "$case_dir" "$head"
-    register_landing "$case_dir" landing=mergify
-    write_mergify_repair_proof "$case_dir" "$head"
-    proof="$case_dir/home/data/task-x1/landing-proof.json"
-    filter='.'
-    case "$fault" in
-      missing) rm "$proof" ;;
-      wrong-head) filter='.head="4545454545454545454545454545454545454545"' ;;
-      wrong-base) filter='.base="4545454545454545454545454545454545454545"' ;;
-      unreadable) rm "$proof"; mkdir "$proof" ;;
-      read-error)
-        cat > "$case_dir/fakebin/jq" <<SH
-#!/usr/bin/env bash
-[ "\${!#}" != "$proof" ] || exit 2
-exec "$JQ_BIN" "\$@"
-SH
-        chmod +x "$case_dir/fakebin/jq" ;;
-      symlink) mv "$proof" "$proof.target"; ln -s "$proof.target" "$proof" ;;
-      missing-incident) filter='del(.incident)' ;;
-      empty-modules) filter='.modules=[]' ;;
-      skipped) filter='.result="skipped"' ;;
-      missing-cutoff) filter='del(.first_queue_landing)' ;;
-      landed) filter='.first_queue_landing="https://github.com/example/repo/pull/1"' ;;
-      empty-receipt) filter='.first_queue_landing=""' ;;
-      boolean-receipt) filter='.first_queue_landing=false' ;;
-      number-receipt) filter='.first_queue_landing=0' ;;
-      array-receipt) filter='.first_queue_landing=[]' ;;
-      object-receipt) filter='.first_queue_landing={}' ;;
-    esac
-    if [ "$filter" != . ]; then
-      jq "$filter" "$proof" > "$proof.tmp" && mv "$proof.tmp" "$proof"
-    fi
-    rc=0
-    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
-      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-    expect_code 1 "$rc" "$fault: unproved bootstrap bypass was accepted"
-    assert_grep 'Mergify bypass refused:' "$case_dir/stderr" "$fault: bootstrap refusal not named"
-    if [ "$fault" = landed ]; then
-      assert_grep 'queue is the only path' "$case_dir/stderr" "$fault: receipt did not make landing queue-only"
-    fi
-    assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: bootstrap merged without proof"
-    [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$fault: bootstrap posted a comment"
-  done
-  pass "Mergify overrides refuse missing or stale targeted proof and stop at the recorded queue landing receipt"
-}
-
-test_mergify_bootstrap_cutoff_ignores_candidate_skipped_history() {
-  local kind case_dir rc proof head=4444444444444444444444444444444444444444
-  for kind in bootstrap incident; do
-    case_dir=$(make_case "mergify-skipped-history-$kind")
-    add_gh_mocks "$case_dir" "$head"
-    register_landing "$case_dir" landing=mergify
-    write_mergify_repair_proof "$case_dir" "$head"
-    proof="$case_dir/home/data/task-x1/landing-proof.json"
-    jq --arg kind "$kind" '.kind=$kind' "$proof" > "$proof.tmp" && mv "$proof.tmp" "$proof"
-    printf '%s\n' '{"merger":"mergify[bot]","candidate_checks":"skipped"}' > "$case_dir/prior-merge.json"
-    mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-fixture"
-    cat > "$case_dir/fakebin/gh" <<'SH'
-#!/usr/bin/env bash
-case "$*" in
-  *pullRequests*)
-    printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
-    jq -r .merger "$FM_TEST_CASE_DIR/prior-merge.json"
-    exit $? ;;
-esac
-exec "$FM_TEST_CASE_DIR/fakebin/gh-fixture" "$@"
-SH
-    chmod +x "$case_dir/fakebin/gh"
-    rc=0
-    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
-      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-    expect_code 0 "$rc" "$kind: skipped candidate history blocked the null receipt: $(cat "$case_dir/stderr")"
-    assert_logged_gh_merge "$case_dir" 63 example/repo --squash
-    assert_no_grep 'pullRequests' "$case_dir/gh.log" "$kind: bootstrap queried merged PR history"
-    [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$kind: bootstrap also queued"
-    assert_grep 'bypasses the configured Mergify queue' "$case_dir/stderr" "$kind: bypass notice missing"
-  done
-  pass "bootstrap and incident cutoff ignore skipped-candidate bot history and make no merged-history API call"
-}
-
-test_direct_landing_projects_keep_the_synchronous_merge() {
-  local case_dir rc
-  case_dir=$(make_case direct-landing-unchanged)
-  add_gh_mocks "$case_dir" 4545454545454545454545454545454545454545
-  register_landing "$case_dir" ''
-  rc=0
-  run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/64 \
-    > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
-  expect_code 0 "$rc" "direct-landing-unchanged: the direct merge refused: $(cat "$case_dir/stderr")"
-  assert_logged_gh_merge "$case_dir" 64 example/repo --squash
-  [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "direct-landing-unchanged: a direct project queued"
-  pass "fm-pr-merge keeps the synchronous verified merge for direct-landing projects"
-}
-
-test_mergify_landing_hands_green_pr_to_the_queue
-test_mergify_requested_receipts_and_head_movement
-test_mergify_authority_tracks_head_between_attempts
-test_mergify_landing_guards_refuse_before_any_queue_command
-test_mergify_landing_attended_override_is_the_named_repair_path
-test_mergify_repair_refuses_unproved_bypasses
-test_mergify_bootstrap_cutoff_ignores_candidate_skipped_history
-test_direct_landing_projects_keep_the_synchronous_merge
