@@ -56,8 +56,8 @@
 #   third-party repo that does not use this tooling. Query it with
 #   --branch-prefix; it never appears in the default "<mode> <yolo>" output, so
 #   existing mechanical callers are unaffected by its presence.
-# landing=<direct|mergify> (orthogonal) = how an authorized green PR lands.
-#   direct (the default) merges through the forge; mergify hands the PR to the
+# landing=mergify (orthogonal) = how an authorized green PR lands.
+#   Without a token, direct merges through the forge; mergify hands the PR to the
 #   project's configured Mergify queue, which owns the combined-candidate proof
 #   and the merge (bin/fm-pr-merge.sh header owns the handoff). Any other value,
 #   an empty value, or mergify on local-only is REFUSED under --landing with
@@ -162,7 +162,7 @@ parsed=$(awk -v n="$NAME" '
     if (substr($0, 1, plen) != prefix) next
     after = substr($0, plen + 1);
     if (after != "" && substr(after, 1, 2) != " [" && substr(after, 1, 3) != " - ") next
-    mode="no-mistakes"; yolo="off"; branch="fm/"; forge="none"; landing="landing=direct";
+    mode="no-mistakes"; yolo="off"; branch="fm/"; forge="none"; landing="direct";
     if (substr(after, 1, 2) == " [") {
       s="";
       nk = split(after, rest, " ");
@@ -214,7 +214,7 @@ done <<EOF
 $parsed
 EOF
 while IFS=' ' read -r m y f l b; do
-  mode=$m; yolo=$y; rest_forge=$f; landing=${l#landing=}; branch=$b
+  mode=$m; yolo=$y; rest_forge=$f; landing=$l; branch=$b
 done <<EOF
 $posture
 EOF
@@ -230,9 +230,10 @@ if [ "$BRANCH_PREFIX_QUERY" -eq 1 ]; then
 fi
 if [ "$WANT_LANDING" -eq 1 ]; then
   case "$landing" in
-    direct|mergify) ;;
+    direct) ;;
+    landing=mergify) landing=mergify ;;
     *)
-      echo "refused: unknown landing \"$landing\" registered for $NAME in $REG; the accepted values are landing=direct and landing=mergify, or no landing token for direct; correct the registry entry" >&2
+      echo "refused: unknown landing \"$landing\" registered for $NAME in $REG; use landing=mergify or no landing token for direct; correct the registry entry" >&2
       exit 3 ;;
   esac
   if [ "$landing" = mergify ] && [ "$mode" = local-only ]; then

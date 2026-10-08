@@ -285,45 +285,6 @@ EOF
   pass "risk admission: money, security and shared code require no-mistakes; other requires direct-PR and one round"
 }
 
-# A change whose only effect is where a page or control appears, or what it is
-# called, is other even in a shared file, when its risk line carries the
-# printed presentation-only marker; any other reason keeps the shared-code
-# refusal.
-test_presentation_only_shared_change_is_other() {
-  local rec home proj fakebin prep out status id reason
-  rec=$(make_home presentation-only)
-  IFS='|' read -r home proj fakebin <<EOF
-$rec
-EOF
-  for id in presentation-move presentation-behavior; do
-    case "$id" in
-      presentation-move) reason='presentation-only: moves the settings link into the account menu and renames it.' ;;
-      *) reason='renames the sign-in button and changes which session cookie it writes.' ;;
-    esac
-    write_brief "$home" "$id" direct-PR
-    prep="$home/data/$id/prep.md"
-    answer_tier "$prep" no yes
-    awk -v r="$reason" '/^- Delivery risk:/ { next }
-      { print } $0 == "## Tier" { print "- Delivery risk: other, " r }
-    ' "$prep" > "$prep.risk" && mv "$prep.risk" "$prep"
-    sed 's/checks-only (direct-PR)/checks + one review (direct-PR)/' "$prep" > "$prep.new" && mv "$prep.new" "$prep"
-    rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
-    out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off); status=$?
-    [ "$status" -ne 0 ] || fail "refusing fixture backend launched"
-    if [ "$id" = presentation-behavior ]; then
-      assert_contains "$out" 'Delivery' "a behavioral shared change classified other was admitted"
-      assert_absent "$home/data/$id/launch-brief.md" "a behavioral shared change classified other launched"
-    else
-      assert_present "$home/data/$id/launch-brief.md" "a presentation-only shared change was refused: $out"
-    fi
-  done
-  FM_HOME="$home" "$BRIEF" presentation-scaffold --prep >/dev/null 2>&1 || fail "presentation scaffold"
-  out=$(cat "$home/data/presentation-scaffold/prep.md")
-  assert_contains "$out" 'other, presentation-only:' "the scaffold guidance does not print the presentation-only spelling"
-  assert_contains "$out" 'reconcile' "the scaffold guidance does not name the reclassification path"
-  pass "risk admission: a presentation-only change in a shared file is other with one review; a behavioral reason stays refused"
-}
-
 test_risk_fields_and_certainty_controls() {
   local rec home proj fakebin prep baseline change out status risk mode format id
   rec=$(make_home risk-fields)
@@ -2096,12 +2057,12 @@ test_project_mode_reads_the_landing_orthogonally() {
 no landing token|- fp [no-mistakes +yolo] - fixture (added 2026-01-01)|no-mistakes on|direct
 queue beside yolo|- fp [no-mistakes +yolo landing=mergify] - fixture (added 2026-01-01)|no-mistakes on|mergify
 landing as the only token leaves the default mode|- fp [landing=mergify] - fixture (added 2026-01-01)|no-mistakes off|mergify
-explicit direct|- fp [direct-PR landing=direct branch=q/] - fixture (added 2026-01-01)|direct-PR off|direct
+default direct beside branch|- fp [direct-PR branch=q/] - fixture (added 2026-01-01)|direct-PR off|direct
 an unregistered project|- other [direct-PR landing=mergify] - fixture (added 2026-01-01)|no-mistakes off|direct
 ROWS
 
   for registry in '- fp [no-mistakes landing=queue] - fixture' '- fp [no-mistakes landing=] - fixture' \
-    '- fp [local-only landing=mergify] - fixture'; do
+    '- fp [no-mistakes landing=direct] - fixture' '- fp [local-only landing=mergify] - fixture'; do
     printf '%s\n' "$registry" > "$home/data/projects.md"
     out=$(FM_HOME="$home" "$PROJECT_MODE" --landing fp 2>/dev/null)
     status=$?
@@ -3639,7 +3600,6 @@ test_prep_current_work_checks() {
 
 test_promotion_risk_admission
 test_risk_delivery_admission
-test_presentation_only_shared_change_is_other
 test_risk_fields_and_certainty_controls
 test_prep_current_work_checks
 test_prep_block_transitions

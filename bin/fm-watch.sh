@@ -2464,8 +2464,16 @@ idle_lane_tick() {
           state=${line#state: }; state=${state%% *}
           src=${line#*source: }; src=${src%% *}
           case "$state/$src" in
-            working/run-step|parked/run-step|done/run-step|failed/run-step|done/status-log)
+            working/run-step|parked/run-step|done/run-step|failed/run-step)
               released=$((released + 1)) ;;
+            done/status-log)
+              case "$line" in
+                *'run still monitoring PR'*|*'https://'*) released=$((released + 1)) ;;
+                *)
+                  if ! grep -qx 'mode=local-only' "$meta" 2>/dev/null; then
+                    released=$((released + 1))
+                  fi ;;
+              esac ;;
             working/pane) ;;
             *) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
           esac

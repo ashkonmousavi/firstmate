@@ -189,7 +189,7 @@ Classify the deliverable:
 Resolve every ship task's concrete delivery mode and `yolo` merge posture at intake.
 Pass the mode explicitly to the brief, and pass both values explicitly to the spawn and any scout promotion; each command refuses to guess the values it consumes.
 A current explicit captain instruction wins; preserve registered `local-only` delivery, merge posture and branch/forge bindings.
-For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else, including a presentation-only change to where a page or control appears or what it is called even in shared files; `bin/fm-dod-lib.sh` owns the authored risk/depth answers and that exception, and `bin/fm-spawn.sh` owns their admission.
+For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else; `bin/fm-dod-lib.sh` owns the authored risk/depth answers, and `bin/fm-spawn.sh` owns their admission.
 Preparation size and surgical certainty never choose delivery depth.
 Resolve the project's registered ship-branch prefix the same way, via `bin/fm-project-mode.sh --branch-prefix <project>`, and pass it explicitly to the brief, ship spawn, and scout promotion as `--branch-prefix` (default `fm/` needs no flag).
 The risk decision also applies to publishing tasks on a `no-mistakes-prod-only` project; unresolved risk classification must be settled before admission.
@@ -242,11 +242,14 @@ The path's worker, automated gates, and captain approval remain authoritative:
 Delivery mode and `yolo` are orthogonal.
 `yolo` governs merge authority only: with it off, the captain approves every PR merge and every local-only landing; with it on, firstmate lands in-scope work itself.
 On a project whose base branch or registry names a merge queue, landing is the automatic handoff of the green PR to that queue, because a PR's own checks can pass while the combined candidate's tests never ran; enrollment needs no further approval, the queue lands exactly the candidate it tested, including a batch's tested head as one fast-forward where the project configures it, and its bot merges only what entered the queue and passed its conditions.
-Routine CI waivers and direct merges around a configured queue are not used; the one direct path is a named bootstrap or incident repair, used only when the queue or main proof itself cannot work, with the cause and exact-head equivalent proof recorded in the task note first and full verification of the landed commit right after.
+Landing proof is the change's targeted modules and direct consumers passing on current main inside the queue's candidate test run; a green PR-head gate with candidate tests skipped is never proof.
+Until the first verified end-to-end native queue landing, the existing guarded merge tool may land a named bootstrap or incident on equivalent targeted proof from a current-main candidate, with its exact source head, cause and proof file in the task record; after that landing the queue is the only path.
+Firstmate owns every named CI waiver decision without a captain prompt and records evidence in the task note; red legs are never waived to land faster.
 `bin/fm-pr-merge.sh`'s header owns the queue handoff and the attended-only, exact-check-name, head-bound waiver and override mechanics.
 Destructive, irreversible, security-sensitive, money, and product-choice merges still escalate.
 Main is green only when one named commit carries complete full proof, every required leg succeeding on that commit whether scheduled or on demand (`bin/fm-main-proof.sh`); a scheduled daily audit and live health are separate facts, and an older proved commit never makes a newer main green.
-Full combined-candidate proof before merge is permitted, and expected during recovery and for broad or uncertain changes, rather than deferring the full suite until after merge.
+The full main run is a separate daily audit, nightly and on demand; nothing waits for it, and its failures are repaired in parallel.
+Full combined-candidate proof before merge is permitted during recovery and for broad or uncertain changes without making the daily audit a landing gate.
 Firstmate orchestrates the landing order at every push and merge: main repair PRs and the designated main proof run lead the shared CI queue.
 Lower-priority PR runs may be cancelled and rerun behind main repair work with the reason logged.
 The designated whole main proof, every leg of one named commit's run whether running or pending, is never cancelled or replaced by a newer merge; a newer commit gets its own complete proof after it.
@@ -261,7 +264,7 @@ Load `validation-supervision` when a ship starts or already has an active no-mis
 ### PR ready, landing, and teardown
 
 Load `ship-landing` when a ship reports a PR or ready branch, when deciding or monitoring landing, and before task cleanup.
-Red post-merge main requires a revert within one hour unless the fix is already green on main; `ship-landing` owns that response, with no fix chain ahead of the queue.
+`ship-landing` owns post-landing acceptance and the one-hour revert response to a next-queue targeted failure on a touched module, an installed changed-area walker failure, or a post-install health failure.
 
 ### Scout outcome and promotion
 

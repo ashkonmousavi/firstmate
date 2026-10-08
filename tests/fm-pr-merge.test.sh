@@ -57,6 +57,19 @@ make_case() {
   # rule, so nothing is required unless a case says otherwise.
   write_github_required "$case_dir"
   : > "$case_dir/gh.log"
+  printf '%s\n' '1212121212121212121212121212121212121212' > "$case_dir/github-base"
+  : > "$case_dir/github-mergers"
+  cat > "$fakebin/mergify" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$FM_TEST_CASE_DIR/mergify.log"
+[ "$*" = "queue show 61 --repository example/repo --json" ] || exit 2
+[ -f "$FM_TEST_CASE_DIR/mergify.json" ] || exit 1
+cat "$FM_TEST_CASE_DIR/mergify.json"
+if [ -f "$FM_TEST_CASE_DIR/head-after-readback" ]; then
+  cp "$FM_TEST_CASE_DIR/head-after-readback" "$FM_TEST_GH_HEAD"
+fi
+SH
+  chmod +x "$fakebin/mergify"
   # The worktree is a git copy whose HEAD is on a remote-tracking ref, as a
   # pushed ship task's is, so fm-pr-check.sh's named-head gate accepts it when
   # the forge supplies no head (GitLab). No project clone exists on disk.
@@ -232,7 +245,20 @@ case "${1:-} ${2:-}" in
     fi
     exit "$merge_rc"
     ;;
+  "pr comment")
+    [ ! -f "$FM_TEST_CASE_DIR/comment-failed" ] || exit 1
+    if [ -f "$FM_TEST_CASE_DIR/head-after-comment" ]; then
+      cp "$FM_TEST_CASE_DIR/head-after-comment" "$FM_TEST_GH_HEAD"
+    fi
+    exit 0
+    ;;
   "api graphql")
+    case "$*" in
+      *'pullRequests(states:MERGED'*)
+        [ ! -f "$FM_TEST_CASE_DIR/history-unreadable" ] || exit 1
+        cat "$FM_TEST_CASE_DIR/github-mergers"
+        exit 0 ;;
+    esac
     if [ -f "${FM_TEST_GH_GRAPHQL_FAIL:-}" ]; then
       echo 'error: could not reach the GitHub API' >&2
       exit 1
@@ -244,6 +270,7 @@ case "${1:-} ${2:-}" in
     # The required-check reads: the branch itself, and its rules read without
     # the merge-queue filter the queue reader below applies.
     case " $* " in
+      *"/git/ref/heads/"*) cat "$FM_TEST_CASE_DIR/github-base"; exit 0 ;;
       *" repos/"*"/commits/"*"/check-runs"*)
         case "$*" in
           *"/commits/$(cat "$FM_TEST_GH_HEAD")/check-runs"*) ;;
@@ -453,6 +480,7 @@ glab_merge_line() {
 run_pr_merge() {
   local case_dir=$1 rc; shift
   FM_ROOT_OVERRIDE="$ROOT" \
+  FM_TEST_CASE_DIR="$case_dir" \
   FM_HOME="${FM_TEST_HOME:-$case_dir/home}" \
   FM_STATE_OVERRIDE="$case_dir/state" \
   FM_TEST_GH_AXI_LOG="$case_dir/gh-axi.log" \
@@ -4159,6 +4187,7 @@ test_mergify_landing_hands_green_pr_to_the_queue() {
   case_dir=$(make_case mergify-handoff)
   add_gh_mocks "$case_dir" "$head"
   register_landing "$case_dir" landing=mergify
+  printf '%s\n' '{"number":61,"queued_at":"2026-10-08T13:00:00Z","position":0}' > "$case_dir/mergify.json"
   write_github_outcome "$case_dir" OPEN false false main
   rc=0
   run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
@@ -4167,12 +4196,64 @@ test_mergify_landing_hands_green_pr_to_the_queue() {
   grep -qxF 'pr comment 61 --repo example/repo --body @mergifyio queue' "$case_dir/gh.log" \
     || fail "mergify-handoff: no queue command was posted: $(cat "$case_dir/gh.log")"
   assert_no_grep 'pr merge ' "$case_dir/gh.log" "mergify-handoff: the queue was bypassed by a direct merge"
-  assert_grep "queued: https://github.com/example/repo/pull/61 handed to the Mergify queue at head $head" \
+  assert_grep "queued: https://github.com/example/repo/pull/61 in the Mergify queue at verified head $head" \
     "$case_dir/stdout" "mergify-handoff: the handoff did not name the exact head"
   assert_no_grep 'is merged' "$case_dir/stdout" "mergify-handoff: a queue handoff was reported as landed"
   assert_grep "pr_head=$head" "$case_dir/state/task-x1.meta" "mergify-handoff: the handed-off head was not recorded"
   assert_present "$case_dir/state/task-x1.check.sh" "mergify-handoff: the merge poll was not left armed"
+  assert_present "$case_dir/state/task-x1.merge-authority" "mergify-handoff: confirmed authority was not recorded"
+  grep -qxF 'queue show 61 --repository example/repo --json' "$case_dir/mergify.log" \
+    || fail "mergify-handoff: queue read-back was not qualified to the canonical repository"
   pass "fm-pr-merge hands an authorized green PR to the configured Mergify queue at its exact head"
+}
+
+test_mergify_requested_receipts_and_head_movement() {
+  local fault case_dir rc head=4141414141414141414141414141414141414141 moved=4343434343434343434343434343434343434343
+  for fault in unavailable no-prior-authority not-enrolled malformed wrong-pr readback-head-moved comment-head-moved unreadable-head post-failed; do
+    case_dir=$(make_case "mergify-receipt-$fault")
+    add_gh_mocks "$case_dir" "$head"
+    register_landing "$case_dir" landing=mergify
+    write_github_outcome "$case_dir" OPEN false false main
+    printf '%s\n' '{"number":61,"queued_at":"2026-10-08T13:00:00Z","position":0}' > "$case_dir/mergify.json"
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
+      > "$case_dir/initial" 2> "$case_dir/initial.err" || fail "receipt setup refused"
+    assert_present "$case_dir/state/task-x1.merge-authority" "receipt setup did not persist authority"
+    case "$fault" in
+      unavailable) rm "$case_dir/mergify.json" ;;
+      no-prior-authority) rm "$case_dir/mergify.json" "$case_dir/state/task-x1.merge-authority" ;;
+      not-enrolled) printf '%s\n' '{"queued":false,"dequeued":false,"queue_leave":null}' > "$case_dir/mergify.json" ;;
+      malformed) printf '%s\n' '{"number":61,"queued":"true","queued_at":"date","position":0}' > "$case_dir/mergify.json" ;;
+      wrong-pr) printf '%s\n' '{"number":62,"queued_at":"date","position":0}' > "$case_dir/mergify.json" ;;
+      readback-head-moved) printf '%s\n' "$moved" > "$case_dir/head-after-readback" ;;
+      comment-head-moved) printf '%s\n' "$moved" > "$case_dir/head-after-comment" ;;
+      unreadable-head) : > "$case_dir/head-after-comment" ;;
+      post-failed) : > "$case_dir/comment-failed" ;;
+    esac
+    : > "$case_dir/gh.log"
+    rc=0
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/61 \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: queue receipt bypassed the queue"
+    assert_no_grep 'queued:' "$case_dir/stdout" "$fault: unproved enrollment was attributed"
+    case "$fault" in
+      *head-moved|unreadable-head)
+        expect_code 0 "$rc" "$fault: posted request did not return its receipt"
+        assert_grep 'old proof and authority invalidated, enrollment not attributed' "$case_dir/stdout" "$fault: stale proof survived"
+        assert_absent "$case_dir/state/task-x1.merge-authority" "$fault: stale authority survived"
+        [ "$fault" = unreadable-head ] || assert_grep "live $moved" "$case_dir/stdout" "$fault: moved head not named"
+        ;;
+      post-failed) expect_code 1 "$rc" "$fault: failed comment post accepted" ;;
+      *)
+        expect_code 0 "$rc" "$fault: posted request did not return its receipt"
+        assert_grep "queue requested, enrollment unconfirmed: https://github.com/example/repo/pull/61 for verified head $head" "$case_dir/stdout" "$fault: incorrect request receipt"
+        if [ "$fault" = no-prior-authority ]; then
+          assert_absent "$case_dir/state/task-x1.merge-authority" "$fault: unconfirmed request persisted accepted authority"
+        fi
+        ;;
+    esac
+    assert_present "$case_dir/state/task-x1.check.sh" "$fault: the merge poll was lost"
+  done
+  pass "Mergify receipts distinguish requested enrollment, confirmed enrollment and moved-head invalidation"
 }
 
 test_mergify_landing_guards_refuse_before_any_queue_command() {
@@ -4205,11 +4286,22 @@ test_mergify_landing_guards_refuse_before_any_queue_command() {
   pass "fm-pr-merge refuses red, missing, unknown-landing, waived, moved-head and away handoffs before any queue command"
 }
 
+write_mergify_repair_proof() {
+  local case_dir=$1 head=$2
+  mkdir -p "$case_dir/home/data/task-x1"
+  jq -n --arg head "$head" --arg base "$(cat "$case_dir/github-base")" \
+    '{kind:"bootstrap",incident:"initial native queue repair",repository:"example/repo",head:$head,base:$base,
+      result:"success",modules:["fm-pr-merge"],direct_consumers:["fm-pr-check"],
+      first_queue_landing:null,queue_merge_actor:"mergify[bot]"}' \
+    > "$case_dir/home/data/task-x1/landing-proof.json"
+}
+
 test_mergify_landing_attended_override_is_the_named_repair_path() {
   local case_dir rc head=4444444444444444444444444444444444444444
   case_dir=$(make_case mergify-repair-path)
   add_gh_mocks "$case_dir" "$head"
   register_landing "$case_dir" landing=mergify
+  write_mergify_repair_proof "$case_dir" "$head"
   rc=0
   run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
     > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
@@ -4218,14 +4310,51 @@ test_mergify_landing_attended_override_is_the_named_repair_path() {
   [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "mergify-repair-path: the repair merge also queued"
   assert_grep 'bypasses the configured Mergify queue' "$case_dir/stderr" \
     "mergify-repair-path: the queue bypass was not made observable"
-  pass "fm-pr-merge keeps the attended direct merge as an observable repair path on a queue project"
+  pass "fm-pr-merge permits a recorded exact-head current-main bootstrap before native queue landing"
+}
+
+test_mergify_repair_refuses_unproved_bypasses() {
+  local fault case_dir rc proof filter head=4444444444444444444444444444444444444444
+  for fault in missing wrong-head wrong-base unreadable missing-incident empty-modules skipped missing-cutoff landed native-landed history-unreadable unknown-owner; do
+    case_dir=$(make_case "mergify-repair-refuse-$fault")
+    add_gh_mocks "$case_dir" "$head"
+    register_landing "$case_dir" landing=mergify
+    write_mergify_repair_proof "$case_dir" "$head"
+    proof="$case_dir/home/data/task-x1/landing-proof.json"
+    filter='.'
+    case "$fault" in
+      missing) rm "$proof" ;;
+      wrong-head) filter='.head="4545454545454545454545454545454545454545"' ;;
+      wrong-base) filter='.base="4545454545454545454545454545454545454545"' ;;
+      unreadable) rm "$proof"; mkdir "$proof" ;;
+      missing-incident) filter='del(.incident)' ;;
+      empty-modules) filter='.modules=[]' ;;
+      skipped) filter='.result="skipped"' ;;
+      missing-cutoff) filter='del(.first_queue_landing)' ;;
+      landed) filter='.first_queue_landing="https://github.com/example/repo/pull/1"' ;;
+      native-landed) printf '%s\n' 'mergify[bot]' > "$case_dir/github-mergers" ;;
+      history-unreadable) : > "$case_dir/history-unreadable" ;;
+      unknown-owner) printf '%s\n' unknown > "$case_dir/github-mergers" ;;
+    esac
+    if [ "$filter" != . ]; then
+      jq "$filter" "$proof" > "$proof.tmp" && mv "$proof.tmp" "$proof"
+    fi
+    rc=0
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 1 "$rc" "$fault: unproved bootstrap bypass was accepted"
+    assert_grep 'Mergify bypass refused:' "$case_dir/stderr" "$fault: bootstrap refusal not named"
+    assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: bootstrap merged without proof"
+    [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$fault: bootstrap posted a comment"
+  done
+  pass "Mergify overrides refuse missing or stale targeted proof and stop after native queue landing"
 }
 
 test_direct_landing_projects_keep_the_synchronous_merge() {
   local case_dir rc
   case_dir=$(make_case direct-landing-unchanged)
   add_gh_mocks "$case_dir" 4545454545454545454545454545454545454545
-  register_landing "$case_dir" landing=direct
+  register_landing "$case_dir" ''
   rc=0
   run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/64 \
     > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
@@ -4236,6 +4365,8 @@ test_direct_landing_projects_keep_the_synchronous_merge() {
 }
 
 test_mergify_landing_hands_green_pr_to_the_queue
+test_mergify_requested_receipts_and_head_movement
 test_mergify_landing_guards_refuse_before_any_queue_command
 test_mergify_landing_attended_override_is_the_named_repair_path
+test_mergify_repair_refuses_unproved_bypasses
 test_direct_landing_projects_keep_the_synchronous_merge

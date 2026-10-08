@@ -169,6 +169,26 @@ SH
   run_watch "$home" "$out"
   stop_quiet_watch "$out"
 
+  printf 'mode=local-only\n' >> "$state/one.meta"
+  printf 'state: done · source: status-log · local branch ready: 4646464646464646464646464646464646464646\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "completed local-only work did not release capacity"
+  grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null \
+    || fail "a local-only completion with no PR or run retained release pressure: $(cat "$out")"
+
+  printf 'state: done · source: status-log · PR https://github.com/example/repo/pull/7 checks green\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  wait_for_exit "$WATCH_PID" 100 || fail "reported PR did not restore release pressure"
+  grep -F 'lane backpressure: 1/1 lanes awaiting validation or release' "$out" >/dev/null \
+    || fail "a reported PR URL did not count without metadata: $(cat "$out")"
+
+  printf 'state: done · source: status-log · checks green · run still monitoring PR\n' > "$state/one.crew-state"
+  : > "$out"
+  run_watch "$home" "$out"
+  stop_quiet_watch "$out"
+
   rm "$state/one.meta"
   : > "$out"
   run_watch "$home" "$out"

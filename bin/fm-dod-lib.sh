@@ -102,12 +102,7 @@
 # same-line reasons, common author checks and explicit outcomes.
 # Risk is money|security|shared code|other: one highest applicable class.
 # The first three require no-mistakes; other requires direct-PR and one code
-# review round. Q2=yes cannot be classified other unless the risk reason
-# starts with "presentation-only:", the printed spelling for a change whose only
-# effect is where a page or control appears or what it is called; a change to
-# how sign-in, permissions, money or stored data behave never takes it, and a
-# light change that review finds behavioral is reclassified through the
-# existing preparation and delivery-mode reconcile. Surgical certainty concerns
+# review round. Q2=yes cannot be classified other. Surgical certainty concerns
 # preparation completeness only and never selects delivery depth.
 # The legacy checks-only depth spelling remains readable; its generated
 # direct-PR contract now requires the same one-round review as the new spelling.
@@ -452,7 +447,7 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   printf -- '- UI wiring: {UI_WIRING}\n'
   printf -- '- Delivery risk: {DELIVERY_RISK}\n'
   printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. A change whose only effect is where a page or control appears, or what it is called, is other even in shared files or beside sign-in screens: write other, presentation-only: <what moves or is renamed>; a change to how sign-in, permissions, money or stored data behave keeps its full class, and a light change that review finds behavioral is reconciled to its full class and delivery mode rather than given another review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
+  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -767,11 +762,7 @@ fm_prep_delivery_mode() {  # <file>
   esac
   fm_prep_answer_complete "$reason" no || return 1
   case "$risk:$mode" in
-    other:direct-PR)
-      case "$reason" in
-        'presentation-only: '*) ;;
-        *) [ "$(fm_prep_answer "$1" Q2)" != yes ] || return 1 ;;
-      esac ;;
+    other:direct-PR) [ "$(fm_prep_answer "$1" Q2)" != yes ] || return 1 ;;
     money:no-mistakes|security:no-mistakes|shared:no-mistakes) ;;
     *) return 1 ;;
   esac
