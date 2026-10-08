@@ -765,6 +765,43 @@ test_lock_refuses_a_plain_file_lock_path() {
   pass "a plain-file lock path is refused promptly, by name, and left untouched"
 }
 
+test_lock_disappearing_during_format_check_is_not_malformed() {
+  local dir state representation suffix lockdir rc
+  dir=$(make_case lock-format-release-race)
+  state="$dir/state"
+  for representation in directory symlink; do
+    for suffix in '' .steal; do
+      lockdir="$state/.contend.lock$suffix"
+      mkdir -p "$dir/owner"
+      if [ "$representation" = symlink ]; then
+        ln -s "$dir/owner" "$lockdir"
+      else
+        mkdir "$lockdir"
+      fi
+      rc=0
+      FM_STATE_OVERRIDE="$state" bash -c '
+        . "$1"
+        race_path=$2
+        # Release the lock just before its symlink observation. Both supported
+        # representations can disappear between filesystem observations.
+        [() {
+          if builtin [ "$#" -eq 4 ] && builtin [ "$1" = "!" ] \
+            && builtin [ "$2" = -L ] && builtin [ "$3" = "$race_path" ]; then
+            rm -rf -- "$race_path"
+            : > "$3.released"
+          fi
+          builtin [ "$@"
+        }
+        if fm_lock_path_malformed "$race_path"; then exit 20; fi
+        builtin [ -f "$race_path.released" ] || exit 21
+        builtin [ ! -e "$race_path" ] || exit 22
+      ' _ "$LIB" "$lockdir" || rc=$?
+      [ "$rc" -eq 0 ] || fail "$representation lock$suffix was classified as malformed during release (rc=$rc)"
+    done
+  done
+  pass "primary and steal locks disappearing during a format check are not malformed"
+}
+
 test_lock_empty_pid_uses_minimum_grace() {
   local dir state lockdir out
   dir=$(make_case lock-empty-grace)
@@ -1671,6 +1708,7 @@ test_lock_reclaims_self_held_steal_mutex
 test_lock_resumes_own_interrupted_steal_reap
 test_lock_live_steal_mutex_is_not_reclaimed
 test_lock_does_not_steal_live_lock
+test_lock_disappearing_during_format_check_is_not_malformed
 test_lock_empty_pid_uses_minimum_grace
 test_lock_wait_refuses_a_removed_lock_directory
 test_lock_refuses_a_plain_file_lock_path

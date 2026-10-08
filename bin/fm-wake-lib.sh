@@ -1189,8 +1189,8 @@ fm_lock_try_acquire_steal_mutex() {  # <steal-lock>
 }
 
 # Lock paths are only ever a symlink (current format) or a directory holding
-# pid (legacy format), so anything else at <lockdir> or its steal mutex - a
-# plain file a hand-rolled flock or editor left behind - can never be reclaimed
+# pid (legacy format). A plain file at <lockdir> or its steal mutex that a
+# hand-rolled flock or editor left behind can never be reclaimed
 # and never clears on its own. Name it once per process and leave it untouched:
 # deleting it could break whatever wrote it, and only a person can tell.
 FM_LOCK_MALFORMED=
@@ -1199,20 +1199,21 @@ FM_LOCK_MALFORMED_REPORTED=
 # invariant, distinct from contention, usage, lease refusal and timeouts).
 FM_LOCK_MALFORMED_EXIT=78
 
-fm_lock_path_malformed() {  # <lockdir>: 0 iff a non-symlink, non-directory sits there
-  [ -e "$1" ] && [ ! -L "$1" ] && [ ! -d "$1" ]
+fm_lock_path_malformed() {  # <lockdir>: 0 iff a plain regular file sits there
+  # Test the refused type positively: a released lock disappearing between
+  # observations must not look like a malformed path.
+  [ ! -L "$1" ] && [ -f "$1" ]
 }
 
 fm_lock_report_malformed() {  # <lockdir> <path>
-  local lockdir=$1 path=$2 kind
+  local lockdir=$1 path=$2
   FM_LOCK_MALFORMED=$path
   case $'\n'"$FM_LOCK_MALFORMED_REPORTED"$'\n' in
     *$'\n'"$path"$'\n'*) return 0 ;;
   esac
   FM_LOCK_MALFORMED_REPORTED=${FM_LOCK_MALFORMED_REPORTED:+$FM_LOCK_MALFORMED_REPORTED$'\n'}$path
-  kind=$(stat -c %F "$path" 2>/dev/null || echo 'not a symlink or directory')
-  printf 'error: lock %s cannot be acquired: %s is a %s, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)\n' \
-    "$lockdir" "$path" "$kind" >&2
+  printf 'error: lock %s cannot be acquired: %s is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)\n' \
+    "$lockdir" "$path" >&2
 }
 
 fm_lock_try_acquire() {

@@ -357,13 +357,14 @@ if (!$pid) {
 }
 sleep 30;
 PL
-    (sleep 4; touch "$dir/release") &
+    (sleep 10; touch "$dir/release") &
     release=$!
     started=$SECONDS
     rc=0
     out=$(
       # shellcheck disable=SC2030 # This observation owns its subshell-local deadline.
-      export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 1 ))
+      # Leave room for epoch rounding and command startup before the bound.
+      export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 5 ))
       unset FM_CHECKPOINT_READING FM_TIMEOUT_MECHANISM_OVERRIDE
       # shellcheck disable=SC2030 # The forced mechanism belongs only to this observation.
       [ "$mechanism" != bash ] || export FM_TIMEOUT_MECHANISM_OVERRIDE=bash
@@ -378,7 +379,7 @@ PL
     pid=$(cat "$dir/pid")
     kill -TERM "$pid" 2>/dev/null || true
     [ "$rc" -eq 124 ] || fail "$mechanism read did not defer with 124 (rc=$rc)"
-    [ "$elapsed" -lt 3 ] || fail "$mechanism read waited ${elapsed}s for detached output after a 1s bound"
+    [ "$elapsed" -lt 8 ] || fail "$mechanism read waited ${elapsed}s for detached output after a 5s bound"
     [ -z "$out" ] || fail "$mechanism read returned incomplete output: $out"
     pass "$mechanism checkpoint read bounds output collection and discards incomplete observations"
   done
