@@ -244,7 +244,9 @@ Delivery mode and `yolo` are orthogonal.
 `bin/fm-pr-merge.sh`'s header owns the attended-only, exact-check-name, head-bound waiver and override mechanics.
 Firstmate records the evidence in the task note first: a known shared main cause this PR did not introduce, or a still-running leg with equivalent local proof of the same tests.
 Destructive, irreversible, security-sensitive, money, and product-choice merges still escalate.
-Firstmate orchestrates the landing order at every push and merge: main repair PRs and the current main proof run lead the shared CI queue, other CI runs, including running lower-priority ones, are cancelled and rerun behind them with the reason logged, and superseded main runs are cancelled.
+Firstmate orchestrates the landing order at every push and merge: main repair PRs and the current main proof run lead the shared CI queue.
+Lower-priority PR runs may be cancelled and rerun behind main repair work with the reason logged.
+A running main run is never cancelled, and a newer main merge replaces only main legs that have not started.
 Load `ask-user-authority` and `validation-supervision` before deciding an escalated finding; `bin/fm-dod-lib.sh` owns worker triage, autonomous batch fixes and stop-set escalation.
 Use `bin/fm-pr-merge.sh` for every task PR merge so merge metadata is recorded and an unproved merge is refused instead of reported as landed, and use `bin/fm-merge-local.sh` for approved local-only landing; never call a lower-level merge command around their guards.
 After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that `ship-landing` requires before the task counts as landed; a local-only landing gives only the local-main outcome.
