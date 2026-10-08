@@ -58,7 +58,6 @@ make_case() {
   write_github_required "$case_dir"
   : > "$case_dir/gh.log"
   printf '%s\n' '1212121212121212121212121212121212121212' > "$case_dir/github-base"
-  : > "$case_dir/github-mergers"
   cat > "$fakebin/mergify" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_TEST_CASE_DIR/mergify.log"
@@ -253,12 +252,6 @@ case "${1:-} ${2:-}" in
     exit 0
     ;;
   "api graphql")
-    case "$*" in
-      *'pullRequests(states:MERGED'*)
-        [ ! -f "$FM_TEST_CASE_DIR/history-unreadable" ] || exit 1
-        cat "$FM_TEST_CASE_DIR/github-mergers"
-        exit 0 ;;
-    esac
     if [ -f "${FM_TEST_GH_GRAPHQL_FAIL:-}" ]; then
       echo 'error: could not reach the GitHub API' >&2
       exit 1
@@ -4292,7 +4285,7 @@ write_mergify_repair_proof() {
   jq -n --arg head "$head" --arg base "$(cat "$case_dir/github-base")" \
     '{kind:"bootstrap",incident:"initial native queue repair",repository:"example/repo",head:$head,base:$base,
       result:"success",modules:["fm-pr-merge"],direct_consumers:["fm-pr-check"],
-      first_queue_landing:null,queue_merge_actor:"mergify[bot]"}' \
+      first_queue_landing:null}' \
     > "$case_dir/home/data/task-x1/landing-proof.json"
 }
 
@@ -4315,7 +4308,7 @@ test_mergify_landing_attended_override_is_the_named_repair_path() {
 
 test_mergify_repair_refuses_unproved_bypasses() {
   local fault case_dir rc proof filter head=4444444444444444444444444444444444444444
-  for fault in missing wrong-head wrong-base unreadable missing-incident empty-modules skipped missing-cutoff landed native-landed history-unreadable unknown-owner; do
+  for fault in missing wrong-head wrong-base unreadable read-error symlink missing-incident empty-modules skipped missing-cutoff landed empty-receipt boolean-receipt number-receipt array-receipt object-receipt; do
     case_dir=$(make_case "mergify-repair-refuse-$fault")
     add_gh_mocks "$case_dir" "$head"
     register_landing "$case_dir" landing=mergify
@@ -4327,14 +4320,24 @@ test_mergify_repair_refuses_unproved_bypasses() {
       wrong-head) filter='.head="4545454545454545454545454545454545454545"' ;;
       wrong-base) filter='.base="4545454545454545454545454545454545454545"' ;;
       unreadable) rm "$proof"; mkdir "$proof" ;;
+      read-error)
+        cat > "$case_dir/fakebin/jq" <<SH
+#!/usr/bin/env bash
+[ "\${!#}" != "$proof" ] || exit 2
+exec "$JQ_BIN" "\$@"
+SH
+        chmod +x "$case_dir/fakebin/jq" ;;
+      symlink) mv "$proof" "$proof.target"; ln -s "$proof.target" "$proof" ;;
       missing-incident) filter='del(.incident)' ;;
       empty-modules) filter='.modules=[]' ;;
       skipped) filter='.result="skipped"' ;;
       missing-cutoff) filter='del(.first_queue_landing)' ;;
       landed) filter='.first_queue_landing="https://github.com/example/repo/pull/1"' ;;
-      native-landed) printf '%s\n' 'mergify[bot]' > "$case_dir/github-mergers" ;;
-      history-unreadable) : > "$case_dir/history-unreadable" ;;
-      unknown-owner) printf '%s\n' unknown > "$case_dir/github-mergers" ;;
+      empty-receipt) filter='.first_queue_landing=""' ;;
+      boolean-receipt) filter='.first_queue_landing=false' ;;
+      number-receipt) filter='.first_queue_landing=0' ;;
+      array-receipt) filter='.first_queue_landing=[]' ;;
+      object-receipt) filter='.first_queue_landing={}' ;;
     esac
     if [ "$filter" != . ]; then
       jq "$filter" "$proof" > "$proof.tmp" && mv "$proof.tmp" "$proof"
@@ -4344,10 +4347,47 @@ test_mergify_repair_refuses_unproved_bypasses() {
       > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
     expect_code 1 "$rc" "$fault: unproved bootstrap bypass was accepted"
     assert_grep 'Mergify bypass refused:' "$case_dir/stderr" "$fault: bootstrap refusal not named"
+    if [ "$fault" = landed ]; then
+      assert_grep 'queue is the only path' "$case_dir/stderr" "$fault: receipt did not make landing queue-only"
+    fi
     assert_no_grep 'pr merge ' "$case_dir/gh.log" "$fault: bootstrap merged without proof"
     [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$fault: bootstrap posted a comment"
   done
-  pass "Mergify overrides refuse missing or stale targeted proof and stop after native queue landing"
+  pass "Mergify overrides refuse missing or stale targeted proof and stop at the recorded queue landing receipt"
+}
+
+test_mergify_bootstrap_cutoff_ignores_candidate_skipped_history() {
+  local kind case_dir rc proof head=4444444444444444444444444444444444444444
+  for kind in bootstrap incident; do
+    case_dir=$(make_case "mergify-skipped-history-$kind")
+    add_gh_mocks "$case_dir" "$head"
+    register_landing "$case_dir" landing=mergify
+    write_mergify_repair_proof "$case_dir" "$head"
+    proof="$case_dir/home/data/task-x1/landing-proof.json"
+    jq --arg kind "$kind" '.kind=$kind' "$proof" > "$proof.tmp" && mv "$proof.tmp" "$proof"
+    printf '%s\n' '{"merger":"mergify[bot]","candidate_checks":"skipped"}' > "$case_dir/prior-merge.json"
+    mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-fixture"
+    cat > "$case_dir/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  *pullRequests*)
+    printf '%s\n' "$*" >> "$FM_TEST_GH_LOG"
+    jq -r .merger "$FM_TEST_CASE_DIR/prior-merge.json"
+    exit $? ;;
+esac
+exec "$FM_TEST_CASE_DIR/fakebin/gh-fixture" "$@"
+SH
+    chmod +x "$case_dir/fakebin/gh"
+    rc=0
+    run_pr_merge "$case_dir" task-x1 https://github.com/example/repo/pull/63 --attended-override \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 0 "$rc" "$kind: skipped candidate history blocked the null receipt: $(cat "$case_dir/stderr")"
+    assert_logged_gh_merge "$case_dir" 63 example/repo --squash
+    assert_no_grep 'pullRequests' "$case_dir/gh.log" "$kind: bootstrap queried merged PR history"
+    [ "$(queue_comment_count "$case_dir")" -eq 0 ] || fail "$kind: bootstrap also queued"
+    assert_grep 'bypasses the configured Mergify queue' "$case_dir/stderr" "$kind: bypass notice missing"
+  done
+  pass "bootstrap and incident cutoff ignore skipped-candidate bot history and make no merged-history API call"
 }
 
 test_direct_landing_projects_keep_the_synchronous_merge() {
@@ -4369,4 +4409,5 @@ test_mergify_requested_receipts_and_head_movement
 test_mergify_landing_guards_refuse_before_any_queue_command
 test_mergify_landing_attended_override_is_the_named_repair_path
 test_mergify_repair_refuses_unproved_bypasses
+test_mergify_bootstrap_cutoff_ignores_candidate_skipped_history
 test_direct_landing_projects_keep_the_synchronous_merge
