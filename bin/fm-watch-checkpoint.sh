@@ -171,7 +171,7 @@ positive_or() {  # <value> <default>
 # shellcheck source=bin/fm-supervision-engine-lib.sh
 . "$SCRIPT_DIR/fm-supervision-engine-lib.sh"
 if [ "$RECOVER" -eq 1 ]; then
-  FM_WATCH_CHECKPOINT_SECONDS= FM_CHECKPOINT_DEADLINE= FM_WATCH_RECOVERY_CYCLE=1 \
+  FM_WATCH_CHECKPOINT_SECONDS='' FM_CHECKPOINT_DEADLINE='' FM_WATCH_RECOVERY_CYCLE=1 \
     "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
   RC=$?
   if grep -q '^watcher: already running' "$OUT" "$ERR"; then

@@ -26,6 +26,7 @@ test_minimal_wake_callers_preserve_options() {
   for option in off on; do
     for mode in ordinary checkpoint; do
       home=$(new_home "minimal-$option-$mode")
+      # shellcheck disable=SC2016 # Variables expand in the child shell with its supplied arguments.
       fm_run_timed 10 env -u FM_CHECKPOINT_DEADLINE FM_HOME="$home" bash -c '
         [ "$2" = off ] || set -u
         before=$-

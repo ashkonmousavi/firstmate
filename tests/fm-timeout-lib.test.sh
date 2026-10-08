@@ -365,6 +365,7 @@ PL
     rc=0
     out=$(
       . "$ROOT/bin/fm-timeout-lib.sh"
+      # shellcheck disable=SC2030 # This observation owns its subshell-local deadline.
       export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 1 ))
       unset FM_CHECKPOINT_READING FM_TIMEOUT_MECHANISM_OVERRIDE
       [ "$mechanism" != bash ] || export FM_TIMEOUT_MECHANISM_OVERRIDE=bash
@@ -394,6 +395,7 @@ test_checkpoint_read_preserves_completed_output_and_status() {
     rc=0
     out=$(
       . "$ROOT/bin/fm-timeout-lib.sh"
+      # shellcheck disable=SC2031 # This observation sets a fresh subshell-local deadline.
       export FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 5 ))
       unset FM_CHECKPOINT_READING
       if [ -n "$source" ]; then

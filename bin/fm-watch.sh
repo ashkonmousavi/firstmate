@@ -3643,8 +3643,8 @@ EOF
     # fm-primary-pi-watch.ts), and the away daemon, whose handle_durable_wakes
     # passes it to handle_wake (see the comment above handle_wake in
     # bin/fm-supervise-daemon.sh).
-    # shellcheck disable=SC2086  # same space-separated status-path list
     signal_surface=0
+    # shellcheck disable=SC2086  # same space-separated status-path list
     if afk_present || [ "$signal_actionable" -eq 0 ] \
       || { ! checkpoint_read signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then signal_surface=1; fi
     checkpoint_deadline_passed && continue
