@@ -1,0 +1,20 @@
+run:
+  id: "01M4F2NZEMTNTG7A1KQNEJ55Y7"
+  branch: fm/shared-delivery-contract-main1392
+  status: running
+  head: 37e8a9a3
+  head_sha: 37e8a9a361cbec9d557bbbeaae699c6e72ab6cb9
+  verification_plan: none
+  findings: none
+  steps[9]{step,status,findings,duration_ms}:
+    intent,completed,0,1389
+    rebase,completed,0,2010
+    review,completed,0,688781
+    test,running,0,0
+    document,pending,0,0
+    lint,pending,0,0
+    push,pending,0,0
+    pr,pending,0,0
+    ci,pending,0,0
+  active_steps[1]{step,status,active_for,round_active_for,last_activity,agent_pid,round}:
+    test,running,4m21s,4m21s,"10s ago: codex producing output","1689015",starting

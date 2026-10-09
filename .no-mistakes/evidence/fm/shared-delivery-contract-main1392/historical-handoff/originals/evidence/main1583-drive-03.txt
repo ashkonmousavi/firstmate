@@ -1,0 +1,65 @@
+run: running
+  intent: completed
+  rebase: completed
+  review: running
+  review: awaiting_approval
+run:
+  id: "01M4EZA0JHVRD530PSX5KAQJJ4"
+  branch: fm/shared-delivery-contract-main1392
+  status: running
+  awaiting_agent: parked 0s
+  head: ab3f64f0
+  head_sha: ab3f64f03593e46ded84a850837f54834bb3af4a
+  verification_plan: none
+  findings: 2 awaiting
+  steps[9]{step,status,findings,duration_ms}:
+    intent,completed,0,744
+    rebase,completed,0,883
+    review,awaiting_approval,2,216299
+    test,pending,0,0
+    document,pending,0,0
+    lint,pending,0,0
+    push,pending,0,0
+    pr,pending,0,0
+    ci,pending,0,0
+branch_sync:
+  state: pipeline_owned
+  changed: false
+  local:
+    branch: fm/shared-delivery-contract-main1392
+    head: ab3f64f03593e46ded84a850837f54834bb3af4a
+    clean: true
+  pipeline:
+    run: "01M4EZA0JHVRD530PSX5KAQJJ4"
+    status: running
+    phase: pre_push
+    submitted_head: ab3f64f03593e46ded84a850837f54834bb3af4a
+    current_head: ab3f64f03593e46ded84a850837f54834bb3af4a
+    pushed_head: ""
+    pushed_at: 0
+    push_generation: 0
+  target:
+    kind: ""
+    remote: forge
+    url: "https://github.com/ashkonmousavi/firstmate.git"
+    ref: ""
+  remote:
+    observed_head: ""
+    freshness: pipeline_push
+    observed_at: 0
+  relation: equal
+  safety: blocked_pipeline_owned
+  pr_state: none
+  note: a validation run is active on this branch; do not make local follow-up commits until it finishes
+  next_action:
+    code: continue_active_run
+    command: no-mistakes axi status
+gate:
+  step: review
+  status: awaiting_approval
+  risk: medium
+  note: "Review auto-fix is disabled by default (`auto_fix.review: 0`; a repo or global `auto_fix.review > 0` override re-enables it), so blocking and ask-user review findings park for your decision rather than being silently self-fixed."
+  findings[2]{id,severity,file,action,description}:
+    invalid-release-capacity,warning,bin/fm-watch.sh,ask-user,"Spec: \"Malformed capacity or unavailable state suppresses notices and logs the cause.\" The new validation accepts release-capacity=00 because it rejects only literal 0; with ready work and no ships, line 2545 therefore emits backpressure at 0/00 instead of suppressing the notice. Digit-only values exceeding the shell's integer range also pass validation, then fall through to an ordinary idle notice when comparison fails. Additionally, the read failure at line 2474 returns without logging its cause. Validate the consumed release bound's positivity and supported range, and log read failures before returning. Related sites: bin/fm-watch.sh:2473-2475 (read/validation), :2545 (comparison), docs/configuration.md:630 (promised suppression and logging)."
+    unconfigured-release-wake-invalidation,warning,bin/fm-watch.sh,ask-user,"Spec: Simplification - release-sensitive wake invalidation without configured release capacity exceeds the \"Optional home-local release-capacity\" requirement. With writing-lane-cap=3, one ship and unchanged ready work, recording that ship's PR increments released at bin/fm-watch.sh:2483-2484 even when release-capacity is absent. Including released in the signature here bypasses repeat suppression at :2533 and produces another ordinary idle-lane wake. No requirement needs this additional wake path. Remove release-count dependence from the unconfigured mode; retain it only when release capacity is enabled."
+help[6]: Run `no-mistakes axi respond --action approve` to accept this step and continue,Run `no-mistakes axi respond --action fix --findings <ids>` to have the pipeline fix the selected findings (do not edit files yourself),Run `no-mistakes axi respond --action skip` to skip this step,Run `no-mistakes axi logs --step review --full` to read the complete step summary and log,"A long-running call is working, not stalled - background it if your harness needs to, but the run never advances past a gate on its own. Read every return; on a `gate:`, respond; loop until an `outcome:`.","Commit post-pipeline follow-up work on top of the existing branch so every pipeline fix commit remains present. Never abort-and-restart, reset, or replace the branch in a way that drops prior gate-fix commits."

@@ -1,0 +1,24 @@
+{
+  "command": [
+    "no-mistakes",
+    "axi",
+    "logs",
+    "--run",
+    "01M4F2NZEMTNTG7A1KQNEJ55Y7",
+    "--step",
+    "review",
+    "--full"
+  ],
+  "exit": 0,
+  "inventory_checks": {
+    "review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7": true,
+    "2473-2483": true,
+    "2490-2513": true,
+    "2538": true,
+    "2552": true,
+    "main1592-prior-review-private.txt": true,
+    "UNVERIFIED": true,
+    "historical": true
+  },
+  "stderr": ""
+}

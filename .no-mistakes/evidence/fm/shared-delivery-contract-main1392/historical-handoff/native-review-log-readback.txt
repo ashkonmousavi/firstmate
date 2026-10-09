@@ -1,0 +1,57 @@
+step: review
+run: "01M4F2NZEMTNTG7A1KQNEJ55Y7"
+findings[1]{id,severity,file,action,description}:
+  unverified-fix-inventory-handoff,warning,bin/fm-watch.sh,ask-user,"Standards: bin/fm-dod-lib.sh:1391-1395 and the recorded fix decision require a retained pre-edit class inventory and exact RED/GREEN commands/results. That handoff could not be located in this worktree or the supplied evidence root. Run 01M4EZA0JHVRD530PSX5KAQJJ4 retains later GREEN receipts and attribution proof, but its inventory concerns clock corrections, not the two production fixes. Unverified occurrences: bin/fm-watch.sh:2473 capacity readability, :2478 positivity/range validation, :2490-2513 configured-only counting, :2538 signature invalidation; regressions at tests/fm-idle-lane-wake.test.sh:332 and :364. Provide the original retained inventory and pre-fix receipts so their required handoff can be verified; later passing evidence cannot establish pre-edit retention. No remaining source defect was found in these repairs."
+lines: 51 total
+log[51]{line}:
+  reviewing changes...
+  ""
+  "applied 1 trusted review instruction block(s) for changed paths: * (4 file(s))"
+  ""
+  codex started pid=892180
+  ""
+  "I’ll review the full branch diff, the surrounding watcher logic, and the retained fix evidence. I’ll return structured findings without running tests or advancing the pipeline.I’m applying the two-axis review skill and Firstmate coding guidelines, keeping Standards and Spec findings separate. The net diff is limited to the four listed files; I’m checking the two repaired defect classes and the validation-attribution proof next.The source now rejects zero and overflow release bounds, logs read failures, and ignores PR-count changes when release capacity is absent. The regressions exercise the watcher directly. I’m tracing the real crew-state outputs and locating the required pre-edit inventory to check the evidence handoff.The counting and wake paths match the accepted backpressure scope, including unavailable-state refusal and counting validation plus a PR once. Retained evidence distinguishes genuine working-run attribution from fixture-only terminal transitions. I have not located the required pre-edit inventory and RED receipts for the capacity-validation and unconfigured-wake fixes; I’ll report that handoff as unverified.{"
+  "  \"findings\": ["
+  "    {"
+  "      \"action\": \"ask-user\","
+  "      \"description\": \"Standards: bin/fm-dod-lib.sh:1391-1395 and the recorded fix decision require a retained pre-edit class inventory and exact RED/GREEN commands/results. That handoff could not be located in this worktree or the supplied evidence root. Run 01M4EZA0JHVRD530PSX5KAQJJ4 retains later GREEN receipts and attribution proof, but its inventory concerns clock corrections, not the two production fixes. Unverified occurrences: bin/fm-watch.sh:2473 capacity readability, :2478 positivity/range validation, :2490-2513 configured-only counting, :2538 signature invalidation; regressions at tests/fm-idle-lane-wake.test.sh:332 and :364. Provide the original retained inventory and pre-fix receipts so their required handoff can be verified; later passing evidence cannot establish pre-edit retention. No remaining source defect was found in these repairs.\","
+  "      \"file\": \"bin/fm-watch.sh\","
+  "      \"id\": \"unverified-fix-inventory-handoff\","
+  "      \"line\": 2473,"
+  "      \"review_scope\": \"external-delivery\","
+  "      \"severity\": \"warning\""
+  "    }"
+  "  ],"
+  "  \"reviewed_paths\": ["
+  "    \"AGENTS.md\","
+  "    \"bin/fm-watch.sh\","
+  "    \"docs/configuration.md\","
+  "    \"tests/fm-idle-lane-wake.test.sh\""
+  "  ],"
+  "  \"risk_level\": \"high\","
+  "  \"risk_rationale\": \"The source change is bounded and no code defect was substantiated, but the explicitly required pre-edit evidence handoff remains unverified and needs human resolution before acceptance.\","
+  "  \"risk_scope\": \"source-or-external\","
+  "  \"tested\": [],"
+  "  \"testing_summary\": \"No tests run, as instructed. Inspected retained executable regression and genuine working-run attribution receipts; terminal transitions remain fixture-only and installed acceptance remains Main-owned.\""
+  "}"
+  codex exited pid=892180 status=success
+  ""
+  user-fix round starting after round 1 (1 finding selected)
+  ""
+  asking agent to fix identified issues...
+  ""
+  codex started pid=1144596
+  ""
+  "I’ll check the original evidence pointers, retain the handoff with any gaps stated explicitly, and inspect the named code and regressions. I’ll keep this within the assigned review phase."
+  I’m using the systematic-debugging and Firstmate coding-guidelines skills to assess the reported evidence gap. The requested remedy is to restore the handoff and document what is missing; I’ll leave production source unchanged unless inspection finds a defect.
+  "The original author instructions and native Fix/Review log are available. The log records both reproductions and a subsequent Review that read the receipts, but it does not contain the exact class-specific commands or receipt contents. I’ll retain that distinction explicitly. The separate `main1583-red.txt` and `main1583-green.txt` concern validation attribution and cannot close this historical gap."
+  ""
+  "The invariant is that historical proof must remain attributable and consumable without promoting narrative or later GREEN checks into missing pre-edit evidence. This applies to the capacity read and validation, all four release-count paths, notice signature and comparison, and both executable regressions."
+  "The handoff is retained at `data/shared-delivery-contract-main1392/review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7/`: pre-action inventory, byte-identical copies of the five supplied originals, SHA-256 manifest, and bounded search receipts."
+  ""
+  "For the next native Review: check `bin/fm-watch.sh:2473-2483` for readable, positive, supported-range capacity; `:2490-2513` for configured-only counting across recorded PR, attributed run, publishing completion and local-only completion; `:2538` for unchanged unconfigured deduplication; and `:2552` for the guarded comparison. Regressions are `tests/fm-idle-lane-wake.test.sh:332` and `:364`. A search of `bin`, `docs`, and `tests` found no other release-capacity consumer."
+  ""
+  "Original evidence remains available under `/home/tegris/fm-fleet-ops/data/shared-delivery-contract-main1392/`: `main1583-review-fix1-instructions.txt`, `evidence/main1583-drive-03.txt`, and `evidence/main1592-prior-review-private.txt`. The latter records the Fix narrative and the subsequent Review’s inspection of the old receipts. The exact class-specific reproduction script, commands, and RED/GREEN receipt bytes remain **UNVERIFIED**; the log gives only their former directory, and the bounded task search did not recover them. `evidence/main1583-red.txt` and `main1583-green.txt` remain separately classified as attribution receipts."
+  ""
+  "This record is also being emitted into the existing native review log, readable through `no-mistakes axi logs --run 01M4F2NZEMTNTG7A1KQNEJ55Y7 --step review --full`. Source inspection found no remaining defect in the named repairs. I’ll now run the one focused watcher fixture check; it will establish current behavior only."
+  "The supported native log read-back now contains the retained handoff path and the explicit UNVERIFIED gap, so this record is consumable beyond the prompt alone. All five copied originals match their SHA-256 manifest. The focused fixture check is still running and has passed ordinary idle wakes and local-only completion."

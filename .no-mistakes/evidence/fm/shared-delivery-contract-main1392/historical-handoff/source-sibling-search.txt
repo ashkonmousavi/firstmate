@@ -1,0 +1,30 @@
+Command (argv): ["rg", "-n", "release-capacity|\\brcap\\b", "bin", "docs", "tests"]
+Exit: 0
+tests/fm-idle-lane-wake.test.sh:144:    printf '1\n' > "$home/config/release-capacity"
+tests/fm-idle-lane-wake.test.sh:175:  printf '1\n' > "$home/config/release-capacity"
+tests/fm-idle-lane-wake.test.sh:310:    printf '1\n' > "$home/config/release-capacity"
+tests/fm-idle-lane-wake.test.sh:337:      home=$(make_case "invalid-release-capacity-$index")
+tests/fm-idle-lane-wake.test.sh:342:      diagnostic='invalid config/release-capacity'
+tests/fm-idle-lane-wake.test.sh:345:          mkdir "$home/config/release-capacity"
+tests/fm-idle-lane-wake.test.sh:346:          diagnostic='unreadable config/release-capacity' ;;
+tests/fm-idle-lane-wake.test.sh:348:          ln -s missing-capacity "$home/config/release-capacity"
+tests/fm-idle-lane-wake.test.sh:349:          diagnostic='unreadable config/release-capacity' ;;
+tests/fm-idle-lane-wake.test.sh:350:        *) printf '%s\n' "$value" > "$home/config/release-capacity" ;;
+tests/fm-idle-lane-wake.test.sh:361:  [ "$failures" -eq 0 ] || fail "$failures invalid release-capacity cases failed"
+tests/fm-idle-lane-wake.test.sh:377:      [ "$configured" = absent ] || printf '%s\n' "$configured" > "$home/config/release-capacity"
+docs/configuration.md:619:## Writing-lane capacity (config/writing-lane-cap, config/release-capacity)
+docs/configuration.md:624:The optional `config/release-capacity` holds one positive integer within the shell's supported integer range, bounding how many of those lanes have an attributed validation run, a completed delivery report, or a recorded PR in CI or awaiting landing.
+docs/configuration.md:631:An unreadable release-capacity file is also reported and suppresses the notice.
+bin/fm-watch.sh:2461:# The cap is a maximum, not a target: with an optional config/release-capacity,
+bin/fm-watch.sh:2468:  local cap rcap='' ready ids count occupied=0 working=0 released=0 meta task signature marker previous reason line state src
+bin/fm-watch.sh:2473:  if [ -e "$CONFIG/release-capacity" ] || [ -L "$CONFIG/release-capacity" ]; then
+bin/fm-watch.sh:2474:    rcap=$(cat "$CONFIG/release-capacity" 2>/dev/null) || {
+bin/fm-watch.sh:2475:      triage_log "unreadable config/release-capacity"
+bin/fm-watch.sh:2478:    case "$rcap" in ''|*[!0-9]*) triage_log "invalid config/release-capacity"; return 1 ;; esac
+bin/fm-watch.sh:2479:    if ! [ "$rcap" -gt 0 ] 2>/dev/null; then
+bin/fm-watch.sh:2480:      triage_log "invalid config/release-capacity"
+bin/fm-watch.sh:2490:    if [ -n "$rcap" ] && grep -q '^pr=' "$meta" 2>/dev/null; then
+bin/fm-watch.sh:2492:    elif [ -n "$rcap" ]; then
+bin/fm-watch.sh:2538:  signature=$(printf '%s|%s|%s|%s|%s\n' "$cap" "$occupied" "$ids" "$rcap" "$released" | cksum)
+bin/fm-watch.sh:2552:  if [ -n "$rcap" ] && [ "$released" -ge "$rcap" ]; then
+bin/fm-watch.sh:2553:    reason="check: lane backpressure: $released/$rcap lanes awaiting validation or release; land or repair them before new starts, $occupied/$cap occupied, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"

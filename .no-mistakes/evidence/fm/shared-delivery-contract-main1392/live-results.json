@@ -1,0 +1,281 @@
+[
+  {
+    "name": "Empty backlog produces no fill-lanes notice",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Ready work below writing maximum is named",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 0/3 occupied, 0 working, 1 ready: repair-one\n",
+    "wake_queue": "1791508463\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 0/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": "2352997208 18\n"
+  },
+  {
+    "name": "Unchanged ready work does not repeat",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "1791508463\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 0/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "2352997208 18\n",
+    "marker_after": "2352997208 18\n"
+  },
+  {
+    "name": "Changed ready set is named",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-two\n",
+    "wake_queue": "1791508463\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 0/3 occupied, 0 working, 1 ready: repair-one\n1791508467\t2\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-two\n",
+    "triage": "",
+    "marker_before": "2352997208 18\n",
+    "marker_after": "3480656012 34\n"
+  },
+  {
+    "name": "Full writing maximum suppresses fill notice",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "1791508463\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 0/3 occupied, 0 working, 1 ready: repair-one\n1791508467\t2\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 0/3 occupied, 0 working, 2 ready: repair-one,independent-two\n",
+    "triage": "",
+    "marker_before": "3480656012 34\n",
+    "marker_after": null
+  },
+  {
+    "name": "One published lane below release bound keeps ordinary notice",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "wake_queue": "1791508471\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": "63591910 19\n"
+  },
+  {
+    "name": "Published lanes saturate release bound and keep repair visible",
+    "result": "pass",
+    "stdout": "check: lane backpressure: 2/2 lanes awaiting validation or release; land or repair them before new starts, 2/3 occupied, 1 ready: repair-one\n",
+    "wake_queue": "1791508471\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n1791508472\t2\tcheck\tlane-backpressure\tcheck: lane backpressure: 2/2 lanes awaiting validation or release; land or repair them before new starts, 2/3 occupied, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "63591910 19\n",
+    "marker_after": "2261436231 19\n"
+  },
+  {
+    "name": "Unchanged release pressure does not repeat",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "1791508471\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n1791508472\t2\tcheck\tlane-backpressure\tcheck: lane backpressure: 2/2 lanes awaiting validation or release; land or repair them before new starts, 2/3 occupied, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "2261436231 19\n",
+    "marker_after": "2261436231 19\n"
+  },
+  {
+    "name": "Retiring a published lane releases pressure",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "wake_queue": "1791508471\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n1791508472\t2\tcheck\tlane-backpressure\tcheck: lane backpressure: 2/2 lanes awaiting validation or release; land or repair them before new starts, 2/3 occupied, 1 ready: repair-one\n1791508477\t3\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "2261436231 19\n",
+    "marker_after": "63591910 19\n"
+  },
+  {
+    "name": "Unconfigured release capacity reports ordinary availability",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "wake_queue": "1791508478\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": "2615988741 18\n"
+  },
+  {
+    "name": "Adding PR without release capacity stays quiet",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "1791508478\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "2615988741 18\n",
+    "marker_after": "2615988741 18\n"
+  },
+  {
+    "name": "Removing PR without release capacity stays quiet",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "1791508478\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "2615988741 18\n",
+    "marker_after": "2615988741 18\n"
+  },
+  {
+    "name": "Capacity '00' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:45-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '0000' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:46-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '0' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:47-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '-1' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:49-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:48-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity 'zero' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:50-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '9223372036854775808' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:51-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '18446744073709551616' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:52-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity '9999999999999999999999999999999999999999' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:53-0700] invalid config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity 'directory' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:54-0700] unreadable config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Capacity 'dangling' refuses with diagnostic",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:55-0700] unreadable config/release-capacity\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Supported positive bound 0001 remains usable",
+    "result": "pass",
+    "stdout": "check: lane backpressure: 1/0001 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "wake_queue": "1791508496\t1\tcheck\tlane-backpressure\tcheck: lane backpressure: 1/0001 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": "3341286140 22\n"
+  },
+  {
+    "name": "Supported positive bound 9223372036854775807 remains usable",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "wake_queue": "1791508497\t1\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 0 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": "2183562857 37\n"
+  },
+  {
+    "name": "Unavailable real crew state refuses a capacity notice",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "",
+    "triage": "[2026-10-08T18:14:58-0700] idle-lane release state unavailable: one\n",
+    "marker_before": null,
+    "marker_after": null
+  },
+  {
+    "name": "Recorded PR establishes pressure despite unavailable crew state",
+    "result": "pass",
+    "stdout": "check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "wake_queue": "1791508499\t1\tcheck\tlane-backpressure\tcheck: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "triage": "[2026-10-08T18:14:58-0700] idle-lane release state unavailable: one\n",
+    "marker_before": null,
+    "marker_after": "3638426993 19\n"
+  },
+  {
+    "name": "Current real validation saturates capacity without a PR",
+    "result": "pass",
+    "stdout": "check: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "wake_queue": "1791508503\t1\tcheck\tlane-backpressure\tcheck: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": null,
+    "marker_after": "3638426993 19\n"
+  },
+  {
+    "name": "Adding PR to already counted real validation does not repeat",
+    "result": "pass",
+    "stdout": "",
+    "wake_queue": "1791508503\t1\tcheck\tlane-backpressure\tcheck: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "3638426993 19\n",
+    "marker_after": "3638426993 19\n"
+  },
+  {
+    "name": "Real validation plus PR on one lane counts once below bound two",
+    "result": "pass",
+    "stdout": "check: idle writing lanes: 1/3 occupied, 1 working, 1 ready: repair-one\n",
+    "wake_queue": "1791508503\t1\tcheck\tlane-backpressure\tcheck: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n1791508510\t2\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 1 working, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "3638426993 19\n",
+    "marker_after": "63591910 19\n"
+  },
+  {
+    "name": "Second published lane plus real validation saturates bound two",
+    "result": "pass",
+    "stdout": "check: lane backpressure: 2/2 lanes awaiting validation or release; land or repair them before new starts, 2/3 occupied, 1 ready: repair-one\n",
+    "wake_queue": "1791508503\t1\tcheck\tlane-backpressure\tcheck: lane backpressure: 1/1 lanes awaiting validation or release; land or repair them before new starts, 1/3 occupied, 1 ready: repair-one\n1791508510\t2\tcheck\tidle-writing-lanes\tcheck: idle writing lanes: 1/3 occupied, 1 working, 1 ready: repair-one\n1791508513\t3\tcheck\tlane-backpressure\tcheck: lane backpressure: 2/2 lanes awaiting validation or release; land or repair them before new starts, 2/3 occupied, 1 ready: repair-one\n",
+    "triage": "",
+    "marker_before": "63591910 19\n",
+    "marker_after": "2261436231 19\n"
+  }
+]

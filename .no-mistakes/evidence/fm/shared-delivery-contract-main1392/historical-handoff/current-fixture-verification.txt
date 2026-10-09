@@ -1,0 +1,25 @@
+FM_TEST_BEGIN 2026-10-09T01:06:01Z tests/fm-idle-lane-wake.test.sh family=unclassified expected_gate_skip=none
+ok - watcher wakes once for configured free writing lanes and a changed ready set, not for empty capacity or a cap filled by parked crews
+ok - watcher names only dispatchable ready rows, not public follow-up obligations
+ok - documentation and issue links on completed local-only lanes preserve ordinary idle wakes
+ok - watcher retains validation and ready-PR pressure until retirement and counts each published lane once
+ok - unknown, unreadable, or noncompletion status-log states suppress capacity notices unless a recorded PR establishes pressure
+ok - capacity '00' suppresses notices and logs its cause
+ok - capacity '0' suppresses notices and logs its cause
+ok - capacity '0000' suppresses notices and logs its cause
+ok - capacity '-1' suppresses notices and logs its cause
+ok - capacity '' suppresses notices and logs its cause
+ok - capacity 'zero' suppresses notices and logs its cause
+ok - capacity '9223372036854775808' suppresses notices and logs its cause
+ok - capacity '18446744073709551616' suppresses notices and logs its cause
+ok - capacity '9999999999999999999999999999999999999999' suppresses notices and logs its cause
+ok - capacity 'read-error' suppresses notices and logs its cause
+ok - capacity 'dangling-symlink' suppresses notices and logs its cause
+ok - release metadata only changes notices when capacity is configured: absent
+ok - release metadata only changes notices when capacity is configured: 1
+ok - release metadata only changes notices when capacity is configured: 0001
+ok - release metadata only changes notices when capacity is configured: 9223372036854775807
+FM_TEST_END 2026-10-09T01:07:44Z tests/fm-idle-lane-wake.test.sh exit=0 duration_ms=103242 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=103286
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=103242 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-idle-lane-wake.test.sh duration_ms=103242

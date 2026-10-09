@@ -1,0 +1,32 @@
+[
+  {
+    "original": "/home/tegris/fm-fleet-ops/data/shared-delivery-contract-main1392/main1583-review-fix1-instructions.txt",
+    "retained": "data/shared-delivery-contract-main1392/review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7/originals/main1583-review-fix1-instructions.txt",
+    "bytes": 2016,
+    "sha256": "f952368c91661ac06263ded225b249b246ac0652f1da499a3565cbc06aa5c6c5"
+  },
+  {
+    "original": "/home/tegris/fm-fleet-ops/data/shared-delivery-contract-main1392/evidence/main1583-drive-03.txt",
+    "retained": "data/shared-delivery-contract-main1392/review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7/originals/evidence/main1583-drive-03.txt",
+    "bytes": 4174,
+    "sha256": "0d69f3bec5bf55587d065d33f9394ee7e326c7595f7a8d8ceb78d88a1263f03f"
+  },
+  {
+    "original": "/home/tegris/fm-fleet-ops/data/shared-delivery-contract-main1392/evidence/main1592-prior-review-private.txt",
+    "retained": "data/shared-delivery-contract-main1392/review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7/originals/evidence/main1592-prior-review-private.txt",
+    "bytes": 8499,
+    "sha256": "81e3d1ad6d44d1d6d2849c6c1d724149de7423afe6d01ee733a9333e9ce1df14"
+  },
+  {
+    "original": "/home/tegris/fm-fleet-ops/data/shared-delivery-contract-main1392/evidence/main1583-red.txt",
+    "retained": "data/shared-delivery-contract-main1392/review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7/originals/evidence/main1583-red.txt",
+    "bytes": 979,
+    "sha256": "2c919ced7c76e17c036d8c20318c1e27f5671a154627d36cd9a8fcd0cd00549f"
+  },
+  {
+    "original": "/home/tegris/fm-fleet-ops/data/shared-delivery-contract-main1392/evidence/main1583-green.txt",
+    "retained": "data/shared-delivery-contract-main1392/review-handoff-01M4F2NZEMTNTG7A1KQNEJ55Y7/originals/evidence/main1583-green.txt",
+    "bytes": 991,
+    "sha256": "256a4ba8d68996e0e657a665fdc2d391f37ee6a60faddf3fb8b8f2db7b2e06f1"
+  }
+]
