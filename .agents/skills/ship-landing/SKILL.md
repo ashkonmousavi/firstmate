@@ -8,7 +8,7 @@ metadata:
 
 # Ship landing
 
-Both PR-based ship paths, except a ship-light direct-PR that reports `done [at=<epoch>]: PR <url>` without waiting for checks, report `done [at=<epoch>]: PR <full https URL from the forge> checks green` only for a non-draft PR whose required checks are green on its current head, under `bin/fm-dod-lib.sh`; pending checks or a deliberately held draft declare a wait instead, and `bin/fm-pr-check.sh` refuses to arm merge monitoring on a draft.
+PR-based ships report readiness under the generated delivery contract in [`bin/fm-dod-lib.sh`](../../../bin/fm-dod-lib.sh); `bin/fm-pr-check.sh` refuses to arm merge monitoring on a draft.
 Run `bin/fm-pr-check.sh <id> <PR url>` with the URL copied from that ready signal or the resolved checks-green `fm-crew-state.sh` line - it records `pr=` and the forge's `pr_head=` when available in the task's meta and arms the watcher's merge poll.
 `bin/fm-dod-lib.sh` owns the named-head gate on that ready signal: a ship `done:` whose named head exists only in the worker's disposable copy is not ready (`bin/fm-crew-state.sh` reports blocked, `bin/fm-pr-check.sh` refuses to register, and a secondmate does not publish that done upstream).
 That blocked reading is the gate working, not a stuck worker, so steer the worker on the commit the refusal names rather than waiting.

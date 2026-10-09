@@ -105,8 +105,8 @@
 # Both preparation formats owe authored Delivery risk and Delivery depth with
 # same-line reasons, common author checks and explicit outcomes.
 # Risk is money|security|shared code|other: one highest applicable class.
-# The first three require no-mistakes; other requires direct-PR and one code
-# review round. Q2=yes can be classified other with a complete reason starting
+# The first three require no-mistakes; other requires direct-PR, ordinarily
+# with one code review round. Q2=yes can be classified other with a complete reason starting
 # with "presentation-only: " (colon plus space), the author's certificate that
 # only a page or control's location or wording changes. Admission checks payload
 # completeness and does not infer effects from prose. Behavior changes authored
@@ -120,7 +120,7 @@
 # Ship-light (direct-PR) is the other-risk depth, with Q2 not yes, for a quick
 # fix a live journey walk or another checkpoint already tests; its direct-PR
 # contract has no review round, no extra test round and no hosted-check wait,
-# and the merge authority lands it on green ordinary checks.
+# and on PR-based forges the merge authority lands it on green ordinary checks.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
 # whitespace after the risk/depth label's colon is optional, and only
 # surrounding answer whitespace is trimmed.
