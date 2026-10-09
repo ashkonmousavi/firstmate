@@ -47,7 +47,8 @@
 #   bin/fm-dod-lib.sh's completeness contract; review receipts do not gate ships.
 #   Fresh ships also require canonical Delivery risk and Delivery depth with
 #   same-line reasons that agree under bin/fm-dod-lib.sh before task allocation;
-#   direct-PR/no-mistakes must agree with that authored choice. Local-only
+#   direct-PR/no-mistakes must agree with that authored choice (ship-light
+#   depth is direct-PR). Local-only
 #   validates depth without comparing its branch lifecycle.
 #   A fresh ship of a project named in config/start-gate.json then passes the
 #   new-feature start gate, still before any lock or allocation;

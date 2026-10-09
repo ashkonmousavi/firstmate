@@ -259,6 +259,8 @@ PROMOTION_PREP=
 if ! fm_prep_unfilled_reason "$PREP_FILE" historical >/dev/null; then
   PROMOTION_PREP=$PREP_FILE
 fi
+PROMOTION_LIGHT=
+[ "$MODE" != direct-PR ] || ! fm_prep_ship_light "$PREP_FILE" || PROMOTION_LIGHT=ship-light
 PROMOTION_ASK_USER_BLOCK=
 if [ "$MODE" = no-mistakes ]; then
   PROMOTION_ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
@@ -301,7 +303,7 @@ EOF
     printf '\n%s\n' "$PROMOTION_FOLLOWUP_BLOCK"
   fi
   printf '\n'
-  fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE_BRANCH"
+  fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE_BRANCH" "$PROMOTION_LIGHT"
   if [ -n "$PROMOTION_PREP" ]; then
     fm_brief_prep_overlay "$PROMOTION_PREP"
   fi

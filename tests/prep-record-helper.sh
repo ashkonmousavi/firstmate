@@ -69,10 +69,11 @@ fm_test_fill_prep_common() {  # <prep-file> [<depth-mode>]
 }
 
 # Set an explicit fixture decision, independent of tier and surgical format.
-fm_test_prep_depth() {  # <prep-file> <direct-PR|no-mistakes>
+fm_test_prep_depth() {  # <prep-file> <direct-PR|no-mistakes|ship-light>
   local prep=$1 depth risk
   case "$2" in
     direct-PR) depth='checks-only (direct-PR)'; risk=other ;;
+    ship-light) depth='ship-light (direct-PR)'; risk=other ;;
     no-mistakes) depth='checks + AI review (no-mistakes)'; risk=money ;;
     *) return 1 ;;
   esac

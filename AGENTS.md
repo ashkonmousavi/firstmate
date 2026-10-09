@@ -188,7 +188,7 @@ Classify the deliverable:
 Resolve every ship task's concrete delivery mode and `yolo` merge posture at intake.
 Pass the mode explicitly to the brief, and pass both values explicitly to the spawn and any scout promotion; each command refuses to guess the values it consumes.
 A current explicit captain instruction wins; preserve registered `local-only` delivery, merge posture and branch/forge bindings.
-For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else; `bin/fm-dod-lib.sh` owns the authored risk/depth answers and the author-certified presentation-only exception, and `bin/fm-spawn.sh` owns their admission.
+For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else; `bin/fm-dod-lib.sh` owns the authored risk/depth answers, the author-certified presentation-only exception and the ship-light depth for a checkpoint-tested quick fix, and `bin/fm-spawn.sh` owns their admission.
 Preparation size and surgical certainty never choose delivery depth.
 Resolve the project's registered ship-branch prefix the same way, via `bin/fm-project-mode.sh --branch-prefix <project>`, and pass it explicitly to the brief, ship spawn, and scout promotion as `--branch-prefix` (default `fm/` needs no flag).
 When the work must start from and target a branch other than the project's default, such as a named feature or release branch, pass it to the ship or scout brief and spawn as `--base-branch <branch>`; any promotion reads it from task meta.
@@ -230,14 +230,14 @@ Supervise all live work under section 8.
 ### Selected delivery path and merge authority
 
 The selected delivery path owns its own rigor.
-When no-mistakes is selected, no-mistakes alone owns review, fixes, tests, documentation, push, PR, and CI; direct-PR follows its generated one-round review contract and current-head CI.
+When no-mistakes is selected, no-mistakes alone owns review, fixes, tests, documentation, push, PR, and CI; direct-PR follows its generated one-round review contract and current-head CI, or its ship-light contract with neither.
 Never stack serial manual reviews or add review rounds beyond the selected path.
 A separate review or audit is allowed only when the captain explicitly requests that deliverable or the authorized task is a knowledge-only review; one named question remains scoped to that question.
 If a direct-PR task reveals a full-review risk class, reconcile its preparation and delivery mode before proceeding.
 The path's worker, automated gates, and captain approval remain authoritative:
 
 - **no-mistakes** runs the full pipeline through a PR, then waits for the configured merge authority.
-- **direct-PR** has the worker complete its one-round contract, push and open a PR, wait for current-head CI, then wait for the configured merge authority.
+- **direct-PR** has the worker complete its one-round contract, push and open a PR, wait for current-head CI, then wait for the configured merge authority; a ship-light worker skips the review round and the CI wait, and the merge authority lands it on green ordinary checks.
 - **local-only** has the worker stop with a clean ready branch, then waits for the configured merge authority before firstmate uses the guarded fast-forward merge path.
 
 Delivery mode and `yolo` are orthogonal.

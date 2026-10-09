@@ -285,6 +285,96 @@ EOF
   pass "risk admission: money, security and shared code require no-mistakes; other requires direct-PR and one round"
 }
 
+# Ship-light is the other-risk direct-PR depth for a quick fix a live journey
+# walk or another checkpoint already tests: admitted only as other with Q2 not
+# yes and an authored risk line, and rendered without the review round or the
+# hosted-check wait by every consumer of the definition of done.
+test_ship_light_admission_and_contract() {
+  local rec home proj fakebin id prep out status variant baseline contract sendroot payload format
+  rec=$(make_home ship-light)
+  IFS='|' read -r home proj fakebin <<EOF
+$rec
+EOF
+  id=ship-light-admit
+  write_brief "$home" "$id" direct-PR
+  prep="$home/data/$id/prep.md"
+  fm_test_prep_depth "$prep" ship-light || fail "ship-light fixture"
+  out=$(fm_prep_delivery_mode "$prep"); status=$?
+  [ "$status" -eq 0 ] && [ "$out" = direct-PR ] || fail "ship-light other refused (exit $status, output '$out')"
+  baseline="$home/ship-light-baseline"
+  cp "$prep" "$baseline"
+  for variant in money security 'shared code' q2-yes presentation-q2 no-risk smuggled; do
+    case "$variant" in
+      q2-yes) answer_tier "$prep" no yes ;;
+      presentation-q2)
+        answer_tier "$prep" no yes
+        sed 's/^- Delivery risk:.*$/- Delivery risk: other, presentation-only: moves the settings link into the account menu./' "$prep" > "$prep.v" && mv "$prep.v" "$prep" ;;
+      no-risk) sed '/^- Delivery risk:/d' "$prep" > "$prep.v" && mv "$prep.v" "$prep" ;;
+      smuggled) sed 's/^- Delivery depth:.*$/- Delivery depth: checks + one review (direct-PR), ship-light (direct-PR) because a walk covers it./' "$prep" > "$prep.v" && mv "$prep.v" "$prep" ;;
+      *) sed "s/^- Delivery risk:.*\$/- Delivery risk: $variant, inspected the changed behavior and its callers./" "$prep" > "$prep.v" && mv "$prep.v" "$prep" ;;
+    esac
+    fm_prep_delivery_mode "$prep" >/dev/null && fail "ship-light admitted for $variant"
+    fm_prep_delivery_mode "$prep" historical >/dev/null && fail "ship-light admitted for $variant on the historical path"
+    cp "$baseline" "$prep"
+  done
+  # The historical path still admits an ordinary depth without a risk line.
+  sed -e '/^- Delivery risk:/d' -e 's/^- Delivery depth: ship-light (direct-PR)/- Delivery depth: checks-only (direct-PR)/' "$baseline" > "$prep"
+  out=$(fm_prep_delivery_mode "$prep" historical) || fail "historical ordinary depth refused"
+  assert_equals direct-PR "$out" "historical ordinary depth changed mode"
+  cp "$baseline" "$prep"
+
+  # Spawn admits it as direct-PR and keeps the parsed delivery contract.
+  rm -f "$fakebin/tmux.calls" "$fakebin/treehouse.calls"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode direct-PR --yolo off)
+  assert_present "$home/data/$id/launch-brief.md" "ship-light direct-PR spawn refused: $out"
+  assert_grep "Delivery contract: mode=direct-PR" "$home/data/$id/launch-brief.md" "ship-light launch lost direct-PR mode"
+  out=$(run_spawn "$home" "$fakebin" "$id" "$proj" claude --mode no-mistakes --yolo off)
+  assert_contains "$out" 'Delivery depth' "ship-light record admitted a no-mistakes spawn"
+
+  # The generated compact brief's executable contract renders the light path.
+  rm "$home/data/$id/brief.md"
+  FM_HOME="$home" "$BRIEF" "$id" fixture-project --mode direct-PR >/dev/null 2>&1 || fail "ship-light brief generation"
+  contract=$(worker_contract_output "$home/data/$id/brief.md")
+  assert_contains "$contract" 'Delivery contract: mode=direct-PR' "ship-light contract lost its mode line"
+  assert_not_contains "$contract" 'Perform exactly one code review round' "ship-light contract kept the review round"
+  assert_not_contains "$contract" 'Wait for every required check on the current PR head' "ship-light contract kept the hosted-check wait"
+  assert_contains "$contract" 'Run only the tests of the modules you changed' "ship-light contract lost the changed-modules rule"
+  assert_contains "$contract" 'not a draft' "ship-light contract lost the non-draft PR"
+  assert_contains "$contract" 'done [at=<epoch>]: PR {full https URL from the forge}' "ship-light contract lost the PR done line"
+  assert_contains "$contract" 'lands it on green ordinary checks' "ship-light contract lost the landing rule"
+  for format in none gerrit; do
+    out=$(fm_dod_block direct-PR "$id" "fm/$id" "$format" '' ship-light) || fail "$format ship-light render"
+    assert_not_contains "$out" 'exactly one code review round' "$format ship-light kept the review round"
+    assert_contains "$out" 'Run only the tests of the modules you changed' "$format ship-light lost the changed-modules rule"
+  done
+
+  # Promotion delivers the same light definition of done.
+  id=ship-light-promote
+  sendroot="$TMP_ROOT/ship-light/sendroot"
+  mkdir -p "$sendroot/bin"
+  cat > "$sendroot/bin/fm-send.sh" <<'STUB'
+#!/usr/bin/env bash
+printf '%s' "$2" > "$FM_TEST_CAPTURE"
+STUB
+  chmod +x "$sendroot/bin/fm-send.sh"
+  printf 'window=fm-%s\nkind=scout\nworktree=/tmp/wt\n' "$id" > "$home/state/$id.meta"
+  FM_HOME="$home" "$BRIEF" "$id" fixture-project --scout >/dev/null 2>&1 || fail "ship-light scout brief"
+  fill_brief_subsections "$home/data/$id/brief.md" "Ship the walk-covered fix." "Keep the light path."
+  write_prep "$home" "$id"
+  fm_test_prep_depth "$home/data/$id/prep.md" ship-light || fail "ship-light promote fixture"
+  out=$(FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" "$PROMOTE" "$id" --mode direct-PR --yolo off 2>&1) \
+    || fail "ship-light promotion refused: $out"
+  payload="$TMP_ROOT/ship-light/payload"
+  ( cd "$sendroot" && FM_TEST_CAPTURE="$payload" \
+      eval "$(printf '%s\n' "$out" | sed -n 's/^next: //p' | grep 'fm-send\.sh')" ) \
+    || fail "ship-light promotion delivery command did not run"
+  assert_grep "Delivery contract: mode=direct-PR" "$payload" "ship-light promotion lost direct-PR mode"
+  assert_no_grep 'Perform exactly one code review round' "$payload" "ship-light promotion kept the review round"
+  assert_no_grep 'Wait for every required check on the current PR head' "$payload" "ship-light promotion kept the hosted-check wait"
+  assert_grep 'lands it on green ordinary checks' "$payload" "ship-light promotion lost the landing rule"
+  pass "ship-light: other-risk walk-covered fix ships direct-PR with no review round or hosted-check wait"
+}
+
 # The presentation-only marker certifies the author's other classification,
 # including in a shared file; admission checks completeness, not prose effects.
 # Unmarked other with Q2=yes stays refused, while security uses the full path.
@@ -3756,6 +3846,7 @@ test_prep_requires_finalize_after_evidence
 test_optional_batch_artifacts_do_not_affect_handoff
 test_legacy_install_declarations_do_not_affect_admission
 test_surgical_certainty_and_admission
+test_ship_light_admission_and_contract
 test_depth_commented_tier full direct-PR
 test_depth_commented_tier full no-mistakes
 test_depth_commented_tier surgical direct-PR

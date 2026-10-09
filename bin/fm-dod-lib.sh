@@ -117,6 +117,10 @@
 # selects delivery depth.
 # The legacy checks-only depth spelling remains readable; its generated
 # direct-PR contract now requires the same one-round review as the new spelling.
+# Ship-light (direct-PR) is the other-risk depth, with Q2 not yes, for a quick
+# fix a live journey walk or another checkpoint already tests; its direct-PR
+# contract has no review round, no extra test round and no hosted-check wait,
+# and the merge authority lands it on green ordinary checks.
 # fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
 # whitespace after the risk/depth label's colon is optional, and only
 # surrounding answer whitespace is trimmed.
@@ -504,7 +508,7 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   printf -- '- UI wiring: {UI_WIRING}\n'
   printf -- '- Delivery risk: {DELIVERY_RISK}\n'
   printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. A change whose only effect is where a page or control appears, or what it is called, is other even in shared files or beside sign-in screens: write other, presentation-only: <what moves or is renamed>; a change to how sign-in, permissions, money or stored data behave keeps its full class, and a light change that review finds behavioral is reconciled to its full class and delivery mode rather than given another review round. That light path is direct-PR with CI and exactly one review, and the walk after install stays mandatory (journey-walk). Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
+  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. A change whose only effect is where a page or control appears, or what it is called, is other even in shared files or beside sign-in screens: write other, presentation-only: <what moves or is renamed>; a change to how sign-in, permissions, money or stored data behave keeps its full class, and a light change that review finds behavioral is reconciled to its full class and delivery mode rather than given another review round. That light path is direct-PR with CI and exactly one review, and the walk after install stays mandatory (journey-walk). A quick fix a live journey walk or another checkpoint already tests, with Q2 no, may instead write other, <reason> and ship-light (direct-PR), <the walk or checkpoint that tests it>: no review round, no extra test round and no hosted-check wait, landed on green ordinary checks. Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -786,23 +790,25 @@ fm_prep_work_class() {  # <file>
 
 # Prints direct-PR or no-mistakes only for one complete active Tier declaration.
 # Examples are cleaned in context; continuations cannot supply the line's reason.
+# Ship-light prints direct-PR and needs an authored other risk with Q2 not yes.
 fm_prep_delivery_mode() {  # <file>
-  local value reason mode risk
+  local value reason mode risk light=no
   value=$(fm_prep_tier_read "$1" | awk '
     /^- Delivery depth:/ { seen++; value=substr($0,length("- Delivery depth:")+1) }
     END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
   ')
   case "$value" in
     'checks + one review (direct-PR), '*) mode=direct-PR; reason=${value#'checks + one review (direct-PR), '} ;;
+    'ship-light (direct-PR), '*) mode=direct-PR; light=yes; reason=${value#'ship-light (direct-PR), '} ;;
     'checks-only (direct-PR), '*) mode=direct-PR; reason=${value#'checks-only (direct-PR), '} ;;
     'checks + AI review (no-mistakes), '*) mode=no-mistakes; reason=${value#'checks + AI review (no-mistakes), '} ;;
     *) return 1 ;;
   esac
   case "$reason" in
-    *'checks-only (direct-PR)'*|*'checks + one review (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
+    *'checks-only (direct-PR)'*|*'checks + one review (direct-PR)'*|*'ship-light (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
   esac
   fm_prep_answer_complete "$reason" no || return 1
-  if [ "${2:-}" = historical ] && ! fm_prep_tier_read "$1" | grep '^- Delivery risk:' >/dev/null; then
+  if [ "$light" = no ] && [ "${2:-}" = historical ] && ! fm_prep_tier_read "$1" | grep '^- Delivery risk:' >/dev/null; then
     printf '%s\n' "$mode"
     return 0
   fi
@@ -820,14 +826,21 @@ fm_prep_delivery_mode() {  # <file>
   fm_prep_answer_complete "${reason#'presentation-only:'}" no || return 1
   case "$risk:$mode" in
     other:direct-PR)
-      case "$reason" in
-        'presentation-only: '*) ;;
+      case "$light:$reason" in
+        no:'presentation-only: '*) ;;
         *) [ "$(fm_prep_answer "$1" Q2)" != yes ] || return 1 ;;
       esac ;;
     money:no-mistakes|security:no-mistakes|shared:no-mistakes) ;;
     *) return 1 ;;
   esac
   printf '%s\n' "$mode"
+}
+
+# 0 when <file> admits as direct-PR through the ship-light depth.
+fm_prep_ship_light() {  # <file>
+  [ -f "$1" ] || return 1
+  fm_prep_delivery_mode "$1" >/dev/null || return 1
+  fm_prep_tier_read "$1" | grep '^- Delivery depth:[[:space:]]*ship-light (direct-PR), ' >/dev/null
 }
 
 fm_prep_common_reason() {  # <file>
@@ -1233,7 +1246,7 @@ fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode
   case "$KIND" in ship|scout) ;; *) echo "error: unknown worker kind: $KIND" >&2; return 1 ;; esac
   local SCOUT_RULE2=${10:-'2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'}
   local PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
-  local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' FOLLOWUP_BLOCK='' RULE1 DOD
+  local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' FOLLOWUP_BLOCK='' RULE1 DOD LIGHT
   STATUS_APPEND=$(fm_worker_status_append "$FM_ROOT" "$STATE" "$ID" "$CONFIG")
   CREWMATE_PAUSE_INSTRUCTIONS=$(fm_worker_pause_block "$PAUSED_VERB")
   INBOX_SECTION=$(fm_worker_inbox_block "$STATE" "$ID" "$CONFIG")
@@ -1276,7 +1289,9 @@ If your findings reveal work that should ship (e.g. you reproduced a bug and the
 EOF
   else
     RULE1=$(fm_ship_rule_one "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE") || return 1
-    DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE") || return 1
+    LIGHT=
+    [ "$MODE" != direct-PR ] || ! fm_prep_ship_light "$(fm_prep_path "$DATA" "$ID")" || LIGHT=ship-light
+    DOD=$(fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE" "$LIGHT") || return 1
     [ "$MODE" != no-mistakes ] || ASK_USER_BLOCK=$(fm_ask_user_escalation_block "$DATA" "$ID")
     [ "$MODE" = local-only ] || FOLLOWUP_BLOCK=$(fm_review_followup_block "$FM_ROOT" "$DATA" "$ID" "$MODE")
     [ -z "$ASK_USER_BLOCK" ] || [ -z "$FOLLOWUP_BLOCK" ] || FOLLOWUP_BLOCK=$'\n'$FOLLOWUP_BLOCK
@@ -1430,6 +1445,14 @@ There is no pull request, no \`gh-axi\` call, and no forge CI result to report: 
 EOF
 }
 
+# A ship-light record (fm_prep_ship_light) replaces the review round.
+fm_ship_light_block() {
+  cat <<'EOF'
+This is a ship-light fix: its preparation record names the live journey walk or other checkpoint that already tests it, so it gets no review round, no extra test round and no hosted-check wait.
+Run only the tests of the modules you changed, then publish.
+EOF
+}
+
 fm_direct_review_block() {
   cat <<'EOF'
 Perform exactly one code review round against the preparation outcomes and project standards using the existing review mechanism.
@@ -1461,8 +1484,8 @@ ${lead}A review finding left unfixed when its review closes is a follow-up item,
 EOF
 }
 
-fm_dod_block() {  # <mode> <task-id> [branch] [<forge>] [<base>]
-  local mode=$1 id=$2 forge=${4:-none} base=${5:-}
+fm_dod_block() {  # <mode> <task-id> [branch] [<forge>] [<base>] [ship-light]
+  local mode=$1 id=$2 forge=${4:-none} base=${5:-} light=${6:-}
   local branch=${3:-fm/$id} pr_base='' nm_base='' base_q
   # The captain's class-fix line, verbatim in every mode; the
   # diagnostic-reasoning skill owns what makes a repair a class fix.
@@ -1487,7 +1510,7 @@ Gerrit has no pull requests, so there is nothing to open; publishing creates the
 The task is complete only when committed on your branch.
 When it is implemented and committed, publish it.
 EOF
-      fm_direct_review_block
+      if [ "$light" = ship-light ]; then fm_ship_light_block; else fm_direct_review_block; fi
       fm_gerrit_publish_block
       cat <<EOF
 Do NOT run /no-mistakes.
@@ -1534,6 +1557,20 @@ Ship branch: $branch
 $class_fix
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
 EOF
+      if [ "$light" = ship-light ]; then
+        fm_ship_light_block
+        cat <<EOF
+This task is complete with an existing non-draft PR for your latest commit.
+When it is implemented and committed, push your branch and open a PR with \`gh-axi\` that is ready for review, not a draft$pr_base.
+Before you report done, read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.
+A draft cannot be merged, so a done report on one leaves the merge unasked.
+Then append \`done [at=<epoch>]: PR {full https URL from the forge}\` to the status file and stop; do not wait for its checks.
+That \`done:\` is accepted only when this copy's HEAD - your latest commit - is pushed to your PR branch; the check tests that commit, not merely that a branch moved.
+If you deliberately keep the PR a draft, append \`paused [at=<epoch>]: {why the draft is held}\` instead of done.
+Do NOT run /no-mistakes. The configured merge authority lands it on green ordinary checks; firstmate relays the outcome.
+EOF
+        return 0
+      fi
       fm_direct_review_block
       cat <<EOF
 This task is complete only with an existing non-draft PR and every required check green for its current head.
