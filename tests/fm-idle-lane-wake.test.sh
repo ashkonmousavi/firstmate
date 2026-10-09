@@ -10,6 +10,11 @@ TMP_ROOT=$(fm_test_tmproot fm-idle-lane-wake)
 
 run_watch() {  # <home> <output>
   local home=$1 output=$2
+  # Test recent-marker suppression independently of host clock corrections,
+  # which can make a fresh mtime future-dated and intentionally due again.
+  if [ -f "$home/state/.last-idle-lane-wake" ]; then
+    fm_touch_epoch "$(( $(date +%s) - 60 ))" "$home/state/.last-idle-lane-wake"
+  fi
   PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$home/state" \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
     FM_IDLE_LANE_CHECK_INTERVAL=0 FM_WATCH_HANDLING_SUCCESSOR=1 \
