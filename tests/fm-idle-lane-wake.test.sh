@@ -24,8 +24,18 @@ run_watch() {  # <home> <output>
 }
 
 stop_quiet_watch() {  # <output>
-  local output=$1
-  sleep 2
+  local output=$1 diagnostic=${2:-} tries=0
+  if [ -n "$diagnostic" ]; then
+    # A slow state read must finish before this check can prove refusal.
+    while ! grep -F "$diagnostic" "${output%/*}/state/.watch-triage.log" >/dev/null 2>&1; do
+      is_live_non_zombie "$WATCH_PID" || break
+      tries=$((tries + 1))
+      [ "$tries" -lt 100 ] || fail "watcher did not report $diagnostic"
+      sleep 0.1
+    done
+  else
+    sleep 2
+  fi
   if ! is_live_non_zombie "$WATCH_PID"; then
     wait "$WATCH_PID" 2>/dev/null || true
     fail "watcher surfaced a wake when none was due: $(cat "$output")"
@@ -284,13 +294,14 @@ test_unknown_release_state_suppresses_capacity_notices() {
     'state: unrecognized · source: run-step · unavailable' \
     'state: working source: pane' \
     $'state: working · source: pane · writing\nstate: unknown · source: run-step · unreadable' \
-    'unparseable crew state' '' read-failed; do
+    'unparseable crew state' '' read-failed slow-read-failed; do
     index=$((index + 1))
     home=$(make_case "unknown-release-$index")
     state="$home/state"; out="$home/watch.out"
     mkdir -p "$home/config" "$home/data"
     cat > "$home/fakebin/crew-state" <<'SH'
 #!/usr/bin/env bash
+[ ! -e "$FM_HOME/state/$1.slow-read-failed" ] || { sleep 3; exit 1; }
 [ ! -e "$FM_HOME/state/$1.read-failed" ] || exit 1
 cat "$FM_HOME/state/$1.crew-state"
 SH
@@ -301,8 +312,9 @@ SH
     printf 'kind=ship\n' > "$state/one.meta"
     printf '%s\n' "$verdict" > "$state/one.crew-state"
     [ "$verdict" != read-failed ] || touch "$state/one.read-failed"
+    [ "$verdict" != slow-read-failed ] || touch "$state/one.slow-read-failed"
     run_watch "$home" "$out"
-    stop_quiet_watch "$out"
+    stop_quiet_watch "$out" 'idle-lane release state unavailable: one'
     [ ! -e "$state/.last-idle-lane-wake" ] || fail "unknown release state committed a capacity notice: $verdict"
     grep -F 'idle-lane release state unavailable: one' "$state/.watch-triage.log" >/dev/null \
       || fail "unknown release state did not name the unavailable lane: $verdict"
@@ -338,7 +350,7 @@ test_invalid_release_capacity_suppresses_notices() {
         *) printf '%s\n' "$value" > "$home/config/release-capacity" ;;
       esac
       run_watch "$home" "$out"
-      stop_quiet_watch "$out"
+      stop_quiet_watch "$out" "$diagnostic"
       [ ! -e "$home/state/.last-idle-lane-wake" ] || fail "invalid capacity committed a notice: $value"
       [ ! -s "$home/state/.wake-queue" ] || fail "invalid capacity queued a wake: $value"
       grep -F "$diagnostic" "$home/state/.watch-triage.log" >/dev/null 2>&1 \
