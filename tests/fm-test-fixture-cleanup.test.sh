@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Behavior tests for tests/lib.sh's shared fixture-tempdir helper
-# (fm_test_tmproot / fm_test_cleanup / fm_test_reap_orphans).
+# Behavior tests for tests/lib.sh's shared fixture lifecycle.
 #
 # The near-universal call pattern across this suite is
 # `TMP_ROOT=$(fm_test_tmproot prefix)`, which forks a subshell to capture the
@@ -8,8 +7,14 @@
 # that exact pattern and assert the fixture root is actually gone once the
 # owning process's guarded teardown has run - on a normal exit and on a
 # terminating signal - plus that a stale marked fixture from a killed prior
-# run gets reaped on the next source. Nothing here inspects tests/lib.sh's
-# source text; it only observes filesystem state around the real helper.
+# run gets reaped on the next source. Ordinary-child controls exercise the
+# registration contract owned by tests/lib.sh through the public runner and
+# separate producer shells, including ownership refusal and lookup races.
+# The terminal regression observes children before the outer release owner
+# runs; disabling only shared child reaping must fail those observations.
+# Separate cooperative-owner controls observe holders and polling descendants
+# at root removal after early failure or TERM. Nothing here inspects helper
+# source text; the controls observe filesystem state, process state, and verdicts.
 set -u
 
 # shellcheck source=tests/lib.sh

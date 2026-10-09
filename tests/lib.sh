@@ -90,11 +90,12 @@ pass() {
 
 # --- self-cleaning temp root ------------------------------------------------
 #
-# fm_test_tmproot <prefix> echoes a fresh temp dir and registers it for removal
-# on EXIT/INT/TERM. A test file that needs extra teardown (e.g. killing a
-# daemon) should define its own EXIT trap and call fm_test_cleanup from inside
-# it so registered dirs are still removed. Ordinary real children use
-# fm_test_track_process before any assertion or disown.
+# fm_test_tmproot <prefix> echoes a fresh temp dir and registers it for guarded
+# removal on EXIT/INT/TERM/HUP/QUIT. A test file that needs extra teardown
+# (e.g. killing a daemon) must capture the original status before that teardown
+# and finish its EXIT trap with fm_test_cleanup_exit "$rc", so cleanup refusal
+# cannot be reported as success.
+# Ordinary real children follow the registration contract below.
 #
 # The call site is almost always `TMP_ROOT=$(fm_test_tmproot prefix)`, which
 # forks a subshell to capture stdout. Anything that function does to the
@@ -155,9 +156,16 @@ FM_TEST_OWNER_IDENTITY=$(fm_test_pid_identity "$$") || {
 }
 
 # Ordinary fixture children need an EXIT owner even when an assertion prevents
-# their inline stop. File registration survives command-substitution callers.
-# Only descendants created by this test, inside its registered fixture roots,
-# may register. Birth and cwd are revalidated before signalling the exact PID.
+# their inline stop: call fm_test_track_process before any assertion or disown.
+# A live child must be a descendant of this test with a proved cwd inside its
+# registered fixture roots. File registration survives command-substitution callers.
+# Cleanup revalidates birth and cwd, KILLs only the exact registered PID, and
+# waits for it to terminalize before removing roots; unregistered descendants
+# and retained host workers/helpers are outside this ownership contract.
+# Already-exited children and zombies are terminal and need no signal.
+# Unproved ownership or termination refuses cleanup and preserves the registry
+# and fixture roots. The default EXIT owner preserves an existing nonzero
+# verdict and changes success to failure on refusal.
 FM_TEST_PROCESS_REGISTRY=$(mktemp "$FM_TEST_TMPDIR/.fm-test-process.$$.XXXXXX") || return 1
 FM_TEST_PROCESSES_REAPED=0
 
