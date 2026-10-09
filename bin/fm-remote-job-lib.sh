@@ -1425,17 +1425,12 @@ fm_remote_job_start_linux_worker() { # <remote-root> <account-home>
     return 1
   }
   fm_remote_job_prepare_state "$account_home" || return 1
-  pid=
   if fm_remote_job_worker_owned_alive "$root" "$account_home"; then
     if fm_remote_job_worker_identity_matches "$root" "$account_home"; then return 0; fi
-    pid=$FM_REMOTE_JOB_OWNER_PID
-  else
-    pid=$(fm_remote_job_legacy_owner_pid "$root" 2>/dev/null || true)
-  fi
-  if [ -n "$pid" ]; then
     # The owner pid is the serving child; its restart supervisor sits above it
     # and would immediately replace a lone process kill, so stop the whole
     # worker tree through its isolated group.
+    pid=$FM_REMOTE_JOB_OWNER_PID
     fm_remote_job_stop_worker_tree "$pid" || {
       FM_REMOTE_JOB_ERROR="stale remote job worker did not stop safely"
       return 1
