@@ -17,6 +17,61 @@ set -u
 
 LIB="$ROOT/tests/lib.sh"
 
+track_ordinary_child_release() {
+  ORDINARY_CHILD_RELEASES+=("$1")
+  ORDINARY_CHILD_PIDFILES+=("$2")
+}
+
+cleanup_ordinary_child_releases() {
+  local index release pid tries refused=0
+  for release in "${ORDINARY_CHILD_RELEASES[@]+"${ORDINARY_CHILD_RELEASES[@]}"}"; do
+    : > "$release" || refused=1
+  done
+  for index in "${!ORDINARY_CHILD_RELEASES[@]}"; do
+    release=${ORDINARY_CHILD_RELEASES[$index]}
+    pid=$(sed -n '1p' "${ORDINARY_CHILD_PIDFILES[$index]}" 2>/dev/null) || pid=
+    case "$pid" in ''|*[!0-9]*|0|1) refused=1; continue ;; esac
+    tries=0
+    while fm_test_process_running "$pid" && [ "$tries" -lt 600 ]; do
+      sleep 0.1
+      tries=$((tries + 1))
+    done
+    if fm_test_process_running "$pid"; then
+      refused=1
+    else
+      wait "$pid" 2>/dev/null || true
+    fi
+    [ ! -e "$release.expired" ] || refused=1
+  done
+  if [ "$refused" = 1 ]; then
+    printf 'REFUSED: fixture release or termination unproved; preserving roots\n' >&2
+    return 1
+  fi
+}
+
+ordinary_child_cleanup_exit() {
+  local rc=$1
+  trap - EXIT
+  trap '' HUP INT TERM QUIT
+  if ! cleanup_ordinary_child_releases; then
+    [ "$rc" -ne 0 ] || rc=1
+    exit "$rc"
+  fi
+  fm_test_cleanup_exit "$rc"
+}
+
+own_ordinary_child_releases() {
+  ORDINARY_CHILD_RELEASES=()
+  ORDINARY_CHILD_PIDFILES=()
+  trap 'ordinary_child_cleanup_exit "$?"' EXIT
+  trap 'ordinary_child_cleanup_exit 130' INT
+  trap 'ordinary_child_cleanup_exit 143' TERM
+  trap 'ordinary_child_cleanup_exit 129' HUP
+  trap 'ordinary_child_cleanup_exit 131' QUIT
+}
+
+own_ordinary_child_releases
+
 write_ordinary_child_fixture() {
   cat > "$1" <<'SH'
 #!/usr/bin/env bash
@@ -54,6 +109,14 @@ test_ordinary_children_are_gone_before_fixture_removal() {
 #!/usr/bin/env bash
 set -u
 . "$CHILD_LIB"
+SH
+  declare -f track_ordinary_child_release cleanup_ordinary_child_releases \
+    ordinary_child_cleanup_exit own_ordinary_child_releases >> "$repo/tests/fm-test-run.test.sh"
+  cat >> "$repo/tests/fm-test-run.test.sh" <<'SH'
+if declare -F fm_test_track_process >/dev/null; then
+  own_ordinary_child_releases
+  track_ordinary_child_release "$CHILD_RECEIPT.release" "$CHILD_RECEIPT"
+fi
 root=$(fm_test_tmproot fm-test-child-producer)
 mkdir -p "$root"
 bash "$CHILD_HOLDER" "$root" "$CHILD_RECEIPT.release" </dev/null >/dev/null 2>&1 &
@@ -66,6 +129,7 @@ fi
 if [ "$CHILD_OUTCOME" = failure ]; then fail 'original assertion failure'; fi
 SH
   for mode in success failure; do
+    track_ordinary_child_release "$harness/$mode.receipt.release" "$harness/$mode.receipt"
     rc=0
     CHILD_LIB="$LIB" CHILD_RECEIPT="$harness/$mode.receipt" CHILD_OUTCOME="$mode" \
       CHILD_HOLDER="$harness/child.sh" \
@@ -142,6 +206,12 @@ case "$CHILD_CONTROL" in
 esac
 SH
   for mode in exited substitution unrelated birth cwd stat-live missing unregistered; do
+    if [ "$mode" != exited ]; then
+      track_ordinary_child_release "$harness/$mode.release" "$harness/$mode.pid"
+    fi
+    if [ "$mode" = unrelated ]; then
+      track_ordinary_child_release "$harness/$mode.other-release" "$harness/$mode.other"
+    fi
     rc=0
     CHILD_LIB="$LIB" CHILD_CONTROL="$mode" CHILD_RECEIPT="$harness/$mode" \
       CHILD_EXTERNAL="$harness" CHILD_HOLDER="$harness/child.sh" TMPDIR="$harness/tmp" \
@@ -257,6 +327,8 @@ SH
   for mode in registration-birth ancestry readiness-birth readiness-cwd readiness-timeout cleanup-cwd cleanup-birth cleanup-stat; do
     for outcome in success failure; do
       receipt="$harness/$mode-$outcome"
+      track_ordinary_child_release "$receipt.release" "$receipt.pid"
+      track_ordinary_child_release "$receipt.other-release" "$receipt.other"
       rc=0
       CHILD_LIB="$LIB" CHILD_RACE="$mode" CHILD_OUTCOME="$outcome" \
         CHILD_RECEIPT="$receipt" CHILD_EXTERNAL="$harness" CHILD_HOLDER="$harness/child.sh" TMPDIR="$harness/tmp" \
@@ -285,6 +357,142 @@ SH
   pass "ownership lookup races accept terminal children without signalling and preserve success/failure verdicts"
 }
 
+test_ordinary_child_release_owner_on_failure_and_signal() {
+  local harness repo site outcome receipt rc expected other pid tries state
+  harness=$(fm_test_tmproot fm-test-child-release-owner)
+  repo="$harness/runner"
+  mkdir -p "$repo/bin" "$repo/tests" "$harness/tmp" "$harness/fakebin"
+  cp "$ROOT/bin/fm-test-run.sh" "$repo/bin/"
+  cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  write_ordinary_child_fixture "$harness/child.sh"
+  cat > "$harness/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+set -u
+if [ -z "${CHILD_POLLER_RELEASE:-}" ]; then exec "$REAL_SLEEP" "$@"; fi
+printf '%s\n' "$$" > "$CHILD_POLLER_RELEASE.poller"
+deadline=$((SECONDS + 300))
+while [ ! -e "$CHILD_POLLER_RELEASE" ] && [ "$SECONDS" -lt "$deadline" ]; do "$REAL_SLEEP" 0.1; done
+[ -e "$CHILD_POLLER_RELEASE" ] || : > "$CHILD_POLLER_RELEASE.expired"
+SH
+  cat > "$harness/fakebin/rm" <<'SH'
+#!/usr/bin/env bash
+set -u
+for arg in "$@"; do
+  if [ "$arg" = "$(cat "$CHILD_RECEIPT.root" 2>/dev/null)" ]; then
+    for file in "$CHILD_RECEIPT.pid" "$CHILD_RECEIPT.release.poller"; do
+      pid=$(cat "$file")
+      state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+      printf '%s\t%s\t%s\n' "$file" "$pid" "$state" >> "$CHILD_RECEIPT.before-removal"
+      case "$state" in ''|*Z*) ;; *) : > "$CHILD_RECEIPT.live-before-removal" ;; esac
+    done
+    state=$(ps -p "$CHILD_OTHER_PID" -o stat= 2>/dev/null || true)
+    case "$state" in ''|*Z*) : > "$CHILD_RECEIPT.unrelated-stopped" ;; esac
+  fi
+done
+exec "$REAL_RM" "$@"
+SH
+  chmod +x "$harness/fakebin/sleep" "$harness/fakebin/rm"
+  cat > "$repo/tests/fm-test-run.test.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+. "$CHILD_LIB"
+SH
+  declare -f track_ordinary_child_release cleanup_ordinary_child_releases \
+    ordinary_child_cleanup_exit own_ordinary_child_releases \
+    write_ordinary_child_fixture >> "$repo/tests/fm-test-run.test.sh"
+  cat >> "$repo/tests/fm-test-run.test.sh" <<'SH'
+own_ordinary_child_releases
+cd "$CHILD_EXTERNAL" || exit 1
+root=$(fm_test_tmproot fm-test-release-subject)
+printf '%s\n' "$root" > "$CHILD_RECEIPT.root"
+write_ordinary_child_fixture "$root/child.sh"
+track_ordinary_child_release "$CHILD_RECEIPT.release" "$CHILD_RECEIPT.pid"
+CHILD_POLLER_RELEASE="$CHILD_RECEIPT.release" \
+  bash "$root/child.sh" "$root" "$CHILD_RECEIPT.release" </dev/null >/dev/null 2>&1 &
+pid=$!
+printf '%s\n' "$pid" > "$CHILD_RECEIPT.pid"
+tries=0
+while [ ! -s "$CHILD_RECEIPT.release.poller" ] && [ "$tries" -lt 600 ]; do
+  "$REAL_SLEEP" 0.1
+  tries=$((tries + 1))
+done
+[ -s "$CHILD_RECEIPT.release.poller" ] || fail 'holder did not start its polling descendant'
+printf '%s\n%s\n%s\n' "$$" "$(fm_test_process_birth "$$")" "$(pwd -P)" > "$CHILD_RECEIPT.subject"
+printf '%s\n%s\n' "$(fm_test_process_birth "$pid")" "$(fm_test_process_cwd "$pid")" > "$CHILD_RECEIPT.provenance"
+case "$CHILD_SITE" in
+  ordinary-success|ordinary-failure|ownership-owned|lookup-owned)
+    fm_test_track_process "$pid" "$root" || fail 'release-control registration failed' ;;
+esac
+case "$CHILD_SITE" in
+  ownership-owned) printf '%s\twrong-birth\t%s\n' "$pid" "$root" > "$FM_TEST_PROCESS_REGISTRY" ;;
+  lookup-owned) fm_test_process_cwd() { return 1; } ;;
+esac
+kill() {
+  if [ "$1" != -0 ]; then : > "$CHILD_RECEIPT.signalled"; fi
+  builtin kill "$@"
+}
+: > "$CHILD_RECEIPT.ready"
+if [ "$CHILD_OUTCOME" = failure ]; then fail 'original early assertion before release'; fi
+deadline=$((SECONDS + 300))
+while [ ! -e "$CHILD_RECEIPT.release" ] && [ "$SECONDS" -lt "$deadline" ]; do "$REAL_SLEEP" 0.1; done
+if [ "$SECONDS" -ge "$deadline" ]; then fail 'termination control reached emergency deadline'; fi
+SH
+  for site in ordinary-success ordinary-failure ownership-owned ownership-unrelated lookup-owned lookup-unrelated; do
+    for outcome in failure term; do
+      receipt="$harness/$site-$outcome"
+      track_ordinary_child_release "$receipt.release" "$receipt.pid"
+      track_ordinary_child_release "$receipt.other-release" "$receipt.other"
+      bash "$harness/child.sh" "$harness" "$receipt.other-release" </dev/null >/dev/null 2>&1 &
+      other=$!
+      printf '%s\n' "$other" > "$receipt.other"
+      CHILD_LIB="$LIB" CHILD_SITE="$site" CHILD_OUTCOME="$outcome" \
+        CHILD_RECEIPT="$receipt" CHILD_EXTERNAL="$harness" CHILD_OTHER_PID="$other" \
+        REAL_SLEEP="$(command -v sleep)" REAL_RM="$(command -v rm)" \
+        PATH="$harness/fakebin:$PATH" TMPDIR="$harness/tmp" \
+        bash "$repo/bin/fm-test-run.sh" --jobs 1 tests/fm-test-run.test.sh > "$receipt.log" 2>&1 &
+      pid=$!
+      if [ "$outcome" = term ]; then
+        tries=0
+        while [ ! -e "$receipt.ready" ] && [ "$tries" -lt 600 ]; do
+          sleep 0.1
+          tries=$((tries + 1))
+        done
+        [ -e "$receipt.ready" ] || fail 'termination subject never became ready'
+        local subject birth cwd
+        subject=$(sed -n '1p' "$receipt.subject")
+        birth=$(sed -n '2p' "$receipt.subject")
+        cwd=$(sed -n '3p' "$receipt.subject")
+        assert_equals "$birth" "$(fm_test_process_birth "$subject")" 'termination subject birth changed'
+        assert_equals "$cwd" "$(fm_test_process_cwd "$subject")" 'termination subject cwd changed'
+        kill -TERM "$subject" || fail 'could not terminate the owned fixture subject'
+      fi
+      rc=0
+      wait "$pid" || rc=$?
+      expect_code 1 "$rc" "public runner changed $site/$outcome failure status"
+      expected=1
+      if [ "$outcome" = term ]; then expected=143; fi
+      assert_grep "exit=$expected " "$receipt.log" "subject changed its $site/$outcome verdict"
+      if [ "$outcome" = failure ]; then
+        assert_grep 'original early assertion before release' "$receipt.log" 'original failure was lost'
+      fi
+      assert_present "$receipt.before-removal" 'control did not observe root removal'
+      assert_absent "$receipt.live-before-removal" 'holder or polling descendant survived until root removal'
+      assert_absent "$receipt.unrelated-stopped" 'release cleanup stopped the unrelated child'
+      assert_absent "$receipt.signalled" 'release cleanup signalled an unproved holder'
+      assert_absent "$receipt.release.expired" 'holder expired before release ownership could be proved'
+      assert_absent "$(cat "$receipt.root")" 'subject fixture root survived release cleanup'
+      state=$(ps -p "$other" -o stat= 2>/dev/null || true)
+      case "$state" in ''|*Z*) fail 'unrelated child did not survive subject exit' ;; esac
+      printf 'FM_TEST_RELEASE_CONTROL site=%s outcome=%s subject_exit=%s holder_pid=%s poller_pid=%s unrelated_pid=%s unrelated_state=%s root_removed=true signalled=false expired=false\n' \
+        "$site" "$outcome" "$expected" "$(cat "$receipt.pid")" "$(cat "$receipt.release.poller")" "$other" "$state"
+      printf 'holder_birth=%s holder_cwd=%s\n' "$(sed -n '1p' "$receipt.provenance")" "$(sed -n '2p' "$receipt.provenance")"
+      cat "$receipt.before-removal"
+      release_ordinary_child "$other" "$receipt.other-release"
+    done
+  done
+  pass "EXIT release ownership preserves failure and TERM verdicts, stops holders and polling descendants before root removal, and preserves unrelated children"
+}
+
 test_fixture_root_gone_after_normal_exit() {
   local child_out child_dir
   child_out=$(bash -c '
@@ -307,13 +515,15 @@ test_fixture_root_gone_after_sigterm() {
   harness=$(fm_test_tmproot fm-test-cleanup-sigterm-harness)
   dirfile="$harness/child-dir"
   bash -c '
+    cd "$1" || exit 1
     # shellcheck source=tests/lib.sh
-    . "'"$LIB"'"
+    . "$2"
     d=$(fm_test_tmproot fm-test-cleanup-term)
-    printf "%s\n" "$d" > "'"$dirfile"'"
+    printf "%s\n" "$d" > "$3"
     while :; do sleep 0.1; done
-  ' &
+  ' _ "$harness" "$LIB" "$dirfile" &
   pid=$!
+  fm_test_track_process "$pid" "$harness" || fail 'fixture child registration failed'
   tries=0
   while [ "$tries" -lt 100 ]; do
     [ -s "$dirfile" ] && break
@@ -370,13 +580,15 @@ test_orphan_sweep_respects_fixture_ownership() {
   harness=$(fm_test_tmproot fm-test-cleanup-orphan-harness)
   dirfile="$harness/active-dir"
   bash -c '
+    cd "$1" || exit 1
     # shellcheck source=tests/lib.sh
-    . "'"$LIB"'"
+    . "$2"
     d=$(fm_test_tmproot fm-test-cleanup-active)
-    printf "%s\n" "$d" > "'"$dirfile"'"
+    printf "%s\n" "$d" > "$3"
     while :; do sleep 0.1; done
-  ' &
+  ' _ "$harness" "$LIB" "$dirfile" &
   pid=$!
+  fm_test_track_process "$pid" "$harness" || fail 'fixture child registration failed'
   tries=0
   while [ "$tries" -lt 100 ]; do
     [ -s "$dirfile" ] && break
@@ -445,6 +657,8 @@ test_registries_avoid_git_worktree_root() {
   git -C "$repo" init -q
   bash -c '
     export TMPDIR="$1"
+    export FM_TEST_SKIP_ORPHAN_REAP=1
+    cd "$1" || exit 1
     # shellcheck source=tests/lib.sh
     . "$2"
     d=$(fm_test_tmproot fm-test-cleanup-gitroot)
@@ -453,6 +667,7 @@ test_registries_avoid_git_worktree_root() {
     while :; do sleep 0.1; done
   ' _ "$repo" "$LIB" "$dirfile" &
   pid=$!
+  fm_test_track_process "$pid" "$repo" || fail 'fixture child registration failed'
   tries=0
   while [ "$tries" -lt 100 ]; do
     [ -s "$dirfile" ] && break
@@ -480,6 +695,7 @@ test_registries_avoid_git_worktree_root() {
 test_ordinary_children_are_gone_before_fixture_removal
 test_ordinary_child_ownership_controls
 test_ordinary_child_exit_during_ownership_lookup
+test_ordinary_child_release_owner_on_failure_and_signal
 test_fixture_root_gone_after_normal_exit
 test_fixture_root_gone_after_sigterm
 test_cleanup_registry_resists_precreation
