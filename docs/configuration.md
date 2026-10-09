@@ -616,6 +616,22 @@ The flag is a home-local supervision-noise preference and is not inherited by se
 
 [`architecture.md`](architecture.md) owns the wait-evidence contract and which records may take the ladder away; `bin/fm-watch.sh`'s `wedge_wait_evidence` owns the exact derivation and its fail-closed boundaries.
 
+## Writing-lane capacity (config/writing-lane-cap, config/release-capacity)
+
+The optional local, gitignored `config/writing-lane-cap` holds one positive integer: the maximum number of live ship lanes, never a number to fill.
+While fewer lanes are occupied and dispatchable work is ready, the watcher raises a capacity notice naming lane occupancy and the ready items.
+
+The optional `config/release-capacity` holds one positive integer within the shell's supported integer range, bounding how many of those lanes have an attributed validation run, a completed delivery report, or a recorded PR in CI or awaiting landing.
+Attributed runs retain pressure when working, parked, done, or failed until the lane retires or returns to writing without an attributed run.
+A completed local-only lane with no PR or attributed run does not consume release capacity.
+Each lane counts once even when multiple pressure sources apply.
+Once that bound is reached, the capacity notice becomes a backpressure notice that names the validation or release bottleneck and still lists the ready items, so firstmate completes validation, lands work, or repairs it before starting more.
+Backpressure never refuses a spawn, so a named repair or independent item can still be dispatched.
+An invalid or unreadable release-capacity file is reported in the watcher log and suppresses the notice rather than guessing a bound.
+With release capacity configured, an unreadable, unknown, or malformed crew state, or a status-log state other than done, for a lane without a recorded PR suppresses the notice and names the unavailable lane in the watcher log.
+Both files are home-local and not inherited by secondmate homes.
+`bin/fm-watch.sh`'s `idle_lane_tick` owns the exact counting.
+
 ## Gate defaults (.no-mistakes.yaml)
 
 The tracked `.no-mistakes.yaml` sets `test.evidence.store_in_repo: true` and pins `commands.lint` to `bin/fm-lint.sh`, the same owner CI invokes.

@@ -2458,18 +2458,65 @@ age_of() {  # seconds since file mtime; "due immediately" if missing
 # eligibility. Every live ship crew occupies a lane, whether working, parked at a
 # gate, or paused; the shared current-state proof only reports how many of those
 # crews are provably working. The marker resets when full or empty.
+# Release pressure changes the notice, never spawn admission or ready-item
+# visibility, so repairs and independent work remain dispatchable.
+# docs/configuration.md's Writing-lane capacity section owns the contract.
 idle_lane_tick() {
-  local cap ready ids count occupied=0 working=0 meta task signature marker previous reason
+  local cap rcap='' ready ids count occupied=0 working=0 released=0 meta task signature marker previous reason line state src
   marker="$STATE/.last-idle-lane-wake"
   [ -f "$CONFIG/writing-lane-cap" ] || return 0
   cap=$(cat "$CONFIG/writing-lane-cap" 2>/dev/null) || return 1
   case "$cap" in ''|*[!0-9]*|0) triage_log "invalid config/writing-lane-cap"; return 1 ;; esac
+  if [ -e "$CONFIG/release-capacity" ] || [ -L "$CONFIG/release-capacity" ]; then
+    rcap=$(cat "$CONFIG/release-capacity" 2>/dev/null) || {
+      triage_log "unreadable config/release-capacity"
+      return 1
+    }
+    case "$rcap" in ''|*[!0-9]*) triage_log "invalid config/release-capacity"; return 1 ;; esac
+    if ! [ "$rcap" -gt 0 ] 2>/dev/null; then
+      triage_log "invalid config/release-capacity"
+      return 1
+    fi
+  fi
   while IFS= read -r -d '' meta; do
     checkpoint_deadline_passed && return 124
     fm_checkpoint_cursor capacity "${meta##*/}" || return 1
     [ -f "$meta" ] || continue
     grep -qx 'kind=ship' "$meta" 2>/dev/null || continue
     occupied=$((occupied + 1))
+    if [ -n "$rcap" ] && grep -q '^pr=' "$meta" 2>/dev/null; then
+      released=$((released + 1))
+    elif [ -n "$rcap" ]; then
+      task=${meta##*/}; task=${task%.meta}
+      if ! line=$(checkpoint_read "$FM_CREW_STATE_BIN" "$task" 2>/dev/null); then
+        checkpoint_deadline_passed && return 124
+        triage_log "idle-lane release state unavailable: $task"
+        return 1
+      fi
+      checkpoint_deadline_passed && return 124
+      case "$line" in
+        *$'\n'*) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
+        'state: '*' · source: '*)
+          state=${line#state: }; state=${state%% *}
+          src=${line#*source: }; src=${src%% *}
+          case "$state/$src" in
+            working/run-step|parked/run-step|done/run-step|failed/run-step)
+              released=$((released + 1)) ;;
+            done/status-log)
+              case "$line" in
+                *'run still monitoring PR'*|*'PR https://'*) released=$((released + 1)) ;;
+                *)
+                  if ! grep -qx 'mode=local-only' "$meta" 2>/dev/null; then
+                    released=$((released + 1))
+                  fi ;;
+              esac ;;
+            working/pane) ;;
+            *) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
+          esac
+          ;;
+        *) triage_log "idle-lane release state unavailable: $task"; return 1 ;;
+      esac
+    fi
     [ "$occupied" -lt "$cap" ] || break
   done < <(fm_checkpoint_files capacity "$STATE" .meta)
   if [ "$occupied" -ge "$cap" ]; then rm -f "$marker"; return 0; fi
@@ -2485,7 +2532,7 @@ idle_lane_tick() {
   ')
   [ -n "$ids" ] || { rm -f "$marker"; return 0; }
   count=$(printf '%s\n' "$ids" | wc -l | tr -d ' ')
-  signature=$(printf '%s|%s|%s\n' "$cap" "$occupied" "$ids" | cksum)
+  signature=$(printf '%s|%s|%s|%s|%s\n' "$cap" "$occupied" "$ids" "$rcap" "$released" | cksum)
   previous=$(cat "$marker" 2>/dev/null || true)
   if [ "$signature" = "$previous" ] && [ "$(age_of "$marker")" -lt "$IDLE_LANE_REPEAT_SECS" ]; then
     return 0
@@ -2499,8 +2546,13 @@ idle_lane_tick() {
     checkpoint_read crew_is_provably_working "$task" && working=$((working + 1))
     checkpoint_deadline_passed && return 124
   done < <(fm_checkpoint_files capacity "$STATE" .meta)
-  reason="check: idle writing lanes: $occupied/$cap occupied, $working working, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"
-  fm_wake_append check idle-writing-lanes "$reason" || return $?
+  if [ -n "$rcap" ] && [ "$released" -ge "$rcap" ]; then
+    reason="check: lane backpressure: $released/$rcap lanes awaiting validation or release; land or repair them before new starts, $occupied/$cap occupied, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"
+    fm_wake_append check lane-backpressure "$reason" || return $?
+  else
+    reason="check: idle writing lanes: $occupied/$cap occupied, $working working, $count ready: $(printf '%s\n' "$ids" | paste -sd, -)"
+    fm_wake_append check idle-writing-lanes "$reason" || return $?
+  fi
   printf '%s\n' "$signature" > "$marker" || return 1
   wake "$reason"
 }
