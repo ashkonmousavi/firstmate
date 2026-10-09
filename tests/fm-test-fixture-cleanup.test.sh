@@ -97,8 +97,19 @@ release_ordinary_child() {
   if fm_test_process_running "$pid"; then fail 'released fixture child did not exit'; fi
 }
 
+assert_ordinary_child_terminal() {
+  local pid=$1 state
+  kill -0 "$pid" 2>/dev/null || return 0
+  state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+  case "$state" in *Z*) return 0 ;; esac
+  kill -0 "$pid" 2>/dev/null || return 0
+  printf 'not ok - ordinary fixture child %s survived terminal return\n' "$pid" >&2
+  return 1
+}
+
 test_ordinary_children_are_gone_before_fixture_removal() {
-  local harness repo mode rc pid root state observed="" bad=0
+  local cleanup=${1:-production} harness repo mode rc pid root receipt terminal_rc expected_terminal=0
+  if [ "$cleanup" = disabled ]; then expected_terminal=1; fi
   harness=$(fm_test_tmproot fm-test-child-terminal)
   repo="$harness/runner"
   mkdir -p "$repo/bin" "$repo/tests" "$harness/tmp"
@@ -109,13 +120,8 @@ test_ordinary_children_are_gone_before_fixture_removal() {
 #!/usr/bin/env bash
 set -u
 . "$CHILD_LIB"
-SH
-  declare -f track_ordinary_child_release cleanup_ordinary_child_releases \
-    ordinary_child_cleanup_exit own_ordinary_child_releases >> "$repo/tests/fm-test-run.test.sh"
-  cat >> "$repo/tests/fm-test-run.test.sh" <<'SH'
-if declare -F fm_test_track_process >/dev/null; then
-  own_ordinary_child_releases
-  track_ordinary_child_release "$CHILD_RECEIPT.release" "$CHILD_RECEIPT"
+if [ "$CHILD_CLEANUP" = disabled ]; then
+  fm_test_reap_processes() { return 0; }
 fi
 root=$(fm_test_tmproot fm-test-child-producer)
 mkdir -p "$root"
@@ -125,37 +131,45 @@ printf '%s\n%s\n' "$pid" "$root" > "$CHILD_RECEIPT"
 # The original helper has no ordinary-child registration interface.
 if declare -F fm_test_track_process >/dev/null; then
   fm_test_track_process "$pid" "$root" || fail 'owned child registration failed'
+  cp "$FM_TEST_PROCESS_REGISTRY" "$CHILD_RECEIPT.provenance"
 fi
 if [ "$CHILD_OUTCOME" = failure ]; then fail 'original assertion failure'; fi
 SH
   for mode in success failure; do
-    track_ordinary_child_release "$harness/$mode.receipt.release" "$harness/$mode.receipt"
+    receipt="$harness/$cleanup-$mode.receipt"
+    track_ordinary_child_release "$receipt.release" "$receipt"
     rc=0
-    CHILD_LIB="$LIB" CHILD_RECEIPT="$harness/$mode.receipt" CHILD_OUTCOME="$mode" \
-      CHILD_HOLDER="$harness/child.sh" \
+    CHILD_LIB="$LIB" CHILD_RECEIPT="$receipt" CHILD_OUTCOME="$mode" \
+      CHILD_CLEANUP="$cleanup" CHILD_HOLDER="$harness/child.sh" \
       TMPDIR="$harness/tmp" bash "$repo/bin/fm-test-run.sh" --jobs 1 \
-      tests/fm-test-run.test.sh > "$harness/$mode.log" 2>&1 || rc=$?
+      tests/fm-test-run.test.sh > "$harness/$cleanup-$mode.log" 2>&1 || rc=$?
     if [ "$mode" = success ]; then
       expect_code 0 "$rc" "ordinary child cleanup changed the successful verdict"
     else
       expect_code 1 "$rc" "ordinary child cleanup changed the failing verdict"
-      assert_grep 'original assertion failure' "$harness/$mode.log" "original failure was lost"
+      assert_grep 'original assertion failure' "$harness/$cleanup-$mode.log" "original failure was lost"
     fi
-    pid=$(sed -n '1p' "$harness/$mode.receipt")
-    root=$(sed -n '2p' "$harness/$mode.receipt")
-    state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
-    case "$state" in
-      ''|*Z*) ;;
-      *) bad=1; observed="$observed $mode:pid=$pid state=$state root=$root" ;;
-    esac
-    assert_absent "$harness/$mode.receipt.release.expired" "natural expiry falsely satisfied terminal cleanup"
-    release_ordinary_child "$pid" "$harness/$mode.receipt.release"
-    assert_absent "$root" "registered fixture root survived proven terminal cleanup"
+    pid=$(sed -n '1p' "$receipt")
+    root=$(sed -n '2p' "$receipt")
+    terminal_rc=0
+    assert_ordinary_child_terminal "$pid" > "$receipt.terminal.log" 2>&1 || terminal_rc=$?
+    assert_absent "$receipt.release" "a release owner masked the terminal observation"
+    assert_absent "$receipt.release.expired" "natural expiry falsely satisfied terminal cleanup"
+    assert_absent "$root" "registered fixture root survived terminal return"
+    expect_code "$expected_terminal" "$terminal_rc" "ordinary child terminal assertion ignored $cleanup cleanup"
+    if [ "$cleanup" = disabled ]; then
+      assert_grep 'survived terminal return' "$receipt.terminal.log" "counterfactual failed outside the terminal assertion"
+    fi
+    printf 'FM_TEST_CHILD_TERMINAL cleanup=%s outcome=%s runner_exit=%s terminal_assertion_exit=%s released_at_observation=false expired=false\n' \
+      "$cleanup" "$mode" "$rc" "$terminal_rc"
+    cat "$receipt.provenance" "$receipt.terminal.log"
+    release_ordinary_child "$pid" "$receipt.release"
   done
-  if [ "$bad" = 1 ]; then
-    fail "ordinary fixture children survived terminal return/root deletion:$observed"
+  if [ "$cleanup" = disabled ]; then
+    pass "shared-cleanup counterfactual fails both terminal assertions before outer release"
+  else
+    pass "public runner retains success/failure verdicts and terminalizes ordinary children before root removal"
   fi
-  pass "public runner retains success/failure verdicts and terminalizes ordinary children before root removal"
 }
 
 test_ordinary_child_ownership_controls() {
@@ -692,6 +706,7 @@ test_registries_avoid_git_worktree_root() {
   pass "test registries and fixture roots stay out of a git worktree TMPDIR"
 }
 
+test_ordinary_children_are_gone_before_fixture_removal disabled
 test_ordinary_children_are_gone_before_fixture_removal
 test_ordinary_child_ownership_controls
 test_ordinary_child_exit_during_ownership_lookup
