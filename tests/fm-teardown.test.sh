@@ -2421,6 +2421,7 @@ SH
     || fail "herdr-orphan-refusal: could not resolve the fixture presentation lock path"
   ready="$case_dir/lock-ready"; release="$case_dir/lock-release"
   ROOT="$ROOT" LOCK="$lock" READY="$ready" RELEASE="$release" bash -c '
+    cd "${READY%/*}" || exit 1
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$LOCK" || exit 1
     : > "$READY"
@@ -2428,6 +2429,7 @@ SH
     fm_lock_release "$LOCK"
   ' &
   holder_pid=$!
+  fm_test_track_process "$holder_pid" "$case_dir" || fail "lock holder registration failed"
   local waited=0
   while [ ! -e "$ready" ] && [ "$waited" -lt 50 ]; do sleep 0.1; waited=$((waited + 1)); done
   [ -e "$ready" ] || fail "herdr-orphan-refusal: the contending lock holder never started"
@@ -2825,6 +2827,7 @@ SH
   release="$case_dir/lock-release"
   ROOT="$ROOT" LOCK="$lock" READY="$ready" RELEASE="$release" \
     HOME_STATE="$home/state" OWNER_PID="$$" bash -c '
+    cd "${READY%/*}" || exit 1
     export FM_STATE_OVERRIDE="$HOME_STATE"
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$LOCK" || exit 1
@@ -2833,6 +2836,7 @@ SH
     fm_lock_release "$LOCK"
   ' &
   holder_pid=$!
+  fm_test_track_process "$holder_pid" "$case_dir" || fail "lock holder registration failed"
   while [ ! -e "$ready" ] && [ "$waited" -lt 50 ]; do
     sleep 0.1
     waited=$((waited + 1))
@@ -4005,6 +4009,7 @@ test_parked_own_run_refuses_when_abort_is_unconfirmed() {
   head=$(git -C "$case_dir/wt" rev-parse HEAD)
   ( cd "$case_dir/wt" && exec sleep 300 ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
 
   cat > "$case_dir/fakebin/treehouse" <<EOF
@@ -4087,6 +4092,7 @@ test_leaked_worktree_process_is_reaped() {
   # to once an unpatched teardown had already run).
   ( cd "$case_dir/wt" && exec sleep 300 ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
   sleep 0.3
   kill -0 "$pid" 2>/dev/null || fail "leaked-process-reap: setup sleeper did not start"
@@ -4114,6 +4120,7 @@ test_leaked_tasktmp_process_is_reaped() {
 
   ( cd "$case_dir/tasktmp" && exec sleep 300 ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/tasktmp" || fail "fixture child registration failed"
   disown
   sleep 0.3
   kill -0 "$pid" 2>/dev/null || fail "leaked-tasktmp-reap: setup sleeper did not start"
@@ -4142,6 +4149,7 @@ test_lsof_absent_reaps_tmux_process_group() {
 
   perl -e 'setpgrp(0, 0); chdir shift or die; exec "sleep", "300"' "$case_dir/wt" &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
   sleep 0.3
   kill -0 "$pid" 2>/dev/null || fail "lsof-absent-process-group-reap: setup sleeper did not start"
@@ -4201,8 +4209,9 @@ test_reused_pid_identity_is_not_force_killed() {
   write_meta "$case_dir" no-mistakes ship
   land_shippable_commit "$case_dir"
 
-  perl -e '$SIG{TERM} = "IGNORE"; sleep 300' &
+  ( cd "$case_dir/wt" && exec perl -e '$SIG{TERM} = "IGNORE"; sleep 300' ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
   sleep 0.2
   cat > "$case_dir/fakebin/lsof" <<EOF
@@ -4258,6 +4267,7 @@ test_exec_changed_process_is_still_reaped() {
       exec "perl", "-e", '\''$SIG{TERM} = "IGNORE"; sleep 300'\'';
     ' "$marker" "$done_flag" ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
   sleep 0.2
   cat > "$case_dir/fakebin/ps" <<'SH'
@@ -4325,6 +4335,7 @@ test_process_spawned_during_grace_is_reaped_on_later_pass() {
       sleep 300;
     ' "$child_file" ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
   sleep 0.2
 
@@ -4431,6 +4442,7 @@ test_run_abort_precedes_process_reap_precedes_worktree_removal() {
 
   ( cd "$case_dir/wt" && exec sleep 300 ) &
   pid=$!
+  fm_test_track_process "$pid" "$case_dir/wt" || fail "fixture child registration failed"
   disown
   sleep 0.3
   kill -0 "$pid" 2>/dev/null || fail "abort-then-reap-then-remove-order: setup sleeper did not start"

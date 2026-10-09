@@ -17,6 +17,129 @@ set -u
 
 LIB="$ROOT/tests/lib.sh"
 
+test_ordinary_children_are_gone_before_fixture_removal() {
+  local harness repo mode rc pid root state observed="" bad=0
+  harness=$(fm_test_tmproot fm-test-child-terminal)
+  repo="$harness/runner"
+  mkdir -p "$repo/bin" "$repo/tests" "$harness/tmp"
+  cp "$ROOT/bin/fm-test-run.sh" "$repo/bin/"
+  cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
+  cat > "$repo/tests/fm-test-run.test.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+. "$CHILD_LIB"
+root=$(fm_test_tmproot fm-test-child-producer)
+mkdir -p "$root"
+(cd "$root" && exec sleep 6) </dev/null >/dev/null 2>&1 &
+pid=$!
+printf '%s\n%s\n' "$pid" "$root" > "$CHILD_RECEIPT"
+# The original helper has no ordinary-child registration interface.
+if declare -F fm_test_track_process >/dev/null; then
+  fm_test_track_process "$pid" "$root" || fail 'owned child registration failed'
+fi
+if [ "$CHILD_OUTCOME" = failure ]; then fail 'original assertion failure'; fi
+SH
+  for mode in success failure; do
+    rc=0
+    CHILD_LIB="$LIB" CHILD_RECEIPT="$harness/$mode.receipt" CHILD_OUTCOME="$mode" \
+      TMPDIR="$harness/tmp" bash "$repo/bin/fm-test-run.sh" --jobs 1 \
+      tests/fm-test-run.test.sh > "$harness/$mode.log" 2>&1 || rc=$?
+    if [ "$mode" = success ]; then
+      expect_code 0 "$rc" "ordinary child cleanup changed the successful verdict"
+    else
+      expect_code 1 "$rc" "ordinary child cleanup changed the failing verdict"
+      assert_grep 'original assertion failure' "$harness/$mode.log" "original failure was lost"
+    fi
+    pid=$(sed -n '1p' "$harness/$mode.receipt")
+    root=$(sed -n '2p' "$harness/$mode.receipt")
+    state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+    case "$state" in
+      ''|*Z*) ;;
+      *) bad=1; observed="$observed $mode:pid=$pid state=$state root=$root" ;;
+    esac
+    assert_absent "$root" "registered fixture root survived proven terminal cleanup"
+  done
+  if [ "$bad" = 1 ]; then
+    # Baseline children have a finite deadline, even when no cleanup exists yet.
+    sleep 6
+    fail "ordinary fixture children survived terminal return/root deletion:$observed"
+  fi
+  pass "public runner retains success/failure verdicts and terminalizes ordinary children before root removal"
+}
+
+test_ordinary_child_ownership_controls() {
+  local harness mode rc pid root other state expected
+  harness=$(fm_test_tmproot fm-test-child-controls)
+  mkdir -p "$harness/tmp"
+  cat > "$harness/producer.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+. "$CHILD_LIB"
+root=$(fm_test_tmproot fm-test-child-owned)
+mkdir -p "$root"
+printf '%s\n' "$root" > "$CHILD_RECEIPT.root"
+if [ "$CHILD_CONTROL" = exited ]; then
+  (cd "$root" && exit 0) &
+  pid=$!
+  wait "$pid"
+  fm_test_track_process "$pid" "$root" || fail 'already-exited registration refused'
+  exit 0
+fi
+(cd "$root" && exec sleep 3) </dev/null >/dev/null 2>&1 &
+pid=$!
+printf '%s\n' "$pid" > "$CHILD_RECEIPT.pid"
+if [ "$CHILD_CONTROL" = substitution ]; then
+  registered=$(fm_test_track_process "$pid" "$root") || fail 'substitution registration refused'
+  [ -z "$registered" ] || fail 'registration unexpectedly wrote stdout'
+elif [ "$CHILD_CONTROL" != unregistered ]; then
+  fm_test_track_process "$pid" "$root" || fail 'registration refused'
+fi
+case "$CHILD_CONTROL" in
+  unrelated)
+    (cd "$CHILD_EXTERNAL" && exec sleep 3) </dev/null >/dev/null 2>&1 &
+    printf '%s\n' "$!" > "$CHILD_RECEIPT.other" ;;
+  birth)
+    # Corrupt only this isolated ownership receipt, representing a reused PID.
+    printf '%s\twrong-birth\t%s\n' "$pid" "$root" > "$FM_TEST_PROCESS_REGISTRY" ;;
+  cwd) fm_test_process_cwd() { return 1; } ;;
+  missing) rm -f "$FM_TEST_PROCESS_REGISTRY" ;;
+  unregistered)
+    fm_test_track_process "$pid" "$CHILD_EXTERNAL" \
+      && fail 'unregistered cwd was accepted' ;;
+esac
+SH
+  for mode in exited substitution unrelated birth cwd missing unregistered; do
+    rc=0
+    CHILD_LIB="$LIB" CHILD_CONTROL="$mode" CHILD_RECEIPT="$harness/$mode" \
+      CHILD_EXTERNAL="$harness" TMPDIR="$harness/tmp" \
+      bash "$harness/producer.sh" > "$harness/$mode.log" 2>&1 || rc=$?
+    root=$(cat "$harness/$mode.root")
+    case "$mode" in
+      birth|cwd|missing|unregistered) expected=1 ;;
+      *) expected=0 ;;
+    esac
+    expect_code "$expected" "$rc" "ordinary-child ownership control $mode changed its verdict"
+    if [ "$expected" = 1 ]; then
+      assert_grep REFUSED "$harness/$mode.log" "control $mode hid its ownership refusal"
+      assert_present "$root" "control $mode erased its diagnostic fixture on refusal"
+      pid=$(cat "$harness/$mode.pid")
+      state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+      case "$state" in ''|*Z*) fail "control $mode signalled a child without proved ownership" ;; esac
+      # Refused fixtures retain evidence and have a finite fallback deadline.
+      sleep 3
+    else
+      assert_absent "$root" "control $mode retained a safely cleaned fixture"
+      if [ "$mode" = unrelated ]; then
+        other=$(cat "$harness/$mode.other")
+        state=$(ps -p "$other" -o stat= 2>/dev/null || true)
+        case "$state" in ''|*Z*) fail 'ordinary cleanup signalled the unrelated child' ;; esac
+        sleep 3
+      fi
+    fi
+  done
+  pass "ordinary-child cleanup persists registration across substitutions, permits exited children, and refuses missing or changed ownership without signalling unrelated children"
+}
+
 test_fixture_root_gone_after_normal_exit() {
   local child_out child_dir
   child_out=$(bash -c '
@@ -199,7 +322,7 @@ test_registries_avoid_git_worktree_root() {
       fail "fm_test_tmproot placed a fixture root inside the git worktree root: $child_dir"
       ;;
   esac
-  for entry in "$repo"/.fm-test-cleanup.* "$repo"/.fm-test-procevent.* "$repo"/.fm-test-watcher.*; do
+  for entry in "$repo"/.fm-test-cleanup.* "$repo"/.fm-test-process.* "$repo"/.fm-test-procevent.* "$repo"/.fm-test-watcher.*; do
     [ ! -e "$entry" ] || fail "a live test registry landed in the git worktree root: $entry"
   done
   kill -TERM "$pid"
@@ -209,6 +332,8 @@ test_registries_avoid_git_worktree_root() {
   pass "test registries and fixture roots stay out of a git worktree TMPDIR"
 }
 
+test_ordinary_children_are_gone_before_fixture_removal
+test_ordinary_child_ownership_controls
 test_fixture_root_gone_after_normal_exit
 test_fixture_root_gone_after_sigterm
 test_cleanup_registry_resists_precreation
