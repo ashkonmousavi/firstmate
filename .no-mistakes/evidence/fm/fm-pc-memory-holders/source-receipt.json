@@ -1,0 +1,20 @@
+{
+  "target": "2ccc1673c2026ad6306d580808567015309a3b81",
+  "files": [
+    {
+      "file": "tests/lib.sh",
+      "sha256": "9e0bf7e769208a29ff754b7fd63600fde6d9ab8a30ed325da49fe41d7e796e36",
+      "snapshot_identical": true
+    },
+    {
+      "file": "tests/fm-teardown.test.sh",
+      "sha256": "39c258722e66b548f96c7ea8cbe6f0a11b3c96f63be2555e82c7522328e9c1dc",
+      "snapshot_identical": true
+    },
+    {
+      "file": "tests/fm-test-fixture-cleanup.test.sh",
+      "sha256": "bf04a0dcbec7c8d54dd4a77c36641baae1c52f35bfacaea2d7fd15603745f809",
+      "snapshot_identical": true
+    }
+  ]
+}

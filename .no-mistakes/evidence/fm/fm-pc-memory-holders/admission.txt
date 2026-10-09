@@ -1,0 +1,10 @@
+2ccc1673c2026ad6306d580808567015309a3b81
+MemTotal:       24610916 kB
+MemFree:         1217452 kB
+MemAvailable:    8310380 kB
+Buffers:         1611888 kB
+Cached:          7310220 kB
+some avg10=0.03 avg60=0.34 avg300=1.96 total=7848861605
+full avg10=0.03 avg60=0.24 avg300=1.41 total=5703043033
+some avg10=13.72 avg60=14.37 avg300=15.81 total=47653401450
+full avg10=0.00 avg60=0.00 avg300=0.00 total=0

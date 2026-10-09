@@ -1,0 +1,90 @@
+FM_TEST_BEGIN 2026-10-09T02:22:38Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_herdr_flat_teardown_refuses_orphaning_records_then_retry_completes pid=1673200 birth=proc:45230199 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.Pkm6uQ/herdr-orphan-refusal alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_herdr_flat_teardown_refuses_orphaning_records_then_retry_completes child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:38Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=250 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=278
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=250 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=250
+CALLER_EXIT caller=test_herdr_flat_teardown_refuses_orphaning_records_then_retry_completes public_runner_exit=1 unrelated_pid=1673072 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:38Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_forced_secondmate_teardown_holds_descendant_lifecycle_locks pid=1673380 birth=proc:45230226 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.JvcBXe/descendant-locks alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_forced_secondmate_teardown_holds_descendant_lifecycle_locks child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=221 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=248
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=221 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=221
+CALLER_EXIT caller=test_forced_secondmate_teardown_holds_descendant_lifecycle_locks public_runner_exit=1 unrelated_pid=1673278 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_parked_own_run_refuses_when_abort_is_unconfirmed pid=1673583 birth=proc:45230254 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.0rZehS/parked-run-abort-unconfirmed/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_parked_own_run_refuses_when_abort_is_unconfirmed child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=177 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=205
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=177 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=177
+CALLER_EXIT caller=test_parked_own_run_refuses_when_abort_is_unconfirmed public_runner_exit=1 unrelated_pid=1673462 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_leaked_worktree_process_is_reaped pid=1673750 birth=proc:45230276 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.NL8oA8/leaked-process-reap/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_leaked_worktree_process_is_reaped child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=174 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=201
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=174 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=174
+CALLER_EXIT caller=test_leaked_worktree_process_is_reaped public_runner_exit=1 unrelated_pid=1673642 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_leaked_tasktmp_process_is_reaped pid=1673920 birth=proc:45230299 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.5JPHmJ/leaked-tasktmp-reap/tasktmp alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_leaked_tasktmp_process_is_reaped child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=176 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=203
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=176 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=176
+CALLER_EXIT caller=test_leaked_tasktmp_process_is_reaped public_runner_exit=1 unrelated_pid=1673810 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:39Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_lsof_absent_reaps_tmux_process_group pid=1674162 birth=proc:45230326 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.bOe4KV/lsof-absent-process-group-reap/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_lsof_absent_reaps_tmux_process_group child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=225 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=254
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=225 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=225
+CALLER_EXIT caller=test_lsof_absent_reaps_tmux_process_group public_runner_exit=1 unrelated_pid=1673979 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_reused_pid_identity_is_not_force_killed pid=1674379 birth=proc:45230350 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.OOVHBd/reused-pid-identity/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_reused_pid_identity_is_not_force_killed child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=188 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=215
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=188 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=188
+CALLER_EXIT caller=test_reused_pid_identity_is_not_force_killed public_runner_exit=1 unrelated_pid=1674227 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_exec_changed_process_is_still_reaped pid=1674546 birth=proc:45230373 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.t8lqjC/exec-changed-process/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_exec_changed_process_is_still_reaped child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=174 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=202
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=174 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=174
+CALLER_EXIT caller=test_exec_changed_process_is_still_reaped public_runner_exit=1 unrelated_pid=1674438 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_process_spawned_during_grace_is_reaped_on_later_pass pid=1674747 birth=proc:45230395 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.nrnVj7/grace-spawn-convergence/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_process_spawned_during_grace_is_reaped_on_later_pass child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=189 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=220
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=189 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=189
+CALLER_EXIT caller=test_process_spawned_during_grace_is_reaped_on_later_pass public_runner_exit=1 unrelated_pid=1674606 unrelated_state=S
+FM_TEST_BEGIN 2026-10-09T02:22:40Z .gate-test-tmp/callers.test.sh family=unclassified expected_gate_skip=none
+registered caller=test_run_abort_precedes_process_reap_precedes_worktree_removal pid=1675073 birth=proc:45230421 cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F6V4RF8ZZE0Z7MGK9HV9XP/.gate-test-tmp/callers-runtime/fm-teardown-tests.E6LGgl/abort-then-reap-then-remove-order/wt alive=true
+not ok - injected early assertion after child registration
+before_removal caller=test_run_abort_precedes_process_reap_precedes_worktree_removal child_terminal=true unrelated_alive=true
+FM_TEST_END 2026-10-09T02:22:41Z .gate-test-tmp/callers.test.sh exit=1 duration_ms=187 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=217
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=187 failed=1
+FM_TEST_SLOWEST rank=1 script=.gate-test-tmp/callers.test.sh duration_ms=187
+CALLER_EXIT caller=test_run_abort_precedes_process_reap_precedes_worktree_removal public_runner_exit=1 unrelated_pid=1674921 unrelated_state=S
