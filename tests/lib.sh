@@ -182,7 +182,10 @@ fm_test_process_running() {  # <pid>; zombies are terminal
   local state
   kill -0 "$1" 2>/dev/null || return 1
   state=$(ps -p "$1" -o stat= 2>/dev/null || true)
-  case "$state" in *Z*) return 1 ;; esac
+  case "$state" in
+    *Z*) return 1 ;;
+    '') kill -0 "$1" 2>/dev/null || return 1 ;;
+  esac
   return 0
 }
 

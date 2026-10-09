@@ -17,11 +17,37 @@ set -u
 
 LIB="$ROOT/tests/lib.sh"
 
+write_ordinary_child_fixture() {
+  cat > "$1" <<'SH'
+#!/usr/bin/env bash
+set -u
+cd "$1" || exit 1
+release=$2
+deadline=$((SECONDS + 300))
+while [ ! -e "$release" ]; do
+  if [ "$SECONDS" -ge "$deadline" ]; then : > "$release.expired"; exit 0; fi
+  sleep 0.1
+done
+SH
+}
+
+release_ordinary_child() {
+  local pid=$1 release=$2 tries=0
+  assert_absent "$release.expired" "fixture child expired before observation finished"
+  : > "$release"
+  while fm_test_process_running "$pid" && [ "$tries" -lt 600 ]; do
+    sleep 0.1
+    tries=$((tries + 1))
+  done
+  if fm_test_process_running "$pid"; then fail 'released fixture child did not exit'; fi
+}
+
 test_ordinary_children_are_gone_before_fixture_removal() {
   local harness repo mode rc pid root state observed="" bad=0
   harness=$(fm_test_tmproot fm-test-child-terminal)
   repo="$harness/runner"
   mkdir -p "$repo/bin" "$repo/tests" "$harness/tmp"
+  write_ordinary_child_fixture "$harness/child.sh"
   cp "$ROOT/bin/fm-test-run.sh" "$repo/bin/"
   cp "$ROOT/tests/git-config-helpers.sh" "$repo/tests/"
   cat > "$repo/tests/fm-test-run.test.sh" <<'SH'
@@ -30,7 +56,7 @@ set -u
 . "$CHILD_LIB"
 root=$(fm_test_tmproot fm-test-child-producer)
 mkdir -p "$root"
-(cd "$root" && exec sleep 6) </dev/null >/dev/null 2>&1 &
+bash "$CHILD_HOLDER" "$root" "$CHILD_RECEIPT.release" </dev/null >/dev/null 2>&1 &
 pid=$!
 printf '%s\n%s\n' "$pid" "$root" > "$CHILD_RECEIPT"
 # The original helper has no ordinary-child registration interface.
@@ -42,6 +68,7 @@ SH
   for mode in success failure; do
     rc=0
     CHILD_LIB="$LIB" CHILD_RECEIPT="$harness/$mode.receipt" CHILD_OUTCOME="$mode" \
+      CHILD_HOLDER="$harness/child.sh" \
       TMPDIR="$harness/tmp" bash "$repo/bin/fm-test-run.sh" --jobs 1 \
       tests/fm-test-run.test.sh > "$harness/$mode.log" 2>&1 || rc=$?
     if [ "$mode" = success ]; then
@@ -57,11 +84,11 @@ SH
       ''|*Z*) ;;
       *) bad=1; observed="$observed $mode:pid=$pid state=$state root=$root" ;;
     esac
+    assert_absent "$harness/$mode.receipt.release.expired" "natural expiry falsely satisfied terminal cleanup"
+    release_ordinary_child "$pid" "$harness/$mode.receipt.release"
     assert_absent "$root" "registered fixture root survived proven terminal cleanup"
   done
   if [ "$bad" = 1 ]; then
-    # Baseline children have a finite deadline, even when no cleanup exists yet.
-    sleep 6
     fail "ordinary fixture children survived terminal return/root deletion:$observed"
   fi
   pass "public runner retains success/failure verdicts and terminalizes ordinary children before root removal"
@@ -71,6 +98,7 @@ test_ordinary_child_ownership_controls() {
   local harness mode rc pid root other state expected
   harness=$(fm_test_tmproot fm-test-child-controls)
   mkdir -p "$harness/tmp"
+  write_ordinary_child_fixture "$harness/child.sh"
   cat > "$harness/producer.sh" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -85,7 +113,7 @@ if [ "$CHILD_CONTROL" = exited ]; then
   fm_test_track_process "$pid" "$root" || fail 'already-exited registration refused'
   exit 0
 fi
-(cd "$root" && exec sleep 3) </dev/null >/dev/null 2>&1 &
+bash "$CHILD_HOLDER" "$root" "$CHILD_RECEIPT.release" </dev/null >/dev/null 2>&1 &
 pid=$!
 printf '%s\n' "$pid" > "$CHILD_RECEIPT.pid"
 if [ "$CHILD_CONTROL" = substitution ]; then
@@ -96,26 +124,31 @@ elif [ "$CHILD_CONTROL" != unregistered ]; then
 fi
 case "$CHILD_CONTROL" in
   unrelated)
-    (cd "$CHILD_EXTERNAL" && exec sleep 3) </dev/null >/dev/null 2>&1 &
+    bash "$CHILD_HOLDER" "$CHILD_EXTERNAL" "$CHILD_RECEIPT.other-release" </dev/null >/dev/null 2>&1 &
     printf '%s\n' "$!" > "$CHILD_RECEIPT.other" ;;
   birth)
     # Corrupt only this isolated ownership receipt, representing a reused PID.
     printf '%s\twrong-birth\t%s\n' "$pid" "$root" > "$FM_TEST_PROCESS_REGISTRY" ;;
   cwd) fm_test_process_cwd() { return 1; } ;;
+  stat-live)
+    fm_test_process_cwd() { return 1; }
+    ps() {
+      if [ "$*" = "-p $pid -o stat=" ]; then return 1; else command ps "$@"; fi
+    } ;;
   missing) rm -f "$FM_TEST_PROCESS_REGISTRY" ;;
   unregistered)
     fm_test_track_process "$pid" "$CHILD_EXTERNAL" \
       && fail 'unregistered cwd was accepted' ;;
 esac
 SH
-  for mode in exited substitution unrelated birth cwd missing unregistered; do
+  for mode in exited substitution unrelated birth cwd stat-live missing unregistered; do
     rc=0
     CHILD_LIB="$LIB" CHILD_CONTROL="$mode" CHILD_RECEIPT="$harness/$mode" \
-      CHILD_EXTERNAL="$harness" TMPDIR="$harness/tmp" \
+      CHILD_EXTERNAL="$harness" CHILD_HOLDER="$harness/child.sh" TMPDIR="$harness/tmp" \
       bash "$harness/producer.sh" > "$harness/$mode.log" 2>&1 || rc=$?
     root=$(cat "$harness/$mode.root")
     case "$mode" in
-      birth|cwd|missing|unregistered) expected=1 ;;
+      birth|cwd|stat-live|missing|unregistered) expected=1 ;;
       *) expected=0 ;;
     esac
     expect_code "$expected" "$rc" "ordinary-child ownership control $mode changed its verdict"
@@ -125,15 +158,15 @@ SH
       pid=$(cat "$harness/$mode.pid")
       state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
       case "$state" in ''|*Z*) fail "control $mode signalled a child without proved ownership" ;; esac
-      # Refused fixtures retain evidence and have a finite fallback deadline.
-      sleep 3
+      release_ordinary_child "$pid" "$harness/$mode.release"
     else
+      assert_absent "$harness/$mode.release.expired" "control $mode ended by natural expiry"
       assert_absent "$root" "control $mode retained a safely cleaned fixture"
       if [ "$mode" = unrelated ]; then
         other=$(cat "$harness/$mode.other")
         state=$(ps -p "$other" -o stat= 2>/dev/null || true)
         case "$state" in ''|*Z*) fail 'ordinary cleanup signalled the unrelated child' ;; esac
-        sleep 3
+        release_ordinary_child "$other" "$harness/$mode.other-release"
       fi
     fi
   done
@@ -144,16 +177,17 @@ test_ordinary_child_exit_during_ownership_lookup() {
   local harness mode outcome rc expected root pid other state receipt
   harness=$(fm_test_tmproot fm-test-child-lookup)
   mkdir -p "$harness/tmp"
+  write_ordinary_child_fixture "$harness/child.sh"
   cat > "$harness/producer.sh" <<'SH'
 #!/usr/bin/env bash
 set -u
 . "$CHILD_LIB"
 root=$(fm_test_tmproot fm-test-child-race)
 printf '%s\n' "$root" > "$CHILD_RECEIPT.root"
-(cd "$root"; tries=0; while [ ! -e "$root/release" ] && [ "$tries" -lt 500 ]; do sleep 0.01; tries=$((tries + 1)); done) </dev/null >/dev/null 2>&1 &
+bash "$CHILD_HOLDER" "$root" "$CHILD_RECEIPT.release" </dev/null >/dev/null 2>&1 &
 pid=$!
 printf '%s\n' "$pid" > "$CHILD_RECEIPT.pid"
-(cd "$CHILD_EXTERNAL" && exec sleep 6) </dev/null >/dev/null 2>&1 &
+bash "$CHILD_HOLDER" "$CHILD_EXTERNAL" "$CHILD_RECEIPT.other-release" </dev/null >/dev/null 2>&1 &
 printf '%s\n' "$!" > "$CHILD_RECEIPT.other"
 kill() {
   if [ "$1" != -0 ]; then printf '%s\n' "$*" >> "$CHILD_RECEIPT.signals"; fi
@@ -162,15 +196,15 @@ kill() {
 exit_during_lookup() {
   local tries=0
   : > "$CHILD_RECEIPT.lookup"
-  : > "$root/release"
-  while fm_test_process_running "$pid" && [ "$tries" -lt 100 ]; do
-    sleep 0.01
+  : > "$CHILD_RECEIPT.release"
+  while fm_test_process_running "$pid" && [ "$tries" -lt 600 ]; do
+    sleep 0.1
     tries=$((tries + 1))
   done
   fm_test_process_running "$pid" && fail 'child did not exit during lookup'
   return 1
 }
-if [ "$CHILD_RACE" = cleanup-cwd ] || [ "$CHILD_RACE" = cleanup-birth ]; then
+if [[ "$CHILD_RACE" = cleanup-* ]]; then
   fm_test_track_process "$pid" "$root" || fail 'initial registration refused'
 fi
 case "$CHILD_RACE" in
@@ -193,6 +227,22 @@ case "$CHILD_RACE" in
     } ;;
   readiness-cwd|cleanup-cwd)
     fm_test_process_cwd() { exit_during_lookup; } ;;
+  cleanup-stat)
+    fm_test_process_cwd() { : > "$CHILD_RECEIPT.cwd-failed"; return 1; }
+    ps() {
+      if [ "$*" = "-p $pid -o stat=" ] && [ -e "$CHILD_RECEIPT.cwd-failed" ]; then
+        local tries=0
+        : > "$CHILD_RECEIPT.lookup"
+        : > "$CHILD_RECEIPT.release"
+        while builtin kill -0 "$pid" 2>/dev/null && [ "$tries" -lt 600 ]; do
+          sleep 0.1
+          tries=$((tries + 1))
+        done
+        builtin kill -0 "$pid" 2>/dev/null && fail 'child did not disappear during stat lookup'
+        return 1
+      fi
+      command ps "$@"
+    } ;;
   ancestry)
     ps() {
       if [ "$*" = "-p $pid -o ppid=" ]; then exit_during_lookup; else command ps "$@"; fi
@@ -204,12 +254,12 @@ case "$CHILD_RACE" in
 esac
 if [ "$CHILD_OUTCOME" = failure ]; then fail 'original assertion failure'; fi
 SH
-  for mode in registration-birth ancestry readiness-birth readiness-cwd readiness-timeout cleanup-cwd cleanup-birth; do
+  for mode in registration-birth ancestry readiness-birth readiness-cwd readiness-timeout cleanup-cwd cleanup-birth cleanup-stat; do
     for outcome in success failure; do
       receipt="$harness/$mode-$outcome"
       rc=0
       CHILD_LIB="$LIB" CHILD_RACE="$mode" CHILD_OUTCOME="$outcome" \
-        CHILD_RECEIPT="$receipt" CHILD_EXTERNAL="$harness" TMPDIR="$harness/tmp" \
+        CHILD_RECEIPT="$receipt" CHILD_EXTERNAL="$harness" CHILD_HOLDER="$harness/child.sh" TMPDIR="$harness/tmp" \
         bash "$harness/producer.sh" > "$receipt.log" 2>&1 || rc=$?
       expected=0
       if [ "$outcome" = failure ]; then expected=1; fi
@@ -220,6 +270,7 @@ SH
       assert_present "$receipt.lookup" "control $mode did not reach the lookup race"
       if grep -q REFUSED "$receipt.log"; then fail "terminal child was refused during $mode"; fi
       root=$(cat "$receipt.root")
+      assert_absent "$receipt.release.expired" "child expired before the $mode race"
       assert_absent "$root" "exit during $mode retained the fixture root"
       assert_absent "$receipt.signals" "exit during $mode sent a signal"
       pid=$(cat "$receipt.pid")
@@ -228,9 +279,9 @@ SH
       other=$(cat "$receipt.other")
       state=$(ps -p "$other" -o stat= 2>/dev/null || true)
       case "$state" in ''|*Z*) fail "exit during $mode stopped the unrelated child" ;; esac
+      release_ordinary_child "$other" "$receipt.other-release"
     done
   done
-  sleep 6
   pass "ownership lookup races accept terminal children without signalling and preserve success/failure verdicts"
 }
 
