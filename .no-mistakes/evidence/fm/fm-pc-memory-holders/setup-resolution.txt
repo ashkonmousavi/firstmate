@@ -1,0 +1,7 @@
+Initial targeted run: fixture lifecycle passed; teardown refused fixtures inside the active home.
+Isolated-home attempt: teardown refused fixtures inside the source repository.
+Resolution: left both production guards unchanged; used the runner default temporary directory under the allowed incidental test-toolchain write exception and a disposable worktree-local FM_HOME.
+Final teardown subject passed, exit 0.
+Manual ownership observations passed, including actual cwd departure, altered birth receipt, unavailable registry, unregistered root, and preserved exit 7.
+All manual holders were cooperatively released and observed terminal before removing the worktree-local harness.
+Only the two targeted subjects and the manual ownership driver ran; no linter, formatter, full suite, fleet operation, or pipeline control ran.

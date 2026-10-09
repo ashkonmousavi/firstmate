@@ -1,0 +1,17 @@
+FM_TEST_BEGIN 2026-10-09T03:07:24Z tests/fm-teardown.test.sh family=pr-forge expected_gate_skip=none
+ok - teardown releases only its recorded token and retains failed releases for retry
+ok - a walk claim survives every teardown abort before worker termination is proven
+not ok - forced cleanup reports the child's failed release (missing: 'release failed for QW-child (firstmate-child)')
+--- output ---
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: unsafe secondmate home removal target /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-teardown-tests.gnY9BA/walk-child-release/secondmate-home is inside the firstmate repo
+FM_TEST_END 2026-10-09T03:07:48Z tests/fm-teardown.test.sh exit=1 duration_ms=24222 gate_skip=false
+FM_TEST_SUMMARY total=1 failed=1 skipped_gate=0 duration_ms=24249
+FM_TEST_SUMMARY_FAMILY family=pr-forge count=1 duration_ms=24222 failed=1
+FM_TEST_SLOWEST rank=1 script=tests/fm-teardown.test.sh duration_ms=24222

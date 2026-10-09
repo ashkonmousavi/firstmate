@@ -1,0 +1,72 @@
+FM_TEST_BEGIN 2026-10-09T03:05:31Z tests/fm-test-fixture-cleanup.test.sh family=standalone expected_gate_skip=none
+FM_TEST_CHILD_TERMINAL cleanup=disabled outcome=success runner_exit=0 terminal_assertion_exit=1 released_at_observation=false expired=false
+3949549	proc:45503122	/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-terminal.AtMapw/tmp/fm-test-child-producer.1xKviL
+not ok - ordinary fixture child 3949549 survived terminal return
+FM_TEST_CHILD_TERMINAL cleanup=disabled outcome=failure runner_exit=1 terminal_assertion_exit=1 released_at_observation=false expired=false
+3949646	proc:45503144	/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-terminal.AtMapw/tmp/fm-test-child-producer.KLl3mM
+not ok - ordinary fixture child 3949646 survived terminal return
+ok - shared-cleanup counterfactual fails both terminal assertions before outer release
+FM_TEST_CHILD_TERMINAL cleanup=production outcome=success runner_exit=0 terminal_assertion_exit=0 released_at_observation=false expired=false
+3949758	proc:45503167	/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-terminal.nC4Ylk/tmp/fm-test-child-producer.7x5iDi
+FM_TEST_CHILD_TERMINAL cleanup=production outcome=failure runner_exit=1 terminal_assertion_exit=0 released_at_observation=false expired=false
+3949862	proc:45503180	/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-terminal.nC4Ylk/tmp/fm-test-child-producer.j59Nak
+ok - public runner retains success/failure verdicts and terminalizes ordinary children before root removal
+ok - ordinary-child cleanup persists registration across substitutions, permits exited children, and refuses missing or changed ownership without signalling unrelated children
+ok - ownership lookup races accept terminal children without signalling and preserve success/failure verdicts
+FM_TEST_RELEASE_CONTROL site=ordinary-success outcome=failure subject_exit=1 holder_pid=3968998 poller_pid=3969004 unrelated_pid=3968815 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504123 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.QgPIIu
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-success-failure.pid	3968998	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-success-failure.release.poller	3969004	
+FM_TEST_RELEASE_CONTROL site=ordinary-success outcome=term subject_exit=143 holder_pid=3970570 poller_pid=3970576 unrelated_pid=3970399 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504174 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.5Rc90m
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-success-term.pid	3970570	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-success-term.release.poller	3970576	
+FM_TEST_RELEASE_CONTROL site=ordinary-failure outcome=failure subject_exit=1 holder_pid=3972555 poller_pid=3972560 unrelated_pid=3972363 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504238 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.3O6BYg
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-failure-failure.pid	3972555	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-failure-failure.release.poller	3972560	
+FM_TEST_RELEASE_CONTROL site=ordinary-failure outcome=term subject_exit=143 holder_pid=3974118 poller_pid=3974123 unrelated_pid=3973946 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504291 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.hyi9iL
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-failure-term.pid	3974118	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ordinary-failure-term.release.poller	3974123	
+FM_TEST_RELEASE_CONTROL site=ownership-owned outcome=failure subject_exit=1 holder_pid=3976207 poller_pid=3976211 unrelated_pid=3975953 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504354 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.4JeI1b
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-owned-failure.pid	3976207	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-owned-failure.release.poller	3976211	
+FM_TEST_RELEASE_CONTROL site=ownership-owned outcome=term subject_exit=143 holder_pid=3977845 poller_pid=3977850 unrelated_pid=3977651 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504405 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.D183oz
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-owned-term.pid	3977845	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-owned-term.release.poller	3977850	
+FM_TEST_RELEASE_CONTROL site=ownership-unrelated outcome=failure subject_exit=1 holder_pid=3979772 poller_pid=3979776 unrelated_pid=3979544 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504456 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.bUwmnP
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-unrelated-failure.pid	3979772	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-unrelated-failure.release.poller	3979776	
+FM_TEST_RELEASE_CONTROL site=ownership-unrelated outcome=term subject_exit=143 holder_pid=3981714 poller_pid=3981718 unrelated_pid=3981518 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504504 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.Skih2O
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-unrelated-term.pid	3981714	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/ownership-unrelated-term.release.poller	3981718	
+FM_TEST_RELEASE_CONTROL site=lookup-owned outcome=failure subject_exit=1 holder_pid=3983789 poller_pid=3983794 unrelated_pid=3983537 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504562 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.bUZ5tr
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-owned-failure.pid	3983789	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-owned-failure.release.poller	3983794	
+FM_TEST_RELEASE_CONTROL site=lookup-owned outcome=term subject_exit=143 holder_pid=3985605 poller_pid=3985610 unrelated_pid=3985321 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504603 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.RMgi1n
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-owned-term.pid	3985605	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-owned-term.release.poller	3985610	
+FM_TEST_RELEASE_CONTROL site=lookup-unrelated outcome=failure subject_exit=1 holder_pid=3988209 poller_pid=3988217 unrelated_pid=3988026 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504664 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.2iTadV
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-unrelated-failure.pid	3988209	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-unrelated-failure.release.poller	3988217	
+FM_TEST_RELEASE_CONTROL site=lookup-unrelated outcome=term subject_exit=143 holder_pid=3989317 poller_pid=3989321 unrelated_pid=3989207 unrelated_state=S root_removed=true signalled=false expired=false
+holder_birth=proc:45504712 holder_cwd=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/tmp/fm-test-release-subject.hhrVot
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-unrelated-term.pid	3989317	
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4F9P8ZT2CWPG9DB2G8CNPJK/.test-phase-tmp/fm-test-child-release-owner.g8b0G2/lookup-unrelated-term.release.poller	3989321	
+ok - EXIT release ownership preserves failure and TERM verdicts, stops holders and polling descendants before root removal, and preserves unrelated children
+ok - fm_test_tmproot cleans up its fixture root on normal exit
+ok - fm_test_tmproot cleans up its fixture root on SIGTERM
+ok - the cleanup registry cannot be injected through path precreation
+ok - failed fixture registration rolls back the new root
+ok - the orphan sweep reaps only old fixtures without a live owner
+ok - the orphan sweep reaps read-only package fixtures
+ok - test registries and fixture roots stay out of a git worktree TMPDIR
+FM_TEST_END 2026-10-09T03:05:49Z tests/fm-test-fixture-cleanup.test.sh exit=0 duration_ms=17758 gate_skip=false
