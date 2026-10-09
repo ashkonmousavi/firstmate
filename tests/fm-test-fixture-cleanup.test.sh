@@ -140,6 +140,100 @@ SH
   pass "ordinary-child cleanup persists registration across substitutions, permits exited children, and refuses missing or changed ownership without signalling unrelated children"
 }
 
+test_ordinary_child_exit_during_ownership_lookup() {
+  local harness mode outcome rc expected root pid other state receipt
+  harness=$(fm_test_tmproot fm-test-child-lookup)
+  mkdir -p "$harness/tmp"
+  cat > "$harness/producer.sh" <<'SH'
+#!/usr/bin/env bash
+set -u
+. "$CHILD_LIB"
+root=$(fm_test_tmproot fm-test-child-race)
+printf '%s\n' "$root" > "$CHILD_RECEIPT.root"
+(cd "$root"; tries=0; while [ ! -e "$root/release" ] && [ "$tries" -lt 500 ]; do sleep 0.01; tries=$((tries + 1)); done) </dev/null >/dev/null 2>&1 &
+pid=$!
+printf '%s\n' "$pid" > "$CHILD_RECEIPT.pid"
+(cd "$CHILD_EXTERNAL" && exec sleep 6) </dev/null >/dev/null 2>&1 &
+printf '%s\n' "$!" > "$CHILD_RECEIPT.other"
+kill() {
+  if [ "$1" != -0 ]; then printf '%s\n' "$*" >> "$CHILD_RECEIPT.signals"; fi
+  builtin kill "$@"
+}
+exit_during_lookup() {
+  local tries=0
+  : > "$CHILD_RECEIPT.lookup"
+  : > "$root/release"
+  while fm_test_process_running "$pid" && [ "$tries" -lt 100 ]; do
+    sleep 0.01
+    tries=$((tries + 1))
+  done
+  fm_test_process_running "$pid" && fail 'child did not exit during lookup'
+  return 1
+}
+if [ "$CHILD_RACE" = cleanup-cwd ] || [ "$CHILD_RACE" = cleanup-birth ]; then
+  fm_test_track_process "$pid" "$root" || fail 'initial registration refused'
+fi
+case "$CHILD_RACE" in
+  registration-birth|readiness-birth|cleanup-birth)
+    fm_test_process_birth() {
+      if [ "$CHILD_RACE" = readiness-birth ] && [ ! -e "$CHILD_RECEIPT.first-birth" ]; then
+        : > "$CHILD_RECEIPT.first-birth"
+        bash -c '. "$1"; fm_codex_pid_birth "$2"' _ "$ROOT/bin/fm-session-lock-lib.sh" "$1"
+      else
+        exit_during_lookup
+      fi
+    } ;;
+  readiness-timeout)
+    fm_test_process_cwd() {
+      local calls=0
+      if [ -e "$CHILD_RECEIPT.cwd-calls" ]; then read -r calls < "$CHILD_RECEIPT.cwd-calls"; fi
+      calls=$((calls + 1))
+      printf '%s\n' "$calls" > "$CHILD_RECEIPT.cwd-calls"
+      if [ "$calls" -eq 50 ]; then exit_during_lookup; else return 1; fi
+    } ;;
+  readiness-cwd|cleanup-cwd)
+    fm_test_process_cwd() { exit_during_lookup; } ;;
+  ancestry)
+    ps() {
+      if [ "$*" = "-p $pid -o ppid=" ]; then exit_during_lookup; else command ps "$@"; fi
+    } ;;
+esac
+case "$CHILD_RACE" in
+  cleanup-*) ;;
+  *) fm_test_track_process "$pid" "$root" || fail 'terminal child registration refused' ;;
+esac
+if [ "$CHILD_OUTCOME" = failure ]; then fail 'original assertion failure'; fi
+SH
+  for mode in registration-birth ancestry readiness-birth readiness-cwd readiness-timeout cleanup-cwd cleanup-birth; do
+    for outcome in success failure; do
+      receipt="$harness/$mode-$outcome"
+      rc=0
+      CHILD_LIB="$LIB" CHILD_RACE="$mode" CHILD_OUTCOME="$outcome" \
+        CHILD_RECEIPT="$receipt" CHILD_EXTERNAL="$harness" TMPDIR="$harness/tmp" \
+        bash "$harness/producer.sh" > "$receipt.log" 2>&1 || rc=$?
+      expected=0
+      if [ "$outcome" = failure ]; then expected=1; fi
+      expect_code "$expected" "$rc" "exit during $mode changed the $outcome verdict"
+      if [ "$outcome" = failure ]; then
+        assert_grep 'original assertion failure' "$receipt.log" "exit during $mode lost the original failure"
+      fi
+      assert_present "$receipt.lookup" "control $mode did not reach the lookup race"
+      if grep -q REFUSED "$receipt.log"; then fail "terminal child was refused during $mode"; fi
+      root=$(cat "$receipt.root")
+      assert_absent "$root" "exit during $mode retained the fixture root"
+      assert_absent "$receipt.signals" "exit during $mode sent a signal"
+      pid=$(cat "$receipt.pid")
+      state=$(ps -p "$pid" -o stat= 2>/dev/null || true)
+      case "$state" in ''|*Z*) ;; *) fail "child remained live after $mode" ;; esac
+      other=$(cat "$receipt.other")
+      state=$(ps -p "$other" -o stat= 2>/dev/null || true)
+      case "$state" in ''|*Z*) fail "exit during $mode stopped the unrelated child" ;; esac
+    done
+  done
+  sleep 6
+  pass "ownership lookup races accept terminal children without signalling and preserve success/failure verdicts"
+}
+
 test_fixture_root_gone_after_normal_exit() {
   local child_out child_dir
   child_out=$(bash -c '
@@ -334,6 +428,7 @@ test_registries_avoid_git_worktree_root() {
 
 test_ordinary_children_are_gone_before_fixture_removal
 test_ordinary_child_ownership_controls
+test_ordinary_child_exit_during_ownership_lookup
 test_fixture_root_gone_after_normal_exit
 test_fixture_root_gone_after_sigterm
 test_cleanup_registry_resists_precreation

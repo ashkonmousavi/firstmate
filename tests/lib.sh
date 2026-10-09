@@ -209,14 +209,20 @@ fm_test_track_process() {  # <pid> <fixture-cwd>
   [ "$owned" = 1 ] || { fm_test_process_refuse "$pid" 'cwd is not a registered fixture'; return 1; }
   fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
   birth=$(fm_test_process_birth "$pid") \
-    || { fm_test_process_refuse "$pid" 'birth unavailable'; return 1; }
+    || {
+      fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+      fm_test_process_refuse "$pid" 'birth unavailable'; return 1
+    }
   parent=$pid
   while [ "$parent" != "$$" ] && [ "$tries" -lt 32 ]; do
     parent=$(ps -p "$parent" -o ppid= 2>/dev/null | tr -d '[:space:]') || parent=
     case "$parent" in ''|*[!0-9]*|0|1) break ;; esac
     tries=$((tries + 1))
   done
-  [ "$parent" = "$$" ] || { fm_test_process_refuse "$pid" 'not a child of this test'; return 1; }
+  [ "$parent" = "$$" ] || {
+    fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+    fm_test_process_refuse "$pid" 'not a child of this test'; return 1
+  }
   # A background shell may not have reached its cd yet. The same birth must
   # survive that bounded readiness wait; an exec is allowed, PID reuse is not.
   tries=0
@@ -233,6 +239,7 @@ fm_test_track_process() {  # <pid> <fixture-cwd>
     sleep 0.01
     tries=$((tries + 1))
   done
+  fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
   fm_test_process_refuse "$pid" 'birth/cwd ownership not proved'
 }
 
@@ -255,9 +262,17 @@ fm_test_reap_processes() {
     fi
     if ! fm_test_process_running "$pid"; then wait "$pid" 2>/dev/null || true; continue; fi
     current=$(fm_test_process_cwd "$pid") || current=
-    case "$current" in "$cwd"|"$cwd (deleted)") ;; *) refused=1; continue ;; esac
+    case "$current" in
+      "$cwd"|"$cwd (deleted)") ;;
+      *)
+        if fm_test_process_running "$pid"; then refused=1; else wait "$pid" 2>/dev/null || true; fi
+        continue ;;
+    esac
     current=$(fm_test_process_birth "$pid") || current=
-    if [ "$current" != "$birth" ]; then refused=1; continue; fi
+    if [ "$current" != "$birth" ]; then
+      if fm_test_process_running "$pid"; then refused=1; else wait "$pid" 2>/dev/null || true; fi
+      continue
+    fi
     # These are disposable test children. KILL avoids executing fixture TERM
     # handlers that deliberately fork an unregistered child (the grace test).
     kill -KILL "$pid" 2>/dev/null || true
