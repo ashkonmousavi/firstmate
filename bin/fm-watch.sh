@@ -2470,9 +2470,16 @@ idle_lane_tick() {
   [ -f "$CONFIG/writing-lane-cap" ] || return 0
   cap=$(cat "$CONFIG/writing-lane-cap" 2>/dev/null) || return 1
   case "$cap" in ''|*[!0-9]*|0) triage_log "invalid config/writing-lane-cap"; return 1 ;; esac
-  if [ -e "$CONFIG/release-capacity" ]; then
-    rcap=$(cat "$CONFIG/release-capacity" 2>/dev/null) || return 1
-    case "$rcap" in ''|*[!0-9]*|0) triage_log "invalid config/release-capacity"; return 1 ;; esac
+  if [ -e "$CONFIG/release-capacity" ] || [ -L "$CONFIG/release-capacity" ]; then
+    rcap=$(cat "$CONFIG/release-capacity" 2>/dev/null) || {
+      triage_log "unreadable config/release-capacity"
+      return 1
+    }
+    case "$rcap" in ''|*[!0-9]*) triage_log "invalid config/release-capacity"; return 1 ;; esac
+    if ! [ "$rcap" -gt 0 ] 2>/dev/null; then
+      triage_log "invalid config/release-capacity"
+      return 1
+    fi
   fi
   while IFS= read -r -d '' meta; do
     checkpoint_deadline_passed && return 124
@@ -2480,7 +2487,7 @@ idle_lane_tick() {
     [ -f "$meta" ] || continue
     grep -qx 'kind=ship' "$meta" 2>/dev/null || continue
     occupied=$((occupied + 1))
-    if grep -q '^pr=' "$meta" 2>/dev/null; then
+    if [ -n "$rcap" ] && grep -q '^pr=' "$meta" 2>/dev/null; then
       released=$((released + 1))
     elif [ -n "$rcap" ]; then
       task=${meta##*/}; task=${task%.meta}

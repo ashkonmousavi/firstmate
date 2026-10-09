@@ -260,13 +260,6 @@ SH
   run_watch "$home" "$out"
   stop_quiet_watch "$out"
 
-  printf 'zero\n' > "$home/config/release-capacity"
-  : > "$out"
-  run_watch "$home" "$out"
-  stop_quiet_watch "$out"
-  grep -F 'invalid config/release-capacity' "$home/state/.triage.log" >/dev/null 2>&1 \
-    || grep -rF 'invalid config/release-capacity' "$home/state" >/dev/null 2>&1 \
-    || fail "an invalid release capacity was not reported"
   pass "watcher retains validation and ready-PR pressure until retirement and counts each published lane once"
 }
 
@@ -319,8 +312,102 @@ SH
   pass "unknown, unreadable, or noncompletion status-log states suppress capacity notices unless a recorded PR establishes pressure"
 }
 
+test_invalid_release_capacity_suppresses_notices() {
+  local value home out diagnostic index=0 failures=0
+  for value in 00 0 0000 -1 '' zero 9223372036854775808 18446744073709551616 9999999999999999999999999999999999999999 read-error dangling-symlink; do
+    index=$((index + 1))
+    (
+      home=$(make_case "invalid-release-capacity-$index")
+      out="$home/watch.out"
+      mkdir -p "$home/config" "$home/data"
+      printf '3\n' > "$home/config/writing-lane-cap"
+      printf '# Backlog\n\n## Queued\n- [ ] repair-one - A dispatchable repair (kind: ship)\n' > "$home/data/backlog.md"
+      diagnostic='invalid config/release-capacity'
+      case "$value" in
+        read-error)
+          mkdir "$home/config/release-capacity"
+          diagnostic='unreadable config/release-capacity' ;;
+        dangling-symlink)
+          ln -s missing-capacity "$home/config/release-capacity"
+          diagnostic='unreadable config/release-capacity' ;;
+        *) printf '%s\n' "$value" > "$home/config/release-capacity" ;;
+      esac
+      run_watch "$home" "$out"
+      stop_quiet_watch "$out"
+      [ ! -e "$home/state/.last-idle-lane-wake" ] || fail "invalid capacity committed a notice: $value"
+      [ ! -s "$home/state/.wake-queue" ] || fail "invalid capacity queued a wake: $value"
+      grep -F "$diagnostic" "$home/state/.watch-triage.log" >/dev/null 2>&1 \
+        || fail "capacity $value did not report $diagnostic"
+      pass "capacity '$value' suppresses notices and logs its cause"
+    ) || failures=$((failures + 1))
+  done
+  [ "$failures" -eq 0 ] || fail "$failures invalid release-capacity cases failed"
+}
+
+test_release_metadata_only_invalidates_configured_notices() {
+  local configured home state out marker failures=0
+  for configured in absent 1 0001 9223372036854775807; do
+    (
+      home=$(make_case "release-metadata-$configured")
+      state="$home/state"; out="$home/watch.out"
+      mkdir -p "$home/config" "$home/data"
+      cat > "$home/fakebin/crew-state" <<'SH'
+#!/usr/bin/env bash
+printf 'state: working · source: pane · writing fixture\n'
+SH
+      chmod +x "$home/fakebin/crew-state"
+      printf '3\n' > "$home/config/writing-lane-cap"
+      [ "$configured" = absent ] || printf '%s\n' "$configured" > "$home/config/release-capacity"
+      printf '# Backlog\n\n## Queued\n- [ ] repair-one - A dispatchable repair (kind: ship)\n' > "$home/data/backlog.md"
+      printf 'kind=ship\n' > "$state/one.meta"
+      run_watch "$home" "$out"
+      wait_for_exit "$WATCH_PID" 100 || fail "initial capacity notice did not wake: $configured"
+      grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null || fail "initial writing lane consumed release capacity"
+      marker=$(cat "$state/.last-idle-lane-wake")
+      : > "$out"
+      run_watch "$home" "$out"
+      stop_quiet_watch "$out"
+
+      printf 'pr=https://github.com/example/repo/pull/7\n' >> "$state/one.meta"
+      : > "$out"
+      run_watch "$home" "$out"
+      if [ "$configured" = absent ]; then
+        stop_quiet_watch "$out"
+        [ "$(cat "$state/.last-idle-lane-wake")" = "$marker" ] || fail "unconfigured PR changed the notice marker"
+      else
+        wait_for_exit "$WATCH_PID" 100 || fail "configured PR did not update the capacity notice: $configured"
+        case "$configured" in
+          1|0001)
+            grep -F "lane backpressure: 1/$configured lanes awaiting validation or release" "$out" >/dev/null \
+              || fail "configured recorded PR did not saturate release capacity"
+            grep -F '1 ready: repair-one' "$out" >/dev/null || fail "configured backpressure lost the ready repair" ;;
+          *) grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null || fail "maximum supported capacity was not usable" ;;
+        esac
+      fi
+      : > "$out"
+      run_watch "$home" "$out"
+      stop_quiet_watch "$out"
+
+      printf 'kind=ship\n' > "$state/one.meta"
+      : > "$out"
+      run_watch "$home" "$out"
+      if [ "$configured" = absent ]; then
+        stop_quiet_watch "$out"
+        [ "$(cat "$state/.last-idle-lane-wake")" = "$marker" ] || fail "unconfigured PR removal changed the notice marker"
+      else
+        wait_for_exit "$WATCH_PID" 100 || fail "removed PR did not release capacity: $configured"
+        grep -F 'idle writing lanes: 1/3 occupied' "$out" >/dev/null || fail "removed PR retained release pressure"
+      fi
+      pass "release metadata only changes notices when capacity is configured: $configured"
+    ) || failures=$((failures + 1))
+  done
+  [ "$failures" -eq 0 ] || fail "$failures release metadata cases failed"
+}
+
 test_idle_capacity_wake
 test_public_followups_are_not_ready_work
 test_local_completion_links_do_not_consume_release_capacity
 test_release_backpressure_names_the_bottleneck
 test_unknown_release_state_suppresses_capacity_notices
+test_invalid_release_capacity_suppresses_notices
+test_release_metadata_only_invalidates_configured_notices
