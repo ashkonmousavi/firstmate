@@ -91,6 +91,29 @@ test_compact_worker_scaffolds() {
   pass "compact ship/scout generation preserves task parsing, exact communication paths and executable contracts"
 }
 
+# A ship-light preparation record changes only the generated direct-PR
+# contract: no review round and no hosted-check wait; an ordinary record keeps both.
+test_ship_light_direct_pr_contract() {
+  local home="$TMP_ROOT/ship-light" depth id resolved
+  for depth in ship-light direct-PR; do
+    id="light-$depth"
+    fm_test_prep_record "$home/data" "$id" no no no direct-PR || fail "$depth prep fixture"
+    fm_test_prep_depth "$home/data/$id/prep.md" "$depth" || fail "$depth depth fixture"
+    FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" repo --mode direct-PR >/dev/null || fail "$depth brief generation"
+    resolved=$(resolve_worker_contract "$home/data/$id/brief.md")
+    assert_grep 'Delivery contract: mode=direct-PR' "$resolved" "$depth contract lost its mode line"
+    if [ "$depth" = ship-light ]; then
+      assert_no_grep 'Perform exactly one code review round' "$resolved" "ship-light contract kept the review round"
+      assert_no_grep 'Wait for every required check on the current PR head' "$resolved" "ship-light contract kept the hosted-check wait"
+      assert_grep 'lands it on green ordinary checks' "$resolved" "ship-light contract lost the landing rule"
+    else
+      assert_grep 'Perform exactly one code review round' "$resolved" "ordinary direct-PR lost its review round"
+      assert_grep 'Wait for every required check on the current PR head' "$resolved" "ordinary direct-PR lost its hosted-check wait"
+    fi
+  done
+  pass "ship-light record renders the direct-PR contract without the review round or hosted-check wait"
+}
+
 test_delivery_depth_scaffolds() {
   local home="$TMP_ROOT/depth-scaffolds" format id prep out
   for format in full surgical; do
@@ -1896,3 +1919,4 @@ test_branch_prefix_is_refused_where_it_does_not_apply
 test_branch_prefix_value_is_validated
 test_branch_prefix_command_is_shell_safe
 test_crewmate_scaffolds_forbid_pool_administration
+test_ship_light_direct_pr_contract

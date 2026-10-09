@@ -50,7 +50,7 @@ Once that batch's triage and required reproduction are complete, file the fix or
 Triage once per walk batch, not once per report: collect every problem from all walkers of the batch before filing.
 Cluster the problems by same component and same symptom, and mark each cluster cosmetic or behaviour.
 Reproduce a behaviour cluster with your own eyes before filing it; when it does not reproduce, the failed reproduction is the finding.
-Cosmetic and copy clusters from all walks of the day go into one bundle per code area, shipped as a direct change with one review on the Grok lane the same day.
+Cosmetic and copy clusters from all walks of the day go into one bundle per code area, shipped as a direct change on the Grok lane the same day under the delivery-depth contract in [`bin/fm-dod-lib.sh`](../../../bin/fm-dod-lib.sh).
 Never file one item per cosmetic finding, and never put a behaviour cluster inside a cosmetic bundle.
 A behaviour cluster that fails a journey step, or any symptom seen twice, is a class fix under `diagnostic-reasoning`, which owns its root-cause-first repair, labelled-workaround exception, and three-round limit.
 Work the oldest failing journey step first; cosmetic bundles never starve a real break.
