@@ -90,10 +90,12 @@ pass() {
 
 # --- self-cleaning temp root ------------------------------------------------
 #
-# fm_test_tmproot <prefix> echoes a fresh temp dir and registers it for removal
-# on EXIT/INT/TERM. A test file that needs extra teardown (e.g. killing a
-# daemon) should define its own EXIT trap and call fm_test_cleanup from inside
-# it so registered dirs are still removed.
+# fm_test_tmproot <prefix> echoes a fresh temp dir and registers it for guarded
+# removal on EXIT/INT/TERM/HUP/QUIT. A test file that needs extra teardown
+# (e.g. killing a daemon) must capture the original status before that teardown
+# and finish its EXIT trap with fm_test_cleanup_exit "$rc", so cleanup refusal
+# cannot be reported as success.
+# Ordinary real children follow the registration contract below.
 #
 # The call site is almost always `TMP_ROOT=$(fm_test_tmproot prefix)`, which
 # forks a subshell to capture stdout. Anything that function does to the
@@ -151,6 +153,154 @@ fm_test_pid_identity() {
 FM_TEST_OWNER_IDENTITY=$(fm_test_pid_identity "$$") || {
   rm -f "$FM_TEST_CLEANUP_REGISTRY"
   return 1
+}
+
+# Ordinary fixture children need an EXIT owner even when an assertion prevents
+# their inline stop: call fm_test_track_process before any assertion or disown.
+# A live child must be a descendant of this test with a proved cwd inside its
+# registered fixture roots. File registration survives command-substitution callers.
+# Cleanup revalidates birth and cwd, KILLs only the exact registered PID, and
+# waits for it to terminalize before removing roots; unregistered descendants
+# and retained host workers/helpers are outside this ownership contract.
+# Already-exited children and zombies are terminal and need no signal.
+# Unproved ownership or termination refuses cleanup and preserves the registry
+# and fixture roots. The default EXIT owner preserves an existing nonzero
+# verdict and changes success to failure on refusal.
+FM_TEST_PROCESS_REGISTRY=$(mktemp "$FM_TEST_TMPDIR/.fm-test-process.$$.XXXXXX") || return 1
+FM_TEST_PROCESSES_REAPED=0
+
+fm_test_process_birth() {  # <pid> -> process birth, independent of exec/argv
+  bash -c '. "$1"; fm_codex_pid_birth "$2"' _ "$ROOT/bin/fm-session-lock-lib.sh" "$1"
+}
+
+fm_test_process_cwd() {  # <pid> -> physical cwd, without reading arguments
+  local pid=$1 out
+  if [ -d /proc ]; then
+    readlink "/proc/$pid/cwd"
+  else
+    out=$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null) || return 1
+    out=$(printf '%s\n' "$out" | sed -n 's/^n//p')
+    [ -n "$out" ] || return 1
+    case "$out" in *$'\n'*) return 1 ;; esac
+    printf '%s\n' "$out"
+  fi
+}
+
+fm_test_process_running() {  # <pid>; zombies are terminal
+  local state
+  kill -0 "$1" 2>/dev/null || return 1
+  state=$(ps -p "$1" -o stat= 2>/dev/null || true)
+  case "$state" in
+    *Z*) return 1 ;;
+    '') kill -0 "$1" 2>/dev/null || return 1 ;;
+  esac
+  return 0
+}
+
+fm_test_process_refuse() {
+  : > "$FM_TEST_PROCESS_REGISTRY.refused"
+  printf 'REFUSED: ordinary fixture process %s: %s; preserving fixture roots\n' "$1" "$2" >&2
+  return 1
+}
+
+fm_test_track_process() {  # <pid> <fixture-cwd>
+  local pid=${1:-} cwd=${2:-} birth current parent root owned=0 tries=0
+  case "$pid" in ''|*[!0-9]*|0|1) fm_test_process_refuse "$pid" 'invalid PID'; return 1 ;; esac
+  [ -f "$FM_TEST_PROCESS_REGISTRY" ] \
+    || { fm_test_process_refuse "$pid" 'registry unavailable'; return 1; }
+  [ "$pid" != "$$" ] || { fm_test_process_refuse "$pid" 'test owner is not a child'; return 1; }
+  cwd=$(CDPATH='' cd -- "$cwd" 2>/dev/null && pwd -P) \
+    || { fm_test_process_refuse "$pid" 'cwd unavailable'; return 1; }
+  case "$cwd" in *$'\n'*|*$'\t'*) fm_test_process_refuse "$pid" 'unsupported cwd'; return 1 ;; esac
+  while IFS= read -r root; do
+    [ -n "$root" ] || continue
+    case "$root" in /*) ;; *) continue ;; esac
+    case "$cwd" in "$root"|"$root"/*) owned=1; break ;; esac
+  done < "$FM_TEST_CLEANUP_REGISTRY"
+  [ "$owned" = 1 ] || { fm_test_process_refuse "$pid" 'cwd is not a registered fixture'; return 1; }
+  fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+  birth=$(fm_test_process_birth "$pid") \
+    || {
+      fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+      fm_test_process_refuse "$pid" 'birth unavailable'; return 1
+    }
+  parent=$pid
+  while [ "$parent" != "$$" ] && [ "$tries" -lt 32 ]; do
+    parent=$(ps -p "$parent" -o ppid= 2>/dev/null | tr -d '[:space:]') || parent=
+    case "$parent" in ''|*[!0-9]*|0|1) break ;; esac
+    tries=$((tries + 1))
+  done
+  [ "$parent" = "$$" ] || {
+    fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+    fm_test_process_refuse "$pid" 'not a child of this test'; return 1
+  }
+  # A background shell may not have reached its cd yet. The same birth must
+  # survive that bounded readiness wait; an exec is allowed, PID reuse is not.
+  tries=0
+  while [ "$tries" -lt 50 ]; do
+    fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+    current=$(fm_test_process_birth "$pid") || current=
+    [ "$current" = "$birth" ] || break
+    current=$(fm_test_process_cwd "$pid") || current=
+    if [ "$current" = "$cwd" ]; then
+      printf '%s\t%s\t%s\n' "$pid" "$birth" "$cwd" >> "$FM_TEST_PROCESS_REGISTRY" \
+        || { fm_test_process_refuse "$pid" 'registration failed'; return 1; }
+      return 0
+    fi
+    sleep 0.01
+    tries=$((tries + 1))
+  done
+  fm_test_process_running "$pid" || { wait "$pid" 2>/dev/null || true; return 0; }
+  fm_test_process_refuse "$pid" 'birth/cwd ownership not proved'
+}
+
+fm_test_reap_processes() {
+  local pid birth cwd extra current tries refused=0
+  if [ "$FM_TEST_PROCESSES_REAPED" = 1 ] && [ ! -e "$FM_TEST_PROCESS_REGISTRY.refused" ]; then return 0; fi
+  if [ ! -f "$FM_TEST_PROCESS_REGISTRY" ]; then
+    printf 'REFUSED: ordinary fixture process registry unavailable; preserving fixture roots\n' >&2
+    return 1
+  fi
+  [ ! -e "$FM_TEST_PROCESS_REGISTRY.refused" ] || refused=1
+  while IFS=$'\t' read -r pid birth cwd extra; do
+    case "$pid" in
+      '') continue ;;
+      refused|*[!0-9]*|0|1) refused=1; continue ;;
+    esac
+    if [ "$pid" = "$$" ] || [ -z "$birth" ] || [ -z "$cwd" ] || [ -n "$extra" ]; then
+      refused=1
+      continue
+    fi
+    if ! fm_test_process_running "$pid"; then wait "$pid" 2>/dev/null || true; continue; fi
+    current=$(fm_test_process_cwd "$pid") || current=
+    case "$current" in
+      "$cwd"|"$cwd (deleted)") ;;
+      *)
+        if fm_test_process_running "$pid"; then refused=1; else wait "$pid" 2>/dev/null || true; fi
+        continue ;;
+    esac
+    current=$(fm_test_process_birth "$pid") || current=
+    if [ "$current" != "$birth" ]; then
+      if fm_test_process_running "$pid"; then refused=1; else wait "$pid" 2>/dev/null || true; fi
+      continue
+    fi
+    # These are disposable test children. KILL avoids executing fixture TERM
+    # handlers that deliberately fork an unregistered child (the grace test).
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    tries=0
+    while fm_test_process_running "$pid" && [ "$tries" -lt 50 ]; do
+      sleep 0.02
+      tries=$((tries + 1))
+    done
+    fm_test_process_running "$pid" && refused=1
+  done < "$FM_TEST_PROCESS_REGISTRY"
+  if [ "$refused" = 1 ]; then
+    printf 'REFUSED: ordinary fixture process ownership or termination is unproved; preserving registry %s and fixture roots\n' "$FM_TEST_PROCESS_REGISTRY" >&2
+    return 1
+  fi
+  rm -f "$FM_TEST_PROCESS_REGISTRY"
+  FM_TEST_PROCESSES_REAPED=1
 }
 
 # --- process-event runner reaping -------------------------------------------
@@ -256,6 +406,7 @@ fm_test_remove_tree() {
 
 fm_test_cleanup() {
   local d
+  fm_test_reap_processes || return 1
   fm_test_reap_watchers
   fm_test_reap_procevent_homes
   for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"; do
@@ -283,7 +434,14 @@ fm_test_tmproot() {
   printf '%s\n' "$root"
 }
 
-trap fm_test_cleanup EXIT
+fm_test_cleanup_exit() {  # preserve an assertion failure; never hide refusal
+  local rc=$1
+  trap - EXIT
+  if ! fm_test_cleanup; then [ "$rc" -ne 0 ] || rc=1; fi
+  exit "$rc"
+}
+
+trap 'fm_test_cleanup_exit "$?"' EXIT
 trap 'fm_test_cleanup; exit 130' INT
 trap 'fm_test_cleanup; exit 143' TERM
 trap 'fm_test_cleanup; exit 129' HUP
