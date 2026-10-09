@@ -1,0 +1,1 @@
+error: --branch-prefix and task id must form a valid git branch (got '$(touch${IFS}/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/tmp/fm-task-delivery.oBDoNX/promote-branch-shell-safe-marker)/promote-branch-safe-e3')

@@ -1,0 +1,2 @@
+ok - fm-brief: scaffolds leave the worker role scope to the launch boundary and keep the secondmate contract
+not ok - no-mistakes scaffold is 4326 bytes, expected about 3 KB (2000-4000)

@@ -1,0 +1,10 @@
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+promoted promote-branch-safe-e3 to ship mode=local-only yolo=off (teardown protection restored)
+wrote ship instructions for mode=local-only: /tmp/fm-task-delivery.Kwc4B2/promote-branch-shell-safe/home/data/promote-branch-safe-e3/ship-instructions.md
+next: FM_HOME=/tmp/fm-task-delivery.Kwc4B2/promote-branch-shell-safe/home bin/fm-send.sh fm-promote-branch-safe-e3 "$(cat /tmp/fm-task-delivery.Kwc4B2/promote-branch-shell-safe/home/data/promote-branch-safe-e3/ship-instructions.md)"

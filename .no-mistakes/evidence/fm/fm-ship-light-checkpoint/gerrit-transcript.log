@@ -1,0 +1,6 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/gerrit-lab
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/gerrit-lab/data/gerrit-quick/brief.md (ship, mode=direct-PR forge=gerrit shape=squash; replace {TASK} and {FIRSTMATE_SPEC})
+Delivery contract: mode=direct-PR forge=gerrit shape=squash
+Run only the tests of the modules you changed, then publish.
+1. Never push with git and never create a change except through the one `gerrit-axi publish --squash` your Definition of done names. Never run `gerrit-axi submit`, never vote or review a change by any path, including `gerrit review` or a label option on a push, and never abandon one: a human reviewer approves and submits it on the server.
+2. Run `gerrit-axi publish --squash --json`, adding `--branch <b>` only when the task names a target branch other than the server's default.

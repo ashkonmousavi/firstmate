@@ -1,0 +1,85 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+Product head: 9435bc2c2d0f76d613841efb9dbe2bf25bcc2659
+fm_prep_delivery_mode quick [current]: exit=0 output=direct-PR
+fm_prep_delivery_mode quick [historical]: exit=0 output=direct-PR
+BASE 44feb924 fm_prep_delivery_mode quick: exit=1 output=<empty> (expected rejection before change)
+fm_prep_delivery_mode money [current]: exit=1 output=<empty>
+fm_prep_delivery_mode money [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [money]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode security [current]: exit=1 output=<empty>
+fm_prep_delivery_mode security [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [security]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode shared-code [current]: exit=1 output=<empty>
+fm_prep_delivery_mode shared-code [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [shared-code]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode q2-yes [current]: exit=1 output=<empty>
+fm_prep_delivery_mode q2-yes [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [q2-yes]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode presentation-q2 [current]: exit=1 output=<empty>
+fm_prep_delivery_mode presentation-q2 [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [presentation-q2]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode missing-risk [current]: exit=1 output=<empty>
+fm_prep_delivery_mode missing-risk [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [missing-risk]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode missing-checkpoint [current]: exit=1 output=<empty>
+fm_prep_delivery_mode missing-checkpoint [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [missing-checkpoint]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode duplicate-depth [current]: exit=1 output=<empty>
+fm_prep_delivery_mode duplicate-depth [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [duplicate-depth]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+fm_prep_delivery_mode smuggled-depth [current]: exit=1 output=<empty>
+fm_prep_delivery_mode smuggled-depth [historical]: exit=1 output=<empty>
+fm-spawn.sh quick --mode direct-PR [smuggled-depth]: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab
+error: task quick cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/prep.md; scaffold with bin/fm-brief.sh quick --prep and reconcile Delivery risk/depth
+Perform exactly one code review round against the preparation outcomes and project standards using the existing review mechanism.
+Wait for every required check on the current PR head to be green, reading the forge with `gh-axi pr checks <number>` (consult its `--help` for current usage).
+BASE quick worker output: ordinary review and hosted wait remain (RED for ship-light).
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/quick/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+Delivery contract: mode=direct-PR
+Run only the tests of the modules you changed, then publish.
+Do NOT run /no-mistakes. The configured merge authority lands it on green ordinary checks; firstmate relays the outcome.
+Then append `done [at=<epoch>]: PR {full https URL from the forge}` to the status file and stop; do not wait for its checks.
+When it is implemented and committed, push your branch and open a PR with `gh-axi` that is ready for review, not a draft.
+Before you report done, read the PR back from the forge and confirm it is not a draft (`gh-axi pr view <number>` must print `draft: no`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with `gh-axi pr ready <number>`.
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/promote/brief.md (scout; replace {TASK} and {FIRSTMATE_SPEC})
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+promoted promote to ship mode=direct-PR yolo=off (teardown protection restored)
+wrote ship instructions for mode=direct-PR: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/promote/ship-instructions.md
+next: FM_HOME=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab bin/fm-send.sh fm-promote "$(cat /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/lab/data/promote/ship-instructions.md)"
+window=fm-promote
+worktree=/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3
+kind=ship
+mode=direct-PR
+yolo=off
+branch=fm/promote
+Delivery contract: mode=direct-PR
+Do NOT run /no-mistakes. The configured merge authority lands it on green ordinary checks; firstmate relays the outcome.
+This is a ship-light fix: its preparation record names the live journey walk or other checkpoint that already tests it, so it gets no review round, no extra test round and no hosted-check wait.
+fm_dod_block direct-PR: base/head emitted contract byte-identical
+fm_dod_block no-mistakes: base/head emitted contract byte-identical
+fm_dod_block local-only: base/head emitted contract byte-identical
+2. Run `gerrit-axi publish --squash --json`, adding `--branch <b>` only when the task names a target branch other than the server's default.
+Live public-interface scenarios complete. Lab removed by EXIT trap.

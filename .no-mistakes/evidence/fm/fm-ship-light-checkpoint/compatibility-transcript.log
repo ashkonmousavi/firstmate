@@ -1,0 +1,11 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/compat-lab
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/compat-lab/data/surgical/prep.md (task prep; answer the ## Tier header first - it decides which sections this task owes)
+fm_prep_unfilled_reason surgical: exit=1 reason=<empty> (exit 1 + empty is complete)
+fm_prep_delivery_mode surgical: direct-PR
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/compat-lab/data/surgical/brief.md (ship, mode=direct-PR; replace {TASK} and {FIRSTMATE_SPEC})
+This is a ship-light fix: its preparation record names the live journey walk or other checkpoint that already tests it, so it gets no review round, no extra test round and no hosted-check wait.
+fm_prep_delivery_mode historical ordinary missing-risk: direct-PR
+Scout contract: base/head byte-identical.
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/compat-lab/data/mate/brief.md (secondmate charter; replace {TASK})
+scaffolded: /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/compat-lab/data/mate/brief.md (secondmate charter; replace {TASK})
+Secondmate charter: base/head byte-identical.

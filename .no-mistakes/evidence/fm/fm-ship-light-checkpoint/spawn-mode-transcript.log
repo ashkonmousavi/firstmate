@@ -1,0 +1,4 @@
+/home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/spawn-lab
+fm-spawn.sh quick --mode no-mistakes: exit=1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home /home/tegris/.no-mistakes/worktrees/92d12cd65d25/01M4G0K80WBNTDBXT67M2SZ8F3/.test-phase/spawn-lab
+error: task quick selected --mode no-mistakes but declared Delivery depth: checks-only (direct-PR); reconcile the flag and preparation before spawn
