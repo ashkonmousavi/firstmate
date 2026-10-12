@@ -3217,7 +3217,8 @@ WATCHER_RECOVERY_PENDING=0
 if [ -n "${FM_LOCK_RECOVERED_PID:-}" ]; then
   WATCHER_RECOVERY_PENDING=1
 fi
-if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" != 1 ]; then
+if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" != 1 ] \
+  && [ "${FM_WATCH_FOREGROUND_CHECKPOINT:-0}" != 1 ]; then
   recovery_rc=0
   fm_recovery_marker_reopen_announced "$WATCHER_DOWNTIME_MARKER" || recovery_rc=$?
   if [ "$recovery_rc" -ne 0 ]; then
