@@ -1332,7 +1332,9 @@ Typing `/exit` makes Claude Code render its command popup between the composer a
 The composer row lands outside a bounded 20-row tail of the pane, so the adapter's bounded composer reads reported the composer as empty while it actually held `/exit`.
 The pre-Enter payload proof then judged the typed command unsent, pressed Ctrl+U, and reported `send-failed` without ever pressing Enter, so `bin/fm-control.sh exit` never exited the worker (and `bin/fm-secondmate-restart.sh` inherited the failure through its exit step).
 
-The fix captures the FULL VISIBLE VIEWPORT for every herdr adapter composer read (`pane read --source visible [--format ansi]`, `fm_backend_herdr_composer_state` and `fm_backend_herdr_composer_content`): the composer is by definition inside the viewport, and the viewport is the one bound that always contains it.
+The fix captures the full visible viewport for an unscrolled herdr composer read (`pane read --source visible [--format ansi]`, `fm_backend_herdr_composer_state` when `scroll.offset_from_bottom` is 0, and `fm_backend_herdr_composer_content`): a slash popup can push the composer above a short tail while the viewer is still at the bottom.
+When `pane get` reports `offset_from_bottom` greater than 0, the viewport is history, so `fm_backend_herdr_composer_state` classifies a bottom-anchored `pane read --source recent` instead, and an unreadable bottom is unknown rather than pending.
+`fm_backend_herdr_composer_content` stays on the viewport.
 The shared inbox pending-line confirmation read (`bin/fm-task-inbox-lib.sh`) stays a bounded tail on every backend, herdr included; its payloads are task lines, not slash commands, so the popup shape does not arise there.
 The popup rows sit below the composer's closing rule, which is a structural edge row, so the shared classifier still selects only the composer and the menu rows never read as typed text.
 Verified live in the lab: with the popup up the state read answers `pending` (previously `empty`) and the payload proof returns `/exit` (previously empty), the submit presses Enter, and the Claude process exits, leaving the shell prompt.
@@ -1357,6 +1359,21 @@ FM_HERDR_SUBMIT_CONFIRM_LIVE=1 tests/fm-herdr-submit-confirm-live-e2e.test.sh
 
 ```text
 ok - live Herdr submit confirm: Claude Code (2.1.283 (Claude Code)) on herdr 0.9.0 proves and submits a typed /exit behind its command popup
+```
+
+A scrolled viewer is separate from that popup fix.
+`pane get` reporting `scroll.offset_from_bottom` greater than 0 means `--source visible` is history, and the composer is at the bottom of the pane.
+`fm_backend_herdr_composer_state` classifies `pane read --source recent` in that case, and an unreadable bottom is unknown rather than pending.
+Portable regression, fake CLI, no Herdr server, 2026-10-13:
+
+```sh
+bash tests/fm-backend-herdr.test.sh
+```
+
+```text
+ok - fm_backend_herdr_composer_state: scrolled history with an empty bottom composer reads empty
+ok - fm_backend_herdr_composer_state: real text at the bottom of a scrolled pane reads pending
+ok - fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown
 ```
 
 ### Claude background-task exit picker
