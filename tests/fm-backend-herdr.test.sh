@@ -5099,7 +5099,7 @@ test_send_text_submit_scrolled_claude_proves_live_composer() {
   local dir log resp fb out text format baseline enter_count
   for text in 'doorbell message' '/exit'; do
     for format in ansi plain; do
-      dir="$TMP_ROOT/submit-scrolled-${text//[^a-z]/}-$format"
+      dir="$TMP_ROOT/submit-scrolled-${text//[[:space:]\/]/}-$format"
       mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
       printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get.out"
       herdr_popup_composer_screen 'old transcript draft' > "$resp/visible.out"
