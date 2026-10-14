@@ -2459,6 +2459,9 @@ EVICTED_PID=
 EVICTED_BEAT_AGE=
 BEAT="$STATE/.last-watcher-beat"
 while ! fm_lock_try_acquire "$WATCH_LOCK"; do
+  # A malformed lock path is not a running watcher; the lock helper has
+  # already named it, so refuse rather than report "already running".
+  [ -z "$FM_LOCK_MALFORMED" ] || exit 1
   if [ -n "${FM_LOCK_HELD_PID:-}" ]; then
     if [ -e "$BEAT" ]; then
       beat_age=$(fm_path_age "$BEAT")
