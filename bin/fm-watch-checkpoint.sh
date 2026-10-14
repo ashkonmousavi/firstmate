@@ -1,13 +1,8 @@
 #!/usr/bin/env bash
-# Run a foreground watcher checkpoint or recovery cycle for harnesses that
-# should not rely on background-task completion to wake the model.
-# --seconds <n> selects the quiet bound. --recover cannot be combined with it:
-# it runs the watcher directly for one cycle with no checkpoint deadline,
-# bypassing the supervision host while recovery owners keep their stage bounds.
-# A queued checkpoint-recovery check is returned before a bounded cycle starts;
-# docs/supervision-protocols/codex.md owns its handling and acknowledgement.
+# Run one bounded foreground watcher checkpoint for harnesses that should not
+# rely on background-task completion to wake the model.
 #
-# SUPERVISION HOST (bounded cycles only). A home opted in with config/supervision-host
+# SUPERVISION HOST. A home opted in with config/supervision-host
 # (docs/configuration.md "Supervision host" owns the gate;
 # config/supervision-host-off opts out, and a Codex home without the file does not run the host) runs
 # bin/fm-supervision-host.sh in the watcher's place for the checkpoint's bound,
@@ -29,32 +24,25 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 CONFIG="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 SECONDS_ARG=${FM_CODEX_WATCH_CHECKPOINT:-180}
-RECOVER=0
-EXPLICIT_SECONDS=0
 
 usage() {
   cat <<'EOF'
-Usage: fm-watch-checkpoint.sh [--seconds <n> | --recover]
+Usage: fm-watch-checkpoint.sh [--seconds <n>]
 
 Run bin/fm-watch.sh in the foreground for a bounded checkpoint.
 On an actionable watcher wake, pass through the watcher output and exit 0.
-With --recover, run one foreground recovery cycle through the existing watcher,
-without a quiet deadline; each recovery owner retains its existing stage bounds.
 On a quiet checkpoint, print "checkpoint: no actionable wake within <n>s" and exit 124.
 EOF
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --recover) RECOVER=1; shift ;;
     --seconds)
-      EXPLICIT_SECONDS=1
       [ "$#" -gt 1 ] || { echo "error: --seconds requires a value" >&2; exit 2; }
       SECONDS_ARG=$2
       shift 2
       ;;
     --seconds=*)
-      EXPLICIT_SECONDS=1
       SECONDS_ARG=${1#--seconds=}
       shift
       ;;
@@ -70,53 +58,15 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ "$RECOVER" -eq 0 ] || [ "$EXPLICIT_SECONDS" -eq 0 ] || { echo 'error: --recover cannot carry a quiet checkpoint bound' >&2; exit 2; }
-
 case "$SECONDS_ARG" in
   ''|*[!0-9]*) echo "error: --seconds must be a positive integer" >&2; exit 2 ;;
+  0) echo "error: --seconds must be greater than zero" >&2; exit 2 ;;
 esac
-SECONDS_ARG=$((10#$SECONDS_ARG))
-[ "$SECONDS_ARG" -gt 0 ] || { echo "error: --seconds must be greater than zero" >&2; exit 2; }
 
-# A Codex session lock enables session-owned handling-gap evidence. Generic
-# checkpoint callers without that lock keep their existing watch-only path.
-# shellcheck source=bin/fm-wake-lib.sh
-. "$SCRIPT_DIR/fm-wake-lib.sh"
-# shellcheck source=bin/fm-session-lock-lib.sh
-. "$SCRIPT_DIR/fm-session-lock-lib.sh"
-CODEX_HANDLING=0
-if recorded_session=$(fm_session_lock_recorded_session_id "$STATE"); then
-  case "$recorded_session" in
-    codex:*)
-      fm_codex_checkpoint_begin "$STATE" || {
-        echo 'checkpoint: Codex session does not own this home lock' >&2
-        exit 1
-      }
-      CODEX_HANDLING=1
-      ;;
-  esac
-fi
-checkpoint_finish_handling() {
-  [ "$CODEX_HANDLING" -eq 1 ] || return 0
-  fm_codex_checkpoint_finish "$STATE" || {
-    echo 'checkpoint: could not prove the Codex handling interval' >&2
-    return 1
-  }
-}
-checkpoint_finish_watcher_lock() {
-  local lock="$STATE/.watch.lock"
-  [ -e "$lock/pid" ] || return 0
-  # The timeout owns the watcher process lifetime, but a fatal signal can
-  # bypass its EXIT cleanup. Reclaim only through the shared stale-owner
-  # protocol, which rechecks the pid under the steal lock and publishes
-  # downtime. A live or uncertain owner remains untouched and is an error.
-  if fm_lock_try_acquire "$lock"; then
-    fm_lock_release "$lock" || return 1
-    return 0
-  fi
-  echo 'checkpoint: watcher lock still has a live or unverified owner' >&2
-  return 1
-}
+# A checkpoint is neither an ordinary watcher start nor an Option B handling
+# successor. It keeps an announced recovery episode stable while preserving the
+# watcher's ordinary recovery of a generation that becomes pending.
+export FM_WATCH_FOREGROUND_CHECKPOINT=1
 
 OUT=$(mktemp "${TMPDIR:-/tmp}/fm-watch-checkpoint.out.XXXXXX") || exit 1
 ERR=$(mktemp "${TMPDIR:-/tmp}/fm-watch-checkpoint.err.XXXXXX") || {
@@ -125,9 +75,12 @@ ERR=$(mktemp "${TMPDIR:-/tmp}/fm-watch-checkpoint.err.XXXXXX") || {
 }
 trap 'rm -f "$OUT" "$ERR"' EXIT
 
-run_with_perl_timeout() {  # <seconds> <command...>
+run_with_perl_timeout() {  # <seconds> <signal> <kill-after-seconds> <command...>
   perl -e '
+    use POSIX qw(:sys_wait_h);
     my $seconds = shift;
+    my $signal = shift;
+    my $kill_after = shift;
     my $pid = fork;
     die "fork failed\n" unless defined $pid;
     if (!$pid) {
@@ -135,32 +88,56 @@ run_with_perl_timeout() {  # <seconds> <command...>
       exec @ARGV;
       die "exec failed: $!\n";
     }
+    my $timed_out = 0;
     local $SIG{ALRM} = sub {
-      kill "TERM", -$pid;
-      my $grace = $ENV{FM_SIGNAL_GRACE} || 5;
-      local $SIG{ALRM} = sub {
+      if ($timed_out) {
         kill "KILL", -$pid;
         waitpid $pid, 0;
         exit 124;
-      };
-      alarm $grace;
-      waitpid $pid, 0;
-      exit 124;
+      }
+      $timed_out = 1;
+      kill $signal, -$pid;
+      alarm($kill_after) if $kill_after;
     };
     alarm $seconds;
-    waitpid $pid, 0;
-    alarm 0;
-    exit($? >> 8);
+    while (1) {
+      my $waited = waitpid $pid, WNOHANG;
+      if ($waited == $pid) {
+        alarm 0;
+        exit($timed_out ? 124 : ($? >> 8));
+      }
+      select undef, undef, undef, 0.05;
+    }
   ' "$@"
 }
 
-run_bounded() {  # <seconds> <command...>
+run_bounded() {  # <seconds> <signal> <kill-after-seconds> <command...>
+  local seconds=$1 signal=$2 kill_after=$3 cleanup_lock_bound
+  shift 3
+  if [ "$kill_after" -gt 0 ]; then
+    cleanup_lock_bound=${FM_WATCHER_CLEANUP_LOCK_BOUND:-2}
+    case "$cleanup_lock_bound" in
+      ''|*[!0-9]*) cleanup_lock_bound=2 ;;
+      *) cleanup_lock_bound=$((10#$cleanup_lock_bound)) ;;
+    esac
+    [ "$cleanup_lock_bound" -gt 0 ] || cleanup_lock_bound=2
+    [ "$cleanup_lock_bound" -gt "$kill_after" ] || cleanup_lock_bound=$kill_after
+    kill_after=$cleanup_lock_bound
+  fi
   if command -v timeout >/dev/null 2>&1; then
-    timeout "$@"
+    if [ "$kill_after" -gt 0 ]; then
+      timeout --signal="$signal" --kill-after="${kill_after}s" "$seconds" "$@"
+    else
+      timeout --signal="$signal" "$seconds" "$@"
+    fi
   elif command -v gtimeout >/dev/null 2>&1; then
-    gtimeout "$@"
+    if [ "$kill_after" -gt 0 ]; then
+      gtimeout --signal="$signal" --kill-after="${kill_after}s" "$seconds" "$@"
+    else
+      gtimeout --signal="$signal" "$seconds" "$@"
+    fi
   else
-    run_with_perl_timeout "$@"
+    run_with_perl_timeout "$seconds" "$signal" "$kill_after" "$@"
   fi
 }
 
@@ -170,27 +147,6 @@ positive_or() {  # <value> <default>
 
 # shellcheck source=bin/fm-supervision-engine-lib.sh
 . "$SCRIPT_DIR/fm-supervision-engine-lib.sh"
-if [ "$RECOVER" -eq 1 ]; then
-  FM_WATCH_CHECKPOINT_SECONDS='' FM_CHECKPOINT_DEADLINE='' FM_WATCH_RECOVERY_CYCLE=1 \
-    "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
-  RC=$?
-  if grep -q '^watcher: already running' "$OUT" "$ERR"; then
-    echo 'checkpoint: watcher is already running outside this foreground recovery cycle' >&2
-    RC=1
-  fi
-  [ ! -s "$OUT" ] || cat "$OUT"
-  [ ! -s "$ERR" ] || cat "$ERR" >&2
-  checkpoint_finish_watcher_lock || exit 1
-  checkpoint_finish_handling || exit 1
-  [ "$RC" -ne 75 ] || RC=0
-  exit "$RC"
-fi
-recovery_reason=$(awk -F '\t' '$3 == "check" && $4 ~ /^checkpoint-recovery-/ { print $5; exit }' "$STATE/.wake-queue" 2>/dev/null || true)
-if [ -n "$recovery_reason" ]; then
-  printf '%s\n' "$recovery_reason"
-  checkpoint_finish_handling || exit 1
-  exit 0
-fi
 if fm_supervision_host_enabled "$CONFIG" codex; then
   BOUND=$SECONDS_ARG
   if [ -f "$STATE/.afk-contract" ] \
@@ -204,19 +160,17 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
   set +e
   # The host ends its own park; the outer bound only catches a host that
   # outlived every one of its own bounds.
-  FM_SUPERVISION_WATCH_DEADLINE=$(( $(date +%s) + BOUND )) FM_SUPERVISION_HOST_PRIMARY=codex FM_SUPERVISION_HOST_PARK_SECONDS=$BOUND FM_SUPERVISION_HOST_PARK_LIMIT=$LIMIT \
-    run_bounded $((LIMIT + 120)) "$SCRIPT_DIR/fm-supervision-host.sh" park >"$OUT" 2>"$ERR"
+  FM_SUPERVISION_HOST_PRIMARY=codex FM_SUPERVISION_HOST_PARK_SECONDS=$BOUND FM_SUPERVISION_HOST_PARK_LIMIT=$LIMIT \
+    run_bounded $((LIMIT + 120)) TERM 0 "$SCRIPT_DIR/fm-supervision-host.sh" park >"$OUT" 2>"$ERR"
   RC=$?
   set -e
   if grep -E '^(signal:|stale:|check:|heartbeat($|:)|supervision-host:)' "$OUT" 2>/dev/null \
     | grep -Ev '^supervision-host: cycle boundary' >/dev/null; then
     grep -Ev '^watcher: (started|attached) ' "$OUT"
     [ ! -s "$ERR" ] || cat "$ERR" >&2
-    checkpoint_finish_handling || exit 1
     exit 0
   fi
   if grep -E '^supervision-host: cycle boundary' "$OUT" >/dev/null 2>&1; then
-    checkpoint_finish_handling || exit 1
     printf 'checkpoint: no actionable wake within %ss\n' "$BOUND"
     exit 124
   fi
@@ -231,13 +185,16 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
 fi
 
 set +e
-# The watcher closes its own quiet boundary. The outer timeout is only a
-# failure backstop for a watcher that cannot reach that boundary, so it also
-# covers one registered check the watcher started just before the bound.
-FM_WATCH_CHECKPOINT_SECONDS=$SECONDS_ARG \
-  run_bounded "$((SECONDS_ARG + $(positive_or "${FM_CHECK_TIMEOUT:-}" 30) + 10))" "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+# Interrupt the checkpoint's active check group so the watcher's native EXIT cleanup can release its lock; ordinary watcher shutdown still uses TERM.
+run_bounded "$SECONDS_ARG" INT 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
 RC=$?
 set -e
+
+if grep -E '^(signal:|stale:|check:|heartbeat($|:))' "$OUT" >/dev/null 2>&1; then
+  cat "$OUT"
+  [ ! -s "$ERR" ] || cat "$ERR" >&2
+  exit 0
+fi
 
 if grep -E '^watcher: already running' "$OUT" "$ERR" >/dev/null 2>&1; then
   [ ! -s "$OUT" ] || cat "$OUT"
@@ -246,25 +203,9 @@ if grep -E '^watcher: already running' "$OUT" "$ERR" >/dev/null 2>&1; then
   exit 1
 fi
 
-if grep -E '^(signal:|stale:|check:|heartbeat($|:))' "$OUT" >/dev/null 2>&1; then
-  cat "$OUT"
-  [ ! -s "$ERR" ] || cat "$ERR" >&2
-  checkpoint_finish_watcher_lock || exit 1
-  checkpoint_finish_handling || exit 1
-  exit 0
-fi
-
-checkpoint_finish_watcher_lock || exit 1
-
-if [ "$RC" -eq 75 ] && grep -Fxq 'watcher: quiet checkpoint' "$OUT"; then
-  checkpoint_finish_handling || exit 1
+if [ "$RC" -eq 124 ]; then
   printf 'checkpoint: no actionable wake within %ss\n' "$SECONDS_ARG"
   exit 124
-fi
-
-if [ "$RC" -eq 124 ]; then
-  echo 'checkpoint: watcher exceeded the quiet bound without a clean close' >&2
-  exit 1
 fi
 
 [ ! -s "$OUT" ] || cat "$OUT"
