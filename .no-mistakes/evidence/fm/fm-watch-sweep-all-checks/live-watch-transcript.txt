@@ -1,0 +1,162 @@
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup
+~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup
+exit=0
+
+$ bin/fm-check-register.sh a-news
+registered: state/a-news.check.sh
+exit=0
+
+$ bin/fm-check-register.sh b-quiet
+registered: state/b-quiet.check.sh
+exit=0
+
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+exit=0
+
+$ bin/fm-watch.sh
+check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/a-news.check.sh: memory-low
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979363	1	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/a-news.check.sh: memory-low
+1791979364	2	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh: disk-full
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 251856.1791979363.p6yh9M
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 registered custom check(s), but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 251856.1791979363.p6yh9M
+exit=0
+
+Observed execution order: early
+quiet
+late
+
+Cadence: rearmed watcher remained blocking for 3 seconds; no check re-executed and cadence timestamp unchanged.
+
+$ bin/fm-watch.sh
+check: rearm-resurface
+exit=0
+
+$ bin/fm-wake-drain.sh
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 255618.1791979369.uUrF6I
+WARNING: watcher still down (same stale episode; last beat: 1s ago, grace 300s) - full banner already printed this episode.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 0 --recovery-generation 255618.1791979369.uUrF6I
+exit=0
+
+$ bin/fm-watch.sh
+check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/a-news.check.sh: memory-low
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979374	3	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/a-news.check.sh: memory-low
+1791979375	4	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh: disk-full
+1791979375	5	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/b-hostile.check.sh
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 261240.1791979374.6LZFzr
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 5 --recovery-generation 261240.1791979374.6LZFzr
+exit=0
+
+Unregistered check was never executed; late registered check and rejection both appear in durable drain.
+
+$ bin/fm-check-unregister.sh b-hostile
+unregistered: state/b-hostile.check.sh
+exit=0
+
+$ bin/fm-check-unregister.sh a-news
+unregistered: state/a-news.check.sh
+exit=0
+
+$ bin/fm-pr-check.sh b-merged https://github.com/cli/cli/pull/1
+armed: state/b-merged.check.sh
+WARNING: watcher still down (same stale episode; last beat: 5s ago, grace 300s) - full banner already printed this episode.
+exit=0
+
+$ bin/fm-watch.sh
+check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/b-merged.check.sh: merged
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979384	6	check	merged-b-merged-https://github.com/cli/cli/pull/1	check: merge landed: b-merged https://github.com/cli/cli/pull/1 external
+1791979386	7	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh: disk-full
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 267312.1791979384.VGqbd5
+WARNING: watcher still down (same stale episode; last beat: 10s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 7 --recovery-generation 267312.1791979384.VGqbd5
+exit=0
+
+Real merged GitHub PR retired; late custom check queued in the same sweep.
+
+$ bin/fm-check-register.sh contributions
+registered: state/contributions.check.sh
+exit=0
+
+$ bin/fm-watch.sh
+check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh: disk-full
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979394	8	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh: disk-full
+1791979394	9	check	contributions	check: contributions lab-event
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 273418.1791979394.zAN95w
+WARNING: watcher still down (same stale episode; last beat: 4s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 273418.1791979394.zAN95w
+exit=0
+
+Contribution producer wake and late custom check are both durable; one immediate watcher wake.
+
+$ bin/fm-check-unregister.sh c-news
+unregistered: state/c-news.check.sh
+exit=0
+
+$ bin/fm-watch.sh
+check: contributions lab-event
+
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979399	10	check	contributions	check: contributions lab-event
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 10 --recovery-generation 279878.1791979399.ZPXYLA
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 10 --recovery-generation 279878.1791979399.ZPXYLA
+exit=0
+
+$ bin/fm-check-unregister.sh contributions
+unregistered: state/contributions.check.sh
+exit=0
+
+$ bin/fm-watch.sh
+check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/b-hostile.check.sh
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979403	11	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/b-hostile.check.sh
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 281725.1791979403.eav5lz
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 281725.1791979403.eav5lz
+exit=0
+
+Contribution-only and rejection-only sweeps each wake once and deliver the expected durable record.

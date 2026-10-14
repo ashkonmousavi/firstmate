@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.baseline-watch-validation.py", line 42, in <module>
+    assert len(rows)==2 and [r[4] for r in rows]==[f'check: {lab}/state/a-news.check.sh: memory-low',f'check: {lab}/state/c-news.check.sh: disk-full'],rows
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: [['1791979417', '1', 'check', '~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl/state/a-news.check.sh', 'check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl/state/a-news.check.sh: memory-low']]

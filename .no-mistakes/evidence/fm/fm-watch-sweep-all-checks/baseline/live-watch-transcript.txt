@@ -1,0 +1,35 @@
+$ bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl
+~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl
+exit=0
+
+$ bin/fm-check-register.sh a-news
+registered: state/a-news.check.sh
+exit=0
+
+$ bin/fm-check-register.sh b-quiet
+registered: state/b-quiet.check.sh
+exit=0
+
+$ bin/fm-check-register.sh c-news
+registered: state/c-news.check.sh
+exit=0
+
+$ bin/.base-watch.sh
+check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl/state/a-news.check.sh: memory-low
+exit=0
+
+$ bin/fm-wake-drain.sh
+1791979417	1	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-04o2rasl/state/a-news.check.sh: memory-low
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 290290.1791979417.ijOkHg
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 registered custom check(s), but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+exit=0
+
+$ bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 290290.1791979417.ijOkHg
+exit=0

@@ -1,0 +1,5 @@
+1791979394	8	check	~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/c-news.check.sh: disk-full
+1791979394	9	check	contributions	check: contributions lab-event
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 9 --recovery-generation 273418.1791979394.zAN95w
+WARNING: watcher still down (same stale episode; last beat: 4s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.

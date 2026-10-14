@@ -1,0 +1,1 @@
+check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/b-hostile.check.sh

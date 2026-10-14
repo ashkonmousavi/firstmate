@@ -1,0 +1,4 @@
+1791979403	11	check	unauthenticated-state-checks	check: rejected unauthenticated state checks: ~/.no-mistakes/worktrees/031c82dd5176/01M4X4C124HRZB8H8YV6XNJHQP/.watch-lab-go6rbaup/state/b-hostile.check.sh
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 11 --recovery-generation 281725.1791979403.eav5lz
+WARNING: watcher still down (same stale episode; last beat: 3s ago, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
