@@ -651,6 +651,8 @@ Identity stays a lazy second read, consulted only when a separator pair could ch
 
 ANSI capture preserves de-emphasized placeholder style.
 `bin/fm-composer-lib.sh` is the fleet-wide owner that strips dim or faint runs and dark truecolor placeholders while retaining bright typed input.
+A styled bare Claude `❯` row containing a slash command remains `pending` when dark truecolor stripping would otherwise erase the command, preventing injection into existing input.
+An SGR-2 suggestion without truecolor remains ghost text.
 
 If the ANSI capture ever fails, the plain fallback declares itself unstyled.
 The classifier then degrades a glyph row carrying trailing text to `unknown` instead of misreading ghost suggestions as typed input.
