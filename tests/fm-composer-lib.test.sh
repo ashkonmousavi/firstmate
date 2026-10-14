@@ -1011,6 +1011,24 @@ test_selected_content_is_composer_scoped_and_wrap_normalized() {
   pass "fm_composer_extract_selected_content: scopes user content and excludes furniture"
 }
 
+# Oracle: Claude 2.1.299's captured /exit screen places the selected command
+# and descriptions below the composer rule. Those bytes are menu output;
+# only the typed /exit is the payload, and a later live prompt must still win.
+test_selected_slash_menu_is_not_composer_content() {
+  local screen out popup
+  popup=$'────────────────────────\n❯ /exit\n────────────────────────\n  ❯ /exit       Exit the CLI\n    /context    Visualize current context\n                usage as a colored grid'
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$popup")
+  [ "$out" = /exit ] || fail "slash menu leaked into payload: '$out'"
+  assert_screen "selected slash menu preserves pending input" pending "$CAPS_STYLED_NOID" "$popup"
+  screen="$popup"$'\n\n❯ lower live draft'
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
+  [ "$out" = 'lower live draft' ] || fail "popup hid a later live prompt: '$out'"
+  screen=$'────────────────────────\n❯ /exit\n────────────────────────\n❯ lower live draft'
+  out=$(fm_composer_extract_selected_content "$CAPS_STYLED_NOID" "$screen")
+  [ "$out" = 'lower live draft' ] || fail "a closing rule hid a lower live prompt: '$out'"
+  pass "selected slash menu descriptions are excluded while lower prompts stay live"
+}
+
 test_bare_shell_glyphs_are_unknown
 test_stripped_unbordered_content_uses_plain_content
 test_bare_shell_prompt_with_command_is_not_empty
@@ -1049,6 +1067,7 @@ test_incomplete_lower_box_invalidates_stale_candidate
 test_titled_bottom_requires_matching_width
 test_cursor_on_proven_box_bottom_classifies_content
 test_selected_content_is_composer_scoped_and_wrap_normalized
+test_selected_slash_menu_is_not_composer_content
 
 test_queued_enter_verdict_busy_pending_is_empty() {
   local out

@@ -5008,16 +5008,17 @@ herdr_wrapped_composer() {  # <text> <width> <drop>
 # Claude draws it, with the menu rows below the closing rule; the rules are
 # structural edge rows, so the composer's content block ends there and the
 # menu rows never read as typed text.
-herdr_popup_composer_screen() {  # <typed-text>
+# The optional marker models the selected ❯ menu row captured on 2.1.299.
+herdr_popup_composer_screen() {  # <typed-text> [selected-marker]
   local i typed=$1 rule
   rule=$(printf '%0.s\xe2\x94\x80' $(seq 1 60))
   printf ' \xe2\x95\xad\xe2\x94\x80\xe2\x94\x80 Claude Code v2.1.283 \xe2\x94\x80\xe2\x94\x80\xe2\x95\xae\n'
   printf '  %s\n' "$rule"
   printf '  \xe2\x9d\xaf %s\n' "$typed"
   printf '  %s\n' "$rule"
-  printf '  %s    Exit the CLI\n' "$typed"
+  printf '  %s%s    Exit the CLI\n' "${2-}" "$typed"
   for ((i = 0; i < 21; i++)); do
-    printf '  /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
+    printf '    /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
   done
   printf '  \xe2\x8f\xb5\xe2\x8f\xb5 bypass permissions on\n'
 }
@@ -5345,7 +5346,7 @@ test_send_text_submit_claude_slash_popup_composer_is_still_proven_and_submitted(
   herdr_submit_claude_prefix "$resp" "$text"
   printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/5.out"
   printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/7.out"
-  herdr_popup_composer_screen "$text" > "$resp/4.out"
+  herdr_popup_composer_screen "$text" '❯ ' > "$resp/4.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
     bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )

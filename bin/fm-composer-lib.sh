@@ -1411,7 +1411,8 @@ _fm_composer_row_is_composer_furniture() {  # <trimmed-row> <proof-glyph>
 # when no envelope is glyph-proven, when a blank row sits directly beneath it,
 # or when the run holds no bare candidate at all (nothing to demote).
 _fm_composer_locate_footer_zone() {  # <plain>
-  local plain=$1 close next trimmed proof=''
+  local plain=$1 close next trimmed raw proof='' slash_menu=0
+  local menu_re='^  ❯ /[^[:space:]]+[[:space:]]{2,}[^[:space:]]'
   FM_COMPOSER_FOOTER_AFTER=-1
   FM_COMPOSER_FOOTER_GLYPH=-1
   FM_COMPOSER_FOOTER_LAST=-1
@@ -1447,11 +1448,26 @@ _fm_composer_locate_footer_zone() {  # <plain>
   [ "$FM_COMPOSER_SCAN_BARE_ROW" -gt "$FM_COMPOSER_FOOTER_AFTER" ] || return 1
   FM_COMPOSER_FOOTER_LAST=$FM_COMPOSER_FOOTER_AFTER
   next=$((FM_COMPOSER_FOOTER_AFTER + 1))
+  # Claude's selected slash-menu row repeats the composer glyph below its
+  # closing rule. It is a two-column menu, not a second input prompt.
+  raw=$(_fm_composer_screen_row "$next" "$plain")
+  trimmed=$(_fm_composer_screen_row "$FM_COMPOSER_FOOTER_GLYPH" "$plain")
+  fm_composer_normalize_spaces_var trimmed
+  fm_composer_normalize_trim_var trimmed
+  if [ "$proof" = '❯' ] && [[ "$trimmed" = '❯ /'* ]] \
+     && [ "$FM_COMPOSER_SCAN_BARE_ROW" -eq "$next" ] && [[ "$raw" =~ $menu_re ]]; then
+    slash_menu=1
+    FM_COMPOSER_FOOTER_LAST=$next
+    next=$((next + 1))
+  fi
   while :; do
-    trimmed=$(_fm_composer_screen_row "$next" "$plain")
+    raw=$(_fm_composer_screen_row "$next" "$plain")
+    trimmed=$raw
     fm_composer_normalize_trim_var trimmed
     [ -n "$trimmed" ] || break
-    _fm_composer_row_is_composer_furniture "$trimmed" "$proof" || return 1
+    if ! _fm_composer_row_is_composer_furniture "$trimmed" "$proof"; then
+      [ "$slash_menu" = 1 ] && [[ "$raw" = '    '* ]] || return 1
+    fi
     FM_COMPOSER_FOOTER_LAST=$next
     next=$((next + 1))
   done
