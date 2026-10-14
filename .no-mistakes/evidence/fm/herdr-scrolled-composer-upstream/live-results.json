@@ -1,0 +1,32 @@
+{
+  "session": "fm-lab-scrolled-compose-3666987-4097",
+  "herdr": "0.9.1",
+  "claude": "2.1.299",
+  "viewer": "Attached through helper using its pre-sized 40x120 PTY, then stopped through helper.",
+  "slash_popup": {
+    "state": "pending",
+    "content": "/exit"
+  },
+  "unscrolled_delivery": {
+    "verdict": "empty",
+    "reply_token_occurrences": 2
+  },
+  "unscrolled_draft": {
+    "state": "pending",
+    "submit": "send-failed",
+    "preserved_content": "KEEP_THIS_LIVE_DRAFT"
+  },
+  "scroll_driver_attempts": [
+    "pane scroll w1:p1 --lines 30: CLI usage only; no scroll subcommand",
+    "pane send-keys: shift+pageup, shift-pageup, PageUp, pgup and pageup rejected as invalid_key",
+    "pane send-keys shift+up accepted but offset stayed 0",
+    "pane read --source recent --lines 200 and 60, with viewer attached and detached: offset stayed 0",
+    "api schema exposes pane.scroll protocol request; api CLI supports snapshot/schema only. Direct socket calls prohibited by lab-only runbook."
+  ],
+  "final_scroll": {
+    "max_offset_from_bottom": 137,
+    "offset_from_bottom": 0,
+    "viewport_rows": 39
+  },
+  "cleanup": "Helper teardown returned 0, confirming lab deletion and default-session tripwire unchanged."
+}
