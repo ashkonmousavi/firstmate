@@ -3213,9 +3213,18 @@ fm_backend_herdr_scroll_offset() {  # <target> -> non-negative integer, or fails
   printf '%s' "$off"
 }
 
+fm_backend_herdr_composer_source() {
+  local offset
+  if offset=$(fm_backend_herdr_scroll_offset "$1" 2>/dev/null) && [ "$offset" -gt 0 ]; then
+    printf 'recent'
+  else
+    printf 'visible'
+  fi
+}
+
 fm_backend_herdr_composer_capture() {
-  local target=$1 ansi=$2 out offset
-  if ! offset=$(fm_backend_herdr_scroll_offset "$target" 2>/dev/null) || [ "$offset" -eq 0 ]; then
+  local target=$1 ansi=$2 source=$3 out
+  if [ "$source" = visible ]; then
     if [ "$ansi" = 1 ]; then
       fm_backend_herdr_visible_capture_ansi "$target"
     else
@@ -3255,11 +3264,12 @@ fm_backend_herdr_composer_capture() {
 # the bottom-anchored recent read instead. If that bottom cannot be read,
 # answer unknown, never the viewport, so history cannot look like pending text.
 fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unproven|unknown
-  local target=$1 cap caps verdict identity
+  local target=$1 cap caps verdict identity source
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
-  if cap=$(fm_backend_herdr_composer_capture "$target" 1 2>/dev/null); then
+  source=$(fm_backend_herdr_composer_source "$target")
+  if cap=$(fm_backend_herdr_composer_capture "$target" 1 "$source" 2>/dev/null); then
     caps=$(printf 'styled=1\ncursor=0\nidentity=1')
-  elif cap=$(fm_backend_herdr_composer_capture "$target" 0); then
+  elif cap=$(fm_backend_herdr_composer_capture "$target" 0 "$source"); then
     caps=$(printf 'styled=0\ncursor=0\nidentity=1')
   else
     printf 'unknown'
@@ -3424,10 +3434,11 @@ fm_backend_herdr_proof_lines() {  # <text>
 # live), which that strip dropped, judging a typed /exit unsent. Claude's own
 # ghost suggestion is SGR-2 dim and is still stripped.
 fm_backend_herdr_composer_content() {  # <target>
-  local target=$1 cap caps
-  if cap=$(fm_backend_herdr_composer_capture "$target" 1 2>/dev/null) && [ -n "$cap" ]; then
+  local target=$1 cap caps source
+  source=$(fm_backend_herdr_composer_source "$target")
+  if cap=$(fm_backend_herdr_composer_capture "$target" 1 "$source" 2>/dev/null) && [ -n "$cap" ]; then
     caps=$(printf 'styled=1\ncursor=0\nidentity=0')
-  elif cap=$(fm_backend_herdr_composer_capture "$target" 0) && [ -n "$cap" ]; then
+  elif cap=$(fm_backend_herdr_composer_capture "$target" 0 "$source") && [ -n "$cap" ]; then
     caps=$(printf 'styled=0\ncursor=0\nidentity=0')
   else
     return 1

@@ -72,6 +72,14 @@ if [ "${1:-}" = terminal ] && [ "${2:-}" = title ] && [ "${3:-}" = clear ]; then
   exit 0
 fi
 if [ "${1:-}" = pane ] && [ "${2:-}" = get ]; then
+  if [ -f "$RESP/pane-get-once.out" ]; then
+    if [ -f "$RESP/.pane-get-once" ]; then
+      exit 1
+    fi
+    : > "$RESP/.pane-get-once"
+    cat "$RESP/pane-get-once.out"
+    exit 0
+  fi
   if [ -f "$RESP/pane-get.out" ]; then
     cat "$RESP/pane-get.out"
     exit 0
@@ -5014,6 +5022,53 @@ herdr_popup_composer_screen() {  # <typed-text>
   printf '  \xe2\x8f\xb5\xe2\x8f\xb5 bypass permissions on\n'
 }
 
+test_composer_format_fallback_preserves_scrolled_source() {
+  local dir log resp fb out state probe rc
+  for probe in state content submit; do
+    for state in empty pending unreadable; do
+      [ "$probe" != submit ] || [ "$state" = pending ] || continue
+      dir="$TMP_ROOT/fallback-scrolled-$probe-$state"
+      mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+      printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get-once.out"
+      case "$state" in
+        empty) herdr_popup_composer_screen 'old transcript draft' > "$resp/visible.out" ;;
+        *) printf '  ❯\n' > "$resp/visible.out" ;;
+      esac
+      if [ "$probe" = submit ]; then
+        printf '%s\n' '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}' > "$resp/1.out"
+        printf '1\n' > "$resp/2.exit"
+        herdr_popup_composer_screen 'live draft' > "$resp/3.out"
+      else
+        printf '1\n' > "$resp/1.exit"
+        case "$state" in
+          empty) printf '  ❯\n' > "$resp/2.out" ;;
+          pending) printf '  ╭────────────────────────╮\n  │ ❯ live draft           │\n  ╰──────── Composer ──────╯\n\n  Enter:send\n' > "$resp/2.out" ;;
+          unreadable) printf '1\n' > "$resp/2.exit" ;;
+        esac
+      fi
+      fb=$(make_herdr_fakebin "$dir")
+      rc=0
+      out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+        bash -c '. "$0/bin/backends/herdr.sh"; case "$1" in state) fm_backend_herdr_composer_state default:w1:p2 ;; content) fm_backend_herdr_composer_content default:w1:p2 ;; submit) fm_backend_herdr_send_text_submit default:w1:p2 doorbell 1 0 0 ;; esac' "$ROOT" "$probe" ) || rc=$?
+      case "$probe:$state" in
+        state:empty) [ "$out" = empty ] || fail "fallback classified history instead of empty live composer: '$out'" ;;
+        state:pending) [ "$out" = pending ] || fail "fallback lost live draft: '$out'" ;;
+        state:unreadable) [ "$out" = unknown ] || fail "failed bottom fallback must remain unknown: '$out'" ;;
+        content:empty) [ "$rc" -eq 0 ] && [ -z "$out" ] || fail "fallback extracted history instead of empty live content" ;;
+        content:pending) [ "$rc" -eq 0 ] && [ "$out" = 'live draft' ] || fail "fallback lost live content: '$out'" ;;
+        content:unreadable) [ "$rc" -ne 0 ] || fail "failed bottom fallback authorized content extraction" ;;
+        submit:pending)
+          [ "$out" = send-failed ] || fail "live draft must refuse submission: '$out'"
+          assert_not_contains "$(cat "$log")" $'\x1f''send-text' "fallback typed into live draft"
+          assert_not_contains "$(cat "$log")" $'\x1f''send-keys' "fallback changed live draft"
+          ;;
+      esac
+      assert_not_contains "$(cat "$log")" $'\x1f''--source'$'\x1f''visible' "confirmed scrolled fallback read history"
+    done
+  done
+  pass "Herdr composer format fallback preserves live-bottom classification, content and draft protection after a transient scroll-probe failure"
+}
+
 test_composer_content_scrolled_live_bottom_or_failure() {
   local dir log resp fb out state rc
   for state in empty pending unreadable; do
@@ -6235,6 +6290,7 @@ test_send_text_submit_slow_transition_within_one_enter_needs_no_extra_enter
 test_send_text_submit_send_failed
 test_send_text_submit_unknown_on_capture_failure
 test_send_text_submit_unknown_on_composer_capture_failure
+test_composer_format_fallback_preserves_scrolled_source
 test_composer_content_scrolled_live_bottom_or_failure
 test_send_text_submit_scrolled_claude_proves_live_composer
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte
