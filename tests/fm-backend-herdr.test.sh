@@ -5014,6 +5014,66 @@ herdr_popup_composer_screen() {  # <typed-text>
   printf '  \xe2\x8f\xb5\xe2\x8f\xb5 bypass permissions on\n'
 }
 
+test_composer_content_scrolled_live_bottom_or_failure() {
+  local dir log resp fb out state rc
+  for state in empty pending unreadable; do
+    dir="$TMP_ROOT/content-scrolled-$state"
+    mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+    printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get.out"
+    herdr_popup_composer_screen 'old transcript draft' > "$resp/visible.out"
+    case "$state" in
+      empty) printf '  ❯\n' > "$resp/recent.out" ;;
+      pending) herdr_popup_composer_screen '/exit' > "$resp/recent.out" ;;
+      unreadable) printf '1\n' > "$resp/recent.exit" ;;
+    esac
+    fb=$(make_herdr_fakebin "$dir")
+    rc=0
+    out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+      bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_content default:w1:p2' "$ROOT" ) || rc=$?
+    case "$state" in
+      empty) [ "$rc" -eq 0 ] && [ -z "$out" ] || fail "empty live composer should yield empty content" ;;
+      pending) [ "$rc" -eq 0 ] && [ "$out" = '/exit' ] || fail "live composer content should retain /exit, got '$out'" ;;
+      unreadable) [ "$rc" -ne 0 ] || fail "unreadable live composer must fail content extraction" ;;
+    esac
+  done
+  pass "fm_backend_herdr_composer_content: scrolled reads return live content or fail on an unreadable bottom"
+}
+
+test_send_text_submit_scrolled_claude_proves_live_composer() {
+  local dir log resp fb out text format baseline enter_count
+  for text in 'doorbell message' '/exit'; do
+    for format in ansi plain; do
+      dir="$TMP_ROOT/submit-scrolled-${text//[^a-z]/}-$format"
+      mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+      printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get.out"
+      herdr_popup_composer_screen 'old transcript draft' > "$resp/visible.out"
+      printf '%s\n' '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}' > "$resp/1.out"
+      if [ "$format" = ansi ]; then
+        printf '  ❯\n' > "$resp/2.out"
+        herdr_popup_composer_screen "$text" > "$resp/4.out"
+        baseline=5
+      else
+        printf '1\n' > "$resp/2.exit"
+        printf '  ❯\n' > "$resp/3.out"
+        printf '1\n' > "$resp/5.exit"
+        herdr_popup_composer_screen "$text" > "$resp/6.out"
+        baseline=7
+      fi
+      printf '%s\n' '{"result":{"agent":{"agent_status":"idle"}}}' > "$resp/$baseline.out"
+      printf '%s\n' '{"result":{"agent":{"agent_status":"working"}}}' > "$resp/$((baseline + 2)).out"
+      fb=$(make_herdr_fakebin "$dir")
+      out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+        bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+      [ "$out" = empty ] || fail "scrolled Claude $format submission of '$text' should be confirmed, got '$out'"
+      assert_contains "$(cat "$log")" $'\x1f'"$text" "scrolled Claude did not type the payload"
+      enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+      [ "$enter_count" -eq 1 ] || fail "scrolled Claude should submit once, sent $enter_count Enter(s)"
+      [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "scrolled Claude cleared a proven payload"
+    done
+  done
+  pass "fm_backend_herdr_send_text_submit: scrolled Claude proves and submits live doorbell and exit payloads with ANSI or plain captures"
+}
+
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte() {
   local dir log resp fb out enter_count text
   dir="$TMP_ROOT/submit-long-exact"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
@@ -6175,6 +6235,8 @@ test_send_text_submit_slow_transition_within_one_enter_needs_no_extra_enter
 test_send_text_submit_send_failed
 test_send_text_submit_unknown_on_capture_failure
 test_send_text_submit_unknown_on_composer_capture_failure
+test_composer_content_scrolled_live_bottom_or_failure
+test_send_text_submit_scrolled_claude_proves_live_composer
 test_send_text_submit_long_literal_submits_when_composer_holds_every_byte
 test_send_text_submit_refuses_enter_when_composer_holds_only_the_suffix
 test_send_text_submit_refused_suffix_that_will_not_clear_is_unknown

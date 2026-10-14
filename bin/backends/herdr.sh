@@ -3213,15 +3213,16 @@ fm_backend_herdr_scroll_offset() {  # <target> -> non-negative integer, or fails
   printf '%s' "$off"
 }
 
-# fm_backend_herdr_bottom_capture: the live bottom of the pane, ignoring the
-# viewer's scroll. `--source recent` is the same tail family as the busy-footer
-# read (fm_backend_herdr_capture). The 200-line floor is that capture's small-N
-# workaround, kept whole so a slash popup under the composer stays inside the
-# read. <ansi> of 1 asks for `--format ansi`. Empty output fails so the caller
-# can answer unknown rather than pending.
-# Same passive probe as the scroll offset: never start a server to take it.
-fm_backend_herdr_bottom_capture() {  # <target> <ansi>
-  local target=$1 ansi=$2 out
+fm_backend_herdr_composer_capture() {
+  local target=$1 ansi=$2 out offset
+  if ! offset=$(fm_backend_herdr_scroll_offset "$target" 2>/dev/null) || [ "$offset" -eq 0 ]; then
+    if [ "$ansi" = 1 ]; then
+      fm_backend_herdr_visible_capture_ansi "$target"
+    else
+      fm_backend_herdr_visible_capture "$target"
+    fi
+    return $?
+  fi
   fm_backend_herdr_target_observable "$target" || return 1
   if [ "$ansi" = 1 ]; then
     out=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane read "$FM_BACKEND_HERDR_PANE" --source recent --lines 200 --format ansi 2>/dev/null) || return 1
@@ -3254,23 +3255,11 @@ fm_backend_herdr_bottom_capture() {  # <target> <ansi>
 # the bottom-anchored recent read instead. If that bottom cannot be read,
 # answer unknown, never the viewport, so history cannot look like pending text.
 fm_backend_herdr_composer_state() {  # <target> -> empty|pending|pending-unproven|unknown
-  local target=$1 cap caps verdict identity offset scrolled=0
+  local target=$1 cap caps verdict identity
   fm_backend_herdr_parse_target "$target" || { printf 'unknown'; return 0; }
-  if offset=$(fm_backend_herdr_scroll_offset "$target" 2>/dev/null) && [ "$offset" -gt 0 ]; then
-    scrolled=1
-  fi
-  if [ "$scrolled" = 1 ]; then
-    if cap=$(fm_backend_herdr_bottom_capture "$target" 1 2>/dev/null); then
-      caps=$(printf 'styled=1\ncursor=0\nidentity=1')
-    elif cap=$(fm_backend_herdr_bottom_capture "$target" 0 2>/dev/null); then
-      caps=$(printf 'styled=0\ncursor=0\nidentity=1')
-    else
-      printf 'unknown'
-      return 0
-    fi
-  elif cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null); then
+  if cap=$(fm_backend_herdr_composer_capture "$target" 1 2>/dev/null); then
     caps=$(printf 'styled=1\ncursor=0\nidentity=1')
-  elif cap=$(fm_backend_herdr_visible_capture "$target"); then
+  elif cap=$(fm_backend_herdr_composer_capture "$target" 0); then
     caps=$(printf 'styled=0\ncursor=0\nidentity=1')
   else
     printf 'unknown'
@@ -3413,9 +3402,7 @@ fm_backend_herdr_queued_enter_busy() {  # <target> <allow-rendered>
 # fm_backend_herdr_proof_lines: how many composer rows a refused leftover may
 # occupy, bounding the Ctrl+U presses a verified clear may need. A literal
 # payload wraps, and clearing a multi-row leftover is one press per rendered
-# row (live Claude deletes one wrapped row per press). The composer read
-# itself is the full visible viewport (fm_backend_herdr_composer_content), so
-# this bound no longer sizes a capture.
+# row (live Claude deletes one wrapped row per press).
 fm_backend_herdr_proof_lines() {  # <text>
   local text=$1 lines
   lines=$(( (${#text} / 40) + 8 ))
@@ -3429,12 +3416,6 @@ fm_backend_herdr_proof_lines() {  # <text>
 }
 
 # fm_backend_herdr_composer_content: the selected composer's visible text.
-# The capture is the FULL VISIBLE VIEWPORT, never a bounded tail: an overlay
-# rendered between the composer and the pane bottom - Claude Code's
-# slash-command popup is the verified shape (2.1.283) - pushes the composer
-# above a tail window, so the pre-Enter payload proof would read empty, judge
-# the typed command unsent, and clear it (the fm-control exit breakage). The
-# viewport is the one bound that always contains the composer.
 # Styled capture is preferred. An empty or failed styled read falls through to
 # the plain capture so a missing ANSI format does not look like an empty draft.
 # This read serves only the Claude payload proof, so the grok-tuned
@@ -3444,9 +3425,9 @@ fm_backend_herdr_proof_lines() {  # <text>
 # ghost suggestion is SGR-2 dim and is still stripped.
 fm_backend_herdr_composer_content() {  # <target>
   local target=$1 cap caps
-  if cap=$(fm_backend_herdr_visible_capture_ansi "$target" 2>/dev/null) && [ -n "$cap" ]; then
+  if cap=$(fm_backend_herdr_composer_capture "$target" 1 2>/dev/null) && [ -n "$cap" ]; then
     caps=$(printf 'styled=1\ncursor=0\nidentity=0')
-  elif cap=$(fm_backend_herdr_visible_capture "$target") && [ -n "$cap" ]; then
+  elif cap=$(fm_backend_herdr_composer_capture "$target" 0) && [ -n "$cap" ]; then
     caps=$(printf 'styled=0\ncursor=0\nidentity=0')
   else
     return 1
