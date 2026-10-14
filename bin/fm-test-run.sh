@@ -2505,7 +2505,14 @@ run_one_serial() {
 
   set +e
   # Stream live output while retaining a copy for gate-skip detection.
-  run_script_bounded "$script" "$out" 1 "s$TOTAL"
+  # The concurrent worker clears the operator home before each script.
+  # A serial run must do the same: an exported FM_HOME would hide a fixture
+  # that pins only FM_ROOT_OVERRIDE, including the guard's X-mode config.
+  (
+    unset FM_HOME FM_STATE_OVERRIDE FM_DATA_OVERRIDE FM_ROOT_OVERRIDE \
+      FM_PROJECTS_OVERRIDE FM_CONFIG_OVERRIDE FM_BACKEND 2>/dev/null || true
+    run_script_bounded "$script" "$out" 1 "s$TOTAL"
+  )
   rc=$?
   set -e
   : "${rc:=1}"
