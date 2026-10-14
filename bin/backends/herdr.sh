@@ -3200,9 +3200,11 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
 # bottom, from `pane get`'s scroll.offset_from_bottom. Fails when the field is
 # absent or the pane cannot be read, so the caller keeps the unscrolled
 # viewport path. A missing field is not proof the pane is scrolled.
+# This read belongs to the passive composer probe, so a stopped server fails
+# it instead of being started.
 fm_backend_herdr_scroll_offset() {  # <target> -> non-negative integer, or fails
   local raw off
-  fm_backend_herdr_target_ready "$1" || return 1
+  fm_backend_herdr_target_observable "$1" || return 1
   raw=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane get "$FM_BACKEND_HERDR_PANE" 2>/dev/null) || return 1
   off=$(printf '%s' "$raw" | jq -r '.result.pane.scroll.offset_from_bottom // empty' 2>/dev/null) || return 1
   case "$off" in
@@ -3217,9 +3219,10 @@ fm_backend_herdr_scroll_offset() {  # <target> -> non-negative integer, or fails
 # workaround, kept whole so a slash popup under the composer stays inside the
 # read. <ansi> of 1 asks for `--format ansi`. Empty output fails so the caller
 # can answer unknown rather than pending.
+# Same passive probe as the scroll offset: never start a server to take it.
 fm_backend_herdr_bottom_capture() {  # <target> <ansi>
   local target=$1 ansi=$2 out
-  fm_backend_herdr_target_ready "$target" || return 1
+  fm_backend_herdr_target_observable "$target" || return 1
   if [ "$ansi" = 1 ]; then
     out=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane read "$FM_BACKEND_HERDR_PANE" --source recent --lines 200 --format ansi 2>/dev/null) || return 1
   else
