@@ -1,0 +1,6 @@
+viewer attached to fm-lab-mouse-scroll-938197-13208 (pid 938994)
+History: empty
+{"id":"lab-scroll","result":{"type":"pane_info","pane":{"pane_id":"w1:p1","terminal_id":"term_65dc8bed6eb1c1","workspace_id":"w1","tab_id":"w1:t1","focused":true,"cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","foreground_cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","agent":"claude","terminal_title":"✳ HISTORY ROW printing","terminal_title_stripped":"HISTORY ROW printing","agent_status":"idle","scroll":{"offset_from_bottom":70,"max_offset_from_bottom":113,"viewport_rows":39},"revision":3}}}
+Confirmed offset: 70
+Scrolled state: empty
+Shutdown during composer read: unknown

@@ -1,0 +1,14 @@
+viewer attached to fm-lab-mouse-scroll-804403-25572 (pid 805107)
+History: empty
+{"id":"lab-scroll","result":{"type":"pane_info","pane":{"pane_id":"w1:p1","terminal_id":"term_65dc8b30570cc1","workspace_id":"w1","tab_id":"w1:t1","focused":true,"cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","foreground_cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","agent":"claude","terminal_title":"✳ Numbered HISTORY ROW printout","terminal_title_stripped":"Numbered HISTORY ROW printout","agent_status":"idle","scroll":{"offset_from_bottom":70,"max_offset_from_bottom":115,"viewport_rows":39},"revision":3}}}
+Confirmed offset: 70
+Scrolled state: empty
+Delivery: empty
+{"id":"lab-scroll","result":{"type":"pane_info","pane":{"pane_id":"w1:p1","terminal_id":"term_65dc8b30570cc1","workspace_id":"w1","tab_id":"w1:t1","focused":true,"cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","foreground_cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","agent":"claude","terminal_title":"✳ Numbered HISTORY ROW printout","terminal_title_stripped":"Numbered HISTORY ROW printout","agent_status":"idle","scroll":{"offset_from_bottom":70,"max_offset_from_bottom":122,"viewport_rows":39},"revision":3}}}
+Draft state: pending
+Draft content: KEEP_THIS_DRAFT
+Draft delivery refusal: send-failed
+{"id":"lab-scroll","result":{"type":"pane_info","pane":{"pane_id":"w1:p1","terminal_id":"term_65dc8b30570cc1","workspace_id":"w1","tab_id":"w1:t1","focused":true,"cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","foreground_cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","agent":"claude","terminal_title":"✳ Numbered HISTORY ROW printout","terminal_title_stripped":"Numbered HISTORY ROW printout","agent_status":"idle","scroll":{"offset_from_bottom":0,"max_offset_from_bottom":122,"viewport_rows":39},"revision":3}}}
+Before exit state: empty
+Exit: send-failed
+Agent still registered

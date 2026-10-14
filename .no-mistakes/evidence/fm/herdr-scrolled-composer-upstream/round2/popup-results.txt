@@ -1,0 +1,4 @@
+viewer attached to fm-lab-exit-proof-1611556-3755 (pid 1612475)
+Typed state: pending
+Typed content: /exit
+Target submit: unknown

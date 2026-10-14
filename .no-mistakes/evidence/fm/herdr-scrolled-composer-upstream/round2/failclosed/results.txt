@@ -1,0 +1,9 @@
+viewer attached to fm-lab-mouse-scroll-1635849-29824 (pid 1636279)
+History: empty
+{"id":"lab-scroll","result":{"type":"pane_info","pane":{"pane_id":"w1:p1","terminal_id":"term_65dc8f8ff50fe1","workspace_id":"w1","tab_id":"w1:t1","focused":true,"cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","foreground_cwd":"~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT","agent":"claude","terminal_title":"✳ Numbered HISTORY ROW printout","terminal_title_stripped":"Numbered HISTORY ROW printout","agent_status":"idle","scroll":{"offset_from_bottom":70,"max_offset_from_bottom":116,"viewport_rows":39},"revision":3}}}
+Confirmed offset: 70
+Scrolled state: empty
+~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT/.test-herdr-lab/base/bin/fm-agent-process-lib.sh: line 19: ~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT/.test-herdr-lab/base/bin/fm-session-lock-lib.sh: No such file or directory
+~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT/.test-herdr-lab/base/bin/fm-agent-process-lib.sh: line 21: ~/.no-mistakes/worktrees/031c82dd5176/01M4WPYF0ZEX1CQ8BVJAMKNZFT/.test-herdr-lab/base/bin/fm-gemini-lib.sh: No such file or directory
+Base scrolled state: pending
+Shutdown during composer read: unknown

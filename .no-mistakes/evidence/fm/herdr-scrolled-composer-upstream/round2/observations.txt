@@ -1,0 +1,6 @@
+Scrolled 70 rows: empty composer; real Claude reply LAB_DOORBELL_OK.
+Scrolled draft: pending; KEEP_THIS_DRAFT preserved; MUST_NOT_APPEND absent.
+Slash popup: exact /exit content; agent_not_found after guarded submission; shell prompt visible.
+Server stopped after scroll probe: unknown.
+Base adapter on real scrolled pane: pending; target: empty.
+All three lab scripts exited 0, including guarded teardown and fleet-state tripwire.
