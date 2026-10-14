@@ -556,6 +556,94 @@ test_primary_update_rebinds_local_watch() {
   pass "T12 a self-update rebinds a locally armed watch on the primary"
 }
 
+# The two repositories share a baseline, then advance independently.
+add_secondary_upstream() {
+  local w=$1
+  git init -q --bare "$w/public.git"
+  git -C "$w/public.git" symbolic-ref HEAD refs/heads/main
+  git -C "$w/seed" remote add public "$w/public.git"
+  git -C "$w/seed" push -q public main
+  git clone -q "$w/public.git" "$w/public-seed"
+  git -C "$w/main" remote add public "$w/public.git"
+  mkdir -p "$w/home/config"
+  printf 'public\n' > "$w/home/config/firstmate-upstream"
+}
+
+bump_secondary_upstream() {
+  local w=$1
+  printf 'public-only\n' > "$w/public-seed/public-change"
+  git -C "$w/public-seed" add public-change
+  git -C "$w/public-seed" commit -qm public-change
+  git -C "$w/public-seed" push -q origin main
+}
+
+test_secondary_upstream_ahead_is_reported_without_merging() {
+  local w out before
+  w=$(new_world upstream-behind)
+  add_secondary_upstream "$w"
+  before=$(git -C "$w/main" rev-parse HEAD)
+  bump_secondary_upstream "$w"
+  out=$(run_update "$w")
+  assert_contains "$out" 'firstmate: behind public by 1' 'public ahead must be visible'
+  assert_not_contains "$out" 'firstmate: already current' 'origin equality hid public commits'
+  [ "$(git -C "$w/main" rev-parse HEAD)" = "$before" ] || fail 'public comparison moved HEAD'
+  assert_absent "$w/main/public-change" 'public comparison checked out upstream content'
+  pass 'the second remote ahead is reported without merging its commits'
+}
+
+test_secondary_upstream_divergence_is_reported() {
+  local w out
+  w=$(new_world upstream-diverged)
+  add_secondary_upstream "$w"
+  bump_secondary_upstream "$w"
+  bump_origin "$w" instr
+  out=$(run_update "$w")
+  assert_contains "$out" 'firstmate: updated ' 'origin must still advance normally'
+  assert_contains "$out" 'firstmate: diverged from public (ahead 1, behind 1)' 'divergence must name both counts'
+  assert_not_contains "$out" 'firstmate: already current' 'divergence was reported as current'
+  [ "$(git -C "$w/main" rev-parse HEAD)" = "$(git -C "$w/seed" rev-parse HEAD)" ] || fail 'update left origin'
+  pass 'the updater reports a diverged second remote after advancing origin'
+}
+
+test_secondary_upstream_local_ahead_and_equal() {
+  local w out
+  w=$(new_world upstream-equal)
+  add_secondary_upstream "$w"
+  out=$(run_update "$w")
+  assert_contains "$out" 'firstmate: already current' 'both equal should remain current'
+  bump_origin "$w" instr
+  run_update "$w" >/dev/null
+  out=$(run_update "$w")
+  assert_contains "$out" 'firstmate: ahead of public by 1' 'local ahead must be visible'
+  assert_not_contains "$out" 'firstmate: already current' 'origin equality hid local ahead'
+  pass 'already current requires equality with both repositories'
+}
+
+test_secondary_upstream_failure_and_invalid_config() {
+  local w out rc before
+  w=$(new_world upstream-invalid)
+  add_secondary_upstream "$w"
+  git -C "$w/main" remote set-url public "$w/missing.git"
+  out=$(run_update "$w")
+  assert_contains "$out" 'firstmate: upstream check failed: public fetch failed' 'failed fetch must be reported'
+  assert_not_contains "$out" 'firstmate: already current' 'failed fetch became current'
+  bump_origin "$w" instr
+  before=$(git -C "$w/main" rev-parse HEAD)
+  for invalid in missing origin 'public public'; do
+    printf '%s\n' "$invalid" > "$w/home/config/firstmate-upstream"
+    rc=0
+    run_update "$w" > "$w/out" || rc=$?
+    [ "$rc" -ne 0 ] || fail "invalid upstream accepted: $invalid"
+    [ "$(git -C "$w/main" rev-parse HEAD)" = "$before" ] || fail 'invalid configuration updated the checkout'
+  done
+  pass 'failed and invalid second-remote checks cannot claim current or change the checkout'
+}
+
+test_secondary_upstream_ahead_is_reported_without_merging
+test_secondary_upstream_divergence_is_reported
+test_secondary_upstream_local_ahead_and_equal
+test_secondary_upstream_failure_and_invalid_config
+
 test_updates_main_and_secondmate
 test_reread_gate_is_instruction_only
 test_bin_only_advance_restarts

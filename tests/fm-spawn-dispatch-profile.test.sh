@@ -2334,7 +2334,12 @@ claude_settings_json_arg() {  # <launch>
   while [ "$#" -gt 0 ]; do
     if [ "$1" = --settings ]; then
       shift
-      printf '%s' "$1"
+      # Claude Code's --settings takes inline JSON or a file path; a
+      # secondmate launch passes the path form.
+      case "$1" in
+      \{*) printf '%s' "$1" ;;
+      *) cat "$1" ;;
+      esac
       return 0
     fi
     shift
@@ -2513,7 +2518,10 @@ SH
   FM_CLAUDE_ARGV="$argv" PATH="$FAKEBIN_DIR:$PATH" bash -c "$launch" || fail "could not consume claude launch command"
   local prev='' arg
   while IFS= read -r -d '' arg; do
-    if [ "$prev" = --settings ]; then printf '%s' "$arg"; return 0; fi
+    if [ "$prev" = --settings ]; then
+      if [ -f "$arg" ]; then cat "$arg"; else printf '%s' "$arg"; fi
+      return 0
+    fi
     prev=$arg
   done < "$argv"
   fail "claude launch carried no --settings argument"

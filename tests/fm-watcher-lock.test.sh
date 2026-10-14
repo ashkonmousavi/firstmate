@@ -12,6 +12,7 @@ set -u
 
 WATCH="$ROOT/bin/fm-watch.sh"
 WATCH_ARM="$ROOT/bin/fm-watch-arm.sh"
+CHECKPOINT="$ROOT/bin/fm-watch-checkpoint.sh"
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 LIB="$ROOT/bin/fm-wake-lib.sh"
 
@@ -526,6 +527,9 @@ test_lock_steal_reap_cannot_remove_successor() {
   fakebin="$dir/fakebin"
   out="$dir/competitor"
   leave_dead_link_locks "$state" "$steal"
+  # The killed fixture owner may have its PID reused during a loaded serial
+  # shard. Pin a verified-dead PID so the race exercises reaping, not liveness.
+  printf '%s\n' "$(dead_pid)" > "$steal/pid"
   cat > "$fakebin/rm" <<'SH'
 #!/usr/bin/env bash
 last=
@@ -572,32 +576,51 @@ SH
 }
 
 test_lock_stale_steal_single_winner_under_concurrency() {
-  local dir state lockdir dead marker i pids pid wins
+  local dir state lockdir dead marker gate hold i pids pid waiter winner wins
   dir=$(make_case lock-stale-concurrency)
   state="$dir/state"
   lockdir="$state/.contend.lock"
   marker="$dir/wins"
+  gate="$dir/first-winner"
+  hold="$dir/winner-release"
   dead=$(dead_pid)
   mkdir "$lockdir"
   printf '%s\n' "$dead" > "$lockdir/pid"
   : > "$marker"
+  mkfifo "$gate" "$hold"
+  # try_acquire is nonblocking: all one-shot candidates may lose to a transient
+  # steal mutex. A waiting contender guarantees eventual acquisition, and the
+  # FIFO keeps the winner alive until every other contender has finished.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_acquire_wait "$2" || exit 1
+    printf "%s\n" "${BASHPID:-$$}" >> "$3"
+    printf "%s\n" "${BASHPID:-$$}" > "$4"
+    IFS= read -r _ < "$5"
+  ' _ "$LIB" "$lockdir" "$marker" "$gate" "$hold" &
+  waiter=$!
   pids=
   i=1
-  while [ "$i" -le 40 ]; do
+  while [ "$i" -le 39 ]; do
     FM_STATE_OVERRIDE="$state" bash -c '
       . "$1"
       if fm_lock_try_acquire "$2"; then
         printf "%s\n" "${BASHPID:-$$}" >> "$3"
-        sleep 1
+        printf "%s\n" "${BASHPID:-$$}" > "$4"
+        IFS= read -r _ < "$5"
       fi
-    ' _ "$LIB" "$lockdir" "$marker" &
+    ' _ "$LIB" "$lockdir" "$marker" "$gate" "$hold" &
     pids="$pids $!"
     i=$((i + 1))
   done
+  IFS= read -r winner < "$gate"
+  [ "$winner" = "$waiter" ] || { kill "$waiter" 2>/dev/null || true; wait "$waiter" 2>/dev/null || true; }
   for pid in $pids; do
-    wait "$pid" 2>/dev/null || true
+    [ "$pid" = "$winner" ] || wait "$pid" 2>/dev/null || true
   done
   wins=$(awk 'NF { c++ } END { print c + 0 }' "$marker")
+  printf 'release\n' > "$hold"
+  wait "$winner" 2>/dev/null || true
   [ "$wins" -eq 1 ] || fail "expected exactly one stale-lock stealer, got $wins"
   pass "concurrent stale-lock steal yields exactly one winner"
 }
@@ -1687,6 +1710,198 @@ test_msys_pid_identity_uses_proc() {
   pass "MSYS process identity uses compatible /proc fields"
 }
 
+# Foreground checkpoint regressions share the watcher singleton and its locks.
+make_home() {
+  local name=$1 home
+  home="$TMP_ROOT/$name"
+  mkdir -p "$home/state" "$home/data" "$home/config"
+  printf '%s\n' "$home"
+}
+
+make_sweep_home() {  # <name> <lanes>
+  local home i id
+  home=$(make_home "$1")
+  mkdir -p "$home/fakebin"
+  touch "$home/state/.last-check" "$home/state/.last-heartbeat" "$home/state/home-summary.json"
+  for ((i=1; i<=$2; i++)); do
+    printf -v id 'lane-%03d' "$i"
+    printf 'kind=ship\nbackend=tmux\nharness=codex\nwindow=fixture:%s\n' "$id" > "$home/state/$id.meta"
+  done
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  capture-pane)
+    printf '%s\n' "$*" >> "$FM_HOME/captures"
+    case "$*" in *fixture:lane-001*) sleep "${FM_FIXTURE_FIRST_CAPTURE_DELAY:-${FM_FIXTURE_CAPTURE_DELAY:-1}}" ;; *) sleep "${FM_FIXTURE_CAPTURE_DELAY:-1}" ;; esac
+    exit 1 ;;
+esac
+exit 1
+SH
+  chmod +x "$home/fakebin/tmux"
+  printf '%s\n' "$home"
+}
+
+run_sweep_checkpoint() {  # <home> [seconds]
+  local home=$1 seconds=${2:-3}
+  SWEEP_RC=0
+  PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$CHECKPOINT" --seconds "$seconds" \
+    > "$home/out.txt" 2> "$home/err.txt" || SWEEP_RC=$?
+}
+
+make_mate_checkpoint_home() {
+  local home
+  home=$(make_sweep_home "$1" 0)
+  mkdir -p "$home/child/state"
+  printf 'mate\n' > "$home/child/.fm-secondmate-home"
+  printf 'kind=secondmate\nbackend=tmux\nharness=codex\nwindow=fixture:mate\nhome=%s/child\n' "$home" > "$home/state/mate.meta"
+  printf '100\t7\tcheck\trouted\tcheck: retained child row\n' > "$home/child/state/.wake-queue"
+  printf '%s\t100-7\n' "$(( $(date +%s) - 5 ))" > "$home/state/.secondmate-wake-progress-mate"
+  touch "$home/state/.secondmate-liveness-tick"
+  printf '%s\n' "$home"
+}
+
+run_mate_checkpoint() {
+  local home=$1
+  shift
+  MATE_RC=0
+  fm_run_timed 18 env PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_POLL=1 FM_CHECK_TIMEOUT=1 \
+    FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_SECONDMATE_WAKE_STALL_SECS=1 "$CHECKPOINT" "$@" > "$home/out.txt" 2> "$home/err.txt" || MATE_RC=$?
+}
+
+ack_checkpoint_wakes() {
+  local home=$1 seq generation
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" > "$home/drained" 2> "$home/drain.err"
+  seq=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--ack-through \([0-9]*\) --recovery-generation .*/\1/p' "$home/drain.err")
+  generation=$(sed -n 's/^WAKE_ACK_REQUIRED:.*--recovery-generation \([^ ]*\)$/\1/p' "$home/drain.err")
+  [ -n "$seq" ] && [ -n "$generation" ] || fail 'missing generation-bound recovery acknowledgement'
+  FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" --ack-through "$seq" --recovery-generation "$generation" >/dev/null || fail 'recovery acknowledgement failed'
+}
+
+test_signal_grace_keeps_trailing_signals() {
+  local mode home status real_sleep
+  real_sleep=$(command -v sleep) || fail 'sleep is unavailable'
+  for mode in checkpoint watcher; do
+    home=$(make_home "signal-coalesce-$mode")
+    mkdir -p "$home/fakebin"
+    printf 'done: synthetic wake\n' > "$home/state/demo.status"
+    cat > "$home/fakebin/sleep" <<'SH'
+#!/usr/bin/env bash
+if [ "$1" = 1 ] && [ ! -e "$FM_HOME/grace-entered" ]; then
+  : > "$FM_HOME/grace-entered"
+  printf 'working: trailing bookkeeping\n' >> "$FM_HOME/state/demo.status"
+  printf 'finished\n' > "$FM_HOME/state/demo.turn-ended"
+fi
+exec "$FM_REAL_SLEEP" "$@"
+SH
+    chmod +x "$home/fakebin/sleep"
+    status=0
+    if [ "$mode" = checkpoint ]; then
+      fm_run_timed 12 env PATH="$home/fakebin:$PATH" FM_REAL_SLEEP="$real_sleep" \
+        FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+        "$CHECKPOINT" --seconds 8 > "$home/out.txt" 2> "$home/err.txt" || status=$?
+    else
+      fm_run_timed 12 env -u FM_WATCH_CHECKPOINT_SECONDS -u FM_CHECKPOINT_DEADLINE \
+        PATH="$home/fakebin:$PATH" FM_REAL_SLEEP="$real_sleep" FM_HOME="$home" \
+        FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+        "$ROOT/bin/fm-watch.sh" > "$home/out.txt" 2> "$home/err.txt" || status=$?
+    fi
+    expect_code 0 "$status" "$mode signal coalescing failed: $(cat "$home/err.txt")"
+    [ -f "$home/grace-entered" ] || fail "$mode skipped an affordable grace"
+    ack_checkpoint_wakes "$home"
+    [ "$(awk -F '\t' '$3 == "signal" && $4 == "demo.status" {n++} END {print n+0}' "$home/drained")" -eq 1 ] \
+      || fail "$mode lost or duplicated the done status behind its trailing working note"
+    [ "$(awk -F '\t' '$3 == "signal" && $4 == "demo.turn-ended" {n++} END {print n+0}' "$home/drained")" -eq 1 ] \
+      || fail "$mode lost or duplicated the second discovery pass's turn-end"
+  done
+  pass 'affordable checkpoint grace and ordinary watcher grace coalesce trailing signals without hiding done'
+}
+
+test_slow_pane_read_obeys_remaining_budget() {
+  local home
+  home=$(make_sweep_home stuck-read 1)
+  FM_FIXTURE_CAPTURE_DELAY=30 run_sweep_checkpoint "$home"
+  expect_code 124 "$SWEEP_RC" "slow pane read: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'slow read missed clean close'
+  pass 'checkpoint bounds one stalled pane read without an outer-watchdog failure'
+}
+
+test_slow_crew_read_defers_without_false_stale() {
+  local home hash
+  home=$(make_sweep_home slow-crew 1)
+  cat > "$home/fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+case "$1" in capture-pane) printf 'idle pane\n'; exit 0 ;; esac
+exit 1
+SH
+  cat > "$home/fakebin/crew-state" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$1" >> "$FM_HOME/crew-reads"
+sleep 30
+printf 'state: working · source: run-step · delayed verdict\n'
+SH
+  chmod +x "$home/fakebin/crew-state"
+  if command -v md5 >/dev/null 2>&1; then hash=$(printf 'idle pane' | md5 -q); else hash=$(printf 'idle pane' | md5sum | cut -d' ' -f1); fi
+  printf '%s' "$hash" > "$home/state/.hash-fixture_lane-001"
+  printf '2\n' > "$home/state/.count-fixture_lane-001"
+  # The three-second sweep fixture can legitimately expire before this seam.
+  # Twelve seconds leaves setup headroom (including a controlled four-second
+  # setup delay in the causal check); the thirty-second read still exceeds it.
+  FM_CREW_STATE_BIN="$home/fakebin/crew-state" run_sweep_checkpoint "$home" 12
+  expect_code 124 "$SWEEP_RC" "slow crew read: $(cat "$home/err.txt")"
+  assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 12s' 'crew read missed clean close'
+  [ -s "$home/crew-reads" ] || fail 'dependent read was never exercised'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'exhausted read became an actionable verdict'
+  assert_absent "$home/state/.stale-fixture_lane-001" 'exhausted read suppressed the unclassified pane'
+  pass 'checkpoint defers a slow dependent crew read without inventing a stale verdict'
+}
+
+test_secondmate_stall_read_is_bounded_and_resumes() {
+  local home before started elapsed i
+  home=$(make_mate_checkpoint_home sibling-stall)
+  before=$(cat "$home/state/mate.meta" "$home/child/state/.wake-queue" "$home/state/.secondmate-wake-progress-mate")
+  started=$SECONDS
+  FM_FIXTURE_CAPTURE_DELAY=30 run_mate_checkpoint "$home" --seconds 3
+  elapsed=$((SECONDS - started))
+  expect_code 124 "$MATE_RC" "secondmate stall checkpoint: $(cat "$home/err.txt")"
+  [ "$elapsed" -le 6 ] || fail "stall read exceeded independent close bound: ${elapsed}s"
+  assert_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake within 3s' 'stall read missed the quiet contract'
+  [ -s "$home/captures" ] || fail 'the stall capture was never entered'
+  [ "$before" = "$(cat "$home/state/mate.meta" "$home/child/state/.wake-queue" "$home/state/.secondmate-wake-progress-mate")" ] || fail 'timed-out observation changed child custody or progress'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'unknown stalled observation produced a wake'
+  assert_absent "$home/state/.secondmate-wake-stall-mate" 'unknown stalled observation completed the tick'
+  for i in 1 2 3 4; do
+    FM_FIXTURE_CAPTURE_DELAY=0 run_mate_checkpoint "$home" --seconds 3
+    [ "$MATE_RC" -ne 0 ] || break
+    expect_code 124 "$MATE_RC" 'resumed stall observation failed'
+  done
+  expect_code 0 "$MATE_RC" 'the restored stall owner never resumed'
+  assert_contains "$(cat "$home/out.txt")" 'secondmate wake-loop stalled: mate=mate row=7' 'restored owner lost its row'
+  [ "$(awk -F '\t' '$3 == "check" && $4 == "secondmate-wake-loop-mate-100-7" { n++ } END { print n+0 }' "$home/state/.wake-queue")" -eq 1 ] || fail 'restored stall row was not delivered exactly once'
+  ack_checkpoint_wakes "$home"
+  FM_FIXTURE_CAPTURE_DELAY=0 run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" 'acknowledged stall was replayed'
+  pass 'secondmate capture exhaustion preserves the row and resumes one acknowledged wake'
+}
+
+test_sibling_pending_observation_preserves_unknown() {
+  local home corr rec
+  home=$(make_mate_checkpoint_home sibling-reply)
+  rm -f "$home/child/state/.wake-queue"
+  corr=$(FM_HOME="$home" bash -c '. "$1"; corr=$(fm_pending_reply_create "$2" "$2/state" mate "report the retained work"); fm_pending_reply_mark_delivered "$2/state" "$corr"; printf "%s\n" "$corr"' _ "$ROOT/bin/fm-pending-reply-lib.sh" "$home")
+  rec="$home/state/pending-replies/$corr"
+  FM_FIXTURE_CAPTURE_DELAY=30 run_mate_checkpoint "$home" --seconds 3
+  expect_code 124 "$MATE_RC" "pending observation: $(cat "$home/err.txt")"
+  [ -s "$home/captures" ] || fail 'pending-reply capture was not exercised'
+  grep -Fxq 'phase=awaiting_report' "$rec" || fail 'a timed-out observation closed the expectation'
+  grep -Fxq 'request_turn_completed_epoch=' "$rec" || fail 'unknown became a completed turn'
+  grep -Fxq 'recovery_attempted_epoch=' "$rec" || fail 'unknown started recovery'
+  [ ! -s "$home/state/.wake-queue" ] || fail 'unknown became a missed-report wake'
+  pass 'pending-reply read exhaustion retains the expectation without a fabricated completion'
+}
+
+
 test_wait_deadline_reaps_a_stopped_child
 test_singleton_start
 test_pid_identity_is_locale_invariant
@@ -1729,3 +1944,9 @@ test_arm_waits_for_peer_beacon_after_child_stands_down
 test_arm_fails_loud_when_no_fresh_watcher_confirmable
 test_cycle_exit_ledger_links_successor_and_stays_bounded
 test_stopped_watcher_is_live_but_stale_then_exit_is_classified
+
+test_signal_grace_keeps_trailing_signals
+test_slow_pane_read_obeys_remaining_budget
+test_slow_crew_read_defers_without_false_stale
+test_secondmate_stall_read_is_bounded_and_resumes
+test_sibling_pending_observation_preserves_unknown

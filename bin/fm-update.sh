@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-update a running firstmate and its secondmates to the latest origin.
+# Self-update from origin and check an optional second upstream remote.
 #
 # Mechanical half of the /updatefirstmate skill. Fast-forwards the running
 # firstmate repo's default branch from origin, then fast-forwards every
@@ -62,6 +62,15 @@
 # fm-procevent-when.sh rebind-all to republish those bindings against the new
 # bytes; a failure there is swallowed rather than failing the update.
 #
+# Optional config/firstmate-upstream contains one existing remote name (not a
+# URL). The primary still updates only from origin. After that guarded update,
+# fetch the second remote and compare HEAD with its origin-default branch.
+# Report behind <remote> by N, ahead of <remote> by N, or diverged from <remote>.
+# A failed fetch or missing branch is reported as an unverified check. Suppress
+# "firstmate: already current" unless the second comparison also proves equality.
+# Invalid configuration refuses before any checkout update. No remote is created
+# or changed, and no second-remote commits are merged or checked out.
+#
 # Usage: fm-update.sh [--help]
 set -eu
 
@@ -87,8 +96,54 @@ fi
 
 # --- main firstmate repo ---------------------------------------------------
 
+SECOND_REMOTE=''
+upstream_config="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}/firstmate-upstream"
+if [ -e "$upstream_config" ] || [ -L "$upstream_config" ]; then
+  if [ -L "$upstream_config" ] || [ ! -f "$upstream_config" ] || [ ! -r "$upstream_config" ]; then
+    echo 'error: config/firstmate-upstream must be a readable regular file' >&2
+    exit 1
+  fi
+  SECOND_REMOTE=$(cat "$upstream_config")
+  if [[ ! "$SECOND_REMOTE" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]] || [ "$SECOND_REMOTE" = origin ] \
+    || ! git -C "$FM_ROOT" remote get-url "$SECOND_REMOTE" >/dev/null 2>&1; then
+    echo 'error: config/firstmate-upstream must name one existing remote other than origin' >&2
+    exit 1
+  fi
+fi
+
+secondary_upstream_status() {
+  local branch counts ahead behind
+  [ -n "$SECOND_REMOTE" ] || return 0
+  if ! git -C "$FM_ROOT" fetch "$SECOND_REMOTE" --quiet 2>/dev/null \
+    && ! git -C "$FM_ROOT" fetch "$SECOND_REMOTE" --quiet 2>/dev/null; then
+    echo "firstmate: upstream check failed: $SECOND_REMOTE fetch failed"
+    return 0
+  fi
+  branch=$(default_branch "$FM_ROOT") || branch=''
+  if [ -z "$branch" ] || ! counts=$(git -C "$FM_ROOT" rev-list --left-right --count \
+      "HEAD...refs/remotes/$SECOND_REMOTE/$branch" 2>/dev/null); then
+    echo "firstmate: upstream check failed: $SECOND_REMOTE default branch unavailable"
+    return 0
+  fi
+  read -r ahead behind <<<"$counts"
+  if [ "$ahead" -gt 0 ] && [ "$behind" -gt 0 ]; then
+    echo "firstmate: diverged from $SECOND_REMOTE (ahead $ahead, behind $behind)"
+  elif [ "$behind" -gt 0 ]; then
+    echo "firstmate: behind $SECOND_REMOTE by $behind"
+  elif [ "$ahead" -gt 0 ]; then
+    echo "firstmate: ahead of $SECOND_REMOTE by $ahead"
+  fi
+}
+
 reread_firstmate="no"
-ff_target "$FM_ROOT" "firstmate" origin no no
+primary_update_output=$(mktemp "${TMPDIR:-/tmp}/fm-update.primary.XXXXXX")
+trap 'rm -f -- "$primary_update_output"' EXIT
+ff_target "$FM_ROOT" "firstmate" origin no no >"$primary_update_output"
+secondary_status=$(secondary_upstream_status)
+if [ -z "$secondary_status" ] || [ "$FF_STATUS" != current ]; then
+  cat "$primary_update_output"
+fi
+[ -z "$secondary_status" ] || printf '%s\n' "$secondary_status"
 if [ "$FF_STATUS" = "updated" ]; then
   if [ -n "$FF_INSTR" ]; then
     reread_firstmate="yes"
