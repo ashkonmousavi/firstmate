@@ -550,8 +550,9 @@ fm_composer_strip_braille() {
 # for the shared inbox confirmation read. One shared policy (previously three
 # per-backend variables that had drifted to 20/20/200) keeps stale scrollback
 # (startup banners, old transcript boxes) out of those candidate sets. tmux
-# and Herdr adapter composer reads use their visible viewports instead; Herdr
-# also uses this value as the minimum Ctrl+U clear budget after a refused proof.
+# and Herdr adapter composer reads do not use this bound; their capture owners
+# are documented in docs/tmux-backend.md and docs/herdr-backend.md. Herdr also
+# uses this value as the minimum Ctrl+U clear budget after a refused proof.
 FM_COMPOSER_CAPTURE_LINES=${FM_COMPOSER_CAPTURE_LINES:-20}
 
 # Pi allows a multi-line composer between its horizontal separators. Bound the
