@@ -552,8 +552,9 @@ A Claude composer that already holds text, or cannot be read, before the send is
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
 Herdr composer reads (`fm_backend_herdr_composer_state` and `fm_backend_herdr_composer_content`) capture the full visible viewport when `pane get` reports `scroll.offset_from_bottom` of 0, or the scroll probe fails or returns no valid offset.
 A slash-command popup rendered between the composer and the pane bottom pushes the composer outside a short tail, and the viewport is the read that still contains it.
-When `offset_from_bottom` is greater than 0, the viewer is in history, so both functions read a bottom-anchored `pane read --source recent --lines 200` instead of that viewport.
-Each composer read selects its source once and preserves it through the ANSI-to-plain fallback.
+When `offset_from_bottom` is greater than 0, the viewer is in history, so both functions read a bottom-anchored `pane read --source recent --lines 200 --format ansi` instead of that viewport.
+Each composer read selects its source once and keeps that source for the plain fallback.
+The scrolled plain fallback converts that ANSI read with `fm_backend_herdr_ansi_to_plain` and does not issue a text-format `pane read --source recent`.
 If both bottom captures fail or return no output, classification returns `unknown` and content extraction fails; neither falls back to the history viewport.
 The shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend.
 Its payloads are task lines rather than slash commands, so they do not open the command popup.

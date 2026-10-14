@@ -3222,6 +3222,24 @@ fm_backend_herdr_composer_source() {
   fi
 }
 
+# fm_backend_herdr_ansi_to_plain: herdr ANSI read output (stdin) as the plain
+# text herdr's text format would have returned (stdout). Herdr's ANSI rows end
+# in `\r\n`, carry only SGR escapes (its formatter runs with hyperlinks and
+# other extras off), and keep trailing styled blanks, while the text format
+# trims trailing whitespace from each row and drops trailing blank rows. So:
+# strip escapes with the shared CSI owner, trim each row's trailing ASCII and
+# Unicode whitespace (the carriage return included), then drop trailing blank
+# rows.
+fm_backend_herdr_ansi_to_plain() {
+  local space trim=(-e 's/[[:space:]][[:space:]]*$//' -e ':trim')
+  for space in "${FM_COMPOSER_UNICODE_SPACES[@]}"; do
+    trim+=(-e "s/[[:space:]]*${space}\$//")
+  done
+  trim+=(-e 't trim')
+  fm_composer_strip_ansi | LC_ALL=C sed "${trim[@]}" \
+    | awk '$0 == "" { blank++; next } { while (blank > 0) { print ""; blank-- } print }'
+}
+
 fm_backend_herdr_composer_capture() {
   local target=$1 ansi=$2 source=$3 out
   if [ "$source" = visible ]; then
@@ -3232,14 +3250,17 @@ fm_backend_herdr_composer_capture() {
     fi
     return $?
   fi
+  # A text-format recent read is the shape herdr 0.8+ may serve by scrolling
+  # an idle alternate-screen pane. Both the styled read and the plain fallback
+  # use --format ansi; the plain fallback converts that output locally.
   fm_backend_herdr_target_observable "$target" || return 1
-  if [ "$ansi" = 1 ]; then
-    out=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane read "$FM_BACKEND_HERDR_PANE" --source recent --lines 200 --format ansi 2>/dev/null) || return 1
-  else
-    out=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane read "$FM_BACKEND_HERDR_PANE" --source recent --lines 200 2>/dev/null) || return 1
-  fi
+  out=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane read "$FM_BACKEND_HERDR_PANE" --source recent --lines 200 --format ansi 2>/dev/null) || return 1
   [ -n "$out" ] || return 1
-  printf '%s' "$out"
+  if [ "$ansi" = 1 ]; then
+    printf '%s' "$out"
+  else
+    printf '%s\n' "$out" | fm_backend_herdr_ansi_to_plain
+  fi
 }
 
 # fm_backend_herdr_composer_state: thin adapter - capture plus capabilities

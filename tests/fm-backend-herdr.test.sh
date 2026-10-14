@@ -5065,6 +5065,8 @@ test_composer_format_fallback_preserves_scrolled_source() {
           ;;
       esac
       assert_not_contains "$(cat "$log")" $'\x1f''--source'$'\x1f''visible' "confirmed scrolled fallback read history"
+      assert_contains "$(cat "$log")" $'\x1f''--source'$'\x1f''recent'$'\x1f''--lines'$'\x1f''200'$'\x1f''--format'$'\x1f''ansi' \
+        "a scrolled composer read must stay an ANSI recent read"
     done
   done
   pass "Herdr composer format fallback preserves live-bottom classification, content and draft protection after a transient scroll-probe failure"

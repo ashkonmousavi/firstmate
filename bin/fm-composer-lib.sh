@@ -1206,6 +1206,22 @@ _fm_composer_classify_rows() {  # <screen> <styled> <ambiguous> <first-row> <las
   fi
 }
 
+# _fm_composer_dark_truecolor_slash_row: 0 when <plain> is a Claude ❯ row
+# whose command is a dark truecolor run in <raw> (38;2;...).
+# Ghost stripping drops that luminance and leaves the glyph, which would
+# read empty while a payload proof that keeps the colour still sees the command.
+# An SGR-2 suggestion has no 38;2 run, so it stays ghost text.
+_fm_composer_dark_truecolor_slash_row() {  # <raw-row> <plain-row>
+  local raw=$1 plain=$2 glyph='' body
+  [[ "$raw" == *'38;2;'* ]] || return 1
+  fm_composer_leading_agent_glyph_var glyph "$plain" || return 1
+  [ "$glyph" = '❯' ] || return 1
+  body=${plain#*"$glyph"}
+  fm_composer_normalize_trim_var body
+  [[ "$body" == /* ]] || return 1
+  [ -n "${body#/}" ]
+}
+
 # _fm_composer_classify_bare_row: the bare agent-glyph row verdict, including
 # the styled=0 degradation: without styling, trailing text after the glyph may
 # be the harness's own idle suggestion (claude's rotating dim hint, codex's
@@ -1217,6 +1233,12 @@ _fm_composer_classify_bare_row() {  # <screen> <styled> <row>
   plain=$(_fm_composer_row_content "$raw" 0)
   _fm_composer_bare_row_strip_furniture_var content
   _fm_composer_bare_row_strip_furniture_var plain
+  if [ "$styled" = 1 ] && _fm_composer_dark_truecolor_slash_row "$raw" "$plain"; then
+    case "$content" in
+      *'/'*) ;;
+      *) printf 'pending'; return 0 ;;
+    esac
+  fi
   state=$(fm_composer_classify_content 0 "$content" \
     "${FM_COMPOSER_IDLE_RE:-$FM_COMPOSER_IDLE_RE_DEFAULT}" insensitive "$plain" 0 "$styled")
   if [ "$styled" != 1 ] && [ "$state" = pending ]; then
