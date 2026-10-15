@@ -913,6 +913,56 @@ _fm_recovery_marker_ack() {
   fm_lock_release "$lock"
 }
 
+# Positive queue evidence for this actor, including unsafe queue objects.
+_fm_recovery_queue_pending() {
+  local count
+  if [ -e "$FM_WAKE_QUEUE" ] || [ -L "$FM_WAKE_QUEUE" ]; then
+    [ -f "$FM_WAKE_QUEUE" ] && [ -r "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ] || return 0
+  fi
+  count=$(fm_wake_actor_pending_count "${FM_SUPERVISION_ACTOR:-main}") || return 0
+  [ "$count" != 0 ]
+}
+
+# Called only under the queue and recovery-marker locks. Return 1 only when
+# every obligation source was safely inspected and found empty; uncertainty
+# preserves recovery. Outcome presentation is read-only and includes unread
+# captain rows as well as already-presented, unprocessed captain rows.
+_fm_recovery_obligations_pending() {
+  local f snapshot current open outcomes task endpoint ident
+  _fm_recovery_queue_pending && return 0
+  _fm_wake_require_classify || return 0
+  for f in "$STATE"/*.status; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
+  done
+  snapshot=$(status_presentation_snapshot "$STATE") || return 0
+  while IFS=$'\t' read -r task endpoint ident; do
+    [ -n "$task" ] || continue
+    f="$STATE/$task.status"
+    open=$(status_open_decisions_incremental "$f" "$endpoint" --strict) || return 0
+    [ -z "$open" ] || return 0
+    [ "$(_fm_open_decisions_file_ident "$f")" = "$ident" ] || return 0
+  done <<EOF
+$snapshot
+EOF
+  current=$(status_presentation_snapshot "$STATE") || return 0
+  [ "$current" = "$snapshot" ] || return 0
+  if [ -e "$STATE/branch-outcomes.jsonl" ] || [ -L "$STATE/branch-outcomes.jsonl" ] \
+    || [ -e "$STATE/.branch-outcomes-cursor" ] || [ -L "$STATE/.branch-outcomes-cursor" ] \
+    || [ -e "$STATE/.branch-outcomes-processed" ] || [ -L "$STATE/.branch-outcomes-processed" ]; then
+    for f in "$STATE/branch-outcomes.jsonl" "$STATE/.branch-outcomes-cursor" "$STATE/.branch-outcomes-processed"; do
+      [ -e "$f" ] || [ -L "$f" ] || continue
+      [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
+    done
+    # The store reader takes its own lock. Bound it while holding the queue
+    # locks so a busy or stuck store preserves recovery instead of parking it.
+    outcomes=$(fm_run_timed 5 "$FM_WAKE_LIB_DIR/fm-branch-outcome.sh" present) || return 0
+    outcomes=$(printf '%s\n' "$outcomes" | jq -sc 'map(select(.verdict == "captain")) | length') || return 0
+    [ "$outcomes" = 0 ] || return 0
+  fi
+  return 1
+}
+
 _fm_recovery_marker_arm_check() {
   local marker=$1 lock line quarantine rc=0
   FM_RECOVERY_MARKER_ACTION='none'
@@ -924,7 +974,7 @@ _fm_recovery_marker_arm_check() {
     return "$rc"
   fi
   if [ ! -e "$marker" ] && [ ! -L "$marker" ]; then
-    if [ -s "$FM_WAKE_QUEUE" ]; then
+    if _fm_recovery_queue_pending; then
       if ! _fm_recovery_marker_write_locked "$marker" downtime "" announced; then
         fm_lock_release "$lock"
         fm_lock_release "$FM_WAKE_QUEUE_LOCK"
@@ -964,6 +1014,19 @@ _fm_recovery_marker_arm_check() {
       return 0
       ;;
     pending:downtime:*)
+      # Both locks still bind this check and retirement to the generation read
+      # above. A publisher arriving later opens its own episode under this lock.
+      if ! _fm_recovery_obligations_pending; then
+        if ! _fm_recovery_marker_write_locked "$marker" downtime "${line##*:}" acked; then
+          fm_lock_release "$lock"
+          fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+          return 1
+        fi
+        FM_RECOVERY_MARKER_TOKEN="acked:downtime:${line##*:}"
+        fm_lock_release "$lock"
+        fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+        return 0
+      fi
       if ! _fm_recovery_marker_write_locked "$marker" downtime "${line##*:}" announced; then
         fm_lock_release "$lock"
         fm_lock_release "$FM_WAKE_QUEUE_LOCK"
@@ -973,7 +1036,7 @@ _fm_recovery_marker_arm_check() {
       FM_RECOVERY_MARKER_ACTION='recover'
       ;;
     acked:*)
-      if [ -s "$FM_WAKE_QUEUE" ]; then
+      if _fm_recovery_queue_pending; then
         if ! _fm_recovery_marker_write_locked "$marker" downtime "" announced; then
           fm_lock_release "$lock"
           fm_lock_release "$FM_WAKE_QUEUE_LOCK"

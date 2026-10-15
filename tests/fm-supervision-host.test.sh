@@ -89,10 +89,10 @@ ack=$(printf '%s\n' "$drain" | sed -n 's/^WAKE_ACK_REQUIRED: after handling comp
 task=$(sed -n 's/^tasks=//p' "$STATE/.supervision-host-turn" | awk '{ print $1 }')
 [ -n "$task" ] || task=fleet
 verdict=routine
-[ "$mode" != go-away ] || verdict=captain
+case "$mode" in go-away|return-captain|return-many|return-first|return-fail) verdict=captain ;; esac
 case "$mode" in
   fail) exit 3 ;;
-  handle|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
+  handle|captain|captain-close-before-return|held|captain-held|hold-lease|return|return-captain|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail|return-first|noack|emptyresult|go-away)
     case "$mode" in held|captain-held) read -r _ < "$FM_HOME/stub-release" ;; esac
     [ "$mode" != return-first ] || "$FM_REPO/bin/fm-afk-contract.sh" archive >> "$FM_HOME/engine-return.log" 2>&1
     [ "$mode" != go-away ] || "$FM_REPO/bin/fm-afk-contract.sh" enter --words 'gone mid-turn' >> "$FM_HOME/engine-return.log" 2>&1
@@ -136,7 +136,7 @@ case "$mode" in
     esac
     [ "$mode" = hold-lease ] || "$FM_REPO/bin/fm-lease.sh" release "$task" >> "$FM_HOME/engine-lease.log" 2>&1
     case "$mode" in
-      return|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail) "$FM_REPO/bin/fm-afk-contract.sh" archive >> "$FM_HOME/engine-return.log" 2>&1 ;;
+      return|return-captain|return-silent|return-fail|return-fail-silent|return-many|return-lookup-fail) "$FM_REPO/bin/fm-afk-contract.sh" archive >> "$FM_HOME/engine-return.log" 2>&1 ;;
     esac
     case "$mode" in return-fail|return-fail-silent) exit 3 ;; esac
     [ "$mode" != return-first ] || sleep "$FM_TEST_STUB_MAX_BLOCK_SECONDS"
@@ -163,6 +163,11 @@ HOMES_FILE="$TMP_ROOT/homes"
 # Stop whatever a case left running, by the exact pids its home recorded.
 stop_home_processes() {  # <home>
   local home=$1 pid arms='' i=0
+  # A parked hook cannot read session.stop until it returns. Stop the recorded
+  # fake sessions first so killing their host cannot launch an owner retry.
+  while IFS= read -r pid; do
+    kill -TERM "$pid" 2>/dev/null || true
+  done < <(cat "$home/claude-pids" 2>/dev/null)
   if [ -f "$home/state/.supervision-host" ]; then
     arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
     pid=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
@@ -380,7 +385,7 @@ test_report_surface_enforces_actor_turn_and_scope() {
 }
 
 # The return brief is rendered after the record is archived, so a non-silent
-# report made after that may be missing from it: the report queues its relay
+# captain report made after that may be missing from it: the report queues its relay
 # for main, while a report made during the away window only waits for the brief.
 test_report_after_the_return_is_queued_for_main() {
   local home state out rc drained queue_before
@@ -410,11 +415,15 @@ test_report_after_the_return_is_queued_for_main() {
   assert_grep '"task":"alpha","wake":"signal: alpha.status","verdict":"routine","summary":"still building; nothing new has happened; no action was taken","silent":true' \
     "$state/branch-outcomes.jsonl" "the post-return silent outcome was not retained"
   [ "$(cat "$state/.wake-queue")" = "$queue_before" ] || fail "a silent report after the return queued another check wake"
+  out=$(FM_HOME="$home" FM_SUPERVISION_ACTOR=branch FM_BRANCH_REPORT_TURN=t1 "$REPORT" \
+    --task alpha --verdict routine --summary 'routine after return' 2>&1); rc=$?
+  expect_code 0 "$rc" "visible routine return report must be stored"
+  [ "$(cat "$state/.wake-queue")" = "$queue_before" ] || fail "visible routine return report queued a check"
   drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" 2>&1)
   assert_contains "$drained" "supervision-host outcome 2 for alpha [captain] was recorded after the captain returned" \
     "main's drain must present the late outcome"
   assert_not_contains "$drained" 'still building; nothing new has happened' "main's drain rendered the post-return silent note"
-  pass "report surface: visible late outcomes queue a relay, while silent outcomes remain stored without a wake or note"
+  pass "report surface: late captain outcomes queue a relay; routine outcomes wait for the next drain"
 }
 
 # --- dispatch entry -----------------------------------------------------------
@@ -1894,8 +1903,8 @@ SH
   pass "host: the dialog mirror, its feed, and the wake file are owner-only"
 }
 
-# Park again after a host was stopped mid-park: the new cycle's first close is
-# the watcher's downtime resurface, which main drains before the next park.
+# Park again after a host was stopped mid-park. Empty downtime stays parked;
+# pending work first resurfaces for main to drain before the next park.
 # That close can end the park before its cycle is ever seen live, so this
 # waits for the exit itself.
 # The resurface pass-through leaves its successor running. Stop that watcher
@@ -1925,6 +1934,12 @@ quiet_pass_through_successor() {  # <home>
 }
 
 park_after_stop() {  # <home>
+  if [ ! -s "$1/state/.wake-queue" ]; then
+    park_again "$1"
+    [ ! -s "$1/host.rc" ] || fail "empty downtime reached main"
+    assert_no_re '^check: rearm-resurface' "$1/host.out" "empty downtime emitted a recovery wake"
+    return 0
+  fi
   rm -f "$1/host.rc"
   : > "$1/park.go"
   wait_until 150 host_exited "$1" || fail "the watcher's downtime resurface did not reach main: $(cat "$1/host.out")"
@@ -2226,10 +2241,30 @@ test_away_turn_without_a_report_hands_the_wake_to_main() {
   pass "host: an engine turn that records no outcome hands its durable wake to main"
 }
 
+test_return_during_an_engine_turn_keeps_routine_outcomes_off_main() {
+  local task_home host drained
+  task_home=$(make_home away-return-routine away)
+  echo return > "$task_home/stub-mode"
+  start_host "$task_home"
+  wait_until 150 watcher_live "$task_home" || fail "return routine: no watcher"
+  append_status "$task_home" 'mid-task'
+  wait_until 250 handled_at_least "$task_home" 1 || fail "return routine: wake not handled"
+  [ ! -s "$task_home/host.rc" ] || fail "routine return forced a main handoff"
+  watcher_live "$task_home" || fail "routine return lost its successor"
+  assert_no_grep 'supervision-host-return' "$task_home/state/.wake-queue" "routine return enqueued a main check"
+  assert_grep '"verdict":"routine"' "$task_home/state/branch-outcomes.jsonl" "routine row was lost"
+  drained=$(FM_HOME="$task_home" "$ROOT/bin/fm-wake-drain.sh" 2>&1)
+  assert_contains "$drained" 'stub handled demo' "next real drain lost the routine row"
+  host=$(awk -F '\t' '$1 == "host" { print $2 }' "$task_home/state/.supervision-host")
+  kill -TERM "$host"
+  wait_until 200 host_exited "$task_home" || fail "routine return host did not stop"
+  pass "host: routine return outcomes stay stored without waking main"
+}
+
 test_return_during_an_engine_turn_hands_its_outcomes_to_main() {
   local home
-  home=$(make_home away-return away)
-  echo return > "$home/stub-mode"
+  home=$(make_home away-return-captain away)
+  echo return-captain > "$home/stub-mode"
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "return: the host never started a watcher cycle"
   append_status "$home" 'mid-task'
@@ -2239,7 +2274,7 @@ test_return_during_an_engine_turn_hands_its_outcomes_to_main() {
   assert_re '^signal: .*demo.status' "$home/host.out" "the handoff must carry the close"
   assert_re '^supervision-host: the captain returned while the away session was handling this wake.*store rows 1[,)]' "$home/host.out" \
     "the handoff must say the captain returned mid-turn and name the store rows"
-  assert_re '^supervision-host: outcome 1 for demo \[routine\]: stub handled demo$' "$home/host.out" \
+  assert_re '^supervision-host: outcome 1 for demo \[captain\]: stub handled demo$' "$home/host.out" \
     "the handoff must carry the turn's outcome for main to relay"
   assert_re '	handled	turn=' "$home/state/.supervision-host.log" "the turn itself was handled"
   assert_no_grep 'demo.status' "$home/state/.wake-queue" "the handled wake must stay acknowledged"
@@ -2290,7 +2325,7 @@ test_large_turn_relays_an_early_visible_outcome() {
   [ "$count" -eq 1 ] || fail "many receipts: expected one visible outcome, got $count: $(tail -n 5 "$home/host.out")"
   [ "$(wc -l < "$home/state/branch-outcomes.jsonl" | tr -d ' ')" -eq 1001 ] \
     || fail "many receipts: the fixture did not exceed the old 1,000-row window: rows=$(wc -l < "$home/state/branch-outcomes.jsonl") host=$(cat "$home/host.out") report=$(cat "$home/engine-report.log") tail=$(tail -c 300 "$home/state/branch-outcomes.jsonl")"
-  assert_re '^supervision-host: outcome 1 for demo \[routine\]: stub handled demo$' "$home/host.out" \
+  assert_re '^supervision-host: outcome 1 for demo \[captain\]: stub handled demo$' "$home/host.out" \
     "many receipts: the early visible outcome was lost behind later silent rows"
   assert_no_grep 'bulk silent fixture' "$home/host.out" "many receipts: silent outcomes were relayed"
   pass "host: an early visible outcome survives more than 1,000 same-turn receipts"
@@ -2341,7 +2376,7 @@ test_outcome_after_the_return_survives_a_host_killed_at_the_turn_end() {
   assert_re '^check: rearm-resurface$' "$home/host.out" "the next host's first cycle must resurface the queue"
   assert_re '	pass-through	attended	main-only	check: rearm-resurface' "$home/state/.supervision-host.log" "the attended resurface must reach main"
   drained=$(FM_HOME="$home" "$ROOT/bin/fm-wake-drain.sh" 2>&1)
-  assert_contains "$drained" "supervision-host outcome 1 for demo [routine] was recorded after the captain returned" \
+  assert_contains "$drained" "supervision-host outcome 1 for demo [captain] was recorded after the captain returned" \
     "main's drain must present the outcome the killed host never handed off"
   pass "host: an outcome recorded after the return reaches main even when its host dies at the turn's end"
 }
@@ -2407,7 +2442,7 @@ test_return_during_a_failed_turn_still_hands_its_outcomes_to_main() {
   assert_absent "$home/state/.afk-contract" "fixture: the stub's return did not archive the record"
   assert_re '^supervision-host: the away session could not take this wake: the engine turn failed \(exit 3\); .*captain returned during its turn.*store rows 1[,)]' "$home/host.out" \
     "the handback must say the turn failed, that the captain returned, and name the store rows"
-  assert_re '^supervision-host: outcome 1 for demo \[routine\]: stub handled demo$' "$home/host.out" \
+  assert_re '^supervision-host: outcome 1 for demo \[captain\]: stub handled demo$' "$home/host.out" \
     "the handback must carry the failed turn's outcome for main to relay"
   assert_re '	failed	turn=' "$home/state/.supervision-host.log" "the turn itself failed"
   pass "host: a captain return during a failed engine turn still hands that turn's outcomes to main"
@@ -3103,6 +3138,7 @@ run_test test_undelivered_dialog_is_fed_again_on_the_next_turn
 run_test test_attended_wake_with_an_unreadable_mirror_reaches_main
 run_test test_away_wake_is_handled_on_the_engine_and_never_reaches_main
 run_test test_away_turn_without_a_report_hands_the_wake_to_main
+run_test test_return_during_an_engine_turn_keeps_routine_outcomes_off_main
 run_test test_return_during_an_engine_turn_hands_its_outcomes_to_main
 run_test test_silent_outcomes_are_not_relayed_when_the_captain_returns
 run_test test_large_turn_relays_an_early_visible_outcome

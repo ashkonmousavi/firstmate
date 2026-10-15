@@ -1230,6 +1230,21 @@ test_helper_report_resolves() {
   export FM_PENDING_REPLY_NOW=9100
   corr=$(fm_pending_reply_create "$home" "$state" "hibit" "quick answer")
   fm_pending_reply_mark_delivered "$state" "$corr"
+  FM_HOME="$sm_home" "$REPORT" --progress-only working - 'still working' \
+    || fail "uncorrelated progress helper failed"
+  assert_grep 'notify=routine' "$state/hibit.status" "progress declaration missing"
+  FM_HOME="$sm_home" "$REPORT" --progress-only paused "$corr" 'still waiting' \
+    || fail "correlated progress helper failed"
+  fm_pending_reply_try_resolve "$state" "$corr" || fail "progress receipt bookkeeping was lost"
+  [ "$(fm_pending_reply_get "$(fm_pending_reply_path "$state" "$corr")" resolved_via)" = helper ] \
+    || fail "correlated progress changed receipt semantics"
+  for verb in 'done' failed blocked needs-decision note; do
+    if FM_HOME="$sm_home" "$REPORT" --progress-only "$verb" "$corr" invalid 2>/dev/null; then
+      fail "progress-only accepted $verb"
+    fi
+  done
+  corr=$(fm_pending_reply_create "$home" "$state" hibit 'actual result')
+  fm_pending_reply_mark_delivered "$state" "$corr"
   FM_HOME="$sm_home" "$REPORT" "done" "$corr" "all good" \
     || fail "helper report failed"
   [ -f "$state/hibit.status" ] || fail "helper must write the parent channel"
