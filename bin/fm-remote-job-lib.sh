@@ -808,13 +808,12 @@ fm_remote_job_path_mtime() { # <path>
 }
 
 fm_remote_job_stage_owner_alive() { # <stage-dir>
-  local stage=$1 pid recorded_start actual_start
+  local stage=$1 pid recorded_start
   pid=$(fm_remote_job_read_single_line "$stage/.owner-pid" 64 2>/dev/null) || return 1
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   [ "$pid" -gt 1 ] || return 1
   recorded_start=$(fm_remote_job_read_single_line "$stage/.owner-start" 256 2>/dev/null) || return 1
-  actual_start=$(fm_remote_job_process_start "$pid" 2>/dev/null) || return 1
-  [ "$recorded_start" = "$actual_start" ]
+  fm_remote_job_start_matches "$recorded_start" "$pid"
 }
 
 fm_remote_job_reap_stale() { # <account-home>
@@ -997,6 +996,29 @@ fm_remote_job_process_start() {
   printf '%s\n' "$value"
 }
 
+# True when <recorded-start> still names the live process at <pid>.
+# New records match fm_remote_job_process_start exactly (proc-starttime on
+# Linux, LC_ALL=C lstart where /proc is absent). Pre-update records lack the
+# proc-starttime= prefix and were written with bare ps lstart and no LC_ALL=C;
+# accept that form so a healthy pre-update worker still verifies and the
+# code-identity path can stop and replace it once, instead of piling supervisors.
+fm_remote_job_start_matches() { # <recorded-start> <pid>
+  local recorded=$1 pid=$2 actual ps_bin value
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ -n "$recorded" ] || return 1
+  if actual=$(fm_remote_job_process_start "$pid" 2>/dev/null); then
+    [ "$recorded" = "$actual" ] && return 0
+    case "$recorded" in proc-starttime=*) return 1 ;; esac
+  else
+    case "$recorded" in proc-starttime=*) return 1 ;; esac
+  fi
+  if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
+  value=$("$ps_bin" -p "$pid" -o lstart= 2>/dev/null) || return 1
+  [ -n "$value" ] || return 1
+  case "$value" in *$'\n'*|*$'\r'*) return 1 ;; esac
+  [ "$recorded" = "$value" ]
+}
+
 fm_remote_job_process_command() {
   local pid=$1 ps_bin value
   if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
@@ -1090,14 +1112,13 @@ fm_remote_job_read_single_line() {
 
 # The pid, start time, and command recorded in <dir> still name one live process.
 fm_remote_job_recorded_owner_alive() { # <dir>
-  local dir=$1 pid recorded_start actual_start recorded_command actual_command
+  local dir=$1 pid recorded_start recorded_command actual_command
   [ -d "$dir" ] && [ ! -L "$dir" ] || return 1
   pid=$(fm_remote_job_read_single_line "$dir/pid" 64 2>/dev/null) || return 1
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   [ "$pid" -gt 1 ] || return 1
   recorded_start=$(fm_remote_job_read_single_line "$dir/start" 256 2>/dev/null) || return 1
-  actual_start=$(fm_remote_job_process_start "$pid") || return 1
-  [ "$recorded_start" = "$actual_start" ] || return 1
+  fm_remote_job_start_matches "$recorded_start" "$pid" || return 1
   recorded_command=$(fm_remote_job_read_single_line "$dir/command" 8192 2>/dev/null) || return 1
   actual_command=$(fm_remote_job_process_command "$pid") || return 1
   [ "$recorded_command" = "$actual_command" ] || return 1

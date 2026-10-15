@@ -5,7 +5,9 @@
 # while /proc starttime stays fixed, so the lock's recorded start stopped
 # matching, ensure treated a healthy worker as dead, and every remote command
 # nohup-started another supervisor. fm_remote_job_process_start now reads the
-# clock-stable /proc starttime when it exists.
+# clock-stable /proc starttime when it exists. Pre-update workers still carry
+# bare lstart cookies; fm_remote_job_start_matches accepts that legacy form so
+# the code-identity path can replace them once instead of piling supervisors.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -114,6 +116,71 @@ test_lstart_fallback_without_proc() {
   pass "ps lstart is the fallback when /proc is absent"
 }
 
+# Pre-update workers wrote bare ps lstart with no LC_ALL=C. After the /proc
+# switch, that cookie must still verify so ensure can replace via code identity
+# instead of nohup-piling a second supervisor beside the live owner.
+test_pre_update_legacy_lstart_still_verifies() {
+  local live legacy_start proc_token
+  sleep 30 &
+  live=$!
+  legacy_start=$(ps -p "$live" -o lstart= 2>/dev/null) \
+    || { kill "$live" 2>/dev/null || true; fail "could not read bare legacy lstart"; }
+  [ -n "$legacy_start" ] || { kill "$live" 2>/dev/null || true; fail "empty legacy lstart"; }
+  fm_remote_job_start_matches "$legacy_start" "$live" \
+    || { kill "$live" 2>/dev/null || true; fail "legacy bare lstart did not verify against the live pid"; }
+  if has_proc; then
+    proc_token=$(fm_remote_job_process_start "$live") \
+      || { kill "$live" 2>/dev/null || true; fail "/proc token read failed"; }
+    case "$proc_token" in proc-starttime=*) ;; *)
+      kill "$live" 2>/dev/null || true
+      fail "expected proc-starttime token, got '$proc_token'"
+      ;;
+    esac
+    [ "$legacy_start" != "$proc_token" ] \
+      || { kill "$live" 2>/dev/null || true; fail "legacy cookie unexpectedly equals proc token"; }
+    fm_remote_job_start_matches "$proc_token" "$live" \
+      || { kill "$live" 2>/dev/null || true; fail "proc-starttime token did not verify"; }
+  fi
+  fm_remote_job_start_matches 'Mon Jan  1 00:00:00 2001' "$live" \
+    && { kill "$live" 2>/dev/null || true; fail "a drifted legacy cookie verified"; }
+  kill "$live" 2>/dev/null || true
+  wait "$live" 2>/dev/null || true
+  fm_remote_job_start_matches "$legacy_start" "$live" \
+    && fail "legacy cookie still verified after the process exited"
+  pass "pre-update bare lstart still verifies; drifted and dead cookies do not"
+}
+
+test_pre_update_worker_lock_verifies_then_code_identity_replaces() {
+  local old new legacy_start
+  has_proc || { pass "pre-update worker lock upgrade skipped without /proc"; return; }
+  stop_fixture_worker
+  ensure_worker
+  old=$(cat "$LOCK/pid")
+  legacy_start=$(ps -p "$old" -o lstart= 2>/dev/null) \
+    || fail "could not read the live owner's bare lstart"
+  printf '%s\n' "$legacy_start" > "$LOCK/start"
+  fm_remote_job_recorded_owner_alive "$LOCK" \
+    || fail "a pre-update lock start did not verify the live owner"
+  fm_remote_job_worker_owned_alive "$FIXTURE_ROOT" "$ACCOUNT_HOME" \
+    || fail "worker_owned_alive rejected a pre-update lock start"
+  # Stale code identity forces the ordinary replace path once ownership holds.
+  printf 'stale-pre-update-identity\n' > "$STATE_ROOT/worker.identity"
+  ensure_worker
+  new=$(cat "$LOCK/pid")
+  [ "$new" != "$old" ] || fail "code-identity path did not replace the pre-update worker"
+  wait_gone "$old" || fail "the pre-update worker survived its replacement"
+  case "$(cat "$LOCK/start")" in proc-starttime=*) ;; *)
+    fail "replacement did not record a /proc token"
+    ;;
+  esac
+  [ "$(supervisor_count)" = 1 ] || fail "upgrade left $(supervisor_count) supervisors"
+  ensure_worker
+  ensure_worker
+  [ "$(cat "$LOCK/pid")" = "$new" ] || fail "repeated ensure replaced the upgraded worker"
+  [ "$(supervisor_count)" = 1 ] || fail "repeated ensure piled up $(supervisor_count) supervisors"
+  pass "pre-update lock start verifies; code-identity replace yields one supervisor"
+}
+
 # Wait for a fresh worker.ready heartbeat that the current code identity owns.
 ensure_worker() {
   fm_remote_job_ensure_worker "$FIXTURE_ROOT" "$ACCOUNT_HOME" || fail "ensure failed: ${FM_REMOTE_JOB_ERROR:-no diagnostic}"
@@ -163,7 +230,9 @@ test_fake_proc_token_is_stable_and_parses_comm
 test_token_changes_with_starttime
 test_malformed_proc_stat_and_pid_are_rejected
 test_lstart_fallback_without_proc
+test_pre_update_legacy_lstart_still_verifies
 test_dead_owner_with_stale_ready_gets_one_replacement
+test_pre_update_worker_lock_verifies_then_code_identity_replaces
 test_repeated_ensure_never_piles_supervisors
 
 echo "ALL TESTS PASSED"
