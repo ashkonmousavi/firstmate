@@ -111,22 +111,41 @@ pi_live_cases() {
   CHECKED="$CHECKED $exe"
 }
 
-for runner in claude pi pi-signed; do
+codex_live_cases() {
+  local version empty stored
+  version=$(codex --version 2>/dev/null)
+  empty="$TMP_ROOT/codex-empty"
+  stored="$TMP_ROOT/codex-stored"
+  mkdir -p "$empty" "$stored"
+  # Synthetic fixture only: login status is local and submits no model request.
+  printf '%s\n' '{"OPENAI_API_KEY":"sk-fm-live-synthetic"}' > "$stored/auth.json"
+  if CODEX_HOME="$stored" OPENAI_API_KEY=sk-fm-live-synthetic \
+    fm_worker_account_check codex "$empty" "$empty" codex 2>/dev/null; then
+    fail "$version: account check accepted an empty root through an ambient login"
+  fi
+  fm_worker_account_check codex "$stored" "$stored" codex ||
+    fail "$version: account check refused the synthetic locally signed-in root"
+  pass "$version: Codex account selection checks its own root and refuses an empty one"
+  CHECKED="$CHECKED codex"
+}
+
+for runner in claude codex pi pi-signed; do
   if ! command -v "$runner" >/dev/null 2>&1; then
     printf 'skip-runner: %s is not installed, so its pin check was not exercised\n' "$runner"
     continue
   fi
   case "$runner" in
     claude) claude_live_cases ;;
+    codex) codex_live_cases ;;
     *) pi_live_cases "$runner" ;;
   esac
 done
 
 if [ -z "$CHECKED" ]; then
   if [ "${FM_WORKER_ACCOUNT_LIVE_E2E:-${FM_LIVE:-}}" = 1 ]; then
-    fail "the worker account live guard was requested but no supported runner (claude, pi, pi-signed) is installed"
+    fail "the worker account live guard was requested but no supported runner (claude, codex, pi, pi-signed) is installed"
   fi
-  echo "skip: live: no supported runner (claude, pi, pi-signed) installed"
+  echo "skip: live: no supported runner (claude, codex, pi, pi-signed) installed"
   exit 0
 fi
 echo "# worker account live guard checked:$CHECKED"

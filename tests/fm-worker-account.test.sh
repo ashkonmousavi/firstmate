@@ -70,6 +70,15 @@ esac
 } > '$dir/pi-worker'
 SH
   chmod +x "$fakebin/claude" "$fakebin/pi"
+  cat > "$fakebin/codex" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = login ] && [ "\${2:-}" = status ]; then
+  [ -f "\${CODEX_HOME:-\$HOME/.codex}/signed-in" ]
+  exit
+fi
+printf 'CODEX_HOME=%s\n' "\${CODEX_HOME-unset}" > '$dir/codex-worker'
+SH
+  chmod +x "$fakebin/codex"
 }
 
 # new_case <name> <crew-harness> -> sets CASE HOME_DIR PROJ WT FAKEBIN
@@ -111,7 +120,7 @@ run_pane() {
   env -i HOME="$HOME_DIR/user-home" PATH="$FAKEBIN:$PATH" TERM=xterm \
     CLAUDE_CONFIG_DIR="$CASE/ambient-claude" ANTHROPIC_API_KEY=ambient-pane-key \
     CLAUDE_CODE_OAUTH_TOKEN=ambient-pane-token CLAUDE_CODE_USE_BEDROCK=1 \
-    PI_CODING_AGENT_DIR="$CASE/ambient-pi" OPENAI_API_KEY=ambient-pane-openai \
+    PI_CODING_AGENT_DIR="$CASE/ambient-pi" OPENAI_API_KEY=ambient-pane-openai CODEX_HOME="$CASE/ambient-codex" \
     bash -c "$(cat "$CASE/launch.log")" || fail "the recorded launch failed in the synthetic pane"
 }
 
@@ -124,7 +133,7 @@ assert_refused_before_launch() {
 }
 
 test_absent_pin_keeps_the_launch_unchanged() {
-  local out rc id=acct-absent
+  local out rc id=acct-absent-$$
   new_case absent claude
   out=$(spawn_ship "$id"); rc=$?
   expect_code 0 "$rc" "an unpinned Claude spawn should succeed: $out"
@@ -138,7 +147,7 @@ test_absent_pin_keeps_the_launch_unchanged() {
     "an unpinned launch must leave the pane's environment credentials alone"
 
   new_case absent-pi pi
-  out=$(spawn_ship acct-absent-pi --model gpt-5.5); rc=$?
+  out=$(spawn_ship "acct-absent-pi-$$" --model gpt-5.5); rc=$?
   expect_code 0 "$rc" "an unpinned Pi spawn with an unqualified model should succeed: $out"
   assert_not_contains "$(cat "$CASE/launch.log")" "--provider" "an unpinned Pi launch must not add a provider"
   run_pane
@@ -148,7 +157,7 @@ test_absent_pin_keeps_the_launch_unchanged() {
 }
 
 test_claude_pin_selects_the_root_and_sheds_ambient_credentials() {
-  local out rc id=acct-claude
+  local out rc id=acct-claude-$$
   new_case claude-pin claude
   signed_in_claude_root "$CASE/work"
   printf '%s\n' "$CASE/work" > "$HOME_DIR/config/claude-account"
@@ -170,7 +179,7 @@ test_claude_pin_selects_the_root_and_sheds_ambient_credentials() {
 }
 
 test_claude_pin_refuses_a_signed_out_root_despite_an_ambient_login() {
-  local out rc id=acct-claude-out
+  local out rc id=acct-claude-out-$$
   new_case claude-signed-out claude
   mkdir -p "$CASE/work"
   printf '%s\n' "$CASE/work" > "$HOME_DIR/config/claude-account"
@@ -182,7 +191,7 @@ test_claude_pin_refuses_a_signed_out_root_despite_an_ambient_login() {
 }
 
 test_claude_ordinary_pin_unsets_the_config_root() {
-  local out rc id=acct-ordinary
+  local out rc id=acct-ordinary-$$
   new_case ordinary claude
   printf 'ordinary' > "$HOME_DIR/config/claude-account"
   out=$(spawn_ship "$id"); rc=$?
@@ -206,7 +215,7 @@ test_claude_ordinary_pin_unsets_the_config_root() {
 }
 
 test_malformed_pins_refuse_before_launch() {
-  local out rc id=acct-bad n=0 body
+  local out rc id=acct-bad-$$ n=0 body
   new_case malformed claude
   mkdir -p "$CASE/work"
   for body in 'relative/root' "$CASE/work"$'\r' '' 'ordinary'$'\n''environment' "$CASE/missing-root"; do
@@ -231,7 +240,7 @@ test_malformed_pins_refuse_before_launch() {
 }
 
 test_pi_pin_selects_the_root_and_the_declared_provider() {
-  local out rc id=acct-pi launch
+  local out rc id=acct-pi-$$ launch
   new_case pi-pin pi
   mkdir -p "$CASE/pi-work"
   printf 'openai-codex\n' > "$CASE/pi-work/signed-in"
@@ -255,7 +264,7 @@ test_pi_pin_selects_the_root_and_the_declared_provider() {
 }
 
 test_pi_pin_refusals() {
-  local out rc id=acct-pi-bad
+  local out rc id=acct-pi-bad-$$
   new_case pi-refusals pi
   mkdir -p "$CASE/pi-work"
   printf 'openai-codex\n' > "$CASE/pi-work/signed-in"
@@ -279,7 +288,7 @@ test_pi_pin_refusals() {
 }
 
 test_pi_extension_provider_and_old_pi_fall_back_to_the_model_listing() {
-  local out rc id=acct-pi-list
+  local out rc id=acct-pi-list-$$
   new_case pi-listing pi
   mkdir -p "$CASE/pi-work"
   printf 'codex-native\n' > "$CASE/pi-work/extension-providers"
@@ -303,7 +312,7 @@ test_pi_extension_provider_and_old_pi_fall_back_to_the_model_listing() {
 }
 
 test_a_pin_governs_only_its_own_runner() {
-  local out rc id=acct-scope
+  local out rc id=acct-scope-$$
   new_case scope codex
   mkdir -p "$CASE/work"
   printf '%s\n' "$CASE/work" > "$HOME_DIR/config/claude-account"
@@ -318,7 +327,7 @@ test_a_pin_governs_only_its_own_runner() {
 }
 
 test_raw_claude_command_receives_the_pin() {
-  local out rc id=acct-raw
+  local out rc id=acct-raw-$$
   new_case raw-claude claude
   signed_in_claude_root "$CASE/work"
   printf '%s\n' "$CASE/work" > "$HOME_DIR/config/claude-account"
@@ -332,7 +341,7 @@ test_raw_claude_command_receives_the_pin() {
 }
 
 test_raw_claude_account_override_refuses_under_a_pin() {
-  local out rc id=acct-raw-override var
+  local out rc id=acct-raw-override-$$ var
   new_case raw-override claude
   signed_in_claude_root "$CASE/work"
   signed_in_claude_root "$CASE/other"
@@ -349,7 +358,7 @@ test_raw_claude_account_override_refuses_under_a_pin() {
 }
 
 test_raw_claude_account_override_is_kept_without_a_pin() {
-  local out rc id=acct-raw-unpinned
+  local out rc id=acct-raw-unpinned-$$
   new_case raw-unpinned claude
   mkdir -p "$CASE/other"
   out=$(spawn_ship "$id" --harness "CLAUDE_CONFIG_DIR=$CASE/other ANTHROPIC_API_KEY=override-key claude --print raw"); rc=$?
@@ -362,7 +371,7 @@ test_raw_claude_account_override_is_kept_without_a_pin() {
 }
 
 test_local_secondmate_reads_the_launching_home_pin() {
-  local out rc id=acct-sm sm
+  local out rc id=acct-sm-$$ sm
   new_case secondmate claude
   signed_in_claude_root "$CASE/work"
   printf '%s\n' "$CASE/work" > "$HOME_DIR/config/claude-account"
@@ -386,6 +395,121 @@ test_local_secondmate_reads_the_launching_home_pin() {
   pass "a local secondmate reads the launching home's pin and its own home's file is never inherited over"
 }
 
+test_explicit_account_roots() {
+  local runner out rc id root
+  for runner in claude codex; do
+    id="explicit-$runner-$$"
+    new_case "$id" "$runner"
+    root="$CASE/$runner-2"
+    mkdir -p "$root"
+    if [ "$runner" = claude ]; then signed_in_claude_root "$root"; else touch "$root/signed-in"; fi
+    out=$(spawn_ship "$id" --account-root "$root"); rc=$?
+    expect_code 0 "$rc" "explicit $runner account should launch: $out"
+    assert_contains "$(cat "$HOME_DIR/state/$id.meta")" "account=$root" "account root must be durable"
+    run_pane
+    assert_contains "$(cat "$CASE/$runner-worker")" "$root" "destination ambient account must not win"
+    if [ "$runner" = claude ]; then
+      assert_contains "$(cat "$CASE/claude-worker")" 'ANTHROPIC_API_KEY=unset' "explicit root must shed ambient credentials"
+    fi
+  done
+  new_case explicit-conflict claude
+  signed_in_claude_root "$CASE/pinned"
+  signed_in_claude_root "$CASE/other"
+  printf '%s\n' "$CASE/pinned" > "$HOME_DIR/config/claude-account"
+  out=$(spawn_ship explicit-conflict --account-root "$CASE/other"); rc=$?
+  expect_code 1 "$rc" "an explicit root must not override a pin"
+  assert_refused_before_launch explicit-conflict "$out" 'config/claude-account'
+  new_case explicit-signed-out codex
+  mkdir -p "$CASE/codex-2"
+  out=$(spawn_ship explicit-signed-out --account-root "$CASE/codex-2"); rc=$?
+  expect_code 1 "$rc" "signed-out explicit root must refuse"
+  assert_refused_before_launch explicit-signed-out "$out" 'not signed in'
+  pass "explicit Claude/Codex roots reach the pane, persist and cannot override pins"
+}
+
+test_numbered_account_recovery() {
+  local out rc root
+  new_case failover codex
+  # shellcheck source=bin/fm-worker-account-lib.sh
+  . "$ROOT/bin/fm-worker-account-lib.sh"
+  # shellcheck source=bin/fm-backend.sh
+  . "$ROOT/bin/fm-backend.sh"
+  for root in "$CASE/codex-1" "$CASE/codex-2" "$CASE/codex-3"; do
+    mkdir -p "$root"
+    touch "$root/signed-in"
+    echo 50 > "$root/remaining"
+  done
+  echo 0 > "$CASE/codex-1/remaining"
+  cat > "$FAKEBIN/quota-axi" <<'SH'
+#!/usr/bin/env bash
+provider=codex
+profile=0
+while [ "$#" -gt 0 ]; do
+  case "$1" in --provider) provider=$2; shift ;; --profile-only) profile=1 ;; esac
+  shift
+done
+case "$provider" in claude) root=$CLAUDE_CONFIG_DIR ;; *) root=$CODEX_HOME ;; esac
+if [ -f "$root/auth-error" ]; then
+  if [ "$profile" = 1 ]; then
+    jq -n --arg p "$provider" '{schemaVersion:5,providers:[{provider:$p,state:{status:"auth_required"},quotaSemantics:{status:"unknown",effectiveAvailability:[]}}]}'
+    exit 1
+  fi
+  [ -z "${OPENAI_API_KEY:-}${ANTHROPIC_API_KEY:-}" ] || exit 1
+  if [ -f "$root/renewable" ]; then
+    rm "$root/auth-error"
+    touch "$root/renewed"
+  fi
+  # Otherwise this normal read answers through fallback, while a subsequent
+  # strict read must still fail for the rejected root.
+fi
+left=$(cat "$root/remaining")
+jq -n --arg p "$provider" --argjson left "$left" '{schemaVersion:5,providers:[{
+  provider:$p,state:{status:"fresh"},quotaSemantics:{status:"known",effectiveAvailability:[{
+    scope:"all_models",status:"known",effectivePercentRemaining:$left,
+    runway:{status:(if $left == 0 then "exhausted_now" else "through_reset" end)}
+  }]}}]}'
+SH
+  chmod +x "$FAKEBIN/quota-axi"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_quota codex "$CASE/codex-1" default)
+  [ "$out" = exhausted ] || fail "fresh zero-quota profile must classify exhausted: $out"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_next codex "$CASE/codex-1" default); rc=$?
+  expect_code 0 "$rc" "a next signed-in account should be selected"
+  [ "$out" = "$CASE/codex-2" ] || fail "failover must preserve numerical account order: $out"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_next codex "$CASE/codex-1/" default)
+  [ "$out" = "$CASE/codex-2" ] || fail "directory completion's trailing slash must preserve account order"
+  touch "$CASE/codex-2/auth-error"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_quota codex "$CASE/codex-2" default)
+  [ "$out" = unknown ] || fail "an auth rejection must not classify exhausted"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_next codex "$CASE/codex-1" default)
+  [ "$out" = "$CASE/codex-3" ] || fail "unusable saved accounts must be skipped"
+  touch "$CASE/codex-2/renewable"
+  out=$(OPENAI_API_KEY=ambient-renewal-fixture PATH="$FAKEBIN:$PATH" fm_worker_account_quota codex "$CASE/codex-2" default)
+  [ "$out" = healthy ] && [ -f "$CASE/codex-2/renewed" ] || fail "vendor-renewed profile must be reread strictly before use"
+  mkdir -p "$CASE/recovery-bin" "$CASE/recovery-state"
+  cat > "$CASE/recovery-bin/fm-control.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >> "$FM_RECOVERY_LOG"
+SH
+  cat > "$CASE/recovery-state/t.meta" <<EOF
+account_explicit=1
+account=$CASE/codex-1
+harness=codex
+kind=ship
+model=default
+EOF
+  FM_RECOVERY_LOG="$CASE/recovery-log" PATH="$FAKEBIN:$PATH" \
+    fm_worker_account_recover "$CASE/recovery-state/t.meta" "$CASE/recovery-bin" || fail "watcher must invoke recovery without a model turn"
+  assert_contains "$(cat "$CASE/recovery-log")" '--from-account-root' "recovery must bind the observed account"
+  assert_contains "$(cat "$CASE/recovery-log")" '--next-account' "recovery must use the guarded control transaction"
+  out=$(cat "$CASE/recovery-log")
+  FM_RECOVERY_LOG="$CASE/recovery-log" PATH="$FAKEBIN:$PATH" \
+    fm_worker_account_recover "$CASE/recovery-state/t.meta" "$CASE/recovery-bin" && fail "a duplicate poll must be throttled"
+  [ "$out" = "$(cat "$CASE/recovery-log")" ] || fail "a duplicate poll launched another recovery"
+  pass "fresh quota drives ordered same-kind recovery; auth failures and duplicate polls cannot trigger another launch"
+}
+
+test_numbered_account_recovery
+test_explicit_account_roots
 test_absent_pin_keeps_the_launch_unchanged
 test_claude_pin_selects_the_root_and_sheds_ambient_credentials
 test_claude_pin_refuses_a_signed_out_root_despite_an_ambient_login
