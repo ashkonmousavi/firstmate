@@ -76,6 +76,10 @@
 #     retried instead of being judged by the healthy-watcher predicate
 #     (docs/supervision-host.md). On a home that opted out nothing below
 #     changes.
+#   - Routine closes: a non-consuming queue/status/outcome peek can prove all
+#     pending rows routine. Only then the ordinary generation-bound drain ack
+#     consumes them; the same async hook reparks without a model turn or cursor
+#     advancement. A mixed batch, unknown close or failed ack still rewakes.
 #   - Translation: while supervision is still needed and AFK remains inactive,
 #     an actionable arm close (signal:/stale:/check:/heartbeat) prints one
 #     rewake banner to stderr and exits 2, which wakes Claude even while idle
@@ -406,12 +410,17 @@ if fm_supervision_host_enabled "$CONFIG" claude; then
   ACTIONABLE_RE='^(signal:|stale:|check:|heartbeat($|:)|supervision-host:)'
 fi
 attempt=0
+ROUTINE_ACK_FAILED=0
 while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
   # A superseded owner must not start or attach another watcher or mutate any
   # watcher/wake state: re-verify generation ownership before every arm
   # invocation, first attempt and retries alike.
   if ! fm_autoarm_still_owner "$STATE" "$MY_GEN"; then
     [ -z "$OUT" ] || rm -f "$OUT" 2>/dev/null || true
+    exit 0
+  fi
+  if ! need_supervision; then
+    autoarm_record clean
     exit 0
   fi
   attempt=$((attempt + 1))
@@ -437,7 +446,33 @@ while [ "$attempt" -lt "$AUTOARM_ATTEMPTS" ]; do
   if [ -n "$OUT" ]; then
     grep -Eq "$ACTIONABLE_RE" "$OUT" 2>/dev/null && ACTIONABLE=1
   fi
-  [ "$ACTIONABLE" -eq 1 ] && break
+  if [ "$ACTIONABLE" -eq 1 ]; then
+    # Do not present a normal drain into a sink: that would consume unread
+    # notes before the model sees them. Peek at raw rows and obligations first,
+    # then use exactly the existing sequence/generation acknowledgement path.
+    if [ "$HOST_RC" -eq 0 ] && fm_autoarm_still_owner "$STATE" "$MY_GEN" \
+      && ROUTINE_ACK=$(fm_wake_routine_peek "$OUT" 2>/dev/null) \
+      && fm_autoarm_still_owner "$STATE" "$MY_GEN"; then
+      ACK_RC=0
+      ACK_OUTPUT=$("$SCRIPT_DIR/fm-wake-drain.sh" --ack-through "${ROUTINE_ACK%%$'\t'*}" \
+        --recovery-generation "${ROUTINE_ACK#*$'\t'}" 2>&1) || ACK_RC=$?
+      if [ "$ACK_RC" -eq 0 ] && [ -z "$ACK_OUTPUT" ] && [ ! -s "$FM_WAKE_QUEUE" ]; then
+        # Stay in this already-asynchronous Stop hook: the turn stays stopped,
+        # and its next real wake still has a live owner to deliver it.
+        rm -f "$OUT" 2>/dev/null || true
+        OUT=
+        ACTIONABLE=0
+        attempt=0
+        continue
+      fi
+      # A failed or partial acknowledgement must still get a handling turn.
+      # Reopen downtime if the ack retired its marker before a later IO failed.
+      fm_autoarm_still_owner "$STATE" "$MY_GEN" || exit 0
+      ROUTINE_ACK_FAILED=1
+      fm_recovery_marker_publish "$STATE/.watcher-down" downtime >/dev/null 2>&1 || true
+    fi
+    break
+  fi
   if [ "$HOST_MODE" -eq 1 ]; then
     # The host stood down because this session or generation no longer owns
     # supervision: whoever does owns continuity now.
@@ -533,7 +568,8 @@ if [ "$ACTIONABLE" -eq 1 ]; then
     [ -z "$SUCCESSOR_FAILURE" ] || printf '%s\n' "$SUCCESSOR_FAILURE"
     printf 'Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.\n'
   } >&2
-  if autoarm_commit rewake; then
+  if autoarm_commit rewake \
+    || { [ "$ROUTINE_ACK_FAILED" -eq 1 ] && autoarm_commit failed-suppressed; }; then
     [ -z "$OUT" ] || rm -f "$OUT" 2>/dev/null || true
     exit 2
   fi
