@@ -4,6 +4,25 @@
 # resolved, the launch-time sign-in check under it, and the environment
 # credentials a pinned Claude launch sheds.
 #
+# Explicit task accounts: --account-root <absolute-directory> selects Claude or
+# Codex without changing a home pin. A conflicting pin, raw command, unusable
+# directory or failed vendor login check refuses before an endpoint is touched.
+# account= records the root; account_explicit=1 makes it survive same-harness
+# relaunches. Claude sheds the same credential overrides as a pinned launch;
+# Codex sheds OPENAI_API_KEY, CODEX_API_KEY and CODEX_ACCESS_TOKEN.
+#
+# Automatic recovery is opt-in through a numbered explicit root: claude-N or
+# codex-N. The existing watcher checks fresh profile-only quota once per minute
+# while a nonterminal worker is stably idle, then asks the control transaction
+# for --next-account --from-account-root <observed-root>. Under the lifecycle
+# lock the transaction rechecks exhaustion and selects the first higher-numbered
+# sibling with a vendor login and fresh usable quota for the same model scopes.
+# Renewal is delegated to quota-axi, then a strict profile-only reread must
+# prove that exact root. No credential copying, credit purchase or daemon occurs.
+# A stale --from-account-root is a successful no-op, preventing duplicate events
+# from advancing the chain twice. Unsupported/unknown/auth-error quota refuses.
+# tmux and Herdr retain their existing verified control-plane capabilities.
+#
 # docs/configuration.md "Worker account pin" owns the operator-facing contract.
 # Sourced by bin/fm-spawn.sh and bin/fm-control.sh.
 #
@@ -176,6 +195,15 @@ fm_worker_account_check() {
     [ -z "${!name:-}" ] || clean+=("$name=${!name}")
   done
   case "$harness" in
+  codex)
+    clean+=("CODEX_HOME=$root")
+    if fm_run_timed "$FM_WORKER_ACCOUNT_CHECK_SECONDS" "${clean[@]}" \
+      "$executable" login status >/dev/null 2>&1 </dev/null; then
+      return 0
+    fi
+    echo "error: selected Codex account root $root is not signed in (codex login status)" >&2
+    return 1
+    ;;
   claude)
     [ -z "$root" ] || clean+=("CLAUDE_CONFIG_DIR=$root")
     if fm_run_timed "$FM_WORKER_ACCOUNT_CHECK_SECONDS" "${clean[@]}" \
@@ -217,17 +245,40 @@ fm_worker_account_check() {
   return 0
 }
 
-# fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>]
-# The whole launch-time decision. Prints nothing for an unpinned runner, so
-# the caller keeps today's launch unchanged. For a pinned one prints
+# fm_worker_account_select <harness> <config-dir> <model> <executable> [<raw-command>] [<explicit-root>]
+# The whole launch-time decision. With no pin or explicit root, prints nothing
+# and keeps today's launch unchanged. For a selected account prints
 # "declared<TAB>root<TAB>provider", where provider is the Pi launch model's
 # own (empty for Claude), after the model guard and the sign-in check pass. On
 # refusal prints one error and returns 1. bin/fm-spawn.sh runs it before any
 # endpoint exists, and bin/fm-control.sh before a relaunch stops the live
 # agent.
 fm_worker_account_select() {
-  local harness=$1 config=$2 model=$3 executable=$4 raw=${5:-} selection declared root providers word provider=
+  local harness=$1 config=$2 model=$3 executable=$4 raw=${5:-} explicit=${6:-} selection declared root providers word provider=
   selection=$(fm_worker_account_resolve "$harness" "$config") || return 1
+  if [ -n "$explicit" ]; then
+    case "$harness" in
+      claude|codex) ;;
+      *) echo "error: --account-root supports only claude and codex" >&2; return 1 ;;
+    esac
+    case "$explicit" in
+      /*) ;;
+      *) echo "error: --account-root must be an absolute directory" >&2; return 1 ;;
+    esac
+    if [[ "$explicit" =~ [[:cntrl:]] ]] || [ ! -d "$explicit" ] || [ ! -r "$explicit" ] || [ ! -x "$explicit" ]; then
+      echo "error: --account-root must name a readable, searchable directory without control characters" >&2
+      return 1
+    fi
+    if [ -n "$selection" ] && [ "${selection%%$'\t'*}" != "$explicit" ]; then
+      echo "error: --account-root conflicts with config/$(fm_worker_account_file "$harness"); only the owner may change that pin" >&2
+      return 1
+    fi
+    if [ -n "$raw" ]; then
+      echo "error: --account-root requires the canonical --harness launch, not a raw command" >&2
+      return 1
+    fi
+    selection=$(printf '%s\t%s\t' "$explicit" "$explicit")
+  fi
   [ -n "$selection" ] || return 0
   declared=${selection%%$'\t'*}
   root=${selection#*$'\t'}
@@ -247,7 +298,7 @@ fm_worker_account_select() {
       *) break ;;
       esac
     done
-  else
+  elif [ "$harness" != codex ]; then
     if [ -n "$raw" ]; then
       echo "error: config/pi-account pins Pi workers, and a raw Pi launch command runs verbatim, so it cannot carry the pinned --provider; launch with --harness $harness and --model <provider>/<id> instead" >&2
       return 1
@@ -278,4 +329,106 @@ fm_worker_account_claude_shed() {
     prefix="$prefix -u $var"
   done
   printf '%s\n' "$prefix"
+}
+
+# Only the strict profile-only result may answer for a root. For rejected or
+# expired auth, let quota-axi ask the vendor to renew, discard its potentially
+# fallback result, then reread this exact root. Never parse credentials here.
+# Print healthy, exhausted, or unknown for the worker's applicable scopes.
+fm_worker_account_quota() {  # <harness> <root> <model>
+  local harness=$1 root=$2 model=$3 json selector name
+  local -a renewal_env=(env)
+  case "$harness" in
+    claude) selector=CLAUDE_CONFIG_DIR ;;
+    codex) selector=CODEX_HOME ;;
+    *) printf 'unknown\n'; return ;;
+  esac
+  [ -d "$root" ] || { printf 'unknown\n'; return; }
+  # shellcheck source=bin/fm-quota-axi-lib.sh
+  . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-quota-axi-lib.sh"
+  json=$(fm_run_timed 15 env "$selector=$root" quota-axi --provider "$harness" \
+    --profile-only --no-credential-refresh --json 2>/dev/null </dev/null) || :
+  if printf '%s\n' "$json" | fm_quota_json_valid &&
+    printf '%s\n' "$json" | jq -e --arg p "$harness" '
+      any(.providers[]; .provider == $p and
+        (.state.status == "auth_required" or .state.authStatus == "expired_refreshable"))' >/dev/null 2>&1; then
+    if [ "$harness" = claude ]; then
+      for name in $FM_WORKER_ACCOUNT_CLAUDE_SHED; do renewal_env+=(-u "$name"); done
+    else
+      renewal_env+=(-u OPENAI_API_KEY -u CODEX_API_KEY -u CODEX_ACCESS_TOKEN)
+    fi
+    renewal_env+=("$selector=$root")
+    fm_run_timed 30 "${renewal_env[@]}" quota-axi --provider "$harness" --json \
+      >/dev/null 2>&1 </dev/null || :
+    json=$(fm_run_timed 15 env "$selector=$root" quota-axi --provider "$harness" \
+      --profile-only --no-credential-refresh --json 2>/dev/null </dev/null) || :
+  fi
+  printf '%s\n' "$json" | fm_quota_json_valid || { printf 'unknown\n'; return; }
+  printf '%s\n' "$json" | jq -r --arg provider "$harness" --arg model "$model" '
+    [.providers[] | select(.provider == $provider)] |
+    if length != 1 or .[0].state.status != "fresh" then "unknown"
+    else .[0].quotaSemantics.effectiveAvailability |
+      map(select(.scope as $scope |
+        $scope == "all_models" or $scope == ("model:" + $model) or
+        (($scope | startswith("model:")) and
+         (($model | split("-") | index($scope | ltrimstr("model:"))) != null)))) as $scopes |
+      if ($scopes | length) == 0 then "unknown"
+      elif any($scopes[]; .status == "known" and .effectivePercentRemaining == 0 and .runway.status == "exhausted_now") then "exhausted"
+      elif all($scopes[]; .status == "known" and .effectivePercentRemaining > 0 and .runway.status != "exhausted_now") then "healthy"
+      else "unknown" end
+    end' 2>/dev/null || printf 'unknown\n'
+}
+
+# Numbered sibling profiles are the opt-in ordered failover chain. Never wrap
+# around, copy credentials, or silently substitute a different provider.
+fm_worker_account_next() {  # <harness> <current-root> <model>
+  local harness=$1 root=${2%/} model=$3 name number parent candidate next
+  name=${root##*/}
+  [[ "$name" =~ ^(claude|codex)-([1-9][0-9]{0,7})$ ]] || return 1
+  [ "${BASH_REMATCH[1]}" = "$harness" ] || return 1
+  number=${BASH_REMATCH[2]}
+  parent=${root%/*}
+  while IFS=$'\t' read -r next candidate; do
+    [ -d "$candidate" ] || continue
+    fm_worker_account_check "$harness" "$candidate" "$candidate" "$harness" >/dev/null 2>&1 || continue
+    [ "$(fm_worker_account_quota "$harness" "$candidate" "$model")" = healthy ] || continue
+    printf '%s\n' "$candidate"
+    return 0
+  done < <(
+    for candidate in "$parent/$harness-"*; do
+      name=${candidate##*/}
+      [[ "$name" =~ ^(claude|codex)-([1-9][0-9]{0,7})$ ]] || continue
+      next=${BASH_REMATCH[2]}
+      [ "$next" -gt "$number" ] || continue
+      printf '%s\t%s\n' "$next" "$candidate"
+    done | LC_ALL=C sort -n
+  )
+  return 1
+}
+
+# Existing watcher recovery, independent of the model-powered supervision host.
+# Only explicitly selected numbered profiles participate; ambient launches keep
+# their previous behavior. Quota is checked at most once a minute per task.
+fm_worker_account_recover() {  # <meta> <script-dir>
+  local meta=$1 scripts=$2 root harness model id stamp now previous kind name
+  [ "$(fm_meta_get "$meta" account_explicit)" = 1 ] || return 1
+  kind=$(fm_meta_get "$meta" kind)
+  case "$kind" in ship|scout) ;; *) return 1 ;; esac
+  harness=$(fm_meta_get "$meta" harness)
+  root=$(fm_meta_get "$meta" account)
+  name=${root%/}
+  case "$harness:${name##*/}" in claude:claude-*|codex:codex-*) ;; *) return 1 ;; esac
+  id=${meta##*/}; id=${id%.meta}
+  stamp="${meta%/*}/.$id.account-check"
+  now=$(date +%s)
+  previous=$(cat "$stamp" 2>/dev/null) || previous=0
+  case "$previous" in ''|*[!0-9]*) previous=0 ;; esac
+  [ "$((now - previous))" -ge 60 ] || return 1
+  printf '%s\n' "$now" > "$stamp" || return 1
+  model=$(fm_meta_get "$meta" model)
+  [ "$(fm_worker_account_quota "$harness" "$root" "$model")" = exhausted ] || return 1
+  fm_run_timed 180 bash "$scripts/fm-control.sh" "$id" relaunch \
+    --next-account --from-account-root "$root" \
+    --note "The previous account exhausted its applicable quota. Continue the same task from its durable instructions and checkpoint; preserve existing work." \
+    >/dev/null 2>&1 || return 1
 }

@@ -927,6 +927,18 @@ A remote secondmate is launched on its host from its own home's configuration, s
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
 
+### Explicit task accounts and automatic continuation
+
+Claude and Codex tasks can select an already signed-in local account with `fm-spawn.sh --account-root <directory>` or change it through `fm-control.sh <task> relaunch --account-root <directory> --note <checkpoint>`.
+The selected account survives ordinary recovery of that task.
+A home pin remains authoritative, and a conflicting selection refuses before the current worker stops.
+
+Selecting a numbered profile directory enables ordered continuation through higher-numbered sibling profiles of the same runner.
+The existing watcher uses fresh quota evidence to continue an idle worker whose applicable account quota is exhausted, without a model-powered supervisor turn.
+Ambient launches keep their existing account behavior.
+Remote secondmates select their accounts in their own homes.
+The [worker account library](../bin/fm-worker-account-lib.sh) owns the exact profile layout, checks, timing and duplicate-event behavior; the [control-plane help](../bin/fm-control.sh) owns transaction flags and backend limits.
+
 ## Lavish server address (config/lavish-axi-host)
 
 The optional local, gitignored `config/lavish-axi-host` contains one non-empty address without whitespace for the per-machine Lavish server.
