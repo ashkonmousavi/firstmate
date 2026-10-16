@@ -14,9 +14,16 @@
 # state/parent-replies.status. Call it from the secondmate home with FM_HOME
 # set to that home.
 #
+# --progress-only declares no new artifact, result, requested parent action,
+# decision, blocker or terminal transition. Only working/paused may use it.
+# It emits [notify=routine]; direct status appends may use the same declaration.
+# Use corr_id "-" for uncorrelated progress; correlated receipt semantics stay
+# owned by fm-pending-reply-lib.sh. Ordinary reports remain the result path.
+#
 # Usage:
 #   fm-secondmate-report.sh <verb> <corr_id> <note...>
 #   fm-secondmate-report.sh --doc <verb> <corr_id> <doc-path> <note...>
+#   fm-secondmate-report.sh --progress-only <working|paused> <corr_id|-> <note...>
 #
 # Examples:
 #   fm-secondmate-report.sh done abcdef0123456789 "audit clean"
@@ -35,11 +42,17 @@ usage() {
 Usage:
   fm-secondmate-report.sh <verb> <corr_id> <note...>
   fm-secondmate-report.sh --doc <verb> <corr_id> <doc-path> <note...>
+  fm-secondmate-report.sh --progress-only <working|paused> <corr_id|-> <note...>
 EOF
   exit 2
 }
 
 DOC_MODE=0
+PROGRESS_ONLY=0
+if [ "${1:-}" = --progress-only ]; then
+  PROGRESS_ONLY=1
+  shift
+fi
 if [ "${1:-}" = "--doc" ]; then
   DOC_MODE=1
   shift
@@ -55,10 +68,17 @@ else
   [ $# -ge 1 ] && [ -n "$*" ] || usage
 fi
 
+if [ "$PROGRESS_ONLY" = 1 ]; then
+  [ "$DOC_MODE" = 0 ] || usage
+  case "$VERB" in working|paused) ;; *) usage ;; esac
+  case "$*" in *$'\n'*) usage ;; esac
+fi
+
 case "$CORR" in
   corr=*) CORR=${CORR#corr=} ;;
 esac
 case "$CORR" in
+  -) [ "$PROGRESS_ONLY" = 1 ] || usage ;;
   [a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9][a-fA-F0-9]) ;;
   *)
     echo "error: corr_id must be 16 hex characters (got '$CORR')" >&2
@@ -88,7 +108,8 @@ if [ ! -d "$(dirname "$DESTINATION")" ]; then
   exit 1
 fi
 
-token=$(fm_pending_reply_corr_token "$CORR")
+token=
+[ "$CORR" = - ] || token=$(fm_pending_reply_corr_token "$CORR")
 if [ "$DOC_MODE" = 1 ]; then
   DOC_PATH=$1
   shift
@@ -101,5 +122,8 @@ if [ "$DOC_MODE" = 1 ]; then
 else
   NOTE=$*
   printf -v line '%s [%s]: %s (via-helper)' "$VERB" "$token" "$NOTE"
+fi
+if [ "$PROGRESS_ONLY" = 1 ]; then
+  printf -v line '%s [notify=routine]%s: %s (via-helper)' "$VERB" "${token:+ [$token]}" "$NOTE"
 fi
 printf '%s\n' "$(status_stamp_line "$line")" >> "$DESTINATION"

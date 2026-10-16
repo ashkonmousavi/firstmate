@@ -846,6 +846,22 @@ test_secondmate_status_routine_absorbed_routed_surfaced_classifier() {
   printf 'working: step 3 of 5\n' > "$state/sm.status"
   ! signal_crew_provably_working "$state/sm.status" \
     || fail "an unproven secondmate's routine progress was absorbed"
+  # A producer declaration proves no parent action, independently of busy state.
+  printf 'working [notify=routine]: step 3 of 5\npaused [notify=routine]: still waiting\n' > "$state/sm.status"
+  signal_secondmate_progress_only "$state/sm.status" \
+    || fail "an idle mate's explicitly declared progress was not absorbed"
+  printf 'working [notify=routine] [corr=0123456789abcdef]: still working\n' > "$state/sm.status"
+  signal_secondmate_progress_only "$state/sm.status" \
+    || fail "correlated progress declaration was not absorbed"
+  ! signal_secondmate_progress_only "$state/sm.turn-ended" \
+    || fail "an idle mate's bare turn-end was absorbed by its progress declaration"
+  for line in 'working: new artifact ready; MAIN must read it' 'note: result' \
+      'done [notify=routine]: shipped' 'working [notify=unknown]: step' \
+      'working [corr=0123456789abcdef]: result' 'blocked [key=old]: access'; do
+    printf '%s\nworking [notify=routine]: still working\n' "$line" > "$state/sm.status"
+    ! signal_secondmate_progress_only "$state/sm.status" \
+      || fail "mixed or unsupported declaration was absorbed: $line"
+  done
   # An ordinary crewmate keeps the plain provably-working rule: the marker and
   # verb read is keyed on recorded kind, not on task naming or content guessing.
   export FM_FAKE_CREW_STATE_crew='state: working · source: run-step · running'
@@ -855,6 +871,36 @@ test_secondmate_status_routine_absorbed_routed_surfaced_classifier() {
     || fail "the secondmate rule leaked onto an ordinary crewmate status"
   unset FM_FAKE_CREW_STATE_sm FM_FAKE_CREW_STATE_crew
   pass "a secondmate's unmarked routine progress absorbs when provably working; routed, terminal, note, marked, and unknown lines surface"
+}
+
+test_declared_progress_keeps_span_safety() {
+  local dir state
+  dir=$(make_case declared-progress-span-safety); state="$dir/state"
+  (
+    export FM_STATE_OVERRIDE="$state"
+    # Load the real cursor owner, as a watcher does, for rotation/truncation.
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-wake-lib.sh"
+    printf 'kind=secondmate\n' > "$state/mate.meta"
+    printf 'working [notify=routine]: previous longer progress observation\n' > "$state/mate.status"
+    fm_wake_status_mark_current "$state" "$state/mate.status" || exit 1
+    printf 'working [notify=routine]: current progress\n' >> "$state/mate.status"
+    signal_secondmate_progress_only "$state/mate.status" || exit 2
+    printf 'working [notify=routine]: replacement\n' > "$state/replacement"
+    mv "$state/replacement" "$state/mate.status"
+    ! signal_secondmate_progress_only "$state/mate.status" || exit 3
+    fm_wake_status_mark_current "$state" "$state/mate.status" || exit 4
+    printf 'working [notify=routine]: x\n' > "$state/mate.status"
+    ! signal_secondmate_progress_only "$state/mate.status" || exit 5
+    rm "$state/.seen-mate_status"
+    printf 'kind=secondmate\n' > "$state/other.meta"
+    printf 'note: actual result\n' > "$state/other.status"
+    ! signal_secondmate_progress_only "$state/mate.status" "$state/other.status" || exit 6
+    mv "$state/mate.status" "$state/target"
+    ln -s "$state/target" "$state/mate.status"
+    ! signal_secondmate_progress_only "$state/mate.status" || exit 7
+  ) || fail "declared progress lost rotation, truncation, mixed-file or unreadability safety (status $?)"
+  pass "declared progress surfaces conservatively on rotation, truncation, mixed files and unsafe status objects"
 }
 
 # --- benign wakes are absorbed ONLY when the crew is provably working ---------
@@ -946,9 +992,9 @@ churn_config() {  # <dir> [off]
 # exactly the unfixed behavior this case exists to catch. Polls the log rather
 # than a poll cycle so the assertion lands inside the FIRST poll, long before an
 # unchanging fixture pane could reach the stale backbone.
-wait_for_absorbed() {  # <state> <pid> <needle>
-  local state=$1 pid=$2 needle=$3 i=0
-  while [ "$i" -lt 100 ]; do
+wait_for_absorbed() {  # <state> <pid> <needle> [<polls>]
+  local state=$1 pid=$2 needle=$3 limit=${4:-100} i=0
+  while [ "$i" -lt "$limit" ]; do
     grep -Fq "$needle" "$state/.watch-triage.log" 2>/dev/null && return 0
     kill -0 "$pid" 2>/dev/null || return 1
     sleep 0.1
@@ -1012,7 +1058,7 @@ test_turn_ended_churn_resets_prior_stale_classification() {
     FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=999 \
     FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
   pid=$!
-  wait_for_absorbed "$state" "$pid" "absorbed benign signal:" \
+  wait_for_absorbed "$state" "$pid" "absorbed benign signal:" 300 \
     || { reap "$pid"; fail "a churning turn-end with prior stale state was not absorbed: $(cat "$out")"; }
   i=0
   while [ "$i" -lt 100 ] && [ "$(cat "$state/.hash-$key" 2>/dev/null || true)" != "$active_hash" ]; do
@@ -1711,6 +1757,35 @@ test_secondmate_routine_progress_absorbed_then_note_surfaced() {
   pass "a busy secondmate's routine working: is absorbed while its later note: still surfaces"
 }
 
+test_secondmate_declared_progress_absorbed_while_idle_and_away() {
+  local dir state fakebin out pid posture
+  for posture in attended away; do
+    dir=$(make_case secondmate-declared-idle-$posture); state="$dir/state"; fakebin="$dir/fakebin"
+    out="$dir/watch.out"
+    printf 'kind=secondmate\n' > "$state/mate.meta"
+    printf 'working [notify=routine] [corr=0123456789abcdef]: step 2 of 5\n' > "$state/mate.status"
+    # Explicit no-action progress is independent of busy state and posture.
+    export FM_FAKE_CREW_STATE='state: unknown · source: none · idle'
+    [ "$posture" != away ] || : > "$state/.afk"
+    watch_bg "$state" "$fakebin" "$out"
+    pid=$!
+    if ! wait_poll_cycle "$state" "$pid"; then
+      reap "$pid"; fail "watcher surfaced an idle secondmate's routine working: progress: $(cat "$out")"
+    fi
+    [ ! -s "$out" ] || { reap "$pid"; fail "routine secondmate progress printed a wake reason: $(cat "$out")"; }
+    [ ! -s "$state/.wake-queue" ] || { reap "$pid"; fail "routine secondmate progress enqueued a durable wake"; }
+    [ -s "$state/.seen-mate_status" ] || { reap "$pid"; fail "absorbed secondmate progress did not advance its .seen-* suppressor"; }
+    # A later result from the same idle mate must still surface.
+    printf 'note: routed reply for the parent\n' >> "$state/mate.status"
+    wait_for_exit "$pid" 100 || fail "watcher absorbed an idle secondmate's note after absorbing its routine progress"
+    grep -F "signal: $state/mate.status" "$out" >/dev/null \
+      || fail "watcher did not print the surfaced secondmate note"
+    grep -F "$state/mate.status" "$state/.wake-queue" >/dev/null \
+      || fail "surfaced secondmate note was not durably queued"
+  done
+  pass "an idle secondmate's routine working: is absorbed while its later note: still surfaces"
+}
+
 test_secondmate_buried_block_wakes_despite_busy_agent() {
   local dir state fakebin out suffix pid
   for suffix in '' 'note: unrelated progress' 'resolved [key=other]: unrelated answer'; do
@@ -2168,6 +2243,10 @@ test_routine_appends_after_a_classified_event_stay_absorbed() {
   sig=$(seen_sig "$status_file"); printf '%s' "$sig" > "$state/.seen-task_status"
   printf 'working: still tidying the branch\n' >> "$status_file"
   export FM_FAKE_CREW_STATE='state: working · source: run-step · validating (running)'
+  # This case tests the classified span, not heartbeat scheduling. Keep its
+  # initial heartbeat safely in the past even if filesystem time runs ahead.
+  : > "$state/.last-heartbeat"
+  set_mtime "$(( $(date +%s) - 60 ))" "$state/.last-heartbeat"
   watch_bg "$state" "$fakebin" "$out"
   pid=$!
   if ! wait_poll_cycle "$state" "$pid"; then
@@ -6801,6 +6880,7 @@ test_empty_write_prune_from_the_environment_widens_the_probe
 test_worktree_write_probe_is_wall_clock_bounded
 test_signal_crew_provably_working_classifier
 test_secondmate_status_routine_absorbed_routed_surfaced_classifier
+test_declared_progress_keeps_span_safety
 test_provably_working_signal_absorbed
 test_turn_ended_provably_working_absorbed
 test_turn_ended_not_working_surfaced
@@ -6827,6 +6907,7 @@ test_turn_ended_surfaced_batch_opens_no_partial_deadline
 test_working_note_not_working_surfaced
 test_secondmate_status_note_surfaced_despite_busy_agent
 test_secondmate_routine_progress_absorbed_then_note_surfaced
+test_secondmate_declared_progress_absorbed_while_idle_and_away
 test_secondmate_buried_block_wakes_despite_busy_agent
 test_self_announced_close_does_not_rewake_but_next_note_does
 test_self_announced_close_after_open_decisions_fold_does_not_rewake

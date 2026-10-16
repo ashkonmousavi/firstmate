@@ -65,10 +65,11 @@ JS
 # RPC forced to fail. After the first recovery follow-up, wait past the old
 # ~52s loop period so a regression would emit a second follow-up.
 test_unacknowledged_recovery_is_announced_once_per_generation() {
-  local repo home plugin fakebin out status lock_pid messages
-  repo="$TMP_ROOT/t1-root"
-  home="$TMP_ROOT/t1-home"
-  fakebin="$TMP_ROOT/t1-fakebin"
+  local repo home plugin fakebin out status lock_pid messages scenario=${1:-pending} expected=1
+  [ "$scenario" != empty ] || expected=0
+  repo="$TMP_ROOT/t1-$scenario-root"
+  home="$TMP_ROOT/t1-$scenario-home"
+  fakebin="$TMP_ROOT/t1-$scenario-fakebin"
   mkdir -p "$repo/bin" "$home/state" "$home/config" "$fakebin"
   install_pi_watch_extension_fixture "$repo"
   plugin="$repo/.pi/extensions/fm-primary-pi-watch.ts"
@@ -90,9 +91,11 @@ SH
   : > "$home/state/seed.meta"
   printf 'pending:downtime:seed.1.aaa\n' > "$home/state/.watcher-down"
   chmod 600 "$home/state/.watcher-down"
+  if [ "$scenario" != empty ]; then
   printf '%s\t1\tcheck\tseed\tcheck: seed recovery\n' "$(date +%s)" > "$home/state/.wake-queue"
+  fi
   out=$(
-    PLUGIN="$plugin" FM_HOME="$home" FM_ROOT_OVERRIDE="$repo" \
+    FM_TEST_RECOVERY_SCENARIO="$scenario" PLUGIN="$plugin" FM_HOME="$home" FM_ROOT_OVERRIDE="$repo" \
       FM_STATE_OVERRIDE="$home/state" PATH="$fakebin:$PATH" \
       FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
       node --input-type=module 2>&1 <<'EOF'
@@ -116,7 +119,8 @@ const mod = await import(pathToFileURL(process.env.PLUGIN).href);
 mod.default(pi);
 if (!tool) throw new Error("Pi watch tool was not registered");
 await tool.execute("tool-call-t1", {}, undefined, undefined, {});
-const deadline = Date.now() + 75000;
+const empty = process.env.FM_TEST_RECOVERY_SCENARIO === "empty";
+const deadline = Date.now() + (empty ? 10000 : 75000);
 let firstAt = 0;
 while (Date.now() < deadline) {
   const rearm = prompts.filter((message) => message.includes("check: rearm-resurface"));
@@ -128,8 +132,8 @@ while (Date.now() < deadline) {
   await new Promise((resolve) => setTimeout(resolve, 200));
 }
 const rearm = prompts.filter((message) => message.includes("check: rearm-resurface"));
-if (rearm.length !== 1) {
-  throw new Error(`expected exactly one recovery follow-up, got ${rearm.length}: ${prompts.join(" || ")}`);
+if (rearm.length !== (empty ? 0 : 1)) {
+  throw new Error(`unexpected recovery follow-ups, got ${rearm.length}: ${prompts.join(" || ")}`);
 }
 const lockPid = existsSync(`${process.env.FM_HOME}/state/.watch.lock/pid`)
   ? readFileSync(`${process.env.FM_HOME}/state/.watch.lock/pid`, "utf8").trim()
@@ -141,7 +145,10 @@ try {
   throw new Error(`successor watcher ${lockPid} is not alive`);
 }
 const marker = readFileSync(`${process.env.FM_HOME}/state/.watcher-down`, "utf8").trim();
-if (!marker.startsWith("announced:") && !marker.startsWith("pending:")) {
+if (empty && (prompts.length !== 0 || !marker.startsWith("acked:downtime:"))) {
+  throw new Error(`empty recovery woke main or was not retired: ${prompts.join(" || ")} ${marker}`);
+}
+if (!empty && !marker.startsWith("announced:") && !marker.startsWith("pending:")) {
   throw new Error(`successor did not keep a live recovery episode: ${marker}`);
 }
 console.log(`T1_MESSAGES=${rearm.length}`);
@@ -160,8 +167,8 @@ EOF
     kill -TERM "$lock_pid" 2>/dev/null || true
   fi
   expect_code 0 "$status" "an unacknowledged recovery must be announced at most once per generation: $out"
-  [ "$messages" = 1 ] || fail "T1 did not report a single recovery follow-up: $out"
-  pass "unacknowledged recovery is announced at most once per generation and the successor stays alive"
+  [ "$messages" = "$expected" ] || fail "unexpected recovery follow-up count: $out"
+  pass "$scenario recovery sends $expected follow-ups and the watcher stays alive"
 }
 
 # T2: a handling successor must enter its poll loop and surface a real crew
@@ -224,3 +231,5 @@ test_handling_successor_does_not_go_blind() {
 
 test_handling_successor_does_not_go_blind
 test_unacknowledged_recovery_is_announced_once_per_generation
+
+test_unacknowledged_recovery_is_announced_once_per_generation empty

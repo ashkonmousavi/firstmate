@@ -89,13 +89,14 @@
 # "supervision-host:" line saying why main has this wake, after stopping the
 # successor cycle so main's next turn end starts from the same state as
 # without the host. Whenever the captain returned during an away engine turn
-# that recorded visible outcomes, handled or not, the return brief was rendered
+# that recorded captain outcomes, handled or not, the return brief was rendered
 # before they existed, so the host exits with the close, one "supervision-host:"
-# line naming them, and one line per visible outcome, for main to relay. The
+# line naming them, and one line per captain outcome, for main to relay. Routine
+# rows remain in the store for the next real drain. The
 # host injects nothing and has no delivery path of its own; the owner's
 # existing wake path is the only way main hears from it, and its fallback is
 # always to exit with the close's own reason line. That handoff is only a
-# prompt: each non-silent outcome recorded after the return is already a
+# prompt: each captain outcome recorded after the return is already a
 # durable queued wake
 # (bin/fm-branch-report.sh), so it still reaches main when the host dies at the
 # turn's end or its owner drops the handoff, as a superseded Cursor park does.
@@ -610,8 +611,8 @@ exit_to_main() {  # <why> [further lines]
 
 # The outcome store (bin/fm-branch-outcome.sh) owns and validates these rows.
 # True when the captain returned during this close's engine turn and that turn
-# recorded visible outcomes; sets RETURNED_ROWS and RETURNED_SEQS. A lookup
-# failure is distinct from a valid turn with no visible outcomes.
+# recorded captain outcomes; sets RETURNED_ROWS and RETURNED_SEQS. A lookup
+# failure is distinct from a valid turn with no captain outcomes.
 TURN_RECEIPT_SEQS=
 RETURNED_ROWS=
 RETURNED_SEQS=
@@ -633,18 +634,18 @@ returned_during_turn() {
     return 1
   fi
   if ! RETURNED_SEQS=$(printf '%s\n' "$RETURNED_ROWS" \
-    | jq -rs 'map(select(.silent != true) | .seq | tostring) | join(", ")'); then
+    | jq -rs 'map(select(.verdict == "captain" and .silent != true) | .seq | tostring) | join(", ")'); then
     RETURNED_LOOKUP_FAILED=1
     return 1
   fi
   [ -n "$RETURNED_SEQS" ]
 }
 
-# One "supervision-host:" line per visible outcome selected above.
+# One "supervision-host:" line per captain outcome selected above.
 turn_outcome_lines() {
   [ -n "$RETURNED_ROWS" ] || return 0
   printf '%s\n' "$RETURNED_ROWS" \
-    | jq -r 'select(.silent != true)
+    | jq -r 'select(.verdict == "captain" and .silent != true)
         | "supervision-host: outcome \(.seq) for \(.task) [\(.verdict)]: \(.summary)"' \
     | tr -d '\r'
 }
@@ -1145,7 +1146,8 @@ while :; do
   fi
 
   # The captain returned during that turn: the return brief was rendered
-  # before its visible outcomes existed, so main relays them now, handled or not.
+  # before its captain outcomes existed, so main relays those now.
+  # Routine outcomes remain stored for the next independently justified drain.
   handle_wake "$REASON"
   HANDLE_RC=$?
   if [ "$HANDLE_RC" -eq 2 ]; then
