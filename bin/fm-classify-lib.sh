@@ -2724,6 +2724,32 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
   [ -n "$hit" ]
 }
 
+# One status-progress classifier for watcher suppression and Stop-owned peeks.
+# Only declared progress proves no action without busy evidence. Unmarked
+# progress retains the legacy independent working-proof requirement; callers
+# must never use that class to rescue a failed declared-progress span check.
+# The output is declared, unmarked, or actionable. Correlation is permitted only
+# with the positive declaration; unknown or duplicate notification tags fail shut.
+status_line_routine_class() {  # <status-line> <output-variable>
+  local line=$1 output=$2 verb prefix classification=actionable
+  status_line_verb "$line" verb
+  case "$verb" in
+    working|"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}")
+      prefix=${line%%: *}
+      case "$prefix" in
+        *'[notify=routine]'*)
+          prefix=${prefix/'[notify=routine]'/}
+          case "$prefix" in *notify=*) ;; *) classification=declared ;; esac
+          ;;
+        *)
+          case "$line" in *corr=*|*notify=*) ;; *) classification=unmarked ;; esac
+          ;;
+      esac
+      ;;
+  esac
+  printf -v "$output" '%s' "$classification"
+}
+
 # 0 (benign/absorb) if EVERY task referenced by a no-verb "signal:" wake is provably
 # working; 1 (actionable/surface) if any is not, or no task can be resolved. Pass the
 # same space-separated file list the caller classified with the span read above.
@@ -2745,7 +2771,7 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # surface more. An unreadable span surfaces. Scoped to .status files - a mate's
 # bare turn-ended ping always used the ordinary provably-working absorb.
 _fm_secondmate_status_new_lines_routine() {  # <status-file> <state>
-  local f=$1 state=$2 start=0 size chunk line verb
+  local f=$1 state=$2 start=0 size chunk line routine_class
   if command -v fm_wake_signal_seen_size >/dev/null 2>&1; then
     start=$(fm_wake_signal_seen_size "$state" "$f")
   fi
@@ -2758,12 +2784,8 @@ _fm_secondmate_status_new_lines_routine() {  # <status-file> <state>
   chunk=$(_fm_status_read_span "$f" "$start" "$((size - start))") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
-    case "$line" in *corr=*|*notify=*) return 1 ;; esac
-    status_line_verb "$line" verb
-    case "$verb" in
-      working|"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}") ;;
-      *) return 1 ;;
-    esac
+    status_line_routine_class "$line" routine_class
+    [ "$routine_class" = unmarked ] || return 1
   done <<EOF
 $chunk
 EOF
@@ -2774,7 +2796,7 @@ EOF
 # keyed obligations, rotation, truncation and read failures surface instead.
 # The optional endpoint/identity pins the same span the watcher classified.
 _fm_secondmate_status_progress_only() {  # <file> <state> [<endpoint> <identity>]
-  local f=$1 state=$2 end=${3:-} ident=${4:-} start size chunk line verb open before after seen=0 prefix marker raw classified
+  local f=$1 state=$2 end=${3:-} ident=${4:-} start size chunk line routine_class open before after seen=0 prefix marker raw classified
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 1
   [ "$(_fm_status_kind "$f")" = secondmate ] || return 1
   before=$(_fm_open_decisions_file_ident "$f") || return 1
@@ -2799,13 +2821,8 @@ _fm_secondmate_status_progress_only() {  # <file> <state> [<endpoint> <identity>
   chunk=$(_fm_status_read_span "$f" "$start" "$((end - start))") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
-    status_line_verb "$line" verb
-    case "$verb" in working|paused) ;; *) return 1 ;; esac
-    prefix=${line%%: *}
-    case "$prefix" in *'[notify=routine]'*) ;; *) return 1 ;; esac
-    # A second notification tag is ambiguous, even when one tag is supported.
-    prefix=${prefix/'[notify=routine]'/}
-    case "$prefix" in *notify=*) return 1 ;; esac
+    status_line_routine_class "$line" routine_class
+    [ "$routine_class" = declared ] || return 1
     seen=1
   done <<EOF
 $chunk

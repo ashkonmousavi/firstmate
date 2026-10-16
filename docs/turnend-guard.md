@@ -322,6 +322,17 @@ It allows the stop when any of these holds:
 - The auto-arm's generation claim is open.
 - `state/.claude-autoarm-epoch` contains a fresh actionable rewake owned by this event epoch.
 
+#### Routine closes without a model turn
+
+Before delivering an actionable close, the Claude auto-arm uses `fm_wake_routine_peek` in `bin/fm-wake-lib.sh` to inspect every raw queued row, open status obligation, unread status span, and unread or unprocessed branch outcome without advancing presentation cursors.
+It can consume a batch only when every row is a recorded routine branch outcome, an empty `rearm-resurface`, or a current secondmate status span classified as declared progress by `status_line_routine_class` in `bin/fm-classify-lib.sh`.
+The peek also verifies the arm close itself, so an empty queue cannot hide a real close.
+A successful peek supplies the existing sequence cutoff and recovery generation to `bin/fm-wake-drain.sh --ack-through`; no new acknowledgement format is used.
+After a successful acknowledgement, the same asynchronous hook parks again without waking the model, keeping future real events supervised while the turn remains stopped.
+A mixed batch, uncertain read, or acknowledgement failure retains the ordinary handling-turn behavior.
+The hook never captures a presentation drain as a substitute for handling, because doing so could consume an unread note before the model sees it.
+Cursor's park adapter has a separate implementation and does not use this path.
+
 #### Auto-arm generation claim
 
 The claim is the ledger entry itself.

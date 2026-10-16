@@ -839,6 +839,12 @@ else
   exit 1
 fi
 DRAIN_LOCK_HELD=true
+# A generation-only acknowledgement (cutoff 0) can follow an empty resurface
+# before any wake row has ever created the queue. Treat absence as empty under
+# the same queue lock, so it uses the ordinary acknowledgement path below.
+if [ -n "$ACK_THROUGH" ] && [ ! -e "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ]; then
+  : > "$FM_WAKE_QUEUE" || exit 1
+fi
 rotate_scratch_locked
 reclaim_stale_branch_grant_locked || exit 1
 [ "$ACTOR" != main ] || retire_unconsumable_rows_locked
