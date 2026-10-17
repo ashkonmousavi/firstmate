@@ -678,7 +678,8 @@ A slash-command popup rendered between the composer and the pane bottom pushes t
 When `offset_from_bottom` is greater than 0, the viewer is in history, so `fm_backend_herdr_composer_state` classifies a bottom-anchored `pane read --source recent` instead of that viewport.
 If that bottom read cannot be taken, the verdict is unknown, never pending.
 The shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend.
-Dated measurement: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup".
+Claude can also draw that popup directly below the composer's closing rule, with its selected row led by the composer's own `❯`; the shared classifier counts those rows as the composer's footer furniture only while the composer holds a typed `/` command, so the proof still reads the typed payload.
+Dated measurements: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup" and "Claude slash-command popup below the composer".
 
 That comparison ignores whitespace and U+2063, the invisible mark that starts operational inputs and ends the from-firstmate label.
 It ignores U+2063 because Claude's Herdr read-back never shows it.
