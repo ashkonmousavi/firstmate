@@ -347,41 +347,6 @@ fm_session_lock_codex_same_client() {  # <state> <ancestry-pids>
   return 1
 }
 
-# The foreground checkpoint marks only the handling interval after a normal
-# return. Its one-line record is the exact Codex lock-session value, which pins
-# the session and live client's birth. Starting another checkpoint clears the
-# prior interval before it runs, so a failed cycle cannot inherit old proof.
-fm_codex_checkpoint_begin() {  # <state>
-  local state=$1 recorded
-  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
-  case "$recorded" in codex:*) : ;; *) return 1 ;; esac
-  fm_session_lock_owned_by_self "$state" || return 1
-  rm -f "$state/.codex-checkpoint-handling"
-}
-
-fm_codex_checkpoint_finish() {  # <state>
-  local state=$1 recorded tmp
-  fm_session_lock_owned_by_self "$state" || return 1
-  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
-  case "$recorded" in codex:*) : ;; *) return 1 ;; esac
-  tmp=$(mktemp "$state/.codex-checkpoint-handling.XXXXXX") || return 1
-  if ! { printf '%s\n' "$recorded" > "$tmp" && mv -f "$tmp" "$state/.codex-checkpoint-handling"; }; then
-    rm -f "$tmp"
-    return 1
-  fi
-}
-
-fm_codex_checkpoint_owns_supervision() {  # <state>
-  local state=$1 marker recorded pid
-  [ -f "$state/.codex-checkpoint-handling" ] && [ ! -L "$state/.codex-checkpoint-handling" ] || return 1
-  marker=$(cat "$state/.codex-checkpoint-handling" 2>/dev/null) || return 1
-  recorded=$(fm_session_lock_recorded_session_id "$state") || return 1
-  case "$recorded" in codex:*) : ;; *) return 1 ;; esac
-  [ "$marker" = "$recorded" ] || return 1
-  pid=$(cat "$state/.lock" 2>/dev/null) || return 1
-  fm_session_lock_holder_alive "$state" "$pid"
-}
-
 # Print the session id recorded beside the lock in state dir $1, or return 1.
 # bin/fm-lock.sh is the only writer of state/.lock-session; a missing,
 # symlinked, unreadable, or empty sidecar, or one whose first line contains a

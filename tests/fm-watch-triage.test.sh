@@ -7503,31 +7503,6 @@ test_quoted_exit_picker_stays_ordinary_stale() {
   pass "picker text quoted above a composer stays an ordinary stale"
 }
 
-test_secondmate_exit_picker_stays_quiet() {
-  local dir state fakebin out capture_file window pid count_file
-  dir=$(make_case secondmate-exit-picker); state="$dir/state"; fakebin="$dir/fakebin"
-  out="$dir/watch.out"; capture_file="$dir/pane.txt"; count_file="$dir/captures"
-  window="test:fm-picker-mate"
-  write_exit_picker "$capture_file"
-  prime_picker_window "$state" mate "$window" secondmate "$capture_file" 'working: the parent supervises this secondmate' >/dev/null
-  printf '0\n' > "$count_file"
-  export FM_FAKE_CREW_STATE='state: unknown · source: none · no current-state source available'
-  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
-    FM_FAKE_TMUX_CAPTURE_COUNT_FILE="$count_file" \
-    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" FM_STALE_ESCALATE_SECS=999 \
-    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
-  pid=$!
-  if ! wait_poll_cycle "$state" "$pid"; then
-    reap "$pid"; fail "a second mate on the exit picker woke: $(cat "$out")"
-  fi
-  [ ! -s "$out" ] || { reap "$pid"; fail "a second mate on the exit picker printed a wake: $(cat "$out")"; }
-  [ "$(cat "$count_file")" -eq 0 ] \
-    || { reap "$pid"; fail "a second mate on the exit picker was captured $(cat "$count_file") times"; }
-  reap "$pid"
-  unset FM_FAKE_CREW_STATE
-  pass "a second mate on the exit picker stays quiet, and the poll does not capture the pane"
-}
-
 # The away daemon saved this name while the picker was up. Once the pane leaves
 # it, the same capture the stale path already takes has to drop the name, or
 # the persistence line would still say the dialog is open.
@@ -7555,5 +7530,4 @@ test_closed_exit_picker_drops_saved_dialog_name() {
 test_exit_picker_stale_names_the_dialog
 test_exit_picker_wedge_keeps_climbing
 test_quoted_exit_picker_stays_ordinary_stale
-test_secondmate_exit_picker_stays_quiet
 test_closed_exit_picker_drops_saved_dialog_name

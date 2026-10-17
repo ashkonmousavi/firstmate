@@ -137,35 +137,6 @@ out=$(run_lock S2 "$client2" "$birth2") || fail "dead client did not release the
 [ "$(cat "$home/state/.lock")" = "$client2" ] || fail 'reclaimed lock did not name the second client'
 pass 'Codex lock: a dead client releases ownership while the daemon survives'
 
-run_verdict() {  # <grace>
-  # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
-  env PATH="$fakebin:$PATH" FM_HOME="$home" CODEX_SESSION_ID=S2 \
-    FM_CODEX_CLIENT_PID="$client2" FM_CODEX_CLIENT_BIRTH="$birth2" FM_CODEX_CLIENT_HOME="$home" \
-    FM_SUPERVISION_MODEL=checkpoint bash -c '
-      . "$1/bin/fm-wake-lib.sh"
-      fm_watcher_supervision_verdict "$2/state" "$1/bin/fm-watch.sh" "$3" "$2" "$1"
-      printf "%s %s\n" "$FM_WATCHER_VERDICT_OK" "$FM_WATCHER_VERDICT_REASON"
-    ' _ "$ROOT" "$home" "$1"
-}
-run_marker() {  # <begin|finish>
-  # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
-  env PATH="$fakebin:$PATH" FM_HOME="$home" CODEX_SESSION_ID=S2 \
-    FM_CODEX_CLIENT_PID="$client2" FM_CODEX_CLIENT_BIRTH="$birth2" FM_CODEX_CLIENT_HOME="$home" \
-    bash -c '. "$1/bin/fm-session-lock-lib.sh"; "fm_codex_checkpoint_$2" "$3/state"' _ "$ROOT" "$1" "$home"
-}
-
-touch "$home/state/.last-watcher-beat"
-[ "$(run_verdict 300)" = 'false no-watcher' ] || fail 'a fresh beacon alone suppressed the alarm'
-run_marker finish || fail 'the lock owner could not publish a handling interval'
-[ "$(run_verdict 300)" = 'true stale-beacon' ] || fail 'a live session-owned handling interval was not healthy'
-[ "$(run_verdict 0)" = 'false stale-beacon' ] || fail 'an expired beacon remained healthy'
-run_marker begin || fail 'the next checkpoint could not clear its prior marker'
-[ "$(run_verdict 300)" = 'false no-watcher' ] || fail 'a failed next checkpoint inherited the old marker'
-run_marker finish || fail 'the owner could not republish its marker'
-printf 'codex:%s:%s:OTHER\n' "$client2" "$birth2" > "$home/state/.codex-checkpoint-handling"
-[ "$(run_verdict 300)" = 'false no-watcher' ] || fail 'a foreign session marker suppressed the alarm'
-pass 'Codex checkpoint: only a fresh, live, session-owned gap is healthy'
-
 # A real wrapped launch: hooks and tools both run under the native binary,
 # whose parent is the node launcher the wrapper bound. Codex gives the hook no
 # binding and no CODEX_SESSION_ID, only its payload.
@@ -236,14 +207,14 @@ out=$(run_tool T1 "$shim" "$shim_birth" "$ROOT/bin/fm-lock.sh" 2>&1) \
   || fail "the tool shell could not confirm the lock its own hook took: $out"
 assert_contains "$out" "lock acquired: harness pid $shim" 'the tool shell did not confirm the hook-held lock'
 # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
-run_tool T1 "$shim" "$shim_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home" \
-  || fail 'the tool shell could not begin a checkpoint under the hook-held lock'
+run_tool T1 "$shim" "$shim_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2/state"' _ "$ROOT" "$hook_home" \
+  || fail 'the tool shell did not own the hook-held lock'
 if out=$(run_tool T1 "$other_shim" "$other_birth" "$ROOT/bin/fm-lock.sh" 2>&1); then
   fail "another live client took the hook-held lock: $out"
 fi
 # shellcheck disable=SC2016 # Positional parameters expand in the child bash.
-if run_tool T1 "$other_shim" "$other_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_codex_checkpoint_begin "$2/state"' _ "$ROOT" "$hook_home"; then
-  fail 'another live client began a checkpoint under the hook-held lock'
+if run_tool T1 "$other_shim" "$other_birth" bash -c '. "$1/bin/fm-session-lock-lib.sh"; fm_session_lock_owned_by_self "$2/state"' _ "$ROOT" "$hook_home"; then
+  fail 'another live client owned the hook-held lock'
 fi
 [ "$(cat "$hook_home/state/.lock")" = "$shim" ] || fail 'a refused caller changed the hook-held lock'
 [ "$(cat "$hook_home/state/.lock-session")" = "codex:$shim:$shim_birth:T1" ] || fail 'a refused caller changed the sidecar'

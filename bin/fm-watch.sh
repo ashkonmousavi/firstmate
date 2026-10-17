@@ -2400,6 +2400,56 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
   return "$rc"
 }
 
+# Surface a permission or question prompt waiting in a worker pane. A Claude
+# worker's PermissionRequest hook (bin/fm-spawn.sh) writes a fresh
+# "<epoch> <pid>" into state/<task>.prompt-waiting whenever a dialog is about to
+# ask a human. A question on screen outranks every account of quiet - a declared
+# `paused:` wait (even one naming a future `until`), a captain-held transfer, and
+# a busy verdict - so this runs before all of them, and each marker wakes once:
+# .prompt-surfaced-<key> records the marker already surfaced, written only after
+# the wake was durably appended so a failed append is retried.
+prompt_waiting_check() {  # <window> <task> <window-key>
+  local win=$1 task=$2 key=$3 marker seen reason
+  [ -f "$STATE/$task.prompt-waiting" ] || return 0
+  marker=$(cat "$STATE/$task.prompt-waiting" 2>/dev/null) || return 0
+  [ -n "$marker" ] || return 0
+  seen=$(cat "$STATE/.prompt-surfaced-$key" 2>/dev/null || true)
+  [ "$marker" != "$seen" ] || return 0
+  reason="stale: $win (a permission or question prompt is waiting in the pane)"
+  fm_wake_append stale "$win" "$reason" || exit 1
+  printf '%s' "$marker" > "$STATE/.prompt-surfaced-$key"
+  wake "$reason"
+}
+
+# Surface a recognised blocking dialog on a secondmate pane. An idle mate is
+# exempt from pane staleness, so a mate parked on a choice only a human can
+# answer otherwise reads as healthy while its steers go unread.
+# fm_composer_blocking_dialog owns which screens are dialogs; a 120-line read
+# reaches a heading the composer's short tail can miss, and the dialog's last
+# row must still be the screen's last, so scrollback cannot match. Each dialog
+# episode wakes once: .dialog-surfaced-<key> holds the task, generation and name,
+# written after the wake was durably appended, and is cleared when the pane no
+# longer shows a dialog. A failed capture leaves the marker as it was.
+secondmate_dialog_check() {  # <window> <window-key>
+  local w=$1 key=$2 backend name reason marker task generation identity
+  marker="$STATE/.dialog-surfaced-$key"
+  task=$(window_to_task "$w" "$STATE")
+  generation=$(fm_meta_get "$STATE/$task.meta" spawn_gen)
+  backend=$(window_backend "$w")
+  fm_backend_source "$backend" || return 0
+  watcher_capture "$backend" "$w" 120 "$(window_label "$w")" || return 0
+  if ! name=$(fm_composer_blocking_dialog "$WATCHER_CAPTURE"); then
+    rm -f "$marker"
+    return 0
+  fi
+  identity="$task:$generation:$name"
+  [ "$(cat "$marker" 2>/dev/null || true)" != "$identity" ] || return 0
+  reason="stale: $w (a $name is waiting in the pane; it needs a human answer)"
+  fm_wake_append stale "$w" "$reason" || exit 1
+  printf '%s' "$identity" > "$marker"
+  wake "$reason"
+}
+
 # Use only the successfully captured endpoints; a mixed status/turn-end batch
 # or any failed read must retain the ordinary conservative notification path.
 signal_progress_only_captured() {
@@ -3264,6 +3314,8 @@ EOF
     # exemption below, because a mate's steers land in an inbox too.
     [ -z "$task" ] || inbox_steer_check "$w" "$task"
     key=$(window_key "$w")
+    [ -z "$task" ] || prompt_waiting_check "$w" "$task" "$key"
+    [ "$kind" != secondmate ] || secondmate_dialog_check "$w" "$key"
     last=$(status_declared_wait_line "$STATE/$task.status")
     if ! status_is_paused_or_captain_held "$last" && [ -e "$STATE/.paused-$key" ]; then
       clear_pause_tracking "$key"

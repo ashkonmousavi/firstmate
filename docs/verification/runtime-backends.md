@@ -1592,7 +1592,7 @@ A second Enter would confirm the selected row.
 [`fm_composer_blocking_dialog`](../../bin/fm-composer-lib.sh) owns the structural recognition and quoted-text exclusions; [agent control](../agent-control.md#verbs) owns submit and exit refusal, and [event-driven supervision](../architecture.md#event-driven-supervision) owns secondmate dialog monitoring.
 The watcher reads the picker with the same matcher on the stale-path capture it already takes for a worker.
 A worker pane parked on it keeps the ordinary stale triage and schedule, and its plain stale reason and its final wedge escalation reason name the picker after `blocked-on-prompt:`; the deferral, dead-record, and declared-wait recheck reasons do not.
-A second mate stays off that path, and a finished worker in away mode is handled as before.
+A second mate stays off that path; its pane is read by the secondmate dialog check instead, which names the picker once per spawn generation, and a finished worker in away mode is handled as before.
 That watcher and away-daemon reporting is covered by fakes in `tests/fm-watch-triage.test.sh` and `tests/fm-daemon.test.sh`, not by a live measurement.
 No recorded screen was available for a model-downgrade confirmation, an MCP approval, or a Claude exit confirmation other than this picker, so those dialogs are not covered.
 The read-only refresh guard for this picker and the Codex dialog is [`fm-composer-dialog-live-e2e.test.sh`](../../tests/fm-composer-dialog-live-e2e.test.sh).
