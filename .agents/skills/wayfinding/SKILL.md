@@ -82,17 +82,17 @@ Building in parallel stays the default here for disjoint work, and that is delib
 The external method this is adapted from recommends one thing at a time, because two live sessions planning the same effort re-ask each other questions they cannot see the answers to.
 That cost is real for decisions and absent for building: every dispatched task carries a zero-memory brief and an isolated copy, so two builders share no context to lose.
 Section 7 owns when work is independent enough to run in parallel.
-Parallelize by area under section 7, one lane per area at a time, owning its files.
+Parallelize by area under section 7: an area is an exclusive path set (the files one lane owns); one lane holds an area's path set at a time, and lanes whose path sets do not overlap run in parallel.
 An area's slices queue behind it, and finished work across every area merges one at a time in dependency order.
 Every shared module is held by its single integration owner, which a lane asks rather than edits.
 Keep decisions on one shared record so a second lane never resolves what a first lane already settled.
 
-For L lanes warranted by actual authorized work and admitted under section 7, prepare one parallel-safe set of L jobs and a second set that can refill each lane once: the horizon is two times L prepared plans.
-When fewer eligible jobs exist, record the actual planning or dependency gap; never invent work to fill that horizon.
+L is the number of seats live right now across all machines (the live seat count, never a fixed number). Keep 2L prepared, ready items (journey/slice, blocked-by edges, done-means).
+When ready items drop below L, filing prep for the next tree nodes is the next free lane's job, checked at every dispatch, cleanup and heartbeat; if the tree truly has fewer than L ready nodes, fill seats in this order: implementable pieces, prep, scouts on named unknowns, verification and walks, integration, backlog hygiene; record the real gap and never invent work.
 Prepare plans in parallel batches by area, keeping decisions in one authoritative place and every shared seam under one owner.
 Design the shared interface first, then fan dependent plans out against it.
 A known blocker permits pre-staging, never premature dispatch; include bounded plans whose blocker is expected to clear during the current wave.
-Beyond the horizon, keep only a one-line sketch in the existing work board: outcome, dependencies, code area and kind of unknown.
+Depth by distance: inside the ready buffer, full preps with pieces, integration tasks and tests named by plan; the next journeys one level down (their slices, every shared interface they touch with its stand-in, and each sharp unknown filed now as a scout item with a precise question); far journeys one row each (outcome, journeys it depends on, interfaces it touches, unknowns).
 
 Before consuming a plan, refresh the preparation record's `Still valid` check under `bin/fm-dod-lib.sh`, including changed shared dependencies even when the consumer's own files did not change.
 An untouched plan need not be planned again.
