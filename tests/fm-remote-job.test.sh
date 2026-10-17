@@ -252,6 +252,47 @@ if [ -n "$IDENTITY_LOCALE" ]; then
   pass "lock and claim owner identity stays locale-invariant ($IDENTITY_LOCALE)"
 fi
 
+# ps lstart is boot time plus the process's start ticks, and boot time is
+# re-derived from the wall clock on every read, so a host whose wall clock is
+# stepped (WSL2 time sync stepping it half a second every half minute) renders
+# a live owner's lstart one second later than its recorded value. The checker
+# then declared the live owner dead and every remote call started another
+# worker. A /proc start identity must ignore boot-time changes and still catch
+# a reused pid.
+IDENTITY_PROC="$TMP_ROOT/identity-proc"
+mkdir -p "$IDENTITY_PROC/4242"
+write_identity_proc_stat() { # <starttime>
+  printf '4242 (fm-remote (job) worker) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 %s 20 21 22\n' "$1" > "$IDENTITY_PROC/4242/stat"
+}
+printf 'btime 1784094040\n' > "$IDENTITY_PROC/stat"
+write_identity_proc_stat 987654
+PROC_START_BEFORE=$(FM_PROC_ROOT_OVERRIDE="$IDENTITY_PROC" fm_remote_job_process_start 4242) \
+  || fail "the /proc process start identity could not be read"
+printf 'btime 1784094041\n' > "$IDENTITY_PROC/stat"
+PROC_START_AFTER_STEP=$(FM_PROC_ROOT_OVERRIDE="$IDENTITY_PROC" fm_remote_job_process_start 4242) \
+  || fail "the /proc process start identity could not be re-read after a clock step"
+[ "$PROC_START_AFTER_STEP" = "$PROC_START_BEFORE" ] \
+  || fail "the process start identity changed with a wall-clock step (before '$PROC_START_BEFORE', after '$PROC_START_AFTER_STEP')"
+write_identity_proc_stat 987655
+PROC_START_REUSED=$(FM_PROC_ROOT_OVERRIDE="$IDENTITY_PROC" fm_remote_job_process_start 4242) \
+  || fail "the /proc process start identity could not be read for a reused pid"
+[ "$PROC_START_REUSED" != "$PROC_START_BEFORE" ] \
+  || fail "the process start identity missed a reused pid"
+rm -rf -- "$IDENTITY_PROC"
+pass "lock and claim owner identity ignores wall-clock steps and detects pid reuse"
+
+if [ -r "/proc/$$/stat" ]; then
+  IDENTITY_RECORD="$TMP_ROOT/identity-record"
+  mkdir -p "$IDENTITY_RECORD"
+  printf '%s\n' "$$" > "$IDENTITY_RECORD/pid"
+  fm_remote_job_process_start "$$" > "$IDENTITY_RECORD/start"
+  fm_remote_job_process_command "$$" > "$IDENTITY_RECORD/command"
+  fm_remote_job_recorded_owner_alive "$IDENTITY_RECORD" \
+    || fail "a live owner recorded from /proc looked dead to its checker"
+  rm -rf -- "$IDENTITY_RECORD"
+  pass "a live owner recorded from /proc verifies as alive"
+fi
+
 LOCAL_BIN_PARENT="$ACCOUNT_HOME/.local"
 LOCAL_BIN_TARGET="$TMP_ROOT/local-bin-target"
 mkdir -p "$LOCAL_BIN_PARENT" "$LOCAL_BIN_TARGET"

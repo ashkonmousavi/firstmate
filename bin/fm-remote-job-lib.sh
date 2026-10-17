@@ -968,12 +968,30 @@ fm_remote_job_worker_ready_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.r
 fm_remote_job_worker_identity_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.identity"; }
 fm_remote_job_worker_lock_path() { printf '%s\n' "$FM_REMOTE_JOB_STATE/worker.lock"; }
 
-# Pin LC_ALL=C so lstart's date format is locale-invariant: a lock or claim
-# owner recorded under one locale (de_DE renders "Fr. 16 Okt. ...") must still
-# verify under another, or the checker declares the live owner dead and a
-# second worker splits the queue.
+# A lock or claim owner's start identity is recorded by one process and
+# verified by others, so it must not change while the owner lives, or the
+# checker declares the live owner dead and a second worker splits the queue.
+# Prefer /proc stat field 22 (starttime, clock ticks since boot): ps lstart
+# re-derives boot time from the wall clock on every read, so a stepped wall
+# clock (WSL2 time sync) re-renders a live owner's lstart a second later. This
+# is the same /proc read fm_pid_identity in bin/fm-wake-lib.sh uses.
+# The ps fallback pins LC_ALL=C so lstart's date format is locale-invariant
+# (de_DE renders "Fr. 16 Okt. ...").
 fm_remote_job_process_start() {
-  local pid=$1 ps_bin value
+  local pid=$1 proc_root stat_line starttime ps_bin value
+  local -a stat_fields
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  proc_root=${FM_PROC_ROOT_OVERRIDE:-/proc}
+  if [ -r "$proc_root/$pid/stat" ]; then
+    stat_line=$(cat "$proc_root/$pid/stat" 2>/dev/null) || return 1
+    # After the final comm delimiter, array index 19 is proc stat field 22.
+    read -r -a stat_fields <<< "${stat_line##*)}"
+    [ "${#stat_fields[@]}" -ge 20 ] || return 1
+    starttime=${stat_fields[19]}
+    case "$starttime" in ''|*[!0-9]*) return 1 ;; esac
+    printf 'proc-starttime=%s\n' "$starttime"
+    return 0
+  fi
   if [ -x /bin/ps ]; then ps_bin=/bin/ps; elif [ -x /usr/bin/ps ]; then ps_bin=/usr/bin/ps; else return 1; fi
   value=$(LC_ALL=C "$ps_bin" -p "$pid" -o lstart= 2>/dev/null) || return 1
   [ -n "$value" ] || return 1
