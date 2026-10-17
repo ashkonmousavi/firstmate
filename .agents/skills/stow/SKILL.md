@@ -24,6 +24,10 @@ Markers are compact trailing HTML comments, deliberately cheap because marker by
   An absent `/N` means zero, so an entry the fleet keeps exercising costs no counter bytes at all, and a home that has not opted in never writes one.
 - `<!--P-->` - an explicitly `pinned` entry in a file whose default tier is not `pinned`.
 - `<!--g-->` - migration-only: an unconfirmed legacy entry that has consumed its one grace cycle, carrying no date because grace is not reinforcement.
+- `<!--t:NAME-->` - pending capture: a tier-owned entry that the declared memory tier `NAME` does not yet hold because no session that wrote or curated it could reach that tier; it follows any tier marker the entry already carries.
+  Stow never prunes, ages out, evicts, offloads, consolidates away, or moves to the cold archive an entry carrying it, whatever its tier clock says.
+  A later pass that can reach `NAME` captures the entry there under the tier's declared rule, then removes the marker, after which the entry is curated like any other.
+  When the declaration no longer names `NAME` because the home renamed or retired that tier, the next pass retargets the marker to the declared tier that now owns the entry's knowledge class, or removes it when no declared tier owns that class, so no entry stays pinned by a tier that no longer exists.
 
 ```markdown
 - Treehouse pool slots share one repo, so workers must create their task branch before editing. <!--a:2026-08-03-->
@@ -79,6 +83,8 @@ Every `/stow` invocation performs this complete pass, even when the session cont
 
 1. Read every current memory file completely: `data/captain.md`, `data/captain-shared.md`, and `data/learnings.md`.
    Treat an absent local file as absent, not as an invitation to manufacture content.
+   Note any `Memory layering` declaration in them (schema: `docs/configuration.md`) and which declared tiers this session can reach; every later step consults it.
+   When neither `data/captain.md` nor `data/captain-shared.md` holds one, treat the local files as the only owners.
    In a primary home, all three are curation inputs under their existing ownership rules.
    In a secondmate home, `data/captain-shared.md` is a read-only primary-owned input: read it, never edit it, and curate only the editable local files.
    Every mutation in the rest of this pass, including reinforcement, retiering, decay archival, legacy migration, consolidation, and offload, applies only to an editable memory file.
@@ -102,6 +108,8 @@ Every `/stow` invocation performs this complete pass, even when the session cont
    Prefer one concise current rule or authoritative pointer over duplicate prose.
    Archive completed incident and release chronology, stale versions and paths, transient task state, resolved alternatives, old metrics, and report-sized procedures; merge or remove only superseded claims and duplicates whose facts are preserved elsewhere.
    Never plainly remove a unique current fact: every such exit must archive it with provenance in the recoverable cold tier or relocate it to a live JIT owner or a consolidation merge that preserves the fact.
+   **Declared-tier guard: before any archive, eviction, offload, or consolidation removes an entry whose knowledge class a declared tier owns, confirm that tier holds the fact or capture it there first under the tier's declared rule; when the tier is unreachable from this session, leave the entry in place with its pending-capture marker instead of removing it, and name the uncaptured entry in the receipt.**
+   This guard binds every removal rung in this pass, including decay archival.
    Automatic processes never move a `pinned` entry: decay clocks, legacy grace cycles, and autonomous offload do not apply to it.
    The sole exception is relocation to a JIT owner after explicit, per-item captain approval under the offload flow below, and that entry remains in memory until its destination is live.
 
@@ -139,7 +147,7 @@ Every test must hold for a candidate:
 
 - Editable source: this home owns the memory file and may relocate the entry; a read-only shared entry is routed to its primary owner instead.
 - Durable: not `perishable`, not stale, and expected to remain true for months.
-- Eligible by authority: only a non-pinned, dated `aging` entry that is not pending offload may be autonomously relocated to an already-existing allowed owner, while a `pinned` entry may be proposed only for explicit, per-item captain-approved relocation and can never be archived or autonomously offloaded.
+- Eligible by authority: only a non-pinned, dated `aging` entry that is not pending offload or pending capture may be autonomously relocated to an already-existing allowed owner, while a `pinned` entry may be proposed only for explicit, per-item captain-approved relocation and can never be archived or autonomously offloaded.
 - Conditional: a one-line nameable trigger exists, and a session that never touches that trigger runs no risk from omitting the fact.
 - Fat enough to matter: a sizeable entry, handled largest-first, because consolidation handles smaller entries.
 - A destination below fits the entry's privacy and visibility.
@@ -191,9 +199,12 @@ A local skill exists only in this home, so offloading an entry out of `data/capt
 
 1. **Sweep the session for uncaptured durable knowledge.**
    Look for operational learnings, captain preferences expressed in passing, project-intrinsic facts, standing decisions, and undone next steps.
+   Include what workers reported from harnesses that cannot reach a declared tier, because this session is their only capture path.
 2. **Route each finding using AGENTS.md's knowledge-routing table.**
    AGENTS.md section 6 is the source of truth for destinations.
    Do not re-derive or duplicate that mapping here.
+   Match each finding against the home's declared memory tiers first and capture a tier-owned finding to that tier, falling back to the local files only for classes no declared tier owns.
+   When the owning tier is unreachable from this session, write the finding to the startup-loaded local memory file its class would otherwise use, or keep it where it already lives, carrying the pending-capture marker for that tier; it is still an exception for the receipt, never a reason to treat the local copy as sufficient.
 3. **Write within the existing boundaries.**
    - Captain preferences and fleet-local operational facts belong in the destination selected by AGENTS.md after the required whole-file curation pass.
      Create `data/learnings.md` only for a genuinely new local learning with no stronger owner.
@@ -201,7 +212,8 @@ A local skill exists only in this home, so offloading an entry out of `data/capt
      In a secondmate home, route a newly discovered shared preference to the main firstmate through marked status or a document pointer instead of editing the inherited file.
    - Project-intrinsic knowledge never goes into a project's `AGENTS.md` through this fleet: a crewmate edits those files only to correct factually wrong information (AGENTS.md section 6), so no ship task carries an addition.
      Keep the candidate in `data/learnings.md` or surface it in the completion receipt so the captain can extend the file by hand.
-   - Knowledge general to every Firstmate user belongs in this repo's shared tracked material through the normal branch, no-mistakes, and PR path under the merge authority in [`AGENTS.md` section 7](../../../AGENTS.md#selected-delivery-path-and-merge-authority).
+   - Knowledge general to every Firstmate user belongs in this repo's shared tracked material through the normal branch, no-mistakes, and PR path under the merge authority in [`AGENTS.md` section 7](../../../AGENTS.md#selected-delivery-path-and-merge-authority), which exists only under this home's firstmate-repository publication authority (`AGENTS.md` section 1's role boundary).
+     A user/operator home instead keeps the lesson in `data/learnings.md` and may leave a sanitized local draft for the captain to carry upstream.
    - For task-scoped notes, inspect the item with `bin/fm-tasks-axi.sh show <id> --full`, classify the change as new, duplicate, superseding, or obsolete, then use a considered replacement body through `bin/fm-tasks-axi.sh update <id> --body-file <path>`.
      Use `--archive-body` when recoverability matters.
      Never append.
@@ -239,11 +251,12 @@ The first pass after adoption performs a one-time revalidation sweep of editable
 Report the outcome in plain captain-facing language with all of these facts:
 
 - one or more actions for each of `data/captain.md`, `data/captain-shared.md`, and `data/learnings.md`, using only `unchanged`, `added`, `rewritten`, `pruned`, `routed`, `archived`, or `proposed-offload`; adding or replacing a migration marker is `rewritten`, never a new action verb such as `migrated`;
-- each durable finding filed outside memory and its authoritative owner;
+- each durable finding filed outside memory and its authoritative owner, including every capture to a declared memory tier;
+- every finding or entry a declared tier should hold but this session could not reach, left carrying its pending-capture marker and named so a session that can reach it captures it;
 - each archived entry's reason, each autonomous offload's live destination, and, when a pinned candidate was proposed, the `proposed-offload` section with every candidate's fields;
 - every unresolved exception, including a primary-owned shared-file constraint in a secondmate home;
 - each open record this pass filed or corrected, and each one it deliberately left alone with the judgment it is waiting on;
-- whether the session is safe to reset, only when all durable findings are captured, every open record this session held is filed or explicitly left with its reason, and no exception is unresolved.
+- whether the session is safe to reset, only when all durable findings are captured, no tier-owned finding is waiting on an unreachable declared tier, every open record this session held is filed or explicitly left with its reason, and no exception is unresolved.
 
 State what reset-safe means in the same breath as the claim: nothing this session knew has been lost.
 It is never a claim that the home's durable records are correct, because this pass checks no record the session did not name.
@@ -282,5 +295,5 @@ The session is reset-safe only when no home has an unresolved exception.
 The stow pass itself must never store, create, or edit a skill as a destination for any finding.
 The exclusion binds the pass as a writer: proposing an offload and letting the migration step execute a captain-approved candidate later is not the pass storing a skill.
 Every Firstmate-home skill that migration produces is user-owned and local under the destinations hard rule, while an approved project-level destination is produced and shipped through that project's registered delivery path, never by stow.
-Changing firstmate's tracked `.agents/skills/` or public `skills/` remains a deliberately scoped Firstmate repository task through its pipeline, never a stow product.
-Outside a captain-approved offload, generalizable knowledge still routes to shared tracked material through its pipeline and fleet-local knowledge to `data/`.
+Changing firstmate's tracked `.agents/skills/` or public `skills/` remains a deliberately scoped Firstmate repository task through its pipeline, gated by this home's firstmate-repository publication authority, never a stow product.
+Outside a captain-approved offload, generalizable knowledge still routes to shared tracked material through its pipeline where that authority exists and to `data/` otherwise, and fleet-local knowledge to `data/` or to the declared memory tier that owns its class.

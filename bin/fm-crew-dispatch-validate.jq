@@ -9,7 +9,7 @@
 # A profile is either a harness launch profile or a Grok Bot target
 # ({"grok_bot":"<Bot name>"}, optional off only), never both.
 def typed: ($ARGS.named.typed // false) == true;
-def verified_list: $ARGS.named.verified_harnesses // ["claude","codex","opencode","pi","pi-signed","grok","kimi","cursor","agy","muse","rovo","omp","devin"];
+def verified_list: $ARGS.named.verified_harnesses // ["claude","codex","opencode","pi","pi-signed","grok","kimi","cursor","agy","muse","rovo","omp","devin","commandcode","polytoken"];
 def provider_id($p): ($p | type) == "string" and ($p | test($ARGS.named.provider_re // "^[a-z0-9]+(-[a-z0-9]+)*\\z"));
 def verified($h): verified_list | index($h);
 def effort_ok($h; $m; $e):

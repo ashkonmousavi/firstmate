@@ -123,26 +123,30 @@ case "$*" in
     printf '%s\n' "${FM_FAKE_PANE_PATH:-}"; exit 0 ;;
   *"#{pane_current_command}"*) printf '%s\n' "${FM_FAKE_PANE_COMMAND:-firstmate}"; exit 0 ;;
 esac
+window_file="$(dirname "$0")/.spawn-window"
 case "${1:-}" in
   display-message) printf 'firstmate\n'; exit 0 ;;
   list-windows)
     if [ -n "${FM_FAKE_DUPLICATE_WINDOW:-}" ]; then
       printf '%s\n' "$FM_FAKE_DUPLICATE_WINDOW"
     fi
+    [ ! -s "$window_file" ] || cat "$window_file"
+    exit 0
+    ;;
+  new-window)
+    name=
+    previous=
+    for arg in "$@"; do
+      [ "$previous" = -n ] && name=$arg
+      previous=$arg
+    done
+    printf '%s\n' "$name" > "$window_file"
+    [ -z "${FM_FAKE_PANE_PATH_DIR:-}" ] || printf '%s\n' "$name" > "$FM_FAKE_PANE_PATH_DIR/.last-window"
     exit 0
     ;;
   kill-window)
     [ -z "${FM_FAKE_WINDOW_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_WINDOW_LOG"
-    exit 0
-    ;;
-  new-window)
-    if [ -n "${FM_FAKE_PANE_PATH_DIR:-}" ]; then
-      prev=
-      for a in "$@"; do
-        [ "$prev" != -n ] || printf '%s\n' "$a" > "$FM_FAKE_PANE_PATH_DIR/.last-window"
-        prev=$a
-      done
-    fi
+    : > "$window_file"
     exit 0
     ;;
   has-session|new-session|set-window-option) exit 0 ;;
