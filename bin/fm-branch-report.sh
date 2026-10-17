@@ -29,14 +29,14 @@
 # store refused or failed (nothing recorded), 2 usage, 3 refused (actor, turn,
 # or scope).
 #
-# A non-silent row an away turn recorded after the captain returned (the turn
+# A non-silent captain row an away turn recorded after the return (the turn
 # record says posture=away, or predates the posture field, and no away record
 # remains: none, or quiet mode's, whose captain is present; bin/fm-afk-contract.sh
 # AWAY OR QUIET) may be missing from the return brief, so it is also queued
 # for MAIN as a durable check wake keyed supervision-host-return:<seq>,
 # presented by the drain until MAIN acknowledges it. bin/fm-afk-return.sh
 # archives the record before it reads the store and this check follows the
-# append, so every visible row is in the brief, queued, or both: the relay does
+# append, so every captain row is in the brief, queued, or both: the relay does
 # not depend on the host surviving its turn or on its owner delivering the
 # host's own handback. Silent outcomes remain in the store but are not queued
 # or relayed as notes. An attended turn queues nothing: its captain rows reach
@@ -139,7 +139,9 @@ if [ "$(turn_field posture)" = attended ]; then
   fi
   exit 0
 fi
-if ! fm_afk_contract_away_present "$STATE"; then
+if [ "$VERDICT" = captain ] && ! fm_afk_contract_away_present "$STATE"; then
+  # Only a captain outcome justifies a return notification. Routine rows wait
+  # in the store for the next real drain.
   # shellcheck source=bin/fm-wake-lib.sh
   . "$SCRIPT_DIR/fm-wake-lib.sh"
   if ! fm_wake_append check "supervision-host-return:$SEQ" \

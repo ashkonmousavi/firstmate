@@ -2001,7 +2001,7 @@ make_routine_home() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/bin/fm-guard.sh"
   chmod +x "$dir/bin/fm-guard.sh"
   printf 'kind=secondmate\n' > "$dir/state/mate.meta"
-  printf 'working: checking the queue\npaused: waiting for assigned work\n' > "$dir/state/mate.status"
+  printf 'working [notify=routine]: checking the queue\npaused [notify=routine]: waiting for assigned work\n' > "$dir/state/mate.status"
   FM_HOME="$dir" bash -c '
     . "$1/bin/fm-wake-lib.sh"
     fm_wake_status_reported_commit "$STATE" "$STATE/mate.status" "$(fm_wake_signal_sig "$STATE/mate.status")"
@@ -2049,6 +2049,23 @@ test_all_routine_wakes_are_acknowledged_without_a_turn() {
   [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "quiet peek advanced a status presentation cursor"
   [ ! -e "$dir/state/.branch-outcomes-cursor" ] || fail "quiet peek advanced an outcome presentation cursor"
   pass "auto-arm: all three routine classes are acknowledged without a model turn or presentation"
+}
+
+test_declared_correlated_progress_keeps_the_stop_quiet() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-correlated-progress"
+  make_routine_home "$dir"
+  printf 'working [notify=routine] [corr=0123456789abcdef]: still working\n' >> "$dir/state/mate.status"
+  FM_HOME="$dir" bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    fm_wake_status_reported_commit "$STATE" "$STATE/mate.status" "$(fm_wake_signal_sig "$STATE/mate.status")"
+  ' _ "$dir" || fail "could not classify correlated progress fixture"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 0 "$status" "declared correlated progress must use the same no-action policy as the watcher"
+  [ -z "$out" ] || fail "declared correlated progress emitted a handling banner"
+  [ ! -s "$dir/state/.wake-queue" ] || fail "declared correlated progress was not acknowledged"
+  [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "quiet progress consumed a presentation cursor"
+  pass "auto-arm: declared correlated progress stays quiet under the shared classifier"
 }
 
 test_routine_batch_with_one_real_row_still_rewakes() {
@@ -2122,6 +2139,8 @@ test_quiet_peek_preserves_real_status_and_bad_records() {
     [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "$label consumed an unread status"
   done <<'CASES'
 corr|working corr=1234567890abcdef: routed answer
+unmarked|working: a new artifact is ready; MAIN must read it
+duplicate-notify|working [notify=routine] [notify=captain]: ambiguous declaration
 note|note: answer is ready
 notify|working [notify=captain]: review required
 decision|needs-decision [key=choice]: choose an option
@@ -2189,6 +2208,7 @@ test_captain_outcome_and_duplicate_signal_never_borrow_routine_evidence() {
 }
 
 test_all_routine_wakes_are_acknowledged_without_a_turn
+test_declared_correlated_progress_keeps_the_stop_quiet
 test_routine_batch_with_one_real_row_still_rewakes
 test_routine_ack_failure_keeps_the_handling_turn
 test_partial_ack_failure_keeps_the_handling_turn

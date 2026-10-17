@@ -372,6 +372,8 @@ test_attached_arm_hands_a_stalled_holder_to_its_replacement() {
   # The owner's retry: a fresh arm reaches the watcher's eviction path, and the
   # replacement surfaces an ordinary wake instead of the refusal that used to
   # end in the auto-arm FAILED notice.
+  append_wake "$state" check replacement 'check: pending after stalled holder' \
+    || fail "could not queue replacement obligation"
   PATH="$fakebin:$PATH" FM_HOME="$dir" FM_STATE_OVERRIDE="$state" \
     FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
     FM_ARM_CONFIRM_TIMEOUT=10 FM_GUARD_GRACE=5 FM_WATCHER_STALL_BOUND=12 "$WATCH_ARM" > "$rearmout" 2>&1 &
@@ -539,11 +541,15 @@ test_slow_rearm_recovery_is_still_surfaced() {
   # re-armed watcher publishes its own, so its startup and the arm's confirmation
   # stay at full speed and only the work after confirmation is slowed.
   rm -f "$state/.last-watcher-beat"
+  # One deterministic delay exceeds the old fixed wait regardless of how many
+  # lock or marker operations recovery needs after its obligation check.
   for tool in mktemp readlink; do
     real=$(command -v "$tool") || fail "no $tool to delay"
     cat > "$fakebin/$tool" <<SH
 #!/bin/sh
-[ -e "$state/.last-watcher-beat" ] && sleep 0.6
+if [ -e "$state/.last-watcher-beat" ] && mkdir "$state/.slow-recovery-delay" 2>/dev/null; then
+  sleep 14
+fi
 exec "$real" "\$@"
 SH
     chmod +x "$fakebin/$tool"
@@ -594,9 +600,13 @@ test_marker_publish_failure_retains_recovery_evidence() {
   rmdir "$state/.watcher-down"
   armout="$dir/recovery-arm.out"
   start_rearm_arm "$home" "$state" "$fakebin" "$armout"
-  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "stale-lock recovery did not surface downtime"
+  is_live_non_zombie "$ARM_PID" || fail "cleared empty stale-lock recovery did not stay parked"
+  ! grep -F 'check: rearm-resurface' "$armout" >/dev/null \
+    || fail "cleared empty stale-lock recovery woke main"
+  append_wake "$state" check recovered-lock 'check: work after recovered lock' || fail "could not queue work"
+  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "stale-lock successor did not surface new work"
   grep -F 'check: rearm-resurface' "$armout" >/dev/null \
-    || fail "stale-lock recovery did not emit the recovery wake: $(cat "$armout")"
+    || fail "stale-lock successor lost the queued obligation: $(cat "$armout")"
   pass "watch-arm: marker publication failure retains stale-lock recovery evidence"
 }
 
@@ -804,9 +814,10 @@ test_restart_preserves_recovery_across_reused_pid_lock() {
   ln -s "$owner" "$state/.watch.lock"
 
   start_rearm_arm "$home" "$state" "$fakebin" "$armout"
-  wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS" || fail "restart did not surface recovery after clearing a reused-pid lock"
-  grep -F 'check: rearm-resurface' "$armout" >/dev/null \
-    || fail "restart cleared reused-pid lock evidence without a recovery wake: $(cat "$armout")"
+  is_live_non_zombie "$ARM_PID" || fail "empty reused-pid recovery did not stay parked"
+  ! grep -F 'check: rearm-resurface' "$armout" >/dev/null \
+    || fail "empty reused-pid recovery emitted a wake"
+  kill "$ARM_PID"; wait "$ARM_PID" 2>/dev/null || true
   is_live_non_zombie "$unrelated" || fail "restart signaled the unrelated process whose pid was reused"
   kill "$unrelated" 2>/dev/null || true
   wait "$unrelated" 2>/dev/null || true
@@ -837,6 +848,112 @@ test_markerless_legacy_queue_is_recovered_on_arm() {
     || fail "adopted legacy wake was not presented"
   ack_wakes "$state" || fail "adopted legacy wake could not be acknowledged"
   pass "watch-arm: markerless legacy queues are adopted and recovered"
+}
+
+test_empty_recovery_checks_obligations() {
+  local dir task_home state mode result generation
+  dir=$(make_case empty-recovery-obligations)
+  for mode in empty decision captain corrupt queue read-error busy-store; do
+    task_home="$dir/$mode/home"; state="$task_home/state"
+    mkdir -p "$state"
+    case "$mode" in
+      decision) printf 'needs-decision [key=pick]: choose\n' > "$state/mate.status" ;;
+      read-error) printf 'working: progress\n' > "$state/mate.status" ;;
+      captain) FM_HOME="$task_home" FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-branch-outcome.sh" append \
+        --task mate --verdict captain --summary ready >/dev/null || fail "outcome fixture failed" ;;
+      busy-store) FM_HOME="$task_home" FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-branch-outcome.sh" append \
+        --task mate --verdict routine --summary handled >/dev/null || fail "store fixture failed" ;;
+      corrupt) printf 'invalid\n' > "$state/branch-outcomes.jsonl" ;;
+      queue) append_wake "$state" check fixture 'check: pending' || fail "queue fixture failed" ;;
+    esac
+    result=$(FM_HOME="$task_home" FM_STATE_OVERRIDE="$state" bash -c '
+      . "$1"
+      [ "$2" != read-error ] || export FM_STATUS_SPAN_READER=/bin/false
+      if [ "$2" = busy-store ]; then
+        mkdir "$STATE/.branch-outcomes.lock" || exit
+        printf "%s\n" "$$" > "$STATE/.branch-outcomes.lock/pid"
+      fi
+      fm_recovery_marker_publish "$STATE/.watcher-down" downtime || exit
+      fm_recovery_marker_snapshot "$STATE/.watcher-down" || exit
+      generation=${FM_RECOVERY_MARKER_TOKEN##*:}
+      fm_recovery_marker_arm_check "$STATE/.watcher-down" || exit
+      printf "%s %s %s\n" "$FM_RECOVERY_MARKER_ACTION" "$generation" "$(cat "$STATE/.watcher-down")"
+    ' _ "$ROOT/bin/fm-wake-lib.sh" "$mode") || fail "obligation check failed: $mode"
+    generation=${result#* }; generation=${generation%% *}
+    if [ "$mode" = empty ]; then
+      [ "$result" = "none $generation acked:downtime:$generation" ] \
+        || fail "empty recovery was not retired in its checked generation: $result"
+    else
+      case "$result" in recover\ *) ;; *) fail "$mode obligation was hidden: $result" ;; esac
+    fi
+  done
+  pass "watch-arm: empty recovery retires only without queue, decision, outcome or uncertain state"
+}
+
+test_recovery_ignores_rows_reserved_for_the_branch() {
+  local dir state result
+  dir=$(make_case recovery-branch-reservation); state="$dir/state"
+  result=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_wake_append check reserved "check: branch work" || exit
+    printf "1\n" > "$STATE/.branch-eligible-rows"
+    printf "fm-branch-eligible-owner-v1\n%s\n%s\ngrant-fixture\n" "$$" "$(fm_pid_identity "$$")" \
+      > "$STATE/.branch-eligible-owner"
+    fm_recovery_marker_arm_check "$STATE/.watcher-down" || exit
+    printf "main=%s\n" "$FM_RECOVERY_MARKER_ACTION"
+    fm_recovery_marker_arm_check "$STATE/.watcher-down" || exit
+    printf "main-again=%s\n" "$FM_RECOVERY_MARKER_ACTION"
+    FM_SUPERVISION_ACTOR=branch
+    fm_recovery_marker_publish "$STATE/.watcher-down" downtime || exit
+    fm_recovery_marker_arm_check "$STATE/.watcher-down" || exit
+    printf "branch=%s\n" "$FM_RECOVERY_MARKER_ACTION"
+  ' _ "$ROOT/bin/fm-wake-lib.sh") || fail "branch reservation fixture failed"
+  [ "$result" = $'main=none\nmain-again=none\nbranch=recover' ] \
+    || fail "recovery ignored actor ownership: $result"
+  [ -s "$state/.wake-queue" ] || fail "reserved rows were consumed"
+  pass "watch-arm: only the owning actor recovers branch-reserved work"
+}
+
+test_empty_retirement_serializes_a_racing_append() {
+  local dir task_home state fakebin real_mv retiring publisher generation result
+  dir=$(make_case empty-retirement-race)
+  task_home="$dir/home"; state="$dir/state"; fakebin="$dir/fakebin"
+  real_mv=$(command -v mv)
+  cat > "$fakebin/mv" <<SH
+#!/usr/bin/env bash
+if [ "\${*: -1}" = "$state/.watcher-down" ] && grep -q '^acked:' "\${*: -2:1}" 2>/dev/null; then
+  printf 'ready\n' > "$dir/retiring"
+  for ((i=0; i<300; i++)); do
+    [ -e "$dir/release" ] && break
+    sleep 0.05
+  done
+fi
+exec "$real_mv" "\$@"
+SH
+  chmod +x "$fakebin/mv"
+  FM_HOME="$task_home" FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_recovery_marker_publish "$STATE/.watcher-down" downtime' \
+    _ "$ROOT/bin/fm-wake-lib.sh" || fail "could not publish empty episode"
+  generation=$(recovery_marker_generation "$state/.watcher-down")
+  PATH="$fakebin:$PATH" FM_HOME="$task_home" FM_STATE_OVERRIDE="$state" bash -c \
+    '. "$1"; fm_recovery_marker_arm_check "$STATE/.watcher-down"; printf "%s\n" "$FM_RECOVERY_MARKER_ACTION"' \
+    _ "$ROOT/bin/fm-wake-lib.sh" > "$dir/retire.out" &
+  retiring=$!
+  wait_for_file_text "$dir/retiring" '' || { touch "$dir/release"; fail "retirement barrier not reached"; }
+  append_wake "$state" check race 'check: racing arrival' &
+  publisher=$!
+  # The marker replacement is paused with BOTH locks held. The append must
+  # wait, then publish a distinct generation rather than inherit retirement.
+  [ ! -s "$state/.wake-queue" ] || fail "append bypassed the retirement queue lock"
+  touch "$dir/release"
+  wait "$retiring" || fail "empty retirement failed"
+  wait "$publisher" || fail "racing append failed"
+  [ "$(cat "$dir/retire.out")" = none ] || fail "empty retirement woke main"
+  [ "$(recovery_marker_generation "$state/.watcher-down")" != "$generation" ] \
+    || fail "racing arrival inherited the retired generation"
+  result=$(FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_recovery_marker_arm_check "$STATE/.watcher-down"; echo "$FM_RECOVERY_MARKER_ACTION"' \
+    _ "$ROOT/bin/fm-wake-lib.sh")
+  [ "$result" = recover ] || fail "racing arrival was stranded: $result"
+  pass "watch-arm: an append racing empty retirement publishes its own recoverable generation"
 }
 
 test_idle_lavish_source_stays_quiet_until_result() {
@@ -880,9 +997,10 @@ SH
   printf 'pending:downtime:idle-lavish.1.fixture\n' > "$state/.watcher-down"
 
   FM_ROOT_OVERRIDE="$ROOT" start_rearm_arm "$home" "$state" "$fakebin" "$first_out"
-  wait_for_exit "$ARM_PID" 80 || fail "the first recovery arm did not surface"
-  grep -F 'check: rearm-resurface' "$first_out" >/dev/null \
-    || fail "the pending recovery generation did not get its first announcement"
+  is_live_non_zombie "$ARM_PID" || fail "empty recovery did not stay parked"
+  ! grep -F 'check: rearm-resurface' "$first_out" >/dev/null \
+    || fail "empty recovery announced a wake"
+  kill "$ARM_PID"; wait "$ARM_PID" 2>/dev/null || true
   [ ! -s "$state/.wake-queue" ] \
     || fail "the idle Lavish source produced a wake before any result"
 
@@ -924,9 +1042,11 @@ test_append_wakes_live_announced_watcher() {
   printf 'pending:downtime:append-after-empty.fixture\n' > "$state/.watcher-down"
 
   start_rearm_arm "$home" "$state" "$fakebin" "$first_out"
-  wait_for_exit "$ARM_PID" 80 || fail "the initial empty recovery did not surface"
-  grep -F 'check: rearm-resurface' "$first_out" >/dev/null \
-    || fail "the initial empty recovery was not announced"
+  is_live_non_zombie "$ARM_PID" || fail "initial empty recovery did not stay parked"
+  ! grep -F 'check: rearm-resurface' "$first_out" >/dev/null \
+    || fail "initial empty recovery announced a wake"
+  [ ! -s "$state/.watch-deliveries.log" ] || fail "empty recovery wrote a delivery receipt"
+  kill "$ARM_PID"; wait "$ARM_PID" 2>/dev/null || true
   [ ! -s "$state/.wake-queue" ] \
     || fail "the empty recovery unexpectedly queued durable work"
 
@@ -1257,11 +1377,15 @@ test_take_over_preserves_downtime_from_watcher_self_exit() {
     i=$((i + 1))
   done
   [ "$(cat "$state/.watcher-down")" != "$acknowledged" ] || fail "takeover restored the old acknowledgement"
+  is_live_non_zombie "$ARM_PID" || fail "empty self-exit recovery did not stay parked"
+  ! grep -F 'check: rearm-resurface' "$armout" >/dev/null \
+    || fail "empty self-exit downtime woke main"
+  append_wake "$state" check self-exit 'check: obligation after self-exit' || fail "could not append real work"
   wait_for_exit "$ARM_PID" "$REARM_EXIT_POLLS"
   status=$?
-  expect_code 0 "$status" "fresh takeover must surface recovery cleanly"
-  assert_contains "$(cat "$armout")" 'check: rearm-resurface' "self-exit downtime must surface as recovery"
-  pass "watch-arm: takeover preserves self-exit downtime and surfaces a recovery wake"
+  expect_code 0 "$status" "fresh takeover must surface new work cleanly"
+  assert_contains "$(cat "$armout")" 'check: rearm-resurface' "real work after self-exit did not surface"
+  pass "watch-arm: takeover retires empty self-exit downtime and surfaces later work"
 }
 
 test_downtime_marker_does_not_follow_symlink() {
@@ -1542,6 +1666,7 @@ test_handling_delivered_rejects_a_superseded_generation() {
   printf '%s' "$home" > "$state/.watch.lock/fm-home"
   printf '%s' "$WATCH" > "$state/.watch.lock/watcher-path"
   printf '%s' "$identity" > "$state/.watch.lock/pid-identity"
+  append_wake "$state" check generation-fixture 'check: generation fixture' || fail "could not queue fixture"
   FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_recovery_marker_publish "$2" downtime && fm_recovery_marker_arm_check "$2"' \
     _ "$ROOT/bin/fm-wake-lib.sh" "$state/.watcher-down" \
     || fail "could not announce the fixture downtime episode"
@@ -1732,6 +1857,9 @@ test_malformed_marker_is_quarantined_once
 test_recovery_consumption_serializes_queue_publication
 test_restart_preserves_recovery_across_reused_pid_lock
 test_markerless_legacy_queue_is_recovered_on_arm
+test_empty_recovery_checks_obligations
+test_recovery_ignores_rows_reserved_for_the_branch
+test_empty_retirement_serializes_a_racing_append
 test_idle_lavish_source_stays_quiet_until_result
 test_append_wakes_live_announced_watcher
 test_handling_window_close_keeps_the_acknowledgement_valid

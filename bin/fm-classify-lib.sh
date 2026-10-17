@@ -1271,11 +1271,14 @@ _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
   ' "$f" "$start" "$length"
 }
 
-status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
+# Suppression callers use --strict so an unreadable span cannot masquerade as
+# a safely empty cached fold. Other callers retain the last trusted open set.
+status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>] [--strict]
   local f=$1 captured_end=${2:-} cf offset ident open='' trusted_open='' cursor_data first rest offset_line ident_line
   local version='' size actual_size cur_ident resolve held chunk_file chunk_size line cursor_dirty=0
-  local target_cursor kind fold_version
-  [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
+  local target_cursor kind fold_version read_failure=0
+  [ "${3:-}" != --strict ] || read_failure=1
+  [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return "$read_failure"
   kind=$(_fm_status_kind "$f")
   fold_version="$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
   cf=$(_fm_open_decisions_cursor_path "$f")
@@ -1325,17 +1328,17 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   # A stat/size-read failure is a genuine I/O error, not "the file is empty" -
   # report the already-trusted persisted set unchanged rather than risking a
   # silent invalidation that would wipe it.
-  cur_ident=$(_fm_open_decisions_file_ident "$f") || { printf '%s' "$trusted_open"; return 0; }
-  [ -n "$cur_ident" ] || { printf '%s' "$trusted_open"; return 0; }
+  cur_ident=$(_fm_open_decisions_file_ident "$f") || { printf '%s' "$trusted_open"; return "$read_failure"; }
+  [ -n "$cur_ident" ] || { printf '%s' "$trusted_open"; return "$read_failure"; }
   actual_size=$(_fm_status_file_size "$f") \
-    || { printf '%s' "$trusted_open"; return 0; }
+    || { printf '%s' "$trusted_open"; return "$read_failure"; }
   actual_size=${actual_size//[[:space:]]/}
-  case "$actual_size" in ''|*[!0-9]*) printf '%s' "$trusted_open"; return 0 ;; esac
+  case "$actual_size" in ''|*[!0-9]*) printf '%s' "$trusted_open"; return "$read_failure" ;; esac
   if [ -n "$captured_end" ]; then
     case "$captured_end" in
-      ''|*[!0-9]*) printf '%s' "$trusted_open"; return 0 ;;
+      ''|*[!0-9]*) printf '%s' "$trusted_open"; return "$read_failure" ;;
     esac
-    [ "$captured_end" -le "$actual_size" ] || { printf '%s' "$trusted_open"; return 0; }
+    [ "$captured_end" -le "$actual_size" ] || { printf '%s' "$trusted_open"; return "$read_failure"; }
     size=$captured_end
   else
     size=$actual_size
@@ -1351,12 +1354,12 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   if [ "$offset" -lt "$size" ]; then
     chunk_file="$cf.read.$$"
     _fm_status_read_span "$f" "$offset" "$((size - offset))" > "$chunk_file" 2>/dev/null \
-      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0; }
+      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return "$read_failure"; }
     chunk_size=$(LC_ALL=C wc -c < "$chunk_file" 2>/dev/null) \
-      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0; }
+      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return "$read_failure"; }
     chunk_size=${chunk_size//[[:space:]]/}
     case "$chunk_size" in
-      ''|*[!0-9]*) rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0 ;;
+      ''|*[!0-9]*) rm -f "$chunk_file"; printf '%s' "$trusted_open"; return "$read_failure" ;;
     esac
     # Test-only observability seam (off by default, no production behavior
     # change): when set, records exactly how many bytes THIS call folded, so a
@@ -2721,19 +2724,30 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
   [ -n "$hit" ]
 }
 
-# Positive progress-only line classifier shared by watcher and Stop-owned peeks.
-# Unknown notification tags and routed replies always require handling.
-status_line_is_routine_progress() {  # <status-line>
-  local line=$1 verb prefix
-  case "$line" in *corr=*) return 1 ;; esac
-  prefix=${line%%:*}
-  prefix=${prefix/'[notify=routine]'/}
-  case "$prefix" in *notify=*) return 1 ;; esac
+# One status-progress classifier for watcher suppression and Stop-owned peeks.
+# Only declared progress proves no action without busy evidence. Unmarked
+# progress retains the legacy independent working-proof requirement; callers
+# must never use that class to rescue a failed declared-progress span check.
+# The output is declared, unmarked, or actionable. Correlation is permitted only
+# with the positive declaration; unknown or duplicate notification tags fail shut.
+status_line_routine_class() {  # <status-line> <output-variable>
+  local line=$1 output=$2 verb prefix classification=actionable
   status_line_verb "$line" verb
   case "$verb" in
-    working|"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}") return 0 ;;
-    *) return 1 ;;
+    working|"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}")
+      prefix=${line%%: *}
+      case "$prefix" in
+        *'[notify=routine]'*)
+          prefix=${prefix/'[notify=routine]'/}
+          case "$prefix" in *notify=*) ;; *) classification=declared ;; esac
+          ;;
+        *)
+          case "$line" in *corr=*|*notify=*) ;; *) classification=unmarked ;; esac
+          ;;
+      esac
+      ;;
   esac
+  printf -v "$output" '%s' "$classification"
 }
 
 # 0 (benign/absorb) if EVERY task referenced by a no-verb "signal:" wake is provably
@@ -2757,7 +2771,7 @@ status_line_is_routine_progress() {  # <status-line>
 # surface more. An unreadable span surfaces. Scoped to .status files - a mate's
 # bare turn-ended ping always used the ordinary provably-working absorb.
 _fm_secondmate_status_new_lines_routine() {  # <status-file> <state>
-  local f=$1 state=$2 start=0 size chunk line
+  local f=$1 state=$2 start=0 size chunk line routine_class
   if command -v fm_wake_signal_seen_size >/dev/null 2>&1; then
     start=$(fm_wake_signal_seen_size "$state" "$f")
   fi
@@ -2770,12 +2784,66 @@ _fm_secondmate_status_new_lines_routine() {  # <status-file> <state>
   chunk=$(_fm_status_read_span "$f" "$start" "$((size - start))") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
-    status_line_is_routine_progress "$line" || return 1
+    status_line_routine_class "$line" routine_class
+    [ "$routine_class" = unmarked ] || return 1
   done <<EOF
 $chunk
 EOF
   return 0
 }
+# Positive no-action declaration, separate from busy/turn-end evidence.
+# Every new line must be declared progress. Unknown tags, mixed spans, open
+# keyed obligations, rotation, truncation and read failures surface instead.
+# The optional endpoint/identity pins the same span the watcher classified.
+_fm_secondmate_status_progress_only() {  # <file> <state> [<endpoint> <identity>]
+  local f=$1 state=$2 end=${3:-} ident=${4:-} start size chunk line routine_class open before after seen=0 prefix marker raw classified
+  [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 1
+  [ "$(_fm_status_kind "$f")" = secondmate ] || return 1
+  before=$(_fm_open_decisions_file_ident "$f") || return 1
+  [ -z "$ident" ] || [ "$ident" = "$before" ] || return 1
+  prefix=${f##*/}; prefix=${prefix%.status}
+  marker=$(status_signal_seen_marker_path "$state" "$prefix")
+  if [ -e "$marker" ] || [ -L "$marker" ]; then
+    raw=$(cat "$marker") || return 1
+    status_presentation_marker_parse "$raw" || return 1
+    classified=$STATUS_PRESENTATION_CLASSIFIED
+    [ "${classified#*@}" = "$before" ] || return 1
+  fi
+  start=0
+  if command -v fm_wake_signal_seen_size >/dev/null 2>&1; then
+    start=$(fm_wake_signal_seen_size "$state" "$f") || return 1
+  fi
+  size=$(_fm_status_file_size "$f") || return 1
+  size=${size//[[:space:]]/}
+  case "$start:$size" in *[!0-9:]*|:*|*:) return 1 ;; esac
+  [ -n "$end" ] || end=$size
+  [ "$start" -lt "$end" ] && [ "$end" -le "$size" ] || return 1
+  chunk=$(_fm_status_read_span "$f" "$start" "$((end - start))") || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in *[![:space:]]*) ;; *) continue ;; esac
+    status_line_routine_class "$line" routine_class
+    [ "$routine_class" = declared ] || return 1
+    seen=1
+  done <<EOF
+$chunk
+EOF
+  [ "$seen" -eq 1 ] || return 1
+  open=$(status_open_decisions_incremental "$f" "$end" --strict) || return 1
+  [ -z "$open" ] || return 1
+  after=$(_fm_open_decisions_file_ident "$f") || return 1
+  [ "$before" = "$after" ]
+}
+
+signal_secondmate_progress_only() {  # <status-file> ...
+  local f seen=0
+  for f in "$@"; do
+    case "$f" in *.status) ;; *) return 1 ;; esac
+    _fm_secondmate_status_progress_only "$f" "${f%/*}" || return 1
+    seen=1
+  done
+  [ "$seen" -eq 1 ]
+}
+
 signal_crew_provably_working() {  # <file> ...
   local f base dir task seen=""
   for f in "$@"; do

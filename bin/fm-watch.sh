@@ -2400,6 +2400,25 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
   return "$rc"
 }
 
+# Use only the successfully captured endpoints; a mixed status/turn-end batch
+# or any failed read must retain the ordinary conservative notification path.
+signal_progress_only_captured() {
+  local f endpoint ident count=0 expected=0
+  for f in $files; do
+    case "$f" in *.status) ;; *) return 1 ;; esac
+    expected=$((expected + 1))
+  done
+  while IFS=$'\t' read -r f endpoint ident; do
+    [ -n "$f" ] || continue
+    _fm_secondmate_status_progress_only "$f" "$STATE" "$endpoint" "$ident" || return 1
+    count=$((count + 1))
+  done <<EOF
+$FM_SIGNAL_SURFACE_ENDPOINTS
+EOF
+  [ "$count" -gt 0 ] && [ "$count" -eq "$expected" ]
+}
+
+
 # 0 when any signaled status file carries a captain-relevant event in the bytes
 # appended since this watcher last classified it. The start offset is the
 # classified-position field in that file's .seen-* marker, and fm-classify-lib.sh's
@@ -2418,6 +2437,7 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
 # route those - and only those - signal rows as main-only
 # (docs/pi-supervision-branch.md). Stale and heartbeat rows retain their existing
 # eligibility rules.
+
 signal_files_actionable() {  # <status-file> ...
   local f task record rest endpoint ident needs_decision rc found=1
   FM_SIGNAL_SURFACE_ENDPOINTS=''
@@ -2683,6 +2703,8 @@ if [ "${FM_WATCH_HANDLING_SUCCESSOR:-0}" = 1 ]; then
   WATCHER_RECOVERY_PENDING=0
 elif [ "$FM_RECOVERY_MARKER_ACTION" = recover ]; then
   WATCHER_RECOVERY_PENDING=1
+else
+  WATCHER_RECOVERY_PENDING=0
 fi
 # Side-band ledger publication, detached from the poll loop.
 #
@@ -3164,8 +3186,11 @@ EOF
     # passes it to handle_wake (see the comment above handle_wake in
     # bin/fm-supervise-daemon.sh).
     # shellcheck disable=SC2086  # same space-separated status-path list
-    if afk_present || [ "$signal_actionable" -eq 0 ] \
-      || { ! signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then
+    # An explicit no-action status batch is benign in attended and away
+    # postures, so it takes the absorb branch below.
+    if { [ "$signal_actionable" -eq 0 ] || ! signal_progress_only_captured; } \
+      && { afk_present || [ "$signal_actionable" -eq 0 ] \
+      || { ! signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; }; then
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
         file_reason="$reason"

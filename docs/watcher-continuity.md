@@ -216,13 +216,15 @@ In its `--claude` mode it cooperates with the auto-arm.
 ## Recovery episode acknowledgement
 
 A recovery episode is one generation of the `state/.watcher-down` marker.
-It is retired only by the generation-bound acknowledgement the drain prints as `WAKE_ACK_REQUIRED`.
+An episode with pending work is retired only by the generation-bound acknowledgement the drain prints as `WAKE_ACK_REQUIRED`.
+A pending downtime episode with no handleable queue row, open keyed decision or blocker, or unprocessed captain outcome is retired on the same generation under the queue and marker locks.
+An unsafe or failed obligation check preserves recovery; normal polling still discovers fresh events.
 The away return brief treats a still-open handling episode as a wake in progress, not watcher downtime; an open downtime episode remains a gap.
 
 ### Announcement
 
 An unacknowledged downtime generation is announced at most once.
-The first recovery marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
+The first recovery with a pending obligation marks that generation announced, and later empty-queue arms leave it announced until durable work or interrupted handling makes recovery pending again.
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.

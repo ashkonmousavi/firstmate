@@ -329,7 +329,7 @@ It allows the stop when any of these holds:
 #### Routine closes without a model turn
 
 Before delivering an actionable close, the Claude auto-arm uses `fm_wake_routine_peek` in `bin/fm-wake-lib.sh` to inspect every raw queued row, open status obligation, unread status span, and unread or unprocessed branch outcome without advancing presentation cursors.
-It can consume a batch only when every row is a recorded routine branch outcome, an empty `rearm-resurface`, or a current routine secondmate status report with no routed reply, decision, blocker, completion, failure, or unknown notification tag.
+It can consume a batch only when every row is a recorded routine branch outcome, an empty `rearm-resurface`, or a current secondmate status span classified as declared progress by `status_line_routine_class` in `bin/fm-classify-lib.sh`.
 The peek also verifies the arm close itself, so an empty queue cannot hide a real close.
 A successful peek supplies the existing sequence cutoff and recovery generation to `bin/fm-wake-drain.sh --ack-through`; no new acknowledgement format is used.
 After a successful acknowledgement, the same asynchronous hook parks again without waking the model, keeping future real events supervised while the turn remains stopped.

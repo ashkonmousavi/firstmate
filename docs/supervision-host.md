@@ -84,7 +84,7 @@ The other owners read the file at every arm.
 ### The report surface
 
 `bin/fm-branch-report.sh` appends to the outcome store (`bin/fm-branch-outcome.sh`) plus a per-turn receipt the host requires.
-A non-silent row an away turn records after the captain returned is also queued for main as a durable check wake.
+A captain row an away turn records after the captain returned is also queued for main as a durable check wake.
 Silent outcomes remain in the store but are not queued or relayed as notes.
 An attended turn queues nothing: its captain rows reach main through the host's `branch-outcome` exit and the drain, and its routine rows stay in the store.
 
@@ -185,16 +185,17 @@ Attended, see [Captain outcomes](#captain-outcomes).
 ### A captain who returns during a turn
 
 The one exception to the away rule is a captain who returns while an away turn is still running.
-The return brief may have been rendered before that turn's visible outcomes existed.
-So the host hands the close to main with any visible outcomes for main to relay, whether or not the turn handled its wake.
+The return brief may have been rendered before that turn's captain outcomes existed.
+The host hands those captain outcomes to main, whether or not the turn handled its wake.
+Routine outcomes remain in the store for the next independently justified drain.
 
 That handoff is only the prompt delivery.
-Each visible outcome recorded after the return is available to main in the return brief or a queued `check` wake, for two reasons:
+Each captain outcome recorded after the return is available to main in the return brief or a queued `check` wake, for two reasons:
 
 - The return owner archives the record before it reads the store, so an outcome recorded before that read is included in the brief.
-- The report surface queues a non-silent row it records once the record is gone.
+- The report surface queues a captain row it records once the record is gone.
 
-So a visible outcome remains available to main even when the handoff is lost.
+A captain outcome remains available to main even when the handoff is lost.
 Silent outcomes remain in the store but are neither queued nor relayed as notes.
 One example is a Cursor park superseded by the return turn's own end, which stops its host as the engine turn finishes.
 
@@ -250,7 +251,8 @@ So the owner's next arm starts from the same state as without the host, and the 
   Its line names those rows, which stay durable in the queue for main's drain.
 
 A turn that fails also starts the next wake on a fresh engine conversation.
-When the captain returned during a failed turn that recorded visible outcomes, the handback carries those outcomes too, for main to relay; silent outcomes remain in the store without a handoff note.
+When the captain returned during a failed turn that recorded captain outcomes, the handback carries those outcomes too, for main to relay.
+Routine outcomes remain in the store without a handoff note.
 
 ### The broken-session latch
 
