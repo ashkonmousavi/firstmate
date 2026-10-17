@@ -3125,3 +3125,140 @@ EOF
 
   return 0
 }
+
+# Non-consuming Stop-hook peek. The queue lock pins every raw row (never the
+# deduped view); status and outcome readers do not advance presentation cursors.
+# Prints the existing ack-through cutoff and recovery generation only when all
+# pending work is provably routine. Uncertainty preserves the handling turn.
+fm_wake_routine_peek() {  # <arm-close-file>
+  local rc=0
+  fm_lock_acquire_wait_bounded "$FM_WAKE_QUEUE_LOCK" 5 || return 1
+  _fm_wake_routine_peek_locked "$1" || rc=$?
+  fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+  return "$rc"
+}
+
+_fm_wake_routine_outcome() {  # <outcome-sequence>
+  local rows
+  case "$1" in ''|*[!0-9]*) return 1 ;; esac
+  rows=$(fm_run_timed 5 "$FM_WAKE_LIB_DIR/fm-branch-outcome.sh" lookup --seqs "$1") || return 1
+  printf '%s\n' "$rows" | jq -se --argjson seq "$1" \
+    'length == 1 and .[0].seq == $seq and .[0].verdict == "routine"' >/dev/null
+}
+
+_fm_wake_routine_peek_locked() {  # <arm-close-file>
+  local close=$1 rows='' outcomes snapshot current f task endpoint ident open lines line
+  local epoch seq kind key payload extra through=0 generation signal_keys='' matched=0 host=0 n refs
+  [ "${FM_SUPERVISION_ACTOR:-main}" = main ] || return 1
+  _fm_wake_require_classify || return 1
+  [ -f "$close" ] && [ -r "$close" ] || return 1
+  [ ! -e "$STATE/.branch-eligible-rows" ] && [ ! -L "$STATE/.branch-eligible-rows" ] || return 1
+  if [ -e "$FM_WAKE_QUEUE" ] || [ -L "$FM_WAKE_QUEUE" ]; then
+    [ -f "$FM_WAKE_QUEUE" ] && [ -r "$FM_WAKE_QUEUE" ] && [ ! -L "$FM_WAKE_QUEUE" ] || return 1
+    rows=$(cat "$FM_WAKE_QUEUE") || return 1
+    awk -F '\t' 'NF != 5 || $1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ || $2 <= prev { exit 1 } { prev=$2 }' \
+      "$FM_WAKE_QUEUE" || return 1
+  fi
+  # present validates both unread and previously presented/unprocessed outcomes.
+  for f in "$STATE/branch-outcomes.jsonl" "$STATE/.branch-outcomes-cursor" "$STATE/.branch-outcomes-processed"; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 1
+  done
+  outcomes=$(fm_run_timed 5 "$FM_WAKE_LIB_DIR/fm-branch-outcome.sh" present) || return 1
+  printf '%s\n' "$outcomes" | jq -se 'all(.[]; .verdict == "routine")' >/dev/null || return 1
+  for f in "$STATE"/*.status; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 1
+  done
+  snapshot=$(status_presentation_snapshot "$STATE") || return 1
+  while IFS=$'\t' read -r task endpoint ident; do
+    [ -n "$task" ] || continue
+    f="$STATE/$task.status"
+    open=$(status_open_decisions "$f") || return 1
+    [ -z "$open" ] || return 1
+    lines=$(status_new_lines_since_cursor "$f" "$endpoint") || return 1
+    # A recorded routine outcome may already cover these exact status bytes.
+    if printf '%s\n' "$outcomes" | jq -se --arg task "$task" --arg ident "$ident" --argjson end "$endpoint" \
+      'any(.[]; .task == $task and .statusIdent == $ident and .statusEndpoint >= $end)' >/dev/null; then
+      continue
+    fi
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      status_line_is_routine_progress "$line" || return 1
+    done <<EOF
+$lines
+EOF
+  done <<EOF
+$snapshot
+EOF
+  while IFS=$'\t' read -r epoch seq kind key payload extra; do
+    [ -n "$epoch" ] || continue
+    through=$seq
+    case "$kind:$key" in
+      check:supervision-host-return:*) _fm_wake_routine_outcome "${key#supervision-host-return:}" || return 1 ;;
+      check:rearm-resurface) [ "$payload" = 'check: rearm-resurface' ] || return 1 ;;
+      signal:*.status)
+        case "$key" in */*) [ "${key%/*}" = "$STATE" ] || return 1 ;; esac
+        f="$STATE/${key##*/}"
+        [ "$(_fm_status_kind "$f")" = secondmate ] || return 1
+        case " $signal_keys " in *" $f "*) return 1 ;; esac
+        signal_keys="$signal_keys $f"
+        # A classified current report plus unread progress is positive evidence;
+        # an old queued signal or a duplicate key cannot borrow later progress.
+        fm_wake_signal_reported_current "$STATE" "$f" || return 1
+        lines=$(status_new_lines_since_cursor "$f") || return 1
+        [ -n "$lines" ] || return 1
+        while IFS= read -r line; do
+          status_line_is_routine_progress "$line" || return 1
+        done <<EOF
+$lines
+EOF
+        [ "$payload" = "signal: $f" ] || return 1
+        ;;
+      *) return 1 ;;
+    esac
+  done <<EOF
+$rows
+EOF
+  # The old host's return handback can repeat the already-handled source close.
+  # Trust only its successful-finish form with verified routine outcome rows.
+  if grep -q '^supervision-host: the captain returned while the away session was handling this wake, which it finished after the return brief was rendered; relay its visible outcomes (store rows [0-9, ]*, listed next and in bin/fm-branch-outcome.sh list) to the captain$' "$close"; then
+    lines=$(sed -n 's/^supervision-host: outcome \([0-9][0-9]*\) for .* \[routine\]:.*/\1/p' "$close")
+    [ -n "$lines" ] || return 1
+    refs=$(sed -n 's/^supervision-host: .* (store rows \([0-9][0-9, ]*\), listed next and in bin\/fm-branch-outcome.sh list) to the captain$/\1/p' "$close")
+    [ -n "$refs" ] || return 1
+    for n in ${refs//,/ }; do _fm_wake_routine_outcome "$n" || return 1; done
+    for n in $lines; do _fm_wake_routine_outcome "$n" || return 1; done
+    host=1
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      '') ;;
+      'watcher: started pid='*|'watcher: attached pid='*) ;;
+      'check: rearm-resurface') matched=1 ;;
+      supervision-host:*)
+        [ "$host" -eq 1 ] || return 1
+        case "$line" in
+          'supervision-host: the captain returned while the away session was handling this wake, which it finished after the return brief was rendered;'*) ;;
+          'supervision-host: outcome '*)
+            n=$(printf '%s\n' "$line" | sed -n 's/^supervision-host: outcome \([0-9][0-9]*\) for .* \[routine\]:.*/\1/p')
+            _fm_wake_routine_outcome "$n" || return 1 ;;
+          *) return 1 ;;
+        esac
+        matched=1 ;;
+      signal:*|check:*|stale:*|heartbeat*)
+        if [ "$host" -ne 1 ]; then
+          printf '%s\n' "$rows" | FM_ROUTINE_CLOSE_REASON="$line" awk -F '\t' '$5 == ENVIRON["FM_ROUTINE_CLOSE_REASON"] { found=1 } END { exit !found }' || return 1
+        fi
+        matched=1 ;;
+      *) return 1 ;;
+    esac
+  done < "$close"
+  [ "$matched" -eq 1 ] || return 1
+  current=$(status_presentation_snapshot "$STATE") || return 1
+  [ "$current" = "$snapshot" ] || return 1
+  fm_recovery_marker_snapshot "$STATE/.watcher-down" || return 1
+  case "$FM_RECOVERY_MARKER_TOKEN" in pending:downtime:*|announced:downtime:*) ;; *) return 1 ;; esac
+  generation=${FM_RECOVERY_MARKER_TOKEN##*:}
+  printf '%s\t%s\n' "$through" "$generation"
+}

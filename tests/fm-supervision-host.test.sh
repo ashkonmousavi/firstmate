@@ -162,7 +162,22 @@ unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_LEASE_HOLDER_PID PI_CODING_A
 HOMES_FILE="$TMP_ROOT/homes"
 # Stop whatever a case left running, by the exact pids its home recorded.
 stop_home_processes() {  # <home>
-  local home=$1 pid arms='' i=0
+  local home=$1 pid arms='' i=0 identity
+  # A routine close can repark inside the same async Stop hook. Stop that
+  # fixture-owned hook before its host, or the fake harness can wait forever
+  # while a new host takes over the cycle cleanup just stopped.
+  if [ -e "$home/session.stop" ]; then
+    pid=$(sed -n '1s/.* owner_pid=\([0-9][0-9]*\) .*/\1/p' "$home/state/.claude-autoarm-epoch" 2>/dev/null)
+    identity=$(sed -n '2p' "$home/state/.claude-autoarm-epoch" 2>/dev/null)
+    case "$pid" in
+      ''|*[!0-9]*) ;;
+      *)
+        if [ -n "$identity" ] && [ "$(fm_test_pid_identity "$pid" 2>/dev/null)" = "$identity" ]; then
+          kill -TERM "$pid" 2>/dev/null || true
+        fi
+        ;;
+    esac
+  fi
   if [ -f "$home/state/.supervision-host" ]; then
     arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
     pid=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
