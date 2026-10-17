@@ -1,7 +1,7 @@
 ---
 name: updatefirstmate
 description: >-
-  Self-update a running firstmate and its secondmates to the latest from origin.
+  Self-update from origin and check an optional second upstream remote.
   Use when the captain invokes /updatefirstmate (e.g. "/updatefirstmate", "update firstmate", "pull the latest firstmate").
   Updates this firstmate repo's default branch and every local or remote secondmate through its guarded convergence path (never forced, never disruptive), then re-reads AGENTS.md and restarts every live second mate through the persist-gated restart, with a fallback re-read nudge only where a restart cannot be proven.
 user-invocable: true
@@ -42,6 +42,8 @@ This touches only the firstmate repo and its own worktrees, never anything under
    bin/fm-update.sh
    ```
    It fast-forwards this firstmate repo's default branch from origin, then updates every registered local or remote secondmate home through its placement-specific guarded path.
+   When `config/firstmate-upstream` names an existing second remote, the updater also checks it under the [configured upstream contract](../../../docs/configuration.md#additional-firstmate-upstream-configfirstmate-upstream).
+   A behind, ahead, diverged or unverified second comparison prevents an "already current" claim for the primary; it does not authorize merging the second remote.
    It prints one status line per target (`updated <old>..<new>` / `reconciled redundant divergence <old>..<new>` / `already current` / `skipped: <reason>`), followed by three action lines that tell you exactly what to do next:
    - `reread-firstmate: yes|no`
    - `restart-secondmates: fm-<id>...|none`
@@ -89,7 +91,7 @@ This touches only the firstmate repo and its own worktrees, never anything under
 
 5. **Report to the captain in plain outcomes, in one line where you can.**
    Summarize what landed under `AGENTS.md` section 9 without firstmate's internal vocabulary: which parts of the fleet are now on the latest, and which were left as-is and why.
-   For example: "Captain, firstmate and both second mates are now on the latest."
+   Report "latest" only when origin and every configured upstream comparison prove it; otherwise include the updater's named-remote discrepancy or unverified check.
    Say plainly when a mate got the message rather than a clean reload, and why - never let a partial reload read as a full one.
    Surface any skipped target whose reason needs the captain's attention - for instance a home with its own un-landed changes (diverged) or local edits (dirty), which were left untouched on purpose.
 

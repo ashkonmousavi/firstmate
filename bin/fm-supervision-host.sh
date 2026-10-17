@@ -479,9 +479,9 @@ start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pi
   # (the shape start_handling_successor in bin/fm-claude-stop-autoarm.sh uses).
   [ "${ARM_OWN_GROUP:-0}" -ne 1 ] || set -m 2>/dev/null || true
   if [ -n "$predecessor" ]; then
-    FM_CHECKPOINT_DEADLINE=${FM_SUPERVISION_WATCH_DEADLINE:-} FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
+    FM_WATCH_PREDECESSOR_ARM_PID=$predecessor FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
   else
-    FM_CHECKPOINT_DEADLINE=${FM_SUPERVISION_WATCH_DEADLINE:-} FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
+    FM_GUARD_GRACE="$GRACE" "$SCRIPT_DIR/fm-watch-arm.sh" "$@" >"$out" 2>&1 </dev/null &
   fi
   pid=$!
   [ "${ARM_OWN_GROUP:-0}" -ne 1 ] || set +m 2>/dev/null || true
@@ -1083,10 +1083,6 @@ ARM_OUT=$STARTED_ARM_OUT
 while :; do
   boundary_reached && boundary_exit
   await_close || boundary_exit
-  if [ -n "${FM_SUPERVISION_WATCH_DEADLINE:-}" ] && printf '%s\n' "$ARM_TEXT" | grep -Fxq 'watcher: quiet checkpoint'; then
-    ARM_TEXT=
-    boundary_exit
-  fi
   REASON=$(printf '%s\n' "$ARM_TEXT" | grep -E '^(signal:|stale:|check:|heartbeat($|:))' || true)
 
   # The away daemon owns triage while its flag exists; the owner stands down.

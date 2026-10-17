@@ -138,6 +138,7 @@ test_the_bound_replaces_the_calling_shell() {
   for path in "$PATH" "$PERL_ONLY"; do
     rm -f "$dir/caller" "$dir/parent"
     (
+      . "$ROOT/bin/fm-timeout-lib.sh"
       perl -e 'print getppid(), "\n"' > "$dir/caller"
       PATH=$path fm_exec_timed 5 1 bash -c 'echo "$PPID" > "$1"' _ "$dir/parent"
     ) || fail "the bounded probe failed under PATH=$path"
