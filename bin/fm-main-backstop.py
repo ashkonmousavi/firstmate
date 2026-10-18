@@ -6,14 +6,21 @@ Run every three minutes. After a five-minute watcher silence with supervision
 work, discover a unique live Claude/Codex primary in this exact home and nudge
 it so its own turn-end owner re-arms. Never launches or kills an agent/watcher,
 never types into a shell, and never treats data/main-pane as authority.
-A failed discovery/send, dead registered reply runner, unreadable remote log,
-or reply timestamp lag above fifteen minutes becomes a durable fm-inbox note
-and check wake, visible at the next drain even when no watcher/pane is alive.
+A failed discovery/send, dead registered reply runner, unreadable remote log
+on two consecutive passes, or reply timestamp lag above fifteen minutes becomes
+a durable fm-inbox note and check wake, visible at the next drain even when no
+watcher/pane is alive.
 Only explicitly supplied --mate ids are monitored.
-Remote reads use only the existing fm-on/fm-remote-file read path. Each command
-has a fifteen-second timeout; a failed transport is retried once. Output bodies
-are never logged. Missing/oversized/unreadable evidence alarms instead of
-claiming caught-up. No remote source is changed or live runner reconciled.
+Remote reads use only existing fm-on read paths: one bounded fm-remote-file
+get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
+lines, so log growth past the whole-file transfer bound can never break
+verification; a moved log re-reads its current tail, and a source already past
+the bound is bootstrapped through the delta path alone. Delta reads allow one
+reply-runner poll window in the shared remote job lane (ninety seconds); other
+commands keep fifteen seconds. Output bodies are never logged. A read failing
+on two consecutive passes alarms instead of claiming caught-up; a single
+failed pass is audited as transport noise. No remote source is changed or
+live runner reconciled.
 Notes deduplicate for an incident until a healthy observation clears it.
 Private state: .main-backstop.json (incident ids and successful nudge time),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).
@@ -21,6 +28,7 @@ The caller deploys/backs up its private files and supplies the home's code root.
 """
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -33,6 +41,17 @@ import uuid
 
 class ProbeError(Exception):
     pass
+
+
+TRANSFER_BOUND = 1048576  # fm-remote-file.sh's hard whole-file ceiling
+DELTA_LOG = 'state/parent-replies.status'
+DELTA_WAIT = '0'  # never block: a cron pass must stay bounded
+DELTA_CHUNK = 65536  # fm-remote-delta-read.sh's fixed payload bound
+DELTA_PROBE = 1 << 40  # above any real log: forces a size-reporting break
+# The reply runner long-polls the same remote job lane with a 55-second window,
+# and a queued delta read does not preempt a running one, so one delta call can
+# legitimately wait a full window behind it before its own bounded read.
+DELTA_TIMEOUT = 90
 
 
 def run(argv, env, retry=False):
@@ -58,11 +77,154 @@ def run(argv, env, retry=False):
     raise ProbeError('command failed')
 
 
-def newest(text):
-    stamps = [int(s) for s in re.findall(r'\bat=(\d+)(?=[\] ;]|$)', text)]
-    if text.strip() and not stamps:
+def run_status(argv, env, timeout=15):
+    """One bounded attempt reporting (exit, stdout, stderr) for any command
+    exit, so a caller can classify refusals; only a timeout or a spawn failure
+    raises ProbeError."""
+    try:
+        process = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, start_new_session=True)
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate(timeout=2)
+        raise ProbeError('command failed or timed out')
+    except OSError:
+        raise ProbeError('command failed')
+    return process.returncode, stdout, stderr
+
+
+def stamps(text):
+    found = [int(s) for s in re.findall(r'\bat=(\d+)(?=[\] ;]|$)', text)]
+    if text.strip() and not found:
         raise ProbeError('reply timestamps unavailable')
-    return max(stamps, default=0)
+    return found
+
+
+def newest(text):
+    return max(stamps(text), default=0)
+
+
+def valid_reader(record):
+    """A persisted (offset, prefix hash, newest stamp) delta cursor."""
+    if not isinstance(record, dict):
+        return False
+    try:
+        offset = int(record['offset'])
+        stamp = int(record['stamp'])
+        prefix = str(record['prefix'])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return (offset >= 0 and stamp >= 0
+            and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None)
+
+
+def delta_call(code, env, mate, offset, prefix):
+    """One fm-remote-delta.v1 record as (fields, payload); fields is None when
+    the window closed with no new complete line."""
+    argv = [str(code / 'bin/fm-on.sh'), mate, 'fm-remote-delta-read.sh',
+            DELTA_LOG, str(offset), prefix, DELTA_WAIT]
+    rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
+    if rc == 75:
+        return None, ''
+    if rc != 0:
+        raise ProbeError('command failed or timed out')
+    header, split, payload = stdout.partition('\n\n')
+    fields = {}
+    for line in header.splitlines():
+        key, equals, value = line.partition('=')
+        if not equals:
+            raise ProbeError('delta record is malformed')
+        fields[key] = value
+    status = fields.get('status')
+    checks = {'delta': ('to_offset', 'payload_bytes'),
+              'continuity-broken': ('to_offset',)}
+    if status not in checks or fields.get('schema') != 'fm-remote-delta.v1' or not split:
+        raise ProbeError('delta record is malformed')
+    for key in checks[status] + ('to_prefix_sha256',):
+        pattern = r'[0-9a-f]{64}' if key.endswith('sha256') else r'\d+'
+        if re.fullmatch(pattern, fields.get(key, '')) is None:
+            raise ProbeError('delta record is malformed')
+    return fields, payload
+
+
+def adopt_prefix(code, env, mate, offset):
+    """The continuity break's actual prefix hash at <offset>; the cursor
+    protocol offers it instead of rebasing, so a tail read adopts it."""
+    fields, _ = delta_call(code, env, mate, offset, hashlib.sha256(b'').hexdigest())
+    if fields is None or fields.get('status') != 'continuity-broken':
+        raise ProbeError('delta record is malformed')
+    return int(fields['to_offset']), fields['to_prefix_sha256']
+
+
+def remote_stamp(code, env, memory, mate, audit):
+    """Newest remote at= stamp, after the first pass reading only what new
+    lines need. The whole-file get only bootstraps: its hard size bound refuses
+    a growing log forever once crossed, so steady state and an oversized cold
+    start both run through the delta cursor, whose cost never depends on the
+    transfer bound."""
+    readers = memory.setdefault('readers', {})
+    record = readers.get(mate)
+    if valid_reader(record):
+        fields, payload = delta_call(code, env, mate, record['offset'], record['prefix'])
+        if fields is None:
+            return int(record['stamp'])
+        if fields.get('status') == 'delta':
+            if int(fields['payload_bytes']) != len(payload):
+                raise ProbeError('delta record is malformed')
+            found = stamps(payload)
+            readers[mate] = {'offset': int(fields['to_offset']),
+                             'prefix': fields['to_prefix_sha256'],
+                             'stamp': max(found) if found else int(record['stamp'])}
+            return readers[mate]['stamp']
+        if fields.get('status') != 'continuity-broken':
+            raise ProbeError('delta record is malformed')
+        audit('read %s log moved; resyncing cursor' % mate)
+    rc, body, error = run_status([str(code / 'bin/fm-on.sh'), mate,
+                                  'fm-remote-file.sh', 'get', DELTA_LOG,
+                                  str(TRANSFER_BOUND)], env)
+    if rc == 0:
+        found = stamps(body)
+        readers[mate] = {'offset': len(body.encode()),
+                         'prefix': hashlib.sha256(body.encode()).hexdigest(),
+                         'stamp': max(found, default=0)}
+        return readers[mate]['stamp']
+    if rc != 1 or 'file exceeds max-bytes' not in error:
+        raise ProbeError('command failed or timed out')
+    # Past the whole-file bound: learn the size, adopt the offered prefix hash,
+    # then read only the last chunk through the same cursor protocol.
+    fields, _ = delta_call(code, env, mate, DELTA_PROBE,
+                           hashlib.sha256(b'').hexdigest())
+    if fields is None or fields.get('status') != 'continuity-broken':
+        raise ProbeError('delta record is malformed')
+    if fields.get('reason') == 'missing':
+        raise ProbeError('remote reply log is missing')
+    size = int(fields['to_offset'])
+    offset = max(0, size - DELTA_CHUNK)
+    for _ in range(2):
+        if offset == 0:
+            prefix = hashlib.sha256(b'').hexdigest()
+        else:
+            reported, prefix = adopt_prefix(code, env, mate, offset)
+            if reported < offset:
+                size = reported  # The log shrank mid-read; follow it once.
+                offset = max(0, size - DELTA_CHUNK)
+                continue
+        fields, payload = delta_call(code, env, mate, offset, prefix)
+        if fields is None:
+            readers[mate] = {'offset': offset, 'prefix': prefix, 'stamp': 0}
+            return 0
+        if fields.get('status') != 'delta':
+            raise ProbeError('remote reply log is unreadable')
+        if int(fields['payload_bytes']) != len(payload):
+            raise ProbeError('delta record is malformed')
+        found = stamps(payload)
+        readers[mate] = {'offset': int(fields['to_offset']),
+                         'prefix': fields['to_prefix_sha256'],
+                         'stamp': max(found, default=0)}
+        return readers[mate]['stamp']
+    raise ProbeError('remote reply log kept moving')
 
 
 def live_primary(home, env):
@@ -172,6 +334,7 @@ def main():
     trouble = []
     if need and beat_age >= 300 and not (state / '.afk').exists():
         trouble.append('watcher silent for %ds' % beat_age)
+    read_fails = memory.setdefault('read_fails', {})
     for mate in mates:
         source = state / 'procevent' / ('remote-reply-' + mate + '.source')
         if source.exists() and not runner_alive(source.with_suffix('.runner'), mate):
@@ -179,9 +342,7 @@ def main():
             alarm('runner-' + mate, message)
             trouble.append('reply runner down: ' + mate)
         try:
-            remote = newest(run([str(code / 'bin/fm-on.sh'), mate,
-                                  'fm-remote-file.sh', 'get',
-                                  'state/parent-replies.status', '1048576'], env, retry=True))
+            remote = remote_stamp(code, env, memory, mate, audit)
             local_path = state / (mate + '.status')
             local = newest(local_path.read_text()) if local_path.exists() else 0
             lag = remote - local
@@ -189,8 +350,18 @@ def main():
                 message = 'REPLY DELIVERY LAG %s: %ds (remote_at=%d ingested_at=%d); primary wake path needs recovery.' % (mate, lag, remote, local)
                 alarm('lag-' + mate, message)
                 trouble.append('reply lag: ' + mate)
+            read_fails.pop(mate, None)
         except (ProbeError, OSError, ValueError):
-            alarm('read-' + mate, 'REPLY DELIVERY UNVERIFIED %s: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.' % mate)
+            # One failed pass is transport noise under load; two consecutive
+            # passes are a genuinely unverified delivery state and alarm
+            # durably, keeping the same alarm the single-pass failure raised.
+            repeated = mate in read_fails
+            read_fails[mate] = now
+            if repeated:
+                alarm('read-' + mate, 'REPLY DELIVERY UNVERIFIED %s: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.' % mate)
+            else:
+                audit('read failed once, tolerating one pass: ' + mate)
+                save()
     if trouble:
         try:
             pane = live_primary(home, env)
