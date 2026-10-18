@@ -254,6 +254,7 @@ test_orca_launch_uses_controlled_tmux_environment() {
     esac
     [ "$setting" != missing ] || printf 'FM_TEST_ABSENT\n' >> "$home/config/launch-env-allowlist"
     fm_git_init_commit "$case_dir/project"
+    fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
     cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -396,6 +397,7 @@ test_orca_spawn_waits_for_a_slow_pane_before_a_later_failure() {
   printf 'backend = "markdown"\n\n[markdown]\npath = "data/backlog.md"\n' > "$home/.tasks.toml"
   "$real_axi" add "$id" "item for $id" --kind ship --file "$home/data/backlog.md" >/dev/null
   fm_git_init_commit "$case_dir/project"
+  fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -444,6 +446,7 @@ test_orca_unrun_launch_file_is_reclaimed() {
   printf 'scoped-source\n' > "$home/config/launch-env-tmux-session"
   printf 'GH_TOKEN\n' > "$home/config/launch-env-allowlist"
   fm_git_init_commit "$case_dir/project"
+  fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -486,6 +489,7 @@ test_orca_pane_wins_launch_file_race_at_deadline() {
   printf 'scoped-source\n' > "$home/config/launch-env-tmux-session"
   printf 'GH_TOKEN\n' > "$home/config/launch-env-allowlist"
   fm_git_init_commit "$case_dir/project"
+  fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -537,6 +541,7 @@ test_orca_launch_file_delete_failure_keeps_terminal() {
   printf 'scoped-source\n' > "$home/config/launch-env-tmux-session"
   printf 'GH_TOKEN\n' > "$home/config/launch-env-allowlist"
   fm_git_init_commit "$case_dir/project"
+  fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
   cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -585,6 +590,7 @@ test_orca_interrupted_spawn_reclaims_launch_file() {
       printf 'scoped-source\n' > "$home/config/launch-env-tmux-session"
       printf 'GH_TOKEN\n' > "$home/config/launch-env-allowlist"
       fm_git_init_commit "$case_dir/project"
+      fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
       cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -670,6 +676,7 @@ test_orca_interrupted_spawn_before_send_removes_launch_file() {
     printf 'scoped-source\n' > "$home/config/launch-env-tmux-session"
     printf 'GH_TOKEN\n' > "$home/config/launch-env-allowlist"
     fm_git_init_commit "$case_dir/project"
+    fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
     cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
@@ -768,6 +775,7 @@ test_orca_allowlist_without_source_warns() {
       : > "$home/config/launch-env-allowlist"
     fi
     fm_git_init_commit "$case_dir/project"
+    fm_test_prep_record "$home/data" "$id" || fail "could not create Orca task prep fixture"
     cat > "$home/data/$id/brief.md" <<EOF
 # Task
 ## Captain's intent
