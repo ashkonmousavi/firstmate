@@ -815,6 +815,11 @@ case "$FORGE" in
   external) FORGE_CONTRACT=' forge=external' ;;
 esac
 [ -z "$UPSTREAM_CONSENT" ] || FORGE_CONTRACT+=" upstream-consent=$UPSTREAM_CONSENT"
+# The worker renders its contract at run time, so render it once here too: a
+# forge, base branch, consent, or external review adapter the contract would
+# refuse stops the scaffold instead of the worker.
+fm_ship_rule_one "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE_BRANCH" >/dev/null || exit 1
+fm_dod_block "$MODE" "$ID" "$BRANCH" "$FORGE" "$BASE_BRANCH" "$UPSTREAM_CONSENT" >/dev/null || exit 1
 
 cat > "$BRIEF" <<EOF
 You are a crewmate: an autonomous worker agent managed by firstmate. Work on your own; do not wait for a human.
