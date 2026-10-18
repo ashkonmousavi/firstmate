@@ -171,11 +171,14 @@ assert_contains "$launch" 'encode launch-brief' 'typed launch envelope lost'
 mkdir -p "$wt/.commandcode/taste" && : > "$wt/.commandcode/taste/taste.md"
 [ -z "$(git -C "$wt" status --porcelain -- .commandcode)" ] || fail 'Command Code taste state is visible to git'
 rm -rf "$wt/.commandcode"
+fm_test_spawn_record_cleared "$home" cc-low
 out=$(spawn_case cc-xhigh deepseek/deepseek-v4.1-flash xhigh) || fail "spawn failed: $out"
 case "$(cat "$case_dir/cc-xhigh.launch")" in *--effort*) fail 'an unaccepted effort reached argv' ;; esac
 assert_grep 'effort=xhigh' "$home/state/cc-xhigh.meta" 'effort not recorded'
+fm_test_spawn_record_cleared "$home" cc-xhigh
 out=$(spawn_case cc-other moonshotai/kimi-k3 low) || fail "spawn failed: $out"
 case "$(cat "$case_dir/cc-other.launch")" in *--effort*) fail 'an unverified model received an effort flag' ;; esac
+fm_test_spawn_record_cleared "$home" cc-other
 if out=$(fm_test_run_spawn "$home" "$wt" "$fakebin" cc-sm "$proj" --secondmate --harness commandcode 2>&1)
 then fail 'Command Code secondmate launch accepted'; fi
 assert_contains "$out" 'crewmate/scout adapter only' 'wrong secondmate refusal'

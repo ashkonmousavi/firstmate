@@ -795,6 +795,7 @@ Exercise Polytoken dispatch.
 ## Firstmate spec
 Verify launch and delivery behavior.
 EOF
+  fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
   printf 'polytoken\n' > "$home/config/crew-harness"
   printf 'version: 4\nproviders:\n  zai:\n    auth:\n      type: static_key\n      key: k\nmodels:\n  zai/glm-5.3-flash:\n    enabled: true\ndefault_permission_matcher: standard\n' \
     > "$home/.config/polytoken/config.yaml"
