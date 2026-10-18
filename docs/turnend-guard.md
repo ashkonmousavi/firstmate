@@ -198,8 +198,6 @@ It uses that grace because the daemon starts a fresh one-shot watcher only after
 That handling can legitimately outrun a fixed 300-second window under load (a slow registered check, a busy supervisor pane) with the daemon perfectly healthy throughout.
 
 For Codex, daemon identity never satisfies the Stop guard; the foreground checkpoint must own a live watcher with a fresh beacon, including while the away-posture record exists.
-A fresh handling interval bound to the live Codex session lock does not satisfy the Stop guard either; only the mid-turn `bin/fm-guard.sh` accepts it, so it does not warn during routine handling between checkpoints, while a turn still may not end to an idle prompt without a live watcher.
-Starting another checkpoint clears the prior handling interval, and a missed checkpoint alarms when the beacon expires.
 With `state/.afk` absent the daemon lock proves nothing and the strict watcher predicate is unchanged.
 
 ### State directory, grace, and missing input

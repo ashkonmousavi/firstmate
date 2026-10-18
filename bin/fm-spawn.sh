@@ -6562,7 +6562,6 @@ if [ "$KIND" = secondmate ]; then
   # guard tolerates the extension hand-off exactly as a Pi primary does.
   case "$HARNESS" in
   claude | cursor) supervision_model=autoarm ;;
-  codex) supervision_model=checkpoint ;;
   pi | pi-signed | omp) supervision_model=extension ;;
   *) supervision_model=persistent ;;
   esac

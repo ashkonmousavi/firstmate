@@ -18,17 +18,14 @@ Its payload `session_id` was byte-identical to the `CODEX_SESSION_ID` of the sam
 An unbound Codex caller therefore resolves its client as that node launcher, and the tracked SessionStart hook exports its payload `session_id` as `CODEX_SESSION_ID`.
 In the same lab the tracked SessionStart hook took the lock on the launcher pid with the payload session, and the next tool shell confirmed that lock and completed a checkpoint.
 A new conversation or thread in the same live client keeps that client's ownership and re-keys the sidecar; a separate live client stays excluded.
-A second isolated lab on the same day confirmed this live: after `/new`, the new thread's SessionStart hook re-keyed the sidecar, and its tool shell acquired the lock and republished the handling marker.
-A second wrapped client in the same home was refused by `bin/fm-lock.sh` and by the checkpoint, with the lock, sidecar, and marker unchanged.
-With a registered custom check needing supervision, the Stop guard passed with the checkpoint's watcher live and blocked in the handling interval, and after a missed checkpoint past grace the mid-turn guard alarmed while the Stop guard still blocked.
+A second isolated lab on the same day confirmed this live: after `/new`, the new thread's SessionStart hook re-keyed the sidecar, and its tool shell acquired the lock.
+A second wrapped client in the same home was refused by `bin/fm-lock.sh` and by the checkpoint, with the lock and sidecar unchanged.
 Installed `codex-cli 0.157.1` accepted a one-off `shell_environment_policy.set` override with `features list`, without starting a model turn.
 
-The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise a SessionStart hook and its tool shell under one simulated launcher, two distinct clients under one simulated managed daemon, a new thread in the same live client re-keying its lock, a dead client with a surviving daemon, wrong birth, inherited Claude markers, and fresh versus expired or foreign handling markers.
-The marker is cleared before each new checkpoint and published only after a successful watcher wake or quiet boundary.
-The mid-turn guard requires a fresh beacon and a live, matching Codex session lock for the handling interval; a missed checkpoint still alarms after grace.
-The Codex Stop guard does not accept the handling interval and still requires a live watcher, so `tests/fm-turnend-guard.test.sh` pins that a live, session-owned handling interval still blocks the turn end.
+The isolated scratch tests `tests/fm-codex-session.test.sh` and `tests/fm-watch-checkpoint.test.sh` exercise a SessionStart hook and its tool shell under one simulated launcher, two distinct clients under one simulated managed daemon, a new thread in the same live client re-keying its lock, a dead client with a surviving daemon, wrong birth, and inherited Claude markers.
+Between checkpoints the Codex home uses the persistent verdict: a fresh beacon without a live watcher alarms, so a turn may not end to an idle prompt without a live watcher.
 The bounded checkpoint also reclaims a dead watcher lock through the shared stale-owner protocol after its child exits, because a fatal signal can skip the child's EXIT cleanup even when the timeout command has finished waiting.
-The regression kills only a watcher started for its temporary home and confirms that the checkpoint returns failure, publishes no handling success, and leaves no dead lock.
+The regression kills only a watcher started for its temporary home and confirms that the checkpoint returns failure and leaves no dead lock.
 On 2026-09-28, `bash tests/fm-watch-checkpoint.test.sh` confirmed that two successive quiet checkpoints return 124 without `check: rearm-resurface`, an outer timeout after lock acquisition fails and records downtime, and a killed watcher makes the next checkpoint surface recovery.
 An isolated Codex CLI 0.157.1 client launched through `bin/fm-codex-primary.sh exec` with separate `FM_HOME` and `CODEX_HOME` produced `quiet_1_rc=124`, `quiet_2_rc=124`, `loss_checkpoint_rc=137`, and `recovery_rc=0 output=check: rearm-resurface`.
 The live client used no remote attach and the running primary was not changed.
