@@ -536,6 +536,7 @@ write_ship_brief() {  # <home> <id> [<contract-extras>]
     printf 'You are a crewmate.\n\n# Task\n## Captain'\''s intent\nExercise the role gate.\n\n## Firstmate spec\nVerify the boundary.\n\n# Definition of done\n'
     printf 'Delivery contract: mode=no-mistakes%s\nShip branch: fm/%s\n' "$extras" "$id"
   } > "$home/data/$id/brief.md"
+  fm_test_prep_record "$home/data" "$id" || fail "prep record scaffold failed for $id"
 }
 
 run_spawn() {  # <home> <spawn-args...>
