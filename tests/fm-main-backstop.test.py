@@ -52,16 +52,31 @@ from pathlib import Path
 c=json.loads(Path(os.environ['BACKSTOP_FIXTURE']).read_text())
 remote=Path(os.environ['BACKSTOP_REMOTE'])
 (remote/'state').mkdir(parents=True,exist_ok=True)
-(remote/'state/parent-replies.status').write_text('working [at=%d]: remote reply\\n' % c['remote'])
+status=remote/'state/parent-replies.status'
+if c.get('remote_missing'):
+    status.unlink(missing_ok=True)
+elif 'remote_file' in c:
+    status.write_text(c['remote_file'])
+else:
+    status.write_text('working [at=%d]: remote reply\\n' % c['remote'])
+if c.get('fail_reads',0)>0:
+    counter=Path(os.environ['BACKSTOP_REMOTE_FAILS'])
+    n=int(counter.read_text()) if counter.exists() else 0
+    counter.write_text(str(n+1))
+    if n<c['fail_reads']:
+        sys.exit(1)
+command=sys.argv[2]
+with open(os.environ['BACKSTOP_CALLS'],'a') as f:f.write(json.dumps(['reader',command]+sys.argv[3:])+'\\n')
 os.environ['FM_HOME']=str(remote)
-reader=os.environ['BACKSTOP_READER']
-os.execv(reader,[reader]+sys.argv[3:])
+real=str(Path(os.environ['BACKSTOP_ROOT'])/'bin'/command)
+os.execv(real,[command]+sys.argv[3:])
 ''')
         self.env = dict(os.environ, FM_HOME=str(self.home),
                         PATH=str(self.fake) + ':' + os.environ['PATH'],
                         BACKSTOP_FIXTURE=str(self.fixture), BACKSTOP_CALLS=str(self.calls),
                         BACKSTOP_REMOTE=str(self.base / 'remote'),
-                        BACKSTOP_READER=str(ROOT / 'bin/fm-remote-file.sh'))
+                        BACKSTOP_ROOT=str(ROOT),
+                        BACKSTOP_REMOTE_FAILS=str(self.base / 'remote-fails.txt'))
         # No test inherits a real operational state override.
         for key in ['FM_STATE_OVERRIDE', 'FM_DATA_OVERRIDE', 'FM_CONFIG_OVERRIDE']:
             self.env.pop(key, None)
@@ -81,6 +96,12 @@ os.execv(reader,[reader]+sys.argv[3:])
 
     def commands(self):
         return [json.loads(x) for x in self.calls.read_text().splitlines()] if self.calls.exists() else []
+
+    def reader_calls(self):
+        return [c for c in self.commands() if c[0] == 'reader']
+
+    def memory(self):
+        return json.loads((self.state / '.main-backstop.json').read_text())
 
     def notes(self):
         return '\n'.join(p.read_text() for p in (self.state / 'inbox').glob('*.note'))
@@ -142,6 +163,70 @@ os.execv(reader,[reader]+sys.argv[3:])
         (pe / 'remote-reply-q-server.runner').write_text('999999999\n')
         self.run_guard()
         self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+
+    def test_remote_source_larger_than_transfer_bound_still_verifies(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote_file'] = ''.join(
+            'working [at=%d]: reply %d\n' % (5000 + i * 60, i) for i in range(40000))
+        self.assertGreater(len(self.config['remote_file']), 1048576)
+        newest = 5000 + 39999 * 60
+        (self.state / 'q-server.status').write_text('done [at=%d]: caught up\n' % newest)
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertEqual(self.memory()['readers']['q-server']['stamp'], newest)
+        cold_calls = len(self.reader_calls())
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertEqual(len(self.reader_calls()), cold_calls + 1)
+
+    def test_lag_alarm_carries_exact_stamp_from_over_bound_source(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote_file'] = ''.join(
+            'working [at=%d]: reply %d\n' % (5000 + i * 60, i) for i in range(40000))
+        newest = 5000 + 39999 * 60
+        self.run_guard()
+        self.assertIn('REPLY DELIVERY LAG q-server: %ds (remote_at=%d ingested_at=1000)'
+                      % (newest - 1000, newest), self.notes())
+
+    def test_steady_state_reads_only_appended_lines(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        cold_calls = len(self.reader_calls())
+        self.config['remote_file'] = ('working [at=1000]: remote reply\n'
+                                      'done [at=1901]: newer reply\n')
+        self.run_guard()
+        self.assertEqual(len(self.reader_calls()), cold_calls + 1)
+        self.assertIn('REPLY DELIVERY LAG q-server: 901s (remote_at=1901 ingested_at=1000)',
+                      self.notes())
+
+    def test_single_transient_read_failure_is_tolerated_without_alarm(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['fail_reads'] = 1
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertIn('tolerating one pass', (self.state / '.main-backstop.log').read_text())
+        self.config['fail_reads'] = 0
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertNotIn('q-server', self.memory().get('read_fails', {}))
+
+    def test_two_consecutive_read_failures_alarm_then_dedup_and_clear(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['fail_reads'] = 99
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY DELIVERY UNVERIFIED q-server', self.notes())
+        self.assertIn('REPLY DELIVERY UNVERIFIED',
+                      (self.state / '.wake-queue').read_text())
+        before = len(list((self.state / 'inbox').glob('*.note')))
+        self.run_guard()
+        self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
+        self.config['fail_reads'] = 0
+        self.run_guard()
+        self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
+        self.assertNotIn('q-server', self.memory().get('read_fails', {}))
 
     def test_ambiguous_live_primary_is_not_guessed(self):
         self.config['panes'] = 2
