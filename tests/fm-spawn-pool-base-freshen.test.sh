@@ -947,10 +947,10 @@ SH
   pass "a refused polytoken launch leaves its per-id paths alone while another spawn holds the per-id lock"
 }
 
-# A launch on any harness other than polytoken keeps main's abort behavior: its
-# pre-publication claim is dropped under the allocation lock, but the window
-# it opened, and with it the slot's lease, stays for the operator to inspect.
-test_non_polytoken_refused_launch_keeps_its_window() {
+# A launch on any harness other than polytoken that is refused before any task
+# record exists returns its slot and closes the window it opened, because
+# nothing else would ever learn either exists (bin/fm-spawn.sh abort handler).
+test_non_polytoken_refused_launch_closes_its_window() {
   local rec id out status slot_root world
   id='pool-refused-codex-r1'
   rec=$(make_originless_case refused-codex "$id")
@@ -969,9 +969,9 @@ test_non_polytoken_refused_launch_keeps_its_window() {
   [ "$status" -ne 0 ] || fail "a codex launch on a slot with an unusable origin should refuse"
   assert_contains "$out" "could not fetch origin" "the codex refusal message changed"$'\n'"$out"
   [ ! -e "$HOME_DIR/state/$id.meta" ] || fail "the refused codex launch published a task record"
-  [ -e "$world/fm-$id.id" ] || fail "a non-polytoken refusal closed its window, unlike main"
+  [ ! -e "$world/fm-$id.id" ] || fail "a non-polytoken refusal left its unrecorded window open"
   [ ! -e "$slot_root/1/.fm-slot-owner" ] || fail "the refused codex launch left its slot claim"
-  pass "a non-polytoken launch refused after its slot claim keeps main's abort behavior"
+  pass "a non-polytoken launch refused after its slot claim closes its unrecorded window and drops its claim"
 }
 
 # install_isolation_flip_git <fakebin> <worktree>: a git that answers every
@@ -1180,7 +1180,7 @@ test_remote_seeded_home_spawns_from_treehouse_pool
 test_pool_slot_claim_follows_the_spawn_outcome
 test_refused_launch_leaves_the_pool_for_a_retry_and_a_second_task
 test_refused_launch_spares_per_id_paths_under_a_contended_spawn_lock
-test_non_polytoken_refused_launch_keeps_its_window
+test_non_polytoken_refused_launch_closes_its_window
 test_treehouse_isolation_refusal_points_at_what_survives
 test_linked_spawning_home_rejects_primary_before_refresh
 test_stale_pool_base_refreshes_before_branching
