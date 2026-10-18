@@ -155,14 +155,65 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertEqual(self.notes(), '')
         self.assertFalse(any(c[:2] == ['pane','send-text'] for c in self.commands()))
 
-    def test_dead_runner_is_alarmed(self):
-        (self.state / '.last-watcher-beat').touch()
+    def register_runner(self, content):
         pe = self.state / 'procevent'
-        pe.mkdir()
+        pe.mkdir(exist_ok=True)
         (pe / 'remote-reply-q-server.source').touch()
-        (pe / 'remote-reply-q-server.runner').write_text('999999999\n')
+        (pe / 'remote-reply-q-server.runner').write_text(content)
+
+    def live_runner(self):
+        # Python keeps its argv in /proc/<pid>/cmdline, matching a real
+        # `fm-procevent.sh _start remote-reply-<mate>` runner's identity.
+        runner = subprocess.Popen(['python3', '-c', 'import time; time.sleep(300)',
+                                   '_start', 'remote-reply-q-server'])
+        self.addCleanup(runner.wait)
+        self.addCleanup(runner.kill)
+        return runner.pid
+
+    def sends(self):
+        return [c for c in self.commands() if c[:2] == ['pane', 'send-text']]
+
+    def test_single_not_alive_runner_pass_is_tolerated_without_alarm(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertEqual(self.sends(), [])
+        self.assertIn('runner not alive once, tolerating one pass: q-server',
+                      (self.state / '.main-backstop.log').read_text())
+
+    def test_empty_runner_record_counts_as_one_not_alive_pass(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('')
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
         self.run_guard()
         self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+
+    def test_two_consecutive_not_alive_runner_passes_alarm_then_dedup(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.run_guard()
+        self.assertIn('REPLY RUNNER DOWN q-server', self.notes())
+        self.assertIn('REPLY RUNNER DOWN', (self.state / '.wake-queue').read_text())
+        self.assertEqual(len(self.sends()), 1)
+        before = len(list((self.state / 'inbox').glob('*.note')))
+        self.run_guard()
+        self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
+
+    def test_live_runner_pass_clears_the_not_alive_streak(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.register_runner('%d\n' % self.live_runner())
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertNotIn('q-server', self.memory().get('runner_fails', {}))
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
 
     def test_remote_source_larger_than_transfer_bound_still_verifies(self):
         (self.state / '.last-watcher-beat').touch()
