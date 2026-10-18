@@ -407,7 +407,7 @@ test_forge_external_renders_the_review_rail() {
   printf '%s\n' 'Run `review-tool upload --draft`.' > "$home/config/external-review.md"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-ext some-proj --mode direct-PR --forge external >/dev/null 2>&1 \
     || fail "--forge external should scaffold a direct-PR ship brief"
-  brief="$home/data/brief-ext/brief.md"
+  brief=$(resolve_worker_contract "$home/data/brief-ext/brief.md")
   grep -qx "Delivery contract: mode=direct-PR forge=external" "$brief" \
     || fail "--forge external must mark the delivery contract line for the spawn's registry check"
   # shellcheck disable=SC2016 # Backticks are literal generated brief text.
@@ -421,8 +421,9 @@ test_forge_external_renders_the_review_rail() {
   printf 'backup\n' > "$home/config/external-review-backup"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-ext-backup some-proj --mode direct-PR --forge external >/dev/null 2>&1 \
     || fail "--forge external with a backup should scaffold"
+  brief=$(resolve_worker_contract "$home/data/brief-ext-backup/brief.md")
   # shellcheck disable=SC2016 # Backticks are literal generated brief text.
-  assert_grep '`git push backup HEAD:refs/heads/backup/brief-ext-backup`' "$home/data/brief-ext-backup/brief.md" \
+  assert_grep '`git push backup HEAD:refs/heads/backup/brief-ext-backup`' "$brief" \
     "--forge external with a backup must name the durable copy"
 
   while IFS='|' read -r label args expect; do
@@ -1281,7 +1282,7 @@ test_inbox_listing_command_is_safe_on_empty_inbox() {
   mkdir -p "$home/data" "$home/config"
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-inbox-list some-proj --mode no-mistakes >/dev/null 2>&1 \
     || fail "fm-brief.sh ship scaffold exited non-zero"
-  brief="$home/data/brief-inbox-list/brief.md"
+  brief=$(resolve_worker_contract "$home/data/brief-inbox-list/brief.md")
   # shellcheck disable=SC2016
   cmd=$(sed -n 's/.*list them with `\(find [^`]*\)`.*/\1/p' "$brief" | head -1)
   [ -n "$cmd" ] || fail "the brief does not give a find-based inbox listing command"
