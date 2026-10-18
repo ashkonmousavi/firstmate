@@ -3331,7 +3331,7 @@ fm_backend_herdr_composer_identity() {  # <target> -> "<agent>\t<status>"
 # viewport path. A missing field is not proof the pane is scrolled.
 fm_backend_herdr_scroll_offset() {  # <target> -> non-negative integer, or fails
   local raw off
-  fm_backend_herdr_target_ready "$1" || return 1
+  fm_backend_herdr_target_observable "$1" || return 1
   raw=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane get "$FM_BACKEND_HERDR_PANE" 2>/dev/null) || return 1
   off=$(printf '%s' "$raw" | jq -r '.result.pane.scroll.offset_from_bottom // empty' 2>/dev/null) || return 1
   case "$off" in
@@ -3348,7 +3348,7 @@ fm_backend_herdr_scroll_offset() {  # <target> -> non-negative integer, or fails
 # can answer unknown rather than pending.
 fm_backend_herdr_bottom_capture() {  # <target> <ansi>
   local target=$1 ansi=$2 out
-  fm_backend_herdr_target_ready "$target" || return 1
+  fm_backend_herdr_target_observable "$target" || return 1
   if [ "$ansi" = 1 ]; then
     out=$(fm_backend_herdr_cli "$FM_BACKEND_HERDR_SESSION" pane read "$FM_BACKEND_HERDR_PANE" --source recent --lines 200 --format ansi 2>/dev/null) || return 1
   else
