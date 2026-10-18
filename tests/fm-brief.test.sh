@@ -101,15 +101,10 @@ test_delivery_depth_scaffolds() {
       FM_HOME="$home" "$ROOT/bin/fm-brief.sh" "$id" --prep >/dev/null || fail "full prep scaffold"
     fi
     prep="$home/data/$id/prep.md"
-    [ "$(grep -c '^- Delivery depth:' "$prep")" -eq 1 ] || fail "$format must scaffold one depth answer"
-    assert_grep '- Delivery depth: {DELIVERY_DEPTH}' "$prep" "$format must leave depth unanswered"
-    assert_grep '- Delivery risk: {DELIVERY_RISK}' "$prep" "$format must leave risk unanswered"
-    assert_grep 'exactly one code review round' "$prep" "$format guide must require one fast-path round"
-    assert_grep 'checks-only (direct-PR)' "$prep" "$format guide missing checks-only"
-    assert_grep 'checks + AI review (no-mistakes)' "$prep" "$format guide missing full review"
+    assert_no_grep '^- Delivery \(risk\|depth\):' "$prep" "$format must not ask the record to choose delivery mode"
     out=$(fm_prep_unfilled_reason "$prep") || fail "unanswered scaffold accepted"
   done
-  pass "fm-brief: full and surgical scaffolds ask for one authored Delivery depth"
+  pass "fm-brief: full and surgical scaffolds leave delivery mode to intake"
 }
 
 # The script itself must always parse under the ambient bash. That is Bash 5 in
@@ -1475,7 +1470,7 @@ test_prep_scaffolds_the_preparation_record() {
   assert_grep 'n/a: <one-line reason>' "$prep" \
     "prep record does not offer the n/a answer that keeps a small change small"
   grep -c '^<!-- ' "$prep" | grep -qx 26 \
-    || fail "prep record does not carry a guide line for the tier header, its UI wiring and Delivery depth answers, each numbered section, and the common checks/table"
+    || fail "prep record does not carry a guide line for the tier header, its UI wiring answer, the start-gate Work class note, each numbered section, and the common checks/table"
   assert_grep "task item this work completes in the project's own record" "$prep" \
     "prep record does not point at the project's own task record"
   assert_grep 'record and clear the pending integration' "$prep" \

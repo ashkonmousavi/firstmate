@@ -50,10 +50,6 @@
 #   file's absolute path and `bin/fm-prep-install.sh <task-id>`; spawn never
 #   installs it. Common author checks and the outcome table must also pass
 #   bin/fm-dod-lib.sh's completeness contract; review receipts do not gate ships.
-#   Fresh ships also require canonical Delivery risk and Delivery depth with
-#   same-line reasons that agree under bin/fm-dod-lib.sh before task allocation;
-#   direct-PR/no-mistakes must agree with that authored choice. Local-only
-#   validates depth without comparing its branch lifecycle.
 #   A fresh ship of a project named in config/start-gate.json then passes the
 #   new-feature start gate, still before any lock or allocation;
 #   bin/fm-start-gate-lib.sh's header owns that contract.
@@ -2057,25 +2053,10 @@ elif [ "$RELAUNCH" -eq 1 ]; then
   echo "error: spawn refused: state directory does not exist at $STATE" >&2
   exit 1
 fi
-# Validate the authored decision before fresh-task locks or project allocation.
-# Recovery uses the recorded mode; scout/secondmate have no ship depth decision.
+# The new-feature start gate runs before fresh-task locks or project allocation.
+# Recovery and scout/secondmate spawns are not gated.
 if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" = ship ]; then
   PREP_FILE=$(fm_prep_path "$DATA" "$ID")
-  if ! PREP_DEPTH_MODE=$(fm_prep_delivery_mode "$PREP_FILE"); then
-    echo "error: task $ID cannot ship without its preparation record: Delivery risk and Delivery depth require canonical choices with substantive same-line reasons that agree in $PREP_FILE; scaffold with bin/fm-brief.sh $ID --prep and reconcile Delivery risk/depth" >&2
-    if NAV_PREP=$(fm_nav_prep_filled_source "$DATA/secondmates.md" "$ID"); then
-      echo "hint: a filled secondmate nav-prep is at $NAV_PREP; install it with bin/fm-prep-install.sh $ID" >&2
-    fi
-    exit 1
-  fi
-  if [ "$MODE" != local-only ] && [ "$MODE" != "$PREP_DEPTH_MODE" ]; then
-    case "$PREP_DEPTH_MODE" in
-      direct-PR) PREP_DEPTH='checks-only (direct-PR)' ;;
-      no-mistakes) PREP_DEPTH='checks + AI review (no-mistakes)' ;;
-    esac
-    echo "error: task $ID selected --mode $MODE but declared Delivery depth: $PREP_DEPTH; reconcile the flag and preparation before spawn" >&2
-    exit 1
-  fi
   # New-feature start gate (bin/fm-start-gate-lib.sh owns the contract), still
   # before any lock or allocation so a refusal is a no-allocation dry run.
   GATE_PROJECT=$(resolve_project_dir_arg "${POS[1]:-}")

@@ -120,25 +120,10 @@
 # scaffold usage.
 # fm_prep_unfilled_reason checks the tier header, required sections, and
 # evidence tokens for every project's preparation record.
-# Both preparation formats owe authored Delivery risk and Delivery depth with
-# same-line reasons, common author checks and explicit outcomes.
-# Risk is money|security|shared code|other: one highest applicable class.
-# The first three require no-mistakes; other requires direct-PR and one code
-# review round. Q2=yes can be classified other with a complete reason starting
-# with "presentation-only: " (colon plus space), the author's certificate that
-# only a page or control's location or wording changes. Admission checks payload
-# completeness and does not infer effects from prose. Behavior changes authored
-# as money, security or shared code keep no-mistakes; review and the existing
-# preparation and delivery-mode reconcile reclassify a light change found to be
-# behavioral. The light path retains CI, exactly one review and the walk after
-# install. Surgical certainty concerns preparation completeness only and never
-# selects delivery depth.
-# The legacy checks-only depth spelling remains readable; its generated
-# direct-PR contract now requires the same one-round review as the new spelling.
-# fm_prep_delivery_mode reads exactly one canonical active Tier declaration;
-# whitespace after the risk/depth label's colon is optional, and only
-# surrounding answer whitespace is trimmed.
-# bin/fm-spawn.sh's header owns fresh-ship depth admission and recovery.
+# Both preparation formats owe common author checks and explicit outcomes.
+# The record never selects or gates delivery mode: the mode is resolved at
+# intake from the captain's instruction or the project registry (AGENTS.md
+# section 7) and passed explicitly to brief, spawn and promotion.
 # Review artifacts and old server-install declarations do not affect admission.
 # fm_nav_prep_filled_source owns discovery of a filled secondmate
 # data/nav-preps/<task-id>.md; bin/fm-prep-install.sh installs it, and a ship
@@ -546,13 +531,11 @@ fm_prep_tier_template() {  # <task-id> [surgical]
   fi
   printf '# Task prep: %s\n\n' "$id"
   printf '%s\n' "$FM_PREP_TIER_HEADING"
-  printf '<!-- Answer Q1, Q2 and UI wiring, plus Delivery risk and Delivery depth below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
+  printf '<!-- Answer Q1, Q2 and UI wiring below. UI wiring yes, or Q1 yes: tier 2, every numbered section below. Q1 no, Q2 yes: tier 1, sections 1, 4, 6, 8 and 11 only - delete the rest. All no: retain tier 1 sections. A complete surgical certificate replaces numbered sections. Both formats require Author checks and Expected outcomes and how to check each; no separate prep review is required. -->\n'
   printf -- '- Q1 does this change alter what a user sees or can do: {Q1}\n%s' "$q1_reason"
   printf -- '- Q2 does this change touch a shared module or a contract: {Q2}\n%s' "$q2_reason"
   printf -- '- UI wiring: {UI_WIRING}\n'
-  printf -- '- Delivery risk: {DELIVERY_RISK}\n'
-  printf -- '- Delivery depth: {DELIVERY_DEPTH}\n'
-  printf '<!-- Delivery risk answers money, security, shared code or other, followed by a comma and one-line reason; choose one highest applicable risk (privacy and permissions are security). Money, security and shared code require checks + AI review (no-mistakes), <one-line reason>; other requires checks + one review (direct-PR), <one-line reason>, with CI and exactly one code review round. A change whose only effect is where a page or control appears, or what it is called, is other even in shared files or beside sign-in screens: write other, presentation-only: <what moves or is renamed>; a change to how sign-in, permissions, money or stored data behave keeps its full class, and a light change that review finds behavioral is reconciled to its full class and delivery mode rather than given another review round. That light path is direct-PR with CI and exactly one review, and the walk after install stays mandatory (journey-walk). Legacy checks-only (direct-PR) remains readable. Preparation format and C1-C5 never select delivery depth. Unresolved classification must be resolved before admission; neither choice nor reason is prefilled. Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
+  printf '<!-- Only a project gated by config/start-gate.json also adds a Work class line here: feature, fix, revert or live-breakage (bin/fm-start-gate-lib.sh). -->\n'
   # shellcheck disable=SC2016 # literal answer forms
   printf '<!-- UI wiring answers `yes, <the step and control the user meets>` or `no, <why the user never meets this change>`. A change that lets a user configure or choose something is always yes, and a yes is tier 2 whatever Q1 and Q2 say. -->\n'
 }
@@ -832,52 +815,6 @@ fm_prep_work_class() {  # <file>
   esac
 }
 
-# Prints direct-PR or no-mistakes only for one complete active Tier declaration.
-# Examples are cleaned in context; continuations cannot supply the line's reason.
-fm_prep_delivery_mode() {  # <file>
-  local value reason mode risk
-  value=$(fm_prep_tier_read "$1" | awk '
-    /^- Delivery depth:/ { seen++; value=substr($0,length("- Delivery depth:")+1) }
-    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
-  ')
-  case "$value" in
-    'checks + one review (direct-PR), '*) mode=direct-PR; reason=${value#'checks + one review (direct-PR), '} ;;
-    'checks-only (direct-PR), '*) mode=direct-PR; reason=${value#'checks-only (direct-PR), '} ;;
-    'checks + AI review (no-mistakes), '*) mode=no-mistakes; reason=${value#'checks + AI review (no-mistakes), '} ;;
-    *) return 1 ;;
-  esac
-  case "$reason" in
-    *'checks-only (direct-PR)'*|*'checks + one review (direct-PR)'*|*'checks + AI review (no-mistakes)'*) return 1 ;;
-  esac
-  fm_prep_answer_complete "$reason" no || return 1
-  if [ "${2:-}" = historical ] && ! fm_prep_tier_read "$1" | grep '^- Delivery risk:' >/dev/null; then
-    printf '%s\n' "$mode"
-    return 0
-  fi
-  value=$(fm_prep_tier_read "$1" | awk '
-    /^- Delivery risk:/ { seen++; value=substr($0,length("- Delivery risk:")+1) }
-    END { if (seen == 1) { gsub(/^[[:space:]]+|[[:space:]]+$/, "", value); print value } }
-  ')
-  case "$value" in
-    'money, '*) risk=money; reason=${value#'money, '} ;;
-    'security, '*) risk=security; reason=${value#'security, '} ;;
-    'shared code, '*) risk=shared; reason=${value#'shared code, '} ;;
-    'other, '*) risk=other; reason=${value#'other, '} ;;
-    *) return 1 ;;
-  esac
-  fm_prep_answer_complete "${reason#'presentation-only:'}" no || return 1
-  case "$risk:$mode" in
-    other:direct-PR)
-      case "$reason" in
-        'presentation-only: '*) ;;
-        *) [ "$(fm_prep_answer "$1" Q2)" != yes ] || return 1 ;;
-      esac ;;
-    money:no-mistakes|security:no-mistakes|shared:no-mistakes) ;;
-    *) return 1 ;;
-  esac
-  printf '%s\n' "$mode"
-}
-
 fm_prep_common_reason() {  # <file>
   local file=$1 label placeholder conditional guide body value reason
   if ! fm_brief_heading_present "$file" '## Author checks'; then
@@ -1069,10 +1006,6 @@ fm_prep_unfilled_reason() {  # <file>
   if [ -z "$tier" ]; then
     printf 'its %s header does not answer both Q1 and Q2 yes or no in %s\n' \
       "$FM_PREP_TIER_HEADING" "$file"
-    return 0
-  fi
-  if ! fm_prep_delivery_mode "$file" "${2:-}" >/dev/null; then
-    printf 'its %s requires canonical Delivery risk and Delivery depth choices with substantive same-line reasons that agree in %s\n' "$FM_PREP_TIER_HEADING" "$file"
     return 0
   fi
   if state=$(fm_prep_common_reason "$file"); then

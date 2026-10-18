@@ -38,7 +38,7 @@ set_class() {  # <home> <id> <class|none>
   awk -v class="$3" '
     /^- Work class:/ { next }
     { print }
-    /^- Delivery depth:/ && class != "none" { print "- Work class: " class }
+    /^- UI wiring:/ && class != "none" { print "- Work class: " class }
   ' "$prep" > "$prep.class" && mv "$prep.class" "$prep"
 }
 
@@ -92,7 +92,7 @@ test_feature_refused_naming_each_uncovered_cause() {
 }
 
 # G2: the same unhealthy facts never refuse a fix, revert or live-breakage
-# start, and the existing delivery guards keep their authority.
+# start.
 test_repairs_pass_same_unhealthy_facts() {
   local class id out status
   for class in fix revert live-breakage; do
@@ -104,13 +104,7 @@ test_repairs_pass_same_unhealthy_facts() {
     assert_spawned "$id" "$status" "$out"
     assert_contains "$out" "work class $class is never refused" "gate did not report the repair exemption"
   done
-  id=gate-g2-guard
-  make_gate_case g2-guard "$id" fix
-  write_facts "$UNOWNED"
-  out=$(fm_test_run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "$PROJ_DIR" --mode direct-PR --yolo off)
-  status=$?
-  assert_refused "$id" "$status" "$out" "declared Delivery depth"
-  pass "G2 fix, revert and live-breakage pass unhealthy facts; existing guards still refuse"
+  pass "G2 fix, revert and live-breakage pass unhealthy facts"
 }
 
 # G3: covered causes and an empty cause list permit a feature, and the gate

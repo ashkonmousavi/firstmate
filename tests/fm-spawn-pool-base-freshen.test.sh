@@ -394,7 +394,6 @@ test_direct_pr_and_scout_refresh_before_launch() {
     if [ "$contract" = scout ]; then
       out=$(run_spawn "$id" --scout)
     else
-      fm_test_prep_depth "$HOME_DIR/data/$id/prep.md" direct-PR || fail "direct-PR prep fixture"
       out=$(run_spawn "$id" --mode direct-PR --yolo off)
     fi
     status=$?
@@ -1068,7 +1067,6 @@ test_named_base_branch_starts_from_that_branch() {
     publish_feature_branch feature/hub
     brief_with_base "$id" feature/hub
     if [ "$kind" = ship ]; then
-      fm_test_prep_depth "$HOME_DIR/data/$id/prep.md" direct-PR || fail "direct-PR prep fixture"
       out=$(run_spawn "$id" --mode direct-PR --yolo off --base-branch feature/hub)
     else
       out=$(run_spawn "$id" --scout --base-branch feature/hub)

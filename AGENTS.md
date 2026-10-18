@@ -192,20 +192,17 @@ Classify the deliverable:
 
 Resolve every ship task's concrete delivery mode and `yolo` merge posture at intake.
 Pass the mode explicitly to the brief, and pass both values explicitly to the spawn and any scout promotion; each command refuses to guess the values it consumes.
-A current explicit captain instruction wins; preserve registered `local-only` delivery, merge posture and branch/forge bindings.
-For publishing ships, choose full `no-mistakes` for money, security or shared code and `direct-PR` with CI and exactly one code review round for everything else; `bin/fm-dod-lib.sh` owns the authored risk/depth answers and the author-certified presentation-only exception, and `bin/fm-spawn.sh` owns their admission.
-Preparation size and surgical certainty never choose delivery depth.
+A current explicit captain instruction wins; otherwise the project's registry entry is the captain's standing posture, and dropping below its rigor needs a reason you can state.
 Resolve the project's registered ship-branch prefix the same way, via `bin/fm-project-mode.sh --branch-prefix <project>`, and pass it explicitly to the brief, ship spawn, and scout promotion as `--branch-prefix` (default `fm/` needs no flag).
 When the work must start from and target a branch other than the project's default, such as a named feature or release branch, pass it to the ship or scout brief and spawn as `--base-branch <branch>`; any promotion reads it from task meta.
 For a ship task whose project is this firstmate repository, pass the project directory to the brief as `--project` and record any captain-approved one-task contribution consent as `--upstream-consent <host>/<owner>/<repo>` on the brief, spawn, and promotion; `bin/fm-spawn.sh` refuses a publishing contract this home's role does not authorize.
-The risk decision also applies to publishing tasks on a `no-mistakes-prod-only` project; unresolved risk classification must be settled before admission.
+On a `no-mistakes-prod-only` project, classify the task's surface: internal-only tooling, automation, contributor or operator process, and release or submission work ships `direct-PR`, while product-facing, mixed, and uncertain work ships `no-mistakes`; never infer internal-only from file location or project name.
 An unregistered project or absent registry resolves to `no-mistakes` with yolo off, and the registration gap goes to the captain.
 Record the resulting mode, `yolo` merge posture, and the one-line reason for any deviation in the backlog item note.
 
-Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work as soon as a writing lane is free when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
+Treat file or subsystem overlap as a risk signal rather than an automatic reason to wait, and dispatch isolated work immediately with no concurrency cap when each change can be independently implemented and validated and the selected delivery path can reconcile ordinary rebases or conflicts.
 Load `wayfinding` for shared-seam ownership, parallel batches and the preparation horizon; `bin/fm-dod-lib.sh` owns the preparation Size guide for splitting by behaviour.
-Use as many isolated ship/scout lanes as this home's presequenced, currently parallel-safe work needs, at most seven; that is a maximum, never a target, so never create idle work to fill slots, retain existing resource and ownership restrictions, and follow the [delivery backpressure contract](docs/configuration.md#writing-lane-capacity-configwriting-lane-cap-configrelease-capacity) when configured.
-Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB and no sustained swap-in or memory pressure; load average and busy cores never refuse admission, and missing or failing readings prevent it.
+Never create idle work to fill lanes, and follow the [delivery backpressure contract](docs/configuration.md#writing-lane-capacity-configwriting-lane-cap-configrelease-capacity) when configured.
 A project's declared machine capacity (`config/project-capacity`) still bounds that dispatch: a spawn beyond it exits 75 without launching, and its item stays queued rather than blocked.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
 Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns the common author checks, outcome table, tier completeness and surgical certainty.
@@ -239,7 +236,7 @@ The selected delivery path owns its own rigor.
 When no-mistakes is selected, no-mistakes alone owns review, fixes, tests, documentation, push, PR, and CI; direct-PR follows its generated one-round review contract and current-head CI.
 Never stack serial manual reviews or add review rounds beyond the selected path.
 A separate review or audit is allowed only when the captain explicitly requests that deliverable or the authorized task is a knowledge-only review; one named question remains scoped to that question.
-If a direct-PR task reveals a full-review risk class, reconcile its preparation and delivery mode before proceeding.
+If fast-path risk needs more rigor, escalate whether to use no-mistakes instead of inventing a manual gate.
 The path's worker, automated gates, and captain approval remain authoritative:
 
 - **no-mistakes** runs the full pipeline through a PR, then waits for the configured merge authority.
@@ -274,7 +271,6 @@ Load `scout-completion` when a scout reports completion, presents a visual artif
 ## 8. Supervision protocol
 
 Fleet supervision is an always-loaded operational contract; `docs/architecture.md`, `docs/turnend-guard.md`, the emitted session-start block, and script help own mechanisms and harness-specific recipes.
-Send at most one steer per crewmate per hour; the limit never applies to a second mate or any other home.
 Route work to a second mate and handle every event or wake as it arrives, never in hourly batches.
 When the captain invokes `/push`, `$push`, or asks to check and push the fleet forward, load the `push` skill for one bounded pass.
 When the captain invokes `/retro`, `$retro`, or asks for a retro, load the `retro` skill to route the period's lessons to their owners, cut rules that cost time, and wake sleeping work on every machine.

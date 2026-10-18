@@ -325,10 +325,6 @@ test_large_prep_pipefail() (
         mv "$src.large" "$src"
       fi
       for mode in direct-PR no-mistakes; do
-        fm_test_prep_depth "$src" "$mode" || fail "large prep depth"
-        out=$(fm_prep_delivery_mode "$src"); rc=$?
-        expect_code 0 "$rc" "$id depth reader with pipefail"
-        [ "$out" = "$mode" ] || fail "$id read wrong depth: $out"
         out=$(fm_prep_ui_wiring_line "$src"); rc=$?
         expect_code 0 "$rc" "$id UI reader with pipefail"
         assert_contains "$out" 'no,' "$id UI answer"
