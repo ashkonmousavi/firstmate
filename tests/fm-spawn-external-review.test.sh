@@ -50,6 +50,7 @@ Exercise the external review spawn path.
 Delivery contract: mode=direct-PR forge=external
 Ship branch: fm/$id
 EOF
+  fm_test_spawn_prep "$HOME_DIR" "$id" || fail "prep record scaffold failed for $id"
 }
 
 run_spawn() {  # <id> <args...>
