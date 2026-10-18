@@ -138,6 +138,9 @@ test_the_bound_replaces_the_calling_shell() {
   for path in "$PATH" "$PERL_ONLY"; do
     rm -f "$dir/caller" "$dir/parent"
     (
+      # The library is analyzed where line 16 sources it; following it again
+      # here would treat its own loop variables as this loop's.
+      # shellcheck source=/dev/null
       . "$ROOT/bin/fm-timeout-lib.sh"
       perl -e 'print getppid(), "\n"' > "$dir/caller"
       PATH=$path fm_exec_timed 5 1 bash -c 'echo "$PPID" > "$1"' _ "$dir/parent"
