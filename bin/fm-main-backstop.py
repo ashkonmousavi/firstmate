@@ -6,10 +6,10 @@ Run every three minutes. After a five-minute watcher silence with supervision
 work, discover a unique live Claude/Codex primary in this exact home and nudge
 it so its own turn-end owner re-arms. Never launches or kills an agent/watcher,
 never types into a shell, and never treats data/main-pane as authority.
-A failed discovery/send, dead registered reply runner, unreadable remote log
-on two consecutive passes, or reply timestamp lag above fifteen minutes becomes
-a durable fm-inbox note and check wake, visible at the next drain even when no
-watcher/pane is alive.
+A failed discovery/send, registered reply runner read as not alive or remote
+log unreadable on two consecutive passes, or reply timestamp lag above fifteen
+minutes becomes a durable fm-inbox note and check wake, visible at the next
+drain even when no watcher/pane is alive.
 Only explicitly supplied --mate ids are monitored.
 Remote reads use only existing fm-on read paths: one bounded fm-remote-file
 get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
@@ -19,8 +19,11 @@ the bound is bootstrapped through the delta path alone. Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
 commands keep fifteen seconds. Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
-failed pass is audited as transport noise. No remote source is changed or
-live runner reconciled.
+failed pass is audited as transport noise. A live runner removes its .runner
+pid record while it applies each captured reply and rewrites it by
+truncate-then-write on every poll, so an empty record is re-read briefly and a
+runner read as not alive on a single pass is audited as transient. No remote
+source is changed or live runner reconciled.
 Notes deduplicate for an incident until a healthy observation clears it.
 Private state: .main-backstop.json (incident ids and successful nudge time),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).
@@ -52,6 +55,10 @@ DELTA_PROBE = 1 << 40  # above any real log: forces a size-reporting break
 # and a queued delta read does not preempt a running one, so one delta call can
 # legitimately wait a full window behind it before its own bounded read.
 DELTA_TIMEOUT = 90
+# The runner's truncate-then-write rewrite leaves its pid record empty for a
+# moment; a few short re-reads read around it while keeping a pass bounded.
+RUNNER_REREADS = 5
+RUNNER_REREAD_DELAY = 0.02
 
 
 def run(argv, env, retry=False):
@@ -250,7 +257,13 @@ def live_primary(home, env):
 
 def runner_alive(path, mate):
     try:
-        pid = int(path.read_text().strip())
+        text = path.read_text().strip()
+        for _ in range(RUNNER_REREADS):
+            if text:
+                break
+            time.sleep(RUNNER_REREAD_DELAY)
+            text = path.read_text().strip()
+        pid = int(text)
         if pid <= 1:
             return False
         os.kill(pid, 0)
@@ -335,12 +348,24 @@ def main():
     if need and beat_age >= 300 and not (state / '.afk').exists():
         trouble.append('watcher silent for %ds' % beat_age)
     read_fails = memory.setdefault('read_fails', {})
+    runner_fails = memory.setdefault('runner_fails', {})
     for mate in mates:
         source = state / 'procevent' / ('remote-reply-' + mate + '.source')
         if source.exists() and not runner_alive(source.with_suffix('.runner'), mate):
-            message = 'REPLY RUNNER DOWN %s: registered runner is dead or missing; restore primary supervision to reconcile it.' % mate
-            alarm('runner-' + mate, message)
-            trouble.append('reply runner down: ' + mate)
+            # A live runner's record is absent for seconds while it applies
+            # each captured reply; two consecutive not-alive passes are a
+            # genuinely missing runner.
+            repeated = mate in runner_fails
+            runner_fails[mate] = now
+            if repeated:
+                message = 'REPLY RUNNER DOWN %s: registered runner is dead or missing; restore primary supervision to reconcile it.' % mate
+                alarm('runner-' + mate, message)
+                trouble.append('reply runner down: ' + mate)
+            else:
+                audit('runner not alive once, tolerating one pass: ' + mate)
+                save()
+        else:
+            runner_fails.pop(mate, None)
         try:
             remote = remote_stamp(code, env, memory, mate, audit)
             local_path = state / (mate + '.status')
