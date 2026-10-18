@@ -64,4 +64,3 @@ fm_test_fill_prep_common() {  # <prep-file>
       print
     }' "$prep" > "$prep.common" && mv "$prep.common" "$prep"
 }
-
