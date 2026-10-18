@@ -1657,7 +1657,10 @@ test_hook_claude_mode_allows_on_open_generation_claim() {
   touch -t 202001010000 "$dir/state/.claude-autoarm-epoch"
   : > "$dir/state/.last-watcher-beat"
   [ ! -e "$dir/state/.claude-autoarm.lock" ] || fail "this case must start with no owner lock at all"
-  out=$(run_hook_claude "$dir" false); status=$?
+  # The claim proves reachability through real process ancestry, so this
+  # allow-path case runs without run_hook_claude's blinded ps.
+  out=$(printf '{"stop_hook_active":false,"session_id":"sess-claude-mode"}' \
+    | CLAUDECODE=1 FM_HOME="$(cd "$dir" && pwd)" bash "$dir/bin/fm-turnend-guard.sh" --claude 2>&1); status=$?
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
   expect_code 0 "$status" "--claude mode must allow when a live open generation claim owns recovery"
