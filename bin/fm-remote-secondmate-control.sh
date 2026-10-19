@@ -7,6 +7,7 @@
 #   fm-remote-secondmate-control.sh state <id>
 #   fm-remote-secondmate-control.sh route <id>
 #   fm-remote-secondmate-control.sh send <id> <message> [fire-and-forget]
+#   fm-remote-secondmate-control.sh inbox <id> due|ring <record>|escalated <record>
 #   fm-remote-secondmate-control.sh key <id> <key>
 #   fm-remote-secondmate-control.sh capture <id> [lines]
 #   fm-remote-secondmate-control.sh observe <id>
@@ -71,7 +72,7 @@ REMOTE_HERDR_SESSION=fm-remote
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
 
 die() { printf 'error: %s\n' "$1" >&2; exit 1; }
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 validate_id() { case "$1" in ''|*[!A-Za-z0-9._-]*) die "invalid secondmate id: $1" ;; esac; }
 
 validate_home() { # <id> [allow-absent]
@@ -288,8 +289,8 @@ cmd_send() {
   # write is idempotent - re-running the same request after an ambiguous
   # transport failure lands on the existing record instead of a duplicate - so
   # the parent may safely repeat this leg. Exit 0 once the record durably
-  # exists; no ring outcome changes it, because the parent transport owns any
-  # retry or reply-tracking policy from here.
+  # exists; no ring outcome changes it, because the parent's re-ring ladder
+  # (cmd_inbox) and reply tracking own any retry from here.
   if ! rec=$(fm_task_inbox_write_idempotent "$CONTROL_STATE" "$id" "$message" "$delivery_mode"); then
     fm_lock_release "$meta_lock"
     die "steering-inbox record could not be written under $CONTROL_STATE/$id.inbox"
@@ -309,6 +310,70 @@ cmd_send() {
     2) printf 'notice: doorbell did not reach %s; the steer is durably recorded at %s\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
     3) printf 'notice: doorbell not typed because the agent in %s has exited; the steer is durably recorded at %s for recovery\n' "$REMOTE_ENDPOINT_TARGET" "$rec" >&2 ;;
   esac
+}
+
+# One step of the steering-inbox re-ring ladder for this secondmate's
+# host-local inbox, driven by the parent watcher's remote_inbox_tick
+# (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
+# prints one line:
+#   due              quiet | ring <record> | escalate <record> <count>
+#   ring <record>    rang <ring-status> | handled | unavailable
+#   escalated <rec>  escalated
+# <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
+# re-checks that the record is still unhandled, rings once, and spends one
+# ladder attempt; `escalated` writes the marker after the parent has queued its
+# wake, so a lost marker costs a duplicate wake rather than a lost one.
+cmd_inbox() {
+  local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0
+  validate_id "$id"
+  validate_home "$id"
+  remote_endpoint_require "$id"
+  dir=$(fm_task_inbox_dir "$CONTROL_STATE" "$id")
+  case "$action" in
+    due)
+      [ "$#" -eq 2 ] || usage
+      due=$(fm_task_inbox_due_action "$CONTROL_STATE" "$id")
+      verb=${due%% *}
+      case "$verb" in
+        ring)
+          rec=${due#* }
+          printf 'ring %s\n' "${rec##*/}"
+          ;;
+        escalate)
+          rec=${due#* }
+          printf 'escalate %s %s\n' "$(basename "${rec% *}")" "${rec##* }"
+          ;;
+        # A retry mark is a local-plane fire-and-forget debt; nothing on this
+        # leg writes one, so anything else is quiet.
+        *) printf 'quiet\n' ;;
+      esac
+      return 0
+      ;;
+    ring|escalated) [ "$#" -eq 3 ] || usage ;;
+    *) usage ;;
+  esac
+  fm_task_inbox_seq_of "$rec_name" >/dev/null || die "invalid inbox record name: $rec_name"
+  rec="$dir/$rec_name"
+  if [ "$action" = escalated ]; then
+    fm_task_inbox_record_escalated "$CONTROL_STATE" "$id" "$rec" \
+      || die "inbox escalation marker could not be written under $dir"
+    printf 'escalated\n'
+    return 0
+  fi
+  if [ ! -f "$rec" ]; then
+    printf 'handled\n'
+    return 0
+  fi
+  fm_task_inbox_ring "$REMOTE_ENDPOINT_BACKEND" "$REMOTE_ENDPOINT_TARGET" "$rec" "fm-$id" || ring_rc=$?
+  if [ "$ring_rc" -eq 3 ]; then
+    printf 'unavailable\n'
+    return 0
+  fi
+  if ! fm_task_inbox_record_ring "$CONTROL_STATE" "$id" "$rec"; then
+    [ -f "$rec" ] || { printf 'handled\n'; return 0; }
+    die "inbox ladder bookkeeping could not be written under $dir"
+  fi
+  printf 'rang %s\n' "$ring_rc"
 }
 
 cmd_key() {
@@ -440,6 +505,7 @@ case "${1:-}" in
   state) shift; [ "$#" -eq 1 ] || usage; validate_id "$1"; validate_home "$1"; state_value "$1" ;;
   route) shift; [ "$#" -eq 1 ] || usage; cmd_route "$1" ;;
   send) shift; [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage; cmd_send "$@" ;;
+  inbox) shift; [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage; cmd_inbox "$@" ;;
   key) shift; [ "$#" -eq 2 ] || usage; cmd_key "$@" ;;
   capture) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_capture "$@" ;;
   observe) shift; [ "$#" -eq 1 ] || usage; cmd_observe "$@" ;;
