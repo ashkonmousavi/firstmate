@@ -2675,7 +2675,7 @@ run_check_process() {
     exec gtimeout "$CHECK_TIMEOUT" bash "$c" "$@"
   else
     # shellcheck disable=SC2016  # single quotes are deliberate: Perl expands its own variables.
-    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; kill "TERM", -$group; exit 124 if $owned; select undef, undef, undef, 0.2; kill "KILL", -$group; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
+    exec perl -e 'my $t = shift; my $owned = shift; my $pid = fork; die "fork failed" unless defined $pid; if (!$pid) { setpgrp(0, 0) unless $owned; exec @ARGV } my $group = $owned ? getpgrp(0) : $pid; my $stop = sub { $SIG{HUP} = $SIG{INT} = $SIG{TERM} = "IGNORE"; my @kill = (-$group); if ($owned) { @kill = (); if (open my $ps, "-|", "ps", "-eo", "pid=,pgid=") { while (<$ps>) { my ($p, $g) = split; push @kill, $p if defined $g && $g == $group && $p != $$ } close $ps } @kill = ($pid) unless @kill } kill "TERM", @kill; select undef, undef, undef, 0.2; kill "KILL", @kill; waitpid $pid, 0; exit 124 }; local $SIG{ALRM} = $stop; local $SIG{HUP} = $stop; local $SIG{INT} = $stop; local $SIG{TERM} = $stop; alarm $t; waitpid $pid, 0; exit($? >> 8)' "$CHECK_TIMEOUT" "${FM_CHECK_OWNED_GROUP:-0}" bash "$c" "$@"
   fi
 }
 
