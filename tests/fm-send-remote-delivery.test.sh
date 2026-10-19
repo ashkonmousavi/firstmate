@@ -806,6 +806,7 @@ remote_inbox_tick_env() {  # <fakebin> <parent-home> <ssh-log> [extra env...]
   local fb=$1 home=$2 ssh_log=$3
   shift 3
   rm -f "$home/state/.remote-inbox-tick"
+  # shellcheck disable=SC2016 # positional params expand in the child shell.
   send_env "$fb" "$home" "$ssh_log" FM_STATE_OVERRIDE="$home/state" \
     FM_TASK_INBOX_GRACE_SECS=1 "$@" \
     bash -c '. "$1" && remote_inbox_tick' _ "$WATCH"
