@@ -869,6 +869,15 @@ test_remote_inbox_ladder_quiet_after_acknowledgement() {
   [ ! -s "$dir/herdr.log" ] || fail "an acknowledged record reached the remote pane: $(cat "$dir/herdr.log")"
   [ ! -e "$rhome/state/parent-route/rsm.inbox/.ring-state" ] || fail "an acknowledged record spent a ring attempt"
   [ ! -s "$home/state/.wake-queue" ] || fail "an acknowledged record queued a wake"
+
+  # A remote copy that predates the inbox verb refuses the hop: the tick stays
+  # quiet and the triage log names the remote's own refusal.
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_RC=1 \
+    FM_FAKE_SSH_STDERR="error: unknown command: inbox" 2>&1) \
+    || fail "a refused remote hop must not fail the watcher: $out"
+  assert_grep 'due check unreachable or failed (error: unknown command: inbox)' "$home/state/.watch-triage.log" \
+    "a refused remote hop must leave the remote refusal in the triage log"
+  [ ! -s "$home/state/.wake-queue" ] || fail "a refused remote hop queued a wake"
   pass "watcher remote inbox: an acknowledged remote record is never re-rung"
 }
 

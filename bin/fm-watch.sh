@@ -1273,12 +1273,21 @@ secondmate_liveness_tick() {
 }
 
 # One bounded hop to a remote mate's inbox verb; prints its one-line answer.
-# Any transport loss, bound hit, remote refusal, or empty answer fails.
+# Any transport loss, bound hit, remote refusal, or empty answer fails and
+# prints the remote side's first stderr line (or the exit status) instead, for
+# the triage log, so a remote copy that predates the inbox verb reads
+# differently from a lost transport.
 remote_inbox_hop() {  # <id> <due|ring|escalated> [record]
-  local id=$1 out
+  local id=$1 out err errfile rc=0
+  errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
   out=$(checkpoint_read fm_run_timed "$REMOTE_INBOX_TIMEOUT" "$SCRIPT_DIR/fm-on.sh" "$id" \
-    fm-remote-secondmate-control.sh inbox "$@" < /dev/null 2>/dev/null) || return 1
-  [ -n "$out" ] || return 1
+    fm-remote-secondmate-control.sh inbox "$@" < /dev/null 2> "$errfile") || rc=$?
+  err=$(head -1 "$errfile" 2>/dev/null)
+  rm -f "$errfile"
+  if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+    printf '%s' "${err:-exit $rc}"
+    return 1
+  fi
   printf '%s' "$out"
 }
 
@@ -1310,7 +1319,7 @@ remote_inbox_tick() {
     [ -n "$w" ] || w="remote:$id"
     if ! due=$(remote_inbox_hop "$id" due); then
       checkpoint_deadline_passed && return 124
-      triage_log "remote steer-inbox: $id due check unreachable or failed; the next tick retries"
+      triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
       continue
     fi
     reason=''
@@ -1322,7 +1331,7 @@ EOF
         fm_checkpoint_admit "$id" remote-inbox-ring || { checkpoint_recovery_surface; return 124; }
         if ! out=$(remote_inbox_hop "$id" ring "$rec"); then
           checkpoint_deadline_passed && return 124
-          triage_log "remote steer-inbox delivery attempt: $id $rec unreachable or failed; the next tick retries"
+          triage_log "remote steer-inbox delivery attempt: $id $rec unreachable or failed ($out); the next tick retries"
           continue
         fi
         if [ "$out" = unavailable ]; then
@@ -1338,8 +1347,8 @@ EOF
     esac
     [ -n "$reason" ] || continue
     fm_wake_append stale "$w" "$reason" || checkpoint_wake_failed $?
-    remote_inbox_hop "$id" escalated "$rec" > /dev/null \
-      || triage_log "remote steer-inbox: $id escalation marker for $rec was not written; a later tick may repeat this wake"
+    out=$(remote_inbox_hop "$id" escalated "$rec") \
+      || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); a later tick may repeat this wake"
     [ -n "$first_reason" ] || first_reason=$reason
   done < <(fm_checkpoint_files remote-inbox "$STATE" .meta)
   if ! checkpoint_deadline_passed; then
