@@ -4902,8 +4902,16 @@ elif [ "$RELAUNCH" -eq 1 ]; then
   # than wherever the pane happened to drift.
   relaunch_wt_real=$(real_path_or_raw "$WT")
   relaunch_seen=
+  # A failed path read is not a pane still settling on a stale directory.
+  # Retrying it for the whole budget only delays the refusal; the transient
+  # this loop exists for is a successful read of the wrong path.
   for _ in $(seq 1 10); do
-    relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
+    relaunch_path_rc=0
+    relaunch_seen=$(spawn_current_path "$WT_TARGET") || relaunch_path_rc=$?
+    if [ "$relaunch_path_rc" -ne 0 ]; then
+      relaunch_seen=
+      break
+    fi
     [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ] || break
     sleep 0.5
   done
@@ -4918,7 +4926,12 @@ elif [ "$RELAUNCH" -eq 1 ]; then
       exit 1
     }
     for _ in $(seq 1 10); do
-      relaunch_seen=$(spawn_current_path "$WT_TARGET" || true)
+      relaunch_path_rc=0
+      relaunch_seen=$(spawn_current_path "$WT_TARGET") || relaunch_path_rc=$?
+      if [ "$relaunch_path_rc" -ne 0 ]; then
+        relaunch_seen=
+        break
+      fi
       [ -z "$relaunch_seen" ] || [ "$(real_path_or_raw "$relaunch_seen")" != "$relaunch_wt_real" ] || break
       sleep 0.5
     done
