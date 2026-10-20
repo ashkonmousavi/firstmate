@@ -37,7 +37,8 @@
 # open-decisions fold" below) also writes: it persists a per-status-file byte
 # cursor and folded open-set as a side effect, so a per-drain fleet-wide scan
 # stays bounded by new appends instead of re-reading each task's whole lifetime
-# log every time. status_home_appends_record writes the per-task home-owned
+# log every time; status_open_decisions_peek keeps a separate supervision cursor.
+# status_home_appends_record writes the per-task home-owned
 # append ledger (see "home-owned status-append ledger" below) so the wake scan
 # can treat this home's own bookkeeping bytes as already owned.
 # crew_worktree_written_since reads the task's meta file and walks a bounded slice
@@ -936,10 +937,11 @@ EOF
 # decision a secondmate escalated to the captain (bin/fm-captain-hold.sh) while
 # it keeps working, so the task is not waiting on any of them. Pending-reply
 # recovery and a fire-and-forget retry ring consult this set and leave a task
-# alone while it is non-empty.
+# alone while it is non-empty. They ask every supervision cycle, so it folds
+# through status_open_decisions_peek rather than re-reading the whole log.
 status_own_open_decisions() {  # <status-file>
   local line prefix
-  status_open_decisions "$1" | while IFS= read -r line || [ -n "$line" ]; do
+  status_open_decisions_peek "$1" | while IFS= read -r line || [ -n "$line" ]; do
     for prefix in ${FM_CLASSIFY_RESERVED_KEY_PREFIXES:-$FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT} remote-reply-continuity- captain-hold-; do
       case "$line" in "$prefix"*) continue 2 ;; esac
     done
@@ -1118,13 +1120,19 @@ EOF
 # fleet-wide scan using that whole-file function would pay that cost for every
 # task on every wake, which grows unbounded as tasks run longer and accumulate
 # status history. status_open_decisions_incremental and scan_open_decisions_incremental
-# below are the bounded-cost siblings used for that per-drain path: each call
-# reads only the bytes appended to a status file since its own last call (a
-# persisted per-file byte cursor) and folds just those new lines into a
-# persisted running open-set, via the exact same _fm_decision_fold_line rule
-# status_open_decisions uses - so the two strategies can never disagree on what
-# is open. Cost is bounded by NEW appends since the last drain, not by the
-# status file's total lifetime size.
+# below are the bounded-cost siblings used for that per-drain path. Supervision
+# uses status_open_decisions_peek so repeated per-request checks share a fold
+# without advancing the drain's cursor. Its .peek cursor is seeded from the
+# drain's cursor only when no supervision cursor exists; both undergo the same
+# validation. Once warm, each folds new appends plus any uncommitted tail via
+# the same _fm_decision_fold_line rule status_open_decisions uses.
+#
+# Persist only the open-set and offset just past the last complete newline.
+# Fold an unterminated tail into the returned answer, but never into the saved
+# state: a later append may complete its verb, key, or note, so the next call
+# must re-read that record from its start. This also applies when a drain's
+# captured endpoint splits a record. tests/fm-wake-drain-open-decisions-cursor.test.sh
+# pins this boundary for both cursors.
 #
 # Correctness invariant (unchanged from the whole-file fold): cursor advancement,
 # age, and being buried under later appends never drop an open decision - the
@@ -1135,7 +1143,7 @@ EOF
 # The cursor format is `version` (FM_OPEN_DECISIONS_FOLD_VERSION plus the task
 # kind, as `<n>:<kind>`), `offset`, `ident`, then the folded open set.
 # FM_OPEN_DECISIONS_FOLD_VERSION must be bumped whenever
-# _fm_decision_fold_line semantics change, so persisted state from an older
+# fold semantics or committed-record boundaries change, so persisted state from an older
 # interpretation is discarded and rebuilt from byte 0; the kind suffix does the
 # same when a task kind changes, because kind changes the fold below.
 #
@@ -1154,13 +1162,17 @@ EOF
 #
 # The other real failure mode is OUR OWN read failing (a stat/wc/tail I/O
 # error), not a malformed writer: every such read here is checked, and on
-# failure this reports the already-trusted persisted set unchanged rather than
-# risking a silent invalidation that would wipe it - never a bare "empty" as if
-# nothing were open.
+# failure this reports the already-trusted persisted set unchanged. If peek
+# has no nonempty trusted set, it instead uses the whole-file fold so a failed
+# span read cannot make supervision treat an open decision as absent. The drain
+# retains its existing empty answer when no trusted set is available.
 #
 # Not a pure status-file read: this writes/rewrites the sibling cursor file as a
-# side effect (state/.<task>.open-decisions-cursor), the library's second
-# documented exception to the pure-read rule after crew_absorb_class. The write
+# side effect (state/.<task>.open-decisions-cursor, with .peek appended for
+# supervision). A failed cursor write or rename fails the drain, but peek still
+# returns its folded answer: cache persistence must not hide a decision from
+# recovery, retry, or nudge checks. tests/fm-pending-reply.test.sh covers those
+# failures and fold reuse with warm, missing, invalid, and behind cursors. The write
 # is atomic (temp file + rename), so a crash between calls leaves either the
 # prior cursor or the new one, never a partial one. bin/fm-wake-drain.sh calls
 # this only after releasing the wake-queue lock, so a hypothetical race between
@@ -1195,7 +1207,7 @@ _fm_open_decisions_cursor_path() {  # <status-file>
 # Version 4 was already spent on the bracketed-tag parser change above, and a
 # cursor persisted under that reading predates this one, so it must still be
 # discarded and rebuilt from byte 0 under the new reading.
-FM_OPEN_DECISIONS_FOLD_VERSION=9
+FM_OPEN_DECISIONS_FOLD_VERSION=10
 
 # Portable device:inode identity for the rotation/recreation check below.
 _fm_open_decisions_file_ident() {  # <file> -> strongest available identity
@@ -1274,15 +1286,20 @@ _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
 status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   local f=$1 captured_end=${2:-} cf offset ident open='' trusted_open='' cursor_data first rest offset_line ident_line
   local version='' size actual_size cur_ident resolve held chunk_file chunk_size line cursor_dirty=0
-  local target_cursor kind fold_version
+  local target_cursor read_cursor kind fold_version tail='' tail_size
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
   kind=$(_fm_status_kind "$f")
   fold_version="$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
   cf=$(_fm_open_decisions_cursor_path "$f")
+  read_cursor=$cf
+  if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ]; then
+    cf="$cf.peek"
+    if [ -e "$cf" ] || [ -L "$cf" ]; then read_cursor=$cf; fi
+  fi
   offset=0
   ident=''
-  if [ -f "$cf" ] && [ -r "$cf" ] && [ ! -L "$cf" ]; then
-    cursor_data=$(LC_ALL=C command cat "$cf" 2>/dev/null) || cursor_data=''
+  if [ -f "$read_cursor" ] && [ -r "$read_cursor" ] && [ ! -L "$read_cursor" ]; then
+    cursor_data=$(LC_ALL=C command cat "$read_cursor" 2>/dev/null) || cursor_data=''
   fi
   if [ -n "${cursor_data:-}" ]; then
       first=${cursor_data%%$'\n'*}
@@ -1323,14 +1340,27 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   fi
 
   # A stat/size-read failure is a genuine I/O error, not "the file is empty" -
-  # report the already-trusted persisted set unchanged rather than risking a
-  # silent invalidation that would wipe it.
-  cur_ident=$(_fm_open_decisions_file_ident "$f") || { printf '%s' "$trusted_open"; return 0; }
-  [ -n "$cur_ident" ] || { printf '%s' "$trusted_open"; return 0; }
-  actual_size=$(_fm_status_file_size "$f") \
-    || { printf '%s' "$trusted_open"; return 0; }
+  # preserve the trusted set or use peek's whole-file fallback described above.
+  if ! cur_ident=$(_fm_open_decisions_file_ident "$f") || [ -z "$cur_ident" ] \
+    || ! actual_size=$(_fm_status_file_size "$f"); then
+    if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+      status_open_decisions "$f"
+    else
+      printf '%s' "$trusted_open"
+    fi
+    return 0
+  fi
   actual_size=${actual_size//[[:space:]]/}
-  case "$actual_size" in ''|*[!0-9]*) printf '%s' "$trusted_open"; return 0 ;; esac
+  case "$actual_size" in
+    ''|*[!0-9]*)
+      if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+        status_open_decisions "$f"
+      else
+        printf '%s' "$trusted_open"
+      fi
+      return 0
+      ;;
+  esac
   if [ -n "$captured_end" ]; then
     case "$captured_end" in
       ''|*[!0-9]*) printf '%s' "$trusted_open"; return 0 ;;
@@ -1350,14 +1380,29 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
 
   if [ "$offset" -lt "$size" ]; then
     chunk_file="$cf.read.$$"
-    _fm_status_read_span "$f" "$offset" "$((size - offset))" > "$chunk_file" 2>/dev/null \
-      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0; }
-    chunk_size=$(LC_ALL=C wc -c < "$chunk_file" 2>/dev/null) \
-      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0; }
+    if ! _fm_status_read_span "$f" "$offset" "$((size - offset))" > "$chunk_file" 2>/dev/null \
+      || ! chunk_size=$(LC_ALL=C wc -c < "$chunk_file" 2>/dev/null); then
+      rm -f "$chunk_file" || true
+      if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+        status_open_decisions "$f"
+      else
+        printf '%s' "$trusted_open"
+      fi
+      return 0
+    fi
     chunk_size=${chunk_size//[[:space:]]/}
     case "$chunk_size" in
-      ''|*[!0-9]*) rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0 ;;
+      ''|*[!0-9]*) chunk_size=0 ;;
     esac
+    if [ "$chunk_size" -ne "$((size - offset))" ]; then
+      rm -f "$chunk_file" || true
+      if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+        status_open_decisions "$f"
+      else
+        printf '%s' "$trusted_open"
+      fi
+      return 0
+    fi
     # Test-only observability seam (off by default, no production behavior
     # change): when set, records exactly how many bytes THIS call folded, so a
     # test can assert the incremental path stays bounded by new appends rather
@@ -1366,24 +1411,42 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
       && printf '%s\t%s\n' "$f" "$chunk_size" >> "$FM_OPEN_DECISIONS_READ_PROBE"
     resolve=${FM_CLASSIFY_RESOLVE_VERB:-$FM_CLASSIFY_RESOLVE_VERB_DEFAULT}
     held=${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}
-    while IFS= read -r line || [ -n "$line" ]; do
+    while IFS= read -r line; do
       open=$(_fm_decision_fold_line "$open" "$line" "$resolve" "$held" "$kind")
     done < "$chunk_file"
     rm -f "$chunk_file"
     offset=$size
+    if [ -n "$line" ]; then
+      tail=$line
+      tail_size=$(LC_ALL=C; printf '%s' "${#tail}")
+      offset=$((offset - tail_size))
+    fi
     cursor_dirty=1
   fi
   if [ "$cursor_dirty" -eq 1 ]; then
     target_cursor="$cf.tmp.$$"
-    {
+    if {
       printf 'version=%s\n' "$fold_version"
       printf 'offset=%s\n' "$offset"
       printf 'ident=%s\n' "$cur_ident"
       if [ -n "$open" ]; then printf '%s' "$open"; fi
-    } > "$target_cursor" || return 1
-    mv -f "$target_cursor" "$cf" || return 1
+    } > "$target_cursor" && mv -f "$target_cursor" "$cf"; then
+      :
+    else
+      rm -f "$target_cursor" || true
+      [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] || return 1
+    fi
+  fi
+  if [ -n "$tail" ]; then
+    open=$(_fm_decision_fold_line "$open" "$tail" "$resolve" "$held" "$kind")
   fi
   printf '%s' "$open"
+}
+
+# Supervision reader; cursor ownership and failure rules are documented above.
+status_open_decisions_peek() {  # <status-file>
+  local _FM_OPEN_DECISIONS_PEEK=1
+  status_open_decisions_incremental "$1"
 }
 
 # Incremental sibling of scan_open_decisions: same fleet-wide directory walk and
@@ -1729,6 +1792,8 @@ status_retire_presentation_task() {  # <state> <task-id>
   if [ ! -e "$state/$task.status" ] && [ ! -L "$state/$task.status" ] \
     && [ ! -e "$state/.$task.open-decisions-cursor" ] \
     && [ ! -L "$state/.$task.open-decisions-cursor" ] \
+    && [ ! -e "$state/.$task.open-decisions-cursor.peek" ] \
+    && [ ! -L "$state/.$task.open-decisions-cursor.peek" ] \
     && [ ! -e "$home_appends" ] && [ ! -L "$home_appends" ] \
     && [ ! -e "$home_appends_lock" ] && [ ! -L "$home_appends_lock" ] \
     && [ ! -e "$signal_marker" ] && [ ! -L "$signal_marker" ] \
@@ -1780,6 +1845,7 @@ EOF
   fi
   if [ "$rc" -eq 0 ]; then
     rm -f -- "$state/$task.status" "$state/.$task.open-decisions-cursor" \
+      "$state/.$task.open-decisions-cursor.peek" \
       "$home_appends" "$signal_marker" "$heartbeat_marker" "$daemon_marker" || rc=1
     fm_lock_remove_path "$home_appends_lock" 2>/dev/null || true
   fi

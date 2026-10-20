@@ -209,8 +209,52 @@ test_registries_avoid_git_worktree_root() {
   pass "test registries and fixture roots stay out of a git worktree TMPDIR"
 }
 
+test_cleanup_stops_remote_job_worker_before_removal() {
+  # A real remote job worker started under a fixture root kept writing into it
+  # while the shared cleanup removed the tree, so a suite whose every assertion
+  # passed still exited 1 on "rm: cannot remove ...: Directory not empty". The
+  # cleanup must stop that worker's whole group and wait for it first.
+  local harness infofile errfile child_dir worker_pid pgid rc
+  harness=$(fm_test_tmproot fm-test-cleanup-remote-worker-harness)
+  infofile="$harness/child-info"
+  errfile="$harness/child-err"
+  bash -c '
+    # shellcheck source=tests/lib.sh
+    . "$1"
+    # shellcheck source=bin/fm-remote-job-lib.sh
+    . "$ROOT/bin/fm-remote-job-lib.sh"
+    d=$(fm_test_tmproot fm-test-cleanup-remote-worker)
+    mkdir -p "$d/account"
+    export FM_REMOTE_JOB_STATE_ROOT="$d/remote-jobs" FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux
+    fm_remote_job_ensure_worker "$ROOT" "$d/account" || exit 3
+    for _ in $(seq 1 200); do
+      [ -s "$d/remote-jobs/worker.pid" ] && [ -e "$d/remote-jobs/worker.ready" ] && break
+      sleep 0.05
+    done
+    printf "%s\n%s\n" "$d" "$(cat "$d/remote-jobs/worker.pid" 2>/dev/null)" > "$2"
+  ' _ "$LIB" "$infofile" 2> "$errfile"
+  rc=$?
+  child_dir=$(sed -n '1p' "$infofile" 2>/dev/null)
+  worker_pid=$(sed -n '2p' "$infofile" 2>/dev/null)
+  [ -n "$worker_pid" ] || fail "the child never started a remote job worker (rc=$rc): $(cat "$errfile")"
+  # A stopped worker has no group left to read, so fall back to its own pid.
+  pgid=$(ps -p "$worker_pid" -o pgid= 2>/dev/null | tr -d '[:space:]')
+  [ -n "$pgid" ] || pgid=$worker_pid
+  if kill -0 -- "-$pgid" 2>/dev/null || kill -0 "$worker_pid" 2>/dev/null; then
+    kill -KILL -- "-$pgid" 2>/dev/null || true
+    fail "the remote job worker group outlived its owning suite's cleanup"
+  fi
+  [ "$rc" -eq 0 ] || fail "cleanup of a fixture holding a live worker exited $rc: $(cat "$errfile")"
+  assert_not_contains "$(cat "$errfile")" "rm: cannot remove" \
+    "the fixture removal raced a live remote job worker"
+  sleep 1.5
+  assert_absent "$child_dir" "a remote job worker recreated its fixture root after cleanup"
+  pass "fm_test_cleanup stops a fixture's remote job worker before removing the tree"
+}
+
 test_fixture_root_gone_after_normal_exit
 test_fixture_root_gone_after_sigterm
+test_cleanup_stops_remote_job_worker_before_removal
 test_cleanup_registry_resists_precreation
 test_fixture_registration_failure_rolls_back_root
 test_orphan_sweep_respects_fixture_ownership

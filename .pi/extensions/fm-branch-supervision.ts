@@ -1681,9 +1681,14 @@ ${context.command}
     // getEntries() here loses the captain request that the next wake may answer.
     // Stage it verbatim and remember the future persisted index for turn_end's
     // duplicate suppression. Operational extension injections are not dialog.
-    const prompt = event.prompt;
-    processingOpenedThisRun = queuedProcessingContent !== null && prompt === queuedProcessingContent;
-    const trimmed = prompt.trim();
+    processingOpenedThisRun =
+      event.messageType === "custom" &&
+      isProcessingCustomMessage(event.message) &&
+      queuedProcessingContent !== null &&
+      event.message.content === queuedProcessingContent;
+    // Older Pi user events omit messageType; custom turns have no prompt.
+    if (event.messageType === "custom") return;
+    const trimmed = event.prompt.trim();
     if (!trimmed || isOperationalUserText(trimmed)) return;
     const file = currentMainSession.getSessionFile() ?? "";
     const index = mirrorCollection.collectAnchor?.index ?? currentMainSession.getEntries().length;

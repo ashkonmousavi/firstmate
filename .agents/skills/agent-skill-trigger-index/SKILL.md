@@ -18,6 +18,7 @@ These skills are not captain-invocable; load them only at their precise triggers
 - `wayfinding` - load before scoping work larger than one task, such as a stage, a release, a migration, or a campaign of related changes; before dispatching a task whose backlog dependency names a stage, a release, or a final acceptance; when work is blocked only at its final step or the queue looks fully gated; and whenever the ready frontier lists only umbrellas or nothing while holds still exist.
 - `ask-user-authority` - load before deciding any escalated no-mistakes finding.
 - `validation-supervision` - load when a ship starts or already has an active no-mistakes validation run, including a mid-run requirement change or finding, and before deciding an escalated no-mistakes finding.
+- `task-intake` - load before writing a ship or scout preparation record or brief, and before spawning one.
 - `ship-landing` - load when a ship reports a PR or ready branch, when deciding or monitoring landing, and before task cleanup.
 - `scout-completion` - load when a scout reports completion, presents a visual artifact for iteration, or is being considered for promotion to implementation.
 - `quota-array-dispatch` - load before resolving an explicitly `quota-balanced` crew-dispatch rule.

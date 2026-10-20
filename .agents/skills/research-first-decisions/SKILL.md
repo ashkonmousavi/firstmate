@@ -4,13 +4,14 @@ description: >-
   Agent-only procedure for selecting a tool, library, framework, service, vendor, or approach from candidates.
   Use before commissioning or consuming research that will pick one option over others, and before recording such a selection as decided.
   Also use before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage - Context7 verification is mandatory there regardless of whether a selection is under way.
-  Owns the predeclared frozen query plan, the search and challenge workflow, the primary-source hierarchy, the decision-packet form, the external-query privacy rule, the Context7 version-verification procedure, and the boundary between research that selects and local proof that only verifies.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # research-first-decisions
+
+Owns the predeclared frozen query plan, the search and challenge workflow, the primary-source hierarchy, the decision-packet form, the external-query privacy rule, the Context7 version-verification procedure, and the boundary between research that selects and local proof that only verifies.
 
 Load this before any selection among candidates: a tool, library, framework, service, vendor, protocol, data source, or approach.
 It is the single owner of that selection procedure.
@@ -132,5 +133,5 @@ Keep private identifiers, code, and paths out of Context7 queries, under the sam
 This skill owns the selection procedure and the Context7 version-verification duty only.
 Whether to commission a scout at all, and the ship-versus-scout classification, stay with `AGENTS.md` section 7.
 Diagnosing a reported bug is `diagnostic-reasoning`, not a candidate selection.
-Choosing a harness, model, or dispatch profile for a task is owned by `AGENTS.md` section 4 and `harness-adapters`; this research procedure does not overrule that intake contract.
+Choosing a harness, model, or dispatch profile for a task is owned by [Intake routing](../harness-adapters/references/common/dispatch.md#intake-routing) and `harness-adapters`; this research procedure does not overrule that intake contract.
 Do not build a research tracker, registry, scoring engine, or template checker for any of the above; the packet is a document.

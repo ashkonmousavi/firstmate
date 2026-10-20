@@ -3,13 +3,14 @@ name: diagnostic-reasoning
 description: >-
   Agent-only procedure for diagnosing reported bugs.
   Use before scoping a reported bug and before acting on a diagnostic report.
-  Owns end-user-aligned reproduction, causal separation, divergent-path and history inspection, counterfactual testing, disconfirming evidence, and the class-fix rule.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # diagnostic-reasoning
+
+Owns end-user-aligned reproduction, causal separation, divergent-path and history inspection, counterfactual testing, disconfirming evidence, and the class-fix rule.
 
 Use this procedure before scoping a reported bug and before acting on a diagnostic report.
 This skill is the single owner of Firstmate's bug-diagnosis reasoning procedure.

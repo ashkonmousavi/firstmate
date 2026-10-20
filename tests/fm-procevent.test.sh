@@ -226,6 +226,25 @@ hold_source_lock_then_handle() {  # <home> <source-id> <sequence> <ready-file> <
   HOLDER_PID=$!
 }
 
+# A live primary session holds its home's session lock: line 1 of state/.lock
+# names a running harness process. A copy of sleep named claude is exactly that
+# to bin/fm-session-lock-lib.sh, so a runner in that home sees a live session.
+SESSION_BIN=$(fm_fakebin "$TMP_ROOT/session-owner-bin")
+cp "$(command -v sleep)" "$SESSION_BIN/claude"
+start_fake_session() {  # <home>: hold the home's session lock; prints the pid
+  "$SESSION_BIN/claude" 300 >/dev/null 2>&1 &
+  printf '%s\n' "$!" > "$1/state/.lock"
+  printf '%s\n' "$!"
+}
+
+wait_runner_gone() {  # <runner-pid> <seconds>
+  local deadline=$((SECONDS + $2))
+  while kill -0 "$1" 2>/dev/null; do
+    [ "$SECONDS" -lt "$deadline" ] || return 1
+    sleep 0.1
+  done
+}
+
 # Keep full ShellCheck dataflow within the per-root memory budget by splitting
 # the long scenario sequence at function boundaries. Fixtures remain global,
 # and each section runs immediately in the original order and shell.
@@ -3706,6 +3725,64 @@ while kill -0 "$DETACHED_RUNNER_PID" 2>/dev/null; do
   sleep 0.1
 done
 pass "an attached-start keeper stops refreshing after its parent exits"
+
+HSESSION="$TMP_ROOT/session-owner"; new_home "$HSESSION"
+fm_test_track_procevent_home "$HSESSION"
+SESSION_PID=$(start_fake_session "$HSESSION")
+SESSION_TRIGGER="$TMP_ROOT/session-owner.trigger"
+pe_register "$HSESSION" lavish session-src -- \
+  "$BLOCKER" "$SESSION_TRIGGER" "session payload" >/dev/null
+# One reconcile is the only lease refresh, as when the supervision cycle that
+# started the runner then stalls before its next reconcile.
+FM_PROCEVENT_OWNER_LEASE_SECONDS=1 FM_PROCEVENT_OWNER_CHECK_SECONDS=1 \
+  pe "$HSESSION" reconcile >/dev/null
+wait_for "$HSESSION/state/procevent/session-src.runner" \
+  || fail "the live-session fixture never launched its source"
+SESSION_RUNNER_PID=$(cat "$HSESSION/state/procevent/session-src.runner")
+sleep 5
+kill -0 "$SESSION_RUNNER_PID" 2>/dev/null \
+  || fail "a runner stopped when its lease aged out while its home's primary session held the session lock"
+assert_absent "$HSESSION/state/procevent/.session-src.exits" \
+  "the owner guard recorded a stop while the owning session was live"
+pass "a runner keeps listening past its lease while its home's primary session is live"
+
+kill "$SESSION_PID"
+wait "$SESSION_PID" 2>/dev/null || true
+wait_runner_gone "$SESSION_RUNNER_PID" 8 \
+  || fail "a runner outlived both its owning session and its lease"
+assert_grep $'\towner-guard-stop\t' "$HSESSION/state/procevent/.session-src.exits" \
+  "the owner guard's stop left no exit record"
+assert_grep 'session=stale' "$HSESSION/state/procevent/.session-src.exits" \
+  "the guard's exit record did not name the dead session"
+assert_grep 'status=143 reason=stopped by signal TERM' "$HSESSION/state/procevent/.session-src.exits" \
+  "the stopped runner did not record its own exit"
+pass "a runner stops once its owning session is dead and its lease is stale, and records why"
+
+HSESSION_GONE="$TMP_ROOT/session-owner-removed"; new_home "$HSESSION_GONE"
+fm_test_track_procevent_home "$HSESSION_GONE"
+SESSION_GONE_PID=$(start_fake_session "$HSESSION_GONE")
+pe_register "$HSESSION_GONE" lavish session-gone-src -- \
+  "$BLOCKER" "$TMP_ROOT/session-owner-removed.trigger" "removed payload" >/dev/null
+FM_PROCEVENT_OWNER_LEASE_SECONDS=30 FM_PROCEVENT_OWNER_CHECK_SECONDS=1 \
+  pe "$HSESSION_GONE" reconcile >/dev/null
+wait_for "$HSESSION_GONE/state/procevent/session-gone-src.runner" \
+  || fail "the removed-home fixture never launched its source"
+SESSION_GONE_RUNNER_PID=$(cat "$HSESSION_GONE/state/procevent/session-gone-src.runner")
+mv "$HSESSION_GONE/state" "$TMP_ROOT/session-owner-removed-state"
+wait_runner_gone "$SESSION_GONE_RUNNER_PID" 8 \
+  || fail "a live session elsewhere kept a runner whose home was removed"
+kill "$SESSION_GONE_PID" 2>/dev/null || true
+wait "$SESSION_GONE_PID" 2>/dev/null || true
+pass "a runner stops when its home is removed even while a session process lives"
+
+HNORESULT="$TMP_ROOT/no-result-record"; new_home "$HNORESULT"
+fm_test_track_procevent_home "$HNORESULT"
+pe_register "$HNORESULT" lavish no-result-src -- "$BLOCKER" "$TMP_ROOT" >/dev/null
+BLOCKER_EXIT=7 pe "$HNORESULT" start no-result-src >/dev/null 2>&1 || true
+assert_grep 'status=0 reason=no-result: source exit 7 with no output' \
+  "$HNORESULT/state/procevent/.no-result-src.exits" \
+  "a runner that ended on a failed read did not record its exit"
+pass "a runner records why it ended when its source fails without output"
 
 HREUSED_GROUP="$TMP_ROOT/reused-runner-group"; new_home "$HREUSED_GROUP"
 fm_test_track_procevent_home "$HREUSED_GROUP"
