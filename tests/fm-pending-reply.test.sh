@@ -207,13 +207,14 @@ test_completed_turn_no_report_triggers_one_recovery() {
 
 # A mate waiting on its own open decision is never poked by the recovery; the
 # recovery stays unattempted and runs once the decision closes.
-test_recovery_waits_while_the_mate_has_an_open_decision() (
+test_recovery_waits_while_the_mate_has_an_open_decision() {
   local failure=${1:-none} home state corr hook_log cursor got previous_path=$PATH
+  local FM_CONFIG_OVERRIDE FM_TEST_REAL_MV FM_TEST_CACHE_FAILURE_LOG
+  local -x FM_PENDING_REPLY_NOW=2500 FM_PENDING_REPLY_SEND_HOOK=decision_wait_hook PATH=$PATH
   home=$(setup_parent "decision-wait-$failure")
   state="$home/state"
   hook_log="$TMP_ROOT/decision-wait-hook.log"
   : > "$hook_log"
-  export FM_PENDING_REPLY_NOW=2500
   mkdir -p "$home/config"
   : > "$home/config/wait-no-turns"
   FM_CONFIG_OVERRIDE="$home/config"
@@ -223,7 +224,6 @@ test_recovery_waits_while_the_mate_has_an_open_decision() (
     printf '%s\n' "$1" >> "$hook_log"
   }
   export -f decision_wait_hook
-  export FM_PENDING_REPLY_SEND_HOOK=decision_wait_hook
 
   corr=$(fm_pending_reply_create "$home" "$state" "hibit" "status of phase 8")
   fm_pending_reply_mark_delivered "$state" "$corr"
@@ -250,7 +250,7 @@ esac
 exec "$FM_TEST_REAL_MV" "$@"
 SH
       chmod +x "$state/fakebin/mv"
-      export PATH="$state/fakebin:$PATH"
+      PATH="$state/fakebin:$PATH"
       ;;
   esac
   if [ "$failure" != none ]; then
@@ -282,7 +282,7 @@ SH
     rename)
       [ "$(wc -l < "$FM_TEST_CACHE_FAILURE_LOG")" -ge 4 ] \
         || fail "the rename failure did not reach each decision reader and recovery"
-      export PATH="$previous_path"
+      PATH="$previous_path"
       ;;
   esac
 
@@ -291,8 +291,9 @@ SH
   [ "$(wc -l < "$hook_log" | tr -d ' ')" = 1 ] || fail "expected exactly one recovery send"
   unset FM_PENDING_REPLY_SEND_HOOK
   unset FM_CONFIG_OVERRIDE
+  unset -f decision_wait_hook
   pass "$failure cache failure: recovery preserves an open decision and runs once it closes"
-)
+}
 
 # The supervision cycle asks the recovery gate about every waiting request on
 # every pass. Over a long parent status log that must cost the bytes appended

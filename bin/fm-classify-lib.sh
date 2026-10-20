@@ -1425,15 +1425,17 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   fi
   if [ "$cursor_dirty" -eq 1 ]; then
     target_cursor="$cf.tmp.$$"
-    {
+    if {
       printf 'version=%s\n' "$fold_version"
       printf 'offset=%s\n' "$offset"
       printf 'ident=%s\n' "$cur_ident"
       if [ -n "$open" ]; then printf '%s' "$open"; fi
-    } > "$target_cursor" && mv -f "$target_cursor" "$cf" || {
+    } > "$target_cursor" && mv -f "$target_cursor" "$cf"; then
+      :
+    else
       rm -f "$target_cursor" || true
       [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] || return 1
-    }
+    fi
   fi
   if [ -n "$tail" ]; then
     open=$(_fm_decision_fold_line "$open" "$tail" "$resolve" "$held" "$kind")
