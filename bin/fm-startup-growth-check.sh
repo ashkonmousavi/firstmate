@@ -14,19 +14,15 @@
 # A due evaluation uses metadata only: regular-file safety checks plus stat(1)
 # byte sizes.  It does not run the startup digest, bootstrap, network checks,
 # model calls, repository refreshes, /stow, or full preference/learning
-# rereads.  The budget total, its verdict, and its secondmate exception come
-# from `bin/fm-startup-memory-budget.sh report`, the single owner of
-# config/startup-memory-budget, and are never re-derived here.  data/projects.md
-# and data/secondmates.md are printed in full by every session start too, so
-# they are watched for prompt growth without entering that budget total.
+# rereads. data/projects.md and data/secondmates.md are printed in full by every
+# session start too, so they are watched for prompt growth.
 # The tracked set is the startup entrypoints session start executes directly
 # plus the agent instruction files, not every script and library the startup
 # path reaches; those bytes are code/instruction size, not LLM prompt cost.
 #
 # A secondmate home is never notified about the primary-owned
-# data/captain-shared.md it cannot edit: the owner suppresses the budget overrun
-# it causes alone, and this check suppresses its per-file growth there while
-# still recording the observation.
+# data/captain-shared.md it cannot edit: this check suppresses its per-file
+# growth there while still recording the observation.
 #
 # Growth is measured against a retained per-file baseline rather than only
 # against the previous evaluation, so accumulation that stays under one day's
@@ -37,7 +33,6 @@
 # accepted growth then stays silent.  The thresholds are fixed:
 #   2048 bytes for tracked startup/instruction files
 #   250 estimated tokens, ceil(bytes / 3), for printed startup memory files
-# Budget overrun is always meaningful.
 #
 # A due evaluation also removes the empty temporary records a killed
 # evaluation can leave in state/: only files matching its own mint pattern
@@ -53,7 +48,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
-CONFIG_DIR="${FM_CONFIG_OVERRIDE:-$FM_HOME/config}"
 DATA_DIR="${FM_DATA_OVERRIDE:-$FM_HOME/data}"
 CHECK_ID=startup-growth
 CHECK_SHIM="$STATE/$CHECK_ID.check.sh"
@@ -61,19 +55,16 @@ CHECK_TRUST="$STATE/$CHECK_ID.check-trust"
 RECORD="$STATE/.startup-growth-check"
 RECORD_SCHEMA_LINE=$'schema\tfm-startup-growth-check-v1'
 REGISTER_BIN="$SCRIPT_DIR/fm-check-register.sh"
-BUDGET_BIN="$SCRIPT_DIR/fm-startup-memory-budget.sh"
 
 # shellcheck source=bin/fm-pr-lib.sh
 . "$SCRIPT_DIR/fm-pr-lib.sh"
-# shellcheck source=bin/fm-startup-memory-budget-lib.sh
-. "$SCRIPT_DIR/fm-startup-memory-budget-lib.sh"
 # shellcheck source=bin/fm-line-cap-lib.sh
 . "$SCRIPT_DIR/fm-line-cap-lib.sh"
 # shellcheck source=bin/fm-check-lib.sh
 . "$SCRIPT_DIR/fm-check-lib.sh"
 
 usage() {
-  sed -n '2,48{s/^# \{0,1\}//;p;}' "$0"
+  sed -n '2,/^set -u/{/^#/{s/^# \{0,1\}//;p;}}' "$0"
 }
 
 fail() {
@@ -179,7 +170,7 @@ stat_surface() {  # <kind> <display-path> <absolute-path> <absence-ok>
     delta=$((bytes - baseline))
     case "$kind" in
       memory|printed-memory)
-        tokens=$(fm_startup_memory_estimated_tokens_for_bytes "$delta") || tokens=0
+        tokens=$(( delta / 3 + (delta % 3 != 0) ))
         if [ "$tokens" -ge "$TOKEN_THRESHOLD" ]; then
           baseline=$bytes
           [ "$display" = "$PRIMARY_OWNED_MEMORY" ] \
@@ -233,42 +224,6 @@ check_due() {
   return 1
 }
 
-evaluate_budget() {
-  local report line reason valid=yes budget='' total='' status='' exception=''
-  if ! report=$(FM_HOME="$FM_HOME" FM_CONFIG_OVERRIDE="$CONFIG_DIR" FM_DATA_OVERRIDE="$DATA_DIR" \
-    "$BUDGET_BIN" report 2>&1); then
-    reason=${report##*startup-memory-budget: }
-    append_finding "startup memory budget unavailable owner=bin/fm-startup-memory-budget.sh reason=${reason//$'\n'/ }"
-    return 0
-  fi
-  while IFS= read -r line; do
-    case "$line" in
-      effective_budget_tokens=*) budget=${line#*=} ;;
-      total_estimated_tokens=*) total=${line#*=} ;;
-      budget_status=*) status=${line#*=} ;;
-      exception=*) exception=${line#*=} ;;
-    esac
-  done < <(printf '%s\n' "$report")
-  case "$budget:$total" in
-    *[!0-9:]*|:*|*:) valid=no ;;
-  esac
-  case "$status" in
-    within-budget|over-budget) ;;
-    *) valid=no ;;
-  esac
-  case "$exception" in
-    ''|primary-owned-shared-file-alone-exceeds-budget) ;;
-    *) valid=no ;;
-  esac
-  if [ "$valid" = no ]; then
-    append_finding "startup memory budget unavailable owner=bin/fm-startup-memory-budget.sh reason=unparseable report"
-    return 0
-  fi
-  printf '%s\t%s\t%s\t%s\t%s\n' memory_budget "$budget" "$total" "$status" "$exception" >> "$NEW_RECORD" || exit 1
-  [ "$status" = over-budget ] && [ -z "$exception" ] || return 0
-  append_finding "startup memory budget overrun total_estimated_tokens=$total budget=$budget owner=bin/fm-startup-memory-budget.sh"
-}
-
 run_check() {
   local now reported_previous
   if ! now=$(check_due); then
@@ -296,8 +251,6 @@ run_check() {
   stat_surface memory data/captain.md "$DATA_DIR/captain.md" yes
   stat_surface memory data/captain-shared.md "$DATA_DIR/captain-shared.md" yes
   stat_surface memory data/learnings.md "$DATA_DIR/learnings.md" yes
-
-  evaluate_budget
 
   if [ -n "$FINDINGS" ]; then
     if [ "$FINDINGS" != "$reported_previous" ]; then

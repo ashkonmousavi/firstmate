@@ -4340,6 +4340,27 @@ test_composer_state_inactive_session_fails_fast_without_server_autostart() {
   pass "fm_backend_herdr_composer_state: fails fast to unknown for inactive session without starting server"
 }
 
+test_composer_state_server_stops_after_scroll_lookup() {
+  local dir log resp fb out
+  dir="$TMP_ROOT/composer-stopped-after-scroll"
+  mkdir -p "$dir/responses"
+  log="$dir/log"
+  resp="$dir/responses"
+  : > "$log"
+  printf '{"server":{"running":true}}\n' > "$resp/1.out"
+  printf '{"result":{"pane":{"scroll":{"offset_from_bottom":5}}}}\n' > "$resp/2.out"
+  printf '{"server":{"running":false}}\n' > "$resp/3.out"
+  printf '{"server":{"running":false}}\n' > "$resp/4.out"
+  fb=$(make_herdr_fakebin "$dir")
+  . "$ROOT/bin/fm-timeout-lib.sh"
+  out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_HERDR_SCRIPT_STATUS=1 \
+    fm_run_timed 3 bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state fixture:w1:p2' "$ROOT") \
+    || fail "a server stopping after scroll lookup delayed the passive composer read"
+  [ "$out" = unknown ] || fail "a stopped scrolled pane became $out"
+  assert_not_contains "$(cat "$log")" $'\x1f''server' "scrolled capture restarted its stopped server"
+  pass "scrolled ANSI and plain capture stay passive when the server stops after offset lookup"
+}
+
 # shellcheck disable=SC2016
 test_composer_state_piped_reader_does_not_hang() {
   local out rc=0 dir fb log resp
@@ -6586,6 +6607,7 @@ test_composer_state_grok_oversized_title_preserves_safe_verdicts
 test_composer_state_popup_placeholder_fill_is_pending
 test_composer_state_unknown_on_capture_failure
 test_composer_state_inactive_session_fails_fast_without_server_autostart
+test_composer_state_server_stops_after_scroll_lookup
 test_composer_state_piped_reader_does_not_hang
 test_composer_state_unknown_when_no_composer_row_found
 test_composer_state_pi_parked_prompt_is_not_empty

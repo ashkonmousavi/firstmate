@@ -83,6 +83,7 @@ enable_dispatch_profile() {
 make_seeded_secondmate_home() {
   local home=$1 id=$2
   mkdir -p "$home/bin" "$home/data"
+  cp "$ROOT/bin/fm-turnend-guard.sh" "$home/bin/fm-turnend-guard.sh"
   printf '# Firstmate\n' > "$home/AGENTS.md"
   printf '%s\n' "$id" > "$home/.fm-secondmate-home"
   printf 'charter for %s\n' "$id" > "$home/data/charter.md"

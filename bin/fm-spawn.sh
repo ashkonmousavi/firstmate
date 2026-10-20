@@ -530,7 +530,7 @@
 # the raw command carries no --settings or -e flag to load the wiring.
 # A claude secondmate gets no Stop busy hook; its home's tracked Stop guard is its
 # only Stop writer, through the .fm-busy-stop pointer in that home. A home whose
-# guard predates that pointer keeps the ordinary Stop idle hook instead.
+# guard predates that pointer stays unarmed until its guard is updated.
 # Kimi uses one surgically installed Firstmate region in $HOME/.kimi-code/config.toml,
 # a firstmate-owned global hook and registry, and a gitignored per-task pointer.
 # Kimi 2.0.0 also gates a fresh worktree on an interactive folder-trust dialog.
@@ -5167,20 +5167,23 @@ WIRING_HARNESS=$HARNESS
 if [ "$KIND" = secondmate ]; then
   busy_notify_turnend=false
   if [ "$RAW_LAUNCH" -ne 0 ]; then
-    case "$HARNESS" in
-    claude* | pi | pi-signed | omp)
-      WIRING_HARNESS=
-      if [ -e "$STATE_REAL/$ID.busy-gen" ]; then
-        "$FM_ROOT/bin/fm-busy-event.sh" retire "$STATE_REAL" "$ID" --current-gen || {
-          echo "error: failed to retire the earlier busy-state contract for $ID" >&2
-          exit 1
-        }
+    case "$HARNESS" in claude* | pi | pi-signed | omp) WIRING_HARNESS= ;; esac
+  fi
+  case "$HARNESS" in
+    claude*)
+      if ! grep -qF '.fm-busy-stop' "$WT/bin/fm-turnend-guard.sh" 2>/dev/null; then
+        WIRING_HARNESS=
       fi
       ;;
-    esac
-    case "$HARNESS" in
-    claude*) rm -f "$WT/.fm-busy-stop" ;;
-    esac
+  esac
+  if [ -z "$WIRING_HARNESS" ]; then
+    if [ -e "$STATE_REAL/$ID.busy-gen" ]; then
+      "$FM_ROOT/bin/fm-busy-event.sh" retire "$STATE_REAL" "$ID" --current-gen || {
+        echo "error: failed to retire the earlier busy-state contract for $ID" >&2
+        exit 1
+      }
+    fi
+    case "$HARNESS" in claude*) rm -f "$WT/.fm-busy-stop" ;; esac
   fi
 fi
 BUSY_GEN=
@@ -5233,8 +5236,7 @@ BUSY_GEN=
     # can block a Stop into a continuation that fires no UserPromptSubmit,
     # and Claude runs Stop hooks in parallel, so the guard is that mate's only
     # Stop writer, reading this gen from .fm-busy-stop. A home whose guard
-    # predates .fm-busy-stop would never close the turn, so that launch keeps
-    # the ordinary Stop idle hook, without the parent turn-ended touch. Every
+    # predates .fm-busy-stop remains unarmed until that guard is updated. Every
     # hook command tolerates a refused event (|| true) so a stale-gen writer
     # can never break Claude's own lifecycle.
     # PermissionRequest fires whenever a dialog is about to ask a human, in
@@ -5262,7 +5264,7 @@ BUSY_GEN=
     j_sessionend=$(json_escape "$busy_cmd_prefix idle $busy_suffix --event session-end 2>/dev/null || true")
     j_permission=$(json_escape "{ printf '%s %s\\n' \"\$(date +%s)\" \"\$\$\" > $prompt_marker.\$\$ && mv -f $prompt_marker.\$\$ $prompt_marker; } >/dev/null 2>&1 || true")
     stop_entry=
-    if [ "$KIND" = secondmate ] && grep -qF '.fm-busy-stop' "$WT/bin/fm-turnend-guard.sh" 2>/dev/null; then
+    if [ "$KIND" = secondmate ]; then
       {
         printf 'writer=%s\n' "$FM_ROOT/bin/fm-busy-event.sh"
         printf 'state=%s\n' "$STATE_REAL"
@@ -5271,20 +5273,16 @@ BUSY_GEN=
       } >"$WT/.fm-busy-stop"
       exclude_path '.fm-busy-stop'
     else
-      stop_turnend=
-      if [ "$busy_notify_turnend" = true ]; then
-        stop_turnend="touch $(shell_quote "$TURNEND"); "
-      fi
-      j_stop=$(json_escape "${stop_turnend}$busy_cmd_prefix idle $busy_suffix --event stop 2>/dev/null || true")
+      j_stop=$(json_escape "touch $(shell_quote "$TURNEND"); $busy_cmd_prefix idle $busy_suffix --event stop 2>/dev/null || true")
       stop_entry="\"Stop\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_stop\"}]}],"
     fi
     hooks_json="\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_submit\"}]}],${stop_entry}\"StopFailure\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_stopfail\"}]}],\"SessionEnd\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_sessionend\"}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_permission\"}]}]}"
     if [ "$KIND" = secondmate ]; then
-      jq -cn --argjson settings "$CLAUDE_SETTINGS" --argjson hooks "{$hooks_json}" \
+      CLAUDE_SETTINGS=$(jq -cn --argjson settings "$CLAUDE_SETTINGS" --argjson hooks "{$hooks_json}" \
         '$settings + $hooks | .hooks = (
           reduce ($hooks.hooks | keys_unsorted[]) as $event
             ($settings.hooks // {}; .[$event] = ((.[$event] // []) + $hooks.hooks[$event]))
-        )' >"$STATE_REAL/$ID.claude-settings.json" || exit 1
+        )') || exit 1
     else
       mkdir -p "$WT/.claude"
       printf '{%s}\n' "$hooks_json" >"$WT/.claude/settings.local.json"
@@ -5937,6 +5935,7 @@ esac
 # Last placeholder pass, so operator-supplied settings text is never rewritten by an earlier one.
 if [ "$HARNESS" = claude ]; then
   if [ "$KIND" = secondmate ] && [ "$RAW_LAUNCH" -eq 0 ]; then
+    printf '%s\n' "$CLAUDE_SETTINGS" >"$STATE_REAL/$ID.claude-settings.json" || exit 1
     LAUNCH=${LAUNCH//__CLAUDESETTINGS__/"$(shell_quote "$STATE_REAL/$ID.claude-settings.json")"}
   else
     LAUNCH=${LAUNCH//__CLAUDESETTINGS__/"$(shell_quote "$CLAUDE_SETTINGS")"}

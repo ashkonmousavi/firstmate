@@ -1078,6 +1078,33 @@ test_squash_merged_forgejo_pr_allows_when_main_moved_on() {
   pass "teardown proves a Forgejo task landed from the merged pull request when the content check is inconclusive"
 }
 
+test_forgejo_terminal_route_fetches_the_recorded_head() {
+  local case_dir pr_head path index=0 status
+  for path in pull/7/pulls/12 team/pull/pulls/12; do
+    index=$((index + 1))
+    case_dir=$(make_case "forgejo-terminal-fetch-$index")
+    write_meta "$case_dir" no-mistakes ship
+    pr_head=$(setup_squash_rebased_history "$case_dir" stale)
+    git -C "$case_dir/origin.git" update-ref refs/pull/12/head "$pr_head"
+    git -C "$case_dir/origin.git" update-ref refs/pull/7/head "$(git -C "$case_dir/origin.git" rev-parse main)"
+    git -C "$case_dir/wt" update-ref -d refs/fm-test/pr-head
+    git -C "$case_dir/wt" reflog expire --expire=now --all
+    git -C "$case_dir/wt" gc --prune=now >/dev/null
+    if git -C "$case_dir/wt" cat-file -e "$pr_head^{commit}" 2>/dev/null; then
+      fail "terminal-route fixture still holds the unfetched PR head"
+    fi
+    printf '%s\n' "pr=https://git.example.org/$path" "pr_head=$pr_head" >> "$case_dir/state/task-x1.meta"
+    add_gh_axi_error "$case_dir"
+    add_tea_pull_for_head "$case_dir" true "$pr_head"
+    status=0
+    run_teardown "$case_dir" > "$case_dir/stdout" 2> "$case_dir/stderr" || status=$?
+    expect_code 1 "$status" "stale local content must retain its ordinary refusal"
+    git -C "$case_dir/wt" cat-file -e "$pr_head^{commit}" 2>/dev/null \
+      || fail "teardown did not fetch the PR head from the terminal route for $path"
+  done
+  pass "teardown fetches the terminal Forgejo PR head and preserves stale-content refusal"
+}
+
 test_squash_merged_same_file_different_content_refuses() {
   local case_dir rc pr_head local_head
   case_dir=$(make_case squash-same-path-diverged)
@@ -5233,6 +5260,7 @@ test_squash_merged_pr_allows_replayed_unpushed_patch
 test_merged_pr_with_later_local_commit_refuses
 test_squash_merged_rebased_branch_allows
 test_squash_merged_forgejo_pr_allows_when_main_moved_on
+test_forgejo_terminal_route_fetches_the_recorded_head
 test_squash_merged_same_file_different_content_refuses
 test_squash_merged_rebased_local_with_unlanded_commit_refuses
 test_squash_merged_stale_local_refuses_when_forge_unreachable

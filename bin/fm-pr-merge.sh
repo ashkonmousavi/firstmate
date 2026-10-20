@@ -863,12 +863,14 @@ forgejo_reject_unsupported_args() {
   local arg pending=false
   for arg in "$@"; do
     if [ "$pending" = true ]; then
+      [ -n "$arg" ] || { echo "error: --method requires a nonempty value" >&2; return 1; }
       pending=false
       continue
     fi
     case "$arg" in
       --squash|--merge|--rebase) ;;
       --method) pending=true ;;
+      --method=) echo "error: --method requires a nonempty value" >&2; return 1 ;;
       --method=*) ;;
       *)
         echo "error: extra merge arguments are not yet supported for Forgejo merges" >&2
@@ -876,6 +878,7 @@ forgejo_reject_unsupported_args() {
         ;;
     esac
   done
+  [ "$pending" = false ] || { echo "error: --method requires a nonempty value" >&2; return 1; }
 }
 
 # The merge style a Forgejo merge uses when the caller names none: the

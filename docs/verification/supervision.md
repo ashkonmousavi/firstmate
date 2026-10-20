@@ -43,7 +43,7 @@ A wrapped client attached to a shared managed daemon with `--remote` has not bee
 The checkpoint header and help in [`bin/fm-watch-checkpoint.sh`](../../bin/fm-watch-checkpoint.sh) own invocation mechanics, and [Codex's supervision protocol](../supervision-protocols/codex.md) owns recovery handling.
 [`bin/fm-timeout-lib.sh`](../../bin/fm-timeout-lib.sh) owns shared read deadlines and continuation mechanics.
 `tests/fm-watch-checkpoint.test.sh` also exercises secondmate stall and pending-reply captures, capacity and inactive reads, and an exactly-once recovery handoff.
-`tests/fm-wake-checkpoint-publication.test.sh` exercises minimal wake callers across recovery transitions and publication of one captured process-event result.
+`tests/fm-wake-checkpoint-publication.test.sh` exercises interruption after one signal row is published, then acknowledges that row and verifies later publication without replaying it.
 `tests/fm-timeout-lib.test.sh` exercises reads with detached output holders, suppression of incomplete output, and preservation of completed output and exit status.
 The earlier native source observation below does not qualify this later propagation or recovery change against a native harness.
 The dependent-read fixture keeps a mandatory reader-entry witness so a quiet checkpoint that expires before reaching that reader cannot pass its coverage assertion.

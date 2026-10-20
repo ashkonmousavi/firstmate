@@ -1521,23 +1521,18 @@ pr_number_from_branch() {
 }
 
 pr_number_from_target() {
-  local target=$1 n
+  local target=${1%%[?#]*} n route
+  target=${target%/}
   case "$target" in
-    '' ) return 1 ;;
-    *"/pull/"*)
-      n=${target##*/pull/}
-      n=${n%%[!0-9]*}
+    *"/pull/"*|*"/pulls/"*)
+      n=${target##*/}
+      route=${target%/*}
+      case "${route##*/}" in pull|pulls) ;; *) return 1 ;; esac
       ;;
-    *"/pulls/"*)  # Forgejo addresses pulls as /pulls/<n> and serves refs/pull/<n>/head.
-      n=${target##*/pulls/}
-      n=${n%%[!0-9]*}
-      ;;
-    [0-9]*)
-      n=${target%%[!0-9]*}
-      ;;
+    [0-9]*) n=${target%%[!0-9]*} ;;
     *) return 1 ;;
   esac
-  [ -n "$n" ] || return 1
+  case "$n" in ''|*[!0-9]*) return 1 ;; esac
   printf '%s' "$n"
 }
 

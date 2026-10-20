@@ -6,7 +6,7 @@ Busy hooks verified 2026-07-28 on Claude Code 2.1.220.
 
 | Fact | Value |
 |---|---|
-| Busy | Owned hooks: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; a secondmate gets no `Stop` busy hook, because its home's tracked Stop guard is its only Stop writer, unless that guard predates `.fm-busy-stop` and the launch keeps the `Stop` idle hook (`../../../docs/turnend-guard.md` owns that); manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and usually leaves `claude-hook` busy. |
+| Busy | Owned hooks: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; a secondmate gets no `Stop` busy hook, because its home's tracked Stop guard is its only Stop writer, and a home whose guard predates `.fm-busy-stop` stays unarmed until its guard is updated (`../../../docs/turnend-guard.md` owns that); manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and usually leaves `claude-hook` busy. |
 | Prompt | Owned `PermissionRequest` hook writes `state/<id>.prompt-waiting` for every dialog that waits on a human, bypass mode included, and prints nothing so the dialog still shows; the watcher wakes once per marker. Verified 2.1.286 in [`runtime-backends.md`](../../../../../docs/verification/runtime-backends.md#claude-prompt-waiting-hook). |
 | Exit | `/exit`. |
 | Interrupt | Single Escape. |

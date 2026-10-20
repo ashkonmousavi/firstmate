@@ -671,32 +671,32 @@ test_secondmate_claude_stop_guard_owns_the_stop_verdict() {
   pass "a claude secondmate's Stop guard records busy on a blocked Stop and idle on an allowed one, in any hook order, and a rewake turn reopens busy"
 }
 
-# A leased home can lag the parent. Its older Stop guard never reads
-# .fm-busy-stop, so the launch keeps the ordinary Stop idle hook, or an idle
-# mate would read busy until SessionEnd.
-test_secondmate_claude_older_home_guard_keeps_the_stop_idle_hook() {
-  local case_dir id=sm-claude-old primary sm state settings out old_guard
+test_secondmate_claude_older_home_guard_stays_unarmed() {
+  local case_dir id=sm-claude-old primary sm state settings out old_guard status=0
   case_dir="$TMP_ROOT/sm-claude-old"
   primary="$case_dir/primary"
   sm="$case_dir/sm"
   old_guard="$case_dir/old-guard.sh"
   mkdir -p "$case_dir"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$old_guard"
-  out=$(SECONDMATE_HOME_GUARD="$old_guard" spawn_secondmate_harness "$case_dir" "$id" claude) \
-    || fail "claude secondmate spawn failed: $out"
+  printf '#!/usr/bin/env bash\nexit 2\n' > "$old_guard"
+  out=$(spawn_secondmate_harness "$case_dir" "$id" claude) \
+    || fail "compatible claude secondmate spawn failed: $out"
   state="$primary/state"
+  assert_present "$state/$id.busy-gen" "compatible home did not arm the prior incarnation"
+  out=$(SECONDMATE_HOME_GUARD="$old_guard" spawn_secondmate_harness "$case_dir" "$id" claude) \
+    || fail "older claude secondmate spawn failed: $out"
   settings="$state/$id.claude-settings.json"
-
-  run_claude_hook "$settings" UserPromptSubmit || fail "secondmate UserPromptSubmit hook failed"
+  assert_absent "$state/$id.busy-gen" "older home kept an armed generation"
+  assert_absent "$state/$id.busy-state" "older home kept a semantic busy record"
+  assert_absent "$sm/.fm-busy-stop" "older home kept the prior Stop pointer"
+  jq -e '.feedbackDrafts == "off" and ((.hooks // {}) | length) == 0' "$settings" >/dev/null \
+    || fail "older home lost worker settings or received semantic busy hooks"
+  bash "$sm/bin/fm-turnend-guard.sh" || status=$?
+  expect_code 2 "$status" "the older guard must exercise a blocked Stop"
   out=$(classify claude "$id" "$state")
-  [ "$out" = "busy claude-hook" ] || fail "UserPromptSubmit must open busy, got '$out'"
-  rm -f "$state/$id.turn-ended"
-  run_claude_hook "$settings" Stop || fail "secondmate Stop hook command failed"
-  out=$(classify claude "$id" "$state")
-  [ "$out" = "idle claude-hook" ] \
-    || fail "an older home guard cannot close the turn, so the Stop hook must record idle, got '$out'"
-  [ ! -e "$state/$id.turn-ended" ] || fail "a secondmate Stop touched the parent's turn-ended marker"
-  pass "a claude secondmate whose home guard predates .fm-busy-stop keeps the Stop idle hook"
+  [ "$out" = "unknown missing" ] || fail "an older guard's blocked continuation became $out"
+  assert_absent "$state/$id.turn-ended" "an older home's Stop notified the parent"
+  pass "older Claude homes retire prior busy state and remain unknown through a blocked Stop"
 }
 
 test_secondmate_claude_spawn_leaves_local_settings_untouched() {
@@ -873,7 +873,7 @@ test_secondmate_codex_and_grok_do_not_arm_a_parent_turnend() {
 test_secondmate_claude_spawn_arms_busy_for_the_stall_gate
 test_raw_secondmate_launch_writes_no_busy_wiring
 test_secondmate_claude_stop_guard_owns_the_stop_verdict
-test_secondmate_claude_older_home_guard_keeps_the_stop_idle_hook
+test_secondmate_claude_older_home_guard_stays_unarmed
 test_secondmate_claude_spawn_leaves_local_settings_untouched
 test_secondmate_pi_extension_reports_busy_without_a_parent_turnend
 test_secondmate_omp_extension_reports_busy_without_a_parent_turnend

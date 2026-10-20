@@ -2625,6 +2625,20 @@ test_forgejo_merge_method_and_extra_args() {
   [ -z "$(tea_merge_line "$case_dir/tea.log")" ] \
     || fail "forgejo-unsupported-arg: a merge was attempted despite the unsupported argument"
 
+  for variant in dangling assignment argument; do
+    case_dir=$(make_forgejo_case "forgejo-empty-method-$variant")
+    case "$variant" in
+      dangling) set -- --method ;;
+      assignment) set -- --method= ;;
+      argument) set -- --method '' ;;
+    esac
+    rc=0
+    run_pr_merge "$case_dir" task-x1 "$FJ_URL" -- "$@" \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 1 "$rc" "an explicit empty method must not select the repository default"
+    assert_contains "$(cat "$case_dir/stderr")" '--method requires a nonempty value' "missing method value was not reported"
+    [ -z "$(tea_merge_line "$case_dir/tea.log")" ] || fail "an empty method permitted a merge"
+  done
   pass "fm-pr-merge maps --squash/--rebase to Forgejo's Do field, defaults to the repository's default merge style, and refuses any other extra argument"
 }
 

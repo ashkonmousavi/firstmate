@@ -20,7 +20,6 @@ make_world() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$root/bin/fm-session-start.sh"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$root/bin/fm-bootstrap.sh"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$root/bin/fm-supervision-instructions.sh"
-  printf '7500\n' > "$home/config/startup-memory-budget"
   printf 'projects\n' > "$home/data/projects.md"
   printf 'secondmates\n' > "$home/data/secondmates.md"
   printf 'captain\n' > "$home/data/captain.md"
@@ -41,10 +40,6 @@ status_part() { printf '%s' "$1" | cut -f1; }
 add_bytes() {
   local path=$1 count=$2
   dd if=/dev/zero bs=1 count="$count" 2>/dev/null | tr '\000' x >> "$path"
-}
-
-budget_total() {  # <home>
-  awk -F '\t' '$1 == "memory_budget" { print $3; exit }' "$1/state/.startup-growth-check"
 }
 
 test_initial_baseline_is_silent_and_records_metadata() {
@@ -126,20 +121,17 @@ test_gradual_growth_below_daily_threshold_is_reported_cumulatively() {
   [ -z "$out" ] || fail "reported growth was repeated after the baseline was rebased: $out"
 }
 
-test_printed_memory_growth_is_reported_without_entering_the_budget_total() {
-  local rec root home result out before after
+test_printed_memory_growth_is_reported_as_estimated_tokens() {
+  local rec root home result out
   rec=$(make_world printed)
   root=${rec%%|*}
   home=${rec#*|}
   run_check "$root" "$home" 1000 >/dev/null
-  before=$(budget_total "$home")
   add_bytes "$home/data/projects.md" 900
   result=$(run_check "$root" "$home" 87401)
   [ "$(status_part "$result")" = 0 ] || fail "printed-memory check failed: $(output_part "$result")"
   out=$(output_part "$result")
   assert_contains "$out" 'printed-memory growth data/projects.md +300 estimated_tokens (+900 bytes' "printed startup memory growth was not reported"
-  after=$(budget_total "$home")
-  assert_equals "$before" "$after" "printed startup memory changed the budget total it must not own"
 }
 
 test_first_content_of_an_optional_file_is_baselined_silently() {
@@ -218,45 +210,7 @@ test_secondmate_is_not_notified_about_primary_owned_shared_growth() {
   assert_contains "$out" 'memory growth data/captain-shared.md +300 estimated_tokens (+900 bytes' "a primary home did not report growth of its own shared file"
 }
 
-test_budget_overrun_reports_and_separates_prompt_cost() {
-  local rec root home result out
-  rec=$(make_world overrun)
-  root=${rec%%|*}
-  home=${rec#*|}
-  printf '10\n' > "$home/config/startup-memory-budget"
-  add_bytes "$home/data/captain.md" 90
-  add_bytes "$root/bin/fm-bootstrap.sh" 3000
-  result=$(run_check "$root" "$home" 1000)
-  [ "$(status_part "$result")" = 0 ] || fail "overrun check failed: $(output_part "$result")"
-  out=$(output_part "$result")
-  assert_contains "$out" 'startup memory budget overrun total_estimated_tokens=' "budget overrun was not reported"
-  assert_not_contains "$out" 'tracked startup surface growth' "initial tracked growth should not be inferred without a baseline"
-  assert_not_contains "$out" 'bin/fm-bootstrap.sh' "initial tracked bytes were incorrectly counted as prompt-memory overrun evidence"
-  result=$(run_check "$root" "$home" 87401)
-  [ "$(status_part "$result")" = 0 ] || fail "repeated overrun check failed: $(output_part "$result")"
-  out=$(output_part "$result")
-  [ -z "$out" ] || fail "standing budget overrun was reported again instead of deduplicated: $out"
-}
 
-test_secondmate_is_not_woken_about_the_primary_owned_shared_overrun() {
-  local rec root home result out
-  rec=$(make_world secondmate)
-  root=${rec%%|*}
-  home=${rec#*|}
-  printf '10\n' > "$home/config/startup-memory-budget"
-  add_bytes "$home/data/captain-shared.md" 900
-  : > "$home/.fm-secondmate-home"
-  result=$(run_check "$root" "$home" 1000)
-  [ "$(status_part "$result")" = 0 ] || fail "secondmate overrun check failed: $(output_part "$result")"
-  out=$(output_part "$result")
-  assert_not_contains "$out" 'startup memory budget overrun' "a secondmate was woken about the primary-owned shared overrun it cannot act on"
-
-  rm -f "$home/.fm-secondmate-home"
-  result=$(run_check "$root" "$home" 87401)
-  [ "$(status_part "$result")" = 0 ] || fail "primary overrun check failed: $(output_part "$result")"
-  out=$(output_part "$result")
-  assert_contains "$out" 'startup memory budget overrun total_estimated_tokens=' "the same overrun was not reported in a primary home"
-}
 
 test_metadata_read_failure_keeps_the_retained_baseline() {
   local rec root home result out fakebin real_stat
@@ -311,76 +265,7 @@ test_due_unsafe_inputs_are_reported_but_absent_optional_memory_is_not() {
   [ -z "$out" ] || fail "standing unsafe finding was reported again instead of deduplicated: $out"
 }
 
-test_over_long_finding_set_is_capped_with_the_shared_marker() {
-  local rec root home deep seg out reported
-  rec=$(make_world capped)
-  root=${rec%%|*}
-  home=${rec#*|}
-  seg=
-  while [ "${#seg}" -lt 100 ]; do
-    seg="${seg}memory"
-  done
-  deep="$home/data"
-  while [ "${#deep}" -lt 1200 ]; do
-    deep="$deep/$seg"
-  done
-  mkdir -p "$deep"
-  ln -s "$home/data/captain.md" "$deep/learnings.md"
-  out=$(FM_ROOT_OVERRIDE="$root" FM_HOME="$home" FM_DATA_OVERRIDE="$deep" FM_STARTUP_GROWTH_NOW=1000 \
-    "$CHECK" check 2>/dev/null) || fail "capped check failed"
-  assert_contains "$out" 'unsafe memory data/learnings.md' "the leading finding was lost"
-  [ "${#out}" -le 1000 ] || fail "the wake line was emitted uncapped at ${#out} characters"
-  assert_contains "$out" ' [truncated]' "the capped wake line carries no truncation marker"
-  reported=$(awk -F '\t' '$1 == "reported" { print substr($0, index($0, "\t") + 1); exit }' \
-    "$home/state/.startup-growth-check")
-  [ "${#reported}" -gt "${#out}" ] \
-    || fail "the dedupe record stored the capped line instead of the full finding set"
-}
 
-test_unknown_budget_verdict_fields_are_reported_as_unparseable() {
-  local rec root home fixbin out
-  fixbin=$(make_isolated_bin verdict 0)
-
-  cat > "$fixbin/fm-startup-memory-budget.sh" <<'STUB'
-#!/usr/bin/env bash
-printf 'role=primary
-'
-printf 'effective_budget_tokens=7500
-'
-printf 'total_estimated_tokens=10
-'
-printf 'budget_status=sideways
-'
-STUB
-  chmod 0755 "$fixbin/fm-startup-memory-budget.sh"
-  rec=$(make_world verdict-status)
-  root=${rec%%|*}
-  home=${rec#*|}
-  out=$(FM_ROOT_OVERRIDE="$root" FM_HOME="$home" FM_STARTUP_GROWTH_NOW=1000 \
-    "$fixbin/fm-startup-growth-check.sh" check 2>&1) || fail "unknown-status check failed: $out"
-  assert_contains "$out" 'reason=unparseable report' "an unrecognized budget_status was accepted as within-budget"
-
-  cat > "$fixbin/fm-startup-memory-budget.sh" <<'STUB'
-#!/usr/bin/env bash
-printf 'role=primary
-'
-printf 'effective_budget_tokens=10
-'
-printf 'total_estimated_tokens=7500
-'
-printf 'budget_status=over-budget
-'
-printf 'exception=some-unrelated-annotation
-'
-STUB
-  chmod 0755 "$fixbin/fm-startup-memory-budget.sh"
-  rec=$(make_world verdict-exception)
-  root=${rec%%|*}
-  home=${rec#*|}
-  out=$(FM_ROOT_OVERRIDE="$root" FM_HOME="$home" FM_STARTUP_GROWTH_NOW=1000 \
-    "$fixbin/fm-startup-growth-check.sh" check 2>&1) || fail "unknown-exception check failed: $out"
-  assert_contains "$out" 'reason=unparseable report' "an unrecognized exception annotation silently suppressed the overrun"
-}
 
 test_record_with_a_foreign_schema_marker_is_not_trusted() {
   local rec root home record out first
@@ -406,25 +291,24 @@ test_findings_are_delivered_even_when_the_record_cannot_be_published() {
   rec=$(make_world unpublishable)
   root=${rec%%|*}
   home=${rec#*|}
-  printf '5\n' > "$home/config/startup-memory-budget"
+  rm -f "$root/AGENTS.md"
+  ln -s /no/such/place "$root/AGENTS.md"
   ln -s /no/such/place "$home/state/.startup-growth-check"
   out=$(FM_ROOT_OVERRIDE="$root" FM_HOME="$home" FM_STARTUP_GROWTH_NOW=1000 "$CHECK" check 2>/dev/null) || status=$?
   [ "$status" != 0 ] || fail "an unpublishable report record should surface as a failure"
-  assert_contains "$out" 'startup memory budget overrun' "the finding was dropped because the record could not be published"
+  assert_contains "$out" 'unsafe tracked AGENTS.md' "the finding was dropped because the record could not be published"
   leftover=$(cd "$home/state" && ls -1 .startup-growth-check.?????? 2>/dev/null || true)
   [ -z "$leftover" ] || fail "a failed evaluation leaked its temporary record: $leftover"
 }
 
 # Copies the check and the libraries it sources into an isolated bin, so the
-# helpers it execs can be replaced: the budget owner with a stub report, or the
-# register with a failing one.
+# register helper can be replaced with a failing one.
 make_isolated_bin() {  # <name> <register-exit-code>
   local name=$1 code=$2 bin
   bin="$TMP_ROOT/$name/bin"
   mkdir -p "$bin"
   cp "$ROOT/bin/fm-startup-growth-check.sh" "$ROOT/bin/fm-pr-lib.sh" \
-    "$ROOT/bin/fm-startup-memory-budget-lib.sh" "$ROOT/bin/fm-line-cap-lib.sh" \
-    "$ROOT/bin/fm-check-lib.sh" "$ROOT/bin/fm-startup-memory-budget.sh" "$bin/"
+    "$ROOT/bin/fm-line-cap-lib.sh" "$ROOT/bin/fm-check-lib.sh" "$bin/"
   if [ "$code" = 0 ]; then
     cp "$ROOT/bin/fm-check-register.sh" "$bin/fm-check-register.sh"
   else
@@ -498,25 +382,22 @@ test_interrupted_evaluation_abandons_its_partial_record() {
   add_bytes "$root/AGENTS.md" 1500
 
   bin=$(make_isolated_bin interrupted 0)
-  ready="$TMP_ROOT/interrupted/budget-entered"
-  cat > "$bin/fm-startup-memory-budget.sh" <<STUB
-#!/usr/bin/env bash
-: > "$ready"
-while [ -f "$ready" ]; do
-  sleep 0.05
-done
-printf 'role=primary\n'
-printf 'effective_budget_tokens=7500\n'
-printf 'total_estimated_tokens=10\n'
-printf 'budget_status=within-budget\n'
+  add_bytes "$home/data/learnings.md" 900
+  ready="$TMP_ROOT/interrupted/finding-entered"
+  cat > "$bin/fm-line-cap-lib.sh" <<STUB
+fm_cap_line() {
+  : > "$ready"
+  while [ -f "$ready" ]; do
+    sleep 0.05
+  done
+}
 STUB
-  chmod 0755 "$bin/fm-startup-memory-budget.sh"
 
   FM_ROOT_OVERRIDE="$root" FM_HOME="$home" FM_STARTUP_GROWTH_NOW=87401 \
     "$bin/fm-startup-growth-check.sh" check >/dev/null 2>&1 &
   pid=$!
   while [ ! -f "$ready" ]; do
-    [ "$waited" -lt 200 ] || fail "the check never reached its budget call"
+    [ "$waited" -lt 200 ] || fail "the check never reached its finding publication"
     waited=$((waited + 1))
     sleep 0.05
   done
@@ -607,18 +488,14 @@ test_initial_baseline_is_silent_and_records_metadata
 test_same_day_poll_does_not_touch_surfaces
 test_due_growth_reports_once_and_dedupes
 test_gradual_growth_below_daily_threshold_is_reported_cumulatively
-test_printed_memory_growth_is_reported_without_entering_the_budget_total
+test_printed_memory_growth_is_reported_as_estimated_tokens
 test_first_content_of_an_optional_file_is_baselined_silently
 test_established_baseline_survives_disappearance_and_restoration
 test_secondmate_is_not_notified_about_primary_owned_shared_growth
-test_budget_overrun_reports_and_separates_prompt_cost
-test_secondmate_is_not_woken_about_the_primary_owned_shared_overrun
 test_metadata_read_failure_keeps_the_retained_baseline
 test_due_unsafe_inputs_are_reported_but_absent_optional_memory_is_not
 test_findings_are_delivered_even_when_the_record_cannot_be_published
 test_record_with_a_foreign_schema_marker_is_not_trusted
-test_over_long_finding_set_is_capped_with_the_shared_marker
-test_unknown_budget_verdict_fields_are_reported_as_unparseable
 test_interrupted_evaluation_abandons_its_partial_record
 test_aged_empty_orphan_records_are_swept_without_touching_live_work
 test_orphan_sweep_stays_inside_the_daily_cadence
