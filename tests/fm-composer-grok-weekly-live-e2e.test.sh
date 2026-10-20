@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -eu
 
+# shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 fm_live_gate default-on FM_COMPOSER_GROK_WEEKLY_LIVE grok tmux
@@ -34,6 +35,7 @@ exec "$real_tmux" -L "$socket" "\$@"
 EOF
 chmod +x "$lab/bin/tmux"
 export PATH="$lab/bin:$PATH"
+# shellcheck source=/dev/null
 . "$ROOT/bin/fm-tmux-lib.sh"
 
 tmux new-session -d -s weekly -x 80 -y 30 -c "$ROOT" \
