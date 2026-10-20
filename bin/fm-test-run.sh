@@ -363,6 +363,7 @@ family_for_basename() {
     fm-grok-continuity-live-e2e.test.sh|\
     fm-cursor-primary-live-e2e.test.sh|\
     fm-grok-stop-live-e2e.test.sh|fm-harness-adapter-instructions-live-e2e.test.sh|\
+    fm-main-backstop-live-e2e.test.sh|\
     fm-harness-liveness-drift-live-e2e.test.sh|\
     fm-devin-signals-live-e2e.test.sh|fm-muse-signals-live-e2e.test.sh|fm-rovo-signals-live-e2e.test.sh|fm-agy-signals-live-e2e.test.sh|\
     fm-launch-prompt-signals-live-e2e.test.sh|\
@@ -1501,7 +1502,7 @@ families_for_changed_path() {
       printf '%s\n' pure-contract-unit
       ;;
     bin/fm-main-backstop.py)
-      printf '%s\n' __script__:fm-main-backstop.test.sh
+      printf '%s\n' __script__:fm-main-backstop.test.sh __script__:fm-main-backstop-live-e2e.test.sh
       ;;
     bin/fm-watch*|bin/fm-wake*|bin/fm-inactive-reconcile.sh|\
     bin/fm-classify-lib.sh|bin/fm-daemon*|bin/fm-turnend-guard*|bin/fm-guard.sh)

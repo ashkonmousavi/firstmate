@@ -50,6 +50,7 @@ TRANSFER_BOUND = 1048576  # fm-remote-file.sh's hard whole-file ceiling
 DELTA_LOG = 'state/parent-replies.status'
 DELTA_WAIT = '0'  # never block: a cron pass must stay bounded
 DELTA_CHUNK = 65536  # fm-remote-delta-read.sh's fixed payload bound
+DELTA_READ_BUDGET = 4
 DELTA_PROBE = 1 << 40  # above any real log: forces a size-reporting break
 # The reply runner long-polls the same remote job lane with a 55-second window,
 # and a queued delta read does not preempt a running one, so one delta call can
@@ -91,7 +92,7 @@ def run_status(argv, env, timeout=15):
     try:
         process = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                   text=True, start_new_session=True)
+                                   start_new_session=True)
         stdout, stderr = process.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
@@ -134,12 +135,12 @@ def delta_call(code, env, mate, offset, prefix):
             DELTA_LOG, str(offset), prefix, DELTA_WAIT]
     rc, stdout, _ = run_status(argv, env, DELTA_TIMEOUT)
     if rc == 75:
-        return None, ''
+        return None, b''
     if rc != 0:
         raise ProbeError('command failed or timed out')
-    header, split, payload = stdout.partition('\n\n')
+    header, split, payload = stdout.partition(b'\n\n')
     fields = {}
-    for line in header.splitlines():
+    for line in header.decode('ascii').splitlines():
         key, equals, value = line.partition('=')
         if not equals:
             raise ProbeError('delta record is malformed')
@@ -165,39 +166,41 @@ def adopt_prefix(code, env, mate, offset):
     return int(fields['to_offset']), fields['to_prefix_sha256']
 
 
-def remote_stamp(code, env, memory, mate, audit):
-    """Newest remote at= stamp, after the first pass reading only what new
-    lines need. The whole-file get only bootstraps: its hard size bound refuses
-    a growing log forever once crossed, so steady state and an oversized cold
-    start both run through the delta cursor, whose cost never depends on the
-    transfer bound."""
-    readers = memory.setdefault('readers', {})
-    record = readers.get(mate)
-    if valid_reader(record):
+def drain_delta(code, env, readers, mate):
+    for _ in range(DELTA_READ_BUDGET):
+        record = readers[mate]
         fields, payload = delta_call(code, env, mate, record['offset'], record['prefix'])
         if fields is None:
             return int(record['stamp'])
-        if fields.get('status') == 'delta':
-            if int(fields['payload_bytes']) != len(payload):
-                raise ProbeError('delta record is malformed')
-            found = stamps(payload)
-            readers[mate] = {'offset': int(fields['to_offset']),
-                             'prefix': fields['to_prefix_sha256'],
-                             'stamp': max(found) if found else int(record['stamp'])}
-            return readers[mate]['stamp']
-        if fields.get('status') != 'continuity-broken':
+        if fields.get('status') == 'continuity-broken':
+            return None
+        if int(fields['payload_bytes']) != len(payload):
             raise ProbeError('delta record is malformed')
+        found = stamps(payload.decode('utf-8', errors='replace'))
+        readers[mate] = {'offset': int(fields['to_offset']),
+                         'prefix': fields['to_prefix_sha256'],
+                         'stamp': max([int(record['stamp'])] + found)}
+    raise ProbeError('remote reply tail not reached within read budget')
+
+
+def remote_stamp(code, env, memory, mate, audit):
+    """Newest remote at= stamp after a bounded scan reaches the current tail."""
+    readers = memory.setdefault('readers', {})
+    if valid_reader(readers.get(mate)):
+        stamp = drain_delta(code, env, readers, mate)
+        if stamp is not None:
+            return stamp
         audit('read %s log moved; resyncing cursor' % mate)
     rc, body, error = run_status([str(code / 'bin/fm-on.sh'), mate,
                                   'fm-remote-file.sh', 'get', DELTA_LOG,
                                   str(TRANSFER_BOUND)], env)
     if rc == 0:
-        found = stamps(body)
-        readers[mate] = {'offset': len(body.encode()),
-                         'prefix': hashlib.sha256(body.encode()).hexdigest(),
+        found = stamps(body.decode('utf-8', errors='replace'))
+        readers[mate] = {'offset': len(body),
+                         'prefix': hashlib.sha256(body).hexdigest(),
                          'stamp': max(found, default=0)}
         return readers[mate]['stamp']
-    if rc != 1 or 'file exceeds max-bytes' not in error:
+    if rc != 1 or b'file exceeds max-bytes' not in error:
         raise ProbeError('command failed or timed out')
     # Past the whole-file bound: learn the size, adopt the offered prefix hash,
     # then read only the last chunk through the same cursor protocol.
@@ -218,19 +221,11 @@ def remote_stamp(code, env, memory, mate, audit):
                 size = reported  # The log shrank mid-read; follow it once.
                 offset = max(0, size - DELTA_CHUNK)
                 continue
-        fields, payload = delta_call(code, env, mate, offset, prefix)
-        if fields is None:
-            readers[mate] = {'offset': offset, 'prefix': prefix, 'stamp': 0}
-            return 0
-        if fields.get('status') != 'delta':
-            raise ProbeError('remote reply log is unreadable')
-        if int(fields['payload_bytes']) != len(payload):
-            raise ProbeError('delta record is malformed')
-        found = stamps(payload)
-        readers[mate] = {'offset': int(fields['to_offset']),
-                         'prefix': fields['to_prefix_sha256'],
-                         'stamp': max(found, default=0)}
-        return readers[mate]['stamp']
+        readers[mate] = {'offset': offset, 'prefix': prefix, 'stamp': 0}
+        stamp = drain_delta(code, env, readers, mate)
+        if stamp is not None:
+            return stamp
+        raise ProbeError('remote reply log is unreadable')
     raise ProbeError('remote reply log kept moving')
 
 
