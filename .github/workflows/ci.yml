@@ -65,6 +65,8 @@ jobs:
           # bound (wall deadline or memory rlimit) cannot be enforced here.
           FM_LINT_REQUIRE_BOUNDS: '1'
           FM_LINT_JOBS: '1'
+          # Only PC fork runners use 3 GiB; empty keeps the lint owner's default.
+          FM_LINT_ROOT_MEMORY_KIB: ${{ runner.environment == 'self-hosted' && startsWith(runner.name, 'fmfork-pc-') && '3145728' || '' }}
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/fm-lint"
