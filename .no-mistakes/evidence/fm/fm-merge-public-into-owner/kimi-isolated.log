@@ -1,0 +1,6 @@
+Reply READY without using any tools.
+TurnBegin(user_input='Reply READY without using any tools.')
+TurnEnd()
+LLM not set
+
+To resume this session: kimi -r 542f64aa-d4fa-4ace-8550-11469cc8ccad

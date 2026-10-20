@@ -1,0 +1,7 @@
+# cursor 2026.10.16-e3cb207: real tool lifecycle completed; armed=0
+ok - cursor 2026.10.16-e3cb207: real secondmate lifecycle stays unarmed and emits no parent turn-end
+not ok - kimi kimi, version 1.41.0: secondmate spawn failed: warning: secondmate sm-kimi sync skipped before launch: primary default-branch commit cannot be resolved
+fm-config-inherit: warning: skipped crew-harness for /tmp/fm-secondmate-busy-live.pD7Kyv/kimi/sm/config: destination does not allow inherited item (not gitignored or guard failed)
+error: kimi did not show a verified ready signal before brief delivery; inspect window firstmate:fm-sm-kimi
+# checked 2 harness(es); absent: none
+not ok - secondmate busy contract live guard: 1 of 2 installed harnesses failed

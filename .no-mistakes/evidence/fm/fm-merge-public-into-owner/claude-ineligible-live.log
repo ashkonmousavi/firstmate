@@ -1,0 +1,21 @@
+
+### mode=disabled
+# claude 2.1.304 (Claude Code): real disabled lifecycle preserved settings and stayed unarmed
+ok - claude 2.1.304 (Claude Code): real secondmate lifecycle stays unarmed and emits no parent turn-end
+# checked 1 harness(es); absent: none
+ok - secondmate busy contract live guard checked every installed harness
+EXIT=0
+
+### mode=synchronous
+# claude 2.1.304 (Claude Code): real synchronous lifecycle preserved settings and stayed unarmed
+ok - claude 2.1.304 (Claude Code): real secondmate lifecycle stays unarmed and emits no parent turn-end
+# checked 1 harness(es); absent: none
+ok - secondmate busy contract live guard checked every installed harness
+EXIT=0
+
+### mode=older
+# claude 2.1.304 (Claude Code): real older lifecycle preserved settings and stayed unarmed
+ok - claude 2.1.304 (Claude Code): real secondmate lifecycle stays unarmed and emits no parent turn-end
+# checked 1 harness(es); absent: none
+ok - secondmate busy contract live guard checked every installed harness
+EXIT=0

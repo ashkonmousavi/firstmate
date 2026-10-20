@@ -1,0 +1,26 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/home
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/home
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/home
+/tmp/fml.my97j7
+$ tmux -L fm-lab new-session -d -s firstmate -n anchor -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/home -x 120 -y 40
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/first
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/first
+$ tmux -L fm-lab new-window -d -t firstmate -n fm-first -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/first
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/second
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/second
+$ tmux -L fm-lab new-window -d -t firstmate -n fm-second -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.1rx0y4l0/second
+SCENARIO: a bounded checkpoint requests recovery; the foreground recovery cycle safely defers competing relaunches
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch-checkpoint.sh --seconds 8
+check: recovery cycle required for relaunch first; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch-checkpoint.sh --recover
+check: rearm-resurface
+[2026-10-20T01:03:46-0700] secondmate first liveness deferred: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+[2026-10-20T01:03:47-0700] secondmate second liveness deferred: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+
+$ tmux -L fm-lab display-message -p -t firstmate:fm-first #{window_name}
+fm-first
+$ tmux -L fm-lab display-message -p -t firstmate:fm-second #{window_name}
+fm-second
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch-checkpoint.sh --seconds 8
+check: recovery cycle required for relaunch first; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake
+PASS: bounded check requests recovery; recovery safely defers both mates; the unacknowledged request stays actionable without duplicate records.

@@ -1,0 +1,23 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/home
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/home
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/home
+/tmp/fml.FHSV85
+$ tmux -L fm-lab new-session -d -s firstmate -n anchor -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/home -x 120 -y 40
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/first
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/first
+$ tmux -L fm-lab new-window -d -t firstmate -n fm-first -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/first
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/second
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/second
+$ tmux -L fm-lab new-window -d -t firstmate -n fm-second -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.k989a59c/second
+SCENARIO: a concurrent relaunch owner makes watcher skip bounded recovery without killing either dead-shell endpoint or consuming attempts
+$ timeout 8 ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch.sh
+[2026-10-20T01:01:57-0700] secondmate first liveness deferred: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+[2026-10-20T01:01:58-0700] secondmate second liveness deferred: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+[2026-10-20T01:01:58-0700] secondmate first liveness deferred: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+[2026-10-20T01:01:59-0700] secondmate second liveness deferred: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+
+$ tmux -L fm-lab display-message -p -t firstmate:fm-first #{window_name}
+fm-first
+$ tmux -L fm-lab display-message -p -t firstmate:fm-second #{window_name}
+fm-second
+Watcher exit=124; expected timeout exit=124 with supervision alive. Endpoints and attempt budgets were preserved.

@@ -1,0 +1,103 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home
+/tmp/fml.A3NiHY
+$ tmux -L fm-lab new-session -d -s lifecycle -n anchor -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home -x 120 -y 40
+$ git init -q --initial-branch=main ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/repo
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/repo add .
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/repo commit -qm baseline
+$ treehouse get --lease --base main
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo' to release it.
+$ tasks-axi add scout Disposable lifecycle task --kind scout --file ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md --backend markdown
+ok: added scout (scout) -> Queued
+task:
+  id: scout
+  title: Disposable lifecycle task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start scout --backend=markdown --file=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block scout --by <other> --backend=markdown --file=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md` to record a dependency
+$ tasks-axi start scout --file ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md --backend markdown
+ok: start scout -> In flight
+help[1]:
+  - Run `tasks-axi done scout --pr <url> --backend=markdown --file=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md` when it ships
+$ tmux -L fm-lab new-window -d -t lifecycle -n fm-scout -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo
+$ git init -q ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo/nested
+
+SCENARIO: scout teardown returns a real Treehouse slot with nested clones removed and ignored files retained
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-teardown.sh scout
+🌳 Worktree returned to pool.
+teardown scout complete (window lifecycle:fm-scout, worktree ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo)
+Backlog: scout is closed in ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+teardown: reaping leaked worktree process(es) for scout: 57120
+teardown: force-killing leaked worktree process(es) for scout: 57120
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo status --porcelain --untracked-files=all
+
+SCENARIO: ordinary ship teardown refuses nested uncommitted work without changing any bytes
+$ treehouse get --lease --base main
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo. Run 'treehouse return ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo' to release it.
+$ tasks-axi add ship Disposable lifecycle task --kind ship --file ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md --backend markdown
+ok: added ship (ship) -> Queued
+task:
+  id: ship
+  title: Disposable lifecycle task
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-20
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start ship --backend=markdown --file=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block ship --by <other> --backend=markdown --file=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md` to record a dependency
+$ tasks-axi start ship --file ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md --backend markdown
+ok: start ship -> In flight
+help[1]:
+  - Run `tasks-axi done ship --pr <url> --backend=markdown --file=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home/data/backlog.md` when it ships
+$ tmux -L fm-lab new-window -d -t lifecycle -n fm-ship -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo
+$ git init -q ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo/nested
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-teardown.sh ship
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/home
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+REFUSED: local-only worktree ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/teardown/pool/.treehouse/repo-8d9c97/1/repo has work not yet merged into main and not on any remote.
+uncommitted changes present (untracked-only leftovers)
+untracked paths (up to 10):
+  nested/
+  scratch.txt
+Merge the branch into local main first (bin/fm-merge-local.sh after the captain approves), or push to a fork/remote, or get the captain's explicit OK to discard, then --force.
+ALL LIVE TEARDOWN SCENARIOS PASSED

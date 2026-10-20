@@ -1,0 +1,72 @@
+Real local Forgejo: {'version': '17.0.0+gitea-1.22.0'}
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/forge/home
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/forge/home
+$ git clone -q http://127.0.0.1:51307/fixture/pulls.git
+
+SCENARIO: no reported checks refuses a merge and leaves PR open
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-pr-merge.sh forge1 https://127.0.0.1/fixture/pulls/pulls/1
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  3 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+armed: state/forge1.check.sh
+error: refusing to merge https://127.0.0.1/fixture/pulls/pulls/1
+  - the combined commit status is "none", not success
+
+SCENARIO: a red context hidden behind 50 green statuses refuses merge
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-pr-merge.sh forge2 https://127.0.0.1/fixture/pulls/pulls/2
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/forge2.check.sh
+error: refusing to merge https://127.0.0.1/fixture/pulls/pulls/2
+  - the combined commit status is "failure", not success
+
+SCENARIO: exact-head all-green merge records canonical URL and emits merged poll
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-pr-merge.sh forge2 https://127.0.0.1/fixture/pulls/pulls/2
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+armed: state/forge2.check.sh
+verified: https://127.0.0.1/fixture/pulls/pulls/2 is open and mergeable, with a successful combined status at head 7413229290b606612a2d2ebd4499f111003c1014
+reminder: https://127.0.0.1/fixture/pulls/pulls/2 is merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+{"state": "closed", "merged": true, "head": "7413229290b606612a2d2ebd4499f111003c1014"}
+window=
+worktree=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/forge/wt
+project=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/forge/wt
+kind=ship
+mode=no-mistakes
+branch=feature2
+base_branch=main
+pr=https://127.0.0.1/fixture/pulls/pulls/2
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-pr-poll.sh --validated forgejo https://127.0.0.1/fixture/pulls/pulls/2
+merged
+
+SCENARIO: empty method refuses without merging a green PR
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-pr-merge.sh forge3 https://127.0.0.1/fixture/pulls/pulls/3 --
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+armed: state/forge3.check.sh
+error: --method requires a nonempty value
+
+SCENARIO: review diff fetches the PR head when repository is literally pulls
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-pr-check.sh forge3 https://127.0.0.1/fixture/pulls/pulls/3
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+armed: state/forge3.check.sh
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-review-diff.sh forge3
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+diff base: origin/main
+ change3.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/change3.txt b/change3.txt
+new file mode 100644
+index 0000000..775b9c4
+--- /dev/null
++++ b/change3.txt
+@@ -0,0 +1 @@
++change 3
+ALL LIVE FORGE SCENARIOS PASSED
+Disposable forge stopped; fixture retained only until final cleanup.

@@ -1,0 +1,4 @@
+# opencode 1.19.3: real tool lifecycle completed; armed=1
+ok - opencode 1.19.3: real secondmate lifecycle transitions from adapter busy to idle
+# checked 1 harness(es); absent: none
+ok - secondmate busy contract live guard checked every installed harness

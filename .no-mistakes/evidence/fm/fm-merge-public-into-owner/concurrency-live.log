@@ -1,0 +1,29 @@
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/home
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/home
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh tmux-dir ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/home
+/tmp/fml.qRXPaY
+$ tmux -L fm-lab new-session -d -s firstmate -n anchor -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/home -x 120 -y 40
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/first
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/first
+$ tmux -L fm-lab new-window -d -t firstmate -n fm-first -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/first
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/second
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/second
+$ tmux -L fm-lab new-window -d -t firstmate -n fm-second -c ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.fm-relaunch-repro.qbnc939w/second
+SCENARIO: a concurrent relaunch owner makes watcher skip bounded recovery without killing either dead-shell endpoint or consuming attempts
+$ timeout 8 ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch.sh
+watcher: secondmate first liveness: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+watcher: secondmate second liveness: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+watcher: secondmate liveness check failed
+[2026-10-20T00:46:40-0700] secondmate first liveness error: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+[2026-10-20T00:46:41-0700] secondmate second liveness error: another secondmate relaunch still owns the per-home relaunch lock after 1s; endpoint left dead
+
+$ tmux -L fm-lab display-message -p -t firstmate:fm-first #{window_name}
+fm-first
+$ tmux -L fm-lab display-message -p -t firstmate:fm-second #{window_name}
+fm-second
+Watcher exit=1; expected timeout exit=124 with supervision alive. Endpoints and attempt budgets were preserved.
+Traceback (most recent call last):
+  File "~/.no-mistakes/evidence/01M5BWRW59W3MTA812H0ZFHQK2/concurrency-repro.py", line 49, in <module>
+    assert watcher_status==124,'FAIL: ordinary lock contention terminates supervision'
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError: FAIL: ordinary lock contention terminates supervision

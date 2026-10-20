@@ -1,0 +1,57 @@
+SCENARIO: startup growth arms, gates daily checks, reports once, rejects unsafe memory, and disarms
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-startup-growth-check.sh arm
+armed: state/startup-growth.check.sh
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth/state/startup-growth.check.sh
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth/state/startup-growth.check.sh
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth/state/startup-growth.check.sh
+startup-growth: memory growth data/learnings.md +300 estimated_tokens (+900 bytes, total 909 bytes)
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth/state/startup-growth.check.sh
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/growth/state/startup-growth.check.sh
+startup-growth: unsafe printed-memory data/projects.md
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-startup-growth-check.sh disarm
+disarmed: state/startup-growth.check.sh
+
+SCENARIO: an announced recovery survives a quiet checkpoint with its durable row intact
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/checkpoint
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/checkpoint
+$ bash -c . "$1"; fm_wake_append check "$2" "check: $2" _ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-wake-lib.sh unacknowledged
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch-checkpoint.sh --seconds 5
+check: rearm-resurface
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch-checkpoint.sh --seconds 1
+checkpoint: no actionable wake within 1s
+Retained recovery marker: announced:downtime:30360.1792481811.7viP9q
+Retained queue: 1792481811	1	check	unacknowledged	check: unacknowledged
+
+
+SCENARIO: a wake appended during a running checkpoint is surfaced and retained
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/checkpoint-concurrent
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/checkpoint-concurrent
+$ bash -c . "$1"; fm_wake_append check "$2" "check: $2" _ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-wake-lib.sh concurrent-append
+check: rearm-resurface
+ 
+
+SCENARIO: a plain-file watcher lock is refused and never overwritten
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/lock
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/lock
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-watch-checkpoint.sh --seconds 1
+error: lock ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/lock/state/.watch.lock cannot be acquired: ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/lock/state/.watch.lock is a regular file, not a firstmate lock, and no waiting or reclaim can clear it; remove it only after confirming no process holds it (lsof/fuser)
+
+SCENARIO: receiving dependency-linked work uses markdown despite conflicting backend configuration
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/receive
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/core/receive
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-backlog-receive.sh state/handoff/lab.outbox.md 149 f7a94514eecf3e0ae60cb8c40303b74929b827db5fd87d418f58ba6b3b5cb8cd 1
+received: lab moved=2 already=0
+## In flight
+
+## Queued
+- [ ] alpha - First routed task (repo: Lab Project)
+  Preserve this body exactly.
+- [ ] beta - Dependent task (blocked-by: alpha)
+
+## Done
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-backlog-receive.sh state/handoff/lab.outbox.md 149 f7a94514eecf3e0ae60cb8c40303b74929b827db5fd87d418f58ba6b3b5cb8cd 1
+received: lab moved=0 already=2
+ALL CORE LIVE SCENARIOS PASSED

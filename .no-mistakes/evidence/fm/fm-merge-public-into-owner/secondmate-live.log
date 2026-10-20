@@ -1,0 +1,27 @@
+# claude 2.1.304 (Claude Code): real tool lifecycle completed; armed=1
+ok - claude 2.1.304 (Claude Code): real secondmate lifecycle transitions from adapter busy to idle
+# skip: opencode is not installed on this machine, so its secondmate busy contract is unverified here
+not ok - pi 1.0.0: missing tool-started: OAuth refresh failed for anthropic: Anthropic token refresh request failed. url=https://platform.claude.com/v1/oauth/token; details=Error: HTTP request failed. status=400; url=https://platform.claude.com/v1/oauth/token; body={"error": "invalid_grant", "error_description": "Refresh token expired"}; stack=Error: HTTP request failed. status=400; url=https://platform.claude.com/v1/oauth/token; body={"error": "invalid_grant", "error_description": "Refresh token expired"}
+    at postJson (~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/anthropic.js:75:6061)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async refreshAnthropicToken (~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/anthropic.js:75:9505)
+    at async credentials.modify.signal.signal (~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-7JGR3GZN.js:11:9286)
+    at async ~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-IBCPYVFK.js:3:38150
+    at async FileAuthStorageBackend.withLockAsync (~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-IBCPYVFK.js:3:32246)
+    at async _AuthStorage.modify (~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-IBCPYVFK.js:3:38049)
+    at async resolveStoredOAuth (~/.linuxbrew/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/chunks/chunk-7JGR3GZN.js:11:9076)
+# skip: pi-signed is not installed on this machine, so its secondmate busy contract is unverified here
+# omp omp/18.2.7: real tool lifecycle completed; armed=1
+ok - omp omp/18.2.7: real secondmate lifecycle transitions from adapter busy to idle
+not ok - grok grok 1.0.52 (0920c8169e27) [stable]: missing tool-started: Internal error: {
+  "message": "API error (status 402 Payment Required): Grok Build usage balance exhausted",
+  "http_status": 402
+}
+Error: Internal error: {
+  "message": "API error (status 402 Payment Required): Grok Build usage balance exhausted",
+  "http_status": 402
+}
+# codex codex-cli 0.159.3: real tool lifecycle completed; armed=0
+ok - codex codex-cli 0.159.3: real secondmate lifecycle stays unarmed and emits no parent turn-end
+# checked 5 harness(es); absent: opencode pi-signed
+not ok - secondmate busy contract live guard: 2 of 5 installed harnesses failed

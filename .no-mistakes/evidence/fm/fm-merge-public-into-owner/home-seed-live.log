@@ -1,0 +1,26 @@
+$ git init -q --initial-branch=main ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template add .
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template commit -qm unchanged product fixture
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/parent
+~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/parent
+$ git init -q --initial-branch=main ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/origin
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/origin add .
+$ git -C ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/origin commit -qm baseline
+$ git clone -q ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/origin ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/parent/projects/spaced app
+$ git clone -q ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/origin ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/parent/projects/app - tools
+SCENARIO: home seeding clones whole project names and retains each exact posture without matching a shorter prefix
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template/bin/fm-home-seed.sh seedmate ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/mate spaced app app - tools
+scaffolded: ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/parent/data/seedmate/brief.md (secondmate charter)
+home=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/mate
+- spaced app [direct-PR] - spaced project
+- app - tools [direct-PR forge=forgejo] - full hyphenated project
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template/bin/fm-project-mode.sh spaced app
+direct-PR off
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template/bin/fm-project-mode.sh app - tools
+direct-PR off
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template/bin/fm-project-mode.sh --forge app - tools
+forgejo
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/template/bin/fm-home-seed.sh seedmate ~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/mate spaced app app - tools
+home=~/.no-mistakes/worktrees/049a88734b0e/01M5BWRW59W3MTA812H0ZFHQK2/.phase-test-tmp/seed/mate
+ALL LIVE HOME SEED SCENARIOS PASSED
