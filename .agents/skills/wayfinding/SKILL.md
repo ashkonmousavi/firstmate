@@ -88,7 +88,8 @@ An area's slices queue behind it, and finished work across every area merges one
 Every shared module is held by its single integration owner, which a lane asks rather than edits.
 Keep decisions on one shared record so a second lane never resolves what a first lane already settled.
 
-L is the number of seats live right now across all machines (the live seat count, never a fixed number). Keep 2L prepared, ready items (journey/slice, blocked-by edges, done-means).
+L is the number of seats live right now across all machines (the live seat count, never a fixed number).
+Keep 2L prepared, ready items (journey/slice, blocked-by edges, done-means).
 When ready items drop below L, filing prep for the next tree nodes is the next free lane's job, checked at every dispatch, cleanup and heartbeat; if the tree truly has fewer than L ready nodes, fill seats in this order: implementable pieces, prep, scouts on named unknowns, verification and walks, integration, backlog hygiene; record the real gap and never invent work.
 Prepare plans in parallel batches by area, keeping decisions in one authoritative place and every shared seam under one owner.
 Design the shared interface first, then fan dependent plans out against it.
