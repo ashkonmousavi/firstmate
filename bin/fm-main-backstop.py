@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cron backstop for Herdr primary wake delivery, independent of the watcher.
+"""Linux cron backstop for Herdr primary wake delivery, independent of the watcher.
 
 Usage: fm-main-backstop.py --home PATH [--code-root PATH] [--mate ID ...]
 Run every three minutes. After a five-minute watcher silence with supervision
@@ -13,9 +13,11 @@ drain even when no watcher/pane is alive.
 Only explicitly supplied --mate ids are monitored.
 Remote reads use only existing fm-on read paths: one bounded fm-remote-file
 get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
-lines, so log growth past the whole-file transfer bound can never break
-verification; a moved log re-reads its current tail, and a source already past
-the bound is bootstrapped through the delta path alone. Delta reads allow one
+lines. A moved log re-reads its current tail, and a source already past the
+whole-file transfer bound is bootstrapped through the delta path alone.
+A delta scan must reach the current tail within four reads; exhausting that
+budget counts as a failed read while preserving cursor progress for the next
+pass, never reporting an intermediate timestamp as current. Delta reads allow one
 reply-runner poll window in the shared remote job lane (ninety seconds); other
 commands keep fifteen seconds. Output bodies are never logged. A read failing
 on two consecutive passes alarms instead of claiming caught-up; a single
@@ -25,7 +27,9 @@ truncate-then-write on every poll, so an empty record is re-read briefly and a
 runner read as not alive on a single pass is audited as transient. No remote
 source is changed or live runner reconciled.
 Notes deduplicate for an incident until a healthy observation clears it.
-Private state: .main-backstop.json (incident ids and successful nudge time),
+Runner identity requires Linux /proc process state and command-line records.
+Private state: .main-backstop.json (incident ids, successful nudge time,
+delta cursors and consecutive failure records),
 .main-backstop.lock (cron exclusion), .main-backstop.log (bounded audit).
 The caller deploys/backs up its private files and supplies the home's code root.
 """
@@ -374,7 +378,7 @@ def main():
         except (ProbeError, OSError, ValueError):
             # One failed pass is transport noise under load; two consecutive
             # passes are a genuinely unverified delivery state and alarm
-            # durably, keeping the same alarm the single-pass failure raised.
+            # durably, preserving the incident id until a successful read.
             repeated = mate in read_fails
             read_fails[mate] = now
             if repeated:
