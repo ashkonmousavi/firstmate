@@ -334,6 +334,82 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
         self.assertNotIn('q-server', self.memory().get('read_fails', {}))
 
+    def test_lag_incident_survives_inconclusive_reads_until_caught_up(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote'] = 1901
+        self.run_guard()
+        incident = self.memory()['episodes']['lag-q-server']
+        self.config['fail_reads'] = 99
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+        self.assertIn('read-q-server', self.memory()['episodes'])
+        before = len(list((self.state / 'inbox').glob('*.note')))
+        self.config['fail_reads'] = 0
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+        self.assertNotIn('read-q-server', self.memory()['episodes'])
+        self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
+        (self.state / 'q-server.status').write_text('done [at=1901]: caught up\n')
+        self.run_guard()
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+        self.config['remote'] = 3000
+        self.run_guard()
+        self.assertNotEqual(self.memory()['episodes']['lag-q-server'], incident)
+        self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before + 1)
+
+    def test_runner_incident_clears_only_on_a_live_or_unregistered_runner(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.run_guard()
+        incident = self.memory()['episodes']['runner-q-server']
+        self.config['fail_reads'] = 99
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['runner-q-server'], incident)
+        self.config['fail_reads'] = 0
+        self.register_runner('%d\n' % self.live_runner())
+        self.run_guard()
+        self.assertNotIn('runner-q-server', self.memory()['episodes'])
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.run_guard()
+        self.assertNotEqual(self.memory()['episodes']['runner-q-server'], incident)
+        (self.state / 'procevent/remote-reply-q-server.source').unlink()
+        self.run_guard()
+        self.assertNotIn('runner-q-server', self.memory()['episodes'])
+
+    def test_recovery_incident_survives_inconclusive_pass_and_nudge_cooldown(self):
+        self.config['fail_send'] = True
+        self.run_guard()
+        incident = self.memory()['episodes']['recovery']
+        (self.state / '.last-watcher-beat').touch()
+        self.config['fail_reads'] = 99
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['recovery'], incident)
+        self.config['fail_reads'] = 0
+        self.config['remote'] = 1901
+        self.config['fail_send'] = False
+        memory = self.memory()
+        memory['last_nudge'] = int(time.time())
+        (self.state / '.main-backstop.json').write_text(json.dumps(memory))
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['recovery'], incident)
+        memory = self.memory()
+        memory['last_nudge'] = 0
+        (self.state / '.main-backstop.json').write_text(json.dumps(memory))
+        self.run_guard()
+        self.assertNotIn('recovery', self.memory()['episodes'])
+
+    def test_recovery_incident_clears_when_all_checks_are_healthy(self):
+        self.config['fail_send'] = True
+        self.run_guard()
+        self.assertIn('recovery', self.memory()['episodes'])
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.assertNotIn('recovery', self.memory()['episodes'])
+
     def test_ambiguous_live_primary_is_not_guessed(self):
         self.config['panes'] = 2
         self.run_guard()

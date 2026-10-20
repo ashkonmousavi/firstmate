@@ -361,6 +361,7 @@ def main():
                 save()
         else:
             runner_fails.pop(mate, None)
+            episodes.pop('runner-' + mate, None)
         try:
             remote = remote_stamp(code, env, memory, mate, audit)
             local_path = state / (mate + '.status')
@@ -370,7 +371,10 @@ def main():
                 message = 'REPLY DELIVERY LAG %s: %ds (remote_at=%d ingested_at=%d); primary wake path needs recovery.' % (mate, lag, remote, local)
                 alarm('lag-' + mate, message)
                 trouble.append('reply lag: ' + mate)
+            else:
+                episodes.pop('lag-' + mate, None)
             read_fails.pop(mate, None)
+            episodes.pop('read-' + mate, None)
         except (ProbeError, OSError, ValueError):
             # One failed pass is transport noise under load; two consecutive
             # passes are a genuinely unverified delivery state and alarm
@@ -396,14 +400,14 @@ def main():
                 memory['last_nudge'] = now
                 (home / 'data/main-pane').write_text(pane + '\n')
                 audit('nudged verified primary pane=' + pane)
+                episodes.pop('recovery', None)
         except (ProbeError, OSError, ValueError, KeyError, TypeError) as error:
             detail = str(error) if isinstance(error, ProbeError) else 'primary discovery unavailable'
             if detail == 'command failed or timed out':
                 detail = 'primary nudge failed or discovery unavailable'
             alarm('recovery', 'BACKSTOP FAILURE: %s; %s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.' % (detail, '; '.join(trouble)))
-    for key in list(episodes):
-        if key not in active:
-            del episodes[key]
+    elif all(mate not in read_fails and mate not in runner_fails for mate in mates):
+        episodes.pop('recovery', None)
     save()
     audit('checked watcher_age=%ds alarms=%d' % (beat_age, len(active)))
 

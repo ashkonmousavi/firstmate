@@ -2850,17 +2850,19 @@ Repeat the hooked-worker check above before publication if watcher or task-inbox
 
 ## Main backstop discovery guard, 2026-10-20
 
-`tests/fm-main-backstop-live-e2e.test.sh` checks real Herdr discovery without sending input or modifying panes.
+`tests/fm-main-backstop-live-e2e.test.sh` starts real installed Claude and Codex interfaces without submitting prompts in an isolated Herdr server.
 It belongs to `live-harness-optin` and uses `fm_live_gate` with the token-free default-on policy.
-Set `FM_MAIN_BACKSTOP_LIVE_HOMES` to a JSON object with `claude` and `codex` keys naming distinct homes containing one ready real agent each, and a `shell` key naming a home containing only bare shells retaining stale Claude/Codex labels.
-Each installed supported harness must pass exact-home discovery and wrong-home refusal; the shell case must refuse discovery, and a run checking no real harness fails.
-Refresh the per-harness evidence with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh` against those provisioned panes.
+The guard owns its server process, socket, configuration, harness state and working directories under a temporary directory in the checkout, and terminates that server after the check.
+Each installed supported harness must pass exact-home discovery and wrong-home refusal; a live bash with each harness's stale agent label must refuse discovery, and a run checking no real harness fails.
+Refresh the per-harness evidence with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh`.
 
-| Harness | Installed version observed on 2026-10-20 | Discovery evidence |
-| --- | --- | --- |
-| Claude | 2.1.304 (Claude Code) | Pending real provisioned pane |
-| Codex | codex-cli 0.160.0 | Pending real provisioned pane |
+Observed on 2026-10-20 with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh` (exit 0):
 
-`herdr --version` reported `herdr 0.9.5`; `claude --version` and `codex --version` reported the versions above.
-The review worktree boundary forbids provisioning runtime state outside the worktree, so this record makes no live discovery claim.
-The deterministic regression in `tests/fm-main-backstop.test.sh` exercises recovery and shell refusal through transport fixtures; it does not replace live vendor evidence.
+```text
+# herdr 0.9.5
+ok - claude (2.1.304 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
+This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
+It does not prove prompt delivery or turn-end watcher recovery.
