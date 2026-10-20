@@ -1059,15 +1059,15 @@ const operational = spawnSync(
   { encoding: "utf8", input: "operational watcher injection" },
 );
 if (operational.status !== 0) throw new Error(`could not create operational input: ${operational.stderr}`);
-await fire("before_agent_start", { prompt: operational.stdout }, mainCtx);
+await fire("before_agent_start", { messageType: "user", prompt: operational.stdout }, mainCtx);
 entries.push({ type: "message", message: { role: "user", content: operational.stdout } });
 const unsolicitedPrompt = "Please keep responses concise while monitoring the fleet.";
-await fire("before_agent_start", { prompt: unsolicitedPrompt }, mainCtx);
+await fire("before_agent_start", { messageType: "user", prompt: unsolicitedPrompt }, mainCtx);
 entries.push({ type: "message", message: { role: "user", content: unsolicitedPrompt } });
 await fire("agent_start", {}, mainCtx);
 await fire("agent_end", {}, mainCtx);
 const legacyOperational = "⁣FIRSTMATE_OP: give me a fresh system-resource report.";
-await fire("before_agent_start", { prompt: legacyOperational }, mainCtx);
+await fire("before_agent_start", { messageType: "user", prompt: legacyOperational }, mainCtx);
 entries.push({ type: "message", message: { role: "user", content: legacyOperational } });
 await fire("agent_start", {}, mainCtx);
 const unsolicited = dispatch("signal: healthy resource result");
@@ -1095,7 +1095,7 @@ for (let index = 0; index < requestedPrompts.length; index += 1) {
   if (index < longRequests.length && content.length <= 4000) {
     throw new Error(`request fixture ${index} did not exceed the mirror bound`);
   }
-  await fire("before_agent_start", { prompt: content }, mainCtx);
+  await fire("before_agent_start", { messageType: "user", prompt: content }, mainCtx);
   // Pi persists this only after every before_agent_start handler has returned.
   entries.push({ type: "message", message: { role: "user", content } });
   await fire("agent_start", {}, mainCtx);
@@ -2106,7 +2106,7 @@ if (openedByCaptain?.messages?.some((message) => message.customType === "fm-bran
   throw new Error(`captain-opened processing was not stripped: ${JSON.stringify(openedByCaptain)}`);
 }
 aborted = false;
-await fire("before_agent_start", { prompt: "captain typed this now" }, abortCtx);
+await fire("before_agent_start", { messageType: "user", prompt: "captain typed this now" }, abortCtx);
 const stolen = await fire("context", {
   messages: [{ role: "user", content: "captain typed this now" }, processingMsg],
 }, abortCtx);
@@ -2116,7 +2116,7 @@ if (stolen?.messages?.some((message) => message.customType === "fm-branch-proces
 }
 await fire("agent_end", {});
 aborted = false;
-await fire("before_agent_start", { prompt: pending.message.content }, abortCtx);
+await fire("before_agent_start", { messageType: "custom", message: processingMsg }, abortCtx);
 await fire("agent_start", {}, defaultSessionCtx);
 const openedByRequest = await fire("context", { messages: [...history, processingMsg] }, abortCtx);
 if (!aborted) throw new Error("a dedicated processing turn with history was not aborted under the record");
@@ -3129,6 +3129,62 @@ EOF
   out=$(cat "$TMP_ROOT/node-output")
   expect_code 0 "$status" "an already-drained serialized wake must no-op without main fallback: $out"
   pass "pre-drain eligibility re-check no-ops an already-drained wake"
+}
+
+# SDK 1.0.0 user events omit messageType; a wake may arrive before persistence.
+# The branch must receive the exact current request once, before its wake.
+test_branch_mirrors_current_request_before_persistence_without_message_type() {
+  local repo home out status
+  repo="$TMP_ROOT/early-mirror-root"
+  home="$TMP_ROOT/early-mirror-home"
+  mkdir -p "$home/state" "$home/config"
+  install_pi_branch_extension_fixture "$repo"
+  PLUGIN="$repo/.pi/extensions/fm-branch-supervision.ts" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
+    DRIVER_PRELUDE="$DRIVER_PRELUDE" node --input-type=module > "$TMP_ROOT/node-output" 2>&1 <<'EOF'
+const prelude = process.env.DRIVER_PRELUDE;
+await eval(`(async () => { ${prelude}; globalThis.__t = { fire, dispatch, home }; })()`);
+const { fire, dispatch, home } = globalThis.__t;
+const entries = [];
+const ctx = { sessionManager: {
+  getSessionFile: () => `${home}/main.jsonl`,
+  getEntries: () => entries,
+} };
+await fire("session_start", {}, ctx);
+globalThis.__fmOnBranchPrompt = async ({ session }) => {
+  const report = session.options.customTools.find((tool) => tool.name === "fm_branch_report");
+  const result = await report.execute("early-mirror", {
+    task: "branch-driver", verdict: "routine", summary: "wake handled",
+  }, undefined, undefined, {});
+  if (result.isError) throw new Error(JSON.stringify(result));
+};
+for (const messageType of [undefined, "user"]) {
+  const prompt = `Hold task-${entries.length + 1} until my next request.`;
+  await fire("before_agent_start", { ...(messageType ? { messageType } : {}), prompt }, ctx);
+  await dispatch("signal: wake before user persistence").settlement;
+  const ops = globalThis.__fmSessions[0].ops;
+  if (ops.at(-2)?.message?.content !== `[captain] ${prompt}` || ops.at(-1)?.kind !== "prompt") {
+    throw new Error(`current request missing before wake: ${JSON.stringify(ops)}`);
+  }
+  entries.push({ type: "message", message: { role: "user", content: prompt } });
+  await fire("turn_end", {}, ctx);
+  await dispatch("signal: wake after user persistence").settlement;
+  if (ops.filter((op) => op.message?.content === `[captain] ${prompt}`).length !== 1) {
+    throw new Error("persisting the staged request duplicated its mirror");
+  }
+}
+await fire("before_agent_start", {
+  messageType: "custom", message: { role: "custom", customType: "test", content: "operational" },
+}, ctx);
+await dispatch("signal: wake after custom event").settlement;
+if (globalThis.__fmSessions[0].ops.filter((op) => op.kind === "custom").length !== 2) {
+  throw new Error("a custom event entered captain dialog");
+}
+process.exit(0);
+EOF
+  status=$?
+  out=$(cat "$TMP_ROOT/node-output")
+  expect_code 0 "$status" "current user requests must mirror before persistence with either event shape: $out"
+  pass "current requests mirror before persistence with and without messageType, exactly once"
 }
 
 test_branch_mirror_filters_order_and_cursor() {
@@ -5976,6 +6032,7 @@ test_post_construction_provider_error_falls_back_latches_and_recovers_on_cooldow
 test_selection_change_does_not_corrupt_inflight_provider_state
 test_main_owned_grant_result_falls_back_to_main
 test_branch_predrain_recheck_noops_already_drained_wake
+test_branch_mirrors_current_request_before_persistence_without_message_type
 test_branch_mirror_filters_order_and_cursor
 test_branch_mirror_reanchors_for_the_new_session_branch_conversation
 test_branch_session_is_new_at_every_main_session_start

@@ -1305,7 +1305,7 @@ The refusal is a JSON error on stderr with exit 1 and empty stdout, and both cli
 ### Submit confirmation
 
 On 2026-09-24, a read-only guard against an existing idle Claude Code 2.1.282 pane on Herdr 0.9.1 confirmed that the titled-rule, bare `❯`, closing-rule composer classified `empty` with native Claude idle identity.
-`FM_CLAUDE_HERDR_COMPOSER_LIVE=1 FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<pane> bin/fm-test-run.sh tests/fm-claude-herdr-composer-live-e2e.test.sh` refreshes this check without launching or changing a pane.
+The read-only refresh guard is described with its scrolled controls below.
 
 Measured 2026-08-19 against Herdr 0.8.0 and Claude Code 2.1.236 in an isolated `fm-lab-` session.
 
@@ -1332,8 +1332,7 @@ Typing `/exit` makes Claude Code render its command popup between the composer a
 The composer row lands outside a bounded 20-row tail of the pane, so the adapter's bounded composer reads reported the composer as empty while it actually held `/exit`.
 The pre-Enter payload proof then judged the typed command unsent, pressed Ctrl+U, and reported `send-failed` without ever pressing Enter, so `bin/fm-control.sh exit` never exited the worker (and `bin/fm-secondmate-restart.sh` inherited the failure through its exit step).
 
-The fix captures the FULL VISIBLE VIEWPORT for every herdr adapter composer read (`pane read --source visible [--format ansi]`, `fm_backend_herdr_composer_state` and `fm_backend_herdr_composer_content`): the composer is by definition inside the viewport, and the viewport is the one bound that always contains it.
-The shared inbox pending-line confirmation read (`bin/fm-task-inbox-lib.sh`) stays a bounded tail on every backend, herdr included; its payloads are task lines, not slash commands, so the popup shape does not arise there.
+The current capture-selection contract is owned by [Claude composer proof](../herdr-backend.md#claude-composer-proof).
 The popup rows sit below the composer's closing rule, which is a structural edge row, so the shared classifier still selects only the composer and the menu rows never read as typed text.
 Verified live in the lab: with the popup up the state read answers `pending` (previously `empty`) and the payload proof returns `/exit` (previously empty), the submit presses Enter, and the Claude process exits, leaving the shell prompt.
 Growing the window only adds rows above the composer, so the bottom-most-shape selection, the footer zone, and every previously passing verdict are unchanged.
@@ -1357,6 +1356,62 @@ FM_HERDR_SUBMIT_CONFIRM_LIVE=1 tests/fm-herdr-submit-confirm-live-e2e.test.sh
 
 ```text
 ok - live Herdr submit confirm: Claude Code (2.1.283 (Claude Code)) on herdr 0.9.0 proves and submits a typed /exit behind its command popup
+```
+
+Scrolled-viewer verification for [Claude composer proof](../herdr-backend.md#claude-composer-proof):
+Portable regression, fake CLI, no Herdr server, 2026-10-13:
+
+```sh
+bash tests/fm-backend-herdr.test.sh
+```
+
+```text
+ok - fm_backend_herdr_composer_state: scrolled history with an empty bottom composer reads empty
+ok - fm_backend_herdr_composer_state: real text at the bottom of a scrolled pane reads pending
+ok - fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown
+```
+
+The read-only guard now requires three prepared idle Claude panes: an unscrolled empty composer, a scrolled empty composer, and a scrolled composer holding the exact supplied draft.
+It verifies state and content through both ANSI and plain captures and requires history to differ from the live bottom for each scrolled control.
+A single-line bare draft is `pending` with ANSI styling and conservatively `unknown` without styling, where a ghost suggestion cannot be distinguished; both content reads must still match the prepared text exactly.
+Refresh with:
+
+```sh
+FM_CLAUDE_HERDR_COMPOSER_LIVE=1 \
+FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<unscrolled-empty-pane> \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET=<session>:<workspace>:<scrolled-empty-pane> \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET=<session>:<workspace>:<scrolled-pending-pane> \
+FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='prepared draft' \
+bash tests/fm-claude-herdr-composer-live-e2e.test.sh
+```
+
+Measured 2026-10-19 against Herdr 0.9.5 (protocol 22) and Claude Code 2.1.304 in the isolated `fm-lab-c` session.
+All Herdr runtime, Claude configuration, transcript, and lab ownership files lived under the review worktree's `.r/` directory.
+`XDG_CONFIG_HOME=.r` kept the named session's Unix socket path short enough without writing outside the worktree.
+Claude used its [documented classic renderer](https://code.claude.com/docs/en/env-vars), selected at launch with `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`; fullscreen mode keeps application-owned history and reported no host scrollback, so it could not exercise a positive Herdr scroll offset.
+The controls ran with repository hooks disabled and `claudeMdExcludes` set to `["**"]` in an isolated launch settings file.
+The two scrolled controls contained real Haiku 5.5 replies of 80 numbered lines, with `scrolled draft control` typed but never submitted in the pending control.
+The real socket API request `pane.scroll` with `{"pane_id":"w1:pB","offset_from_bottom":60}`, repeated for `w1:pC`, moved each viewer into history.
+Both panes reported `offset_from_bottom=60`, `max_offset_from_bottom=67`, and `viewport_rows=40`; their visible history differed from their recent bottom captures.
+The unscrolled control was `w1:pA` with an empty composer.
+The guard checked native Claude idle identity, the public composer-state result, the content proof, and separate ANSI and plain state/content extraction against those prepared controls.
+
+Command run from the worktree with the isolated environment selected:
+
+```sh
+XDG_CONFIG_HOME=.r FM_HOME="$PWD/.r/fm" \
+FM_CLAUDE_HERDR_COMPOSER_LIVE=1 \
+FM_CLAUDE_HERDR_COMPOSER_TARGET=fm-lab-c:w1:pA \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET=fm-lab-c:w1:pB \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET=fm-lab-c:w1:pC \
+FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='scrolled draft control' \
+bash tests/fm-claude-herdr-composer-live-e2e.test.sh
+```
+
+```text
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: unscrolled empty composer: ANSI=empty, plain=empty; both content reads match the prepared draft
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: scrolled empty composer: ANSI=empty, plain=empty; both content reads match the prepared draft
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: scrolled pending composer: ANSI=pending, plain=unknown; both content reads match the prepared draft
 ```
 
 ### Claude background-task exit picker
