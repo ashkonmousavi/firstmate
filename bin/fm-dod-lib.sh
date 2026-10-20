@@ -45,12 +45,15 @@
 # task's done. Teardown's landed-work test remains the complete discard gate.
 # The block opens with the fixed machine-readable "Delivery contract: mode=<mode>"
 # line that bin/fm-spawn.sh checks a ship brief against; a forge=gerrit block
-# appends " forge=gerrit shape=squash" to that line. The "Ship branch: <branch>"
+# appends " forge=gerrit shape=squash" to that line and a forge=forgejo block
+# appends " forge=forgejo". The "Ship branch: <branch>"
 # line under it is machine-readable the same way: bin/fm-spawn.sh refuses a ship
 # whose spawn-selected branch disagrees with it.
-# forge is none|gerrit and defaults to none; bin/fm-project-mode.sh's header owns
-# what the registry binding means, and this file owns what gerrit changes for a
-# WORKER (docs/gerrit-forge-integration.md is the design). A forge composes with
+# forge is none|gerrit|forgejo and defaults to none; bin/fm-project-mode.sh's
+# header owns what the registry binding means, and this file owns what each
+# forge changes for a WORKER (docs/gerrit-forge-integration.md is the gerrit
+# design). In the Definition of done, forgejo changes only the CLI a direct-PR
+# worker opens its pull request with: tea instead of gh-axi. A forge composes with
 # the two modes that publish and is refused on local-only, which publishes
 # nothing. On gerrit the worker publishes one squashed change with
 # `gerrit-axi publish --squash` instead of opening a pull request: direct-PR does
@@ -188,9 +191,9 @@ EOF
 fm_forge_valid_for_mode() {  # <forge> <mode> <caller>
   local forge=$1 mode=$2 caller=$3
   case "$forge" in
-    none|gerrit) ;;
+    none|gerrit|forgejo) ;;
     *)
-      echo "error: $caller: unknown forge '$forge' (expected none or gerrit)" >&2
+      echo "error: $caller: unknown forge '$forge' (expected none, gerrit, or forgejo)" >&2
       return 1 ;;
   esac
   if [ "$forge" != none ] && [ "$mode" = local-only ]; then
@@ -1234,6 +1237,10 @@ fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode
   local SCOUT_RULE2=${10:-'2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.'}
   local PAUSED_VERB=${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}
   local STATUS_APPEND CREWMATE_PAUSE_INSTRUCTIONS INBOX_SECTION WAIT_BLOCK='' SHARED_INFRA_RULE ASK_USER_BLOCK='' FOLLOWUP_BLOCK='' RULE1 DOD
+  local FORGE_RULE_LINE='Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.'
+  if [ "$FORGE" = forgejo ]; then
+    FORGE_RULE_LINE='Use tea for Forgejo operations and chrome-devtools-axi for browser operations.'
+  fi
   STATUS_APPEND=$(fm_worker_status_append "$FM_ROOT" "$STATE" "$ID" "$CONFIG")
   CREWMATE_PAUSE_INSTRUCTIONS=$(fm_worker_pause_block "$PAUSED_VERB")
   INBOX_SECTION=$(fm_worker_inbox_block "$STATE" "$ID" "$CONFIG")
@@ -1245,7 +1252,7 @@ fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode
 # Rules
 1. Never push to any remote and never open a PR.
 $SCOUT_RULE2
-3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+3. $FORGE_RULE_LINE
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
@@ -1286,7 +1293,7 @@ $RULE1
 2. Keep project edits inside this worktree; keep proof and scratch output outside it, under \`$DATA/$ID/\` or a temporary directory.
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
-3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
+3. $FORGE_RULE_LINE
 4. Report status by appending one line:
    \`$STATUS_APPEND\`
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
@@ -1463,12 +1470,20 @@ EOF
 
 fm_dod_block() {  # <mode> <task-id> [branch] [<forge>] [<base>]
   local mode=$1 id=$2 forge=${4:-none} base=${5:-}
-  local branch=${3:-fm/$id} pr_base='' nm_base='' base_q
+  local branch=${3:-fm/$id} pr_base='' nm_base='' base_q contract_forge='' forge_cli=gh-axi draft_check check_read
   # The captain's class-fix line, verbatim in every mode; the
   # diagnostic-reasoning skill owns what makes a repair a class fix.
   local class_fix='class fix: test fails without the fix; symptom seen twice.'
   fm_forge_valid_for_mode "$forge" "$mode" fm_dod_block || return 1
   fm_base_branch_valid "$base" "$mode" "$forge" fm_dod_block || return 1
+  draft_check="(\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`."
+  check_read="\`gh-axi pr checks <number>\` (consult its \`--help\` for current usage)"
+  if [ "$forge" = forgejo ]; then
+    check_read="\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` for the current \`head.sha\`, then \`tea api --repo <owner>/<repo> '/repos/{owner}/{repo}/commits/<head.sha>/status?limit=50&page=<page>'\` for every page until an empty \`statuses\` array or \`statuses: null\` with \`state: \"\"\` and \`total_count: 0\`; every non-empty page must have \`state\` equal to \`success\`, and an unreadable page or no statuses is not green"
+    contract_forge=' forge=forgejo'
+    forge_cli=tea
+    draft_check="(\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` must show \`draft\` as false, where <owner>/<repo> and <number> come from your PR URL); Forgejo marks a draft by a work-in-progress title prefix such as \`WIP:\`, so if it is a draft, remove that prefix with \`tea pulls edit <number> --repo <owner>/<repo> --title '<title without the prefix>'\`."
+  fi
   if [ -n "$base" ]; then
     printf -v base_q '%q' "$base"
     pr_base=", against the base branch \`$base\` (\`--base $base_q\`), not the repository default"
@@ -1529,7 +1544,7 @@ EOF
     direct-PR:*)
       cat <<EOF
 # Definition of done
-Delivery contract: mode=direct-PR
+Delivery contract: mode=direct-PR$contract_forge
 Ship branch: $branch
 $class_fix
 This task ships **direct-PR**: you raise the PR yourself, without the no-mistakes pipeline.
@@ -1537,10 +1552,10 @@ EOF
       fm_direct_review_block
       cat <<EOF
 This task is complete only with an existing non-draft PR and every required check green for its current head.
-When it is implemented and committed, push your branch and open a PR with \`gh-axi\` that is ready for review, not a draft$pr_base.
-Before you report done, read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.
+When it is implemented and committed, push your branch and open a PR with \`$forge_cli\` that is ready for review, not a draft$pr_base.
+Before you report done, read the PR back from the forge and confirm it is not a draft $draft_check
 A draft cannot be merged, so a done report on one leaves the merge unasked.
-Wait for every required check on the current PR head to be green, reading the forge with \`gh-axi pr checks <number>\` (consult its \`--help\` for current usage).
+Wait for every required check on the current PR head to be green, reading the forge with $check_read.
 Pending checks use \`paused [at=<epoch>]: {checks awaited and completion condition}\`; resume when they finish, fixing failed checks and pushing the repair through this direct-PR path before checking again.
 Then append \`done [at=<epoch>]: PR {full https URL from the forge} checks green\` to the status file and stop.
 That \`done:\` is accepted only when this copy's HEAD - your latest commit - is pushed to your PR branch; the check tests that commit, not merely that a branch moved.
@@ -1565,7 +1580,7 @@ EOF
     no-mistakes:*)
       cat <<EOF
 # Definition of done
-Delivery contract: mode=no-mistakes
+Delivery contract: mode=no-mistakes$contract_forge
 Ship branch: $branch
 $class_fix
 This task is complete only with an existing non-draft PR and every required check green for its current head.
@@ -1576,7 +1591,7 @@ EOF
       fm_nm_driving_block "$forge"
       cat <<EOF
 
-After /no-mistakes reports CI green (the CI-ready return point - do not wait for it to keep monitoring in the background until merge), read the PR back from the forge and confirm it is not a draft (\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`.
+After /no-mistakes reports CI green (the CI-ready return point - do not wait for it to keep monitoring in the background until merge), read the PR back from the forge and confirm it is not a draft $draft_check
 A draft cannot be merged, so a done report on one leaves the merge unasked.
 Then append \`done [at=<epoch>]: PR {full https URL from the forge} checks green\` and stop. You are finished.
 That CI-ready \`done:\` is accepted only when this copy's HEAD - your latest commit - is one the /no-mistakes run pushed, so commit nothing after the run; the check tests that commit, not merely that a branch moved.

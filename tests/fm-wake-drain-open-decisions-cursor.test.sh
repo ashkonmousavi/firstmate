@@ -17,6 +17,9 @@ DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-wake-drain-open-decisions-cursor-tests)
 
+# shellcheck source=bin/fm-classify-lib.sh
+. "$ROOT/bin/fm-classify-lib.sh"
+
 # Append <count> harmless filler lines (routine working: notes, never a
 # needs-decision/blocked/resolved verb) to <file> and print the exact number of
 # bytes appended, so a test can assert the read-probe's byte count against a
@@ -408,6 +411,128 @@ test_kind_changes_invalidate_folded_decisions() {
   pass "folded decisions are rebuilt when task-kind evidence changes"
 }
 
+test_split_lines_keep_complete_cursor_boundaries() {
+  local reader dir status cursor prefix_bytes expected got committed ident
+  for reader in status_open_decisions_incremental status_open_decisions_peek; do
+    dir=$(make_case "split-$reader")
+    status="$dir/state/task.status"
+    cursor="$dir/state/.task.open-decisions-cursor"
+    [ "$reader" != status_open_decisions_peek ] || cursor="$cursor.peek"
+    printf 'working: café\n' > "$status"
+    prefix_bytes=$(LC_ALL=C wc -c < "$status" | tr -d '[:space:]')
+    printf 'needs-deci' >> "$status"
+    got=$("$reader" "$status") || fail "$reader failed on a split verb"
+    [ -z "$got" ] || fail "$reader opened an incomplete verb"
+    [ "$(sed -n 's/^offset=//p' "$cursor")" = "$prefix_bytes" ] \
+      || fail "$reader committed an offset inside a split verb"
+
+    printf 'sion [key=x]: café' >> "$status"
+    expected=$'x\tneeds-decision\tcafé'
+    got=$("$reader" "$status") || fail "$reader failed on an unterminated decision"
+    [ "$got" = "$expected" ] && [ "$(status_open_decisions "$status")" = "$expected" ] \
+      || fail "$reader lost the decision assembled across two appends"
+    [ "$(sed -n 's/^offset=//p' "$cursor")" = "$prefix_bytes" ] \
+      || fail "$reader committed an unterminated decision"
+    [ -z "$(sed -n '4,$p' "$cursor")" ] \
+      || fail "$reader persisted a decision from an unterminated tail"
+
+    printf ' and more\nworking: still here\n' >> "$status"
+    expected=$'x\tneeds-decision\tcafé and more'
+    got=$("$reader" "$status") || fail "$reader failed after a decision completed"
+    [ "$got" = "$expected" ] || fail "$reader did not re-read the completed tail from its start"
+    committed=$(LC_ALL=C wc -c < "$status" | tr -d '[:space:]')
+    [ "$(sed -n 's/^offset=//p' "$cursor")" = "$committed" ] \
+      || fail "$reader did not commit the complete span"
+    [ "$("$reader" "$status")" = "$expected" ] || fail "$reader lost a committed decision"
+
+    printf 'resolved [key=x]: settled' >> "$status"
+    [ -z "$("$reader" "$status")" ] || fail "$reader omitted an unterminated close from its answer"
+    [ "$(sed -n '4,$p' "$cursor")" = "$expected" ] \
+      || fail "$reader persisted an unterminated close"
+    [ "$(sed -n 's/^offset=//p' "$cursor")" = "$committed" ] \
+      || fail "$reader advanced its cursor through an unterminated close"
+    printf '\nneeds-decision [key=y]: next\n' >> "$status"
+    [ "$("$reader" "$status")" = $'y\tneeds-decision\tnext' ] \
+      || fail "$reader did not re-read the completed close"
+
+    printf 'working: café\nneeds-decision [key=migrated]: retained\n' > "$status"
+    ident=$(_fm_open_decisions_file_ident "$status")
+    printf 'version=9:unknown\noffset=%s\nident=%s\n' "$((prefix_bytes + 10))" "$ident" > "$cursor"
+    [ "$("$reader" "$status")" = $'migrated\tneeds-decision\tretained' ] \
+      || fail "$reader kept an older cursor positioned inside a record"
+  done
+
+  dir=$(make_case split-captured-endpoint)
+  status="$dir/state/task.status"
+  printf 'working: ready\n' > "$status"
+  prefix_bytes=$(LC_ALL=C wc -c < "$status" | tr -d '[:space:]')
+  printf 'needs-decision [key=x]: captured\n' >> "$status"
+  [ -z "$(status_open_decisions_incremental "$status" "$((prefix_bytes + 10))")" ] \
+    || fail "a captured partial verb opened a decision"
+  [ "$(status_open_decisions_incremental "$status")" = $'x\tneeds-decision\tcaptured' ] \
+    || fail "a captured endpoint inside a verb permanently lost its decision"
+  pass "drain and peek return partial tails but persist only complete records"
+}
+
+test_peek_read_failures_preserve_decisions() (
+  local failure baseline dir status cursor reader fakebin expected got before
+  for failure in identity size size-invalid scratch span short chunk-size chunk-size-invalid; do
+    for baseline in missing empty open; do (
+      dir=$(make_case "peek-$failure-$baseline")
+      status="$dir/state/task.status"
+      cursor="$dir/state/.task.open-decisions-cursor.peek"
+      printf 'working: ready\n' > "$status"
+      if [ "$baseline" = open ]; then printf 'blocked [key=old]: waiting\n' >> "$status"; fi
+      if [ "$baseline" != missing ]; then status_open_decisions_peek "$status" >/dev/null; fi
+      before=$(cat "$cursor" 2>/dev/null || true)
+      printf 'needs-decision [key=x]: readable decision\n' >> "$status"
+      reader="$dir/failed-reader"
+      export FM_TEST_FOLD_FAILURE="$failure" FM_TEST_FOLD_READ_LOG="$dir/read-failures"
+      cat > "$reader" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$FM_TEST_FOLD_FAILURE" >> "$FM_TEST_FOLD_READ_LOG"
+case "$FM_TEST_FOLD_FAILURE" in
+  size-invalid|chunk-size-invalid) printf 'invalid\n' ;;
+  short) printf 'needs-deci' ;;
+  *) exit 1 ;;
+esac
+SH
+      chmod +x "$reader"
+      case "$failure" in
+        identity) export FM_STATUS_IDENTITY_READER="$reader" ;;
+        size|size-invalid) export FM_STATUS_SIZE_READER="$reader" ;;
+        scratch) mkdir "$cursor.read.$$" "$dir/state/.task.open-decisions-cursor.read.$$" ;;
+        span|short) export FM_STATUS_SPAN_READER="$reader" ;;
+        chunk-size|chunk-size-invalid)
+          fakebin="$dir/fakebin"
+          mkdir -p "$fakebin"
+          cp "$reader" "$fakebin/wc"
+          export PATH="$fakebin:$PATH"
+          ;;
+      esac
+      expected=$'x\tneeds-decision\treadable decision'
+      [ "$baseline" != open ] || expected=$'old\tblocked\twaiting'
+      got=$(status_open_decisions_peek "$status" 2>/dev/null) \
+        || fail "$failure/$baseline: peek failed rather than returning a decision"
+      [ "$got" = "$expected" ] \
+        || fail "$failure/$baseline: peek lost the authoritative or trusted decision: $got"
+      [ "$(status_own_open_decisions "$status" 2>/dev/null)" = "$expected" ] \
+        || fail "$failure/$baseline: recovery and retry readers lost the decision"
+      [ "$(cat "$cursor" 2>/dev/null || true)" = "$before" ] \
+        || fail "$failure/$baseline: a failed read changed the supervision cursor"
+      if [ "$failure" != scratch ]; then
+        [ -s "$FM_TEST_FOLD_READ_LOG" ] || fail "$failure: the failing reader was not reached"
+        [ ! -e "$cursor.read.$$" ] || fail "$failure: a failed read left its scratch file"
+      fi
+      [ -z "$(status_open_decisions_incremental "$status" 2>/dev/null)" ] \
+        || fail "$failure: the drain changed its no-cache read-failure behavior"
+    ) || exit 1; done
+  done
+  pass "peek read failures fall back without a trusted set and retain trusted decisions"
+)
+
+test_split_lines_keep_complete_cursor_boundaries
+test_peek_read_failures_preserve_decisions
 test_terminal_supersession_reaches_cached_drains
 test_kind_changes_invalidate_folded_decisions
 test_truncated_log_falls_back_to_a_full_refold_not_a_dropped_decision

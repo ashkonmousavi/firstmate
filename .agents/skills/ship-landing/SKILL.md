@@ -17,8 +17,12 @@ A no-mistakes worker re-validates it with /no-mistakes so the pipeline stays the
 An older no-mistakes brief's `done [at=<epoch>]: {summary}` remains an ungated pipeline handoff; fresh PR-path workers start validation themselves under `bin/fm-dod-lib.sh`.
 Tell the captain the PR's full `https://...` URL copied from the worker's ready line, the resolved checks-green crew-state line, or the task's `pr=` metadata, a concise outcome summary, and the no-mistakes risk level when applicable.
 A captain instruction to merge is explicit authority; `yolo` is the only standing routine merge authority.
+Firstmate orchestrates the landing order at every push and merge: main repair PRs and the current main proof run lead the shared CI queue.
+Lower-priority PR runs may be cancelled and rerun behind main repair work with the reason logged.
+A running main run is never cancelled, and a newer main merge replaces only main legs that have not started.
 For a PR-based landing, verify the default-branch CI run that the merge triggers when the project runs one, plus any deploy or release workflow and the live version when the project has a deploy target.
 Report those concrete results before calling the task landed or tearing it down; a local-only landing reports its local outcome once the fast-forward merge succeeds.
+After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that `ship-landing` requires before the task counts as landed; a local-only landing gives only the local-main outcome.
 When a post-merge main run turns red, firstmate lands a revert of that merge within one hour of the red result unless a fix is already green on main; never put a fix chain ahead of the queue.
 Dispatch a ship to prepare isolated revert source and publish its own real PR, then use the existing verified-head merge guard; `bin/fm-pr-merge.sh`'s header owns the worker preparation command and ordinary merge invocation.
 The revert lands on its own classify pass, with any other named-check disposition recorded by firstmate under the current waiver authority; the guard still refuses every unwaived or unproved condition.

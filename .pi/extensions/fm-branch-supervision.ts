@@ -1686,7 +1686,8 @@ ${context.command}
       isProcessingCustomMessage(event.message) &&
       queuedProcessingContent !== null &&
       event.message.content === queuedProcessingContent;
-    if (event.messageType !== "user") return;
+    // Older Pi user events omit messageType; custom turns have no prompt.
+    if (event.messageType === "custom") return;
     const trimmed = event.prompt.trim();
     if (!trimmed || isOperationalUserText(trimmed)) return;
     const file = currentMainSession.getSessionFile() ?? "";
