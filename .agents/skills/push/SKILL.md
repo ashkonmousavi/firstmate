@@ -2,13 +2,14 @@
 name: push
 description: >-
   Take over the live Firstmate fleet for one bounded pass when the captain invokes /push, $push, or asks to check and push the fleet forward, during a tangle, as reinforcement, or as a routine check against waste.
-  Map every tangle to its one cause from live evidence, untangle by hand where the machinery refuses, judge every rule or gate that cost time, correct the work sequence and method on every machine, sequence ready work within admitted capacity, and report outcomes in minutes saved in Captain Signal v2 style.
 user-invocable: true
 metadata:
   internal: true
 ---
 
 # push
+
+Map every tangle to its one cause from live evidence, untangle by hand where the machinery refuses, judge every rule or gate that cost time, correct the work sequence and method on every machine, sequence ready work within admitted capacity, and report outcomes in minutes saved in Captain Signal v2 style.
 
 Take over the fleet for one bounded pass, the way a hands-on operator would: find exactly where work is tangled, untangle it by hand where the machinery refuses, and leave every lane doing the right work, in the right order, by the right method.
 The pass is the same whether it is called during a tangle, as reinforcement, or as a routine push to catch waste.
