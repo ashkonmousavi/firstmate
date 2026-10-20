@@ -237,7 +237,7 @@ if fm_supervision_host_enabled "$CONFIG" codex; then
   # The host ends its own park; the outer bound only catches a host that
   # outlived every one of its own bounds.
   FM_SUPERVISION_WATCH_DEADLINE=$(( $(date +%s) + BOUND )) FM_SUPERVISION_HOST_PRIMARY=codex FM_SUPERVISION_HOST_PARK_SECONDS=$BOUND FM_SUPERVISION_HOST_PARK_LIMIT=$LIMIT \
-    run_bounded $((LIMIT + 120)) "$SCRIPT_DIR/fm-supervision-host.sh" park >"$OUT" 2>"$ERR"
+    run_bounded $((LIMIT + 120)) TERM 5 "$SCRIPT_DIR/fm-supervision-host.sh" park >"$OUT" 2>"$ERR"
   RC=$?
   set -e
   if grep -E '^(signal:|stale:|check:|heartbeat($|:)|supervision-host:)' "$OUT" 2>/dev/null \
@@ -267,7 +267,7 @@ set +e
 # failure backstop for a watcher that cannot reach that boundary, so it also
 # covers one registered check the watcher started just before the bound.
 FM_WATCH_CHECKPOINT_SECONDS=$SECONDS_ARG \
-  run_bounded "$((SECONDS_ARG + $(positive_or "${FM_CHECK_TIMEOUT:-}" 30) + 10))" "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
+  run_bounded "$((SECONDS_ARG + $(positive_or "${FM_CHECK_TIMEOUT:-}" 30) + 10))" TERM 5 "$SCRIPT_DIR/fm-watch.sh" >"$OUT" 2>"$ERR"
 RC=$?
 set -e
 

@@ -327,6 +327,7 @@ test_forge_selection_renders_correct_cli() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-forge-default some-proj --mode direct-PR >/dev/null 2>&1 \
     || fail "a ship brief with no --forge should still scaffold"
   brief="$home/data/brief-forge-default/brief.md"
+  brief=$(resolve_worker_contract "$brief")
   assert_grep "3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations." "$brief" \
     "a brief with no --forge must render the exact pre-existing gh-axi Rule 3 line"
   # shellcheck disable=SC2016 # Backticks are literal generated brief text.
@@ -338,6 +339,7 @@ test_forge_selection_renders_correct_cli() {
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-forge-forgejo some-proj --mode direct-PR --forge forgejo >/dev/null 2>&1 \
     || fail "--forge forgejo should scaffold a direct-PR ship brief"
   brief="$home/data/brief-forge-forgejo/brief.md"
+  brief=$(resolve_worker_contract "$brief")
   assert_grep "3. Use tea for Forgejo operations and chrome-devtools-axi for browser operations." "$brief" \
     "--forge forgejo must render the tea Rule 3 line"
   # shellcheck disable=SC2016 # Backticks are literal generated brief text.
@@ -356,9 +358,15 @@ test_forge_selection_renders_correct_cli() {
   assert_no_grep 'gh-axi pr ready' "$brief" \
     "--forge forgejo's direct-PR DOD must not send the worker to gh-axi to clear a draft"
 
+  assert_no_grep 'gh-axi pr checks' "$brief" \
+    "a Forgejo brief must not read checks from GitHub"
+  assert_grep 'status?limit=50&page=<page>' "$brief" \
+    "a Forgejo brief must inspect every combined-status page at the current head"
+
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-forge-nm some-proj --mode no-mistakes --forge forgejo >/dev/null 2>&1 \
     || fail "--forge forgejo should scaffold a no-mistakes ship brief"
   brief="$home/data/brief-forge-nm/brief.md"
+  brief=$(resolve_worker_contract "$brief")
   assert_grep "3. Use tea for Forgejo operations and chrome-devtools-axi for browser operations." "$brief" \
     "a no-mistakes --forge forgejo brief must render the tea Rule 3 line"
   grep -qx "Delivery contract: mode=no-mistakes forge=forgejo" "$brief" \

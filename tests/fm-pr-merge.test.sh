@@ -2390,6 +2390,40 @@ test_forgejo_combined_status_reads_every_page() {
   expect_code 0 "$rc" "forgejo-status-page2-green: every green page should merge"
   assert_grep 'page=2' "$case_dir/tea.log" \
     "forgejo-status-page2-green: the second status page was never read"
+  local page payload case_num=0
+  for page in 1 2; do
+    for payload in '{"message":"Internal Server Error"}' '{"state":"success"}' \
+      '{"state":"success","statuses":null}' '{"state":"success","statuses":{}}' \
+      '{"statuses":[]}' '{"state":null,"statuses":[]}' '{"state":true,"statuses":[]}' \
+      '{"state":{},"statuses":[]}' '{"state":[],"statuses":[]}' \
+      '{"state":1,"statuses":[]}' '{"state":"success","statuses":""}'; do
+      case_num=$((case_num + 1))
+      case_dir=$(make_forgejo_case "forgejo-unreadable-page-$page-$case_num")
+      if [ "$page" -eq 1 ]; then
+        printf '%s\n' "$payload" > "$case_dir/tea-status.json"
+      else
+        printf '%s\n' "$payload" > "$case_dir/tea-status-page2.json"
+      fi
+      rc=0
+      run_pr_merge "$case_dir" task-x1 "$FJ_URL" \
+        > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+      expect_code 1 "$rc" "an unreadable status page $page must refuse"
+      assert_grep 'the combined commit status is "unreadable", not success' "$case_dir/stderr" \
+        "an invalid page must not terminate pagination as a green empty page"
+      [ -z "$(tea_merge_line "$case_dir/tea.log")" ] || fail "an invalid page permitted a merge"
+    done
+  done
+  for payload in '{"state":"failure\nstate=success","statuses":[{}]}' \
+    '{"state":"failure\ncount=0","statuses":[{}]}'; do
+    case_num=$((case_num + 1))
+    case_dir=$(make_forgejo_case "forgejo-status-field-injection-$case_num")
+    printf '%s\n' "$payload" > "$case_dir/tea-status-page2.json"
+    rc=0
+    run_pr_merge "$case_dir" task-x1 "$FJ_URL" \
+      > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 1 "$rc" "status text must not forge pagination or state fields"
+    [ -z "$(tea_merge_line "$case_dir/tea.log")" ] || fail "status text permitted a merge"
+  done
   pass "fm-pr-merge reads every Forgejo combined-status page before merging"
 }
 

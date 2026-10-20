@@ -47,8 +47,9 @@ test_perl_timeout_fallback_honors_cleanup_bound_before_escalating() {
   fallback_bin="$home/fallback-bin"
   mkdir -p "$home/root/bin" "$fallback_bin"
   cp "$CHECKPOINT" "$home/root/bin/fm-watch-checkpoint.sh"
-  cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/fm-supervision-engine-lib.sh"
-  for tool in bash dirname mktemp rm perl grep cat; do
+  cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$ROOT/bin/fm-wake-lib.sh" "$ROOT/bin/fm-path-lib.sh" \
+    "$ROOT/bin/fm-session-lock-lib.sh" "$ROOT/bin/fm-cursor-lib.sh" "$home/root/bin/"
+  for tool in bash dirname mktemp rm perl grep cat mkdir uname; do
     tool_path=$(command -v "$tool") || fail "could not locate $tool for the Perl fallback fixture"
     ln -s "$tool_path" "$fallback_bin/$tool"
   done
@@ -56,38 +57,54 @@ test_perl_timeout_fallback_honors_cleanup_bound_before_escalating() {
 #!/usr/bin/env perl
 use strict;
 use warnings;
-$SIG{INT} = 'IGNORE';
+$SIG{TERM} = sub {
+  sleep 3;
+  open my $cleanup_file, '>', "$ENV{FM_HOME}/cleanup-reached" or die "open cleanup marker: $!";
+  print {$cleanup_file} "reached\n";
+  close $cleanup_file;
+  sleep 60;
+};
 open my $pid_file, '>', "$ENV{FM_HOME}/watcher.pid" or die "open pid file: $!";
 printf {$pid_file} "%s\n", $$;
 close $pid_file;
-sleep 7;
-open my $cleanup_file, '>', "$ENV{FM_HOME}/cleanup-reached" or die "open cleanup marker: $!";
-print {$cleanup_file} "reached\n";
-close $cleanup_file;
 END {
   if (open my $exit_file, '>', "$ENV{FM_HOME}/natural-exit") {
     print {$exit_file} "natural\n";
   }
 }
-sleep 20;
+if ($ENV{FIXTURE_QUIET} eq "1") {
+  print "watcher: quiet checkpoint\n";
+  exit 75;
+}
+sleep 60;
 PL
   chmod +x "$home/root/bin/fm-watch-checkpoint.sh" "$home/root/bin/fm-watch.sh"
 
   status=0
-  PATH="$fallback_bin" FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_WATCHER_CLEANUP_LOCK_BOUND=8 \
+  PATH="$fallback_bin" FM_HOME="$home" FIXTURE_QUIET=1 \
+    "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out.txt" 2>"$home/err.txt" || status=$?
+  expect_code 124 "$status" "Perl fallback clean quiet exit"
+  assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 1s" \
+    "Perl fallback did not preserve the watcher's clean quiet boundary"
+  rm -f "$home/natural-exit"
+
+  status=0
+  PATH="$fallback_bin" FM_HOME="$home" FIXTURE_QUIET=0 FM_CHECK_TIMEOUT=1 FM_WATCHER_CLEANUP_LOCK_BOUND=8 \
     "$home/root/bin/fm-watch-checkpoint.sh" --seconds 1 >"$home/out.txt" 2>"$home/err.txt" || status=$?
 
-  expect_code 124 "$status" "Perl fallback checkpoint exit"
-  assert_contains "$(cat "$home/out.txt")" "checkpoint: no actionable wake within 1s" \
-    "Perl fallback did not return a quiet checkpoint"
-  [ -e "$home/cleanup-reached" ] || fail "the Perl fallback killed the watcher before its 8-second cleanup bound"
-  [ ! -e "$home/natural-exit" ] || fail "the INT-ignoring watcher exited naturally instead of being killed"
-  [ -s "$home/watcher.pid" ] || fail "the INT-ignoring watcher did not start"
+  expect_code 1 "$status" "Perl fallback backstop exit"
+  assert_contains "$(cat "$home/err.txt")" 'watcher exceeded the quiet bound without a clean close' \
+    "Perl fallback did not report its failed backstop"
+  assert_not_contains "$(cat "$home/out.txt")" 'checkpoint: no actionable wake' \
+    "Perl fallback passed off a failed backstop as quiet"
+  [ -e "$home/cleanup-reached" ] || fail "the Perl fallback killed the watcher before its cleanup bound"
+  [ ! -e "$home/natural-exit" ] || fail "the stuck watcher exited naturally instead of being killed"
+  [ -s "$home/watcher.pid" ] || fail "the stuck watcher did not start"
   watcher_pid=$(cat "$home/watcher.pid")
   if kill -0 "$watcher_pid" 2>/dev/null; then
-    fail "the INT-ignoring watcher survived the Perl fallback escalation"
+    fail "the stuck watcher survived the Perl fallback escalation"
   fi
-  pass "Perl fallback honors the cleanup bound before escalating an INT-ignoring direct watcher"
+  pass "Perl fallback honors the cleanup bound before escalating a stuck direct watcher"
 }
 
 test_announced_recovery_is_not_reannounced_by_next_checkpoint() {
@@ -324,8 +341,8 @@ make_host_home() {  # <name>
   home=$(make_home "$1")
   mkdir -p "$home/root/bin"
   cp "$CHECKPOINT" "$home/root/bin/fm-watch-checkpoint.sh"
-  cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$home/root/bin/fm-supervision-engine-lib.sh"
-  cp "$ROOT/bin/fm-wake-lib.sh" "$ROOT/bin/fm-session-lock-lib.sh" "$ROOT/bin/fm-cursor-lib.sh" "$home/root/bin/"
+  cp "$ROOT/bin/fm-supervision-engine-lib.sh" "$ROOT/bin/fm-wake-lib.sh" "$ROOT/bin/fm-path-lib.sh" \
+    "$ROOT/bin/fm-session-lock-lib.sh" "$ROOT/bin/fm-cursor-lib.sh" "$home/root/bin/"
   cat > "$home/root/bin/fm-supervision-host.sh" <<'SH'
 #!/usr/bin/env bash
 printf 'args=%s\nprimary=%s\npark=%s\nlimit=%s\n' "$*" "${FM_SUPERVISION_HOST_PRIMARY:-}" \

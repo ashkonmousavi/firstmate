@@ -1470,14 +1470,16 @@ EOF
 
 fm_dod_block() {  # <mode> <task-id> [branch] [<forge>] [<base>]
   local mode=$1 id=$2 forge=${4:-none} base=${5:-}
-  local branch=${3:-fm/$id} pr_base='' nm_base='' base_q contract_forge='' forge_cli=gh-axi draft_check
+  local branch=${3:-fm/$id} pr_base='' nm_base='' base_q contract_forge='' forge_cli=gh-axi draft_check check_read
   # The captain's class-fix line, verbatim in every mode; the
   # diagnostic-reasoning skill owns what makes a repair a class fix.
   local class_fix='class fix: test fails without the fix; symptom seen twice.'
   fm_forge_valid_for_mode "$forge" "$mode" fm_dod_block || return 1
   fm_base_branch_valid "$base" "$mode" "$forge" fm_dod_block || return 1
   draft_check="(\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`."
+  check_read="\`gh-axi pr checks <number>\` (consult its \`--help\` for current usage)"
   if [ "$forge" = forgejo ]; then
+    check_read="\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` for the current \`head.sha\`, then \`tea api --repo <owner>/<repo> '/repos/{owner}/{repo}/commits/<head.sha>/status?limit=50&page=<page>'\` for every page until an empty \`statuses\` array; every non-empty page must have \`state\` equal to \`success\`, and an unreadable page or no statuses is not green"
     contract_forge=' forge=forgejo'
     forge_cli=tea
     draft_check="(\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` must show \`draft\` as false, where <owner>/<repo> and <number> come from your PR URL); Forgejo marks a draft by a work-in-progress title prefix such as \`WIP:\`, so if it is a draft, remove that prefix with \`tea pulls edit <number> --repo <owner>/<repo> --title '<title without the prefix>'\`."
@@ -1553,7 +1555,7 @@ This task is complete only with an existing non-draft PR and every required chec
 When it is implemented and committed, push your branch and open a PR with \`$forge_cli\` that is ready for review, not a draft$pr_base.
 Before you report done, read the PR back from the forge and confirm it is not a draft $draft_check
 A draft cannot be merged, so a done report on one leaves the merge unasked.
-Wait for every required check on the current PR head to be green, reading the forge with \`gh-axi pr checks <number>\` (consult its \`--help\` for current usage).
+Wait for every required check on the current PR head to be green, reading the forge with $check_read.
 Pending checks use \`paused [at=<epoch>]: {checks awaited and completion condition}\`; resume when they finish, fixing failed checks and pushing the repair through this direct-PR path before checking again.
 Then append \`done [at=<epoch>]: PR {full https URL from the forge} checks green\` to the status file and stop.
 That \`done:\` is accepted only when this copy's HEAD - your latest commit - is pushed to your PR branch; the check tests that commit, not merely that a branch moved.
