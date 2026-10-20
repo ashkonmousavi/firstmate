@@ -1197,7 +1197,7 @@ _fm_open_decisions_cursor_path() {  # <status-file>
 # Version 4 was already spent on the bracketed-tag parser change above, and a
 # cursor persisted under that reading predates this one, so it must still be
 # discarded and rebuilt from byte 0 under the new reading.
-FM_OPEN_DECISIONS_FOLD_VERSION=9
+FM_OPEN_DECISIONS_FOLD_VERSION=10
 
 # Portable device:inode identity for the rotation/recreation check below.
 _fm_open_decisions_file_ident() {  # <file> -> strongest available identity
@@ -1276,7 +1276,7 @@ _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
 status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   local f=$1 captured_end=${2:-} cf offset ident open='' trusted_open='' cursor_data first rest offset_line ident_line
   local version='' size actual_size cur_ident resolve held chunk_file chunk_size line cursor_dirty=0
-  local target_cursor read_cursor kind fold_version
+  local target_cursor read_cursor kind fold_version tail='' tail_size
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
   kind=$(_fm_status_kind "$f")
   fold_version="$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
@@ -1332,12 +1332,26 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   # A stat/size-read failure is a genuine I/O error, not "the file is empty" -
   # report the already-trusted persisted set unchanged rather than risking a
   # silent invalidation that would wipe it.
-  cur_ident=$(_fm_open_decisions_file_ident "$f") || { printf '%s' "$trusted_open"; return 0; }
-  [ -n "$cur_ident" ] || { printf '%s' "$trusted_open"; return 0; }
-  actual_size=$(_fm_status_file_size "$f") \
-    || { printf '%s' "$trusted_open"; return 0; }
+  if ! cur_ident=$(_fm_open_decisions_file_ident "$f") || [ -z "$cur_ident" ] \
+    || ! actual_size=$(_fm_status_file_size "$f"); then
+    if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+      status_open_decisions "$f"
+    else
+      printf '%s' "$trusted_open"
+    fi
+    return 0
+  fi
   actual_size=${actual_size//[[:space:]]/}
-  case "$actual_size" in ''|*[!0-9]*) printf '%s' "$trusted_open"; return 0 ;; esac
+  case "$actual_size" in
+    ''|*[!0-9]*)
+      if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+        status_open_decisions "$f"
+      else
+        printf '%s' "$trusted_open"
+      fi
+      return 0
+      ;;
+  esac
   if [ -n "$captured_end" ]; then
     case "$captured_end" in
       ''|*[!0-9]*) printf '%s' "$trusted_open"; return 0 ;;
@@ -1357,14 +1371,29 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
 
   if [ "$offset" -lt "$size" ]; then
     chunk_file="$cf.read.$$"
-    _fm_status_read_span "$f" "$offset" "$((size - offset))" > "$chunk_file" 2>/dev/null \
-      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0; }
-    chunk_size=$(LC_ALL=C wc -c < "$chunk_file" 2>/dev/null) \
-      || { rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0; }
+    if ! _fm_status_read_span "$f" "$offset" "$((size - offset))" > "$chunk_file" 2>/dev/null \
+      || ! chunk_size=$(LC_ALL=C wc -c < "$chunk_file" 2>/dev/null); then
+      rm -f "$chunk_file" || true
+      if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+        status_open_decisions "$f"
+      else
+        printf '%s' "$trusted_open"
+      fi
+      return 0
+    fi
     chunk_size=${chunk_size//[[:space:]]/}
     case "$chunk_size" in
-      ''|*[!0-9]*) rm -f "$chunk_file"; printf '%s' "$trusted_open"; return 0 ;;
+      ''|*[!0-9]*) chunk_size=0 ;;
     esac
+    if [ "$chunk_size" -ne "$((size - offset))" ]; then
+      rm -f "$chunk_file" || true
+      if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
+        status_open_decisions "$f"
+      else
+        printf '%s' "$trusted_open"
+      fi
+      return 0
+    fi
     # Test-only observability seam (off by default, no production behavior
     # change): when set, records exactly how many bytes THIS call folded, so a
     # test can assert the incremental path stays bounded by new appends rather
@@ -1373,11 +1402,16 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
       && printf '%s\t%s\n' "$f" "$chunk_size" >> "$FM_OPEN_DECISIONS_READ_PROBE"
     resolve=${FM_CLASSIFY_RESOLVE_VERB:-$FM_CLASSIFY_RESOLVE_VERB_DEFAULT}
     held=${FM_CLASSIFY_CAPTAIN_HELD_VERB:-$FM_CLASSIFY_CAPTAIN_HELD_VERB_DEFAULT}
-    while IFS= read -r line || [ -n "$line" ]; do
+    while IFS= read -r line; do
       open=$(_fm_decision_fold_line "$open" "$line" "$resolve" "$held" "$kind")
     done < "$chunk_file"
     rm -f "$chunk_file"
     offset=$size
+    if [ -n "$line" ]; then
+      tail=$line
+      tail_size=$(LC_ALL=C; printf '%s' "${#tail}")
+      offset=$((offset - tail_size))
+    fi
     cursor_dirty=1
   fi
   if [ "$cursor_dirty" -eq 1 ]; then
@@ -1391,6 +1425,9 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
       rm -f "$target_cursor" || true
       [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] || return 1
     }
+  fi
+  if [ -n "$tail" ]; then
+    open=$(_fm_decision_fold_line "$open" "$tail" "$resolve" "$held" "$kind")
   fi
   printf '%s' "$open"
 }
