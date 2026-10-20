@@ -98,7 +98,7 @@ Depth by distance: inside the ready buffer, full preps with pieces, integration 
 
 Before consuming a plan, refresh the preparation record's `Still valid` check under `bin/fm-dod-lib.sh`, including changed shared dependencies even when the consumer's own files did not change.
 An untouched plan need not be planned again.
-Expand the horizon if builders wait on planning; shorten it if repeated refreshes materially rewrite plans.
+Expand pre-staging beyond the ready buffer if builders wait on planning; shorten only that speculative pre-staging if repeated refreshes materially rewrite plans.
 
 What this skill adds is the accounting:
 
