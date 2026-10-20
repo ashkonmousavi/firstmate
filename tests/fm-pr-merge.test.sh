@@ -473,7 +473,7 @@ case "$endpoint" in
     elif [ -e "$log_dir/tea-status-page$page.json" ]; then
       cat "$log_dir/tea-status-page$page.json"
     else
-      printf '{"state":"","total_count":0,"statuses":[]}\n'
+      printf '{"state":"","total_count":0,"statuses":null}\n'
     fi
     ;;
   "/repos/{owner}/{repo}")
@@ -560,7 +560,7 @@ write_forgejo_status_json() {
     esac
   done
   if [ "$total" = 0 ]; then
-    printf '{"state":"","total_count":0,"statuses":[]}\n' > "$file"
+    printf '{"state":"","total_count":0,"statuses":null}\n' > "$file"
   else
     printf '{"state":"%s","total_count":%s,"statuses":[%s]}\n' "$state" "$total" \
       "$(seq "$total" | sed "s/.*/{\"context\":\"ci-&\",\"status\":\"$state\"}/" | paste -sd, -)" \
@@ -2390,10 +2390,22 @@ test_forgejo_combined_status_reads_every_page() {
   expect_code 0 "$rc" "forgejo-status-page2-green: every green page should merge"
   assert_grep 'page=2' "$case_dir/tea.log" \
     "forgejo-status-page2-green: the second status page was never read"
+  local terminal
+  for terminal in null '[]'; do
+    case_dir=$(make_forgejo_case "forgejo-empty-terminal-$terminal")
+    printf '{"state":"","total_count":0,"statuses":%s}\n' "$terminal" > "$case_dir/tea-status-page2.json"
+    rc=0
+    run_pr_merge "$case_dir" task-x1 "$FJ_URL" > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    expect_code 0 "$rc" "a valid $terminal terminal page must preserve the preceding success"
+    [ -n "$(tea_merge_line "$case_dir/tea.log")" ] || fail "a valid terminal page suppressed the merge"
+  done
   local page payload case_num=0
   for page in 1 2; do
     for payload in '{"message":"Internal Server Error"}' '{"state":"success"}' \
       '{"state":"success","statuses":null}' '{"state":"success","statuses":{}}' \
+      '{"state":"","statuses":null}' '{"state":"","total_count":"0","statuses":null}' \
+      '{"state":"","total_count":1,"statuses":null}' '{"state":"pending","total_count":0,"statuses":null}' \
+      '{"state":"","total_count":0}' \
       '{"statuses":[]}' '{"state":null,"statuses":[]}' '{"state":true,"statuses":[]}' \
       '{"state":{},"statuses":[]}' '{"state":[],"statuses":[]}' \
       '{"state":1,"statuses":[]}' '{"state":"success","statuses":""}'; do

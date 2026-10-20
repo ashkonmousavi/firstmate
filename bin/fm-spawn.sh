@@ -5281,7 +5281,10 @@ BUSY_GEN=
     hooks_json="\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_submit\"}]}],${stop_entry}\"StopFailure\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_stopfail\"}]}],\"SessionEnd\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_sessionend\"}]}],\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"$j_permission\"}]}]}"
     if [ "$KIND" = secondmate ]; then
       jq -cn --argjson settings "$CLAUDE_SETTINGS" --argjson hooks "{$hooks_json}" \
-        '$settings + $hooks' >"$STATE_REAL/$ID.claude-settings.json" || exit 1
+        '$settings + $hooks | .hooks = (
+          reduce ($hooks.hooks | keys_unsorted[]) as $event
+            ($settings.hooks // {}; .[$event] = ((.[$event] // []) + $hooks.hooks[$event]))
+        )' >"$STATE_REAL/$ID.claude-settings.json" || exit 1
     else
       mkdir -p "$WT/.claude"
       printf '{%s}\n' "$hooks_json" >"$WT/.claude/settings.local.json"

@@ -362,6 +362,8 @@ test_forge_selection_renders_correct_cli() {
     "a Forgejo brief must not read checks from GitHub"
   assert_grep 'status?limit=50&page=<page>' "$brief" \
     "a Forgejo brief must inspect every combined-status page at the current head"
+  assert_grep 'statuses: null' "$brief" "a Forgejo brief must accept the documented empty status page"
+  assert_grep 'total_count: 0' "$brief" "a Forgejo brief must distinguish an empty status page from an error"
 
   FM_HOME="$home" "$ROOT/bin/fm-brief.sh" brief-forge-nm some-proj --mode no-mistakes --forge forgejo >/dev/null 2>&1 \
     || fail "--forge forgejo should scaffold a no-mistakes ship brief"

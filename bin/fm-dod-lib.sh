@@ -1479,7 +1479,7 @@ fm_dod_block() {  # <mode> <task-id> [branch] [<forge>] [<base>]
   draft_check="(\`gh-axi pr view <number>\` must print \`draft: no\`, where <number> is the PR number from your PR URL); if it is a draft, mark it ready with \`gh-axi pr ready <number>\`."
   check_read="\`gh-axi pr checks <number>\` (consult its \`--help\` for current usage)"
   if [ "$forge" = forgejo ]; then
-    check_read="\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` for the current \`head.sha\`, then \`tea api --repo <owner>/<repo> '/repos/{owner}/{repo}/commits/<head.sha>/status?limit=50&page=<page>'\` for every page until an empty \`statuses\` array; every non-empty page must have \`state\` equal to \`success\`, and an unreadable page or no statuses is not green"
+    check_read="\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` for the current \`head.sha\`, then \`tea api --repo <owner>/<repo> '/repos/{owner}/{repo}/commits/<head.sha>/status?limit=50&page=<page>'\` for every page until an empty \`statuses\` array or \`statuses: null\` with \`state: \"\"\` and \`total_count: 0\`; every non-empty page must have \`state\` equal to \`success\`, and an unreadable page or no statuses is not green"
     contract_forge=' forge=forgejo'
     forge_cli=tea
     draft_check="(\`tea api --repo <owner>/<repo> /repos/{owner}/{repo}/pulls/<number>\` must show \`draft\` as false, where <owner>/<repo> and <number> come from your PR URL); Forgejo marks a draft by a work-in-progress title prefix such as \`WIP:\`, so if it is a draft, remove that prefix with \`tea pulls edit <number> --repo <owner>/<repo> --title '<title without the prefix>'\`."
