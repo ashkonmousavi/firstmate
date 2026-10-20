@@ -46,13 +46,14 @@
 # escalations into whatever it calls empty. Positive container proof means one
 # of the shapes in the catalogue below.
 #
-# THE SHAPE CATALOGUE (all verified against real harnesses; byte-level
-# captures in data/fm-composer-consolidation-audit-s1/report.md and
-# docs/verification/runtime-backends.md):
+# THE SHAPE CATALOGUE (verification coverage and outstanding live checks in
+# docs/verification/runtime-backends.md; byte-level captures also in
+# data/fm-composer-consolidation-audit-s1/report.md):
 #   bordered   - a complete boxed composer: a top border, side-bordered content
 #                rows of the same family, and a bottom border (grok, kimi,
 #                older claude). The bottom border may carry a TITLE (grok
-#                writes its model name there); a titled bottom border that
+#                writes its model name and sometimes quota/approval status
+#                there); a titled bottom border that
 #                still starts and ends with the family's rule glyph is
 #                tolerated, including Grok 1.0.5's three-column title overhang.
 #   bare       - an agent prompt glyph row with no border at all (claude `❯`,
@@ -1103,7 +1104,7 @@ EOF
 # inner (corners already stripped) still starts and ends with the family's own
 # rule glyph, so the title is embedded IN the rule rather than replacing it.
 _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
-  local family=$1 inner=$2 expected=$3 dash spaces title effort model
+  local family=$1 inner=$2 expected=$3 dash spaces title effort model limit
   fm_composer_normalize_trim_var inner
   case "$family" in
     rounded|light) dash='─' ;;
@@ -1116,7 +1117,21 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
     "$dash"*"$dash") ;;
     *) return 1 ;;
   esac
+  title=${inner//"$dash"/}
+  fm_composer_normalize_trim_var title
   spaces=${inner//"$dash"/ }
+  # Grok also embeds quota and approval status around the model title.
+  # Admit its middle-dot separators only in that known status shape.
+  case "$title" in
+    'Weekly limit left: '*'% · Grok '*' · always-approve')
+      limit=${title#Weekly limit left: }
+      limit=${limit%%\%*}
+      case "$limit" in 0|[1-9]|[1-9][0-9]|100) ;; *) return 1 ;; esac
+      title=${title#*% · }
+      title=${title% · always-approve}
+      spaces=${spaces//·/ }
+      ;;
+  esac
   spaces=$(printf '%s' "$spaces" | LC_ALL=C sed 's/[!-~]/ /g')
   case "$spaces" in
     *[![:space:]]*) return 1 ;;
@@ -1132,8 +1147,6 @@ _fm_composer_titled_bottom_ok() {  # <family> <bottom-inner> <top-spaces>
   local overhang
   overhang=$(printf '%*s' "$FM_COMPOSER_GROK_TITLE_OVERHANG" '')
   [ "$spaces" = "$expected$overhang" ] || return 1
-  title=${inner//"$dash"/}
-  fm_composer_normalize_trim_var title
   case "$title" in
     'Grok '*\ \(low\)) effort=low ;;
     'Grok '*\ \(medium\)) effort=medium ;;
