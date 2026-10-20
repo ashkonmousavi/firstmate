@@ -132,6 +132,7 @@ for ((i=0; i<120; i++)); do
 done
 exit 1
 SH
+  # shellcheck disable=SC2016 # Backticks are literal prompt text.
   prompt='Use the shell tool to run exactly `bash live-step.sh` in the current directory, wait for it to finish, then reply DONE. Do not use other tools or modify any files. If a Stop hook asks you to continue, reply DONE without tools.'
   case "$harness" in
     claude)

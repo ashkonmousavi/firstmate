@@ -4353,6 +4353,7 @@ test_composer_state_server_stops_after_scroll_lookup() {
   printf '{"server":{"running":false}}\n' > "$resp/4.out"
   fb=$(make_herdr_fakebin "$dir")
   . "$ROOT/bin/fm-timeout-lib.sh"
+  # shellcheck disable=SC2016 # The child shell expands $0.
   out=$(PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_HERDR_SCRIPT_STATUS=1 \
     fm_run_timed 3 bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state fixture:w1:p2' "$ROOT") \
     || fail "a server stopping after scroll lookup delayed the passive composer read"

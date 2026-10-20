@@ -479,7 +479,8 @@ test_watcher_defers_contended_relaunch_without_stopping() (
   w=$(new_world watcher-relaunch-contention)
   socket_dir=$(mktemp -d /tmp/fm-live.XXXXXX) || exit 1
   trap 'if [ -n "$holder" ]; then kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true; fi; tmux -L fm-lab kill-server 2>/dev/null || true; rm -rf "$socket_dir"' EXIT
-  export TMUX_TMPDIR="$socket_dir" TMUX="$socket_dir/tmux-$(id -u)/fm-lab,0,0"
+  TMUX="$socket_dir/tmux-$(id -u)/fm-lab,0,0"
+  export TMUX_TMPDIR="$socket_dir" TMUX
   export FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_BACKEND=tmux
   mkdir -p "$w/home/data"
   touch "$w/home/config/supervision-host-off"
