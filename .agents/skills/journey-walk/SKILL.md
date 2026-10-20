@@ -32,8 +32,10 @@ Treat those three as the standing failure modes this skill exists to prevent.
 Name one walk owner for the run, the version reservation, the stage ledger, defect grouping, and the final verdict.
 Do not split those across lanes.
 
-Hold installs for the walk window and its cleanup.
-Q walk dispatch uses `bin/fm-grok-bot-dispatch.sh --walk <id> --walk-owner <owner>` or `bin/fm-spawn.sh --walk <id> --walk-owner <owner> --walk-timeout <seconds>`; `bin/fm-walk-marker-lib.sh` and the dispatch/teardown headers own the lifecycle.
+Hold installs for a person's or Grok's walk and its cleanup for at most 45 minutes per walk; the freeze then lapses on its own.
+Deploys and probes continue outside that freeze.
+Use that freeze limit as the dispatch timeout.
+Q walk dispatch uses `bin/fm-grok-bot-dispatch.sh --walk <id> --walk-owner <owner> --timeout <seconds>` or `bin/fm-spawn.sh --walk <id> --walk-owner <owner> --walk-timeout <seconds>`; `bin/fm-walk-marker-lib.sh` and the dispatch/teardown headers own the lifecycle.
 Record that freeze in the walk task's durable records the same turn it starts, and record its release the same turn it ends.
 A walk that cannot hold the installed version does not start acceptance evidence.
 
