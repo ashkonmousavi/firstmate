@@ -4,13 +4,14 @@ description: >-
   Agent-only procedure for selecting a tool, library, framework, service, vendor, or approach from candidates.
   Use before commissioning or consuming research that will pick one option over others, and before recording such a selection as decided.
   Also use before adopting, configuring, upgrading, or integrating a library, SDK, API, CLI, framework, or service, or before debugging version-sensitive usage - Context7 verification is mandatory there regardless of whether a selection is under way.
-  Owns the predeclared frozen query plan, the search and challenge workflow, the primary-source hierarchy, the decision-packet form, the external-query privacy rule, the Context7 version-verification procedure, and the boundary between research that selects and local proof that only verifies.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # research-first-decisions
+
+Owns the predeclared frozen query plan, the search and challenge workflow, the primary-source hierarchy, the decision-packet form, the external-query privacy rule, the Context7 version-verification procedure, and the boundary between research that selects and local proof that only verifies.
 
 Load this before any selection among candidates: a tool, library, framework, service, vendor, protocol, data source, or approach.
 It is the single owner of that selection procedure.

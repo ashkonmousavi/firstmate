@@ -1,9 +1,6 @@
 ---
 name: quota-array-dispatch
 description: >-
-  Agent-only decision procedure for an explicitly quota-balanced crew-dispatch
-  rule, using quota-axi's default TOON and ranking by spendPriority
-  after three orthogonal gates.
   Load only when select is quota-balanced.
 user-invocable: false
 metadata:
@@ -12,8 +9,10 @@ metadata:
 
 # quota-array-dispatch
 
+Agent-only decision procedure for an explicitly quota-balanced crew-dispatch rule, using quota-axi's default TOON and ranking by spendPriority after three orthogonal gates.
+
 This skill is the single owner of the completion-aware selection procedure for explicit `quota-balanced` rules only.
-`AGENTS.md` section 4 owns the always-loaded intake boundary and load trigger; `docs/configuration.md` owns selection-mode and disabled-profile semantics.
+`AGENTS.md` section 4 owns the always-loaded intake boundary, and the "Intake routing" section of `harness-adapters` `references/common/dispatch.md` owns this skill's load trigger; `docs/configuration.md` owns selection-mode and disabled-profile semantics.
 `harness-adapters` owns harness verification, model/provider discovery, and effort fallback.
 `quota-axi` remains data-only: it publishes `spendPriority` as a comparable scalar and never recommends, selects, ranks, or infers a route.
 Do not add a daemon, opaque composite score, routing wrapper, hard-coded model-specific policy, or producer-side route recommendation.
@@ -29,7 +28,7 @@ An `exhausted_now` runway vetoes the candidate.
 The helper selects a candidate only when its applicable quota has a known `effectivePercentRemaining` greater than zero.
 This is an optional narrow helper with a known limitation: it maps each harness to one primary provider family only, so a candidate whose established provider differs from that primary family is checked against the wrong quota row.
 omp has no primary family, so the helper keys an `omp:` candidate on its model prefix, mapping only `openai-codex/` and `claude-bridge/` and refusing every other prefix; the helper's header owns that mapping.
-Authoritative multi-provider routing - including provider discovery from the harness catalog and quota matching by that explicit provider - stays owned by this skill's intake procedure above and AGENTS.md section 4, not by the helper.
+Authoritative multi-provider routing - including provider discovery from the harness catalog and quota matching by that explicit provider - stays owned by this skill's intake procedure above and the "Intake routing" section of `harness-adapters` `references/common/dispatch.md`, not by the helper.
 Use it only when the brief already fixed the candidate order and every candidate's provider is the harness's primary family.
 It does not replace the reasoning-class, runway-feasibility, or authentication gates above.
 Firstmate can optionally arm `bin/fm-procevent-quota.sh` for a recurring mid-task check that wakes when the tracked provider drops below its configured threshold or its runway becomes `exhausted_now`.
