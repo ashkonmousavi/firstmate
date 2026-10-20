@@ -3627,7 +3627,7 @@ while :; do
           continue
         fi
       fi
-      # Before the output below, whose wake ends the cycle.
+      # Before the output below, whose result joins the sweep wake.
       check_run_record "$c" "$check_identity"
       if [ -n "$out" ]; then
         if [ "$(basename "$c")" = contributions.check.sh ]; then
