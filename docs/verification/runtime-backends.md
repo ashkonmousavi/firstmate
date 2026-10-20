@@ -843,6 +843,22 @@ It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact fl
 It spends no model tokens, so it runs by default wherever Codex is installed.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
 
+## 2026-10-20 Grok weekly-limit border coverage
+
+The dedicated token-free guard requires the real weekly-limit border before checking empty and unsent typed input through the tmux wrapper and styled/plain cursorless reads.
+It uses an isolated Grok home with a copy of the managed authentication file and submits no prompt.
+On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
+The guard therefore failed rather than claiming coverage of the weekly-limit surface.
+Live verification of that surface remains outstanding; the portable regression is not a substitute.
+
+```sh
+FM_COMPOSER_GROK_WEEKLY_LIVE=1 bash tests/fm-composer-grok-weekly-live-e2e.test.sh
+```
+
+```text
+not ok - grok (grok 1.0.62 (1474f9cbdd91) [stable]): weekly-limit border not rendered; live coverage unavailable
+```
+
 ## Composer classification matrix
 
 The shared composer classifier (`bin/fm-composer-lib.sh`, `fm_composer_classify_screen`) owns every composer shape fleet-wide; each backend contributes only a capture and a capability descriptor.
