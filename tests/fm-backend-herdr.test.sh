@@ -4200,6 +4200,36 @@ test_composer_state_scrolled_unreadable_bottom_is_unknown() {
   pass "fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown"
 }
 
+test_composer_scrolled_format_fallback_preserves_bottom_source() {
+  local reader mode dir log resp fb out expected
+  for reader in state content; do
+    for mode in failed empty readable; do
+      dir="$TMP_ROOT/composer-scrolled-fallback-$reader-$mode"
+      mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+      printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/1.out"
+      printf '1\n' > "$resp/2.exit"
+      printf '  ❯ old transcript draft\n' > "$resp/visible.out"
+      printf '1\n' > "$resp/recent-ansi.exit"
+      expected=unknown
+      case "$mode" in
+        failed) printf '1\n' > "$resp/recent.exit" ;;
+        empty) : > "$resp/recent.out" ;;
+        readable)
+          printf '  ❯\n' > "$resp/recent.out"
+          if [ "$reader" = state ]; then expected=empty; else expected=; fi
+          ;;
+      esac
+      fb=$(make_herdr_fakebin "$dir")
+      out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
+        bash -c '. "$0/bin/backends/herdr.sh"; identity=; "fm_backend_herdr_composer_$1" default:w1:p2 || printf unknown' "$ROOT" "$reader" )
+      [ "$out" = "$expected" ] || fail "scrolled $reader with a $mode bottom must preserve its source during format fallback, got '$out'"
+      assert_not_contains "$(cat "$log")" $'\x1f''--source'$'\x1f''visible' \
+        "scrolled $reader format fallback read historical viewport text"
+    done
+  done
+  pass "scrolled composer state and content keep the bottom source across format fallback"
+}
+
 test_send_text_submit_scrolled_claude_uses_live_composer() {
   local mode text dir log resp fb out enter_count
   for mode in ansi plain; do
@@ -5226,10 +5256,12 @@ herdr_popup_composer_screen() {  # <typed-text>
   printf '  %s\n' "$rule"
   printf '  \xe2\x9d\xaf %s\n' "$typed"
   printf '  %s\n' "$rule"
-  printf '  ❯ %s    Exit the CLI\n' "$typed"
-  for ((i = 0; i < 21; i++)); do
-    printf '  /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
-  done
+  if [[ "$typed" = /* ]]; then
+    printf '  ❯ %s    Exit the CLI\n' "$typed"
+    for ((i = 0; i < 21; i++)); do
+      printf '  /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
+    done
+  fi
   printf '  \xe2\x8f\xb5\xe2\x8f\xb5 bypass permissions on\n'
 }
 
@@ -6553,6 +6585,7 @@ test_composer_state_real_text_is_pending
 test_composer_state_scrolled_history_with_empty_bottom_is_empty
 test_composer_state_scrolled_bottom_pending_text_is_pending
 test_composer_state_scrolled_unreadable_bottom_is_unknown
+test_composer_scrolled_format_fallback_preserves_bottom_source
 test_send_text_submit_scrolled_claude_uses_live_composer
 test_composer_state_grok_oversized_title_preserves_safe_verdicts
 test_composer_state_popup_placeholder_fill_is_pending

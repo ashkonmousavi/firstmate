@@ -39,7 +39,7 @@ check_composer() {
   content=$(fm_backend_herdr_composer_content "$target") || fail "$versions: $target content proof failed"
   [ "$content" = "$text" ] || fail "$versions: $target content proof differs from the prepared draft"
   for ansi in 1 0; do
-    cap=$(fm_backend_herdr_composer_capture "$target" "$ansi") || fail "$versions: $target capture failed (ansi=$ansi)"
+    cap=$(fm_backend_herdr_composer_capture "$target" "$ansi" "$offset") || fail "$versions: $target capture failed (ansi=$ansi)"
     caps=$(printf 'styled=%s\ncursor=0\nidentity=1' "$ansi")
     capture_expected=$expected
     [ "$ansi" = 1 ] || capture_expected=$plain_expected
