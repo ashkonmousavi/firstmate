@@ -250,6 +250,31 @@ fm_test_reap_watchers() {
   rm -f "$FM_TEST_WATCHER_REGISTRY"
 }
 
+# --- remote job worker reaping ------------------------------------------------
+#
+# A real bin/fm-remote-job-worker.sh started under a fixture root is a detached
+# restart supervisor, its serving child, a heartbeat, and any job lanes, all in
+# one isolated process group. Killing only the recorded serving pid lets the
+# shutdown handler and the supervisor keep writing into the fixture while the
+# tree removal below runs, which fails that removal with "Directory not empty"
+# or "Permission denied" after every assertion passed. So before any tree is
+# removed, every worker whose ownership lock lives under a registered root is
+# stopped as a whole group and waited for. The lock's recorded pid, start
+# cookie, and command must all match the live process, so a reused pid or
+# another home's worker is never signalled.
+fm_test_reap_remote_job_workers() {  # <root>...
+  local root lock
+  for root in "$@"; do
+    [ -n "$root" ] && [ -d "$root" ] && [ ! -L "$root" ] || continue
+    while IFS= read -r lock; do
+      bash -c '. "$1"
+        fm_remote_job_recorded_owner_alive "$2" || exit 0
+        fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID"' \
+        _ "$ROOT/bin/fm-remote-job-lib.sh" "$lock" >/dev/null 2>&1 || true
+    done < <(find "$root" -type d -name worker.lock -prune 2>/dev/null)
+  done
+}
+
 # Ceiling on how long a fixture's blocking stub may keep polling. A stub that
 # waits for a trigger file by re-running `sleep` is a high-frequency source of
 # process spawns, and one that outlives its test - because the test was killed
@@ -272,17 +297,19 @@ fm_test_remove_tree() {
 
 fm_test_cleanup() {
   local d
+  local -a registered=()
   fm_test_reap_watchers
   fm_test_reap_procevent_homes
-  for d in "${FM_TEST_CLEANUP_DIRS[@]:-}"; do
-    [ -n "$d" ] && fm_test_remove_tree "$d"
-  done
   if [ -f "$FM_TEST_CLEANUP_REGISTRY" ]; then
     while IFS= read -r d; do
-      [ -n "$d" ] && fm_test_remove_tree "$d"
+      [ -n "$d" ] && registered+=("$d")
     done < "$FM_TEST_CLEANUP_REGISTRY"
-    rm -f "$FM_TEST_CLEANUP_REGISTRY"
   fi
+  fm_test_reap_remote_job_workers "${FM_TEST_CLEANUP_DIRS[@]:-}" "${registered[@]:-}"
+  for d in "${FM_TEST_CLEANUP_DIRS[@]:-}" "${registered[@]:-}"; do
+    [ -n "$d" ] && fm_test_remove_tree "$d"
+  done
+  rm -f "$FM_TEST_CLEANUP_REGISTRY"
 }
 
 fm_test_tmproot() {

@@ -42,19 +42,14 @@ Verify promotion preserves the behavior under test.
 EOF
 }
 
-# The remote-route cases drive the real remote job worker, which outlives the
-# command that staged its job. Stop it before the shared fixture cleanup runs,
-# and keep that cleanup (tests/lib.sh owns it) rather than replacing the trap.
+# Stop the lock holder before the shared fixture cleanup runs, and keep that
+# cleanup (tests/lib.sh owns it, including the remote job worker the
+# remote-route cases start) rather than replacing the trap.
 pf_test_cleanup() {
-  local pid_file="${REMOTE_FIXTURE_JOBS:-$TMP_ROOT/remote-jobs}/worker.pid" pid
   if [ -n "$PF_TEST_LOCK_HOLDER" ]; then
     kill "$PF_TEST_LOCK_HOLDER" 2>/dev/null || true
     wait "$PF_TEST_LOCK_HOLDER" 2>/dev/null || true
     PF_TEST_LOCK_HOLDER=
-  fi
-  if [ -f "$pid_file" ]; then
-    pid=$(cat "$pid_file" 2>/dev/null) || pid=
-    [ -z "$pid" ] || kill "$pid" 2>/dev/null || true
   fi
   fm_test_cleanup
 }
