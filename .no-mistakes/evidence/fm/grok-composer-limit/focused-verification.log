@@ -1,0 +1,5 @@
+PASS: --list --family live-harness-optin selects weekly guard exactly once
+PASS: --list --changed --base cb61185f2624afb748094c2a982d361f28edaad5 selects weekly guard exactly once
+not ok - grok (grok 1.0.62 (1474f9cbdd91) [stable]): weekly-limit border not rendered; live coverage unavailable
+Live guard exit: 1
+review-1 remains unresolved if the weekly-limit surface was unavailable.
