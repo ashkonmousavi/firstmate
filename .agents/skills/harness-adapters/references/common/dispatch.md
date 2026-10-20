@@ -25,7 +25,7 @@ Pass that rule to `fm-spawn` as `--dispatch-rule` (omit it for `default`); spawn
 A selected Grok Bot target is never spawned; send it through `bin/fm-grok-bot-dispatch.sh` under that same section's Grok Bot contract.
 Ordered selection is the default intake: configured list order wins unless a candidate is unavailable; quota-balanced selection applies only where `select` explicitly requests it.
 Supply concrete unavailability facts and retain the selector's choice and skip reasons; if every candidate is unavailable, stop and report it rather than falling through to another rule.
-Establish model support and provider family from that harness's own authoritative catalog, then apply the [account and scope matching rules in `quota-array-dispatch`](../../../quota-array-dispatch/SKILL.md#1-eligibility).
+Establish model support and provider family from that harness's own authoritative catalog, then apply the [account and scope matching rules in `quota-array-dispatch`](../quota-array-dispatch/SKILL.md#1-eligibility).
 Missing model-level quota, a missing authentication source, unmeasurable headroom, or unmodeled authentication is disclosed uncertainty that keeps a candidate eligible, never a credential or login escalation.
 Only concrete contradictory evidence blocks a candidate, such as an authoritative catalog proving the model unsupported or proof that the credential selected for that surface is unusable; never infer a credential store, provider family, or quota mapping from a harness, model, or source name, and never launch another harness's CLI to judge a candidate.
 Preserve malformed profile configuration as an actionable error rather than selecting around it.
