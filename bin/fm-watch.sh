@@ -1906,7 +1906,7 @@ gate_nudge_check() {  # <window> <task> <kind> <window-key> <last-status-line>
         = "$(cat "$STATE/.stale-$key" 2>/dev/null || true)" ] && return 1
     fi
   fi
-  if [ -n "$(status_open_decisions "$STATE/$task.status")" ]; then
+  if [ -n "$(status_open_decisions_peek "$STATE/$task.status")" ]; then
     gate_nudge_clear "$rec" "$stored" "$count" "$now" || true
     return 1
   fi

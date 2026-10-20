@@ -245,6 +245,71 @@ test_recovery_waits_while_the_mate_has_an_open_decision() {
   pass "recovery never pokes a mate waiting on its own decision, and runs once it closes"
 }
 
+# The supervision cycle asks the recovery gate about every waiting request on
+# every pass. Over a long parent status log that must cost the bytes appended
+# since the drain's fold, not the whole log once per request, or one cycle
+# outlasts the watcher stall bound and nothing else in that cycle runs.
+test_large_status_log_keeps_the_tick_bounded() {
+  local home state corr hook_log probe status i started elapsed bound reads big
+  local -a corrs=()
+  home=$(setup_parent large-log)
+  state="$home/state"
+  status="$state/hibit.status"
+  hook_log="$TMP_ROOT/large-log-hook.log"
+  probe="$TMP_ROOT/large-log-probe.log"
+  : > "$hook_log"
+  : > "$probe"
+  mkdir -p "$home/config"
+  : > "$home/config/wait-no-turns"
+  FM_CONFIG_OVERRIDE="$home/config"
+  export FM_PENDING_REPLY_NOW=2600
+  # Invoked indirectly through FM_PENDING_REPLY_SEND_HOOK.
+  # shellcheck disable=SC2329
+  large_log_hook() {
+    printf '%s\n' "$1" >> "$hook_log"
+  }
+  export -f large_log_hook
+  export FM_PENDING_REPLY_SEND_HOOK=large_log_hook
+  printf 'needs-decision [key=scope]: narrow or wide?\n' > "$status"
+  awk 'BEGIN { for (i = 1; i <= 3000; i++) {
+      printf "done [key=item-%d] [at=1792400000]: item %d finished with a long note that pads the line\n", i, i
+      printf "working: step %d of the long-running audit, still going\n", i
+    } }' >> "$status"
+  for i in $(seq 1 15); do
+    corr=$(fm_pending_reply_create "$home" "$state" hibit "request $i")
+    fm_pending_reply_mark_delivered "$state" "$corr"
+    fm_pending_reply_observe_busy "$state" "$corr" busy
+    fm_pending_reply_observe_busy "$state" "$corr" idle
+    corrs+=("$corr")
+  done
+  # The drain's fold commits its cursor; the mate then appends one more line.
+  status_open_decisions_incremental "$status" >/dev/null
+  printf 'working: one more line after the drain\n' >> "$status"
+  big=$(wc -c < "$status" | tr -d ' ')
+  started=$SECONDS
+  FM_OPEN_DECISIONS_READ_PROBE="$probe" fm_pending_reply_tick "$state"
+  elapsed=$((SECONDS - started))
+  bound=$(fm_watcher_stall_bound)
+  [ "$elapsed" -lt "$bound" ] \
+    || fail "one pending-reply tick over a ${big}-byte status log took ${elapsed}s, past the ${bound}s watcher stall bound"
+  reads=$(awk -F '\t' -v f="$status" '$1 == f' "$probe" | wc -l | tr -d ' ')
+  [ "$reads" -ge 15 ] \
+    || fail "the recovery gate did not consult the open-decision fold for each waiting request (got $reads)"
+  awk -F '\t' -v f="$status" '$1 == f && $2 > 100 { bad = 1 } END { exit bad }' "$probe" \
+    || fail "the recovery gate re-read the long status log instead of the bytes appended since the drain"$'\n'"$(cat "$probe")"
+  [ ! -s "$hook_log" ] || fail "a recovery poked a mate whose own decision is still open"
+  for corr in "${corrs[@]}"; do
+    [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
+      || fail "a deferred recovery must stay unattempted, got $(phase_of "$state" "$corr")"
+  done
+  grep -q '^offset=' "$state/.hibit.open-decisions-cursor" || fail "the drain's cursor went missing"
+  [ "$(sed -n 's/^offset=//p' "$state/.hibit.open-decisions-cursor")" -lt "$big" ] \
+    || fail "the recovery gate advanced the drain's cursor"
+  unset FM_PENDING_REPLY_SEND_HOOK
+  unset FM_CONFIG_OVERRIDE
+  pass "a long parent status log keeps the pending-reply tick bounded by new appends"
+}
+
 # Without the flag, an open decision does not hold the recovery.
 test_recovery_sends_during_an_open_decision_without_the_flag() {
   local home state corr hook_log
@@ -2146,6 +2211,7 @@ test_same_kind_escalation_reopens_after_operator_close() {
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
 test_recovery_waits_while_the_mate_has_an_open_decision
+test_large_status_log_keeps_the_tick_bounded
 test_recovery_sends_during_an_open_decision_without_the_flag
 test_recovery_grace_measures_from_turn_completion
 test_recovery_fresh_status_read_resolves_before_firing

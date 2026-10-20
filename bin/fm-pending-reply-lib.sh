@@ -601,6 +601,9 @@ fm_pending_reply_line_resolves() {  # <line> <corr_id>
 }
 
 # Scan a status file for a correlated resolve. Prints the matching line or empty.
+# One grep pass keeps only the lines that carry the token, and the per-line rule
+# still decides each of them, so a long status log costs one pass rather than a
+# shell iteration per line for every open request on every supervision cycle.
 fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
   local status_file=$1 corr=$2 line
   [ -f "$status_file" ] || return 0
@@ -610,7 +613,7 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
       printf '%s' "$line"
       return 0
     fi
-  done < "$status_file"
+  done < <(LC_ALL=C grep -aF -- "$(fm_pending_reply_corr_token "$corr")" "$status_file" 2>/dev/null)
   return 0
 }
 
