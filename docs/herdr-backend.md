@@ -552,11 +552,12 @@ Typed-plane text is typed once; only Enter is retried.
 When native `agent get` identity is Claude, the adapter types only into an empty composer.
 A Claude composer that already holds text, or cannot be read, before the send is refused with nothing typed.
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
-Both composer state and content proof use the same capture selection: an unscrolled pane captures the full visible viewport.
+Both composer state and content proof use the same capture selection: a zero or unavailable `scroll.offset_from_bottom` captures the full visible viewport.
 A slash-command popup rendered between the composer and the pane bottom pushes the composer outside a short tail, and the viewport is the read that still contains it.
 When `offset_from_bottom` is greater than 0, the viewer is in history, so both reads select a bottom-anchored `pane read --source recent` instead of that viewport.
-If that bottom read cannot be taken, the verdict is unknown, never pending.
-The shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend.
+The selected source stays fixed across ANSI-to-plain fallback within each read.
+If neither format yields a readable bottom, the state is `unknown` and content proof fails, preventing submission.
+The shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend; its payloads are task lines, so Claude's slash-command popup does not arise there.
 Dated measurement: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup".
 
 That comparison ignores whitespace and U+2063, the invisible mark that starts operational inputs and ends the from-firstmate label.
@@ -619,7 +620,7 @@ A missed native transition falls through to the composer verdict rather than rep
 `pane read --lines N` can return empty output when N is below the viewport height.
 The capture owner requests at least 200 lines from Herdr and trims locally to the caller's bound.
 This generous floor is required for the small bounded reads that remain: peek and watch tails, the rendered busy-footer read, and the shared steering-inbox pending-line read.
-The adapter's own composer reads are exempt because they read the visible viewport instead, which takes no line count (see [Claude composer proof](#claude-composer-proof)).
+Composer capture selection is owned by [Claude composer proof](#claude-composer-proof).
 
 ### Native idle state
 
@@ -631,7 +632,7 @@ A human-blocked permission dialog has no busy banner and still surfaces.
 
 Herdr has no direct cursor-row primitive.
 The adapter is a thin capture.
-It hands the visible pane's ANSI viewport plus Herdr's capability facts to the fleet-wide classifier in `bin/fm-composer-lib.sh`, which owns every shape:
+It hands the [selected composer capture](#claude-composer-proof) plus Herdr's capability facts to the fleet-wide classifier in `bin/fm-composer-lib.sh`, which owns every shape:
 
 - Bordered boxes.
 - Bare agent-glyph rows, including muse's `⟩`, which the adapter's retired local pattern silently omitted.

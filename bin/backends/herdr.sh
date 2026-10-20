@@ -3502,9 +3502,9 @@ fm_backend_herdr_queued_enter_busy() {  # <target> <allow-rendered>
 # fm_backend_herdr_proof_lines: how many composer rows a refused leftover may
 # occupy, bounding the Ctrl+U presses a verified clear may need. A literal
 # payload wraps, and clearing a multi-row leftover is one press per rendered
-# row (live Claude deletes one wrapped row per press). The composer read
-# itself is the full visible viewport (fm_backend_herdr_composer_content), so
-# this bound no longer sizes a capture.
+# row (live Claude deletes one wrapped row per press). Capture selection is
+# independent (fm_backend_herdr_composer_capture); this bound sizes only the
+# clear budget.
 fm_backend_herdr_proof_lines() {  # <text>
   local text=$1 lines
   lines=$(( (${#text} / 40) + 8 ))
