@@ -2231,10 +2231,13 @@ The owning-home lease below bounds how long such an orphan can run, but it is a 
 A runner is bound to the HOME that owns it, not to the one session that armed it.
 That granularity is deliberate: a persistent source is meant to outlive the turn and the session that armed it, so binding a runner to its arming session would stop exactly the sources this mechanism exists to keep running.
 
+The home counts as present while its primary session holds the home's session lock, or while its lease is fresh.
 Any activity in the same home refreshes the lease, so a replacement session, another watcher, or an ordinary inspection command keeps a runner of that home alive; a runner whose SOURCE is no longer wanted in a live home is stopped by reconcile when that source is retired, independently of the lease.
-The lease is therefore the backstop for a home that is GONE - the torn-down test sandbox this change exists to bound - and not a per-session ownership check.
+The live session is what keeps a runner listening through a long primary turn or a supervision cycle that stalls before its reconcile, because lease refreshes depend on that cycle's speed and the session lock does not.
+The lease bounds runner lifetime after the home loses its live session and stops refreshing the lease; it does not bind the runner to the session that armed it.
 
 KNOWN LIMIT: while any activity continues in a home whose original owning session has ended, that activity refreshes the lease and a runner of that home keeps running until its source is retired or the home goes away.
+A pid recycled onto another live harness process keeps that home's session reading live, the same residual `bin/fm-session-lock-lib.sh` accepts for the session lock itself.
 
 **Keep and guard the lease**
 
@@ -2243,12 +2246,16 @@ Detaching a runner into its own process group is what lets a persistent source o
 - So a home's process-event state carries a lease that registration, attached start, reconciliation, acknowledgement, and listing refresh, and the watcher's reconcile cycle is what keeps it fresh in a live home.
 - An attached public `start` continues refreshing the lease while its caller remains attached.
 - Each runner fails closed unless a small guard starts successfully beside it in a separate process group.
-- That guard accepts the lease only while the state root retains the device/inode identity recorded by the runner's claim, and initiates the verified stop after two consecutive reads cannot prove that identity and lease freshness, so one unreadable read cannot kill a live runner.
+- That guard accepts the home as present only while the state root retains the device/inode identity recorded by the runner's claim, and then while that root's `.lock` names a live verified harness process (`bin/fm-session-lock-lib.sh` owns that test) or its lease is fresh.
+  It initiates the verified stop after two consecutive reads cannot prove that identity and presence, so one unreadable read cannot kill a live runner.
+  The guard only reads the session lock and never refreshes the lease.
+- The guard and runner attempt to record why a detached runner stopped in the registry; the [`bin/fm-procevent.sh` header](../bin/fm-procevent.sh) owns the record's path, fields, and limits.
 - Those two reads are spaced half a check interval apart, so the pair the debounce requires completes inside one check interval instead of costing two of them.
 
 **Detection and stop timing**
 
-For a runner whose ownership can still be proved, the nominal detection bound is the lease plus one check interval.
+While the primary session holds the home's session lock, lease expiry does not stop the runner.
+Once that session ends and owner activity stops, the nominal detection bound is the remaining lease lifetime plus one check interval.
 The verified stop then runs within its own grace period.
 The lease age is compared in whole seconds, so the configured lease is honoured until that age reads one second past it.
 
@@ -2262,14 +2269,14 @@ The group signal reaches the blocking child and everything under it exactly as r
 - A runner exports the inherited `FM_PROCEVENT_IN_RUNNER` marker and every lease refresh is skipped under it, so a runner and its ordinary children do not certify their own owner, and the next reconcile in a live home simply starts a replacement runner.
 - That no-self-refresh rule is CONFUSED-AGENT-GRADE, the same deliberate captain-decided grade `bin/fm-lease-lib.sh` documents: it stops the accidental case this boundary exists for, an orphaned or test-scaffolding source tree that would otherwise keep its own owner alive.
 - A source that DELIBERATELY strips the marker from its environment can still refresh the lease, so adversarial-grade unforgeability is explicitly out of scope here and tracked as separate follow-up design work.
-- Scope is the owning state root and one runner generation, never a script or process name, so a live source in another home is untouched: that home refreshes its own lease.
+- Runner selection is scoped to the owning state root and one recorded runner generation rather than shared script or process names, so another home's live source is untouched; the presence rule above applies independently to each home.
 
 **Lease and launch pacing settings**
 
 | Setting | Default | Range | Purpose |
 | --- | --- | --- | --- |
-| `FM_PROCEVENT_OWNER_LEASE_SECONDS` | 600 | 1..86400 | How long a runner continues without activity in its owning home. |
-| `FM_PROCEVENT_OWNER_CHECK_SECONDS` | 15 | 1..3600 | Guard detection interval; it reads the lease and recorded state-root identity twice per interval, half an interval apart, so both debounce reads fit inside one interval. |
+| `FM_PROCEVENT_OWNER_LEASE_SECONDS` | 600 | 1..86400 | How long a runner continues without activity in its owning home once that home has no live primary session. |
+| `FM_PROCEVENT_OWNER_CHECK_SECONDS` | 15 | 1..3600 | Guard detection interval; it checks the recorded state-root identity and session-or-lease presence twice per interval, half an interval apart, so both debounce reads fit inside one interval. |
 | `FM_PROCEVENT_LAUNCH_FLOOR_SECONDS` | 1 | 1..3600 | Minimum time between consecutive launches of one registration generation's stored command; bounds immediately returning sources during the lease window. |
 
 The generation's first launch is immediate, later launches share its monotonic pacing timestamp, a timestamp from before a reboot is treated as expired, and replacing the registration starts a fresh pacing generation.
@@ -2421,7 +2428,7 @@ FM_TOOL_UPDATE_BUDGET_SECS=20   # 1..120 seconds allowed for a whole watched-too
 FM_TOOL_UPDATE_NOW=     # test override for the watched-tool sweep clock; the sweep budget still uses real time
 FM_PROCEVENT_MAX_OUTPUT_BYTES=1048576   # bound on one captured process-to-event result
 FM_PROCEVENT_CLAIM_ROOT=                # machine-wide source claim root; default $XDG_STATE_HOME/firstmate/procevent-claims
-FM_PROCEVENT_OWNER_LEASE_SECONDS=600    # how long a source runner keeps going with no activity in its owning home; 1..86400
+FM_PROCEVENT_OWNER_LEASE_SECONDS=600    # how long a source runner keeps going with no activity once its home has no live primary session; 1..86400
 FM_PROCEVENT_OWNER_CHECK_SECONDS=15     # a runner guard's detection interval, read twice per interval; 1..3600
 FM_PROCEVENT_LAUNCH_FLOOR_SECONDS=1     # minimum interval between launches of one registration generation's source command; 1..3600
 FM_PROCEVENT_LAUNCH_CONFIRM_SECONDS=3   # how long reconcile waits for the runners it started to prove they are running; 1..600, keep well below FM_POLL
