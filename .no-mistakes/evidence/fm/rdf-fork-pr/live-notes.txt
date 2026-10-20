@@ -1,0 +1,71 @@
+id=1792523691-PWi4CG
+at=2026-10-20T19:14:51Z
+source=text
+announce_marker=1
+request_id=backstop-89cba0ff406f4d16bfa14d3e01d048e1
+--
+REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+
+id=1792523704-lWOCwJ
+at=2026-10-20T19:15:04Z
+source=text
+announce_marker=1
+request_id=backstop-52cb32fb2a2d47daaef9e51203e46c27
+--
+REPLY RUNNER DOWN q-server: registered runner is dead or missing; restore primary supervision to reconcile it.
+
+id=1792523691-768Vuk
+at=2026-10-20T19:14:51Z
+source=text
+announce_marker=1
+request_id=backstop-aff607bc71814d6fbf08acf2be726d06
+--
+REPLY DELIVERY LAG q-server: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+
+id=1792523691-mk1ksR
+at=2026-10-20T19:14:51Z
+source=text
+announce_marker=1
+request_id=backstop-bbd185c18e6b4fc790287a6caa17e34b
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792523712-8TU5EC
+at=2026-10-20T19:15:12Z
+source=text
+announce_marker=1
+request_id=backstop-b2ba272a92b64f03ae88d9898e2cf83b
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; watcher silent for 600s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792523693-NKFsLD
+at=2026-10-20T19:14:53Z
+source=text
+announce_marker=1
+request_id=backstop-28f497717a5f47f881af259a6e36248e
+--
+REPLY DELIVERY LAG q-server: 2099s (remote_at=4000 ingested_at=1901); primary wake path needs recovery.
+
+id=1792523700-V2vdgC
+at=2026-10-20T19:15:00Z
+source=text
+announce_marker=1
+request_id=backstop-615ead5d35ae42d3a37d1419d93ccde7
+--
+REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+
+id=1792523705-CQMmKZ
+at=2026-10-20T19:15:05Z
+source=text
+announce_marker=1
+request_id=backstop-93014ab3d6e74e05a6d8a10170ed12fc
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792523694-Y9YIv4
+at=2026-10-20T19:14:54Z
+source=text
+announce_marker=1
+request_id=backstop-397c1d95de904290bc681d5aeb36e652
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.

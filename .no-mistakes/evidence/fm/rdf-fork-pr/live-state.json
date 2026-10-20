@@ -1,0 +1,14 @@
+{
+  "episodes": {
+    "recovery": "backstop-b2ba272a92b64f03ae88d9898e2cf83b"
+  },
+  "read_fails": {},
+  "readers": {
+    "q-server": {
+      "offset": 1250021,
+      "prefix": "b7deac45a63cf8337b8ba2158397fa7527eba95a7fe8e776fc6f2e0198f3e317",
+      "stamp": 7000
+    }
+  },
+  "runner_fails": {}
+}

@@ -1,0 +1,112 @@
+
+### healthy Unicode bootstrap
+checked watcher_age=0s alarms=0
+
+### 900 seconds stays quiet
+checked watcher_age=0s alarms=0
+
+### 901 seconds creates durable lag and failed-recovery notes
+REPLY DELIVERY LAG q-server: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=0s alarms=2
+
+### one unreadable pass is noise
+read q-server log moved; resyncing cursor
+read failed once, tolerating one pass: q-server
+checked watcher_age=1s alarms=0
+
+### two unreadable passes alarm
+read q-server log moved; resyncing cursor
+REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1s alarms=1
+
+### recovered read keeps unresolved lag identity
+REPLY DELIVERY LAG q-server: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=2s alarms=2
+
+### caught up clears lag incident
+checked watcher_age=2s alarms=0
+
+### multiple chunks reach latest tail
+REPLY DELIVERY LAG q-server: 2099s (remote_at=4000 ingested_at=1901); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=2s alarms=2
+
+### bounded incomplete scan records failure
+read failed once, tolerating one pass: q-server
+checked watcher_age=4s alarms=0
+
+### second incomplete scan stays unverified
+REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=8s alarms=1
+
+### later scan reaches tail
+REPLY DELIVERY LAG q-server: 4099s (remote_at=6000 ingested_at=1901); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=10s alarms=2
+
+### oversized replaced Unicode log bootstraps tail
+read q-server log moved; resyncing cursor
+REPLY DELIVERY LAG q-server: 5099s (remote_at=7000 ingested_at=1901); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=11s alarms=2
+
+### healthy delivery before runner check
+checked watcher_age=13s alarms=0
+
+### empty runner registration tolerated once
+runner not alive once, tolerating one pass: q-server
+checked watcher_age=14s alarms=0
+
+### second missing runner alarms
+REPLY RUNNER DOWN q-server: registered runner is dead or missing; restore primary supervision to reconcile it.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=14s alarms=2
+
+### persistent dead runner deduplicates
+REPLY RUNNER DOWN q-server: registered runner is dead or missing; restore primary supervision to reconcile it.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: q-server. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=15s alarms=2
+
+### unregister closes runner incident
+checked watcher_age=16s alarms=0
+
+### Actual fm-procevent runner registration/start
+registered: remote-reply-q-server (remote-reply)
+
+Real runner PID: 2664508
+
+### actual healthy runner clears prior transient
+checked watcher_age=19s alarms=0
+
+### empty record restored by concurrent writer is reread
+checked watcher_age=19s alarms=0
+
+### record absent for one poll is transient
+runner not alive once, tolerating one pass: q-server
+checked watcher_age=19s alarms=0
+
+### real runner recovery clears transient
+checked watcher_age=20s alarms=0
+retired: remote-reply-q-server
+
+
+### stalled watcher without primary retains durable recovery
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; watcher silent for 600s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=600s alarms=1
+
+### Durable note delivered through real wake drain
+1792523691	1	check	inbox:1792523691-768Vuk	check: captain inbox note 1792523691-768Vuk - REPLY DELIVERY LAG q-server: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recover
+1792523691	2	check	inbox:1792523691-mk1ksR	check: captain inbox note 1792523691-mk1ksR - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was
+1792523691	3	check	inbox:1792523691-PWi4CG	check: captain inbox note 1792523691-PWi4CG - REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery bef
+1792523693	4	check	inbox:1792523693-NKFsLD	check: captain inbox note 1792523693-NKFsLD - REPLY DELIVERY LAG q-server: 2099s (remote_at=4000 ingested_at=1901); primary wake path needs recove
+1792523694	5	check	inbox:1792523694-Y9YIv4	check: captain inbox note 1792523694-Y9YIv4 - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: q-server. No watcher was
+1792523700	6	check	inbox:1792523700-V2vdgC	check: captain inbox note 1792523700-V2vdgC - REPLY DELIVERY UNVERIFIED q-server: bounded remote/local timestamp read failed; inspect delivery bef
+1792523704	7	check	inbox:1792523704-lWOCwJ	check: captain inbox note 1792523704-lWOCwJ - REPLY RUNNER DOWN q-server: registered runner is dead or missing; restore primary supervision to rec
+1792523705	8	check	inbox:1792523705-CQMmKZ	check: captain inbox note 1792523705-CQMmKZ - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: q-server. No wat
+1792523712	9	check	inbox:1792523712-8TU5EC	check: captain inbox note 1792523712-8TU5EC - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; watcher silent for 600s. No watcher
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+q-server done [at=7000]: local
+
+All assertions passed; local transport bridge used, no SSH or harness discovery claimed.
