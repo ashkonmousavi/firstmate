@@ -461,8 +461,8 @@ test_relaunch_waits_for_other_mates_relaunch_lock() {
   kill "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
 
-  assert_contains "$out" "rc=1 status=skipped" \
-    "a relaunch blocked on another mate must return a skipped failure"
+  assert_contains "$out" "rc=1 status=deferred" \
+    "a relaunch blocked on another mate must return a bounded deferral"
   assert_contains "$out" "another secondmate relaunch still owns the per-home relaunch lock after 1s" \
     "a liveness relaunch must bound its lock wait by the spawn timeout"
   [ ! -e "$w/home/state/.secondmate-relaunch-sm1" ] \
@@ -470,6 +470,55 @@ test_relaunch_waits_for_other_mates_relaunch_lock() {
   [ ! -s "$log" ] || fail "a blocked relaunch touched the endpoint: $(cat "$log")"
   pass "relaunch: the spawn timeout bounds the lock wait before touching the endpoint"
 }
+
+test_watcher_defers_contended_relaunch_without_stopping() (
+  # Oracle: normal lock contention defers recovery, preserving supervision,
+  # endpoints and attempt budgets. A fatal skipped verdict fails this journey.
+  command -v tmux >/dev/null 2>&1 || { echo 'skip: tmux not found'; exit 0; }
+  local w socket_dir holder='' rc=0 id
+  w=$(new_world watcher-relaunch-contention)
+  socket_dir=$(mktemp -d /tmp/fm-live.XXXXXX) || exit 1
+  trap 'if [ -n "$holder" ]; then kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true; fi; tmux -L fm-lab kill-server 2>/dev/null || true; rm -rf "$socket_dir"' EXIT
+  export TMUX_TMPDIR="$socket_dir" TMUX="$socket_dir/tmux-$(id -u)/fm-lab,0,0"
+  export FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_BACKEND=tmux
+  mkdir -p "$w/home/data"
+  touch "$w/home/config/supervision-host-off"
+  tmux -L fm-lab new-session -d -s firstmate -n anchor || fail 'private tmux startup failed'
+  for id in first second; do
+    add_sm_home "$w" "$id" "firstmate:fm-$id"
+    tmux -L fm-lab new-window -d -t firstmate -n "fm-$id" || fail 'private endpoint creation failed'
+    printf -- '- %s (home: %s) - fixture (projects: none; scope: test)\n' "$id" "$w/$id" \
+      >> "$w/home/data/secondmates.md"
+  done
+  bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    fm_lock_acquire_wait "$FM_HOME/state/.secondmate-relaunch.lock" || exit 1
+    trap '\''fm_lock_release "$FM_HOME/state/.secondmate-relaunch.lock"'\'' EXIT
+    touch "$FM_HOME/held"
+    while :; do sleep 0.1; done
+  ' _ "$ROOT" &
+  holder=$!
+  local i=0
+  while [ ! -e "$w/home/held" ] && [ "$i" -lt 100 ]; do
+    kill -0 "$holder" 2>/dev/null || break
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ -e "$w/home/held" ] || fail 'relaunch lock holder never became ready'
+  FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_SECONDMATE_LIVENESS_SECS=1 FM_SECONDMATE_LIVENESS_TIMEOUT=1 \
+    timeout 12 bash "$ROOT/bin/fm-watch.sh" > "$w/watch.out" 2> "$w/watch.err" || rc=$?
+  [ "$rc" -eq 124 ] || fail "contention stopped supervision (exit=$rc): $(cat "$w/watch.out" "$w/watch.err")"
+  for id in first second; do
+    [ "$(tmux -L fm-lab display-message -p -t "firstmate:fm-$id" '#{window_name}')" = "fm-$id" ] \
+      || fail "contention destroyed $id's endpoint"
+    [ ! -e "$w/home/state/.secondmate-relaunch-$id" ] || fail 'contention consumed an attempt'
+    [ "$(grep -c "secondmate $id .*per-home relaunch lock" "$w/home/state/.watch-triage.log")" -ge 2 ] \
+      || fail "watcher did not retry $id after deferral"
+  done
+  [ ! -s "$w/home/state/.wake-queue" ] || fail 'contention published a relaunch wake'
+  pass 'watcher: relaunch contention defers both mates while supervision keeps polling'
+)
 
 test_sweep_refuses_relaunch_on_ledger_errors() {
   local w fb tmuxfb log out mode ledger word
@@ -825,6 +874,7 @@ test_sweep_skipped_under_detect_only
 test_sweep_noop_with_no_secondmate_meta
 test_sweep_skips_mate_whose_liveness_lock_is_held
 test_relaunch_waits_for_other_mates_relaunch_lock
+test_watcher_defers_contended_relaunch_without_stopping
 test_sweep_refuses_relaunch_on_ledger_errors
 test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route

@@ -122,6 +122,20 @@ wait_for_ledger_generation() {  # <generated> [tenths]
   return 1
 }
 
+wait_for_watcher_poll() {  # <home> <stdout-file> <stderr-file>
+  local home=$1 out=$2 err=$3 deadline=$((SECONDS + 30)) status=running
+  while [ ! -e "$home/state/.last-watcher-beat" ] && [ "$SECONDS" -lt "$deadline" ]; do
+    kill -0 "$WATCH_PID" 2>/dev/null || break
+    sleep 0.05
+  done
+  [ -e "$home/state/.last-watcher-beat" ] && return 0
+  if ! kill -0 "$WATCH_PID" 2>/dev/null; then
+    status=0
+    wait "$WATCH_PID" || status=$?
+  fi
+  fail "watcher did not begin polling within 30s (pid=$WATCH_PID status=$status); stdout: $(cat "$out"); stderr: $(cat "$err")"
+}
+
 run_writer "$NOW_ONE" "$EPOCH_ONE" || fail "initial home-summary publication failed"
 jq -e --arg home "$HOME_DIR" --arg now "$NOW_ONE" --argjson epoch "$EPOCH_ONE" '
   .schema == "fm-secondmate-home-summary.v1"
@@ -137,14 +151,7 @@ PATH="$FAKEBIN:$PATH" \
   FM_POLL=1 FM_SIGNAL_GRACE=0 FM_CHECK_INTERVAL=9999999 FM_HEARTBEAT=9999999 \
   "$WATCH" > "$TMP_ROOT/watch.out" 2> "$TMP_ROOT/watch.err" &
 WATCH_PID=$!
-i=0
-while [ ! -e "$HOME_DIR/state/.last-watcher-beat" ] && [ "$i" -lt 100 ]; do
-  kill -0 "$WATCH_PID" 2>/dev/null || break
-  sleep 0.05
-  i=$((i + 1))
-done
-[ -e "$HOME_DIR/state/.last-watcher-beat" ] \
-  || fail "the real watcher did not begin polling: $(cat "$TMP_ROOT/watch.err" 2>/dev/null)"
+wait_for_watcher_poll "$HOME_DIR" "$TMP_ROOT/watch.out" "$TMP_ROOT/watch.err"
 printf 'blocked [key=fixture-dependency]: waiting for the fixture dependency\n' \
   >> "$HOME_DIR/state/ledger-task.status"
 wait_for_ledger_generation "$NOW_TWO" \
@@ -286,14 +293,7 @@ PATH="$FAKEBIN:$PATH" \
   FM_CHECK_INTERVAL=9999999 FM_HEARTBEAT=9999999 \
   "$WATCH" > "$TMP_ROOT/cadence-watch.out" 2> "$TMP_ROOT/cadence-watch.err" &
 WATCH_PID=$!
-i=0
-while [ ! -e "$CADENCE_HOME/state/.last-watcher-beat" ] && [ "$i" -lt 100 ]; do
-  kill -0 "$WATCH_PID" 2>/dev/null || break
-  sleep 0.05
-  i=$((i + 1))
-done
-[ -e "$CADENCE_HOME/state/.last-watcher-beat" ] \
-  || fail "the cadence watcher did not complete its initial cycle"
+wait_for_watcher_poll "$CADENCE_HOME" "$TMP_ROOT/cadence-watch.out" "$TMP_ROOT/cadence-watch.err"
 python3 - "$CADENCE_HOME/data/backlog.md" <<'PY'
 from pathlib import Path
 import sys
