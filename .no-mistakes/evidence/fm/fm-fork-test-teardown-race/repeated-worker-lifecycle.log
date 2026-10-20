@@ -1,0 +1,12 @@
+Lifecycle repetition 1
+before cleanup: owned worker pid=2948239 pgid=2947962 ready=yes
+after cleanup: owned worker group alive=no; fixture exists=no; unrelated worker alive=yes
+PASS: cleanup stopped the owned worker and removed its tree without signalling the stale-record/unregistered worker.
+Lifecycle repetition 2
+before cleanup: owned worker pid=2953343 pgid=2953189 ready=yes
+after cleanup: owned worker group alive=no; fixture exists=no; unrelated worker alive=yes
+PASS: cleanup stopped the owned worker and removed its tree without signalling the stale-record/unregistered worker.
+Lifecycle repetition 3
+before cleanup: owned worker pid=2958846 pgid=2958715 ready=yes
+after cleanup: owned worker group alive=no; fixture exists=no; unrelated worker alive=yes
+PASS: cleanup stopped the owned worker and removed its tree without signalling the stale-record/unregistered worker.

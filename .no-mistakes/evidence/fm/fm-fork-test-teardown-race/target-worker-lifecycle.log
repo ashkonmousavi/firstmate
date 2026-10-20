@@ -1,0 +1,3 @@
+before cleanup: owned worker pid=2897778 pgid=2897661 ready=yes
+after cleanup: owned worker group alive=no; fixture exists=no; unrelated worker alive=yes
+PASS: cleanup stopped the owned worker and removed its tree without signalling the stale-record/unregistered worker.
