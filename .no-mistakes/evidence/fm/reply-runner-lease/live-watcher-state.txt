@@ -1,0 +1,439 @@
+
+MODE warm
+Actual watcher output:
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v2-warm/state/pulse.status
+Persisted pending-reply records:
+[
+  {
+    "corr_id": "1db5bed67f554759",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "33e1ab123ac40d62",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "60fb76c857a2a404",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "6be67f41c69506e4",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "6f801a8d2380b7fa",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "7be05954fe8b3dd2",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "93740e8690045c89",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "9d53964e7e370841",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "a27a80f490960358",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "a7955e99e979bcad",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "aa68b24811156e6c",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "ac62f6023c8a96f0",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "b80eaa6ba59a09ea",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "ea94d67745b14046",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "f88bad0a22dabaf5",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  }
+]
+Actual incremental fold probe: task bytes folded=21, log bytes=302749
+Decision still blocks recovery; later pulse signal delivered.
+
+MODE missing
+Actual watcher output:
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-missing/state/pulse.status
+Persisted pending-reply records:
+[
+  {
+    "corr_id": "119c4530129ee512",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "1c8144d6326dbdee",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "520ded263ee878fa",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "8a07f130cdb176ab",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "8be992b321cc8012",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "8ea54d01596cc17f",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "906671132a6157f3",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "9f76fe9d502859c4",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "be784f8e1e0c058c",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "c08fa217fc6e4199",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "c6d3321d7bcd145d",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "e1b0fe1b9b867c69",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "e20808738c64b4db",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "ef1042ce44d931a5",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "ef99c06cce4fe914",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  }
+]
+Actual incremental fold probe: task bytes folded=302749, log bytes=302749
+Decision still blocks recovery; later pulse signal delivered.
+
+MODE invalid
+Actual watcher output:
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-invalid/state/pulse.status
+Persisted pending-reply records:
+[
+  {
+    "corr_id": "074c8818810ba31f",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "38cba85e707eed65",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "3d0fc11e388d9d35",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "4c262356e27ce2db",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "4e0fb0c37dd83a80",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "57bb149532572544",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "63fb721f66c5e006",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "663f0dd672b939de",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "76de794875f91ff1",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "7e6a5154d8649144",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "83d94ebdf2dc1657",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "df41e6efe01d8a47",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "e3be4cc3b2d4aab6",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "f4c640a4feaa263d",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "f7f99a66f8dad673",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  }
+]
+Actual incremental fold probe: task bytes folded=302749, log bytes=302749
+Decision still blocks recovery; later pulse signal delivered.
+
+MODE behind
+Actual watcher output:
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-behind/state/pulse.status
+Persisted pending-reply records:
+[
+  {
+    "corr_id": "01082e943fd5f094",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "38d9c01577a6bf01",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "4d049e107956bc81",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "536e95c8e4e518ec",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "68cca08788379de3",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "68f2a842c8a2d5fc",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "6f574e4e63b6c133",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "7d82765e3354f5f0",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "8230d53f690bf301",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "8339a9ec2898dbfb",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "a446621092270ff7",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "aed09e012aac77a4",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "aee6a7a6a4ce0db3",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "cd1f2d196cf923ce",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "f8f158fd2d93036c",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  }
+]
+Actual incremental fold probe: task bytes folded=302700, log bytes=302749
+Decision still blocks recovery; later pulse signal delivered.
+
+MODE scratch
+Actual watcher output:
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-scratch/state/pulse.status
+Persisted pending-reply records:
+[
+  {
+    "corr_id": "6504589b6e922ceb",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "6b8dc2a906f7afd6",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  }
+]
+Actual incremental fold probe: task bytes folded=0, log bytes=70
+Scratch collision directories: .task.open-decisions-cursor.peek.read.77082, .task.open-decisions-cursor.peek.read.77082
+Decision still blocks recovery; later pulse signal delivered.
+
+MODE cache-write
+Actual watcher output:
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-cache-write/state/pulse.status
+Persisted pending-reply records:
+[
+  {
+    "corr_id": "2956a910580404cd",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  },
+  {
+    "corr_id": "b08754fb954dc7c1",
+    "task_id": "task",
+    "phase": "awaiting_report",
+    "recovery_attempted_epoch": ""
+  }
+]
+Actual incremental fold probe: task bytes folded=140, log bytes=70
+Decision still blocks recovery; later pulse signal delivered.

@@ -1,0 +1,16 @@
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/split-home/state/task.status
+FIRST APPEND CURSORS:
+version=10:unknown
+offset=42
+ident=strong:2096:5676457:2026-10-20 00:56:56.929567125 -0700
+anchor	needs-decision	keep waitingWAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 57195.1792483017.mXHiSx
+wake annotation: unread wake-EVENT since last drain, not current state: task.status: needs-decision [key=anchor]: keep waiting
+task [key=anchor] needs-decision: keep waiting
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/split-home/state/task.status
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 2 --recovery-generation 57195.1792483017.mXHiSx
+UNTERMINATED SECOND APPEND PRESENTATION:
+wake annotation: latest wake-EVENT observed at drain, not current state: task.status: sion [key=x]: café
+task [key=x] needs-decision: café
+PEEK AND DRAIN OFFSETS WITH UNTERMINATED TAIL:
+~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/split-home/state/.task.open-decisions-cursor:offset=42
+~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/split-home/state/.task.open-decisions-cursor.peek:offset=42

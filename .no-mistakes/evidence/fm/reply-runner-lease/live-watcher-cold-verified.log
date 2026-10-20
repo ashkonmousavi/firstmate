@@ -1,0 +1,13 @@
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-missing/state/pulse.status
+MODE missing: 15 delivered requests remain awaiting_report; no recovery attempts; watcher reached signal delivery in 9s; folded=302749 log_bytes=302749; drain cursor unchanged
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-invalid/state/pulse.status
+MODE invalid: 15 delivered requests remain awaiting_report; no recovery attempts; watcher reached signal delivery in 8s; folded=302749 log_bytes=302749; drain cursor unchanged
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-behind/state/pulse.status
+MODE behind: 15 delivered requests remain awaiting_report; no recovery attempts; watcher reached signal delivery in 9s; folded=302700 log_bytes=302749; drain cursor unchanged
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-scratch/state/pulse.status
+MODE scratch: 2 delivered requests remain awaiting_report; no recovery attempts; watcher reached signal delivery in -2s; folded=0 log_bytes=70; drain cursor unchanged
+Filesystem scratch collision: decision retained through whole-file fallback; no cursor committed
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v3-cache-write/state/pulse.status
+MODE cache-write: 2 delivered requests remain awaiting_report; no recovery attempts; watcher reached signal delivery in 1s; folded=140 log_bytes=70; drain cursor unchanged
+Filesystem cursor-write collision: decision retained in watcher recovery gate
+LIVE WATCHER SCENARIOS PASSED

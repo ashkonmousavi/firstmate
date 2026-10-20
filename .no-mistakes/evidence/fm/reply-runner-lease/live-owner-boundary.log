@@ -1,0 +1,15 @@
+registered: boundary-a (lavish)
+reconciled: published=0 started=1 stopped=0 uncertain=0 failed=0
+registered: boundary-b (lavish)
+reconciled: published=0 started=1 stopped=0 uncertain=0 failed=0
+Initial runner pids: A=12899 B=13581
+A stopped despite copied fresh lease; B remains alive at pid 13581
+2026-10-20T07:58:35Z	owner-guard-stop	runner=12899 state_root=changed-or-gone lease_age=1 lease=60 session=absent
+2026-10-20T07:58:35Z	runner-exit	runner=12899 status=143 reason=stopped by signal TERM
+SOURCE                       ADAPTER      OWNER      PENDING
+boundary-b                   lavish       live       0
+retired: boundary-b
+swept: attempted=1
+retired: boundary-a
+swept: attempted=1
+LIVE OWNER-ROOT ISOLATION PASSED

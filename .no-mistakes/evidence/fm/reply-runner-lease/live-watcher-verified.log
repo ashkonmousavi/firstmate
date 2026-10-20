@@ -1,0 +1,4 @@
+signal: ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/watch-v2-warm/state/pulse.status
+MODE warm: 15 delivered requests remain awaiting_report; no recovery attempts; watcher reached signal delivery in 29s; folded=21 log_bytes=302749; drain cursor unchanged
+Terminated
+watcher failed: missing

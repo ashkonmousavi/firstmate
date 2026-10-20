@@ -1,0 +1,51 @@
+Real primary lock: 54272
+codex-cli 0.159.3
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent-remote-reply.sh arm relay
+registered: remote-reply-relay (remote-reply)
+armed: remote-reply-relay offset=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh reconcile
+reconciled: published=0 started=1 stopped=0 uncertain=0 failed=0
+Original runner: 92515
+REMOTE APPEND: working: live delta 1
+HANDLED 1 runner 92515
+REMOTE APPEND: working: live delta 2
+HANDLED 2 runner 92515
+REMOTE APPEND: working: live delta 3
+HANDLED 3 runner 92515
+REMOTE APPEND: needs-decision [key=live-choice]: retained after lease expiry
+POST-LEASE MIRROR: working: live delta 1
+working: live delta 2
+working: live delta 3
+needs-decision [key=live-choice]: retained after lease expiry
+
+LEASE UNCHANGED: 186399.801758 now 1792482840
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh start remote-reply-relay
+already owned: remote-reply-relay
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh reconcile
+reconciled: published=0 started=0 stopped=0 uncertain=0 failed=0
+DUPLICATE START kept runner 92515
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-on.sh relay fm-remote-file.sh get state/parent-replies.status
+working: live delta 1
+working: live delta 2
+working: live delta 3
+needs-decision [key=live-choice]: retained after lease expiry
+Connection to 127.0.0.1 closed by remote host.
+REMOTE PREEMPTED RESULTS: ['job-CHvwnq']
+REMOTE APPEND: working: delivered after remote preemption
+AFTER PREEMPTION: working: live delta 1
+working: live delta 2
+working: live delta 3
+needs-decision [key=live-choice]: retained after lease expiry
+working: delivered after remote preemption
+
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh register lavish failed-source -- /bin/sh -c exit 7
+registered: failed-source (lavish)
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh start failed-source
+no-result: failed-source (exit 7)
+FAILED SOURCE EXIT: 2026-10-20T07:54:09Z	runner-exit	runner=43024 status=0 reason=no-result: source exit 7 with no output
+
+OWNER SHUTDOWN EXIT RECORDS:
+2026-10-20T07:54:15Z	owner-guard-stop	runner=92515 state_root=same lease_age=6 lease=3 session=stale
+2026-10-20T07:54:15Z	runner-exit	runner=92515 status=143 reason=stopped by signal TERM
+
+LIVE RELAY SCENARIOS PASSED

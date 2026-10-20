@@ -1,0 +1,38 @@
+Real primary lock: 54272
+codex-cli 0.159.3
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent-remote-reply.sh arm remote
+registered: remote-reply-remote (remote-reply)
+armed: remote-reply-remote offset=0
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh reconcile
+reconciled: published=0 started=1 stopped=0 uncertain=0 failed=0
+Original runner: 64723
+REMOTE APPEND: working: live delta 1
+HANDLED 1 runner 64723
+REMOTE APPEND: working: live delta 2
+HANDLED 2 runner 64723
+REMOTE APPEND: working: live delta 3
+HANDLED 3 runner 64723
+REMOTE APPEND: needs-decision [key=live-choice]: retained after lease expiry
+POST-LEASE MIRROR: working: live delta 1
+working: live delta 2
+working: live delta 3
+needs-decision [key=live-choice]: retained after lease expiry
+
+LEASE UNCHANGED: 186332.949035 now 1792482779
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh start remote-reply-remote
+already owned: remote-reply-remote
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-procevent.sh reconcile
+reconciled: published=0 started=0 stopped=0 uncertain=0 failed=0
+DUPLICATE START kept runner 64723
+$ ~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/bin/fm-on.sh remote fm-remote-file.sh get state/parent-replies.status
+working: live delta 1
+working: live delta 2
+working: live delta 3
+needs-decision [key=live-choice]: retained after lease expiry
+Connection to 127.0.0.1 closed by remote host.
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/live-relay.py", line 59, in <module>
+    wait(lambda:any(p.read_text().strip()=='76' for p in (base/'remote-jobs/jobs').glob('*/result.exit')),'preempted job result',10)
+  File "~/.no-mistakes/worktrees/049a88734b0e/01M5C1241WSKP7RTSG6105D627/.test-phase/live-relay.py", line 22, in wait
+    raise RuntimeError('Timed out: '+label)
+RuntimeError: Timed out: preempted job result
