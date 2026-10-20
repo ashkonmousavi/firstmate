@@ -1120,13 +1120,19 @@ EOF
 # fleet-wide scan using that whole-file function would pay that cost for every
 # task on every wake, which grows unbounded as tasks run longer and accumulate
 # status history. status_open_decisions_incremental and scan_open_decisions_incremental
-# below are the bounded-cost siblings used for that per-drain path: each call
-# reads only the bytes appended to a status file since its own last call (a
-# persisted per-file byte cursor) and folds just those new lines into a
-# persisted running open-set, via the exact same _fm_decision_fold_line rule
-# status_open_decisions uses - so the two strategies can never disagree on what
-# is open. Cost is bounded by NEW appends since the last drain, not by the
-# status file's total lifetime size.
+# below are the bounded-cost siblings used for that per-drain path. Supervision
+# uses status_open_decisions_peek so repeated per-request checks share a fold
+# without advancing the drain's cursor. Its .peek cursor is seeded from the
+# drain's cursor only when no supervision cursor exists; both undergo the same
+# validation. Once warm, each folds new appends plus any uncommitted tail via
+# the same _fm_decision_fold_line rule status_open_decisions uses.
+#
+# Persist only the open-set and offset just past the last complete newline.
+# Fold an unterminated tail into the returned answer, but never into the saved
+# state: a later append may complete its verb, key, or note, so the next call
+# must re-read that record from its start. This also applies when a drain's
+# captured endpoint splits a record. tests/fm-wake-drain-open-decisions-cursor.test.sh
+# pins this boundary for both cursors.
 #
 # Correctness invariant (unchanged from the whole-file fold): cursor advancement,
 # age, and being buried under later appends never drop an open decision - the
@@ -1137,7 +1143,7 @@ EOF
 # The cursor format is `version` (FM_OPEN_DECISIONS_FOLD_VERSION plus the task
 # kind, as `<n>:<kind>`), `offset`, `ident`, then the folded open set.
 # FM_OPEN_DECISIONS_FOLD_VERSION must be bumped whenever
-# _fm_decision_fold_line semantics change, so persisted state from an older
+# fold semantics or committed-record boundaries change, so persisted state from an older
 # interpretation is discarded and rebuilt from byte 0; the kind suffix does the
 # same when a task kind changes, because kind changes the fold below.
 #
@@ -1156,13 +1162,17 @@ EOF
 #
 # The other real failure mode is OUR OWN read failing (a stat/wc/tail I/O
 # error), not a malformed writer: every such read here is checked, and on
-# failure this reports the already-trusted persisted set unchanged rather than
-# risking a silent invalidation that would wipe it - never a bare "empty" as if
-# nothing were open.
+# failure this reports the already-trusted persisted set unchanged. If peek
+# has no nonempty trusted set, it instead uses the whole-file fold so a failed
+# span read cannot make supervision treat an open decision as absent. The drain
+# retains its existing empty answer when no trusted set is available.
 #
 # Not a pure status-file read: this writes/rewrites the sibling cursor file as a
-# side effect (state/.<task>.open-decisions-cursor), the library's second
-# documented exception to the pure-read rule after crew_absorb_class. The write
+# side effect (state/.<task>.open-decisions-cursor, with .peek appended for
+# supervision). A failed cursor write or rename fails the drain, but peek still
+# returns its folded answer: cache persistence must not hide a decision from
+# recovery, retry, or nudge checks. tests/fm-pending-reply.test.sh covers those
+# failures and fold reuse with warm, missing, invalid, and behind cursors. The write
 # is atomic (temp file + rename), so a crash between calls leaves either the
 # prior cursor or the new one, never a partial one. bin/fm-wake-drain.sh calls
 # this only after releasing the wake-queue lock, so a hypothetical race between
@@ -1330,8 +1340,7 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   fi
 
   # A stat/size-read failure is a genuine I/O error, not "the file is empty" -
-  # report the already-trusted persisted set unchanged rather than risking a
-  # silent invalidation that would wipe it.
+  # preserve the trusted set or use peek's whole-file fallback described above.
   if ! cur_ident=$(_fm_open_decisions_file_ident "$f") || [ -z "$cur_ident" ] \
     || ! actual_size=$(_fm_status_file_size "$f"); then
     if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] && [ -z "$trusted_open" ]; then
@@ -1432,10 +1441,7 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   printf '%s' "$open"
 }
 
-# Sibling of status_open_decisions_incremental, for a caller that asks
-# about one task every supervision cycle (the pending-reply recovery gate, the
-# watcher's ring and nudge gates). It starts from the cursor the drain commits
-# and retains its fold in a separate cursor, leaving the drain's cursor intact.
+# Supervision reader; cursor ownership and failure rules are documented above.
 status_open_decisions_peek() {  # <status-file>
   local _FM_OPEN_DECISIONS_PEEK=1
   status_open_decisions_incremental "$1"

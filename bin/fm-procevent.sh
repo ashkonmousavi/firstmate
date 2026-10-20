@@ -185,8 +185,7 @@
 # registration only when that same claim still owns it and the registered
 # command is unchanged. A missing command, an error, or any other exit releases
 # the claim after that one result, exactly as before. The runner still does not
-# refresh the owner lease, so a home that has gone, or whose session has ended,
-# still ends the poll.
+# refresh the owner lease; the home-presence guard below still bounds the poll.
 #
 # Keyed captain answers from built-in adapters use one more seam of the same kind,
 # and this runner still decides nothing about them. Some sources carry the
@@ -223,11 +222,13 @@
 # long primary turn or a stalled supervision cycle; it is only read here, never
 # written. Owner-presence operations refresh the lease, an attached public
 # start keeps it fresh while its caller remains attached, and the watcher's
-# reconcile cycle keeps it fresh in a live home. Each guard stop and each
-# runner exit appends one line to the source's exit record,
+# reconcile cycle keeps it fresh in a live home. Guard stop attempts and runner
+# exits that run the EXIT trap append best-effort diagnostics to the source's exit record,
 # state/procevent/.<source-id>.exits (UTC time, event, then the runner pid, the
 # exit status and reason, or the guard's state-root, lease and session
-# readings), newest lines kept. A runner exports the inherited
+# readings), newest lines kept. KILL and exits before the trap is installed
+# cannot leave a runner-exit record; a missing record does not prove survival.
+# A runner exports the inherited
 # FM_PROCEVENT_IN_RUNNER marker and every lease refresh is skipped under it,
 # so a runner and its ordinary children do not
 # certify their own owner. That rule is CONFUSED-AGENT-GRADE, the grade
