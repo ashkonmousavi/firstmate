@@ -12,10 +12,7 @@ Effort precedence is a per-task captain instruction, then applicable dispatch pr
 Never replace either higher-precedence value.
 Use the fallback only when neither specifies effort.
 
-Use `low` for well-understood work with an explicit bounded path and `xhigh` for ambiguous investigation or design.
-Choose intermediate levels as complexity, uncertainty, blast radius, or open-ended reasoning rises.
 If an adapter lacks `xhigh`, cap at its highest supported non-`max` level rather than silently omitting the intent.
-Never select `max` through this fallback; only an explicit per-task or standing captain preference permits it.
 The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
 Do not add model-specific versions of that policy.
 

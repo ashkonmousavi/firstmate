@@ -133,5 +133,5 @@ Keep private identifiers, code, and paths out of Context7 queries, under the sam
 This skill owns the selection procedure and the Context7 version-verification duty only.
 Whether to commission a scout at all, and the ship-versus-scout classification, stay with `AGENTS.md` section 7.
 Diagnosing a reported bug is `diagnostic-reasoning`, not a candidate selection.
-Choosing a harness, model, or dispatch profile for a task is owned by `AGENTS.md` section 4 and `harness-adapters`; this research procedure does not overrule that intake contract.
+Choosing a harness, model, or dispatch profile for a task follows [Intake routing](../harness-adapters/references/common/dispatch.md#intake-routing); this research procedure does not overrule that intake contract.
 Do not build a research tracker, registry, scoring engine, or template checker for any of the above; the packet is a document.

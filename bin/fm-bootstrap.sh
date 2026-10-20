@@ -66,8 +66,8 @@
 #          tasks-axi and quota-axi are essential bootstrap tools.
 #          A compatible tasks-axi default backend is silent.
 #          quota-axi supports the explicit quota-balanced dispatch procedure
-#          and ordered-mode established-exhaustion facts in AGENTS.md
-#          section 4 and .agents/skills/quota-array-dispatch/SKILL.md.
+#          and ordered-mode established-exhaustion facts in harness-adapters
+#          references/common/dispatch.md and quota-array-dispatch.
 #          X mode is OPTIONAL and inert unless FM_HOME/.env has a non-empty
 #          FMX_PAIRING_TOKEN. When opted in, bootstrap requires curl+jq, writes
 #          the relay poll shim and 30s cadence config, and prints an FMX line.
