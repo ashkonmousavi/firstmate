@@ -1,0 +1,9 @@
+file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/pi-event-probe.mjs:29
+if(promptReads!==0||errors.length)throw new Error(JSON.stringify({promptReads,errors}));
+                                        ^
+
+Error: {"promptReads":1,"errors":[{"extensionPath":"~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/event-repo/.pi/extensions/fm-branch-supervision.ts","event":"before_agent_start","error":"custom event has no user prompt","stack":"Error: custom event has no user prompt\n    at Object.get (file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/pi-event-probe.mjs:25:66)\n    at ~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/event-repo/.pi/extensions/fm-branch-supervision.ts:1684:26\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async ExtensionRunner.emit (file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/pi99/node_modules/@earendil-works/pi-coding-agent/dist/core/extensions/runner.js:813:43)\n    at async file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/pi-event-probe.mjs:26:1"}]}
+    at file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/pi-event-probe.mjs:29:41
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.22.0

@@ -1,0 +1,35 @@
+{
+  "request": {
+    "id": "live-scroll-w2:p1",
+    "method": "pane.scroll",
+    "params": {
+      "pane_id": "w2:p1",
+      "offset_from_bottom": 50
+    }
+  },
+  "response": {
+    "id": "live-scroll-w2:p1",
+    "result": {
+      "type": "pane_info",
+      "pane": {
+        "pane_id": "w2:p1",
+        "terminal_id": "term_65e3dff2104bd2",
+        "workspace_id": "w2",
+        "tab_id": "w2:t1",
+        "focused": false,
+        "cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC",
+        "foreground_cwd": "~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC",
+        "agent": "claude",
+        "terminal_title": "\u2733 History row listing",
+        "terminal_title_stripped": "History row listing",
+        "agent_status": "done",
+        "scroll": {
+          "offset_from_bottom": 50,
+          "max_offset_from_bottom": 61,
+          "viewport_rows": 40
+        },
+        "revision": 3
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+not ok - current user requests must mirror before persistence with either event shape: file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/tmp/fm-pi-branch-extension.i8toRG/early-mirror-root/.pi/extensions/fm-branch-supervision.ts:1686
+    const trimmed = prompt.trim();
+                           ^
+
+TypeError: Cannot read properties of undefined (reading 'trim')
+    at file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/tmp/fm-pi-branch-extension.i8toRG/early-mirror-root/.pi/extensions/fm-branch-supervision.ts:1686:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async fire (eval at <anonymous> (file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/[eval1]:2:7), <anonymous>:186:63)
+    at async file://~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/[eval1]:32:1
+
+Node.js v22.22.0: expected exit 0, got 1

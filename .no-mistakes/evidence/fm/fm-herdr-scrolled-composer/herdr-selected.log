@@ -1,0 +1,6 @@
+ok - fm_backend_herdr_composer_state: scrolled history with an empty bottom composer reads empty
+ok - fm_backend_herdr_composer_state: real text at the bottom of a scrolled pane reads pending
+ok - fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown
+ok - scrolled composer state and content keep the bottom source across format fallback
+ok - fm_backend_send_text_submit: scrolled Claude submits ordinary input through ANSI and plain captures
+ok - fm_backend_herdr_wait_transition: the real reader drops a gone pane and still subscribes the live one

@@ -1,0 +1,627 @@
+{
+  "empty-bottom-state.jsonl": [
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "pane",
+        "get",
+        "w2:p1"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200"
+      ]
+    }
+  ],
+  "plain-only-state.jsonl": [
+    {
+      "fault": "plain-only",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "pane",
+        "get",
+        "w2:p1"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "agent",
+        "get",
+        "w2:p1"
+      ]
+    }
+  ],
+  "no-bottom-content.jsonl": [
+    {
+      "fault": "no-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "pane",
+        "get",
+        "w2:p1"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200"
+      ]
+    }
+  ],
+  "no-bottom-state.jsonl": [
+    {
+      "fault": "no-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "pane",
+        "get",
+        "w2:p1"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "no-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200"
+      ]
+    }
+  ],
+  "missing.jsonl": [
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "read",
+        "w3:p1",
+        "--source",
+        "visible",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "pane",
+        "get",
+        "w3:p1"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "pane",
+        "read",
+        "w3:p1",
+        "--source",
+        "visible",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "read",
+        "w3:p1",
+        "--source",
+        "visible",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "pane",
+        "get",
+        "w3:p1"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "missing",
+      "args": [
+        "pane",
+        "read",
+        "w3:p1",
+        "--source",
+        "visible",
+        "--format",
+        "ansi"
+      ]
+    }
+  ],
+  "plain-only-content.jsonl": [
+    {
+      "fault": "plain-only",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "pane",
+        "get",
+        "w2:p1"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "plain-only",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200"
+      ]
+    }
+  ],
+  "submit-refusal.jsonl": [
+    {
+      "fault": "none",
+      "args": [
+        "agent",
+        "get",
+        "w3:p1"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "get",
+        "w3:p1"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "read",
+        "w3:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "get",
+        "w3:p1"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "read",
+        "w3:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "send-text",
+        "w1:p1",
+        "unscrolled draft control"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "get",
+        "w1:p1"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "read",
+        "w1:p1",
+        "--source",
+        "visible",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "agent",
+        "get",
+        "w1:p1"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "get",
+        "w1:p1"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "none",
+      "args": [
+        "pane",
+        "read",
+        "w1:p1",
+        "--source",
+        "visible",
+        "--format",
+        "ansi"
+      ]
+    }
+  ],
+  "empty-bottom-content.jsonl": [
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "pane",
+        "get",
+        "w2:p1"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200",
+        "--format",
+        "ansi"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "status",
+        "--json"
+      ]
+    },
+    {
+      "fault": "empty-bottom",
+      "args": [
+        "pane",
+        "read",
+        "w2:p1",
+        "--source",
+        "recent",
+        "--lines",
+        "200"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "sdk": "0.99.1",
+  "interface": "real AgentSession.extensionRunner.emit",
+  "extensions": [
+    "~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/event-repo/.pi/extensions/fm-branch-supervision.ts",
+    "~/.no-mistakes/worktrees/049a88734b0e/01M5BQ6EX4WRMZKZNH9X8K3PEC/.r/event-repo/.pi/extensions/fm-primary-pi-watch.ts"
+  ],
+  "customPromptReads": 0,
+  "userAndLegacyEventsAccepted": true,
+  "errors": [],
+  "ownerActivated": true
+}

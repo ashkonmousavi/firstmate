@@ -1,0 +1,7 @@
+Live scrolled pane, fault=no-bottom reader=state: result=unknown rc=0; one offset probe, no viewport fallback
+Live scrolled pane, fault=no-bottom reader=content: result='' rc=1; one offset probe, no viewport fallback
+Live scrolled pane, fault=empty-bottom reader=state: result=unknown rc=0; one offset probe, no viewport fallback
+Live scrolled pane, fault=empty-bottom reader=content: result='' rc=1; one offset probe, no viewport fallback
+Live scrolled pane, fault=plain-only reader=state: result=empty rc=0; one offset probe, no viewport fallback
+Live scrolled pane, fault=plain-only reader=content: result='' rc=0; one offset probe, no viewport fallback
+Live pane with missing scroll metadata: viewport has only history; state=unknown, while readable bottom holds a pending draft
