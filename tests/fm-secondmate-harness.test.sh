@@ -863,9 +863,12 @@ test_spawn_secondmate_harness_model_token() {
   launch=$(cat "$launchlog")
   assert_contains "$launch" "claude --dangerously-skip-permissions $(sm_claude_add_dir "$w" sm)--settings '$(sm_claude_settings "$w" sm)' --model 'opus'" \
     "model-token: launch did not carry --model opus"
-  jq -e '.feedbackDrafts == "off" and .attribution.commit == "" and .attribution.pr == "" and .attribution.sessionUrl == false and .hooks.UserPromptSubmit' \
+  # This minimal home has no Stop guard, so it must remain unarmed.
+  jq -e '.feedbackDrafts == "off" and .attribution.commit == "" and .attribution.pr == "" and .attribution.sessionUrl == false and .hooks == null' \
     "$(sm_claude_settings "$w" sm)" >/dev/null \
-    || fail "model-token: the --settings file did not carry the session keys and busy hooks"
+    || fail "model-token: the --settings file must carry session keys without busy hooks for an incompatible home"
+  assert_absent "$w/home/state/sm.busy-gen" "model-token: an incompatible home must not arm a busy generation"
+  assert_absent "$sm/.fm-busy-stop" "model-token: an incompatible home must not receive a Stop pointer"
   assert_not_contains "$launch" "--effort" "model-token: launch must not carry an --effort flag"
   pass "C3 spawn: config/secondmate-harness's model token threads --model into the launch and meta"
 }
