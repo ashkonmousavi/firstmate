@@ -2613,7 +2613,7 @@ test_claude_worker_settings_reach_scout_and_secondmate() {
     reduce ["SessionStart", "UserPromptSubmit", "Stop", "StopFailure", "SessionEnd", "PermissionRequest"][] as $event
       ({}; .[$event] = [{hooks:[{type:"command",command:("printf " + $event)}]},
                         {hooks:[{type:"command",command:"true"}]}])
-  )' "$HOME_DIR/config/claude-worker-settings.json")
+  ) | .hooks.Stop[].hooks[].async = true' "$HOME_DIR/config/claude-worker-settings.json")
   printf '%s\n' "$configured" > "$HOME_DIR/config/claude-worker-settings.json"
   sm="$CASE_DIR/secondmate-home"
   make_seeded_secondmate_home "$sm" "$id"

@@ -699,6 +699,91 @@ test_secondmate_claude_older_home_guard_stays_unarmed() {
   pass "older Claude homes retire prior busy state and remain unknown through a blocked Stop"
 }
 
+test_secondmate_claude_incompatible_settings_stay_unarmed() {
+  local source mode case_dir id primary sm state target prior settings out status account
+  for source in worker project local user account; do
+    for mode in disabled command prompt; do
+      id="sm-claude-$source-$mode"
+      case_dir="$TMP_ROOT/$id"
+      primary="$case_dir/primary"
+      sm="$case_dir/sm"
+      state="$primary/state"
+      account=
+      case "$source" in
+        worker) target="$primary/config/claude-worker-settings.json" ;;
+        project) target="$sm/.claude/settings.json" ;;
+        local) target="$sm/.claude/settings.local.json" ;;
+        user) target="$primary/user-home/.claude/settings.json" ;;
+        account) account="$case_dir/account"; target="$account/settings.json" ;;
+      esac
+      if [ "$mode" = command ]; then
+        out=$(FM_TEST_CLAUDE_CONFIG_DIR="$account" spawn_secondmate_harness "$case_dir" "$id" claude) \
+          || fail "initial compatible $source spawn failed: $out"
+        assert_present "$state/$id.busy-gen" "$source prior incarnation did not arm"
+        assert_present "$sm/.fm-busy-stop" "$source prior incarnation had no Stop pointer"
+      fi
+      mkdir -p "$(dirname "$target")"
+      case "$mode" in
+        disabled) prior='{"disableAllHooks":true,"feedbackDrafts":"off"}' ;;
+        command) prior='{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"exit 2"}]}]},"feedbackDrafts":"off"}' ;;
+        prompt) prior='{"hooks":{"Stop":[{"hooks":[{"type":"prompt","prompt":"Block this Stop"}]}]},"feedbackDrafts":"off"}' ;;
+      esac
+      printf '%s\n' "$prior" > "$target"
+      out=$(FM_TEST_CLAUDE_CONFIG_DIR="$account" spawn_secondmate_harness "$case_dir" "$id" claude) \
+        || fail "incompatible $source $mode spawn failed: $out"
+      settings="$state/$id.claude-settings.json"
+      assert_absent "$state/$id.busy-gen" "$source $mode settings kept an armed generation"
+      assert_absent "$state/$id.busy-state" "$source $mode settings kept semantic busy state"
+      assert_absent "$sm/.fm-busy-stop" "$source $mode settings kept the Stop pointer"
+      [ "$(cat "$target")" = "$prior" ] || fail "$source $mode settings were rewritten"
+      if [ "$source" = worker ]; then
+        jq -e --argjson expected "$prior" '
+          .feedbackDrafts == "off" and .hooks == $expected.hooks and .disableAllHooks == $expected.disableAllHooks
+        ' "$settings" >/dev/null || fail "incompatible worker settings were not delivered intact"
+      else
+        jq -e '.feedbackDrafts == "off" and ((.hooks // {}) | length) == 0' "$settings" >/dev/null \
+          || fail "$source $mode settings received semantic busy hooks"
+      fi
+      if [ "$mode" = command ]; then
+        status=0
+        sh -c "$(jq -r '.hooks.Stop[0].hooks[0].command' "$target")" || status=$?
+        expect_code 2 "$status" "$source configured Stop must block independently"
+      fi
+      out=$(classify claude "$id" "$state")
+      [ "$out" = "unknown missing" ] || fail "$source $mode lifecycle became $out"
+      assert_absent "$state/$id.turn-ended" "$source $mode lifecycle notified the parent"
+    done
+  done
+  pass "incompatible Claude lifecycle settings stay intact and unarmed across every settings source and retire prior state"
+}
+
+test_secondmate_claude_owned_and_async_settings_stay_armed() {
+  local case_dir id=sm-claude-compatible-settings primary sm state target configured out command
+  case_dir="$TMP_ROOT/$id"
+  primary="$case_dir/primary"
+  sm="$case_dir/sm"
+  configured=$(jq '{disableAllHooks:false,hooks:{Stop:.hooks.Stop}} |
+    .hooks.Stop += [{hooks:[{type:"command",command:"exit 2",async:true},
+                           {type:"command",command:"exit 2",asyncRewake:true}]}]' "$ROOT/.claude/settings.json")
+  for target in "$primary/config/claude-worker-settings.json" "$sm/.claude/settings.json" \
+    "$sm/.claude/settings.local.json" "$primary/user-home/.claude/settings.json"; do
+    mkdir -p "$(dirname "$target")"
+    printf '%s\n' "$configured" > "$target"
+  done
+  out=$(spawn_secondmate_harness "$case_dir" "$id" claude) \
+    || fail "compatible owned/asynchronous hook spawn failed: $out"
+  state="$primary/state"
+  assert_present "$state/$id.busy-gen" "owned/asynchronous hooks prevented arming"
+  assert_present "$sm/.fm-busy-stop" "owned/asynchronous hooks lost Stop ownership"
+  jq -e --argjson expected "$configured" '.hooks.Stop == $expected.hooks.Stop' \
+    "$state/$id.claude-settings.json" >/dev/null || fail "compatible Stop hooks were rewritten"
+  command=$(jq -r '.hooks.UserPromptSubmit[-1].hooks[0].command' "$state/$id.claude-settings.json")
+  sh -c "$command" || fail "compatible settings did not execute the generated busy hook"
+  out=$(classify claude "$id" "$state")
+  [ "$out" = "busy claude-hook" ] || fail "compatible settings lifecycle became $out"
+  pass "owned Stop registrations and asynchronous operator hooks preserve semantic busy wiring"
+}
+
 test_secondmate_claude_spawn_leaves_local_settings_untouched() {
   local case_dir id=sm-claude-local primary sm state prior out
   case_dir="$TMP_ROOT/sm-claude-local"
@@ -874,6 +959,8 @@ test_secondmate_claude_spawn_arms_busy_for_the_stall_gate
 test_raw_secondmate_launch_writes_no_busy_wiring
 test_secondmate_claude_stop_guard_owns_the_stop_verdict
 test_secondmate_claude_older_home_guard_stays_unarmed
+test_secondmate_claude_incompatible_settings_stay_unarmed
+test_secondmate_claude_owned_and_async_settings_stay_armed
 test_secondmate_claude_spawn_leaves_local_settings_untouched
 test_secondmate_pi_extension_reports_busy_without_a_parent_turnend
 test_secondmate_omp_extension_reports_busy_without_a_parent_turnend

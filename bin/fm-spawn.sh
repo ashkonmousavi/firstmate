@@ -5171,7 +5171,22 @@ if [ "$KIND" = secondmate ]; then
   fi
   case "$HARNESS" in
     claude*)
-      if ! grep -qF '.fm-busy-stop' "$WT/bin/fm-turnend-guard.sh" 2>/dev/null; then
+      claude_settings_sources=()
+      for claude_settings_source in "${CLAUDE_CONFIG_DIR:-${HOME}/.claude}/settings.json" \
+        "$WT/.claude/settings.json" "$WT/.claude/settings.local.json"; do
+        if [ -e "$claude_settings_source" ] || [ -L "$claude_settings_source" ]; then
+          claude_settings_sources+=("$claude_settings_source")
+        fi
+      done
+      if ! grep -qF '.fm-busy-stop' "$WT/bin/fm-turnend-guard.sh" 2>/dev/null \
+        || ! jq -ne --argjson worker "$CLAUDE_SETTINGS" \
+          --slurpfile owned "$FM_ROOT/.claude/settings.json" '
+          [$worker] + [inputs] | all(.[];
+            .disableAllHooks != true and
+            all(.hooks.Stop[]?.hooks[]?; . as $hook |
+              (.type == "command" and (.async == true or .asyncRewake == true)) or
+              (($owned[0].hooks.Stop | map(.hooks[]) | index($hook)) != null)))
+        ' ${claude_settings_sources[@]+"${claude_settings_sources[@]}"} </dev/null >/dev/null 2>&1; then
         WIRING_HARNESS=
       fi
       ;;

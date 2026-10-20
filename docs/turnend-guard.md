@@ -273,6 +273,8 @@ The registrations in detail:
   In a Claude secondmate home, `bin/fm-spawn.sh` writes a `.fm-busy-stop` pointer and gives the mate no `Stop` busy hook, so `--claude` is the only Stop writer of the parent home's busy record for that generation.
   It records idle when it allows the Stop and busy when its exit 2 blocks it into a continuation, because Claude runs Stop hooks in parallel and that continuation fires no `UserPromptSubmit`.
   A home whose guard predates `.fm-busy-stop` stays unarmed until its guard is updated; it receives no semantic busy hooks or parent Stop notification.
+  The same eligibility boundary leaves a secondmate unarmed when worker, user, project, or local Claude settings disable hooks or add synchronous Stop decisions beyond the tracked owned registration; asynchronous command hooks remain compatible.
+  Spawn preserves those settings and retires any earlier busy generation and Stop pointer before launching an incompatible configuration.
   [Runtime backend verification](verification/runtime-backends.md#secondmate-busy-contract) owns the live evidence.
 - Codex registers a `Stop` hook in `.codex/hooks.json`, anchors the executable to the hook process working directory, verifies a Firstmate-shaped hook-bearing root, and passes the original payload with `--codex` to the shared guard.
 - OpenCode listens for `session.idle` in `.opencode/plugins/fm-primary-turnend-guard.js`, lets the watcher coordinator act first, and calls `client.session.promptAsync` once when the guard returns 2.
