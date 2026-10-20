@@ -114,10 +114,12 @@ jobs:
           set -eu
           npm install -g tasks-axi
           tasks-axi --version
+      # Match the SDK/runtime verified in docs/verification/runtime-backends.md;
+      # Pi 1.2 changed BeforeAgentStartEvent's prompt contract.
       - name: Install the Pi package for the Pi extension tests
         run: |
           set -eu
-          npm install -g @earendil-works/pi-coding-agent
+          npm install -g @earendil-works/pi-coding-agent@0.84.4
           npm ls -g --depth 0 @earendil-works/pi-coding-agent
       - name: Run portable parallel shard 1
         run: |
@@ -238,7 +240,7 @@ jobs:
       - name: Install the Pi package for the Pi extension tests
         run: |
           set -eu
-          npm install -g @earendil-works/pi-coding-agent
+          npm install -g @earendil-works/pi-coding-agent@0.84.4
           npm ls -g --depth 0 @earendil-works/pi-coding-agent
       - name: Run portable serial shard ${{ matrix.shard }}
         env:
@@ -299,6 +301,11 @@ jobs:
           # worktree acquisition (presentation, workspace-per-home, autodetect).
           bin/fm-install-treehouse.sh "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Install the verified Pi runtime for Herdr/Pi guards
+        run: |
+          set -eu
+          npm install -g @earendil-works/pi-coding-agent@0.84.4
+          pi --version
       - name: Assert Herdr pin and protocol floor
         run: |
           set -eu
