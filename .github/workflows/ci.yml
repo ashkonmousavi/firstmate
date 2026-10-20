@@ -26,10 +26,12 @@ concurrency:
 # tiers and their rationale; tests/fm-ci-workflow.test.sh guards this workflow.
 # Each job comment identifies the tier implemented by its executable value.
 
+# The constant custom-label expression keeps copied-workflow lint fixtures
+# independent of this repository's .github/actionlint.yaml configuration.
 jobs:
   lint:
     name: Lint ${{ matrix.partition }}
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
     strategy:
@@ -78,7 +80,7 @@ jobs:
   # and that the portable serial CI shards partition that serial lane exactly.
   test-coverage:
     name: Test coverage guard
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Fast tier: the coverage guard is a seconds-long local computation.
     timeout-minutes: 5
     steps:
@@ -90,7 +92,7 @@ jobs:
   # set only. Composition owner: bin/fm-test-run.sh (docs/fm-test-portable-shards.md).
   tests-portable-parallel-1:
     name: Behavior portable parallel 1
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
     steps:
@@ -134,7 +136,7 @@ jobs:
 
   tests-portable-parallel-2:
     name: Behavior portable parallel 2
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
     steps:
@@ -178,7 +180,7 @@ jobs:
   # whose "ofN" disagrees with it (docs/fm-test-portable-shards.md).
   tests-portable-serial:
     name: Behavior portable serial ${{ matrix.shard }}
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Normal tier (see the timeout policy above).
     timeout-minutes: 30
     strategy:
@@ -190,6 +192,23 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+      - name: Install hosted-compatible Git in the private job directory
+        # Hosted Ubuntu uses git-core's PPA rather than Ubuntu's Git 2.43.
+        # Source: https://github.com/actions/runner-images/blob/main/images/ubuntu/scripts/build/install-git.sh
+        run: |
+          set -eu
+          git_root="$RUNNER_TEMP/fm-git"
+          mkdir -p "$git_root"
+          curl -fsSL --retry 1 \
+            https://ppa.launchpadcontent.net/git-core/ppa/ubuntu/pool/main/g/git/git_2.55.0-0ppa1~ubuntu24.04.2_amd64.deb \
+            -o "$git_root/git.deb"
+          printf '%s  %s\n' \
+            6238a37c11c1bd4b18a5194f766ccfcb2f26c116e7d8ecd07bac143863b69498 \
+            "$git_root/git.deb" | sha256sum -c -
+          dpkg-deb -x "$git_root/git.deb" "$git_root"
+          "$git_root/usr/bin/git" --version
+          echo "$git_root/usr/bin" >> "$GITHUB_PATH"
+          echo "GIT_EXEC_PATH=$git_root/usr/lib/git-core" >> "$GITHUB_ENV"
       - name: Install pinned ShellCheck
         run: |
           set -eu
@@ -250,7 +269,7 @@ jobs:
   # the failure evidence and move the job to macOS rather than skip assertions.
   tests-herdr:
     name: Behavior tests (Herdr)
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Heavy tier (see the timeout policy above): the last-resort job backstop.
     # The family-run step below owns the hang tripwire, so a wedged suite fails
     # there with the always() cleanup and timing upload still running.
@@ -371,7 +390,7 @@ jobs:
   # Aggregate per-lane timing into one summary artifact for critical-path review.
   tests-timing-aggregate:
     name: Behavior timing aggregate
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Fast tier: aggregation is seconds of work over lane artifacts.
     timeout-minutes: 5
     needs:
@@ -413,7 +432,7 @@ jobs:
 
   invariants:
     name: Repo invariants
-    runs-on: [self-hosted, fm-fork]
+    runs-on: [self-hosted, "${{ 'fm-fork' }}"]
     # Fast tier: the invariant checks are seconds-long file comparisons.
     timeout-minutes: 5
     steps:
