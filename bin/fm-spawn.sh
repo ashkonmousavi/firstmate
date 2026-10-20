@@ -528,9 +528,8 @@
 # A raw launch command for a claude, pi, pi-signed, or omp secondmate is not armed
 # and retires any arm an earlier launch of that mate left, so its verdict is unknown:
 # the raw command carries no --settings or -e flag to load the wiring.
-# A claude secondmate gets no Stop busy hook; its home's tracked Stop guard is its
-# only Stop writer, through the .fm-busy-stop pointer in that home. A home whose
-# guard predates that pointer stays unarmed until its guard is updated.
+# docs/turnend-guard.md owns Claude secondmate Stop ownership and busy-hook
+# eligibility, including guard compatibility and preserved operator settings.
 # Kimi uses one surgically installed Firstmate region in $HOME/.kimi-code/config.toml,
 # a firstmate-owned global hook and registry, and a gitignored per-task pointer.
 # Kimi 2.0.0 also gates a fresh worktree on an interactive folder-trust dialog.
