@@ -207,9 +207,9 @@ test_completed_turn_no_report_triggers_one_recovery() {
 
 # A mate waiting on its own open decision is never poked by the recovery; the
 # recovery stays unattempted and runs once the decision closes.
-test_recovery_waits_while_the_mate_has_an_open_decision() {
-  local home state corr hook_log
-  home=$(setup_parent decision-wait)
+test_recovery_waits_while_the_mate_has_an_open_decision() (
+  local failure=${1:-none} home state corr hook_log cursor got previous_path=$PATH
+  home=$(setup_parent "decision-wait-$failure")
   state="$home/state"
   hook_log="$TMP_ROOT/decision-wait-hook.log"
   : > "$hook_log"
@@ -230,6 +230,46 @@ test_recovery_waits_while_the_mate_has_an_open_decision() {
   fm_pending_reply_observe_busy "$state" "$corr" busy
   fm_pending_reply_observe_busy "$state" "$corr" idle
   printf 'needs-decision [key=scope]: narrow or wide?\n' >> "$state/hibit.status"
+  cursor="$state/.hibit.open-decisions-cursor"
+  case "$failure" in
+    write) mkdir "$cursor.tmp.$$" "$cursor.peek.tmp.$$" ;;
+    rename)
+      mkdir "$state/fakebin"
+      export FM_TEST_REAL_MV
+      FM_TEST_REAL_MV=$(command -v mv)
+      export FM_TEST_CACHE_FAILURE_LOG="$state/cache-failures"
+      cat > "$state/fakebin/mv" <<'SH'
+#!/usr/bin/env bash
+for destination do :; done
+case "$destination" in
+  *.open-decisions-cursor|*.open-decisions-cursor.peek)
+    printf '%s\n' "$destination" >> "$FM_TEST_CACHE_FAILURE_LOG"
+    exit 1
+    ;;
+esac
+exec "$FM_TEST_REAL_MV" "$@"
+SH
+      chmod +x "$state/fakebin/mv"
+      export PATH="$state/fakebin:$PATH"
+      ;;
+  esac
+  if [ "$failure" != none ]; then
+    got=$(status_open_decisions_peek "$state/hibit.status" 2>/dev/null) \
+      || fail "$failure: the nudge reader failed after folding an open decision"
+    [ "$got" = $'scope\tneeds-decision\tnarrow or wide?' ] \
+      || fail "$failure: the nudge reader lost the open decision"
+    got=$(status_own_open_decisions "$state/hibit.status" 2>/dev/null)
+    [ "$got" = $'scope\tneeds-decision\tnarrow or wide?' ] \
+      || fail "$failure: the recovery and retry reader lost the open decision"
+    if got=$(status_open_decisions_incremental "$state/hibit.status" 2>/dev/null); then
+      fail "$failure: the drain concealed its failed cursor commit"
+    fi
+    [ -z "$got" ] || fail "$failure: the drain emitted a result after a failed cursor commit"
+    [ ! -e "$cursor" ] && [ ! -e "$cursor.peek" ] \
+      || fail "$failure: a failed cursor commit published a cursor"
+    [ ! -f "$cursor.tmp.$$" ] && [ ! -f "$cursor.peek.tmp.$$" ] \
+      || fail "$failure: a failed cursor commit left a temporary file"
+  fi
   if fm_pending_reply_send_recovery "$state" "$corr" 2>/dev/null; then
     fail "recovery must wait while the mate waits on its own decision"
   fi
@@ -237,13 +277,22 @@ test_recovery_waits_while_the_mate_has_an_open_decision() {
   [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
     || fail "a deferred recovery must stay unattempted, got $(phase_of "$state" "$corr")"
 
+  case "$failure" in
+    write) rmdir "$cursor.tmp.$$" "$cursor.peek.tmp.$$" ;;
+    rename)
+      [ "$(wc -l < "$FM_TEST_CACHE_FAILURE_LOG")" -ge 4 ] \
+        || fail "the rename failure did not reach each decision reader and recovery"
+      export PATH="$previous_path"
+      ;;
+  esac
+
   printf 'resolved [key=scope]: answered: narrow\n' >> "$state/hibit.status"
   fm_pending_reply_send_recovery "$state" "$corr" || fail "recovery should send once the decision closes"
   [ "$(wc -l < "$hook_log" | tr -d ' ')" = 1 ] || fail "expected exactly one recovery send"
   unset FM_PENDING_REPLY_SEND_HOOK
   unset FM_CONFIG_OVERRIDE
-  pass "recovery never pokes a mate waiting on its own decision, and runs once it closes"
-}
+  pass "$failure cache failure: recovery preserves an open decision and runs once it closes"
+)
 
 # The supervision cycle asks the recovery gate about every waiting request on
 # every pass. Over a long parent status log that must cost the bytes appended
@@ -2233,6 +2282,8 @@ test_same_kind_escalation_reopens_after_operator_close() {
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
 test_recovery_waits_while_the_mate_has_an_open_decision
+test_recovery_waits_while_the_mate_has_an_open_decision write
+test_recovery_waits_while_the_mate_has_an_open_decision rename
 test_large_status_log_keeps_the_tick_bounded warm
 test_large_status_log_keeps_the_tick_bounded missing
 test_large_status_log_keeps_the_tick_bounded invalid

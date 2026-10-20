@@ -119,9 +119,9 @@ fm_procevent_any_registered() {
 # owner is still there by reading both from the physical state root recorded
 # in the claim. After two consecutive checks cannot prove the root identity and
 # one of them, it stops the runner's process group. Both are keyed by state
-# root, so another home's live runner is untouched. Nothing here keys on a
-# script name, a command line, or a process name, all of which are shared
-# across homes; the session-lock holder test is bin/fm-session-lock-lib.sh's.
+# root, so another home's live runner is untouched. Runner selection uses the
+# recorded claim rather than shared script or process names; the session-lock
+# holder test is bin/fm-session-lock-lib.sh's.
 
 fm_procevent_owner_lease_path() {  # <state-root>
   printf '%s/.owner-lease\n' "$(fm_procevent_registry_dir "$1")"

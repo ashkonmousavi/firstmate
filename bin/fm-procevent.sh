@@ -233,9 +233,9 @@
 # certify their own owner. That rule is CONFUSED-AGENT-GRADE, the grade
 # bin/fm-lease-lib.sh documents: a source that DELIBERATELY strips the marker
 # can still refresh, and adversarial-grade unforgeability is out of scope (see
-# docs/configuration.md). Scope is the owning state root and one runner
-# generation, never a script or process name, so a live source in
-# another home is untouched. See bin/fm-procevent-lib.sh for the lease itself.
+# docs/configuration.md). Runner selection uses the owning state root and one
+# recorded runner generation rather than shared script or process names, so a
+# live source in another home is untouched. See bin/fm-procevent-lib.sh for presence.
 #
 # Ownership is machine-wide per canonical source, because separate Firstmate
 # homes can share one underlying source store. A live owner is never displaced;
@@ -1557,13 +1557,13 @@ start_owner_guard() {  # <source-id>
 # Those two reads are spaced HALF a check interval apart, so the pair completes
 # within one check interval rather than costing two. That keeps the debounce -
 # one unreadable read still cannot end a live runner - while bounding detection
-# at the lease plus a single check interval. The spacing is what was tightened;
-# the second read is what must not be traded away for it.
+# once the primary session and owner activity end by the remaining lease plus
+# one check interval. The spacing is what was tightened; the second read is
+# what must not be traded away for it.
 #
-# Scope is the owning state root and this one runner generation. It never
-# matches on a script name, a command line, or a process name: those are shared
-# by every home running the same adapter, and a live source in another home
-# proves its own owner through that home's own lease.
+# Scope is the owning state root and this one runner generation. Runner
+# selection uses the recorded claim rather than shared script or process names;
+# another home proves its presence through its own session lock or lease.
 cmd_owner_watchdog() {  # <source-id> <runner-pid> <runner-identity> <ready-file> <state-device> <state-inode>
   local id=${1-} pid=${2-} identity=${3-} ready=${4-} state_device=${5-} state_inode=${6-}
   local lease tick half misses=0 pid_state state_identity current_device current_inode root

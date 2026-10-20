@@ -1387,8 +1387,10 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
       printf 'offset=%s\n' "$offset"
       printf 'ident=%s\n' "$cur_ident"
       if [ -n "$open" ]; then printf '%s' "$open"; fi
-    } > "$target_cursor" || return 1
-    mv -f "$target_cursor" "$cf" || return 1
+    } > "$target_cursor" && mv -f "$target_cursor" "$cf" || {
+      rm -f "$target_cursor" || true
+      [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ] || return 1
+    }
   fi
   printf '%s' "$open"
 }
