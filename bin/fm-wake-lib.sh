@@ -60,11 +60,22 @@ else
 fi
 
 fm_pid_alive() {
-  local pid=$1
+  local pid=$1 proc_root key value rest
   case "$pid" in
     ''|*[!0-9]*) return 1 ;;
   esac
-  kill -0 "$pid" 2>/dev/null
+  kill -0 "$pid" 2>/dev/null || return 1
+  proc_root=${FM_PROC_ROOT_OVERRIDE:-/proc}
+  # Linux kill -0 also accepts non-leader thread IDs reused from dead holders.
+  if [ -r "$proc_root/$pid/status" ]; then
+    while read -r key value rest; do
+      if [ "$key" = Tgid: ]; then
+        [ "$value" -eq "$pid" ] || return 1
+        return 0
+      fi
+    done < "$proc_root/$pid/status"
+  fi
+  return 0
 }
 
 fm_pid_identity() {
@@ -511,7 +522,7 @@ fm_lock_clean_known_files() {
 fm_lock_set_role() {
   local lockdir=$1 role=$2 current pid back
   case "$role" in
-    autoarm|terminal-check) : ;;
+    autoarm|terminal-check|task-spawn|forced-teardown) : ;;
     *) return 1 ;;
   esac
   fm_current_pid current || return 1
@@ -989,7 +1000,8 @@ _fm_recovery_marker_arm_check() {
 }
 
 # Apply the owner-documented announced-episode arm transition atomically with
-# the queue read. Handling successors must not call this transition.
+# the queue read. Handling successors and foreground checkpoints must not call
+# this transition.
 _fm_recovery_marker_reopen_announced() {
   local marker=$1 lock rc=0
   lock="${marker}.lock"

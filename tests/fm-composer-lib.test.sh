@@ -731,6 +731,19 @@ test_matrix_grok_titled_bottom_border() {
   pass "matrix: grok's real oversized titled bottom is empty while typed and unproved panes stay safe"
 }
 
+test_matrix_grok_weekly_limit_border() {
+  local empty typed malformed caps
+  empty=$'  ╭──────────────────────────────────────────────────────────────────────────╮\n  │ ❯                                                                        │\n  ╰────────────────── Weekly limit left: 0% · Grok 4.7 (high) · always-approve ─╯'
+  typed=${empty/❯      /❯ draft}
+  malformed=${empty/Grok 4.7 (high)/Grok ??? (high)}
+  for caps in "$CAPS_TMUX" "$CAPS_STYLED" "$CAPS_STYLED_NOID" "$CAPS_PLAIN"; do
+    assert_screen "grok weekly-limit empty composer" empty "$caps" "$empty" 1
+    assert_screen "grok weekly-limit typed composer" pending "$caps" "$typed" 1
+    assert_screen "grok unknown weekly-limit title" unknown "$caps" "$malformed" 1
+  done
+  pass "matrix: grok weekly-limit border preserves empty, pending, and unknown verdicts"
+}
+
 test_matrix_claude_titled_top_rule() {
   # A named Claude Code session draws its title into the composer's TOP rule
   # (issues #5601 and #5558; observed on herdr as
@@ -1035,6 +1048,7 @@ test_matrix_pi_separated_needs_identity
 test_matrix_pi_dollar_status_footer_is_empty
 test_matrix_opencode_leftbar_signals
 test_matrix_grok_titled_bottom_border
+test_matrix_grok_weekly_limit_border
 test_matrix_claude_titled_top_rule
 test_matrix_kimi_bordered_shell_glyph_box
 test_matrix_claude_inside_zellij_ansi_dump

@@ -208,6 +208,10 @@ The Claude hook's detached handling successor is launched by the hook itself, wh
 
 For a malformed lock-path error, [fm-wake-lib.sh](../bin/fm-wake-lib.sh)'s `fm_lock_path_malformed` and `fm_lock_report_malformed` own the format check and safe recovery diagnostic.
 
+The shared `fm_pid_alive` check preserves live process holders but rejects a recorded PID reused as a non-leader thread ID when readable proc status supplies a different `Tgid`, allowing stale-lock recovery even though Linux `kill -0` succeeds.
+Without readable proc status or a `Tgid` field, it retains the portable `kill -0` result.
+`tests/fm-watcher-lock.test.sh` covers that distinction and live-process detection inside an EXIT trap entered with a nonzero exit status.
+
 The turn-end guard remains the final backstop rather than the normal continuity mechanism.
 In its `--claude` mode it cooperates with the auto-arm.
 
@@ -224,6 +228,8 @@ The first recovery marks that generation announced, and later empty-queue arms l
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
+A Codex foreground checkpoint skips the announced-episode reopen transition, so an already-announced generation stays announced while the checkpoint continues its bounded supervision.
+Its ordinary arm check still announces a never-announced generation, including one made pending by a durable queue append during the checkpoint.
 
 ### Generation reuse
 

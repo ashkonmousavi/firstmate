@@ -3,14 +3,15 @@ name: journey-walk
 description: >-
   Agent-only procedure for commissioning and supervising a live end-to-end journey walk.
   Load before commissioning, scheduling, or supervising a live end-to-end journey walk, when a walk blocker's fix is installed, and on a served-build check wake reporting a newly served commit.
-  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, one triage pass per walk batch, same-day cosmetic bundles, class-fix lanes, oldest-break-first ordering, regression-first focused re-walk after install and its automatic served-commit dispatch, the project's walk health record currency, batch reports, and captain-language outcomes.
-  The project's own walk procedure owns the walk itself.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # journey-walk
+
+Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, one triage pass per walk batch, same-day cosmetic bundles, class-fix lanes, oldest-break-first ordering, regression-first focused re-walk after install and its automatic served-commit dispatch, the project's walk health record currency, batch reports, and captain-language outcomes.
+The project's own walk procedure owns the walk itself.
 
 Load this before commissioning, scheduling, or supervising a live end-to-end journey walk, when a walk blocker's fix is installed, and on a served-build check wake reporting a newly served commit.
 

@@ -4,13 +4,14 @@ description: >-
   Agent-only judgment for designing and sequencing multi-task work: a stage, a release, a migration, or any campaign larger than one task.
   Use before scoping such work, and before dispatching a task whose backlog dependency names a stage, a release, or a final acceptance.
   Also use when work is blocked only at its final step or the queue looks fully gated, to find the work that can still be pre-staged, and whenever the ready frontier lists only umbrellas or nothing while holds still exist.
-  Owns the destination and completion boundary, the plan-versus-build boundary, the unknown-classification split, the retained tracer, vertical outcomes, integration ownership, the ownership-and-sequencing shape of a parallel split, new-request classification, pre-staging around a blocked final step, the frontier-reset expansion of a stalled queue, the proof ladder, and the named-dependency reconciliation that must happen before dispatch.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # wayfinding
+
+Owns the destination and completion boundary, the plan-versus-build boundary, the unknown-classification split, the retained tracer, vertical outcomes, integration ownership, the ownership-and-sequencing shape of a parallel split, new-request classification, pre-staging around a blocked final step, the frontier-reset expansion of a stalled queue, the proof ladder, and the named-dependency reconciliation that must happen before dispatch.
 
 Load this when the work in front of you is larger than one task: a stage, a release, a migration, a rewrite, or a campaign of related changes.
 It is project-neutral judgment about where the work is going and in what order it should arrive.

@@ -3,13 +3,14 @@ name: harness-adapters
 description: >-
   Agent-only reference for firstmate harness operations.
   Use before spawning or recovering a crewmate or secondmate, handling a trust dialog, sending a harness-specific skill invocation, interrupting or exiting an agent, resuming an exited agent, or verifying a new harness adapter.
-  Contains verified facts for claude, codex, opencode, pi, pi-signed, grok, kimi, cursor, gemini, muse, rovo, omp, agy, and devin.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # harness-adapters
+
+Contains verified facts for claude, codex, opencode, pi, pi-signed, grok, kimi, cursor, gemini, muse, rovo, omp, agy, and devin.
 
 This is the one skill, trigger, and routing owner for harness-specific Firstmate operations.
 Load this router first, then exactly the common reference and one harness reference selected below.
