@@ -185,7 +185,8 @@
 # registration only when that same claim still owns it and the registered
 # command is unchanged. A missing command, an error, or any other exit releases
 # the claim after that one result, exactly as before. The runner still does not
-# refresh the owner lease, so a home that has gone still ends the poll.
+# refresh the owner lease, so a home that has gone, or whose session has ended,
+# still ends the poll.
 #
 # Keyed captain answers from built-in adapters use one more seam of the same kind,
 # and this runner still decides nothing about them. Some sources carry the
@@ -216,12 +217,19 @@
 # reparented to init, it keeps its blocking child - and everything that child
 # spawns - running with nobody left to reap it. So every runner starts a small
 # guard beside it, in its own separate process group, which re-reads the owning
-# state root's lease on a bounded cadence and stops the runner's whole process
-# group once that lease can no longer be proved fresh. Owner-presence operations
-# refresh the lease, an attached public start keeps it fresh while its caller
-# remains attached, and the watcher's reconcile cycle keeps it fresh in a live
-# home. A runner exports the inherited FM_PROCEVENT_IN_RUNNER marker and every
-# refresh is skipped under it, so a runner and its ordinary children do not
+# state root on a bounded cadence and stops the runner's whole process group
+# once it can prove neither a live primary session holding that root's session
+# lock nor a fresh lease. The session lock keeps a runner listening through a
+# long primary turn or a stalled supervision cycle; it is only read here, never
+# written. Owner-presence operations refresh the lease, an attached public
+# start keeps it fresh while its caller remains attached, and the watcher's
+# reconcile cycle keeps it fresh in a live home. Each guard stop and each
+# runner exit appends one line to the source's exit record,
+# state/procevent/.<source-id>.exits (UTC time, event, then the runner pid, the
+# exit status and reason, or the guard's state-root, lease and session
+# readings), newest lines kept. A runner exports the inherited
+# FM_PROCEVENT_IN_RUNNER marker and every lease refresh is skipped under it,
+# so a runner and its ordinary children do not
 # certify their own owner. That rule is CONFUSED-AGENT-GRADE, the grade
 # bin/fm-lease-lib.sh documents: a source that DELIBERATELY strips the marker
 # can still refresh, and adversarial-grade unforgeability is out of scope (see
@@ -258,7 +266,9 @@ STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
 # shellcheck source=bin/fm-backend.sh
 . "$SCRIPT_DIR/fm-backend.sh"
 
-die() { printf 'error: %s\n' "$1" >&2; exit 1; }
+# A runner's EXIT trap records RUNNER_EXIT_REASON (see runner_exit_record).
+RUNNER_EXIT_REASON=
+die() { RUNNER_EXIT_REASON="error: $1"; printf 'error: %s\n' "$1" >&2; exit 1; }
 usage() { sed -n '2,/^set -u$/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; exit 2; }
 
 case "${1-}" in ''|-h|--help|help) usage ;; esac
@@ -429,6 +439,26 @@ runner_file()  { printf '%s/%s.runner\n' "$REG" "$1"; }
 staging_file() { printf '%s/.%s.%s.output\n' "$REG" "$1" "$2"; }
 stranded_file() { printf '%s/.%s.stranded\n' "$REG" "$1"; }
 launch_failed_file() { printf '%s/.%s.launch-failed\n' "$REG" "$1"; }
+exit_record_file() { printf '%s/.%s.exits\n' "$REG" "$1"; }
+
+# Append one line to a source's bounded exit record: why its runner stopped.
+# A detached runner's own output is discarded, so without this an exit is a
+# guess. The runner records its own exit path and status, and the owner guard
+# records each stop it makes before signalling. Best effort: recording never
+# changes what the runner or guard does. Only the newest lines are kept.
+runner_exit_record() {  # <source-id> <event> <detail>
+  local path tmp
+  path=$(exit_record_file "$1")
+  [ -d "$REG" ] && [ ! -L "$REG" ] && [ ! -L "$path" ] || return 0
+  (umask 077; printf '%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$2" "$3" >> "$path") 2>/dev/null \
+    || return 0
+  [ "$(wc -l < "$path" 2>/dev/null || echo 0)" -gt 40 ] || return 0
+  tmp=$(umask 077; mktemp "$REG/.exits.XXXXXX" 2>/dev/null) || return 0
+  if tail -n 20 "$path" > "$tmp" 2>/dev/null && mv -f -- "$tmp" "$path" 2>/dev/null; then
+    return 0
+  fi
+  rm -f -- "$tmp"
+}
 
 # Let the source's own adapter apply and acknowledge one captured result. See
 # the header for why this exists and what each exit means. An already
@@ -1085,6 +1115,9 @@ cmd_start() {
   # broken only by KILL. On contention, leave the generation-bound claim for
   # the stopper or subsequent reconciliation to reclaim.
   release_start_claim() {
+    local status=$?
+    runner_exit_record "$CLAIM_ID" runner-exit \
+      "runner=$CLAIM_PID status=$status reason=${RUNNER_EXIT_REASON:-none recorded}"
     extension_lifecycle_lock_release 2>/dev/null || true
     [ -z "$STAGED_OUTPUT" ] || rm -f -- "$STAGED_OUTPUT"
     fm_procevent_source_lock_try_acquire "$CLAIM_ID" 2>/dev/null || return 0
@@ -1100,6 +1133,9 @@ cmd_start() {
     fm_procevent_source_lock_release "$CLAIM_ID" 2>/dev/null || true
   }
   trap release_start_claim EXIT
+  # Every stop path (retire, reconcile, the owner guard) signals TERM first; name
+  # it so the exit record carries the stop rather than the last command status.
+  trap 'RUNNER_EXIT_REASON="stopped by signal TERM"; exit 143' TERM
   # 0 when this runner should poll again. The adapter's relisten command is the
   # only adapter-specific signal; a replacement registration is adopted only
   # when this claim still owns it and the registered command is unchanged.
@@ -1218,7 +1254,11 @@ cmd_start() {
     # written before this wait, and a home sweep counts a marker with no owned
     # claim as a preflight failure, so exiting without removing it would make
     # that home refuse to sweep.
-    2) [ "$extension_owner" -eq 1 ] || rm -f -- "$runner"; exit 0 ;;
+    2)
+      RUNNER_EXIT_REASON="superseded: the registration changed before the next poll"
+      [ "$extension_owner" -eq 1 ] || rm -f -- "$runner"
+      exit 0
+      ;;
     *) die "cannot enforce the source launch floor: $id" ;;
   esac
   exec 7<&-
@@ -1343,6 +1383,7 @@ EOF
     if [ "$extension_owner" -eq 0 ]; then
       rm -f -- "$runner"
     fi
+    RUNNER_EXIT_REASON="no-result: source exit $rc with no output"
     printf 'no-result: %s (exit %s)\n' "$id" "$rc"
     exit 0
   fi
@@ -1432,6 +1473,11 @@ EOF
   if [ "$handled_capture" -eq 1 ] && adopt_relisten; then
     continue
   fi
+  if [ "$handled_capture" -eq 1 ]; then
+    RUNNER_EXIT_REASON="captured: handled and not polling again"
+  else
+    RUNNER_EXIT_REASON="captured: left unhandled for the handler"
+  fi
   break
   done
 }
@@ -1501,8 +1547,9 @@ start_owner_guard() {  # <source-id>
 
 # The runner's owner guard, which bounds an accidentally orphaned detached
 # runner after its home ends. It revalidates the recorded physical state root
-# and its lease on a bounded cadence and, after two consecutive reads cannot prove
-# both, invokes the identity-gated stop for the runner's whole process group -
+# and that root's live session or fresh lease on a bounded cadence and, after
+# two consecutive reads cannot prove both, records the stop and invokes the
+# identity-gated stop for the runner's whole process group -
 # which is what reaches the blocking child and everything that child spawned,
 # exactly as retirement does. A failed verified stop stays on the retry cadence;
 # an absent leader ends the guard without signalling an ambiguous group.
@@ -1519,7 +1566,7 @@ start_owner_guard() {  # <source-id>
 # proves its own owner through that home's own lease.
 cmd_owner_watchdog() {  # <source-id> <runner-pid> <runner-identity> <ready-file> <state-device> <state-inode>
   local id=${1-} pid=${2-} identity=${3-} ready=${4-} state_device=${5-} state_inode=${6-}
-  local lease tick half misses=0 pid_state state_identity current_device current_inode
+  local lease tick half misses=0 pid_state state_identity current_device current_inode root
   [ "$#" -eq 6 ] || usage
   fm_procevent_source_id_valid "$id" || die "source id must be path-safe: $id"
   case "$pid" in ''|*[!0-9]*) die "runner pid must be a positive integer: $pid" ;; esac
@@ -1552,8 +1599,8 @@ cmd_owner_watchdog() {  # <source-id> <runner-pid> <runner-identity> <ready-file
   IFS=$'\t' read -r _ current_device current_inode _ _ <<< "$state_identity"
   [ "$current_device" = "$state_device" ] && [ "$current_inode" = "$state_inode" ] \
     || die "owning state root identity changed before owner guard initialization"
-  fm_procevent_owner_alive "$STATE" "$lease" \
-    || die "owning home lease is not fresh at owner guard initialization"
+  fm_procevent_owner_present "$STATE" "$lease" \
+    || die "owning home has no live session and no fresh lease at owner guard initialization"
   printf 'ready\n' > "$ready" || die "cannot confirm owner guard initialization"
   trap - EXIT
   while :; do
@@ -1572,7 +1619,7 @@ cmd_owner_watchdog() {  # <source-id> <runner-pid> <runner-identity> <ready-file
       || IFS=$'\t' read -r _ current_device current_inode _ _ <<< "$state_identity"
     if [ "$current_device" = "$state_device" ] \
       && [ "$current_inode" = "$state_inode" ] \
-      && fm_procevent_owner_alive "$STATE" "$lease"; then
+      && fm_procevent_owner_present "$STATE" "$lease"; then
       misses=0
       continue
     fi
@@ -1581,6 +1628,11 @@ cmd_owner_watchdog() {  # <source-id> <runner-pid> <runner-identity> <ready-file
     # time inside the interval already budgeted rather than a second interval.
     misses=$((misses + 1))
     [ "$misses" -ge 2 ] || continue
+    root=same
+    [ "$current_device" = "$state_device" ] && [ "$current_inode" = "$state_inode" ] \
+      || root=changed-or-gone
+    runner_exit_record "$id" owner-guard-stop \
+      "runner=$pid state_root=$root lease_age=$(fm_procevent_owner_lease_age "$STATE" 2>/dev/null || printf unreadable) lease=$lease session=$(fm_procevent_owner_session_reading "$STATE")"
     if stop_runner_pid "$pid" "$identity"; then
       exit 0
     fi

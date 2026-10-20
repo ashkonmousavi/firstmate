@@ -23,6 +23,9 @@ cleanup() {
   local worker_pid=''
   FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" \
     "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
+  FM_HOME="$TMP_ROOT/live-parent" FM_PROCEVENT_CLAIM_ROOT="$TMP_ROOT/live-claims" \
+    "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
+  [ -z "${LIVE_SESSION_PID:-}" ] || kill "$LIVE_SESSION_PID" 2>/dev/null || true
   if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
     worker_pid=$(cat "$TMP_ROOT/remote-jobs/worker.pid")
     fm_remote_job_stop_worker_tree "$worker_pid" || true
@@ -1301,5 +1304,73 @@ assert_absent "$PARENT/state/remote-replies/ios.cursor" \
 [ "$(cat "$PARENT/state/remote-replies/ios.retirements")" = "$count_before" ] \
   || fail "a retirement that stopped after removal changed the count"
 pass "a retirement that stops after removing the cursor leaves the old count"
+
+# The listener's owner guard reads the home's lease, and only the supervision
+# cycle's reconcile refreshes it. A cycle that stalls before its next reconcile
+# while the primary session is live must not end the listener: it keeps applying
+# deltas past the lease and stops only once that session is gone. A copy of
+# sleep named claude holding state/.lock is a live primary session to
+# bin/fm-session-lock-lib.sh.
+LIVE_PARENT="$TMP_ROOT/live-parent"
+LIVE_REMOTE="$TMP_ROOT/live-remote"
+LIVE_CLAIMS="$TMP_ROOT/live-claims"
+mkdir -p "$LIVE_PARENT/data" "$LIVE_PARENT/state" "$LIVE_REMOTE/state" "$LIVE_CLAIMS"
+cat > "$LIVE_PARENT/data/secondmates.md" <<EOF
+- mac - live session relay (host: remote-mac; root: $ROOT; home: $LIVE_REMOTE; scope: relay; projects: alpha; added 2026-10-19)
+EOF
+: > "$LIVE_REMOTE/state/parent-replies.status"
+cp "$(command -v sleep)" "$FAKEBIN/claude"
+"$FAKEBIN/claude" 300 &
+LIVE_SESSION_PID=$!
+printf '%s\n' "$LIVE_SESSION_PID" > "$LIVE_PARENT/state/.lock"
+live_env() {
+  FM_HOME="$LIVE_PARENT" \
+  FM_ROOT_OVERRIDE="$ROOT" \
+  FM_PROCEVENT_CLAIM_ROOT="$LIVE_CLAIMS" \
+  FM_SSH_BIN="$FAKEBIN/fake-ssh" \
+  FM_FAKE_REMOTE_ENTRYPOINT="$ROOT/bin/fm-remote-entrypoint.sh" \
+  FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
+  FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/remote-jobs" \
+  FM_REMOTE_REPLY_WAIT_SECONDS=2 \
+  FM_PROCEVENT_OWNER_LEASE_SECONDS=4 \
+  FM_PROCEVENT_OWNER_CHECK_SECONDS=1 \
+  "$@"
+}
+live_handled() {  # <sequence>
+  local _
+  for _ in $(seq 1 200); do
+    [ -f "$LIVE_PARENT/state/procevent-inbox/remote-reply-mac.$1.handled" ] && return 0
+    sleep 0.05
+  done
+  return 1
+}
+live_env "$ADAPTER" arm mac >/dev/null
+live_env "$ROOT/bin/fm-procevent.sh" reconcile >/dev/null
+for seq in 1 2 3; do
+  printf 'working: live-session delta %s\n' "$seq" >> "$LIVE_REMOTE/state/parent-replies.status"
+  live_handled "$seq" || fail "the listener did not apply live-session delta $seq"
+done
+LIVE_RUNNER_PID=$(sed -n '2p' "$LIVE_CLAIMS/remote-reply-mac.claim")
+sleep 8
+printf 'working: delta after the lease aged out\n' >> "$LIVE_REMOTE/state/parent-replies.status"
+live_handled 4 \
+  || fail "a reply listener stopped applying deltas once its lease aged out while the primary session was live"
+assert_grep 'delta after the lease aged out' "$LIVE_PARENT/state/mac.status" \
+  "the delta after the lease aged out did not reach the parent status stream"
+[ "$(sed -n '2p' "$LIVE_CLAIMS/remote-reply-mac.claim")" = "$LIVE_RUNNER_PID" ] \
+  || fail "the listener was replaced rather than kept while the primary session was live"
+pass "a reply listener keeps applying deltas past its lease while the primary session is live"
+
+kill "$LIVE_SESSION_PID"
+wait "$LIVE_SESSION_PID" 2>/dev/null || true
+for _ in $(seq 1 100); do
+  kill -0 "$LIVE_RUNNER_PID" 2>/dev/null || break
+  sleep 0.1
+done
+kill -0 "$LIVE_RUNNER_PID" 2>/dev/null \
+  && fail "a reply listener outlived its primary session and its lease"
+assert_grep 'owner-guard-stop' "$LIVE_PARENT/state/procevent/.remote-reply-mac.exits" \
+  "the reply listener's stop left no exit record"
+pass "a reply listener stops and records why once its primary session is gone"
 
 echo "ALL TESTS PASSED"
