@@ -8,6 +8,8 @@ import time
 import unittest
 
 ROOT = Path(os.environ['ROOT'])
+HAS_PROC_RUNNER = all(os.access('/proc/self/' + name, os.R_OK)
+                      for name in ('stat', 'cmdline'))
 
 
 class Backstop(unittest.TestCase):
@@ -32,7 +34,7 @@ class Backstop(unittest.TestCase):
                        'local': 1000, 'fail_send': False, 'panes': 1}
         (self.state / 'q-server.status').write_text('working [at=1000]: caught up\n')
         self.executable(self.fake / 'herdr', '''#!/usr/bin/env python3
-import json,os,sys
+import json,os,subprocess,sys
 from pathlib import Path
 c=json.loads(Path(os.environ['BACKSTOP_FIXTURE']).read_text())
 a=sys.argv[1:]
@@ -41,7 +43,11 @@ if a==['pane','list']:
  p={'pane_id':'live:p1','agent':c['agent'],'cwd':os.environ['FM_HOME']}
  print(json.dumps({'result':{'panes':[p]*c['panes']}}))
 elif a[:2]==['pane','process-info']:
- print(json.dumps({'result':{'process_info':{'foreground_processes':[{'name':c['process'],'pid':os.getppid(),'cwd':os.environ['FM_HOME']}]}}}))
+ p={'name':c['process'],'pid':os.getppid(),'cwd':os.environ['FM_HOME']}
+ if 'process_pid' in c:
+  name=subprocess.check_output(['ps','-p',str(c['process_pid']),'-o','comm='],text=True).strip()
+  p={'name':Path(name).name,'pid':c['process_pid'],'cwd':c['process_cwd']}
+ print(json.dumps({'result':{'process_info':{'foreground_processes':[p]}}}))
 elif a[:2] in (['pane','send-text'],['pane','send-keys']):
  sys.exit(1 if c['fail_send'] else 0)
 else:sys.exit(2)
@@ -131,6 +137,28 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
 
+    def test_stale_harness_labels_over_a_real_shell_refuse_nudges(self):
+        with subprocess.Popen(['bash', '--noprofile', '--norc', '-c',
+                               'pwd -P; read -r pending'], cwd=self.home,
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              text=True) as shell:
+            observed_cwd = shell.stdout.readline().strip()
+            self.assertEqual(Path(observed_cwd), self.home.resolve())
+            observed_name = subprocess.check_output(
+                ['ps', '-p', str(shell.pid), '-o', 'comm='], text=True).strip()
+            self.assertEqual(Path(observed_name).name, 'bash')
+            self.config.update(process_pid=shell.pid, process_cwd=observed_cwd)
+            for harness in ('claude', 'codex'):
+                with self.subTest(harness=harness):
+                    self.config['agent'] = harness
+                    self.run_guard()
+                    self.assertIsNone(shell.poll())
+                    self.assertEqual(self.sends(), [])
+                    self.assertFalse(any(c[:2] == ['pane', 'send-keys']
+                                         for c in self.commands()))
+                    self.assertIn('no verified live primary', self.notes())
+                    self.assertIn('BACKSTOP FAILURE', (self.state / '.wake-queue').read_text())
+
     def test_failed_nudge_is_durable(self):
         self.config['fail_send'] = True
         self.run_guard()
@@ -203,6 +231,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
 
+    @unittest.skipUnless(HAS_PROC_RUNNER, 'requires Linux /proc runner identity')
     def test_live_runner_pass_clears_the_not_alive_streak(self):
         (self.state / '.last-watcher-beat').touch()
         self.register_runner('999999999\n')
@@ -359,7 +388,8 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertNotEqual(self.memory()['episodes']['lag-q-server'], incident)
         self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before + 1)
 
-    def test_runner_incident_clears_only_on_a_live_or_unregistered_runner(self):
+    @unittest.skipUnless(HAS_PROC_RUNNER, 'requires Linux /proc runner identity')
+    def test_runner_incident_clears_only_on_a_live_runner(self):
         (self.state / '.last-watcher-beat').touch()
         self.register_runner('999999999\n')
         self.run_guard()
@@ -376,6 +406,13 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.run_guard()
         self.assertNotEqual(self.memory()['episodes']['runner-q-server'], incident)
+
+    def test_runner_incident_clears_when_unregistered(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.register_runner('999999999\n')
+        self.run_guard()
+        self.run_guard()
+        self.assertIn('runner-q-server', self.memory()['episodes'])
         (self.state / 'procevent/remote-reply-q-server.source').unlink()
         self.run_guard()
         self.assertNotIn('runner-q-server', self.memory()['episodes'])

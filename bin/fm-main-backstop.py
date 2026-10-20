@@ -62,27 +62,23 @@ RUNNER_REREADS = 5
 RUNNER_REREAD_DELAY = 0.02
 
 
-def run(argv, env, retry=False):
-    for attempt in range(2 if retry else 1):
-        process = None
-        try:
-            process = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL,
-                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                       text=True, start_new_session=True)
-            stdout, _ = process.communicate(timeout=15)
-            if process.returncode == 0:
-                return stdout
-        except subprocess.TimeoutExpired:
-            # Only the exact group this call created, never a name match or
-            # another home's runner. Killing the shell alone leaves ssh holding
-            # the capture pipes and can wedge cron even after its timeout.
-            os.killpg(process.pid, signal.SIGKILL)
-            process.communicate(timeout=2)
-        except OSError:
-            pass
-        if attempt == (1 if retry else 0):
-            raise ProbeError('command failed or timed out')
-    raise ProbeError('command failed')
+def run(argv, env):
+    try:
+        process = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, start_new_session=True)
+        stdout, _ = process.communicate(timeout=15)
+        if process.returncode == 0:
+            return stdout
+    except subprocess.TimeoutExpired:
+        # Only the exact group this call created, never a name match or
+        # another home's runner. Killing the shell alone leaves ssh holding
+        # the capture pipes and can wedge cron even after its timeout.
+        os.killpg(process.pid, signal.SIGKILL)
+        process.communicate(timeout=2)
+    except OSError:
+        pass
+    raise ProbeError('command failed or timed out')
 
 
 def run_status(argv, env, timeout=15):
