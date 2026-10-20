@@ -3561,9 +3561,9 @@ while :; do
   # keeps producing signals - the slow poll (e.g. merge detection) would then
   # never run until the fleet went quiet. Checks are due only every
   # CHECK_INTERVAL, so most cycles skip this block and fall straight through.
-  # One sweep runs every due check and queues each non-empty result, then
-  # touches .last-check once and wakes once. A check that prints cannot skip
-  # the rest of this sweep until the next interval.
+  # One sweep runs due checks within the checkpoint bound and queues each
+  # actionable result. Only a completed sweep touches .last-check, and any
+  # needed wake follows the sweep. A check that prints cannot skip later checks.
   if checkpoint_stage checks signals && [ "$(age_of "$STATE/.last-check")" -ge "$CHECK_INTERVAL" ]; then
     rejected_checks=
     contribution_check_output=

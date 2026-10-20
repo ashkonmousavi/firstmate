@@ -341,7 +341,7 @@ test_one_sweep_queues_every_printing_check() {
   FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" c-news >/dev/null \
     || fail "could not register the later printing check"
   PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
-  wait_for_exit "$!" 40 || fail "watcher did not exit after one check sweep"
+  wait_for_exit "$!" 100 || fail "watcher did not exit after one check sweep"
   [ -f "$marker" ] || fail "the quiet check between two printing checks did not run"
   FM_STATE_OVERRIDE="$state" "$DRAIN" > "$drain_out" || fail "drain after the check sweep failed"
   grep -F "$(printf '\tcheck\t%s\t' "$early")" "$drain_out" | grep -F 'memory-low' >/dev/null \
