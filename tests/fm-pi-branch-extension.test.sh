@@ -3131,6 +3131,62 @@ EOF
   pass "pre-drain eligibility re-check no-ops an already-drained wake"
 }
 
+# SDK 1.0.0 user events omit messageType; a wake may arrive before persistence.
+# The branch must receive the exact current request once, before its wake.
+test_branch_mirrors_current_request_before_persistence_without_message_type() {
+  local repo home out status
+  repo="$TMP_ROOT/early-mirror-root"
+  home="$TMP_ROOT/early-mirror-home"
+  mkdir -p "$home/state" "$home/config"
+  install_pi_branch_extension_fixture "$repo"
+  PLUGIN="$repo/.pi/extensions/fm-branch-supervision.ts" FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" \
+    DRIVER_PRELUDE="$DRIVER_PRELUDE" node --input-type=module > "$TMP_ROOT/node-output" 2>&1 <<'EOF'
+const prelude = process.env.DRIVER_PRELUDE;
+await eval(`(async () => { ${prelude}; globalThis.__t = { fire, dispatch, home }; })()`);
+const { fire, dispatch, home } = globalThis.__t;
+const entries = [];
+const ctx = { sessionManager: {
+  getSessionFile: () => `${home}/main.jsonl`,
+  getEntries: () => entries,
+} };
+await fire("session_start", {}, ctx);
+globalThis.__fmOnBranchPrompt = async ({ session }) => {
+  const report = session.options.customTools.find((tool) => tool.name === "fm_branch_report");
+  const result = await report.execute("early-mirror", {
+    task: "branch-driver", verdict: "routine", summary: "wake handled",
+  }, undefined, undefined, {});
+  if (result.isError) throw new Error(JSON.stringify(result));
+};
+for (const messageType of [undefined, "user"]) {
+  const prompt = `Hold task-${entries.length + 1} until my next request.`;
+  await fire("before_agent_start", { ...(messageType ? { messageType } : {}), prompt }, ctx);
+  await dispatch("signal: wake before user persistence").settlement;
+  const ops = globalThis.__fmSessions[0].ops;
+  if (ops.at(-2)?.message?.content !== `[captain] ${prompt}` || ops.at(-1)?.kind !== "prompt") {
+    throw new Error(`current request missing before wake: ${JSON.stringify(ops)}`);
+  }
+  entries.push({ type: "message", message: { role: "user", content: prompt } });
+  await fire("turn_end", {}, ctx);
+  await dispatch("signal: wake after user persistence").settlement;
+  if (ops.filter((op) => op.message?.content === `[captain] ${prompt}`).length !== 1) {
+    throw new Error("persisting the staged request duplicated its mirror");
+  }
+}
+await fire("before_agent_start", {
+  messageType: "custom", message: { role: "custom", customType: "test", content: "operational" },
+}, ctx);
+await dispatch("signal: wake after custom event").settlement;
+if (globalThis.__fmSessions[0].ops.filter((op) => op.kind === "custom").length !== 2) {
+  throw new Error("a custom event entered captain dialog");
+}
+process.exit(0);
+EOF
+  status=$?
+  out=$(cat "$TMP_ROOT/node-output")
+  expect_code 0 "$status" "current user requests must mirror before persistence with either event shape: $out"
+  pass "current requests mirror before persistence with and without messageType, exactly once"
+}
+
 test_branch_mirror_filters_order_and_cursor() {
   local repo home out status
   repo="$TMP_ROOT/mirror-root"
@@ -5976,6 +6032,7 @@ test_post_construction_provider_error_falls_back_latches_and_recovers_on_cooldow
 test_selection_change_does_not_corrupt_inflight_provider_state
 test_main_owned_grant_result_falls_back_to_main
 test_branch_predrain_recheck_noops_already_drained_wake
+test_branch_mirrors_current_request_before_persistence_without_message_type
 test_branch_mirror_filters_order_and_cursor
 test_branch_mirror_reanchors_for_the_new_session_branch_conversation
 test_branch_session_is_new_at_every_main_session_start

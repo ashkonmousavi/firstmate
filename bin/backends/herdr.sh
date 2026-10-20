@@ -3525,13 +3525,27 @@ fm_backend_herdr_proof_lines() {  # <text>
 # live), which that strip dropped, judging a typed /exit unsent. Claude's own
 # ghost suggestion is SGR-2 dim and is still stripped.
 fm_backend_herdr_composer_content() {  # <target>
-  local target=$1 cap caps
+  local target=$1 cap caps popup_boundary
   if cap=$(fm_backend_herdr_composer_capture "$target" 1 2>/dev/null) && [ -n "$cap" ]; then
     caps=$(printf 'styled=1\ncursor=0\nidentity=0')
   elif cap=$(fm_backend_herdr_composer_capture "$target" 0) && [ -n "$cap" ]; then
     caps=$(printf 'styled=0\ncursor=0\nidentity=0')
   else
     return 1
+  fi
+  # Claude's selected slash-menu row repeats the composer's prompt glyph.
+  # Keep the closing rule above that menu so extraction selects the input,
+  # rather than treating the selected command and its descriptions as a draft.
+  popup_boundary=$(printf '%s\n' "$cap" | fm_composer_strip_ansi | LC_ALL=C awk '
+    /^[ \t]*────────(─)*[ \t\r]*$/ { boundary = NR; popup = 0; next }
+    boundary == NR - 1 && /^[ \t]+❯[ \t]+\/[^ \t]+[ \t][ \t]+[^ \t\r]/ {
+      popup = boundary; next
+    }
+    /^[ \t]*❯/ { popup = 0 }
+    END { if (popup) print popup }
+  ')
+  if [ -n "$popup_boundary" ]; then
+    cap=$(printf '%s\n' "$cap" | sed -n "1,${popup_boundary}p")
   fi
   FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$caps" "$cap" "$identity"
 }
