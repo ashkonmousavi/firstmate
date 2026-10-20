@@ -730,6 +730,62 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
 
+## Secondmate busy contract
+
+Verified 2026-09-22 on this host with Claude Code 2.1.278, OpenCode 1.18.31, Pi 0.86.1, and Grok 1.0.40.
+
+[`fm-spawn.sh`](../../bin/fm-spawn.sh) owns secondmate busy wiring, [configuration.md](../configuration.md#installed-hooks-and-launch-details) owns Claude session settings, and [turnend-guard.md](../turnend-guard.md#harness-integrations) owns Claude secondmate Stop ownership and eligibility.
+The `--settings` load and the merge of its hook entries with the home's own hooks rest on Claude Code's documentation (<https://code.claude.com/docs/en/cli-reference>, <https://code.claude.com/docs/en/hooks>) and not on a live run recorded in this section: the sample output below predates the `--settings` mechanism.
+Claude Code 2.1.278 was probed live in a scratch project with logging `UserPromptSubmit` and `Stop` hooks.
+A synchronous Stop hook that exits 2 forced a continuation with no `UserPromptSubmit`, which is why the guard itself records busy when it blocks.
+An `asyncRewake` Stop hook that exited 2 six seconds after the turn ended woke a new turn, and `UserPromptSubmit` fired 45ms after that hook exited.
+So a secondmate turn started by the Stop auto-arm reopens busy through the same `UserPromptSubmit` hook as a typed prompt, and the auto-arm needs no busy writer of its own.
+
+```text
+# asyncRewake probe                # synchronous block probe
+ups    1790092380.194370578        ups   1790092417.676751768
+stop   1790092380.968402195        stop  1790092418.684176531
+rewake 1790092386.979819188        block 1790092418.692480013
+ups    1790092387.025050498        stop  1790092419.717886938
+stop   1790092388.953108486
+```
+Codex stays unverified.
+Grok keeps its rendered-tail verdict and gets no parent turn-end hook.
+Cursor's transcript sidecar is written for a secondmate the same way it is for an ordinary worker, and this host has no Cursor agent binary, so that path was not started.
+Kimi stays unarmed, and a secondmate still gets no parent turn-end token.
+
+The portable regression is `tests/fm-busy-adapter-wiring.test.sh`.
+It spawns those harnesses through the real `bin/fm-spawn.sh --secondmate` path on a fake tmux pane, drives the generated hook or extension, and runs the stall gate while the record is busy and again after it goes idle.
+
+The live guard is `tests/fm-secondmate-busy-contract-live-e2e.test.sh`.
+It submits prompts and is opt-in through `FM_SECONDMATE_BUSY_LIVE=1` or `FM_LIVE=1`.
+The sleeper launch generates wiring without submitting a fleet brief; it is not lifecycle evidence.
+Each installed harness then executes a real, bounded shell-tool round trip.
+For an armed harness the guard requires an adapter-written busy record while the tool waits, followed by an idle record on completion, with no parent turn-end notification.
+Claude additionally runs the real secondmate Stop guard with unsupervised work, requires `busy claude-hook stop-blocked`, then removes that work and requires the continued Stop to settle idle.
+The unarmed Grok and Codex cases execute the same tool round trip and must leave parent busy and turn-end state absent.
+Absent harnesses are named explicitly and a run that exercises none fails.
+
+```sh
+FM_SECONDMATE_BUSY_LIVE=1 bash tests/fm-secondmate-busy-contract-live-e2e.test.sh
+```
+
+The earlier process-survival run did not establish lifecycle transitions and is not evidence for this guarantee.
+On 2026-10-19, the opt-in command above exercised five installed harnesses on Linux and produced these passing lifecycle results:
+
+```text
+ok - claude 2.1.304 (Claude Code): real secondmate lifecycle transitions from adapter busy to idle
+ok - omp omp/18.2.7: real secondmate lifecycle transitions from adapter busy to idle
+ok - codex codex-cli 0.159.3: real secondmate lifecycle stays unarmed and emits no parent turn-end
+```
+
+Claude's passing result includes the blocked Stop and the continued Stop settling idle.
+Pi 1.0.0 failed before its tool round trip because its managed OAuth refresh token was expired.
+Grok 1.0.52 returned HTTP 402 because its usage balance was exhausted.
+OpenCode and Pi-signed were absent and reported explicitly.
+The command exited 1 with `not ok - secondmate busy contract live guard: 2 of 5 installed harnesses failed`; Pi and Grok lifecycle behavior remains unverified on this host.
+[Claude's hook reference](https://code.claude.com/docs/en/hooks) owns the Stop exit-2 continuation contract.
+
 ## Codex hook trust
 
 Verified 2026-09-16 on codex-cli 0.151.0, macOS arm64, in a fresh linked worktree of this repository.

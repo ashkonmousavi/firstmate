@@ -10,6 +10,11 @@
 # here, so a fixture follows the template instead of pinning a stale copy of its
 # sections.
 
+# Captured when this file is sourced. The backlog suite cds into its scratch
+# root first so tasks-axi cannot read the checkout's .tasks.toml, and a
+# relative BASH_SOURCE resolved only at call time would then miss this repo.
+FM_TEST_PREP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 # fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>] [<depth-mode>]
 # Writes an answered record for <id> under <data-dir>. The tier header answers
 # default to three noes with the tier-1 sections; pass yes to
@@ -18,7 +23,7 @@
 # Returns non-zero if the scaffold fails.
 fm_test_prep_record() {
   local data=$1 id=$2 q1=${3:-no} q2=${4:-no} ui=${5:-no} depth_mode=${6:-no-mistakes} root prep
-  root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  root=$FM_TEST_PREP_ROOT
   prep="$data/$id/prep.md"
   if [ ! -e "$prep" ]; then
     mkdir -p "$data/$id"

@@ -6,7 +6,7 @@ Busy hooks verified 2026-07-28 on Claude Code 2.1.220.
 
 | Fact | Value |
 |---|---|
-| Busy | Owned hooks: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and usually leaves `claude-hook` busy. |
+| Busy | Owned hooks: `UserPromptSubmit` opens while `Stop`, `StopFailure`, and `SessionEnd` close; for secondmate Stop ownership and busy-hook eligibility, see [turnend-guard.md](../../../../../docs/turnend-guard.md#harness-integrations); manual interrupt emits no hook, so control reports delivered keys and live endpoint only, publishes no idle event or cancellation claim, and usually leaves `claude-hook` busy. |
 | Prompt | Owned `PermissionRequest` hook writes `state/<id>.prompt-waiting` for every dialog that waits on a human, bypass mode included, and prints nothing so the dialog still shows; the watcher wakes once per marker. Verified 2.1.286 in [`runtime-backends.md`](../../../../../docs/verification/runtime-backends.md#claude-prompt-waiting-hook). |
 | Exit | `/exit`. |
 | Interrupt | Single Escape. |
@@ -72,6 +72,7 @@ A `--secondmate` launch omits the statement because a secondmate operates under 
 
 [`../../../../../docs/verification/supervision.md`](../../../../../docs/verification/supervision.md#turn-end-guard) records the current primary and Stop auto-arm live evidence.
 This differs from the worker hook, which only touches a task marker through `.claude/settings.local.json`.
+For a Claude secondmate's session settings, see [configuration.md](../../../../../docs/configuration.md#installed-hooks-and-launch-details).
 
 Primary `.claude/settings.json` registers `../../../bin/fm-turnend-guard.sh --claude` and `../../../bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
 Guard exit 2 plus stderr forces continuation.
