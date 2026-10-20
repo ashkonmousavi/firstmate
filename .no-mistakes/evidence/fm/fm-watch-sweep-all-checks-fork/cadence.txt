@@ -1,0 +1,3 @@
+Drained and acknowledged both queued results through the public wake-drain interface.
+Re-armed watcher for 6 seconds before the 3600-second interval was due.
+Observed: watcher remained running, no wake output, late check not rerun, cadence stamp unchanged.

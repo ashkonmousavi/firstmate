@@ -1,0 +1,1 @@
+not ok - the quiet check between two printing checks did not run

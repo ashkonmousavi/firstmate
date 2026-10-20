@@ -1,0 +1,15 @@
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 1594079.1792490911.QfB5Kw
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 registered custom check(s), but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ok - registered custom check output is queued before cadence suppression
+ok - a failing state check wakes once per failure episode, without its stderr, and a clean run ends it
+ok - a state check killed at its bound is reported as a timeout on the installed and fallback paths
+wait_for_exit: owned pid 1630618 exceeded 40 polls; sending TERM
+1630618 1593700 R    bash ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/bin/fm-watch.sh
+not ok - watcher did not exit after one check sweep

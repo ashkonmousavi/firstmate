@@ -1,0 +1,16 @@
+Watcher stdout (one wake):
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/sweep/state/a-news.check.sh: memory-low
+
+Watcher stderr:
+
+Durable queue:
+1792490899	1	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/sweep/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/sweep/state/a-news.check.sh: memory-low
+1792490901	2	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/sweep/state/z-late.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/sweep/state/z-late.check.sh: disk-full
+
+Quiet check observation:
+quiet-ran; early result already queued; cadence absent
+
+Cadence stamped after late check: true
+
+Immediate re-arm observed for 3 seconds: late check not rerun (pending durable wakes may be replayed).
+check: rearm-resurface

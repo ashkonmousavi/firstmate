@@ -1,0 +1,14 @@
+Watcher stdout (one wake):
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/merged/state/a-merge.check.sh: merged
+
+Watcher stderr:
+
+Durable queue:
+1792490934	1	check	merged-a-merge-https://github.com/ashkonmousavi/firstmate/pull/92	check: merge landed: a-merge https://github.com/ashkonmousavi/firstmate/pull/92 external; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+1792490941	2	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/merged/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/merged/state/a-news.check.sh: memory-low
+1792490953	3	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/merged/state/z-late.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/merged/state/z-late.check.sh: disk-full
+
+Quiet check observation:
+quiet-ran; early result already queued; cadence absent
+
+Cadence stamped after late check: true

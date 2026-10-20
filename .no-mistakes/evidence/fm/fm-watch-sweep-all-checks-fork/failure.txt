@@ -1,0 +1,14 @@
+Watcher stdout (one wake):
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/a-news.check.sh: memory-low
+
+Watcher stderr:
+
+Durable queue:
+1792490910	1	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/a-news.check.sh: memory-low
+1792490911	2	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/b-fail.check.sh:failed	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/b-fail.check.sh: failed with exit 7
+1792490914	3	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/z-late.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CC9CSNBN3WKTZPV33Q4FNF/.test-watch-live/failure/state/z-late.check.sh: disk-full
+
+Quiet check observation:
+quiet-ran; early result already queued; cadence absent
+
+Cadence stamped after late check: true
