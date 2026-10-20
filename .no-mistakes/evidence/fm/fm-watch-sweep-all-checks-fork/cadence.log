@@ -1,0 +1,12 @@
+registered: state/a-quiet.check.sh
+registered: state/b-quiet.check.sh
+first checkpoint exit: 75
+first checkpoint stdout: watcher: quiet checkpoint
+first checkpoint stderr: 
+second checkpoint stdout: watcher: quiet checkpoint
+second checkpoint stderr: 
+execution log after two checkpoints:
+quiet
+quiet
+cadence stamp unchanged; no actionable rows
+Lab removed.

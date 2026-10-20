@@ -1,0 +1,2 @@
+not ok - the quiet check between two printing checks did not run
+baseline regression exit: 1 (expected nonzero)

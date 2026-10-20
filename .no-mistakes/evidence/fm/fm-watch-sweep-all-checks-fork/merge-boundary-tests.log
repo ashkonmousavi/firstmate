@@ -1,0 +1,8 @@
+ok - validated merged polls notify once and retire before the next watcher cycle
+ok - a repeat identical merged poll for an already-notified task is absorbed, never queued as a main-blocking row
+External GitHub CLI boundary: scripted MERGED response. Real watcher output:
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-pr-check-security.O4hQVP/phase-merge-sweep/home/state/task-a.check.sh: merged
+Durable queue after same sweep:
+1792499397	1	check	merged-task-a-https://github.com/o/r/pull/1	check: merge landed: task-a https://github.com/o/r/pull/1 external; reminder: merged, not yet landed - verify its post-merge machinery (the default-branch CI run that the merge triggers when the project runs one, and any deploy or release workflow and the live version when the project has a deploy target) before reporting this task landed; see AGENTS.md section 7
+1792499399	2	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-pr-check-security.O4hQVP/phase-merge-sweep/home/state/z-late.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-pr-check-security.O4hQVP/phase-merge-sweep/home/state/z-late.check.sh: late-result
+ok - merged poll retires and queues later check before one notification

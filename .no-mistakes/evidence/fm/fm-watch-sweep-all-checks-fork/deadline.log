@@ -1,0 +1,19 @@
+registered: state/a-slow.check.sh
+registered: state/b-later.check.sh
+bounded checkpoint exit: 75
+bounded checkpoint stdout: watcher: quiet checkpoint
+bounded checkpoint stderr: 
+incomplete sweep: later check has not run and cadence stamp is absent
+next sweep stdout: check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-pfwx_r6_/state/b-later.check.sh: later-result
+next sweep stderr: 
+execution log:
+started
+finished
+started
+later
+
+durable queue:
+1792499468	1	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-pfwx_r6_/state/a-slow.check.sh:failed	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-pfwx_r6_/state/a-slow.check.sh: timed out after 1s
+1792499469	2	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-pfwx_r6_/state/b-later.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-pfwx_r6_/state/b-later.check.sh: later-result
+
+Lab removed.

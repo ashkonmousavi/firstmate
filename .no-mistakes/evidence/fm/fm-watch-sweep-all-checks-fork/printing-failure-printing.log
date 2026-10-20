@@ -1,0 +1,18 @@
+registered: state/a-news.check.sh
+registered: state/b-middle.check.sh
+registered: state/c-news.check.sh
+watch stdout: check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/a-news.check.sh: memory-low
+watch stderr: 
+execution order:
+early
+middle
+late
+
+durable queue:
+1792499243	1	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/a-news.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/a-news.check.sh: memory-low
+1792499244	2	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/b-middle.check.sh:failed	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/b-middle.check.sh: failed with exit 3
+1792499244	3	check	~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/c-news.check.sh	check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5CM8P6VXX28NY6CGDB7J5ED/.test-phase-tmp/fm-lab-2b0j99rl/state/c-news.check.sh: disk-full
+
+cadence stamp: present after all three checks; absent inside middle and last checks
+notification count: 1
+Lab removed.
