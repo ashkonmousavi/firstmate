@@ -83,6 +83,7 @@ enable_dispatch_profile() {
 make_seeded_secondmate_home() {
   local home=$1 id=$2
   mkdir -p "$home/bin" "$home/data"
+  cp "$ROOT/bin/fm-turnend-guard.sh" "$home/bin/fm-turnend-guard.sh"
   printf '# Firstmate\n' > "$home/AGENTS.md"
   printf '%s\n' "$id" > "$home/.fm-secondmate-home"
   printf 'charter for %s\n' "$id" > "$home/data/charter.md"
@@ -2325,6 +2326,13 @@ test_advisor_line_follows_resolved_worker() {
 # config/claude-permission-mode (bin/fm-spawn.sh header): absent and `bypass`
 # must both produce today's launch byte-for-byte, `auto` swaps only the
 # permission flag, and any other token refuses before endpoint or metadata.
+claude_settings_value() {
+  case "$1" in
+    \{*) printf '%s' "$1" ;;
+    *) cat "$1" ;;
+  esac
+}
+
 claude_settings_json_arg() {  # <launch>
   local command=$1
   while [[ "$command" == export\ *\;* ]]; do
@@ -2334,7 +2342,7 @@ claude_settings_json_arg() {  # <launch>
   while [ "$#" -gt 0 ]; do
     if [ "$1" = --settings ]; then
       shift
-      printf '%s' "$1"
+      claude_settings_value "$1"
       return 0
     fi
     shift
@@ -2513,7 +2521,7 @@ SH
   FM_CLAUDE_ARGV="$argv" PATH="$FAKEBIN_DIR:$PATH" bash -c "$launch" || fail "could not consume claude launch command"
   local prev='' arg
   while IFS= read -r -d '' arg; do
-    if [ "$prev" = --settings ]; then printf '%s' "$arg"; return 0; fi
+    if [ "$prev" = --settings ]; then claude_settings_value "$arg"; return 0; fi
     prev=$arg
   done < "$argv"
   fail "claude launch carried no --settings argument"
@@ -2586,7 +2594,7 @@ test_claude_worker_settings_respect_keep_ai_trailers() {
 }
 
 test_claude_worker_settings_reach_scout_and_secondmate() {
-  local rec id sm out status launch
+  local rec id sm out status launch settings configured command event
   id=workersettings-scout-z26
   rec=$(make_spawn_case workersettings-scout claude "$id")
   read_case_record "$rec"
@@ -2601,13 +2609,36 @@ test_claude_worker_settings_reach_scout_and_secondmate() {
   rec=$(make_spawn_case workersettings-secondmate claude "$id")
   read_case_record "$rec"
   write_claude_worker_settings "$HOME_DIR"
+  configured=$(jq '.hooks = (
+    reduce ["SessionStart", "UserPromptSubmit", "Stop", "StopFailure", "SessionEnd", "PermissionRequest"][] as $event
+      ({}; .[$event] = [{hooks:[{type:"command",command:("printf " + $event)}]},
+                        {hooks:[{type:"command",command:"true"}]}])
+  ) | .hooks.Stop[].hooks[].async = true' "$HOME_DIR/config/claude-worker-settings.json")
+  printf '%s\n' "$configured" > "$HOME_DIR/config/claude-worker-settings.json"
   sm="$CASE_DIR/secondmate-home"
   make_seeded_secondmate_home "$sm" "$id"
   out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$sm" --secondmate)
   status=$?
   expect_code 0 "$status" "claude secondmate spawn with a worker settings file should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
-  assert_claude_worker_settings_merged "$(claude_worker_settings_arg "$launch")" "claude secondmate launch"
+  settings=$(claude_worker_settings_arg "$launch")
+  assert_claude_worker_settings_merged "$settings" "claude secondmate launch"
+  printf '%s' "$settings" | jq -e --argjson configured "$configured" '
+    . as $actual | all($configured.hooks | keys[];
+      . as $event | $actual.hooks[$event][0:($configured.hooks[$event] | length)] == $configured.hooks[$event])
+  ' >/dev/null || fail "secondmate settings dropped or replaced configured hook entries"
+  for event in SessionStart UserPromptSubmit; do
+    out=
+    while IFS= read -r command; do
+      out="$out$(sh -c "$command")" || fail "merged $event hook failed"
+    done < <(printf '%s' "$settings" | jq -r --arg event "$event" '.hooks[$event][].hooks[].command')
+    [ "$out" = "$event" ] || fail "configured $event hook was not executed"
+  done
+  out=$(bash -c '. "$1/bin/fm-busy-lib.sh"; fm_busy_record_read "$2" "$3"' _ "$ROOT" "$HOME_DIR/state" "$id")
+  case "$out" in
+    'busy claude-hook user-prompt-submit '*) ;;
+    *) fail "configured hooks suppressed the generated busy hook: $out" ;;
+  esac
   pass "config/claude-worker-settings.json reaches scout and secondmate claude launches"
 }
 
