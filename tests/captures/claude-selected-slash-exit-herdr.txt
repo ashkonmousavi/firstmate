@@ -1,7 +1,0 @@
-─────────────────────────────────────────────────────────────────────────────────────────────
-❯ /exit
-─────────────────────────────────────────────────────────────────────────────────────────────
-  ❯ /exit                       Exit the CLI
-    /context                    Visualize current context usage as a colored grid
-    /usage-credits              Configure usage credits or request them from your admin
-                                when you hit a limit

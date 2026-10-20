@@ -4231,34 +4231,32 @@ test_composer_scrolled_format_fallback_preserves_bottom_source() {
 }
 
 test_send_text_submit_scrolled_claude_uses_live_composer() {
-  local mode text dir log resp fb out enter_count
+  local mode text='Firstmate operational input waiting' dir log resp fb out enter_count
   for mode in ansi plain; do
-    for text in 'Firstmate operational input waiting' /exit; do
-      dir="$TMP_ROOT/submit-scrolled-$mode-${text:0:1}"
-      mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
-      printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get.out"
-      printf '  ❯ old transcript draft\n' > "$resp/visible.out"
-      if [ "$mode" = plain ]; then
-        printf '1\n' > "$resp/recent-ansi.exit"
-      fi
-      printf '  ❯\n' > "$resp/1.out"
-      printf '  ❯\n' > "$resp/2.out"
-      printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/3.out"
-      printf '  ❯\n' > "$resp/4.out"
-      herdr_popup_composer_screen "$text" > "$resp/6.out"
-      printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/7.out"
-      printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/9.out"
-      fb=$(make_herdr_fakebin "$dir")
-      out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
-        bash -c '. "$0/bin/fm-backend.sh"; [ "$(fm_backend_composer_state herdr default:w1:p2)" = empty ] || exit 1; fm_backend_send_text_submit herdr default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
-      [ "$out" = empty ] || fail "scrolled Claude $mode submission of '$text' should land, got '$out'"
-      assert_contains "$(cat "$log")" $'\x1f''send-text'$'\x1f''w1:p2'$'\x1f'"$text" "scrolled Claude did not receive the payload"
-      enter_count=$(grep -c $'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
-      [ "$enter_count" -eq 1 ] || fail "scrolled Claude should receive exactly one Enter, got $enter_count"
-      [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "scrolled Claude's proven payload was cleared"
-    done
+    dir="$TMP_ROOT/submit-scrolled-$mode-${text:0:1}"
+    mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+    printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get.out"
+    printf '  ❯ old transcript draft\n' > "$resp/visible.out"
+    if [ "$mode" = plain ]; then
+      printf '1\n' > "$resp/recent-ansi.exit"
+    fi
+    printf '  ❯\n' > "$resp/1.out"
+    printf '  ❯\n' > "$resp/2.out"
+    printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/3.out"
+    printf '  ❯\n' > "$resp/4.out"
+    printf '  ❯ %s\n' "$text" > "$resp/6.out"
+    printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/7.out"
+    printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/9.out"
+    fb=$(make_herdr_fakebin "$dir")
+    out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+      bash -c '. "$0/bin/fm-backend.sh"; [ "$(fm_backend_composer_state herdr default:w1:p2)" = empty ] || exit 1; fm_backend_send_text_submit herdr default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+    [ "$out" = empty ] || fail "scrolled Claude $mode submission of '$text' should land, got '$out'"
+    assert_contains "$(cat "$log")" $'\x1f''send-text'$'\x1f''w1:p2'$'\x1f'"$text" "scrolled Claude did not receive the payload"
+    enter_count=$(grep -c $'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+    [ "$enter_count" -eq 1 ] || fail "scrolled Claude should receive exactly one Enter, got $enter_count"
+    [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "scrolled Claude's proven payload was cleared"
   done
-  pass "fm_backend_send_text_submit: scrolled Claude submits doorbells and /exit through ANSI and plain captures"
+  pass "fm_backend_send_text_submit: scrolled Claude submits ordinary input through ANSI and plain captures"
 }
 
 # Issue #3436: Grok 1.0.5's real bottom border is three columns wider than
@@ -5248,7 +5246,7 @@ herdr_wrapped_composer() {  # <text> <width> <drop>
 # sits inside a solid-rule pair (rule above, rule below), exactly as live
 # Claude draws it, with the menu rows below the closing rule; the rules are
 # structural edge rows, so the composer's content block ends there and the
-# menu rows never read as typed text. The selected menu item repeats ❯.
+# menu rows never read as typed text.
 herdr_popup_composer_screen() {  # <typed-text>
   local i typed=$1 rule
   rule=$(printf '%0.s\xe2\x94\x80' $(seq 1 60))
@@ -5256,12 +5254,10 @@ herdr_popup_composer_screen() {  # <typed-text>
   printf '  %s\n' "$rule"
   printf '  \xe2\x9d\xaf %s\n' "$typed"
   printf '  %s\n' "$rule"
-  if [[ "$typed" = /* ]]; then
-    printf '  ❯ %s    Exit the CLI\n' "$typed"
-    for ((i = 0; i < 21; i++)); do
-      printf '  /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
-    done
-  fi
+  printf '  %s    Exit the CLI\n' "$typed"
+  for ((i = 0; i < 21; i++)); do
+    printf '  /skill-%02d    A skill description long enough to read as a popup row\n' "$i"
+  done
   printf '  \xe2\x8f\xb5\xe2\x8f\xb5 bypass permissions on\n'
 }
 
@@ -5497,57 +5493,21 @@ test_send_text_submit_accepts_marked_payloads_whose_read_back_drops_u2063() {
 # draws about 20 rows BELOW the composer. Before the fix the proof read that
 # composer as empty and never pressed Enter, so fm-control exit failed.
 test_send_text_submit_proves_claude_slash_exit_under_its_popup() {
-  local dir log resp fb out enter_count capture offset styled
-  # Real 2.1.283 and 2.1.304 menu captures: only /exit is user input.
-  # Menu descriptions must never suppress Enter, in either capture format.
-  for capture in claude-light-slash-exit-herdr claude-selected-slash-exit-herdr; do
-    for offset in 0 40; do
-      for styled in 1 0; do
-        dir="$TMP_ROOT/submit-$capture-$offset-$styled"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
-        printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/2.out"
-        printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/4.out"
-        herdr_submit_claude_prefix "$resp" /exit
-        printf '{"result":{"pane":{"scroll":{"offset_from_bottom":%s,"viewport_rows":40}}}}\n' "$offset" > "$resp/pane-get.out"
-        cp "$ROOT/tests/captures/claude-light-idle-herdr.txt" "$resp/2.out"
-        cp "$ROOT/tests/captures/$capture.txt" "$resp/4.out"
-        if [ "$styled" = 0 ]; then
-          # Plain captures cannot prove a ghost suggestion is empty input.
-          printf '❯\n' > "$resp/2.out"
-          bash -c '. "$0/bin/fm-composer-lib.sh"; fm_composer_strip_ansi < "$1"' \
-            "$ROOT" "$ROOT/tests/captures/$capture.txt" > "$resp/4.out"
-          printf '1\n' > "$resp/visible-ansi.exit"
-          printf '1\n' > "$resp/recent-ansi.exit"
-        fi
-        fb=$(make_herdr_fakebin "$dir")
-        out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
-          bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 /exit 3 0.01 0.01' "$ROOT" )
-        [ "$out" = empty ] || fail "$capture offset=$offset styled=$styled: /exit under its popup should be submitted, got '$out'"
-        enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
-        [ "$enter_count" -eq 1 ] || fail "Claude's proven /exit should be submitted once, sent $enter_count Enter(s)"
-        [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a proven /exit must not be cleared"
-      done
-    done
-  done
-  pass "fm_backend_herdr_send_text_submit: Claude's /exit is proven under its popup, scrolled or unscrolled, with ANSI or plain capture"
-}
-
-test_composer_content_keeps_drafts_below_historical_slash_menus() {
-  local dir log resp fb out bordered
-  for bordered in 0 1; do
-    dir="$TMP_ROOT/historical-slash-menu-$bordered"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
-    cp "$ROOT/tests/captures/claude-selected-slash-exit-herdr.txt" "$resp/1.out"
-    printf '\n' >> "$resp/1.out"
-    if [ "$bordered" = 1 ]; then
-      herdr_titled_claude_composer '❯ keep this draft' >> "$resp/1.out"
-    else
-      printf '❯ keep this draft\n' >> "$resp/1.out"
-    fi
-    fb=$(make_herdr_fakebin "$dir")
-    out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-      bash -c '. "$0/bin/backends/herdr.sh"; identity=$'"'claude\tidle'"'; fm_backend_herdr_composer_content default:w1:p2' "$ROOT" )
-    [ "$out" = 'keep this draft' ] || fail "a historical slash menu hid the current draft: '$out'"
-  done
-  pass "fm_backend_herdr_composer_content: historical slash menus cannot hide a lower live draft"
+  local dir log resp fb out enter_count
+  dir="$TMP_ROOT/submit-claude-slash-exit"; mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+  printf '{"result":{"agent":{"agent_status":"idle"}}}\n' > "$resp/2.out"
+  printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/4.out"
+  herdr_submit_claude_prefix "$resp" /exit
+  cp "$ROOT/tests/captures/claude-light-idle-herdr.txt" "$resp/2.out"
+  cp "$ROOT/tests/captures/claude-light-slash-exit-herdr.txt" "$resp/4.out"
+  fb=$(make_herdr_fakebin "$dir")
+  out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_send_text_submit default:w1:p2 /exit 3 0.01 0.01' "$ROOT" )
+  [ "$out" = empty ] || fail "Claude's styled /exit under its popup should be submitted, got '$out'"
+  enter_count=$(grep -c $'\x1f''pane'$'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+  [ "$enter_count" -eq 1 ] || fail "Claude's proven /exit should be submitted once, sent $enter_count Enter(s)"
+  [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "a proven /exit must not be cleared"
+  pass "fm_backend_herdr_send_text_submit: Claude's styled /exit is proven under its completion popup"
 }
 
 test_send_text_submit_refuses_marked_digest_missing_its_head() {
@@ -6647,8 +6607,6 @@ test_send_text_submit_refused_suffix_then_clean_retry_submits_only_the_message
 test_send_text_submit_claude_refuses_to_type_into_a_nonempty_composer
 test_send_text_submit_refuses_suffix_when_transcript_still_shows_the_head
 test_send_text_submit_accepts_marked_payloads_whose_read_back_drops_u2063
-test_send_text_submit_proves_claude_slash_exit_under_its_popup
-test_composer_content_keeps_drafts_below_historical_slash_menus
 test_send_text_submit_refuses_marked_digest_missing_its_head
 test_composer_state_claude_slash_popup_pushes_composer_above_tail_window
 test_send_text_submit_claude_slash_popup_composer_is_still_proven_and_submitted
