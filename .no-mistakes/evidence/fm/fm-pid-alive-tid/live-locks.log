@@ -1,0 +1,43 @@
+REAL KERNEL ORACLE: Name:	python3
+Tgid:	920932
+Pid:	920936
+kill -0 accepts non-leader thread 920936; its process leader is 920932. No proc override is set.
+CLI baseline-bin/fm-wake-drain.sh rc=0
+stdout:
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 920936 after 1s; retry on the next drain.
+
+stderr:
+
+BASELINE REPRODUCED: old CLI incorrectly refuses to drain behind a non-leader thread ID.
+CLI bin/fm-wake-drain.sh rc=0
+stdout:
+1700000000	1	check	lock-proof	thread-id recovery
+
+stderr:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 921210.1792518804.Scmx9F
+
+PASS thread-ID stale lock: real CLI presented queued wake, released reclaimed lock, and unrelated thread survived.
+CLI bin/fm-wake-drain.sh rc=0
+stdout:
+WAKE DRAIN SKIPPED: queue lock remains held by live pid 920932 after 1s; retry on the next drain.
+
+stderr:
+
+PASS live process lock: CLI reports live holder, preserves PID and queue bytes.
+CLI bin/fm-wake-drain.sh rc=0
+stdout:
+1700000000	1	check	lock-proof	live-process protection
+
+stderr:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 921989.1792518806.AHhnWX
+
+PASS after holder release: same CLI presents the preserved wake.
+CLI bin/fm-wake-drain.sh rc=0
+stdout:
+1700000000	1	check	lock-proof	dead-process recovery
+
+stderr:
+WAKE_ACK_REQUIRED: after handling completes run bin/fm-wake-drain.sh --ack-through 1 --recovery-generation 922428.1792518807.Qbxsh2
+
+PASS dead process lock: CLI reclaims terminated holder and presents queued wake.
+CLEANUP: all disposable homes and baseline binaries removed.

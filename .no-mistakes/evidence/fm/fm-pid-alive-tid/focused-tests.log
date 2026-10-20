@@ -1,0 +1,7 @@
+Selected existing cases: test_pid_alive_preserves_live_result_in_exit_trap, test_lock_reclaims_thread_id_but_preserves_process, test_lock_steals_dead_pid_lock, test_lock_does_not_steal_live_lock, test_lock_single_winner_under_concurrency
+ok - disposable watcher refuses inherited state outside its marked lab
+ok - live process stays alive inside a trap entered with a nonzero status
+ok - thread-id stale lock is reclaimed while a live process lock is preserved
+ok - dead-pid stale lock is reclaimed by a single acquirer
+ok - live-held lock is not stolen
+ok - concurrent fm_lock_try_acquire yields exactly one winner
