@@ -106,6 +106,9 @@ if [ "${1:-}" = pane ] && [ "${2:-}" = read ]; then
     fi
     prev=$a
   done
+  if [[ " $* " = *" --format ansi "* ]] && [ -f "$RESP/$src-ansi.exit" ]; then
+    exit "$(cat "$RESP/$src-ansi.exit")"
+  fi
   if [ -f "$RESP/$src.exit" ]; then
     [ -f "$RESP/$src.err" ] && cat "$RESP/$src.err" >&2
     exit "$(cat "$RESP/$src.exit")"
@@ -4173,8 +4176,8 @@ test_composer_state_scrolled_bottom_pending_text_is_pending() {
   printf '  ╭────────────────────────╮\n  │ ❯ hello captain        │\n  ╰──────── Composer ──────╯\n\n  Enter:send\n' > "$resp/recent.out"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
-  [ "$out" = pending ] || fail "real text at the bottom of a scrolled pane should read pending, got '$out'"
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2; printf "|"; identity=; fm_backend_herdr_composer_content default:w1:p2' "$ROOT" )
+  [ "$out" = "pending|hello captain" ] || fail "real text at the bottom of a scrolled pane should read pending, got '$out'"
   assert_not_contains "$(cat "$log")" $'\x1f''--source'$'\x1f''visible' \
     "a scrolled composer read classified the viewport instead of the pending bottom"
   pass "fm_backend_herdr_composer_state: real text at the bottom of a scrolled pane reads pending"
@@ -4190,11 +4193,42 @@ test_composer_state_scrolled_unreadable_bottom_is_unknown() {
   printf '1\n' > "$resp/recent.exit"
   fb=$(make_herdr_fakebin "$dir")
   out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" \
-    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2' "$ROOT" )
+    bash -c '. "$0/bin/backends/herdr.sh"; fm_backend_herdr_composer_state default:w1:p2; fm_backend_herdr_composer_content default:w1:p2 && exit 1; exit 0' "$ROOT" ) || fail "unreadable scrolled content proof unexpectedly succeeded"
   [ "$out" = unknown ] || fail "an unreadable bottom on a scrolled pane should read unknown, never pending, got '$out'"
   assert_not_contains "$(cat "$log")" $'\x1f''--source'$'\x1f''visible' \
     "an unreadable bottom fell back to the scrolled viewport"
   pass "fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown"
+}
+
+test_send_text_submit_scrolled_claude_uses_live_composer() {
+  local mode text dir log resp fb out enter_count
+  for mode in ansi plain; do
+    for text in 'Firstmate operational input waiting' /exit; do
+      dir="$TMP_ROOT/submit-scrolled-$mode-${text:0:1}"
+      mkdir -p "$dir/responses"; log="$dir/log"; resp="$dir/responses"; : > "$log"
+      printf '%s\n' '{"result":{"pane":{"scroll":{"offset_from_bottom":428}}}}' > "$resp/pane-get.out"
+      printf '  ❯ old transcript draft\n' > "$resp/visible.out"
+      if [ "$mode" = plain ]; then
+        printf '1\n' > "$resp/recent-ansi.exit"
+      fi
+      printf '  ❯\n' > "$resp/1.out"
+      printf '  ❯\n' > "$resp/2.out"
+      printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/3.out"
+      printf '  ❯\n' > "$resp/4.out"
+      herdr_popup_composer_screen "$text" > "$resp/6.out"
+      printf '{"result":{"agent":{"agent":"claude","agent_status":"idle"}}}\n' > "$resp/7.out"
+      printf '{"result":{"agent":{"agent_status":"working"}}}\n' > "$resp/9.out"
+      fb=$(make_herdr_fakebin "$dir")
+      out=$( PATH="$fb:$PATH" FM_HERDR_LOG="$log" FM_HERDR_RESPONSES="$resp" FM_BACKEND_HERDR_SUBMIT_POLLS=1 \
+        bash -c '. "$0/bin/fm-backend.sh"; [ "$(fm_backend_composer_state herdr default:w1:p2)" = empty ] || exit 1; fm_backend_send_text_submit herdr default:w1:p2 "$1" 3 0.01 0.01' "$ROOT" "$text" )
+      [ "$out" = empty ] || fail "scrolled Claude $mode submission of '$text' should land, got '$out'"
+      assert_contains "$(cat "$log")" $'\x1f''send-text'$'\x1f''w1:p2'$'\x1f'"$text" "scrolled Claude did not receive the payload"
+      enter_count=$(grep -c $'\x1f''send-keys'$'\x1f''w1:p2'$'\x1f''enter' "$log")
+      [ "$enter_count" -eq 1 ] || fail "scrolled Claude should receive exactly one Enter, got $enter_count"
+      [ "$(herdr_ctrl_u_count "$log")" -eq 0 ] || fail "scrolled Claude's proven payload was cleared"
+    done
+  done
+  pass "fm_backend_send_text_submit: scrolled Claude submits doorbells and /exit through ANSI and plain captures"
 }
 
 # Issue #3436: Grok 1.0.5's real bottom border is three columns wider than
@@ -6483,6 +6517,7 @@ test_composer_state_real_text_is_pending
 test_composer_state_scrolled_history_with_empty_bottom_is_empty
 test_composer_state_scrolled_bottom_pending_text_is_pending
 test_composer_state_scrolled_unreadable_bottom_is_unknown
+test_send_text_submit_scrolled_claude_uses_live_composer
 test_composer_state_grok_oversized_title_preserves_safe_verdicts
 test_composer_state_popup_placeholder_fill_is_pending
 test_composer_state_unknown_on_capture_failure

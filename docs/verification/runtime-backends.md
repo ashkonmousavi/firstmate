@@ -1305,7 +1305,7 @@ The refusal is a JSON error on stderr with exit 1 and empty stdout, and both cli
 ### Submit confirmation
 
 On 2026-09-24, a read-only guard against an existing idle Claude Code 2.1.282 pane on Herdr 0.9.1 confirmed that the titled-rule, bare `❯`, closing-rule composer classified `empty` with native Claude idle identity.
-`FM_CLAUDE_HERDR_COMPOSER_LIVE=1 FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<pane> bin/fm-test-run.sh tests/fm-claude-herdr-composer-live-e2e.test.sh` refreshes this check without launching or changing a pane.
+The read-only refresh guard is described with its scrolled controls below.
 
 Measured 2026-08-19 against Herdr 0.8.0 and Claude Code 2.1.236 in an isolated `fm-lab-` session.
 
@@ -1332,9 +1332,8 @@ Typing `/exit` makes Claude Code render its command popup between the composer a
 The composer row lands outside a bounded 20-row tail of the pane, so the adapter's bounded composer reads reported the composer as empty while it actually held `/exit`.
 The pre-Enter payload proof then judged the typed command unsent, pressed Ctrl+U, and reported `send-failed` without ever pressing Enter, so `bin/fm-control.sh exit` never exited the worker (and `bin/fm-secondmate-restart.sh` inherited the failure through its exit step).
 
-The fix captures the full visible viewport for an unscrolled herdr composer read (`pane read --source visible [--format ansi]`, `fm_backend_herdr_composer_state` when `scroll.offset_from_bottom` is 0, and `fm_backend_herdr_composer_content`): a slash popup can push the composer above a short tail while the viewer is still at the bottom.
-When `pane get` reports `offset_from_bottom` greater than 0, the viewport is history, so `fm_backend_herdr_composer_state` classifies a bottom-anchored `pane read --source recent` instead, and an unreadable bottom is unknown rather than pending.
-`fm_backend_herdr_composer_content` stays on the viewport.
+The fix captures the full visible viewport for an unscrolled herdr composer read (`pane read --source visible [--format ansi]`, both composer state and content proof when `scroll.offset_from_bottom` is 0): a slash popup can push the composer above a short tail while the viewer is still at the bottom.
+When `pane get` reports `offset_from_bottom` greater than 0, the viewport is history, so both composer state and content proof select a bottom-anchored `pane read --source recent` instead, and an unreadable bottom is unknown rather than pending.
 The shared inbox pending-line confirmation read (`bin/fm-task-inbox-lib.sh`) stays a bounded tail on every backend, herdr included; its payloads are task lines, not slash commands, so the popup shape does not arise there.
 The popup rows sit below the composer's closing rule, which is a structural edge row, so the shared classifier still selects only the composer and the menu rows never read as typed text.
 Verified live in the lab: with the popup up the state read answers `pending` (previously `empty`) and the payload proof returns `/exit` (previously empty), the submit presses Enter, and the Claude process exits, leaving the shell prompt.
@@ -1363,7 +1362,7 @@ ok - live Herdr submit confirm: Claude Code (2.1.283 (Claude Code)) on herdr 0.9
 
 A scrolled viewer is separate from that popup fix.
 `pane get` reporting `scroll.offset_from_bottom` greater than 0 means `--source visible` is history, and the composer is at the bottom of the pane.
-`fm_backend_herdr_composer_state` classifies `pane read --source recent` in that case, and an unreadable bottom is unknown rather than pending.
+Both composer state and content proof select `pane read --source recent` in that case, and an unreadable bottom is unknown rather than pending.
 Portable regression, fake CLI, no Herdr server, 2026-10-13:
 
 ```sh
@@ -1375,6 +1374,23 @@ ok - fm_backend_herdr_composer_state: scrolled history with an empty bottom comp
 ok - fm_backend_herdr_composer_state: real text at the bottom of a scrolled pane reads pending
 ok - fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown
 ```
+
+The read-only guard now requires three prepared idle Claude panes: an unscrolled empty composer, a scrolled empty composer, and a scrolled composer holding the exact supplied draft.
+It verifies state and content through both ANSI and plain captures and requires history to differ from the live bottom for each scrolled control.
+Refresh with:
+
+```sh
+FM_CLAUDE_HERDR_COMPOSER_LIVE=1 \
+FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<unscrolled-empty-pane> \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET=<session>:<workspace>:<scrolled-empty-pane> \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET=<session>:<workspace>:<scrolled-pending-pane> \
+FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='prepared draft' \
+bash tests/fm-claude-herdr-composer-live-e2e.test.sh
+```
+
+On 2026-10-19, installed versions were Herdr 0.9.5 and Claude Code 2.1.304.
+`herdr pane list --session default | jq '[.result.panes[] | select(.scroll.offset_from_bottom > 0)] | length'` returned `0`; no prepared guard targets were supplied.
+The scrolled live result remains unverified: preparing panes would change terminal state outside the review worktree, which this review forbids.
 
 ### Claude background-task exit picker
 

@@ -552,9 +552,9 @@ Typed-plane text is typed once; only Enter is retried.
 When native `agent get` identity is Claude, the adapter types only into an empty composer.
 A Claude composer that already holds text, or cannot be read, before the send is refused with nothing typed.
 Before that Enter, the adapter continues only when the selected composer shows the typed payload, or only Claude paste placeholders with no literal remainder.
-An unscrolled herdr composer read (`fm_backend_herdr_composer_state` when `pane get` reports `scroll.offset_from_bottom` of 0, and `fm_backend_herdr_composer_content`) captures the full visible viewport.
+Both composer state and content proof use the same capture selection: an unscrolled pane captures the full visible viewport.
 A slash-command popup rendered between the composer and the pane bottom pushes the composer outside a short tail, and the viewport is the read that still contains it.
-When `offset_from_bottom` is greater than 0, the viewer is in history, so `fm_backend_herdr_composer_state` classifies a bottom-anchored `pane read --source recent` instead of that viewport.
+When `offset_from_bottom` is greater than 0, the viewer is in history, so both reads select a bottom-anchored `pane read --source recent` instead of that viewport.
 If that bottom read cannot be taken, the verdict is unknown, never pending.
 The shared inbox pending-line confirmation read (bin/fm-task-inbox-lib.sh) stays a bounded tail on every backend.
 Dated measurement: docs/verification/runtime-backends.md "Claude exit behind the slash-command popup".
