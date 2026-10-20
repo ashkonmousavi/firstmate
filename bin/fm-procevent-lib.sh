@@ -110,15 +110,18 @@ fm_procevent_any_registered() {
 # nothing bounds its lifetime, so its blocking child - and everything that child
 # spawns - can keep running indefinitely.
 #
-# The bound is a lease on the OWNING STATE ROOT. Owner-presence operations
-# refresh it, an attached public start keeps it fresh while its caller remains
-# attached, and the watcher's reconcile cycle keeps it fresh in a live home.
-# A guard proves the runner's owner is still there by reading that lease from
-# the physical state root recorded in the claim. After two consecutive checks
-# cannot prove both the root identity and a fresh lease, it stops the runner's
-# process group. The lease is keyed by state root, so another home's live runner
-# is untouched: that home refreshes its own lease. Nothing here keys on a script
-# name, a command line, or a process name, all of which are shared across homes.
+# The bound is the OWNING STATE ROOT's presence: its primary session holds the
+# root's session lock, or its lease is fresh. Owner-presence operations refresh
+# the lease, an attached public start keeps it fresh while its caller remains
+# attached, and the watcher's reconcile cycle keeps it fresh in a live home;
+# the session lock covers the time that cycle cannot, such as a long primary
+# turn or a cycle stalled before its reconcile. A guard proves the runner's
+# owner is still there by reading both from the physical state root recorded
+# in the claim. After two consecutive checks cannot prove the root identity and
+# one of them, it stops the runner's process group. Both are keyed by state
+# root, so another home's live runner is untouched. Runner selection uses the
+# recorded claim rather than shared script or process names; the session-lock
+# holder test is bin/fm-session-lock-lib.sh's.
 
 fm_procevent_owner_lease_path() {  # <state-root>
   printf '%s/.owner-lease\n' "$(fm_procevent_registry_dir "$1")"
@@ -158,10 +161,11 @@ fm_procevent_owner_lease_age() {  # <state-root>
   ' "$value"
 }
 
-# How long a runner keeps going with no activity in its owning home. The default
-# is forty watcher cycles at the default poll interval, so an ordinary busy or
-# briefly wedged home never trips it, while a home that is simply gone stops
-# owning processes within the hour rather than within a day.
+# How long a runner keeps going with no activity in its owning home once that
+# home has no live primary session. The default is forty watcher cycles at the
+# default poll interval, so a session that has just ended or a briefly wedged
+# home never trips it, while a home that is simply gone stops owning processes
+# within the hour rather than within a day.
 FM_PROCEVENT_OWNER_LEASE_DEFAULT_SECONDS=600
 FM_PROCEVENT_OWNER_LEASE_MIN_SECONDS=1
 FM_PROCEVENT_OWNER_LEASE_MAX_SECONDS=86400
@@ -320,6 +324,38 @@ fm_procevent_owner_alive() {  # <state-root> <lease-seconds>
   local age
   age=$(fm_procevent_owner_lease_age "$1") || return 1
   [ "$age" -le "$2" ]
+}
+
+# Print what the owning state root's session lock says about its primary
+# session: held (line 1 names a live verified harness process), stale, or
+# absent. bin/fm-session-lock-lib.sh owns that holder test.
+fm_procevent_owner_session_reading() {  # <state-root>
+  local lock="$1/.lock" pid
+  if [ ! -f "$lock" ] || [ -L "$lock" ]; then
+    printf 'absent\n'
+    return 0
+  fi
+  pid=$(head -n 1 "$lock" 2>/dev/null || true)
+  case "$pid" in
+    ''|0|*[!0-9]*) printf 'stale\n'; return 0 ;;
+  esac
+  # Sourced on first use, like bin/fm-wake-lib.sh does for its one caller,
+  # so loading this library does not require the session-lock library.
+  # shellcheck source=bin/fm-session-lock-lib.sh
+  if { command -v fm_session_lock_holder_alive >/dev/null 2>&1 \
+      || . "$FM_WAKE_LIB_DIR/fm-session-lock-lib.sh"; } \
+    && fm_session_lock_holder_alive "$1" "$pid"; then
+    printf 'held\n'
+  else
+    printf 'stale\n'
+  fi
+}
+
+# True while the owning home is present: its primary session holds the
+# session lock, or its lease is fresh. This is the owner guard's test.
+fm_procevent_owner_present() {  # <state-root> <lease-seconds>
+  [ "$(fm_procevent_owner_session_reading "$1")" = held ] \
+    || fm_procevent_owner_alive "$1" "$2"
 }
 
 # --- ownership --------------------------------------------------------------
