@@ -14,7 +14,7 @@ fm_live_gate opt-in FM_CLAUDE_HERDR_COMPOSER_LIVE herdr jq claude
 versions="Claude $(claude --version | head -1), $(herdr --version | head -1)"
 fm_backend_source herdr || fail "$versions: cannot load Herdr adapter"
 check_composer() {
-  local target=$1 expected=$2 scroll=$3 text=$4 session pane identity offset verdict content ansi cap caps visible
+  local target=$1 expected=$2 scroll=$3 text=$4 plain_expected=$5 capture_expected session pane identity offset verdict content ansi cap caps visible
   case "$target" in
     *:*:*) ;;
     *) fail "$versions: missing prepared $scroll $expected target" ;;
@@ -41,8 +41,10 @@ check_composer() {
   for ansi in 1 0; do
     cap=$(fm_backend_herdr_composer_capture "$target" "$ansi") || fail "$versions: $target capture failed (ansi=$ansi)"
     caps=$(printf 'styled=%s\ncursor=0\nidentity=1' "$ansi")
+    capture_expected=$expected
+    [ "$ansi" = 1 ] || capture_expected=$plain_expected
     verdict=$(fm_composer_classify_screen "$caps" "$cap" '' "$identity")
-    [ "$verdict" = "$expected" ] || fail "$versions: $target ansi=$ansi expected $expected, got $verdict"
+    [ "$verdict" = "$capture_expected" ] || fail "$versions: $target ansi=$ansi expected $capture_expected, got $verdict"
     content=$(FM_COMPOSER_GHOST_LUMA_MAX=0 fm_composer_extract_selected_content "$caps" "$cap" "$identity") \
       || fail "$versions: $target ansi=$ansi content extraction failed"
     [ "$content" = "$text" ] || fail "$versions: $target ansi=$ansi content differs from the prepared draft"
@@ -55,10 +57,10 @@ check_composer() {
       [ "$visible" != "$cap" ] || fail "$versions: $target does not separate history from the live bottom"
     fi
   done
-  pass "$versions: $scroll $expected composer state and content agree through ANSI and plain captures"
+  pass "$versions: $scroll $expected composer: ANSI=$expected, plain=$plain_expected; both content reads match the prepared draft"
 }
 
-check_composer "${FM_CLAUDE_HERDR_COMPOSER_TARGET:-}" empty unscrolled ''
-check_composer "${FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET:-}" empty scrolled ''
+check_composer "${FM_CLAUDE_HERDR_COMPOSER_TARGET:-}" empty unscrolled '' empty
+check_composer "${FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET:-}" empty scrolled '' empty
 [ -n "${FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT:-}" ] || fail "$versions: missing prepared pending draft text"
-check_composer "${FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET:-}" pending scrolled "$FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT"
+check_composer "${FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET:-}" pending scrolled "$FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT" unknown

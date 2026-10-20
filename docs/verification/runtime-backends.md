@@ -1377,6 +1377,7 @@ ok - fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane re
 
 The read-only guard now requires three prepared idle Claude panes: an unscrolled empty composer, a scrolled empty composer, and a scrolled composer holding the exact supplied draft.
 It verifies state and content through both ANSI and plain captures and requires history to differ from the live bottom for each scrolled control.
+A single-line bare draft is `pending` with ANSI styling and conservatively `unknown` without styling, where a ghost suggestion cannot be distinguished; both content reads must still match the prepared text exactly.
 Refresh with:
 
 ```sh
@@ -1388,9 +1389,34 @@ FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='prepared draft' \
 bash tests/fm-claude-herdr-composer-live-e2e.test.sh
 ```
 
-On 2026-10-19, installed versions were Herdr 0.9.5 and Claude Code 2.1.304.
-`herdr pane list --session default | jq '[.result.panes[] | select(.scroll.offset_from_bottom > 0)] | length'` returned `0`; no prepared guard targets were supplied.
-The scrolled live result remains unverified: preparing panes would change terminal state outside the review worktree, which this review forbids.
+Measured 2026-10-19 against Herdr 0.9.5 (protocol 22) and Claude Code 2.1.304 in the isolated `fm-lab-c` session.
+All Herdr runtime, Claude configuration, transcript, and lab ownership files lived under the review worktree's `.r/` directory.
+`XDG_CONFIG_HOME=.r` kept the named session's Unix socket path short enough without writing outside the worktree.
+Claude used its [documented classic renderer](https://code.claude.com/docs/en/env-vars), selected at launch with `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`; fullscreen mode keeps application-owned history and reported no host scrollback, so it could not exercise a positive Herdr scroll offset.
+The controls ran with repository hooks disabled and `claudeMdExcludes` set to `["**"]` in an isolated launch settings file.
+The two scrolled controls contained real Haiku 5.5 replies of 80 numbered lines, with `scrolled draft control` typed but never submitted in the pending control.
+The real socket API request `pane.scroll` with `{"pane_id":"w1:pB","offset_from_bottom":60}`, repeated for `w1:pC`, moved each viewer into history.
+Both panes reported `offset_from_bottom=60`, `max_offset_from_bottom=67`, and `viewport_rows=40`; their visible history differed from their recent bottom captures.
+The unscrolled control was `w1:pA` with an empty composer.
+The guard checked native Claude idle identity, the public composer-state result, the content proof, and separate ANSI and plain state/content extraction against those prepared controls.
+
+Command run from the worktree with the isolated environment selected:
+
+```sh
+XDG_CONFIG_HOME=.r FM_HOME="$PWD/.r/fm" \
+FM_CLAUDE_HERDR_COMPOSER_LIVE=1 \
+FM_CLAUDE_HERDR_COMPOSER_TARGET=fm-lab-c:w1:pA \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET=fm-lab-c:w1:pB \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET=fm-lab-c:w1:pC \
+FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='scrolled draft control' \
+bash tests/fm-claude-herdr-composer-live-e2e.test.sh
+```
+
+```text
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: unscrolled empty composer: ANSI=empty, plain=empty; both content reads match the prepared draft
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: scrolled empty composer: ANSI=empty, plain=empty; both content reads match the prepared draft
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: scrolled pending composer: ANSI=pending, plain=unknown; both content reads match the prepared draft
+```
 
 ### Claude background-task exit picker
 
