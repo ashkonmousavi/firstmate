@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# The dedicated account is locked with nologin; terminal subprocesses need
+# an explicit job shell rather than the account's login-shell fallback.
+env:
+  SHELL: /bin/bash
+
 # Per-PR supersession: a new push to the same PR replaces that PR's in-flight
 # CI instead of letting superseded heads keep the full hosted-runner fan-out.
 # The group uses the PR number for pull_request events, so every run of one PR
