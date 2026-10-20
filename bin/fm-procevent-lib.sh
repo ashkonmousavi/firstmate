@@ -337,7 +337,7 @@ fm_procevent_owner_session_reading() {  # <state-root>
   fi
   pid=$(head -n 1 "$lock" 2>/dev/null || true)
   case "$pid" in
-    ''|0|1|*[!0-9]*) printf 'stale\n'; return 0 ;;
+    ''|0|*[!0-9]*) printf 'stale\n'; return 0 ;;
   esac
   # Sourced on first use, like bin/fm-wake-lib.sh does for its one caller,
   # so loading this library does not require the session-lock library.

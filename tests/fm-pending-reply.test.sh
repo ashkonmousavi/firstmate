@@ -250,9 +250,9 @@ test_recovery_waits_while_the_mate_has_an_open_decision() {
 # since the drain's fold, not the whole log once per request, or one cycle
 # outlasts the watcher stall bound and nothing else in that cycle runs.
 test_large_status_log_keeps_the_tick_bounded() {
-  local home state corr hook_log probe status i started elapsed bound reads big
+  local mode=$1 home state corr hook_log probe status i started elapsed bound reads big cursor before
   local -a corrs=()
-  home=$(setup_parent large-log)
+  home=$(setup_parent "large-log-$mode")
   state="$home/state"
   status="$state/hibit.status"
   hook_log="$TMP_ROOT/large-log-hook.log"
@@ -271,6 +271,11 @@ test_large_status_log_keeps_the_tick_bounded() {
   export -f large_log_hook
   export FM_PENDING_REPLY_SEND_HOOK=large_log_hook
   printf 'needs-decision [key=scope]: narrow or wide?\n' > "$status"
+  cursor="$state/.hibit.open-decisions-cursor"
+  case "$mode" in
+    warm|behind) status_open_decisions_incremental "$status" >/dev/null ;;
+    invalid) printf 'version=obsolete\noffset=999999999\nident=old\n' > "$cursor" ;;
+  esac
   awk 'BEGIN { for (i = 1; i <= 3000; i++) {
       printf "done [key=item-%d] [at=1792400000]: item %d finished with a long note that pads the line\n", i, i
       printf "working: step %d of the long-running audit, still going\n", i
@@ -282,8 +287,8 @@ test_large_status_log_keeps_the_tick_bounded() {
     fm_pending_reply_observe_busy "$state" "$corr" idle
     corrs+=("$corr")
   done
-  # The drain's fold commits its cursor; the mate then appends one more line.
-  status_open_decisions_incremental "$status" >/dev/null
+  if [ "$mode" = warm ]; then status_open_decisions_incremental "$status" >/dev/null; fi
+  before=$(cat "$cursor" 2>/dev/null || true)
   printf 'working: one more line after the drain\n' >> "$status"
   big=$(wc -c < "$status" | tr -d ' ')
   started=$SECONDS
@@ -293,18 +298,35 @@ test_large_status_log_keeps_the_tick_bounded() {
   [ "$elapsed" -lt "$bound" ] \
     || fail "one pending-reply tick over a ${big}-byte status log took ${elapsed}s, past the ${bound}s watcher stall bound"
   reads=$(awk -F '\t' -v f="$status" '$1 == f' "$probe" | wc -l | tr -d ' ')
-  [ "$reads" -ge 15 ] \
-    || fail "the recovery gate did not consult the open-decision fold for each waiting request (got $reads)"
-  awk -F '\t' -v f="$status" '$1 == f && $2 > 100 { bad = 1 } END { exit bad }' "$probe" \
-    || fail "the recovery gate re-read the long status log instead of the bytes appended since the drain"$'\n'"$(cat "$probe")"
+  [ "$reads" -ge 1 ] || fail "the recovery gate never folded the status log"
+  awk -F '\t' -v f="$status" -v big="$big" '$1 == f { bytes += $2 } END { exit bytes > big }' "$probe" \
+    || fail "$mode: one tick folded the status log more than once"$'\n'"$(cat "$probe")"
+  if [ "$mode" = warm ]; then
+    awk -F '\t' -v f="$status" '$1 == f && $2 > 100 { bad = 1 } END { exit bad }' "$probe" \
+      || fail "the recovery gate ignored the drain's warm cursor"
+  fi
   [ ! -s "$hook_log" ] || fail "a recovery poked a mate whose own decision is still open"
   for corr in "${corrs[@]}"; do
     [ "$(phase_of "$state" "$corr")" = awaiting_report ] \
       || fail "a deferred recovery must stay unattempted, got $(phase_of "$state" "$corr")"
   done
-  grep -q '^offset=' "$state/.hibit.open-decisions-cursor" || fail "the drain's cursor went missing"
-  [ "$(sed -n 's/^offset=//p' "$state/.hibit.open-decisions-cursor")" -lt "$big" ] \
-    || fail "the recovery gate advanced the drain's cursor"
+  [ "$(cat "$cursor" 2>/dev/null || true)" = "$before" ] \
+    || fail "the recovery gate changed the drain's cursor"
+  if [ "$mode" = missing ]; then
+    [ ! -e "$cursor" ] || fail "the recovery gate created a drain cursor"
+  fi
+  printf 'resolved [key=scope]: settled\n' >> "$status"
+  [ -z "$(status_own_open_decisions "$status")" ] || fail "recovery reused a fold across a decision close"
+  [ -z "$(status_open_decisions_peek "$status")" ] || fail "the nudge reader missed a decision close"
+  [ -z "$(status_open_decisions_incremental "$status")" ] || fail "the drain missed a decision close after supervision reads"
+  mv "$status" "$status.old"
+  printf 'blocked [key=replaced]: new question\n' > "$status"
+  [ "$(status_open_decisions_peek "$status")" = $'replaced\tblocked\tnew question' ] \
+    || fail "supervision trusted its fold after file replacement"
+  printf 'working: reset\n' > "$status"
+  [ -z "$(status_open_decisions_peek "$status")" ] || fail "supervision trusted its fold after truncation"
+  status_retire_presentation_task "$state" hibit || fail "task retirement failed"
+  [ ! -e "$cursor.peek" ] || fail "task retirement left a supervision cursor"
   unset FM_PENDING_REPLY_SEND_HOOK
   unset FM_CONFIG_OVERRIDE
   pass "a long parent status log keeps the pending-reply tick bounded by new appends"
@@ -2211,7 +2233,10 @@ test_same_kind_escalation_reopens_after_operator_close() {
 test_normal_correlated_reply_resolves_once
 test_completed_turn_no_report_triggers_one_recovery
 test_recovery_waits_while_the_mate_has_an_open_decision
-test_large_status_log_keeps_the_tick_bounded
+test_large_status_log_keeps_the_tick_bounded warm
+test_large_status_log_keeps_the_tick_bounded missing
+test_large_status_log_keeps_the_tick_bounded invalid
+test_large_status_log_keeps_the_tick_bounded behind
 test_recovery_sends_during_an_open_decision_without_the_flag
 test_recovery_grace_measures_from_turn_completion
 test_recovery_fresh_status_read_resolves_before_firing

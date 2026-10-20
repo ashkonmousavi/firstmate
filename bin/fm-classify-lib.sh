@@ -37,8 +37,8 @@
 # open-decisions fold" below) also writes: it persists a per-status-file byte
 # cursor and folded open-set as a side effect, so a per-drain fleet-wide scan
 # stays bounded by new appends instead of re-reading each task's whole lifetime
-# log every time; status_open_decisions_peek reads through that same cursor and
-# never commits it. status_home_appends_record writes the per-task home-owned
+# log every time; status_open_decisions_peek keeps a separate supervision cursor.
+# status_home_appends_record writes the per-task home-owned
 # append ledger (see "home-owned status-append ledger" below) so the wake scan
 # can treat this home's own bookkeeping bytes as already owned.
 # crew_worktree_written_since reads the task's meta file and walks a bounded slice
@@ -1276,15 +1276,20 @@ _fm_status_read_span() {  # <status-file> <start-offset> <byte-length>
 status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   local f=$1 captured_end=${2:-} cf offset ident open='' trusted_open='' cursor_data first rest offset_line ident_line
   local version='' size actual_size cur_ident resolve held chunk_file chunk_size line cursor_dirty=0
-  local target_cursor kind fold_version
+  local target_cursor read_cursor kind fold_version
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 0
   kind=$(_fm_status_kind "$f")
   fold_version="$FM_OPEN_DECISIONS_FOLD_VERSION:$kind"
   cf=$(_fm_open_decisions_cursor_path "$f")
+  read_cursor=$cf
+  if [ "${_FM_OPEN_DECISIONS_PEEK:-0}" = 1 ]; then
+    cf="$cf.peek"
+    if [ -e "$cf" ] || [ -L "$cf" ]; then read_cursor=$cf; fi
+  fi
   offset=0
   ident=''
-  if [ -f "$cf" ] && [ -r "$cf" ] && [ ! -L "$cf" ]; then
-    cursor_data=$(LC_ALL=C command cat "$cf" 2>/dev/null) || cursor_data=''
+  if [ -f "$read_cursor" ] && [ -r "$read_cursor" ] && [ ! -L "$read_cursor" ]; then
+    cursor_data=$(LC_ALL=C command cat "$read_cursor" 2>/dev/null) || cursor_data=''
   fi
   if [ -n "${cursor_data:-}" ]; then
       first=${cursor_data%%$'\n'*}
@@ -1375,7 +1380,7 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
     offset=$size
     cursor_dirty=1
   fi
-  if [ "$cursor_dirty" -eq 1 ] && [ "${_FM_OPEN_DECISIONS_PEEK:-0}" != 1 ]; then
+  if [ "$cursor_dirty" -eq 1 ]; then
     target_cursor="$cf.tmp.$$"
     {
       printf 'version=%s\n' "$fold_version"
@@ -1388,13 +1393,10 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   printf '%s' "$open"
 }
 
-# Read-only sibling of status_open_decisions_incremental, for a caller that asks
+# Sibling of status_open_decisions_incremental, for a caller that asks
 # about one task every supervision cycle (the pending-reply recovery gate, the
 # watcher's ring and nudge gates). It starts from the cursor the drain commits
-# and folds only the bytes appended since, so its cost follows new appends, not
-# the log's lifetime size, but it never writes that cursor: the drain's own
-# bookkeeping and every reader of the cursor offset are unchanged. With no
-# trusted cursor it folds the whole file, exactly as status_open_decisions does.
+# and retains its fold in a separate cursor, leaving the drain's cursor intact.
 status_open_decisions_peek() {  # <status-file>
   local _FM_OPEN_DECISIONS_PEEK=1
   status_open_decisions_incremental "$1"
@@ -1743,6 +1745,8 @@ status_retire_presentation_task() {  # <state> <task-id>
   if [ ! -e "$state/$task.status" ] && [ ! -L "$state/$task.status" ] \
     && [ ! -e "$state/.$task.open-decisions-cursor" ] \
     && [ ! -L "$state/.$task.open-decisions-cursor" ] \
+    && [ ! -e "$state/.$task.open-decisions-cursor.peek" ] \
+    && [ ! -L "$state/.$task.open-decisions-cursor.peek" ] \
     && [ ! -e "$home_appends" ] && [ ! -L "$home_appends" ] \
     && [ ! -e "$home_appends_lock" ] && [ ! -L "$home_appends_lock" ] \
     && [ ! -e "$signal_marker" ] && [ ! -L "$signal_marker" ] \
@@ -1794,6 +1798,7 @@ EOF
   fi
   if [ "$rc" -eq 0 ]; then
     rm -f -- "$state/$task.status" "$state/.$task.open-decisions-cursor" \
+      "$state/.$task.open-decisions-cursor.peek" \
       "$home_appends" "$signal_marker" "$heartbeat_marker" "$daemon_marker" || rc=1
     fm_lock_remove_path "$home_appends_lock" 2>/dev/null || true
   fi
