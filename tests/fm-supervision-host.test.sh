@@ -199,7 +199,14 @@ process_descendants() {  # <pid>
 # unanswered read can keep the host and its arms from stopping. Every wait is
 # bounded, so a case that failed mid-fixture cannot hang the suite.
 stop_home_processes() {  # <home>
-  local home=$1 pid arms='' fifo kids kid
+  local home=$1 pid arms='' fifo kids='' kid
+  while IFS= read -r pid; do
+    kids="$kids $(process_descendants "$pid")"
+    : > "$home/session.stop"
+    for kid in $(ps -A -o pid= -o ppid= | awk -v root="$pid" '$2 == root { print $1 }'); do
+      kill -TERM "$kid" 2>/dev/null || true
+    done
+  done < <(cat "$home/claude-pids" 2>/dev/null)
   while IFS= read -r pid; do
     stop_fixture_process "$pid"
   done < <(cat "$home/fixture-pids" 2>/dev/null)
@@ -222,21 +229,13 @@ stop_home_processes() {  # <home>
   for pid in $arms; do
     stop_fixture_process "$pid"
   done
+  for kid in $kids; do
+    kill -TERM "$kid" 2>/dev/null || true
+  done
+  for kid in $(printf '%s\n' "$kids" | awk '{ for (i = 1; i <= NF; i++) line[++n] = $i } END { for (i = n; i > 0; i--) print line[i] }'); do
+    stop_fixture_process "$kid"
+  done
   while IFS= read -r pid; do
-    # A session asked to stop gets ten seconds to end its loop on its own.
-    if [ -e "$home/session.stop" ]; then
-      stop_fixture_process "$pid" 100
-    fi
-    # Its Stop hook and that hook's host outlive a session stopped alone, and
-    # the hook would start another host after this cleanup read the record.
-    kids=$(process_descendants "$pid")
-    for kid in $kids; do
-      kill -TERM "$kid" 2>/dev/null || true
-    done
-    # Deepest first, so a host finishes its cleanup before its hook is waited on.
-    for kid in $(printf '%s\n' "$kids" | awk '{ line[NR] = $0 } END { for (i = NR; i > 0; i--) print line[i] }'); do
-      stop_fixture_process "$kid"
-    done
     stop_fixture_process "$pid"
   done < <(cat "$home/claude-pids" 2>/dev/null)
   while IFS= read -r pid; do
@@ -1493,7 +1492,7 @@ test_claude_stop_hook_rewakes_a_present_captain_beside_a_quiet_record() {
 # config/supervision-host-off runs the plain watcher arm, mirrors nothing, and every wake
 # reaches main as the arm printed it.
 test_claude_stop_hook_runs_the_host_without_the_file_and_off_opts_out() {
-  local home first
+  local home first descendants pid
   home=$(make_primary_home hook-default-on)
   ln -s "$ROOT/.agents" "$home/.agents"
   rm -f "$home/config/supervision-host"
@@ -1510,8 +1509,15 @@ test_claude_stop_hook_runs_the_host_without_the_file_and_off_opts_out() {
   assert_re '	handled	turn=[^	]*	posture=attended	' "$home/state/.supervision-host.log" "the ledger must record the attended turn"
   [ ! -s "$home/hook.rc" ] || fail "a routine attended wake on a Claude home without the file reached main: $(cat "$home/hook.err")"
   watcher_live "$home" || fail "default-on: the host is not parked on a live successor"
+  descendants=$(process_descendants "$(cat "$home/claude-pids")")
+  [ -n "$descendants" ] || fail "default-on: no session descendants to clean up"
   : > "$home/session.stop"
   stop_home_processes "$home"
+  for pid in $descendants; do
+    ! kill -0 "$pid" 2>/dev/null || fail "default-on: cleanup left descendant $pid running"
+  done
+  ! watcher_live "$home" || fail "default-on: cleanup left a replacement watcher"
+  [ -z "$(home_arms "$home")" ] || fail "default-on: cleanup left a replacement arm"
 
   home=$(make_primary_home hook-opted-out)
   : > "$home/config/supervision-host-off"
@@ -2574,6 +2580,57 @@ test_engine_turn_is_bounded_and_its_descendants_reaped() {
   pass "host: an engine turn is bounded, and tool processes outside its process group are reaped"
 }
 
+test_stop_before_engine_identity_reaps_its_descendants() {
+  local home host orphan real_mktemp real_od
+  [ -r /proc/self/cmdline ] || { printf 'skip: no /proc identity reads to hold\n'; return 0; }
+  home=$(make_home stop-engine-start away)
+  echo hang > "$home/stub-mode"
+  real_mktemp=$(command -v mktemp)
+  cat > "$home/fakebin/mktemp" <<SH
+#!/usr/bin/env bash
+case "\$*" in
+  *.supervision-host-descendants.*)
+    : > "\$FM_HOME/engine-start-held"
+    i=0
+    while [ ! -e "\$FM_HOME/engine-start-release" ] && [ "\$i" -lt 100 ]; do
+      sleep 0.1
+      i=\$((i + 1))
+    done
+    ;;
+esac
+exec "$real_mktemp" "\$@"
+SH
+  real_od=$(command -v od)
+  cat > "$home/fakebin/od" <<SH
+#!/usr/bin/env bash
+if [ -e "\$FM_HOME/engine-start-release" ] && [ ! -e "\$FM_HOME/state/.supervision-host.engine-pid" ]; then
+  i=0
+  while [ ! -s "\$FM_HOME/orphan-pid" ] && [ "\$i" -lt 100 ]; do
+    sleep 0.1
+    i=\$((i + 1))
+  done
+fi
+exec "$real_od" "\$@"
+SH
+  chmod +x "$home/fakebin/mktemp" "$home/fakebin/od"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" || fail "engine stop: no watcher"
+  append_status "$home" 'start the engine'
+  wait_until 150 test -e "$home/engine-start-held" || fail "engine stop: startup was not held"
+  [ ! -e "$home/state/.supervision-host.engine-pid" ] || fail "engine stop: identity already published"
+  host=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
+  kill -TERM "$host" || fail "engine stop: host was not running"
+  sleep 0.5
+  : > "$home/engine-start-release"
+  wait_until 100 test -s "$home/orphan-pid" || fail "engine stop: detached tool did not start"
+  orphan=$(cat "$home/orphan-pid")
+  wait_until 250 host_exited "$home" || fail "engine stop: host did not stop"
+  expect_code 143 "$(cat "$home/host.rc")" "engine stop: TERM status must survive cleanup"
+  wait_until 50 sh -c '! kill -0 "$1" 2>/dev/null' _ "$orphan" \
+    || fail "engine stop: detached tool outlived the host"
+  pass "host: stopping before engine identity publication still reaps detached tools"
+}
+
 test_restarted_host_stops_what_a_killed_predecessor_left() {
   local home first_host arm watcher
   home=$(make_home away-crash away)
@@ -3243,6 +3300,7 @@ run_test test_incomplete_engine_result_hands_the_wake_to_main
 run_test test_latch_trips_after_two_engine_errors_then_probes_and_recovers
 run_test test_latch_keeps_attended_closes_on_main_and_skips_unopted_homes
 run_test test_attended_latch_keeps_closes_on_main_and_records_recovery_off_main
+run_test test_stop_before_engine_identity_reaps_its_descendants
 run_test test_engine_turn_is_bounded_and_its_descendants_reaped
 run_test test_restarted_host_stops_what_a_killed_predecessor_left
 run_test test_park_boundary_ends_the_park_before_the_hook_timeout

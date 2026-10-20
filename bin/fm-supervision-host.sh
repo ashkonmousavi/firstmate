@@ -413,14 +413,19 @@ activate() {
 # it on and KILLs after its grace, then let the turn's own poller reap the
 # engine's descendants before giving up on it.
 stop_engine_turn() {
-  local pid='' identity='' i limit
-  [ -f "$ENGINE_PID_FILE" ] && IFS="$(printf '\t')" read -r pid identity < "$ENGINE_PID_FILE"
-  if [ -n "$pid" ] && fm_pid_alive "$pid" && [ "$(identity_of "$pid")" = "$identity" ]; then
-    kill -TERM "$pid" 2>/dev/null || true
-  fi
+  local pid='' identity='' i limit signalled=0
   limit=$(( (ENGINE_GRACE + 10) * 10 ))
   i=0
   while [ -n "$ENGINE_SUBSHELL" ] && fm_pid_alive "$ENGINE_SUBSHELL" && [ "$i" -lt "$limit" ]; do
+    if [ "$signalled" -eq 0 ] && [ -f "$ENGINE_PID_FILE" ]; then
+      IFS="$(printf '\t')" read -r pid identity < "$ENGINE_PID_FILE"
+      if [ -n "$pid" ] && fm_pid_alive "$pid" && [ "$(identity_of "$pid")" = "$identity" ]; then
+        if kill -TERM "$pid" 2>/dev/null; then
+          signalled=1
+          i=0
+        fi
+      fi
+    fi
     sleep 0.1
     i=$((i + 1))
   done
