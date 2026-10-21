@@ -1,0 +1,30 @@
+fresh record, 3600s grace: quiet
+aged record, 1s grace / 1 attempt maximum: ring 001.msg
+after one recorded attempt, maximum=1: escalate 001.msg 1
+same state, maximum=3, zero grace: ring 001.msg
+escalated
+after escalation marker: quiet
+ring requested after acknowledgement: handled
+acknowledged inbox: quiet
+dedup: exact=001.msg repeated=001.msg distinct-same-size=002.msg fire-and-forget=003.msg repeated-fire-and-forget=003.msg post-ack=handled/001.msg
+
+Persisted record rsm.inbox/handled/001.msg:
+schema=fm-task-inbox.v1
+at=2026-10-21T04:03:26Z
+--
+multi-byte héllo
+second line
+Persisted record rsm.inbox/002.msg:
+schema=fm-task-inbox.v1
+at=2026-10-21T04:03:27Z
+--
+multi-byte héllo
+second lime
+Persisted record rsm.inbox/003.msg:
+schema=fm-task-inbox.v1
+at=2026-10-21T04:03:27Z
+delivery=fire-and-forget
+--
+multi-byte héllo
+second line
+All direct protocol assertions passed; no Herdr ring or lifecycle command was invoked.
