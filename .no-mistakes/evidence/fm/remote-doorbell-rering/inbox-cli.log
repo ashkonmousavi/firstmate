@@ -1,0 +1,15 @@
+control due 3600 1 => quiet
+control due 1 1 => ring 001.msg
+control due 3600 3 => quiet
+control due 1 1 => escalate 001.msg 1
+control escalated 001.msg => escalated
+control due 1 1 => quiet
+control due 0 0 => quiet
+control ring 001.msg => handled
+fm_task_inbox_write_idempotent ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route rsm live inbox instruction => ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route/rsm.inbox/handled/001.msg
+fm_task_inbox_write_idempotent ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route rsm live inbox instructioN => ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route/rsm.inbox/002.msg
+fm_task_inbox_write_idempotent ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route rsm live inbox instruction fire-and-forget => ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route/rsm.inbox/003.msg
+fm_task_inbox_write_idempotent ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route rsm live inbox instruction fire-and-forget => ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E1XHBH3GQ1RB6R1ZZQ2VN6/.lab-validation/home/state/parent-route/rsm.inbox/003.msg
+control due 0 0 => escalate 002.msg 0
+control due 0 0 => quiet
+Direct host-local CLI checks completed; no transport or agent delivery was exercised.
