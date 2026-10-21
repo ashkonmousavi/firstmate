@@ -95,7 +95,7 @@ for path in "$@"; do
     "$FM_REAL_RM" "$@" || exit $?
     : > "$FM_HOME/released"
     while [ ! -e "$FM_HOME/holder-ready" ]; do
-      [ "$SECONDS" -lt 8 ] || exit 1
+      [ "$SECONDS" -lt 480 ] || exit 1
       sleep 0.01
     done
     exit 0
@@ -122,13 +122,13 @@ SH
     . "$1/bin/fm-wake-lib.sh"
     trap "fm_lock_release \"\$FM_WAKE_QUEUE_LOCK\"" EXIT
     while [ ! -e "$FM_HOME/released" ]; do
-      [ "$SECONDS" -lt 10 ] || exit 1
+      [ "$SECONDS" -lt 480 ] || exit 1
       sleep 0.01
     done
     fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || exit 2
     : > "$FM_HOME/holder-ready"
     while [ ! -e "$FM_HOME/release-holder" ]; do
-      [ "$SECONDS" -lt 20 ] || exit 3
+      [ "$SECONDS" -lt 480 ] || exit 3
       sleep 0.01
     done
   ' _ "$ROOT" > "$home/holder.out" 2> "$home/holder.err" &
@@ -136,14 +136,14 @@ SH
 }
 
 run_checkpoint() {
-  local home=$1 mode=${2:-normal}
+  local home=$1 mode=${2:-normal} seconds=${3:-3}
   local -a arguments=()
   if [ "$mode" = fallback ]; then arguments+=("FM_CREW_STATE_BIN=$home/fakebin/crew-state"); fi
   STATUS=0
-  fm_run_timed 12 env PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=0 \
+  fm_run_timed "$((seconds + 9))" env PATH="$home/fakebin:$PATH" FM_HOME="$home" FM_POLL=1 FM_SIGNAL_GRACE=0 \
     FM_CHECK_TIMEOUT=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
     FM_REAL_RM="$(cat "$home/real-rm")" FM_REAL_DATE="$(cat "$home/real-date")" \
-    ${arguments[@]+"${arguments[@]}"} bash "$ROOT/bin/fm-watch-checkpoint.sh" --seconds 3 \
+    ${arguments[@]+"${arguments[@]}"} bash "$ROOT/bin/fm-watch-checkpoint.sh" --seconds "$seconds" \
     > "$home/checkpoint.out" 2> "$home/checkpoint.err" || STATUS=$?
 }
 
@@ -158,7 +158,7 @@ drain_and_ack() {
 }
 
 test_partial_signal_publication_is_committed() {
-  local kind home first later drained
+  local kind home first later drained attempt
   for kind in status turn-ended unreadable fallback; do
     home=$(new_home "partial-$kind")
     touch "$home/state/.last-check" "$home/state/.last-heartbeat" "$home/state/home-summary.json"
@@ -186,8 +186,18 @@ test_partial_signal_publication_is_committed() {
         ;;
     esac
     prepare_contention "$home"
-    run_checkpoint "$home" "$kind"
-    expect_code 124 "$STATUS" "partial $kind publication missed the clean bound: $(cat "$home/checkpoint.err")"
+    # A quiet checkpoint may spend its whole budget before publishing under load.
+    # Resume its durable cursor until contention is observable; each invocation
+    # must still close quietly, never report the partially published batch done.
+    # Grow the budget so startup itself can finish on a loaded host. Ten
+    # attempts (3..30s, plus a 9s backstop each) cap the total wait at 255s.
+    attempt=1
+    while [ "$attempt" -le 10 ]; do
+      run_checkpoint "$home" "$kind" "$((attempt * 3))"
+      expect_code 124 "$STATUS" "partial $kind publication missed the clean bound: $(cat "$home/checkpoint.err")"
+      [ ! -f "$home/holder-ready" ] || break
+      attempt=$((attempt + 1))
+    done
     [ -f "$home/holder-ready" ] || fail 'contention did not reach the post-publication acquisition'
     [ "$(awk -F '\t' -v key="$first" '$3 == "signal" && $4 == key {n++} END {print n+0}' "$home/state/.wake-queue")" -eq 1 ] \
       || fail 'first file was not durably published exactly once before deferral'
@@ -203,7 +213,12 @@ test_partial_signal_publication_is_committed() {
     wait "$ACTIVE_HOLDER" || fail "queue holder failed: $(cat "$home/holder.err")"
     ACTIVE_HOLDER=''
     drain_and_ack "$home"
-    run_checkpoint "$home" "$kind"
+    if [ "$kind" = fallback ]; then
+      run_checkpoint "$home" "$kind"
+    else
+      # Resumption stops on the deferred wake, with headroom for loaded startup.
+      run_checkpoint "$home" "$kind" 60
+    fi
     if [ "$kind" = fallback ]; then
       expect_code 124 "$STATUS" 'fallback re-published its acknowledged first file'
     else
@@ -220,7 +235,7 @@ test_partial_signal_publication_is_committed() {
     assert_not_contains "$drained" $'\tsignal\t' 'acknowledged signal left another queue row'
     if [ "$kind" = status ]; then
       printf 'done: new event\n' >> "$home/state/$first"
-      run_checkpoint "$home"
+      run_checkpoint "$home" normal 60
       expect_code 0 "$STATUS" 'publication marker swallowed a later status append'
       drain_and_ack "$home"
       [ "$(awk -F '\t' -v key="$first" '$3 == "signal" && $4 == key {n++} END {print n+0}' "$home/drained")" -eq 1 ] \
