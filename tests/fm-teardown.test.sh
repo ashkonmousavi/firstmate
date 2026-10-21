@@ -5555,6 +5555,87 @@ test_scout_with_a_dependent_refuses() {
   pass "teardown refuses to close a scout another item lists in blocked-by"
 }
 
+
+test_escaped_title_retains_all_blockers() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr escaped-blockers)
+  install_github_pr_class "$case_dir" merged
+  tasks-axi add task-other "other parent" --file "$case_dir/data/backlog.md" >/dev/null
+  add_blocked_by_child "$case_dir" child-one 'Handle 6" screen, C:\tools'
+  tasks-axi block child-one --by task-other --file "$case_dir/data/backlog.md" >/dev/null
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "escaped title: dependent must refuse cleanup"
+  assert_grep 'blocked-by of: child-one' "$case_dir/stderr" "escaped title hid the dependent"
+  assert_present "$case_dir/state/task-x1.meta" "escaped title: refusal removed metadata"
+  pass "escaped titles preserve every blocker"
+}
+
+test_malformed_dependency_rows_refuse_cleanup() {
+  local case_dir real_tasks row n=0
+  real_tasks=$(command -v tasks-axi)
+  for row in \
+    '  child,queued,ship,repo,"unterminated,task-x1' \
+    '  child,queued,ship,repo,"title"junk,task-x1' \
+    '  child,queued,ship,repo,"bad\q",task-x1' \
+    '  child,queued,ship,repo,title,task-x1,extra'; do
+    n=$((n + 1))
+    case_dir=$(prepare_recorded_github_pr "malformed-blockers-$n")
+    install_github_pr_class "$case_dir" merged
+    printf '%s\n' "$row" > "$case_dir/rows"
+    cat > "$case_dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = list ]; then
+  printf '%s\\n' 'count: 1' 'tasks[1]{id,state,kind,repo,title,blocked_by}:'
+  cat '$case_dir/rows'
+  exit 0
+fi
+exec '$real_tasks' "\$@"
+SH
+    chmod +x "$case_dir/fakebin/tasks-axi"
+    teardown_capture "$case_dir" --force --keep-open
+    expect_code 1 "$TEARDOWN_CAPTURE_RC" "malformed dependency row must refuse cleanup"
+    assert_grep 'could not parse' "$case_dir/stderr" "malformed row was not rejected by dependency scan"
+    assert_present "$case_dir/state/task-x1.meta" "malformed row: refusal removed metadata"
+  done
+  pass "malformed dependency rows fail closed"
+}
+
+test_merge_hold_preserves_lifecycle_locks() {
+  local case_dir real_tasks
+  case_dir=$(prepare_recorded_github_pr keep-open-locks)
+  install_github_pr_class "$case_dir" open
+  real_tasks=$(command -v tasks-axi)
+  cat > "$case_dir/fakebin/tasks-axi" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-}" = hold ]; then
+  . '$ROOT/bin/fm-wake-lib.sh'
+  if fm_lock_try_acquire '$case_dir/state/.control-task-x1.lock'; then
+    fm_lock_release '$case_dir/state/.control-task-x1.lock'
+    exit 91
+  fi
+  meta_lock=\$(fm_meta_lock_path '$case_dir/state/task-x1.meta')
+  if fm_lock_try_acquire "\$meta_lock"; then
+    fm_lock_release "\$meta_lock"
+    exit 92
+  fi
+  : > '$case_dir/locks-retained'
+fi
+exec '$real_tasks' "\$@"
+SH
+  chmod +x "$case_dir/fakebin/tasks-axi"
+  teardown_capture "$case_dir" --keep-open
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "merge hold must complete while retaining lifecycle locks"$'\n'"$(cat "$case_dir/stderr")"
+  assert_present "$case_dir/locks-retained" "merge hold did not retain both locks"
+  [ "$(shown_hold_reason "$case_dir")" = 'awaiting merge https://github.com/example/repo/pull/7' ] \
+    || fail "merge hold reason was not retained"
+  tasks-axi show task-x1 --file "$case_dir/data/backlog.md" | grep -F 'hold_kind: external' >/dev/null \
+    || fail "awaiting merge must be an external hold"
+  assert_absent "$case_dir/state/task-x1.meta" "merge hold did not complete cleanup"
+  pass "merge hold retains lifecycle serialization through cleanup"
+}
+
+run_teardown_tests() {
+
 test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_missing_startup_source_refuses_before_cleanup
 test_unreadable_startup_source_refuses_before_cleanup
@@ -5694,3 +5775,15 @@ test_blocked_by_names_every_dependent
 test_keep_open_with_a_dependent_cleans_and_leaves_it_blocked
 test_open_pr_keep_open_with_a_dependent_holds_and_names_it
 test_scout_with_a_dependent_refuses
+test_escaped_title_retains_all_blockers
+test_malformed_dependency_rows_refuse_cleanup
+test_merge_hold_preserves_lifecycle_locks
+}
+
+if [ "$#" -gt 0 ]; then
+  for teardown_test in "$@"; do
+    "$teardown_test"
+  done
+else
+  run_teardown_tests
+fi

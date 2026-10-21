@@ -1741,38 +1741,42 @@ teardown_recorded_pr_class() {
 # Rows are tasks-axi's quoted TOON table; the id is the first field and
 # blocked-by is the last, so a comma inside a title cannot hide a dependent.
 teardown_dependents_from_list() {
-  perl -e '
+  perl -MJSON::PP -e '
     my $want = shift;
-    sub fields {
-      my ($line) = @_;
-      $line =~ s/^\s+//;
-      my @f;
-      my $cur = "";
-      my $q = 0;
-      foreach my $ch (split //, $line) {
-        if ($q) {
-          if ($ch eq q{"}) { $q = 0 } else { $cur .= $ch }
-        } elsif ($ch eq q{"}) {
-          $q = 1;
-        } elsif ($ch eq ",") {
-          push @f, $cur;
-          $cur = "";
-        } else {
-          $cur .= $ch;
-        }
-      }
-      push @f, $cur;
-      return @f;
-    }
+    my $json = JSON::PP->new->allow_nonref;
+    my ($count, $remaining);
     while (<STDIN>) {
       chomp;
-      next unless /^\s+[A-Za-z0-9._-]+,/;
-      my @f = fields($_);
-      next unless @f >= 2;
-      my $id = $f[0];
+      if (/^count: (\d+)$/) {
+        defined($count) and die "duplicate backlog count\n";
+        $count = $1;
+        next;
+      }
+      if (/^tasks\[(\d+)\]\{id,state,kind,repo,title,blocked_by\}:$/) {
+        defined($count) && !defined($remaining) && $1 == $count
+          or die "malformed backlog table\n";
+        $remaining = $count;
+        next;
+      }
+      next unless $remaining;
+      s/^\s+// or die "missing backlog row\n";
+      --$remaining;
+      my @f;
+      while (1) {
+        if (/\G("(?:[^"\\]|\\.)*")/gc) {
+          push @f, $json->decode($1);
+        } elsif (/\G([^,"\r\n]*)/gc) {
+          push @f, $1;
+        } else {
+          die "malformed backlog row\n";
+        }
+        last if pos($_) == length($_);
+        /\G,/gc or die "malformed backlog field boundary\n";
+      }
+      @f == 6 && $f[0] =~ /\A[A-Za-z0-9._-]+\z/
+        or die "malformed backlog fields\n";
+      my ($id, $blocked) = @f[0,5];
       next if $id eq $want;
-      my $blocked = $f[-1];
-      next if $blocked eq "" || $blocked eq "none" || $blocked eq "-";
       foreach my $dep (split /,/, $blocked) {
         if ($dep eq $want) {
           print "$id\n";
@@ -1780,13 +1784,15 @@ teardown_dependents_from_list() {
         }
       }
     }
+    defined($count) && ($count == 0 || defined($remaining) && $remaining == 0)
+      or die "incomplete backlog table\n";
   ' "$1"
 }
 
 # Open items in this home that still list $ID in blocked-by. Done rows are not
 # waiting on it. A list that cannot be read refuses the close.
 teardown_collect_dependents() {
-  local state list found
+  local state list found parsed
   TEARDOWN_DEPENDENTS=
   found=
   for state in queued in_flight held; do
@@ -1794,7 +1800,11 @@ teardown_collect_dependents() {
       echo "REFUSED: could not read this home's backlog to see which items list $ID in blocked-by." >&2
       return 1
     fi
-    found="${found}$(printf '%s\n' "$list" | teardown_dependents_from_list "$ID")"$'\n'
+    if ! parsed=$(printf '%s\n' "$list" | teardown_dependents_from_list "$ID"); then
+      echo "REFUSED: could not parse this home's backlog to see which items list $ID in blocked-by." >&2
+      return 1
+    fi
+    found="${found}${parsed}"$'\n'
   done
   TEARDOWN_DEPENDENTS=$(printf '%s\n' "$found" | sed '/^$/d' | sort -u | paste -sd, -)
 }
@@ -1804,7 +1814,7 @@ teardown_collect_dependents() {
 # the path that cleans without closing. Runs only when this teardown would
 # otherwise close the backlog item, and before any destructive step.
 teardown_guard_unlanded_close() {
-  local class='' pr_refused=0 dep_refused=0 hold_out
+  local class='' pr_refused=0 dep_refused=0
   TEARDOWN_KEEP_OPEN=0
   TEARDOWN_KEEP_OPEN_HOLD=0
   [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] || return 0
@@ -1860,24 +1870,11 @@ teardown_guard_unlanded_close() {
     return 0
   fi
   if [ "$class" = open ]; then
-    # captain-hold takes the same control lock this script already holds for
-    # the whole teardown. Release it only for that call, which takes the lock
-    # itself, then take it back before any cleanup.
-    if [ "$CONTROL_LOCK_HELD" = 1 ]; then
-      fm_lock_release "$CONTROL_LOCK" || true
-      CONTROL_LOCK_HELD=0
-    fi
-    if ! hold_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
-        FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
-        "$SCRIPT_DIR/fm-captain-hold.sh" hold "$ID" --reason "awaiting merge $PR_URL" 2>&1); then
-      fm_lock_acquire_wait "$CONTROL_LOCK"
-      CONTROL_LOCK_HELD=1
+    if ! fm_backlog_mutate "$DATA" hold "$ID" --kind external --reason "awaiting merge $PR_URL"; then
       echo "REFUSED: could not hold $ID awaiting merge $PR_URL." >&2
-      [ -z "$hold_out" ] || printf '%s\n' "$hold_out" >&2
+      [ -z "$FM_BACKLOG_TRANSITION_ERROR" ] || printf '%s\n' "$FM_BACKLOG_TRANSITION_ERROR" >&2
       return 1
     fi
-    fm_lock_acquire_wait "$CONTROL_LOCK"
-    CONTROL_LOCK_HELD=1
     TEARDOWN_KEEP_OPEN_HOLD=1
   fi
   TEARDOWN_BACKLOG_TRANSITION=retain
