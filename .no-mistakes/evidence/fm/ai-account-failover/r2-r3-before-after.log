@@ -1,0 +1,22 @@
+=== before: Spark 50% account + 0% Bengalfox (oracle: dispatch-auth.md) ===
+healthy
+Unrelated gpt-5.5 (expected healthy):
+healthy
+=== Quota probe: 3-second provider, 1-second checkpoint ===
+healthy
+elapsed_seconds=3
+=== Bounded checkpoint admission (oracle: defer recovery, never launch) ===
+return=0
+t relaunch --next-account --from-account-root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/class-check.85RnJ7/codex-1 --note The previous account exhausted its applicable quota. Continue the same task from its durable instructions and checkpoint; preserve existing work.
+no recovery queued
+=== after: Spark 50% account + 0% Bengalfox (oracle: dispatch-auth.md) ===
+exhausted
+Unrelated gpt-5.5 (expected healthy):
+healthy
+=== Quota probe: 3-second provider, 1-second checkpoint ===
+unknown
+elapsed_seconds=2
+=== Bounded checkpoint admission (oracle: defer recovery, never launch) ===
+return=124
+no relaunch invoked
+check checkpoint-recovery-relaunch-t check: recovery cycle required for relaunch t; run bin/fm-watch-checkpoint.sh --recover before acknowledging this wake

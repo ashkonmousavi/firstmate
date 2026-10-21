@@ -1,0 +1,2 @@
+ok - account transaction preserves work and roots, rejects pins before stop and converges duplicate events
+ok - fm-control relaunch: unpublished rollback keeps concurrent durable metadata

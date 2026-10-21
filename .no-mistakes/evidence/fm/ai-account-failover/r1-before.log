@@ -1,0 +1,2 @@
+jq: error: Could not open file ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/fm-worker-account.KNZe7E/explicit-codex-1535873/codex-2/hooks.json: No such file or directory
+not ok - the recorded launch failed in the synthetic pane

@@ -1,0 +1,26 @@
+Real tools: 2.1.306 (Claude Code)
+WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/account-live.5Rlmxz" (codex_home: AbsolutePathBuf("~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/account-live.5Rlmxz/user/.codex"))
+codex-cli 0.160.0
+0.1.64
+
+Select isolated claude-2 using real vendor login-status:
+LAB/claude-2	LAB/claude-2	
+Empty claude-1 with ambient credential must refuse:
+error: config/claude-account pins Claude workers to ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/account-live.5Rlmxz/claude-1, which is not signed in (claude auth status); sign in with CLAUDE_CONFIG_DIR=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/account-live.5Rlmxz/claude-1 claude, then /login, or change the pin
+Real strict quota for empty claude-1: unknown
+No usable next account without vendor quota: refused
+Ambient account selection remains empty: empty
+
+Select isolated codex-2 using real vendor login-status:
+LAB/codex-2	LAB/codex-2	
+Empty codex-1 with ambient credential must refuse:
+error: selected Codex account root ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQCF52XET4T3A5JE77RBZK/.test-tmp/account-live.5Rlmxz/codex-1 is not signed in (codex login status)
+Real strict quota for empty codex-1: unknown
+No usable next account without vendor quota: refused
+Ambient account selection remains empty: empty
+
+Conflicting home pin refuses before vendor launch:
+error: --account-root conflicts with config/claude-account; only the owner may change that pin
+Home pin unchanged: yes
+
+Live guards complete; no model requests submitted.
