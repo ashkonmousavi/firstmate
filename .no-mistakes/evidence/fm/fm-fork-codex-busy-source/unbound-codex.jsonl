@@ -1,0 +1,9 @@
+Reading additional input from stdin...
+{"type":"thread.started","thread_id":"01a15d0e-17b7-73e3-887e-8162f81ecbad"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  user (~/.codex/config.toml): `daemon_auto_start` is ignored."}}
+{"type":"item.completed","item":{"id":"item_1","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"item.completed","item":{"id":"item_2","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  user (~/.codex/config.toml): `daemon_auto_start` is ignored."}}
+{"type":"item.completed","item":{"id":"item_3","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_4","type":"agent_message","text":"UNBOUND_VERIFIED"}}
+{"type":"turn.completed","usage":{"input_tokens":31117,"cached_input_tokens":12288,"cache_write_input_tokens":0,"output_tokens":8,"reasoning_output_tokens":0}}

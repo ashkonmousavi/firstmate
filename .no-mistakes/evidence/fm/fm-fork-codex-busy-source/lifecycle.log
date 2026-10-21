@@ -1,0 +1,20 @@
+v1 gen=g1792562182.2314566.7302 seq=2 state=busy source=codex-hook event=UserPromptSubmit.01a15d08-4345-7ad1-bfff-e2de02418e5e ts=1792562194
+state: unknown · source: none · backend target gone: primary:0
+v1 gen=g1792562182.2314566.7302 seq=3 state=idle source=codex-hook event=Stop.01a15d08-4345-7ad1-bfff-e2de02418e5e ts=1792562198
+state: unknown · source: none · backend target gone: primary:0
+v1 gen=g1792562182.2314566.7302 seq=4 state=idle source=codex-hook event=SessionEnd.01a15d08-4345-7ad1-bfff-e2de02418e5e ts=1792562199
+state: unknown · source: none · backend target gone: primary:0
+v1 gen=g1792562238.2351249.2215 seq=2 state=busy source=codex-hook event=UserPromptSubmit.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562254
+state: working · source: pane · harness busy (codex-hook)
+v1 gen=g1792562238.2351249.2215 seq=3 state=idle source=codex-hook event=Stop.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562258
+state: unknown · source: none · no current-state source available
+v1 gen=g1792562238.2351249.2215 seq=4 state=busy source=codex-hook event=UserPromptSubmit.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562316
+state: working · source: pane · harness busy (codex-hook)
+v1 gen=g1792562238.2351249.2215 seq=5 state=idle source=codex-hook event=Stop.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562320
+state: paused · source: status-log · waiting for the next lab prompt
+v1 gen=g1792562238.2351249.2215 seq=6 state=busy source=codex-hook event=UserPromptSubmit.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562406
+state: working · source: pane · harness busy (codex-hook)
+v1 gen=g1792562238.2351249.2215 seq=7 state=idle source=codex-hook event=Stop.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562433
+state: paused · source: status-log · waiting for the next lab prompt
+v1 gen=g1792562238.2351249.2215 seq=8 state=idle source=codex-hook event=SessionEnd.01a15d09-2378-7572-aca7-f1d1ce608ee4 ts=1792562470
+state: paused · source: status-log · waiting for the next lab prompt

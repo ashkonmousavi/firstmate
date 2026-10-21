@@ -1,0 +1,10 @@
+Reading additional input from stdin...
+2026-10-21T05:56:27.542812Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer resource_metadata=\"https://mcp.figma.com/.well-known/oauth-protected-resource\",scope=\"mcp:connect\",authorization_uri=\"https://api.figma.com/.well-known/oauth-authorization-server\"" })
+{"type":"thread.started","thread_id":"01a15d08-4345-7ad1-bfff-e2de02418e5e"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  user (~/.codex/config.toml): `daemon_auto_start` is ignored."}}
+{"type":"item.completed","item":{"id":"item_1","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"item.completed","item":{"id":"item_2","type":"error","message":"Codex is ignoring 1 unrecognized configuration setting. Check for typos or deprecated settings.\n  user (~/.codex/config.toml): `daemon_auto_start` is ignored."}}
+{"type":"item.completed","item":{"id":"item_3","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_4","type":"agent_message","text":"CODEX_BUSY_VERIFIED"}}
+{"type":"turn.completed","usage":{"input_tokens":31119,"cached_input_tokens":12288,"cache_write_input_tokens":0,"output_tokens":9,"reasoning_output_tokens":0}}

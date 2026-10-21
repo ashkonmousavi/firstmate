@@ -1,0 +1,10 @@
+Installed Codex: codex-cli 0.160.0.
+Live exec and persistent 120x40 TUI used the existing global dispatcher and normal machine login; no global installation or credential modification was performed.
+The TUI ran only on the marked disposable home and private fm-lab socket inside the worktree. It was quit normally, SessionEnd was captured, its private server was stopped, and the lab was removed.
+Real crew-state, bearings snapshot, and activity single-home mode showed working during the turn and paused/idle after Stop.
+Routing guards were driven through the real hook executable with explicit protocol payloads; they were not real nested model sessions.
+The installer was separately exercised twice against a disposable Codex home and its resulting configuration was accepted by the installed CLI.
+Existing focused tests: fm-busy-state.test.sh; fm-codex-hook-layer-live-e2e.test.sh; only test_codex_global_hooks_semantic_lifecycle and test_secondmate_codex_and_grok_do_not_arm_a_parent_turnend from fm-busy-adapter-wiring.test.sh.
+The adapter subset first refused a secondmate fixture inside the repository; rerunning with the test helper normal /tmp fixture location passed.
+Nonblocking diagnostics: initial Codex exec reported unavailable Figma MCP authentication; subsequent probes disabled Figma for those invocations. Activity emitted its existing missing-PC-home comparison warning but selected isolated single-home mode and produced both expected readouts.
+No source modifications, linters, formatters, broad test suite, pipeline control, push, PR, or CI operations were performed.

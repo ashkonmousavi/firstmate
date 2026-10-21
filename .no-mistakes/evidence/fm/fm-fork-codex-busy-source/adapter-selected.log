@@ -1,0 +1,2 @@
+ok - Codex global hooks bind cwd and generation, close and reopen turns through the busy writer
+not ok - codex secondmate spawn failed: error: secondmate home cannot be inside the firstmate repo: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EFYR8TJSF6027SV80VBGR7/.l/testtmp/fm-busy-adapter-wiring.SZIJgx/sm-codex/sm

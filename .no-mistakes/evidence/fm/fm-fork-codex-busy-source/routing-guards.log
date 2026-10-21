@@ -1,0 +1,12 @@
+Oracle: only matching task cwd, submitted parent session, and current launch generation may change its busy state.
+Stop before first submitted session: record unchanged; v1 gen=g1792562290.2386454.13640 seq=1 state=busy source=fm-spawn event=launch-brief ts=1792562290
+Parent submit: v1 gen=g1792562290.2386454.13640 seq=2 state=busy source=codex-hook event=UserPromptSubmit.parent ts=1792562291
+Nested session Stop cannot settle parent: record unchanged; v1 gen=g1792562290.2386454.13640 seq=2 state=busy source=codex-hook event=UserPromptSubmit.parent ts=1792562291
+Nested session submit cannot steal parent: record unchanged; v1 gen=g1792562290.2386454.13640 seq=2 state=busy source=codex-hook event=UserPromptSubmit.parent ts=1792562291
+Sibling cwd prefix cannot settle task: record unchanged; v1 gen=g1792562290.2386454.13640 seq=2 state=busy source=codex-hook event=UserPromptSubmit.parent ts=1792562291
+Unrelated cwd cannot settle task: record unchanged; v1 gen=g1792562290.2386454.13640 seq=2 state=busy source=codex-hook event=UserPromptSubmit.parent ts=1792562291
+Descendant cwd accepted: v1 gen=g1792562290.2386454.13640 seq=3 state=idle source=codex-hook event=Stop.parent ts=1792562292
+Old session submit cannot alter replacement generation: record unchanged; v1 gen=g1792562292.2387373.31082 seq=1 state=busy source=fm-spawn event=launch-brief ts=1792562292
+Old session Stop cannot alter replacement generation: record unchanged; v1 gen=g1792562292.2387373.31082 seq=1 state=busy source=fm-spawn event=launch-brief ts=1792562292
+Unbound launch is inert: record unchanged; v1 gen=g1792562292.2387373.31082 seq=1 state=busy source=fm-spawn event=launch-brief ts=1792562292
+Malformed/missing payload and invalid session token: harmless JSON, no record mutation

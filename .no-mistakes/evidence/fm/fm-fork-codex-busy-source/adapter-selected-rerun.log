@@ -1,0 +1,3 @@
+ok - Codex global hooks bind cwd and generation, close and reopen turns through the busy writer
+ok - codex and grok secondmates stay on their existing verdicts and do not emit a parent turn-end
+all fm-busy-adapter-wiring tests passed

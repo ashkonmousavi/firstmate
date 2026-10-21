@@ -1,0 +1,5 @@
+Real installer run twice in a disposable Codex home: byte-identical hooks.json after second install.
+Existing Stop hook preserved; config.toml unchanged.
+Registered one UserPromptSubmit, Stop, and SessionEnd dispatcher.
+Installed codex-cli 0.160.0 accepted the isolated configuration:
+hooks                                    stable             true
