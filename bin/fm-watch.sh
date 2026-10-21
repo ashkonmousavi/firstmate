@@ -440,10 +440,6 @@ case "$SECONDMATE_LIVENESS_SECS" in ''|*[!0-9]*|0) SECONDMATE_LIVENESS_SECS=60 ;
 # Per-relaunch wall-clock bound, so a wedged spawn cannot stall the poll.
 SECONDMATE_LIVENESS_TIMEOUT=${FM_SECONDMATE_LIVENESS_TIMEOUT:-}
 case "$SECONDMATE_LIVENESS_TIMEOUT" in ''|*[!0-9]*|0) SECONDMATE_LIVENESS_TIMEOUT=120 ;; esac
-# Per-hop wall-clock bound for remote_inbox_tick, matching fm-send's default
-# remote budget, so a loaded remote host cannot stall the poll.
-REMOTE_INBOX_TIMEOUT=${FM_REMOTE_INBOX_TIMEOUT:-}
-case "$REMOTE_INBOX_TIMEOUT" in ''|*[!0-9]*|0) REMOTE_INBOX_TIMEOUT=30 ;; esac
 # Relaunch bound: at most this many automatic attempts per window per mate,
 # counted from the durable attempt ledger the shared library appends to. A mate
 # that keeps dying past the bound wakes once and is parked until a probe reads
@@ -1282,7 +1278,7 @@ secondmate_liveness_tick() {
 remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
   local id=$1 out err errfile rc=0
   errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
-  out=$(checkpoint_read fm_run_timed "$REMOTE_INBOX_TIMEOUT" "$SCRIPT_DIR/fm-on.sh" "$id" \
+  out=$(checkpoint_read fm_run_timed 30 "$SCRIPT_DIR/fm-on.sh" "$id" \
     fm-remote-secondmate-control.sh inbox "$@" < /dev/null 2> "$errfile") || rc=$?
   err=$(head -1 "$errfile" 2>/dev/null)
   rm -f "$errfile"
@@ -1304,7 +1300,7 @@ remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
 # never stalls the cycle. Like the liveness tick it finishes every mate before
 # waking once on the first escalation.
 remote_inbox_tick() {
-  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason first_reason=''
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key queued first_reason=''
   [ "$(age_of "$tick_marker")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
   [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] || touch "$tick_marker" || return 1
   while IFS= read -r -d '' meta; do
@@ -1350,10 +1346,14 @@ EOF
       *) continue ;;
     esac
     [ -n "$reason" ] || continue
-    fm_wake_append stale "$w" "$reason" || checkpoint_wake_failed $?
+    notify_key="remote-inbox:$id:$rec"
+    queued=$(fm_wake_queued_keys stale)
+    if ! printf '%s\n' "$queued" | grep -Fx "$notify_key" >/dev/null 2>&1; then
+      fm_wake_append stale "$notify_key" "$reason" || checkpoint_wake_failed $?
+      [ -n "$first_reason" ] || first_reason=$reason
+    fi
     out=$(remote_inbox_hop "$id" escalated "$rec") \
-      || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); a later tick may repeat this wake"
-    [ -n "$first_reason" ] || first_reason=$reason
+      || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); the next tick retries the marker"
   done < <(fm_checkpoint_files remote-inbox "$STATE" .meta)
   if ! checkpoint_deadline_passed; then
     [ -z "$WATCHER_CHECKPOINT_DEADLINE" ] || touch "$tick_marker" || return 1

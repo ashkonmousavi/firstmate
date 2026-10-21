@@ -322,7 +322,7 @@ cmd_send() {
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
 # ladder attempt; `escalated` writes the marker after the parent has queued its
-# wake, so a lost marker costs a duplicate wake rather than a lost one.
+# wake.
 cmd_inbox() {
   local id=$1 action=$2 rec_name=${3:-} dir due verb rec ring_rc=0
   validate_id "$id"
