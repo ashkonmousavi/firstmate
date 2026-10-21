@@ -86,7 +86,7 @@ Claude's `.claude/settings.json` Stop `asyncRewake` hook (`bin/fm-claude-stop-au
 Do not run the hook as a manual arm from a tool turn: a short-lived tool process cannot own its park; its header and help own the invocation contract.
 The hook fires on every Stop.
 On each Stop, an eligible primary with supervision need admits one home-scoped owner, which foregrounds `bin/fm-watch-arm.sh` inside the hook-owned process tree.
-While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2.
+While supervision is still needed and away mode remains inactive, a close requiring handling wakes the idle session through exit 2; [`turnend-guard.md`](turnend-guard.md#routine-closes-without-a-model-turn) owns the routine-close exception.
 
 ### Claude session-lock ownership
 
