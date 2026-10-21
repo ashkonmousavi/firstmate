@@ -1744,7 +1744,10 @@ echo "$$" >> "$FM_HOME/state/arm-ran"
 if [ "$(wc -l < "$FM_HOME/state/arm-ran")" -gt 1 ]; then
   # Reaching a second park proves no model turn was needed for the first one.
   cp "$FM_HOME/state/.watcher-down" "$FM_HOME/state/routine-ack"
-  if [ -e "$FM_HOME/state/real-next" ]; then
+  if [ -x "$FM_HOME/bin/inject-next-batch.sh" ]; then
+    "$FM_HOME/bin/inject-next-batch.sh" || exit $?
+    printf 'check: rearm-resurface\n'
+  elif [ -e "$FM_HOME/state/real-next" ]; then
     . "$FM_HOME/bin/fm-wake-lib.sh"
     fm_wake_append check real-event 'check: real event after quiet wake'
     printf 'check: real event after quiet wake\n'
@@ -1817,6 +1820,52 @@ SH
   assert_contains "$out" 'one supervision event needs a handling turn' "partial ack failure lost its handling banner"
   grep -Eq '^(pending|announced):downtime:' "$dir/state/.watcher-down" || fail "partial ack did not restore retryable downtime"
   pass "auto-arm: an ack that retired its marker before queue IO failed still delivers a handling turn"
+}
+
+# The routine-wake contract requires reclassification on every park, even after
+# a successful quiet acknowledgement. A cached routine verdict would lose work.
+test_quiet_repark_rechecks_unsafe_batches() {
+  local dir out status kind
+  for kind in mixed uncertain malformed ack-failed captain; do
+    dir="$TMP_ROOT/quiet-then-$kind"
+    make_routine_home "$dir"
+    printf '%s\n' "$kind" > "$dir/state/next-kind"
+    cat > "$dir/bin/inject-next-batch.sh" <<'SH'
+#!/usr/bin/env bash
+# This runs only when the same Stop hook has acknowledged and reparked.
+[ ! -s "$FM_HOME/state/.wake-queue" ] || exit 91
+grep -q '^acked:' "$FM_HOME/state/routine-ack" || exit 92
+: > "$FM_HOME/state/consumed-before-injection"
+. "$FM_HOME/bin/fm-wake-lib.sh"
+fm_wake_append check rearm-resurface 'check: rearm-resurface'
+case "$(cat "$FM_HOME/state/next-kind")" in
+  mixed) fm_wake_append check real-event 'check: approval required' ;;
+  uncertain) printf 'surprise: inspect this\n' >> "$STATE/mate.status" ;;
+  malformed) printf 'malformed row\n' >> "$STATE/.wake-queue" ;;
+  ack-failed)
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$FM_HOME/bin/fm-wake-drain.sh"
+    ;;
+  captain)
+    "$FM_HOME/bin/fm-branch-outcome.sh" append --task mate --verdict captain --summary 'decision required' >/dev/null || exit 93
+    fm_wake_append check supervision-host-return:2 'check: supervision-host outcome 2 for mate [captain]'
+    ;;
+esac
+cp "$STATE/.wake-queue" "$STATE/unsafe-queue"
+cp "$STATE/mate.status" "$STATE/unread-status"
+SH
+    chmod +x "$dir/bin/inject-next-batch.sh"
+    out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+    [ -e "$dir/state/consumed-before-injection" ] || fail "$kind: hook did not consume the routine batch and repark before injection"
+    expect_code 2 "$status" "$kind after quiet repark must keep the handling turn"
+    assert_contains "$out" 'one supervision event needs a handling turn' "$kind after quiet repark lost the handling banner"
+    cmp -s "$dir/state/unsafe-queue" "$dir/state/.wake-queue" || fail "$kind after quiet repark consumed unread queue rows"
+    cmp -s "$dir/state/unread-status" "$dir/state/mate.status" || fail "$kind after quiet repark changed unread status"
+    [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "$kind after quiet repark presented unread status"
+    [ ! -e "$dir/state/.branch-outcomes-cursor" ] || fail "$kind after quiet repark presented unread outcomes"
+    grep -Eq '^(pending|announced):downtime:' "$dir/state/.watcher-down" || fail "$kind after quiet repark retired the recovery obligation"
+    [ "$(wc -l < "$dir/state/arm-ran")" -eq 2 ] || fail "$kind did not return from the second park"
+    pass "auto-arm: $kind after routine consumption retains handling and unread obligations"
+  done
 }
 
 test_quiet_repark_delivers_the_next_real_event() {
@@ -1910,6 +1959,7 @@ test_captain_outcome_and_duplicate_signal_never_borrow_routine_evidence() {
   pass "auto-arm: captain outcomes and ambiguous duplicate signal rows cannot borrow routine evidence"
 }
 
+test_quiet_repark_rechecks_unsafe_batches
 test_all_routine_wakes_are_acknowledged_without_a_turn
 test_routine_batch_with_one_real_row_still_rewakes
 test_routine_ack_failure_keeps_the_handling_turn
