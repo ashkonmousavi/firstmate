@@ -1,0 +1,3 @@
+ok - fm-control relaunch: a grok usage picker that survives C-c is stopped by SIGTERM to its pane's agent and the runtime switches
+ok - fm-control relaunch: after grok's usage picker is dismissed, an unknown composer beside the limit notice still switches runtime without typing
+ok - fm-control relaunch: grok typed text reading pending-unproven refuses even with the usage-limit notice visible
