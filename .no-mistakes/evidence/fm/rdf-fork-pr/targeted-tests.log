@@ -1,0 +1,34 @@
+test_adapter_notices_cannot_advance_ingestion_or_clear_lag (__main__.Backstop.test_adapter_notices_cannot_advance_ingestion_or_clear_lag) ... ok
+test_ambiguous_live_primary_is_not_guessed (__main__.Backstop.test_ambiguous_live_primary_is_not_guessed) ... ok
+test_empty_runner_record_counts_as_one_not_alive_pass (__main__.Backstop.test_empty_runner_record_counts_as_one_not_alive_pass) ... ok
+test_exact_fifteen_minute_lag_does_not_alarm (__main__.Backstop.test_exact_fifteen_minute_lag_does_not_alarm) ... ok
+test_failed_nudge_is_durable (__main__.Backstop.test_failed_nudge_is_durable) ... ok
+test_healthy_beat_and_caught_up_reply_are_quiet (__main__.Backstop.test_healthy_beat_and_caught_up_reply_are_quiet) ... ok
+test_lag_alarm_carries_exact_stamp_from_over_bound_source (__main__.Backstop.test_lag_alarm_carries_exact_stamp_from_over_bound_source) ... ok
+test_lag_incident_survives_inconclusive_reads_until_caught_up (__main__.Backstop.test_lag_incident_survives_inconclusive_reads_until_caught_up) ... ok
+test_live_runner_pass_clears_the_not_alive_streak (__main__.Backstop.test_live_runner_pass_clears_the_not_alive_streak) ... ok
+test_multi_chunk_backlog_reports_tail_lag (__main__.Backstop.test_multi_chunk_backlog_reports_tail_lag) ... ok
+test_no_ingestion_evidence_does_not_use_local_notices (__main__.Backstop.test_no_ingestion_evidence_does_not_use_local_notices) ... ok
+test_over_budget_backlog_stays_unverified_until_tail (__main__.Backstop.test_over_budget_backlog_stays_unverified_until_tail) ... ok
+test_recovery_incident_clears_when_all_checks_are_healthy (__main__.Backstop.test_recovery_incident_clears_when_all_checks_are_healthy) ... ok
+test_recovery_incident_survives_inconclusive_pass_and_nudge_cooldown (__main__.Backstop.test_recovery_incident_survives_inconclusive_pass_and_nudge_cooldown) ... ok
+test_remote_source_larger_than_transfer_bound_still_verifies (__main__.Backstop.test_remote_source_larger_than_transfer_bound_still_verifies) ... ok
+test_replaced_log_resyncs_byte_cursor (__main__.Backstop.test_replaced_log_resyncs_byte_cursor) ... ok
+test_reply_lag_above_fifteen_minutes_alarms_even_with_fresh_beat (__main__.Backstop.test_reply_lag_above_fifteen_minutes_alarms_even_with_fresh_beat) ... ok
+test_runner_incident_clears_only_on_a_live_runner (__main__.Backstop.test_runner_incident_clears_only_on_a_live_runner) ... ok
+test_runner_incident_clears_when_unregistered (__main__.Backstop.test_runner_incident_clears_when_unregistered) ... ok
+test_shell_pane_is_never_typed_into_and_alarm_reaches_drain (__main__.Backstop.test_shell_pane_is_never_typed_into_and_alarm_reaches_drain) ... ok
+test_single_not_alive_runner_pass_is_tolerated_without_alarm (__main__.Backstop.test_single_not_alive_runner_pass_is_tolerated_without_alarm) ... ok
+test_single_transient_read_failure_is_tolerated_without_alarm (__main__.Backstop.test_single_transient_read_failure_is_tolerated_without_alarm) ... ok
+test_stale_harness_labels_over_a_real_shell_refuse_nudges (__main__.Backstop.test_stale_harness_labels_over_a_real_shell_refuse_nudges) ... ok
+test_stale_saved_pane_is_ignored_and_live_agent_nudged (__main__.Backstop.test_stale_saved_pane_is_ignored_and_live_agent_nudged) ... ok
+test_steady_state_reads_only_appended_lines (__main__.Backstop.test_steady_state_reads_only_appended_lines) ... ok
+test_two_consecutive_not_alive_runner_passes_alarm_then_dedup (__main__.Backstop.test_two_consecutive_not_alive_runner_passes_alarm_then_dedup) ... ok
+test_two_consecutive_read_failures_alarm_then_dedup_and_clear (__main__.Backstop.test_two_consecutive_read_failures_alarm_then_dedup_and_clear) ... ok
+test_unicode_and_crlf_preserve_transport_cursor (__main__.Backstop.test_unicode_and_crlf_preserve_transport_cursor) ... ok
+test_unicode_oversized_bootstrap_reaches_tail (__main__.Backstop.test_unicode_oversized_bootstrap_reaches_tail) ... ok
+
+----------------------------------------------------------------------
+Ran 29 tests in 67.753s
+
+OK

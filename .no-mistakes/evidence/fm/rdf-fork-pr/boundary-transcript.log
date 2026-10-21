@@ -1,0 +1,19 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5DZ70WWD74PBK7S11HXX9B3/.test-backstop-tmp/manual-25x1xwir/home
+
+### healthy watcher and caught-up replies
+checked watcher_age=0s alarms=0
+
+
+### exact fifteen-minute delivery lag stays quiet
+read lab log moved; resyncing cursor
+checked watcher_age=0s alarms=0
+
+
+### watcher silence below five-minute threshold stays quiet
+checked watcher_age=299s alarms=0
+
+
+### away marker suppresses silent-watcher recovery
+checked watcher_age=600s alarms=0
+
+PASS: exact delivery-lag threshold, watcher silence threshold, and away suppression.

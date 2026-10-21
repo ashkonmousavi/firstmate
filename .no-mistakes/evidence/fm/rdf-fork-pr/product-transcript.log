@@ -1,0 +1,191 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5DZ70WWD74PBK7S11HXX9B3/.test-backstop-tmp/manual-elqk7695/home
+
+### healthy watcher and caught-up replies
+checked watcher_age=1s alarms=0
+
+
+### UTF-8 CRLF delta produces exact 901-second lag
+REPLY DELIVERY LAG lab: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=1s alarms=2
+
+
+### first actual missing-file read is tolerated
+read lab log moved; resyncing cursor
+read failed once, tolerating one pass: lab
+checked watcher_age=1s alarms=0
+
+
+### second missing-file read alarms durably
+read lab log moved; resyncing cursor
+REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=2s alarms=1
+
+
+### read recovery preserves unresolved lag incident
+REPLY DELIVERY LAG lab: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=2s alarms=2
+
+
+### healthy observation clears incidents
+checked watcher_age=3s alarms=0
+
+
+### replaced oversized log bootstraps its actual UTF-8 tail
+read lab log moved; resyncing cursor
+REPLY DELIVERY LAG lab: 1099s (remote_at=3000 ingested_at=1901); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=3s alarms=2
+
+
+### healthy observation clears incidents
+checked watcher_age=5s alarms=0
+
+
+### over-budget backlog retains progress without claiming tail
+read failed once, tolerating one pass: lab
+checked watcher_age=5s alarms=0
+
+
+### second incomplete scan becomes unverified
+REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=6s alarms=1
+
+
+### bounded subsequent scan reaches tail and reports exact lag
+REPLY DELIVERY LAG lab: 2000s (remote_at=5000 ingested_at=3000); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=8s alarms=2
+
+
+### healthy observation clears incidents
+checked watcher_age=9s alarms=0
+
+
+### first dead-runner pass tolerated
+runner not alive once, tolerating one pass: lab
+checked watcher_age=9s alarms=0
+
+
+### second dead-runner pass alarms
+REPLY RUNNER DOWN lab: registered runner is dead or missing; restore primary supervision to reconcile it.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=10s alarms=2
+
+
+### real matching process clears dead-runner incident
+checked watcher_age=11s alarms=0
+
+
+### silent watcher durably reports unavailable recovery
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; watcher silent for 600s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=600s alarms=1
+
+
+### Actual wake-drain output
+1792544601	1	check	inbox:1792544601-M3HLxp	check: captain inbox note 1792544601-M3HLxp - REPLY DELIVERY LAG lab: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+1792544601	2	check	inbox:1792544601-6nQXA8	check: captain inbox note 1792544601-6nQXA8 - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was star
+1792544602	3	check	inbox:1792544602-kOCpEn	check: captain inbox note 1792544602-kOCpEn - REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before a
+1792544604	4	check	inbox:1792544604-bEet4X	check: captain inbox note 1792544604-bEet4X - REPLY DELIVERY LAG lab: 1099s (remote_at=3000 ingested_at=1901); primary wake path needs recovery.
+1792544604	5	check	inbox:1792544604-XvuWqK	check: captain inbox note 1792544604-XvuWqK - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was star
+1792544608	6	check	inbox:1792544608-4Raqsj	check: captain inbox note 1792544608-4Raqsj - REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before a
+1792544609	7	check	inbox:1792544609-fuuRJ6	check: captain inbox note 1792544609-fuuRJ6 - REPLY DELIVERY LAG lab: 2000s (remote_at=5000 ingested_at=3000); primary wake path needs recovery.
+1792544609	8	check	inbox:1792544609-n65Hkb	check: captain inbox note 1792544609-n65Hkb - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was star
+1792544610	9	check	inbox:1792544610-kjXDgL	check: captain inbox note 1792544610-kjXDgL - REPLY RUNNER DOWN lab: registered runner is dead or missing; restore primary supervision to reconcil
+1792544610	10	check	inbox:1792544610-hQ4fK6	check: captain inbox note 1792544610-hQ4fK6 - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: lab. No watcher 
+1792544611	11	check	inbox:1792544611-JpZwHj	check: captain inbox note 1792544611-JpZwHj - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; watcher silent for 600s. No watcher
+
+
+### Durable notes
+id=1792544610-hQ4fK6
+at=2026-10-21T01:03:30Z
+source=text
+announce_marker=1
+request_id=backstop-44a6322cce2649fead731cc9f8458a5a
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792544604-XvuWqK
+at=2026-10-21T01:03:24Z
+source=text
+announce_marker=1
+request_id=backstop-70c5243a83d749278314b16fc1b998c9
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792544611-JpZwHj
+at=2026-10-21T01:03:31Z
+source=text
+announce_marker=1
+request_id=backstop-193827f5e8c640b89955b4d8ea353253
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; watcher silent for 600s. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792544609-n65Hkb
+at=2026-10-21T01:03:29Z
+source=text
+announce_marker=1
+request_id=backstop-1400793215e64c778e940cb5fbbad77b
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792544608-4Raqsj
+at=2026-10-21T01:03:28Z
+source=text
+announce_marker=1
+request_id=backstop-e0197b8f9c36428c9f1db2df33577b61
+--
+REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+
+id=1792544609-fuuRJ6
+at=2026-10-21T01:03:29Z
+source=text
+announce_marker=1
+request_id=backstop-0caae555cf1642bfb94fdcae651dfa5f
+--
+REPLY DELIVERY LAG lab: 2000s (remote_at=5000 ingested_at=3000); primary wake path needs recovery.
+
+id=1792544602-kOCpEn
+at=2026-10-21T01:03:22Z
+source=text
+announce_marker=1
+request_id=backstop-682ecd628f5c40188090ebd9faff63d2
+--
+REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+
+id=1792544601-6nQXA8
+at=2026-10-21T01:03:21Z
+source=text
+announce_marker=1
+request_id=backstop-ac212c1961d743ddae0695352647daf5
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+id=1792544604-bEet4X
+at=2026-10-21T01:03:24Z
+source=text
+announce_marker=1
+request_id=backstop-56c4740cfa12476abc76507c52bae97e
+--
+REPLY DELIVERY LAG lab: 1099s (remote_at=3000 ingested_at=1901); primary wake path needs recovery.
+
+id=1792544610-kjXDgL
+at=2026-10-21T01:03:30Z
+source=text
+announce_marker=1
+request_id=backstop-cebfa154bd7f41308d3b508baff5f01f
+--
+REPLY RUNNER DOWN lab: registered runner is dead or missing; restore primary supervision to reconcile it.
+
+id=1792544601-M3HLxp
+at=2026-10-21T01:03:21Z
+source=text
+announce_marker=1
+request_id=backstop-d78ddf0855134df59ddd2e5d0d45bab2
+--
+REPLY DELIVERY LAG lab: 901s (remote_at=1901 ingested_at=1000); primary wake path needs recovery.
+
+### run: one timed-out attempt, 15.02s, descendant=absent
+### run_status: one timed-out attempt, 15.02s, descendant=absent
+PASS: real backstop CLI, file/delta readers, durable inbox/wake drain, runner processes, timeout cleanup; SSH and Herdr delivery not proven.
