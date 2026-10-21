@@ -120,7 +120,6 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   . "$ROOT/bin/fm-secondmate-registry-lib.sh"
   . "$ROOT/bin/fm-project-capacity-lib.sh"
   . "$ROOT/bin/fm-capacity-lib.sh"
-  . "$ROOT/bin/fm-agent-process-lib.sh"
   mkdir -p "$TMP_ROOT/live/"{state,config,data} "$TMP_ROOT/empty-worktree"
   FM_HOME="$TMP_ROOT/live"
   printf '5 3\n' > "$TMP_ROOT/live/config/lane-capacity"
@@ -150,4 +149,31 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   expect_code 5 "$FM_CAPACITY_LANES" 'unknown record counted'
   rm "$TMP_ROOT/live/state/unknown.meta"
   pass 'capacity counts live endpoints, frees dead records, and retains unknowns'
+) || exit 1
+
+(
+  mkdir -p "$TMP_ROOT/shell-home/"{state,config,data} "$TMP_ROOT/shell-worktree" "$TMP_ROOT/fakebin"
+  FM_HOME="$TMP_ROOT/shell-home"
+  export FM_HOME
+  printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/fakebin/tmux"
+  chmod +x "$TMP_ROOT/fakebin/tmux"
+  export PATH="$TMP_ROOT/fakebin:$PATH"
+  coproc PARKED_SHELL { exec bash -c 'cd "$1"; printf "ready\n"; read -r _' bash "$TMP_ROOT/shell-worktree"; }
+  parked_pid=$PARKED_SHELL_PID
+  work_pid=
+  trap 'kill "$parked_pid" ${work_pid:+"$work_pid"} 2>/dev/null || true; wait 2>/dev/null || true' EXIT
+  read -r ready <&"${PARKED_SHELL[0]}"
+  [ "$ready" = ready ] || fail 'parked shell did not start'
+  fm_write_meta "$FM_HOME/state/parked.meta" kind=ship window=test:gone "worktree=$TMP_ROOT/shell-worktree"
+  out=$(bash "$CAPACITY" --json) || fail 'shell-only capacity report failed'
+  jq -e '.lanes == 0 and .free_lanes == 5' <<< "$out" >/dev/null || fail 'idle shell incorrectly holds a seat'
+  (
+    cd "$TMP_ROOT/shell-worktree" || exit 1
+    exec sleep 60
+  ) &
+  work_pid=$!
+  out=$(bash "$CAPACITY" --json) || fail 'non-shell capacity report failed'
+  jq -e '.lanes == 1 and .free_lanes == 4' <<< "$out" >/dev/null || fail 'non-shell worktree process lost its seat'
+  pass 'public capacity command frees shell-only records and counts non-shell work'
 ) || exit 1

@@ -17,6 +17,9 @@
 # fm-spawn holds the root state's .machine-lane-capacity.lock from this read
 # through record publication; reporting is advisory and never locks.
 
+# shellcheck source=bin/fm-agent-process-lib.sh
+. "${BASH_SOURCE[0]%/*}/fm-agent-process-lib.sh"
+
 fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra
   local dir meta kind available meminfo=/proc/meminfo
