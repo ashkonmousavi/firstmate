@@ -1272,7 +1272,8 @@ For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunc
 Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, exemptions and refusal rules.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
-This Linux admission check follows the shared reader's cgroup-aware memory calculation and fail-closed rules.
+Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
+The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
 Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
@@ -1291,7 +1292,7 @@ Advice never reserves a lane, and spawn always rereads live facts before launch.
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.
-Without it, dispatch stays uncapped as `AGENTS.md` section 7 describes, and a surplus worker is launched only to spend full-context turns waiting for the resource.
+Without it, no project-specific limit applies; [machine admission](#machine-capacity-configlane-capacity) still bounds dispatch.
 The file lives in the machine's root Firstmate home, so every local secondmate home reads the same limit, and it holds one line per project:
 
 ```text

@@ -63,8 +63,7 @@ Full detail on every feature lives in [docs/architecture.md](docs/architecture.m
 - Git and the GitHub CLI, authenticated through `gh auth login`.
 - The CLI and dependencies for your selected runtime backend; tmux is the reference default.
 
-Fresh worker dispatch requires Linux and the [machine capacity declaration](docs/configuration.md#machine-capacity-configlane-capacity); configure it before asking Firstmate to start workers.
-macOS can host a primary session, but fresh local worker dispatch fails closed without Linux's memory reading.
+Before starting or relaunching workers, review the [machine admission requirements and platform limits](docs/configuration.md#machine-capacity-configlane-capacity) and configure the machine capacity declaration.
 
 The first mate detects and offers to install supported missing tools after you approve.
 Backend-specific setup is linked in [Documentation](#documentation).
