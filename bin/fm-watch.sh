@@ -302,7 +302,7 @@ checkpoint_deadline_passed() { fm_checkpoint_expired; }
 checkpoint_wait_budget() { fm_checkpoint_budget "$1"; }
 checkpoint_read() { FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_CONFIG_OVERRIDE="$CONFIG" fm_checkpoint_read "$WATCH_PATH" "$@"; }
 CHECKPOINT_START_STAGE=$(fm_checkpoint_cursor stage)
-case "$CHECKPOINT_START_STAGE" in pending|liveness|stall|inactive|capacity|checks|signals|panes|heartbeat|'') ;; *) CHECKPOINT_START_STAGE= ;; esac
+case "$CHECKPOINT_START_STAGE" in pending|liveness|stall|remote-inbox|inactive|capacity|checks|signals|panes|heartbeat|'') ;; *) CHECKPOINT_START_STAGE= ;; esac
 CHECKPOINT_STAGE_REACHED=0
 CHECKPOINT_WRAP_PENDING=0
 [ -z "$CHECKPOINT_START_STAGE" ] || [ "$CHECKPOINT_START_STAGE" = pending ] || CHECKPOINT_WRAP_PENDING=1
@@ -1268,6 +1268,99 @@ secondmate_liveness_tick() {
   checkpoint_deadline_passed && return 124
   [ "$checkpoint_complete" -eq 1 ] || return 124
   [ "$failed" -eq 0 ]
+}
+
+# One bounded hop to a remote mate's inbox verb; prints its one-line answer.
+# Any transport loss, bound hit, remote refusal, or empty answer fails and
+# prints the remote side's first stderr line (or the exit status) instead, for
+# the triage log, so a remote copy that predates the inbox verb reads
+# differently from a lost transport.
+remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
+  local id=$1 out err errfile rc=0
+  errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
+  out=$(checkpoint_read fm_run_timed 30 "$SCRIPT_DIR/fm-on.sh" "$id" \
+    fm-remote-secondmate-control.sh inbox "$@" < /dev/null 2> "$errfile") || rc=$?
+  err=$(head -1 "$errfile" 2>/dev/null)
+  rm -f "$errfile"
+  if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+    printf '%s' "${err:-exit $rc}"
+    return 1
+  fi
+  printf '%s' "$out"
+}
+
+# The parent half of the remote steering-inbox ladder; bin/fm-task-inbox-lib.sh
+# ("Remote leg") owns the policy and fm-remote-secondmate-control.sh's inbox
+# verb is the remote half. A remote mate has no local window or inbox, so
+# inbox_steer_check never sees its records. On the ladder's own grace cadence
+# this asks each remote mate's host which record is due, rings it there, and
+# queues the same stale wake the local ladder emits once the attempt budget is
+# spent or the endpoint has positively exited. A failed or unreachable hop only
+# lands in the triage log, so a slow host defers a ring to the next tick and
+# never stalls the cycle. Like the liveness tick it finishes every mate before
+# waking once on the first escalation.
+remote_inbox_tick() {
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key queued first_reason=''
+  [ "$(age_of "$tick_marker")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
+  [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] || touch "$tick_marker" || return 1
+  while IFS= read -r -d '' meta; do
+    checkpoint_deadline_passed && return 124
+    fm_checkpoint_cursor remote-inbox "${meta##*/}" || return 1
+    [ -e "$meta" ] || continue
+    kind=$(fm_meta_get "$meta" kind 2>/dev/null || true)
+    [ "$kind" = secondmate ] || continue
+    [ -n "$(fm_meta_get "$meta" remote_host 2>/dev/null || true)" ] || continue
+    id=${meta##*/}
+    id=${id%.meta}
+    case "$id" in ''|*[!A-Za-z0-9._-]*) continue ;; esac
+    w=$(fm_meta_get "$meta" window 2>/dev/null || true)
+    [ -n "$w" ] || w="remote:$id"
+    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
+      checkpoint_deadline_passed && return 124
+      triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
+      continue
+    fi
+    reason=''
+    read -r verb rec count <<EOF
+$due
+EOF
+    case "$verb" in
+      ring)
+        fm_checkpoint_admit "$id" remote-inbox-ring || { checkpoint_recovery_surface; return 124; }
+        if ! out=$(remote_inbox_hop "$id" ring "$rec"); then
+          checkpoint_deadline_passed && return 124
+          triage_log "remote steer-inbox delivery attempt: $id $rec unreachable or failed ($out); the next tick retries"
+          continue
+        fi
+        if [ "$out" = unavailable ]; then
+          reason="stale: $w (unread firstmate instruction: remote record $rec is unhandled and the secondmate's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the secondmate)"
+        elif [ "$out" = bookkeeping-failed ]; then
+          reason="stale: $w (remote steering-inbox ladder bookkeeping unwritable: .ring-state cannot be written while remote record $rec stays unhandled; inspect the inbox directory)"
+        else
+          triage_log "remote steer-inbox delivery attempt: $id $rec result=$out"
+        fi
+        ;;
+      escalate)
+        reason="stale: $w (unread firstmate instruction: remote record $rec still unhandled after $count doorbell delivery attempts; inspect the secondmate)"
+        ;;
+      *) continue ;;
+    esac
+    [ -n "$reason" ] || continue
+    notify_key="remote-inbox:$id:$rec"
+    queued=$(fm_wake_queued_keys stale)
+    if ! printf '%s\n' "$queued" | grep -Fx "$notify_key" >/dev/null 2>&1; then
+      fm_wake_append stale "$notify_key" "$reason" || checkpoint_wake_failed $?
+      [ -n "$first_reason" ] || first_reason=$reason
+    fi
+    out=$(remote_inbox_hop "$id" escalated "$rec") \
+      || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); the next tick retries the marker"
+  done < <(fm_checkpoint_files remote-inbox "$STATE" .meta)
+  if ! checkpoint_deadline_passed; then
+    [ -z "$WATCHER_CHECKPOINT_DEADLINE" ] || touch "$tick_marker" || return 1
+  fi
+  [ -z "$first_reason" ] || wake "$first_reason"
+  checkpoint_deadline_passed && return 124
+  return 0
 }
 
 # Consecutive wedge-escalation count for a window past FM_WEDGE_DEMAND_INSPECT_COUNT
@@ -3505,12 +3598,24 @@ while :; do
   # A live secondmate endpoint does not prove that its own wake loop is alive.
   # Observe the foreign queue before the rest of this cycle so an aged row wakes
   # the parent without consuming or rewriting the receiving home's record.
-  if checkpoint_stage stall inactive; then
+  if checkpoint_stage stall remote-inbox; then
   stall_rc=0
   secondmate_wake_stall_tick || stall_rc=$?
   checkpoint_recovery_surface
   if [ "$stall_rc" -ne 0 ] && [ "$stall_rc" -ne 124 ]; then
     echo "watcher: secondmate wake-loop observation failed" >&2
+    exit 1
+  fi
+  fi
+
+  # A remote mate's unacknowledged steers sit in its host's inbox, beyond the
+  # pane loop's inbox_steer_check; remote_inbox_tick runs their ladder there.
+  if checkpoint_stage remote-inbox inactive; then
+  remote_inbox_rc=0
+  remote_inbox_tick || remote_inbox_rc=$?
+  checkpoint_recovery_surface
+  if [ "$remote_inbox_rc" -ne 0 ] && [ "$remote_inbox_rc" -ne 124 ]; then
+    echo "watcher: remote steering-inbox check failed" >&2
     exit 1
   fi
   fi

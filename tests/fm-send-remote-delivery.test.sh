@@ -29,6 +29,14 @@
 #      slash) keeps its exit-3 delivered-unconfirmed contract, never closes a
 #      --resolve-key decision unconfirmed, and keeps a marked expectation
 #      armed.
+#   9. The parent watcher's remote inbox ladder (remote_inbox_tick) re-rings
+#      an unacknowledged remote record after grace through the real inbox
+#      verb, stays quiet once the record is acknowledged, and after the ring
+#      budget queues exactly one stale wake.
+#  10. The remote enqueue still deduplicates exactly once the scan only
+#      compares same-size records.
+# A failing fake herdr shadows any real one, so the executed remote leg's
+# doorbell can never reach or start a herdr server on the test machine.
 set -u
 
 # shellcheck source=tests/lib.sh
@@ -41,6 +49,7 @@ set -u
 . "$ROOT/bin/fm-task-inbox-lib.sh"
 
 SEND="$ROOT/bin/fm-send.sh"
+WATCH="$ROOT/bin/fm-watch.sh"
 DRAIN="$ROOT/bin/fm-wake-drain.sh"
 
 TMP_ROOT=$(fm_test_tmproot fm-send-remote-delivery)
@@ -97,6 +106,12 @@ SH
 exit 0
 SH
   chmod +x "$fb/sleep"
+  cat > "$fb/herdr" <<'SH'
+#!/usr/bin/env bash
+[ -z "${FM_FAKE_HERDR_LOG:-}" ] || printf '%s\n' "$*" >> "$FM_FAKE_HERDR_LOG"
+exit 1
+SH
+  chmod +x "$fb/herdr"
   cat > "$fb/fake-ssh" <<'SH'
 #!/usr/bin/env bash
 set -u
@@ -129,8 +144,14 @@ rargs=()
 while IFS= read -r -d '' a; do rargs+=("$a"); done \
   < <(perl -MMIME::Base64=decode_base64 -e 'print decode_base64($ARGV[0])' "$argv_b64")
 cmd=${rargs[0]}
+if [ "${FM_FAKE_SSH_FAIL_INBOX_MARKER:-0}" = 1 ] \
+  && [ "$cmd" = fm-remote-secondmate-control.sh ] \
+  && [ "${rargs[1]:-}" = inbox ] && [ "${rargs[3]:-}" = escalated ]; then
+  exit 255
+fi
 rc=0
-env FM_HOME="$remote_home" FM_ROOT_OVERRIDE="$FM_REMOTE_CODE_ROOT" \
+env -i PATH="$PATH" HOME="$HOME" FM_FAKE_HERDR_LOG="${FM_FAKE_HERDR_LOG:-}" \
+  FM_HOME="$remote_home" FM_ROOT_OVERRIDE="$FM_REMOTE_CODE_ROOT" \
   "$FM_REMOTE_CODE_ROOT/bin/$cmd" "${rargs[@]:1}" || rc=$?
 if [ "${FM_FAKE_SSH_AMBIGUOUS:-0}" = 1 ] \
   || { [ "${FM_FAKE_SSH_AFTER_AMBIGUOUS_RC:-0}" -ne 0 ] && [ "$count" -eq 1 ]; }; then
@@ -785,6 +806,228 @@ test_local_pending_does_not_close_resolve_key() {
   pass "fm-send local: an unconfirmed submit still never closes a --resolve-key decision"
 }
 
+# One parent remote_inbox_tick, run as the watcher would after the tick's
+# cadence marker has aged out. wake() exits, so each run is its own process.
+remote_inbox_tick_env() {  # <fakebin> <parent-home> <ssh-log> [extra env...]
+  local fb=$1 home=$2 ssh_log=$3
+  shift 3
+  rm -f "$home/state/.remote-inbox-tick"
+  # shellcheck disable=SC2016 # positional params expand in the child shell.
+  send_env "$fb" "$home" "$ssh_log" FM_STATE_OVERRIDE="$home/state" \
+    FM_TASK_INBOX_GRACE_SECS=1 "$@" \
+    bash -c '. "$1" && remote_inbox_tick' _ "$WATCH"
+}
+
+remote_ring_count() {  # <remote-home>
+  cut -f2 "$1/state/parent-route/rsm.inbox/.ring-state" 2>/dev/null || printf '0'
+}
+
+remote_hops() {  # <ssh-log> <action>
+  local n=0 line
+  while IFS= read -r line; do
+    case "$line" in *" $2"*) n=$((n + 1)) ;; esac
+  done < <(perl -MMIME::Base64=decode_base64 -ne 'for (split / /) { my $d = decode_base64($_); next unless $d =~ /\x00inbox\x00/; $d =~ tr/\x00/ /; print "$d\n" }' "$1")
+  printf '%s' "$n"
+}
+
+test_remote_inbox_ladder_rerings_unacknowledged_record() {
+  local dir fb ssh_log home rhome rec out
+  dir="$TMP_ROOT/remote-rering"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-rering)
+  home=$(setup_remote_parent_home remote-rering "$rhome")
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  perl -e 'utime time-5, time-5, $ARGV[0] or die $!' "$rec"
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "a healthy re-ring must not fail or wake the watcher: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] \
+    || fail "an unacknowledged remote record past grace must spend one ring attempt, ladder: $(cat "$rhome/state/parent-route/rsm.inbox/.ring-state" 2>/dev/null)"
+  [ "$(remote_hops "$ssh_log" ring)" = 1 ] || fail "the tick must ring through the remote inbox verb exactly once"
+  assert_grep 'remote steer-inbox delivery attempt: rsm 001.msg result=rang' "$home/state/.watch-triage.log" \
+    "the ring attempt must be recorded in the triage log"
+  [ -s "$dir/herdr.log" ] || fail "the remote ring must reach the remote host's herdr"
+  [ ! -s "$home/state/.wake-queue" ] || fail "a re-ring within budget queued a wake: $(cat "$home/state/.wake-queue")"
+
+  # Within one grace of the last attempt the ladder stays quiet.
+  touch -t 202001010000 "$rec"
+  printf '001.msg\t1\t%s\n' "$(($(date +%s) - 120))" > "$rhome/state/parent-route/rsm.inbox/.ring-state"
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_GRACE_SECS=3600 2>&1) \
+    || fail "a quiet tick failed: $out"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "a ring inside the grace spacing was not deferred"
+  pass "watcher remote inbox: an unacknowledged remote record re-rings after grace without waking firstmate"
+}
+
+test_remote_inbox_ladder_quiet_after_acknowledgement() {
+  local dir fb ssh_log home rhome rec out
+  dir="$TMP_ROOT/remote-rering-ack"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-rering-ack)
+  home=$(setup_remote_parent_home remote-rering-ack "$rhome")
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+  mv "$rec" "$rhome/state/parent-route/rsm.inbox/handled/"
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_HERDR_LOG="$dir/herdr.log" 2>&1) \
+    || fail "an acknowledged inbox tick failed: $out"
+  [ "$(remote_hops "$ssh_log" due)" = 1 ] || fail "the tick must ask the remote host what is due"
+  [ "$(remote_hops "$ssh_log" ring)" = 0 ] || fail "an acknowledged record was rung again"
+  [ ! -s "$dir/herdr.log" ] || fail "an acknowledged record reached the remote pane: $(cat "$dir/herdr.log")"
+  [ ! -e "$rhome/state/parent-route/rsm.inbox/.ring-state" ] || fail "an acknowledged record spent a ring attempt"
+  [ ! -s "$home/state/.wake-queue" ] || fail "an acknowledged record queued a wake"
+
+  # A remote copy that predates the inbox verb refuses the hop: the tick stays
+  # quiet and the triage log names the remote's own refusal.
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_RC=1 \
+    FM_FAKE_SSH_STDERR="error: unknown command: inbox" 2>&1) \
+    || fail "a refused remote hop must not fail the watcher: $out"
+  assert_grep 'due check unreachable or failed (error: unknown command: inbox)' "$home/state/.watch-triage.log" \
+    "a refused remote hop must leave the remote refusal in the triage log"
+  [ ! -s "$home/state/.wake-queue" ] || fail "a refused remote hop queued a wake"
+  pass "watcher remote inbox: an acknowledged remote record is never re-rung"
+}
+
+test_remote_inbox_ladder_escalates_after_ring_max() {
+  local dir fb ssh_log home rhome rec out rc wakes
+  dir="$TMP_ROOT/remote-rering-max"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-rering-max)
+  home=$(setup_remote_parent_home remote-rering-max "$rhome")
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+
+  remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_RING_MAX=1 >/dev/null 2>&1 \
+    || fail "the first in-budget ring failed"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "the first tick must spend the only ring attempt"
+  [ ! -s "$home/state/.wake-queue" ] || fail "an in-budget ring queued a wake"
+
+  rc=0
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_RING_MAX=1 2>&1) || rc=$?
+  expect_code 0 "$rc" "the escalating tick must wake cleanly: $out"
+  assert_contains "$out" "remote record 001.msg still unhandled after 1 doorbell delivery attempts" \
+    "the spent ladder must wake firstmate naming the record and attempt count"
+  assert_grep 'stale' "$home/state/.wake-queue" "the spent ladder must queue a stale wake"
+  [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated" 2>/dev/null)" = 001.msg ] \
+    || fail "the remote escalation marker must name the escalated record"
+  [ "$(remote_ring_count "$rhome")" = 1 ] || fail "escalation must not ring again"
+  [ -f "$rec" ] || fail "escalation lost the remote record"
+  wakes=$(wc -l < "$home/state/.wake-queue")
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_RING_MAX=1 2>&1) \
+    || fail "a tick after escalation failed: $out"
+  [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "an escalated record queued a second wake"
+  pass "watcher remote inbox: a spent ring budget queues exactly one stale wake"
+}
+
+test_remote_inbox_ladder_escalates_bookkeeping_failure() {
+  local dir fb ssh_log home rhome rec out wakes
+  dir="$TMP_ROOT/remote-rering-bookkeeping"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-rering-bookkeeping)
+  home=$(setup_remote_parent_home remote-rering-bookkeeping "$rhome")
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+  mkdir "$rhome/state/parent-route/rsm.inbox/.ring-state"
+
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" 2>&1) \
+    || fail "a confirmed bookkeeping failure must wake cleanly: $out"
+  assert_contains "$out" "remote steering-inbox ladder bookkeeping unwritable" \
+    "a confirmed counter-write failure must surface as stale"
+  assert_grep 'stale' "$home/state/.wake-queue" "bookkeeping failure must queue a stale wake"
+  [ "$(remote_hops "$ssh_log" ring)" = 1 ] || fail "the failed bookkeeping must follow one ring attempt"
+  [ -f "$rec" ] || fail "bookkeeping failure lost the unhandled record"
+  [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated" 2>/dev/null)" = 001.msg ] \
+    || fail "the failed bookkeeping record must be marked escalated"
+  wakes=$(wc -l < "$home/state/.wake-queue")
+  out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" 2>&1) \
+    || fail "a tick after bookkeeping escalation failed: $out"
+  [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "bookkeeping failure queued a second wake"
+  [ "$(remote_hops "$ssh_log" ring)" = 1 ] || fail "bookkeeping failure retried after escalation"
+  pass "watcher remote inbox: confirmed bookkeeping failure escalates once instead of retrying forever"
+}
+
+test_remote_inbox_marker_retry_preserves_wake_identity() {
+  local mode dir fb ssh_log home rhome rec out wakes rows
+  for mode in spent bookkeeping unavailable; do
+    dir="$TMP_ROOT/remote-marker-retry-$mode"; mkdir -p "$dir"
+    fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+    rhome=$(setup_remote_secondmate_home "remote-marker-retry-$mode")
+    home=$(setup_remote_parent_home "remote-marker-retry-$mode" "$rhome")
+    rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+      || fail "could not seed the remote inbox record"
+    touch -t 202001010000 "$rec"
+    if [ "$mode" = spent ]; then
+      printf '001.msg\t3\t0\n' > "$rhome/state/parent-route/rsm.inbox/.ring-state"
+    elif [ "$mode" = bookkeeping ]; then
+      mkdir "$rhome/state/parent-route/rsm.inbox/.ring-state"
+    else
+      cat > "$fb/herdr" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"error":{"code":"pane_not_found"}}'
+exit 1
+SH
+    fi
+
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_FAIL_INBOX_MARKER=1 2>&1) \
+      || fail "$mode escalation with lost marker failed: $out"
+    assert_contains "$out" 'stale:' "$mode escalation must wake on the first notification"
+    [ ! -e "$rhome/state/parent-route/rsm.inbox/.escalated" ] || fail "the failed marker hop executed remotely"
+    wakes=$(wc -l < "$home/state/.wake-queue")
+    [ "$wakes" -eq 1 ] || fail "$mode escalation must queue exactly one wake"
+    assert_grep 'escalation marker for 001.msg was not written' "$home/state/.watch-triage.log" \
+      "marker transport failure must remain visible in triage"
+
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_FAIL_INBOX_MARKER=1 2>&1) \
+      || fail "$mode repeated marker loss failed: $out"
+    [ -z "$out" ] || fail "$mode retry emitted a second wake: $out"
+    [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "$mode retry appended a second wake"
+
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" 2>&1) \
+      || fail "$mode marker recovery failed: $out"
+    [ -z "$out" ] || fail "$mode marker recovery emitted a second wake: $out"
+    [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated" 2>/dev/null)" = 001.msg ] \
+      || fail "$mode marker must be retried even when the wake is already queued"
+    [ "$(remote_hops "$ssh_log" escalated)" = 3 ] || fail "$mode must retry each failed marker hop"
+    rows=$(drain_out "$home")
+    [ "$(printf '%s\n' "$rows" | awk -F '\t' '$3 == "stale" {n++} END {print n+0}')" = 1 ] \
+      || fail "$mode marker retries must deliver one stale row to the queue consumer"
+
+    mv "$rec" "$rhome/state/parent-route/rsm.inbox/handled/"
+    rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the second metric") \
+      || fail "could not seed the next inbox record"
+    touch -t 202001010000 "$rec"
+    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_RING_MAX=0 2>&1) \
+      || fail "$mode next-record escalation failed: $out"
+    assert_contains "$out" 'remote record 002.msg' "a different record must get its own wake"
+    [ "$(wc -l < "$home/state/.wake-queue")" -eq 2 ] || fail "the first record's queued wake suppressed the next record"
+  done
+  pass "watcher remote inbox: marker retries preserve one notification per record"
+}
+
+test_remote_enqueue_dedup_compares_same_size_records() {
+  local state a b c d e f
+  state="$TMP_ROOT/dedup-size/state"; mkdir -p "$state"
+  a=$(fm_task_inbox_write_idempotent "$state" rsm $'multi-byte h\xc3\xa9llo\nsecond line') || fail "first enqueue failed"
+  b=$(fm_task_inbox_write_idempotent "$state" rsm $'multi-byte h\xc3\xa9llo\nsecond line') || fail "repeat enqueue failed"
+  [ "$a" = "$b" ] || fail "an identical body must land on the same record, got $a and $b"
+  c=$(fm_task_inbox_write_idempotent "$state" rsm $'multi-byte h\xc3\xa9llo\nsecond lime') || fail "same-size enqueue failed"
+  [ "$c" != "$a" ] || fail "a same-size distinct body must get its own record"
+  d=$(fm_task_inbox_write_idempotent "$state" rsm $'multi-byte h\xc3\xa9llo\nsecond line' fire-and-forget) \
+    || fail "fire-and-forget enqueue failed"
+  [ "$d" != "$a" ] || fail "a fire-and-forget record must not dedup onto an ordinary one"
+  e=$(fm_task_inbox_write_idempotent "$state" rsm $'multi-byte h\xc3\xa9llo\nsecond line' fire-and-forget) \
+    || fail "repeat fire-and-forget enqueue failed"
+  [ "$e" = "$d" ] || fail "an identical fire-and-forget body must land on the same record"
+  mv "$a" "$state/rsm.inbox/handled/"
+  f=$(fm_task_inbox_write_idempotent "$state" rsm $'multi-byte h\xc3\xa9llo\nsecond line') || fail "post-ack enqueue failed"
+  [ "$f" = "$state/rsm.inbox/handled/${a##*/}" ] || fail "an acknowledged identical record must be found in handled/, got $f"
+  pass "remote enqueue dedup: only same-size records are compared and exact matches still dedup"
+}
+
 test_remote_steer_lands_in_remote_inbox
 test_remote_rerun_is_idempotent
 test_remote_retry_failure_preserves_ambiguous_expectation
@@ -801,5 +1044,11 @@ test_remote_send_budget_bounds_busy_lane
 test_local_pending_reports_delivered_unconfirmed
 test_local_pending_does_not_close_resolve_key
 test_local_secondmate_pending_keeps_expectation_armed
+test_remote_inbox_ladder_rerings_unacknowledged_record
+test_remote_inbox_ladder_quiet_after_acknowledgement
+test_remote_inbox_ladder_escalates_after_ring_max
+test_remote_inbox_ladder_escalates_bookkeeping_failure
+test_remote_inbox_marker_retry_preserves_wake_identity
+test_remote_enqueue_dedup_compares_same_size_records
 
 echo "all fm-send-remote-delivery tests passed"

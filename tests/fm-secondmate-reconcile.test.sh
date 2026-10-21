@@ -87,9 +87,14 @@ while IFS= read -r -d '' a; do rargs+=("$a"); done \
   < <(perl -MMIME::Base64=decode_base64 -e 'print decode_base64($ARGV[0])' "$argv_b64")
 cmd=${rargs[0]}
 rc=0
-if [ "${FM_TEST_RECONCILE_REMOTE_DELAY:-0}" -gt 0 ]; then
-  sleep "$FM_TEST_RECONCILE_REMOTE_DELAY"
-fi
+# Delay the snapshot read and reconcile delivery, leaving inbox polling free.
+case "$cmd:${rargs[1]:-}" in
+  fm-remote-file.sh:get|fm-remote-secondmate-control.sh:send)
+    if [ "${FM_TEST_RECONCILE_REMOTE_DELAY:-0}" -gt 0 ]; then
+      sleep "$FM_TEST_RECONCILE_REMOTE_DELAY"
+    fi
+    ;;
+esac
 env FM_HOME="$remote_home" FM_ROOT_OVERRIDE="$FM_REMOTE_CODE_ROOT" \
   "$FM_REMOTE_CODE_ROOT/bin/$cmd" "${rargs[@]:1}" || rc=$?
 exit "$rc"
