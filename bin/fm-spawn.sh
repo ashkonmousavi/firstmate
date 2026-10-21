@@ -93,7 +93,7 @@
 #   claude worker whose --model is set, not default, and not Fable, stripping
 #   any stale copy from an older source brief. This never rewrites a project's
 #   instruction files or a secondmate's charter.
-#        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>]
+#        fm-spawn.sh <task-id> --relaunch [--harness <name>] [--model <name>] [--effort <level>] [--account-root <dir>]
 #   --relaunch launches a replacement agent for an EXISTING task into that
 #   task's own recorded worktree, reusing its recorded endpoint when that
 #   endpoint still exists, instead of creating either from scratch. It is
@@ -455,8 +455,11 @@
 #   docs/configuration.md "Worker tool exclusions" owns config/crew-exclude-tools
 #   and its operator contract. Resolve it with bin/fm-exclude-tools-lib.sh
 #   before provisioning; __PIEXCLUDE__ below owns the Pi launch substitution.
+# --account-root <dir> explicitly selects one local Claude/Codex task account.
+#   bin/fm-worker-account-lib.sh owns selection, pin precedence, and numbered
+#   profile recovery; an explicit root survives a same-harness relaunch.
 # Worker account pin (config/claude-account, config/pi-account):
-#   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
+#   Opt-in. With no file or explicit task account, a launch is unchanged: Claude still
 #   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
 #   destination pane's ambient account. A present file pins every launch of
 #   that runner from this home - ship, scout, local secondmate, raw Claude
@@ -838,6 +841,8 @@ fm_refuse_if_gate_agent
 KIND=ship
 KIND_SET=0
 HARNESS_ARG=
+ACCOUNT_ROOT=
+ACCOUNT_ROOT_SET=0
 MODEL=
 DISPATCH_RULE=default
 DISPATCH_RULE_SET=0
@@ -876,6 +881,10 @@ for a in "$@"; do
     harness)
       HARNESS_ARG=$a
       HARNESS_SET=1
+      ;;
+    account-root)
+      ACCOUNT_ROOT=$a
+      ACCOUNT_ROOT_SET=1
       ;;
     model)
       MODEL=$a
@@ -938,6 +947,8 @@ for a in "$@"; do
   --walk-owner) want_value="walk-owner" ;;
   --walk-timeout) want_value="walk-timeout" ;;
   --herdr-resume-lock-wait) HERDR_RESUME_LOCK_WAIT=1 ;;
+  --account-root) want_value=account-root ;;
+  --account-root=*) ACCOUNT_ROOT=${a#--account-root=}; ACCOUNT_ROOT_SET=1 ;;
   --harness) want_value=harness ;;
   --harness=*)
     HARNESS_ARG=${a#--harness=}
@@ -991,6 +1002,7 @@ for a in "$@"; do
   *) POS+=("$a") ;;
   esac
 done
+[ "$ACCOUNT_ROOT_SET" = 0 ] || [ -n "$ACCOUNT_ROOT" ] || { echo "error: --account-root requires a value" >&2; exit 1; }
 [ -z "$want_value" ] || {
   echo "error: --$want_value requires a value" >&2
   exit 1
@@ -1173,6 +1185,12 @@ spawn_remote_secondmate() {
     fm_lock_release "$registry_lock" || true
     fm_lock_release "$SPAWN_TASK_LOCK" || true
     return 3
+  fi
+  if [ "$ACCOUNT_ROOT_SET" = 1 ]; then
+    fm_lock_release "$registry_lock" || true
+    fm_lock_release "$SPAWN_TASK_LOCK" || true
+    echo "error: --account-root is local to this machine; remote secondmates select accounts in their own home" >&2
+    return 2
   fi
   host=$(secondmate_registry_field "$DATA/secondmates.md" "$id" host)
   root=$(secondmate_registry_field "$DATA/secondmates.md" "$id" root)
@@ -1767,6 +1785,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
   rc=0
   shared_args=()
   [ -z "$HARNESS_ARG" ] || shared_args+=(--harness "$HARNESS_ARG")
+  [ "$ACCOUNT_ROOT_SET" = 0 ] || shared_args+=(--account-root "$ACCOUNT_ROOT")
   [ "$DISPATCH_RULE_SET" -eq 0 ] || shared_args+=(--dispatch-rule "$DISPATCH_RULE")
   [ -z "$MODEL" ] || shared_args+=(--model "$MODEL")
   [ -z "$EFFORT" ] || shared_args+=(--effort "$EFFORT")
@@ -2182,6 +2201,11 @@ if [ "$RELAUNCH" -eq 1 ]; then
   # the caller's explicit decision, made with --harness (bin/fm-control.sh
   # resolves that decision, including a secondmate's durable pin).
   ARG3=${HARNESS_ARG:-$RELAUNCH_PRIOR_HARNESS}
+  if [ "$ACCOUNT_ROOT_SET" = 0 ] && [ "$ARG3" = "$RELAUNCH_PRIOR_HARNESS" ] \
+    && [ "$(fm_meta_get "$RELAUNCH_META" account_explicit)" = 1 ]; then
+    ACCOUNT_ROOT=$(fm_meta_get "$RELAUNCH_META" account)
+    ACCOUNT_ROOT_SET=1
+  fi
   [ -n "$ARG3" ] || {
     echo "error: task $ID has no recorded harness; pass --harness to relaunch it" >&2
     exit 1
@@ -2776,13 +2800,13 @@ fi
 if [ "$HARNESS" = agy ]; then
   agy_model_validate "$AGY_BIN" "$MODEL" || exit 1
 fi
-# Worker account pin (header above): resolved before any endpoint, worktree, or
-# record exists. An absent pin selects nothing and leaves every later launch
-# step exactly as it was. A pinned Claude root is exported here as well, so the
-# trust registration below writes the store the worker will actually read.
+# Worker account selection (header above) precedes endpoint, worktree, and
+# record creation. With no pin or explicit root, ambient behavior is retained.
+# Export the selected root before startup setup so Claude trust registration
+# and Codex hook installation target the same store the worker will read.
 RAW_COMMAND=
 [ "$RAW_LAUNCH" = 0 ] || RAW_COMMAND=$ARG3
-WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND") || exit 1
+WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$ACCOUNT_ROOT") || exit 1
 WORKER_ACCOUNT_DECLARED=${WORKER_ACCOUNT%%$'\t'*}
 WORKER_ACCOUNT_ROOT=${WORKER_ACCOUNT#*$'\t'}
 WORKER_ACCOUNT_PROVIDER=${WORKER_ACCOUNT_ROOT#*$'\t'}
@@ -2793,6 +2817,8 @@ if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
   else
     unset CLAUDE_CONFIG_DIR
   fi
+elif [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = codex ]; then
+  export CODEX_HOME=$WORKER_ACCOUNT_ROOT
 fi
 
 secondmate_registry_value() {
@@ -5695,7 +5721,7 @@ SPAWN_META_PATH=$SPAWN_META_TMP
 preserve_relaunch_meta() {
   awk -F= '
     BEGIN {
-      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch model effort account account_provider busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
+      split("window endpoint_task_id worktree project harness kind mode yolo branch tasktmp base_branch model effort account account_provider account_explicit busy_gen spawn_gen traceparent backend herdr_session herdr_workspace_id herdr_tab_id herdr_pane_id zellij_session zellij_tab_id zellij_pane_id orca_worktree_id terminal cmux_workspace_id cmux_surface_id home projects control_relaunch_tx", keys, " ")
       for (i in keys) owned[keys[i]] = 1
     }
     !($1 in owned)
@@ -5715,9 +5741,9 @@ preserve_relaunch_meta() {
   [ -z "$BASE_BRANCH" ] || echo "base_branch=$BASE_BRANCH"
   echo "model=${MODEL:-default}"
   echo "effort=${EFFORT:-default}"
-  # The worker account pin, only when this home declares one, so an unpinned
-  # task record stays byte-identical.
+  # A home pin or explicit task account; ambient launches leave these absent.
   [ -z "$WORKER_ACCOUNT" ] || echo "account=$WORKER_ACCOUNT_DECLARED"
+  [ "$ACCOUNT_ROOT_SET" = 0 ] || echo "account_explicit=1"
   [ -z "$WORKER_ACCOUNT_PROVIDER" ] || echo "account_provider=$WORKER_ACCOUNT_PROVIDER"
   # The dispatch rule a ship or scout was checked against, only while the
   # table is active; a relaunch carries it forward as an unowned key.
@@ -5958,6 +5984,9 @@ if [ -n "$WORKER_ACCOUNT" ]; then
     else
       LAUNCH="$(fm_worker_account_claude_shed) -u CLAUDE_CONFIG_DIR $LAUNCH"
     fi
+    ;;
+  codex)
+    LAUNCH="env -u OPENAI_API_KEY -u CODEX_API_KEY -u CODEX_ACCESS_TOKEN CODEX_HOME=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"
     ;;
   pi | pi-signed)
     LAUNCH="PI_CODING_AGENT_DIR=$(shell_quote "$WORKER_ACCOUNT_ROOT") $LAUNCH"

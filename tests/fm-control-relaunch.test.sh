@@ -107,6 +107,12 @@ case "${1:-}" in
     else
       printf '%s\n' "$payload" >> "$D/keys"
       case "$payload" in
+        Escape)
+          if [ -f "$D/interrupt-stops" ]; then
+            printf zsh > "$D/command"
+            rm -f "$D/composer-unknown"
+          fi
+          ;;
         'export GOTMPDIR='*)
           if [ -n "${FM_FAKE_TRACE_PREPARE:-}" ]; then
             : > "$FM_FAKE_TRACE_PREPARE"
@@ -151,6 +157,7 @@ case "${1:-}" in
     printf 'fakepane\n'; exit 0 ;;
   capture-pane)
     [ -z "${FM_FAKE_COMPOSER_READ_FAIL:-}" ] || exit 1
+    [ ! -f "$D/composer-unknown" ] || { printf 'unclassified composer\n'; exit 0; }
     if [ -s "$D/composer" ]; then
       printf '╭────╮\n│ %s  │\n╰────╯\n' "$(cat "$D/composer")"
     else
@@ -3198,6 +3205,72 @@ test_relaunch_carries_claude_worker_settings() {
   pass "fm-control relaunch: config/claude-worker-settings.json reaches the replacement claude launch"
 }
 
+test_explicit_account_transaction() {
+  local dir out rc id="rl-explicit-$$" before
+  dir=$(new_case explicit-root "$id")
+  add_ship_task "$dir" "$id" codex
+  printf codex > "$dir/fake/command"
+  printf codex > "$dir/fake/becomes"
+  mkdir -p "$dir/codex-2" "$dir/codex-3" "$dir/codex-4"
+  cat > "$dir/fakebin/codex" <<'SH'
+#!/usr/bin/env bash
+[ "${1:-}" = login ] && [ "${2:-}" = status ]
+SH
+  cat > "$dir/fakebin/quota-axi" <<'SH'
+#!/usr/bin/env bash
+left=$(cat "$CODEX_HOME/remaining")
+jq -n --argjson left "$left" '{schemaVersion:5,providers:[{provider:"codex",state:{status:"fresh"},quotaSemantics:{status:"known",effectiveAvailability:[{scope:"all_models",status:"known",effectivePercentRemaining:$left,runway:{status:(if $left == 0 then "exhausted_now" else "through_reset" end)}}]}}]}'
+SH
+  chmod +x "$dir/fakebin/codex" "$dir/fakebin/quota-axi"
+  printf 'account=%s\naccount_explicit=1\n' "$dir/codex-2" >> "$dir/home/state/$id.meta"
+  printf 'keep this work\n' > "$dir/wt/local-work"
+  out=$(run_control "$dir" "$id" relaunch --account-root "$dir/codex-3" --from-account-root "$dir/codex-2" --note "continue after account switch"); rc=$?
+  expect_code 0 "$rc" "explicit account switch must succeed: $out"
+  [ "$(meta_field "$dir" "$id" account)" = "$dir/codex-3" ] || fail "transaction lost new account"
+  [ "$(cat "$dir/wt/local-work")" = 'keep this work' ] || fail "account switch lost uncommitted work"
+  assert_contains "$(cat "$dir/fake/literal")" "CODEX_HOME='$dir/codex-3'" "new account must reach launch"
+  before=$(cat "$dir/fake/literal")
+  out=$(run_control "$dir" "$id" relaunch --next-account --from-account-root "$dir/codex-2" --note "duplicate observation"); rc=$?
+  expect_code 0 "$rc" "duplicate old-account observation must converge: $out"
+  [ "$before" = "$(cat "$dir/fake/literal")" ] || fail "duplicate event relaunched twice"
+  out=$(run_control "$dir" "$id" relaunch --note "ordinary recovery retains selected account"); rc=$?
+  expect_code 0 "$rc" "implicit relaunch must retain explicit root: $out"
+  [ "$(meta_field "$dir" "$id" account)" = "$dir/codex-3" ] || fail "ordinary recovery reverted account"
+  echo 0 > "$dir/codex-3/remaining"
+  echo 50 > "$dir/codex-4/remaining"
+  touch "$dir/fake/composer-unknown" "$dir/fake/interrupt-stops"
+  out=$(run_control "$dir" "$id" relaunch --next-account --from-account-root "$dir/codex-3" --note "quota exhausted"); rc=$?
+  expect_code 0 "$rc" "quota-driven next-account transaction must succeed: $out"
+  [ "$(meta_field "$dir" "$id" account)" = "$dir/codex-4" ] || fail "next account was not published"
+
+  id="rl-pin-conflict-$$"
+  dir=$(new_case explicit-pin-conflict "$id")
+  add_ship_task "$dir" "$id" claude
+  make_claude_auth_stub "$dir"
+  mkdir -p "$dir/home/config" "$dir/claude-1" "$dir/claude-2"
+  touch "$dir/claude-1/.credentials.json" "$dir/claude-2/.credentials.json"
+  printf '%s\n' "$dir/claude-1" > "$dir/home/config/claude-account"
+  cp "$dir/home/state/$id.meta" "$dir/before-meta"
+  out=$(run_control "$dir" "$id" relaunch --account-root "$dir/claude-2" --note "must not override pin"); rc=$?
+  expect_code 1 "$rc" "a conflicting root must refuse before stopping"
+  [ ! -s "$dir/fake/literal" ] || fail "pin conflict delivered lifecycle input"
+  cmp -s "$dir/before-meta" "$dir/home/state/$id.meta" || fail "pin refusal changed metadata"
+  [ "$(cat "$dir/home/config/claude-account")" = "$dir/claude-1" ] || fail "pin was modified"
+  id="rl-claude-switch-$$"
+  dir=$(new_case claude-account-switch "$id")
+  add_ship_task "$dir" "$id" claude
+  make_claude_auth_stub "$dir"
+  mkdir -p "$dir/claude-1" "$dir/claude-2"
+  touch "$dir/claude-1/.credentials.json" "$dir/claude-2/.credentials.json"
+  printf 'account=%s\naccount_explicit=1\n' "$dir/claude-1" >> "$dir/home/state/$id.meta"
+  out=$(run_control "$dir" "$id" relaunch --account-root "$dir/claude-2" --from-account-root "$dir/claude-1" --note "continue on the second Claude account"); rc=$?
+  expect_code 0 "$rc" "Claude 1 -> 2 fixture transaction must succeed: $out"
+  [ "$(meta_field "$dir" "$id" account)" = "$dir/claude-2" ] || fail "Claude transaction lost its second account"
+  assert_contains "$(cat "$dir/fake/literal")" "CLAUDE_CONFIG_DIR='$dir/claude-2'" "Claude 1 -> 2 must reach the pane"
+  pass "account transaction preserves work and roots, rejects pins before stop and converges duplicate events"
+}
+
+test_explicit_account_transaction
 test_spawn_relaunch_refuses_contradicting_flags
 test_spawn_relaunch_refuses_an_unrecorded_task
 test_spawn_relaunch_refuses_a_pane_outside_the_worktree

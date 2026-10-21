@@ -186,6 +186,8 @@
 set -u
 
 SCRIPT_DIR="$(d=${BASH_SOURCE[0]%/*}; [ "$d" != "${BASH_SOURCE[0]}" ] || d=.; cd "${d:-/}" && pwd)"
+# shellcheck source=bin/fm-worker-account-lib.sh
+. "$SCRIPT_DIR/fm-worker-account-lib.sh"
 FM_ROOT="${FM_ROOT_OVERRIDE:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 STATE="${FM_STATE_OVERRIDE:-$FM_HOME/state}"
@@ -4070,6 +4072,14 @@ EOF
       n=$(( $(cat "$cf" 2>/dev/null || echo 0) + 1 ))
       echo "$n" > "$cf"
       if [ "$n" -ge 2 ] && [ "$busy_now" -ne 0 ]; then
+        if ! stale_is_terminal "$w" "$STATE" \
+          && ! status_is_paused_or_captain_held "$last" \
+          && fm_worker_account_recover "$STATE/$task.meta" "$SCRIPT_DIR"; then
+          triage_log "continued exhausted account on the next signed-in profile: $task"
+          continue
+        fi
+        checkpoint_recovery_surface
+        checkpoint_deadline_passed && break
         # The pane is idle/stale at hash $h. Triage decides whether this wakes
         # firstmate. Detection itself is unchanged from above.
         #

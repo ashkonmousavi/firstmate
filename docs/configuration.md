@@ -913,7 +913,7 @@ Each relaunch installs a fresh worker extension with the home's current list, so
 ## Worker account pin (config/claude-account, config/pi-account)
 
 A home that mixes accounts for one runner, such as a work login and a personal one, can pin the account its own Claude and Pi workers launch on.
-The pin is opt-in: with neither file, every launch is unchanged, and Claude workers keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
+The pin is opt-in: with neither file and no explicit task account, launches retain their ambient account behavior, and Claude workers keep receiving firstmate's own `CLAUDE_CONFIG_DIR` when it is set.
 
 Both files are local and gitignored.
 
@@ -959,6 +959,18 @@ Pins are not inherited into secondmate homes: a local secondmate agent launches 
 A remote secondmate is launched on its host from its own home's configuration, so create the file in that remote home.
 
 [`bin/fm-worker-account-lib.sh`](../bin/fm-worker-account-lib.sh) owns parsing, the sign-in check, and the full list of credentials a Claude launch unsets; [runtime backend verification](verification/runtime-backends.md#worker-account-pin-sign-in-check) records the check against the real runners.
+
+### Explicit task accounts and automatic continuation
+
+Claude and Codex tasks can select an already signed-in local account with `fm-spawn.sh --account-root <directory>` or change it through `fm-control.sh <task> relaunch --account-root <directory> --note <checkpoint>`.
+The selected account survives same-harness relaunches of that task.
+A home pin remains authoritative, and a conflicting selection refuses before the current worker stops.
+
+For ships and scouts, selecting a numbered profile directory enables ordered continuation through higher-numbered sibling profiles of the same runner.
+The existing watcher uses fresh quota evidence to continue an idle worker whose applicable account quota is exhausted, without a model-powered supervisor turn.
+Ambient launches keep their existing account behavior.
+Remote secondmates select their accounts in their own homes.
+The [worker account library](../bin/fm-worker-account-lib.sh) owns the exact profile layout, checks, timing and duplicate-event behavior; the [control-plane help](../bin/fm-control.sh) owns transaction flags and backend limits.
 
 ## Lavish server address (config/lavish-axi-host)
 

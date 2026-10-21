@@ -713,7 +713,7 @@ The `--permission-mode auto` launch shape is not covered: the probe session fell
 `bin/fm-worker-account-lib.sh` decides whether a pinned account is signed in from vendor output: the exit status of `claude auth status`, the JSON of `pi auth check`, and the provider column of `pi --list-models`.
 `tests/fm-worker-account-live-e2e.test.sh` asks the real installed runners about synthetic roots that need no login and no network, under a throwaway `HOME`.
 A Claude root whose `settings.json` names an `apiKeyHelper` reports `loggedIn: true`, a Pi root holding a stored API key reports `ready`, and a provider registered by an extension in the Pi root's `extensions/` answers `pi auth check` with `not_ready`/`provider_not_found` while `pi --list-models` lists it.
-Each refusal is paired with the divergence it depends on: the same runner, given `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or the extension's key variable, answers signed in for the empty root, so the refusal proves the check's cleared environment.
+The Claude and Pi refusals are paired with the divergence they depend on: the same runner, given `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or the extension's key variable, answers signed in for the empty root, so the refusal proves the check's cleared environment.
 Replacing `env -i` with `env` in the check makes the guard fail on the Claude refusal.
 
 Verified 2026-09-22 on Claude Code 2.1.278 and pi 0.86.1 on Linux; pi-signed was not installed.
@@ -729,7 +729,20 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 # worker account live guard checked: claude pi
 ```
 
-The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
+The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude, Codex or Pi upgrade.
+
+The same token-free guard also checks explicit Codex roots with `codex login status`, using an empty root and a synthetic local API-key fixture.
+Verified 2026-10-15 on codex-cli 0.162.1, Claude Code 2.1.300 and pi 1.0.0 on Linux; pi-signed was absent.
+
+```sh
+bwrap --dev-bind / / --tmpfs /tmp bash bin/fm-test-run.sh tests/fm-worker-account-live-e2e.test.sh --jobs 1
+```
+
+```text
+ok - codex-cli 0.162.1: Codex account selection checks its own root and refuses an empty one
+# worker account live guard checked: claude codex pi
+FM_TEST_SUMMARY total=1 failed=0 skipped_gate=0 duration_ms=4674
+```
 
 ## Secondmate busy contract
 

@@ -5,8 +5,14 @@
 # Usage: fm-control.sh <task-id> interrupt
 #        fm-control.sh <task-id> exit
 #        fm-control.sh <task-id> relaunch [--harness <name>] [--model <name>]
-#                                         [--effort <level>]
+#                                         [--effort <level>] [--account-root <dir>]
+#                                         [--from-account-root <observed-dir>]
+#                                         [--next-account]
 #                                         (--note <text> | --note-file <path>)
+#
+# Account selection and ordered automatic recovery are owned by
+# bin/fm-worker-account-lib.sh. --next-account requires --from-account-root;
+# a stale observation is a no-op under this transaction's lifecycle lock.
 #
 # Why this exists, and how it differs from fm-send.sh. bin/fm-send.sh is the
 # DATA plane: conversational text for the agent to read, always routing-marked
@@ -266,6 +272,11 @@ if ! fm_control_verb_allowed "$VERB"; then
 fi
 
 NEW_HARNESS=
+NEW_ACCOUNT_ROOT=
+ACCOUNT_ROOT_SET=0
+FROM_ACCOUNT_ROOT=
+NEXT_ACCOUNT=0
+ACCOUNT_EXHAUSTED=0
 NEW_MODEL=
 NEW_EFFORT=
 HARNESS_SET=0
@@ -281,6 +292,8 @@ for control_arg in "$@"; do
     esac
     case "$control_want_value" in
       harness) NEW_HARNESS=$control_arg; HARNESS_SET=1 ;;
+      account-root) NEW_ACCOUNT_ROOT=$control_arg; ACCOUNT_ROOT_SET=1 ;;
+      from-account-root) FROM_ACCOUNT_ROOT=$control_arg ;;
       model) NEW_MODEL=$control_arg; MODEL_SET=1 ;;
       effort) NEW_EFFORT=$control_arg; EFFORT_SET=1 ;;
       note) NOTE=$control_arg; NOTE_SET=1 ;;
@@ -294,6 +307,11 @@ for control_arg in "$@"; do
     continue
   fi
   case "$control_arg" in
+    --account-root) control_want_value=account-root ;;
+    --account-root=*) NEW_ACCOUNT_ROOT=${control_arg#--account-root=}; ACCOUNT_ROOT_SET=1 ;;
+    --from-account-root) control_want_value=from-account-root ;;
+    --from-account-root=*) FROM_ACCOUNT_ROOT=${control_arg#--from-account-root=} ;;
+    --next-account) NEXT_ACCOUNT=1 ;;
     --harness) control_want_value=harness ;;
     --harness=*) NEW_HARNESS=${control_arg#--harness=}; HARNESS_SET=1 ;;
     --model) control_want_value=model ;;
@@ -317,12 +335,14 @@ if [ -n "$control_want_value" ]; then
 fi
 
 if [ "$VERB" != relaunch ]; then
-  [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
+  [ "$ACCOUNT_ROOT_SET" = 0 ] && [ "$NEXT_ACCOUNT" = 0 ] && [ -z "$FROM_ACCOUNT_ROOT" ] && [ "$HARNESS_SET" = 0 ] && [ "$MODEL_SET" = 0 ] && [ "$EFFORT_SET" = 0 ] && [ "$NOTE_SET" = 0 ] \
     || die "--harness, --model, --effort, and --note apply to 'relaunch' only"
 fi
 [ "$HARNESS_SET" = 0 ] || [ -n "$NEW_HARNESS" ] || die "--harness requires a non-empty value"
 [ "$MODEL_SET" = 0 ] || [ -n "$NEW_MODEL" ] || die "--model requires a non-empty value"
 [ "$EFFORT_SET" = 0 ] || [ -n "$NEW_EFFORT" ] || die "--effort requires a non-empty value"
+[ "$ACCOUNT_ROOT_SET" = 0 ] || [ -n "$NEW_ACCOUNT_ROOT" ] || die "--account-root requires a value"
+[ "$NEXT_ACCOUNT" = 0 ] || { [ "$ACCOUNT_ROOT_SET" = 0 ] && [ -n "$FROM_ACCOUNT_ROOT" ]; } || die "--next-account requires --from-account-root and cannot combine with --account-root"
 case "$NEW_EFFORT" in
   ''|default|low|medium|high|xhigh|max|ultra) ;;
   *) die "--effort must be one of default, low, medium, high, xhigh, max, ultra" ;;
@@ -595,9 +615,10 @@ do_interrupt() {
   printf '%s cancel=%s' "$proof" "$cancel"
 }
 
-# quota_exhausted_shown: whether the harness's usage or quota exhaustion
-# report is visible.
+# quota_exhausted_shown: fresh profile exhaustion proved by --next-account,
+# or the harness's already-supported native usage-limit report.
 quota_exhausted_shown() {
+  [ "$ACCOUNT_EXHAUSTED" = 0 ] || return 0
   local signal
   signal=$(fm_control_quota_exhausted_signal "$HARNESS") || return 1
   [ -n "$signal" ] && rendered_matches "$signal"
@@ -1014,10 +1035,27 @@ resolve_relaunch_profile() {
   # The launch owner applies this home's worker account pin too, but only after
   # the old agent has been stopped, so a pin that no longer resolves or is
   # signed out must refuse here, while nothing has changed yet.
-  local account_model=$TARGET_MODEL
+  local account_model=$TARGET_MODEL prior_account
+  prior_account=$(fm_meta_get "$META" account)
+  if [ -n "$FROM_ACCOUNT_ROOT" ] && [ "$prior_account" != "$FROM_ACCOUNT_ROOT" ]; then
+    printf "skipped: task %s already changed account\n" "$ID"
+    exit 0
+  fi
+  if [ "$NEXT_ACCOUNT" = 1 ]; then
+    [ "$TARGET_HARNESS" = "$PRIOR_HARNESS" ] || die "--next-account cannot change harness"
+    [ "$(fm_worker_account_quota "$TARGET_HARNESS" "$prior_account" "$TARGET_MODEL")" = exhausted ] \
+      || die "the recorded account is not proven exhausted"
+    ACCOUNT_EXHAUSTED=1
+    NEW_ACCOUNT_ROOT=$(fm_worker_account_next "$TARGET_HARNESS" "$prior_account" "$TARGET_MODEL") \
+      || die "no next signed-in account with usable quota; preserved the running worker"
+    ACCOUNT_ROOT_SET=1
+  elif [ "$ACCOUNT_ROOT_SET" = 0 ] && [ "$TARGET_HARNESS" = "$PRIOR_HARNESS" ] \
+    && [ "$(fm_meta_get "$META" account_explicit)" = 1 ]; then
+    NEW_ACCOUNT_ROOT=$prior_account
+  fi
   [ "$account_model" != default ] || account_model=
   fm_worker_account_select "$TARGET_HARNESS" "${FM_CONFIG_OVERRIDE:-$FM_HOME/config}" \
-    "$account_model" "$TARGET_HARNESS" >/dev/null || return 1
+    "$account_model" "$TARGET_HARNESS" "" "$NEW_ACCOUNT_ROOT" >/dev/null || return 1
   # The launch owner re-checks a changed ship or scout profile against the
   # crew-dispatch table only after the old agent has stopped, so the same check
   # refuses here first.
@@ -1206,6 +1244,7 @@ do_relaunch() {
   RELAUNCH_TX="${BASHPID:-$$}.$(date -u +%Y%m%dT%H%M%SZ).$RANDOM"
   journal_write launching "${CHECKPOINT_LINES[@]}" "$note_line" "relaunch_tx=$RELAUNCH_TX"
   spawn_args=("$ID" --relaunch --harness "$TARGET_HARNESS")
+  [ -z "$NEW_ACCOUNT_ROOT" ] || spawn_args+=(--account-root "$NEW_ACCOUNT_ROOT")
   [ "$TARGET_MODEL" = default ] || spawn_args+=(--model "$TARGET_MODEL")
   [ "$TARGET_EFFORT" = default ] || spawn_args+=(--effort "$TARGET_EFFORT")
   if FM_CONTROL_RELAUNCH_TX="$RELAUNCH_TX" \
