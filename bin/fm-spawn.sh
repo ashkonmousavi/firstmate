@@ -3422,7 +3422,12 @@ if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
     exit 75
   }
   SPAWN_MACHINE_CAPACITY_LOCK="$SPAWN_MACHINE_ROOT/state/.machine-lane-capacity.lock"
-  if ! fm_lock_acquire_wait "$SPAWN_MACHINE_CAPACITY_LOCK"; then
+  if [ ! -d "$SPAWN_MACHINE_ROOT/state" ] || [ ! -r "$SPAWN_MACHINE_ROOT/state" ] ||
+    [ ! -w "$SPAWN_MACHINE_ROOT/state" ] || [ ! -x "$SPAWN_MACHINE_ROOT/state" ]; then
+    echo "deferred: machine state $SPAWN_MACHINE_ROOT/state is unreadable or unwritable; task $ID stays queued" >&2
+    exit 75
+  fi
+  if ! fm_lock_acquire_wait_max "$SPAWN_MACHINE_CAPACITY_LOCK" 30; then
     echo "deferred: cannot lock $SPAWN_MACHINE_CAPACITY_LOCK; task $ID stays queued" >&2
     exit 75
   fi

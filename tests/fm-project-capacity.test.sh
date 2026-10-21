@@ -668,6 +668,41 @@ test_machine_memory_and_unreadable() {
   pass 'fresh spawn refuses low memory and unreadable machine facts'
 }
 
+test_machine_root_lock_refuses_inaccessible_state() {
+  local case_dir root mate mode out rc
+  if [ "$(id -u)" = 0 ]; then
+    printf 'ok - skipped the inaccessible-root case (root bypasses mode permissions)\n'
+    return 0
+  fi
+  case_dir=$(make_case inaccessible-root)
+  root="$case_dir/home"
+  mate="$case_dir/mate"
+  make_home "$mate" task-m
+  printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$root" > "$mate/.fm-secondmate-parent"
+  printf -- '- mate - local (home: %s; scope: tests; projects: project; added 2026-09-01)\n' "$mate" > "$root/data/secondmates.md"
+  for mode in 000 500; do
+    chmod "$mode" "$root/state"
+    rc=0
+    out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+    chmod 755 "$root/state"
+    expect_code 75 "$rc" "root state mode $mode did not defer: $out"
+    assert_contains "$out" "machine state $root/state" 'refusal names inaccessible root state'
+    assert_absent "$mate/state/task-m.meta" 'refused spawn published a record'
+  done
+  : > "$root/state/.machine-lane-capacity.lock"
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  expect_code 75 "$rc" "permanent lock obstruction did not defer: $out"
+  assert_contains "$out" "cannot lock $root/state/.machine-lane-capacity.lock" 'refusal names obstructed lock'
+  assert_absent "$mate/state/task-m.meta" 'obstructed spawn published a record'
+  rm "$root/state/.machine-lane-capacity.lock"
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$(new_worktree "$case_dir" task-m)" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  expect_code 0 "$rc" "readable root state did not admit the worker: $out"
+  assert_present "$mate/state/task-m.meta" 'admitted secondmate worker published a record'
+  pass 'root state access and permanent lock failures defer local secondmate workers'
+}
+
 test_machine_concurrent_projects() {
   local case_dir home mate hold wt pid i n a=0 b=0
   case_dir=$(make_case machine-concurrent task-a)
@@ -718,4 +753,5 @@ test_orca_spawn_is_admitted_under_the_shared_project_lock
 
 test_machine_ceiling_across_projects
 test_machine_memory_and_unreadable
+test_machine_root_lock_refuses_inaccessible_state
 test_machine_concurrent_projects
