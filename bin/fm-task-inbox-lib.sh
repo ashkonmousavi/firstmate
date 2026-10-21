@@ -64,8 +64,8 @@
 # the caller surfaces that failure instead of retrying silently; a concurrently
 # removed inbox is a quiet no-op. Escalation deliberately queues the wake before
 # writing the deduplication marker: normal polls surface a message once, while a
-# crash or marker failure may produce a rare duplicate rather than silently lose
-# a wake.
+# local crash or marker failure may produce a rare duplicate rather than silently
+# lose a wake. The remote leg preserves wake identity as described below.
 #
 # Retry ring (fm_task_inbox_mark_retry): only while config/wait-no-turns is
 # present. A fire-and-forget record never enters the ladder, but when
@@ -86,6 +86,15 @@
 # beside the records, and the parent queues the escalation wake. It rings a
 # busy mate as the remote enqueue ring does, so it keeps no busy budget, and
 # no fire-and-forget retry is owed there.
+# The parent passes its effective grace and ring maximum to each remote due
+# check; individual hops have a fixed 30-second bound. Failed hops leave the
+# remote refusal's first stderr line (or exit status) in the parent's triage log
+# and retry on a later tick, without waking firstmate for routine re-rings.
+# Confirmed unavailable endpoints or unwritable ring bookkeeping escalate through
+# the same stale-wake path as a spent budget. Each record uses the stable wake
+# key remote-inbox:<id>:<record>, so a failed escalation-marker hop is retried
+# without appending another wake while that key remains queued; the remote
+# escalation marker suppresses later due actions once written.
 #
 # Inbox names containing bytes outside printable ASCII are unsupported. The
 # doorbell refuses them rather than sending terminal control bytes to a pane.
