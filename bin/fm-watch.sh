@@ -1299,10 +1299,21 @@ remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
 # lands in the triage log, so a slow host defers a ring to the next tick.
 # Like the liveness tick it finishes every mate before waking once on the
 # first escalation. Ordinary supervision runs it detached through
-# remote_inbox_detached, so a slow host never stalls the cycle.
+# remote_inbox_detached, so a slow host never stalls the cycle; the pass lock
+# keeps a pass orphaned by a restarted watcher from overlapping the next one.
 remote_inbox_tick() {
-  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key queued first_reason=''
-  [ "$(age_of "$tick_marker")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
+  local lock="$STATE/.remote-inbox.lock" rc=0
+  REMOTE_INBOX_REASON=
+  [ "$(age_of "$STATE/.remote-inbox-tick")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
+  fm_lock_try_acquire "$lock" || return 0
+  remote_inbox_pass || rc=$?
+  fm_lock_release "$lock"
+  [ -z "$REMOTE_INBOX_REASON" ] || wake "$REMOTE_INBOX_REASON"
+  return "$rc"
+}
+
+remote_inbox_pass() {
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key appended first_reason=''
   [ -n "$WATCHER_CHECKPOINT_DEADLINE" ] || touch "$tick_marker" || return 1
   while IFS= read -r -d '' meta; do
     checkpoint_deadline_passed && return 124
@@ -1348,10 +1359,15 @@ EOF
     esac
     [ -n "$reason" ] || continue
     notify_key="remote-inbox:$id:$rec"
-    queued=$(fm_wake_queued_keys stale)
-    if ! printf '%s\n' "$queued" | grep -Fx "$notify_key" >/dev/null 2>&1; then
-      fm_wake_append stale "$notify_key" "$reason" || checkpoint_wake_failed $?
+    fm_checkpoint_lock "$FM_WAKE_QUEUE_LOCK" || checkpoint_wake_failed $?
+    if ! fm_wake_queued_keys_locked stale | grep -Fx "$notify_key" >/dev/null 2>&1; then
+      appended=0
+      fm_wake_append_locked stale "$notify_key" "$reason" || appended=$?
+      fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+      [ "$appended" -eq 0 ] || checkpoint_wake_failed "$appended"
       [ -n "$first_reason" ] || first_reason=$reason
+    else
+      fm_lock_release "$FM_WAKE_QUEUE_LOCK"
     fi
     out=$(remote_inbox_hop "$id" escalated "$rec") \
       || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); the next tick retries the marker"
@@ -1359,7 +1375,7 @@ EOF
   if ! checkpoint_deadline_passed; then
     [ -z "$WATCHER_CHECKPOINT_DEADLINE" ] || touch "$tick_marker" || return 1
   fi
-  [ -z "$first_reason" ] || wake "$first_reason"
+  REMOTE_INBOX_REASON=$first_reason
   checkpoint_deadline_passed && return 124
   return 0
 }

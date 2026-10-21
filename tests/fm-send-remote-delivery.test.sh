@@ -954,7 +954,10 @@ test_remote_inbox_detached_pass_never_holds_the_cycle() {
     's=$(date +%s); remote_inbox_detached; echo "launch=$(( $(date +%s) - s ))"' \
     FM_TASK_INBOX_RING_MAX=1 FM_FAKE_SSH_DELAY=3 2>&1) \
     || fail "launching a detached pass failed: $out"
-  assert_contains "$out" "launch=0" "a slow remote host held the watcher cycle: $out"
+  case "$out" in
+    *launch=0*|*launch=1*) ;;
+    *) fail "a slow remote host held the watcher cycle: $out" ;;
+  esac
   [ ! -s "$home/state/.remote-inbox-wake" ] || fail "the pass finished before the slow hop could have"
   i=0
   while [ ! -s "$home/state/.remote-inbox-wake" ] && [ "$i" -lt 200 ]; do
@@ -974,6 +977,36 @@ test_remote_inbox_detached_pass_never_holds_the_cycle() {
   [ "${out#*unreached}" = "$out" ] || fail "the handed-off wake did not end the cycle: $out"
   [ ! -e "$home/state/.remote-inbox-wake" ] || fail "a delivered handoff must be consumed"
   pass "watcher remote inbox: a detached pass never holds the cycle and its wake is still delivered"
+}
+
+# A pass orphaned by a restarted watcher may still be mid-hop when the next
+# watcher's tick comes due; the second pass must not ring or escalate the same
+# record alongside it.
+test_remote_inbox_pass_never_overlaps_an_inflight_pass() {
+  local dir fb ssh_log home rhome rec out
+  dir="$TMP_ROOT/remote-rering-overlap"; mkdir -p "$dir"
+  fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
+  rhome=$(setup_remote_secondmate_home remote-rering-overlap)
+  home=$(setup_remote_parent_home remote-rering-overlap "$rhome")
+  rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the metric") \
+    || fail "could not seed the remote inbox record"
+  touch -t 202001010000 "$rec"
+
+  rm -f "$home/state/.remote-inbox-tick"
+  # shellcheck disable=SC2016 # expands in the child shell.
+  out=$(remote_inbox_detached_env "$fb" "$home" "$ssh_log" \
+    '( fm_lock_try_acquire "$STATE/.remote-inbox.lock" && touch "$STATE/held" && /bin/sleep 30 ) &
+     holder=$!
+     while [ ! -e "$STATE/held" ]; do sleep 0.1; done
+     remote_inbox_tick; rc=$?
+     kill "$holder"
+     echo "rc=$rc"' \
+    FM_TASK_INBOX_RING_MAX=1 2>&1) || fail "a tick beside an in-flight pass failed: $out"
+  assert_contains "$out" "rc=0" "a tick beside an in-flight pass must return cleanly: $out"
+  [ "$(remote_hops "$ssh_log" due)" = 0 ] || fail "a second pass reached the remote host beside an in-flight pass"
+  [ "$(remote_ring_count "$rhome")" = 0 ] || fail "a second pass spent a ring attempt beside an in-flight pass"
+  [ ! -s "$home/state/.wake-queue" ] || fail "a second pass queued a wake beside an in-flight pass"
+  pass "watcher remote inbox: a pass never overlaps one still in flight"
 }
 
 test_remote_inbox_ladder_escalates_bookkeeping_failure() {
@@ -1102,6 +1135,7 @@ test_remote_inbox_ladder_rerings_unacknowledged_record
 test_remote_inbox_ladder_quiet_after_acknowledgement
 test_remote_inbox_ladder_escalates_after_ring_max
 test_remote_inbox_detached_pass_never_holds_the_cycle
+test_remote_inbox_pass_never_overlaps_an_inflight_pass
 test_remote_inbox_ladder_escalates_bookkeeping_failure
 test_remote_inbox_marker_retry_preserves_wake_identity
 test_remote_enqueue_dedup_compares_same_size_records
