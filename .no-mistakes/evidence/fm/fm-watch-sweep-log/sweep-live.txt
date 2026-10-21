@@ -1,0 +1,166 @@
+ok - one sweep logs the quiet success and failure in the freshness reader format
+ok - sweep log keeps the newest 10000 lines including this sweep
+ok - unwritable sweep log leaves every check and its failure wake running
+ok - a state check killed at its bound is reported as a timeout on the installed and fallback paths
+ok - a failing state check wakes once per failure episode, without its stderr, and a clean run ends it
+registered: state/quiet.check.sh
+ok - quiet checks keep logging across repeated sweeps
+ok - symlink telemetry destination remains untouched while checks execute
+
+=== sweep-log ===
+
+sweep-log/watch-log.out
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log/state/b-fail.check.sh: failed with exit 7
+
+sweep-log/state/.check-run-a-ok
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log/state/a-ok.check.sh
+identity=sha256:fb99eae951f1adc14d1a4a9a186c21930db2786b3208c94c7d9af382bd1048e5
+last_run=1792569932
+exit=0
+result=ok
+last_ok=1792569932
+failing_since=
+
+sweep-log/state/.check-run-b-fail
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log/state/b-fail.check.sh
+identity=sha256:8e394c7b64d12f09e1a03b18a59d7009a78b7268bba3203fb0cc27bde198be43
+last_run=1792569932
+exit=7
+result=failed
+last_ok=
+failing_since=1792569932
+
+sweep log (first and last lines for capped case):
+1792569932 a-ok ok
+1792569932 b-fail failed
+
+=== sweep-log-cap ===
+
+sweep-log-cap/watch-cap.out
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log-cap/state/b-fail.check.sh: failed with exit 7
+
+sweep-log-cap/state/.check-run-a-ok
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log-cap/state/a-ok.check.sh
+identity=sha256:fb99eae951f1adc14d1a4a9a186c21930db2786b3208c94c7d9af382bd1048e5
+last_run=1792569935
+exit=0
+result=ok
+last_ok=1792569935
+failing_since=
+
+sweep-log-cap/state/.check-run-b-fail
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log-cap/state/b-fail.check.sh
+identity=sha256:8e394c7b64d12f09e1a03b18a59d7009a78b7268bba3203fb0cc27bde198be43
+last_run=1792569935
+exit=7
+result=failed
+last_ok=
+failing_since=1792569935
+
+sweep log (first and last lines for capped case):
+10000
+3 old ok
+4 old ok
+1792569935 a-ok ok
+1792569935 b-fail failed
+
+=== sweep-log-unwritable ===
+
+sweep-log-unwritable/watch-unwritable.out
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log-unwritable/state/b-fail.check.sh: failed with exit 7
+
+sweep-log-unwritable/state/.check-run-a-ok
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log-unwritable/state/a-ok.check.sh
+identity=sha256:fb99eae951f1adc14d1a4a9a186c21930db2786b3208c94c7d9af382bd1048e5
+last_run=1792569937
+exit=0
+result=ok
+last_ok=1792569937
+failing_since=
+
+sweep-log-unwritable/state/.check-run-b-fail
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-log-unwritable/state/b-fail.check.sh
+identity=sha256:8e394c7b64d12f09e1a03b18a59d7009a78b7268bba3203fb0cc27bde198be43
+last_run=1792569938
+exit=7
+result=failed
+last_ok=
+failing_since=1792569938
+
+=== check-timeout-0 ===
+
+check-timeout-0/watch-timeout.out
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/check-timeout-0/state/slow.check.sh: timed out after 1s
+
+check-timeout-0/state/.check-run-slow
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/check-timeout-0/state/slow.check.sh
+identity=sha256:65121d50c2dc179093daf2ed86186605ef2e8967df284c747563dbff45307515
+last_run=1792569941
+exit=124
+result=timed-out
+last_ok=
+failing_since=1792569941
+
+sweep log (first and last lines for capped case):
+1792569941 slow failed
+
+=== check-timeout-1 ===
+
+check-timeout-1/watch-timeout.out
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/check-timeout-1/state/slow.check.sh: timed out after 1s
+
+check-timeout-1/state/.check-run-slow
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/check-timeout-1/state/slow.check.sh
+identity=sha256:65121d50c2dc179093daf2ed86186605ef2e8967df284c747563dbff45307515
+last_run=1792569944
+exit=124
+result=timed-out
+last_ok=
+failing_since=1792569944
+
+sweep log (first and last lines for capped case):
+1792569944 slow failed
+
+=== repeat-quiet ===
+
+repeat-quiet/watch-repeat.out
+
+repeat-quiet/state/.check-run-quiet
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/repeat-quiet/state/quiet.check.sh
+identity=sha256:7df0a4eb2634ac20722186dea32f53d478d2f40a23a45f422a6c71b36b18a252
+last_run=1792569981
+exit=0
+result=ok
+last_ok=1792569981
+failing_since=
+
+sweep log (first and last lines for capped case):
+1792569978 quiet ok
+1792569981 quiet ok
+1792569983 quiet ok
+
+=== sweep-symlink ===
+
+sweep-symlink/watch-symlink.out
+check: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-symlink/state/b-fail.check.sh: failed with exit 7
+
+sweep-symlink/state/.check-run-a-ok
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-symlink/state/a-ok.check.sh
+identity=sha256:fb99eae951f1adc14d1a4a9a186c21930db2786b3208c94c7d9af382bd1048e5
+last_run=1792569985
+exit=0
+result=ok
+last_ok=1792569985
+failing_since=
+
+sweep-symlink/state/.check-run-b-fail
+check=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQBTV5X4QBJGSTMSZ171XV/.sweep-validation/tmp/fm-wake-tests.VSV5T7/sweep-symlink/state/b-fail.check.sh
+identity=sha256:8e394c7b64d12f09e1a03b18a59d7009a78b7268bba3203fb0cc27bde198be43
+last_run=1792569985
+exit=7
+result=failed
+last_ok=
+failing_since=1792569985
+
+sweep log (first and last lines for capped case):
+sentinel
