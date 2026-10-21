@@ -1125,12 +1125,19 @@ fm_worker_shell_quote() {
   printf "'"
 }
 
+# The report text is data, never shell. bin/fm-status-append.sh owns the
+# write, the time stamp, and the one fleet-ledger hook. {state} is the only
+# placeholder the worker replaces in this command; the line of text replaces
+# {one short line} inside the quoted heredoc.
 fm_worker_status_append() {  # <root> <state-dir> <task-id> <config-dir>
-  local STATUS_FILE
-  STATUS_FILE=$(fm_worker_shell_quote "$2/$3.status")
-  local FM_ROOT=$1 CONFIG=$4 STATUS_APPEND
-  STATUS_APPEND="echo \"{state} [at=<epoch>]: {one short line}\" >> $STATUS_FILE && { [ ! -e $(fm_worker_shell_quote "$CONFIG/fleet-ledger") ] || $(fm_worker_shell_quote "$FM_ROOT/bin/fm-fleet-ledger.sh") appended $(fm_worker_shell_quote "$CONFIG") $STATUS_FILE >/dev/null 2>&1 || true; }"
-  printf '%s\n' "$STATUS_APPEND"
+  local status_file helper config
+  status_file=$(fm_worker_shell_quote "$2/$3.status")
+  helper=$(fm_worker_shell_quote "$1/bin/fm-status-append.sh")
+  config=$(fm_worker_shell_quote "$4")
+  printf '%s\n' \
+    "FM_CONFIG_OVERRIDE=$config $helper $status_file {state} <<'EOF'" \
+    '{one short line}' \
+    'EOF'
 }
 
 fm_worker_pause_block() {  # <pause-verb>
@@ -1253,8 +1260,10 @@ fm_worker_contract_block() {  # <root> <data> <state> <config> <id> <kind> <mode
 1. Never push to any remote and never open a PR.
 $SCOUT_RULE2
 3. $FORGE_RULE_LINE
-4. Report status by appending one line:
-   \`$STATUS_APPEND\`
+4. Report status by running this command.
+   The report text is data, never shell.
+   Pass --key and --corr before the heredoc when the line needs those tokens.
+$STATUS_APPEND
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
    Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
@@ -1294,8 +1303,10 @@ $RULE1
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
 3. $FORGE_RULE_LINE
-4. Report status by appending one line:
-   \`$STATUS_APPEND\`
+4. Report status by running this command.
+   The report text is data, never shell.
+   Pass --key and --corr before the heredoc when the line needs those tokens.
+$STATUS_APPEND
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
    Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
