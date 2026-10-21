@@ -358,10 +358,8 @@ cmd_inbox() {
   fm_task_inbox_seq_of "$rec_name" >/dev/null || die "invalid inbox record name: $rec_name"
   rec="$dir/$rec_name"
   if [ "$action" = escalated ]; then
-    if [ -f "$rec" ]; then
-      fm_task_inbox_record_escalated "$CONTROL_STATE" "$id" "$rec" \
-        || die "inbox escalation marker could not be written under $dir"
-    fi
+    fm_task_inbox_record_escalated "$CONTROL_STATE" "$id" "$rec" \
+      || die "inbox escalation marker could not be written under $dir"
     printf 'escalated\n'
     return 0
   fi

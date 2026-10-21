@@ -273,25 +273,6 @@ acknowledge_inactive_outcomes() { # <mode> <newline-separated-fingerprints>
   done <<< "$fingerprints"
 }
 
-acknowledge_remote_inboxes() {
-  local keys=$1 key identity id rec out
-  while IFS= read -r key; do
-    [ -n "$key" ] || continue
-    identity=${key#remote-inbox:}
-    id=${identity%%:*}
-    rec=${identity#*:}
-    out=$(fm_run_timed 30 "$SCRIPT_DIR/fm-on.sh" "$id" \
-      fm-remote-secondmate-control.sh inbox "$id" escalated "$rec" < /dev/null) || {
-      printf 'wake drain: remote inbox marker for %s could not be confirmed; wake retained\n' "$key" >&2
-      return 1
-    }
-    [ "$out" = escalated ] || {
-      printf 'wake drain: remote inbox marker for %s was not confirmed; wake retained\n' "$key" >&2
-      return 1
-    }
-  done <<< "$keys"
-}
-
 BRANCH_OUTCOME_INDEX_VERSION=fm-branch-outcome-index-v1
 BRANCH_OUTCOME_INDEX_MAX_BYTES=512
 BRANCH_OUTCOME_INDEX_STATE=ok
@@ -899,18 +880,8 @@ if [ -n "$ACK_THROUGH" ]; then
     ACK_FINGERPRINTS=$(inactive_outcome_fingerprints "$ACK_THROUGH" 'inactive-outcome:' "$MAIN_ROWS_FILE") || exit 1
     ACK_NOTICE_FINGERPRINTS=$(inactive_outcome_fingerprints "$ACK_THROUGH" 'inactive-reconcile:' "$MAIN_ROWS_FILE") || exit 1
   fi
-  if [ "$ACTOR" = branch ]; then
-    ACK_ROWS_FILE=$ELIGIBLE_ROWS_FILE
-  else
-    ACK_ROWS_FILE=$MAIN_ROWS_FILE
-  fi
-  REMOTE_INBOX_ACK_KEYS=$(awk -F '\t' -v cutoff="$ACK_THROUGH" -v seqs="$ACK_ROWS_FILE" '
-    BEGIN { while ((getline line < seqs) > 0) owned[line]=1 }
-    NF >= 5 && $2 ~ /^[0-9]+$/ && $2 <= cutoff && ($2 in owned) && $3 == "stale" && $4 ~ /^remote-inbox:/ && !seen[$4]++ { print $4 }
-  ' "$FM_WAKE_QUEUE") || exit 1
   fm_lock_release "$FM_WAKE_QUEUE_LOCK"
   DRAIN_LOCK_HELD=false
-  acknowledge_remote_inboxes "$REMOTE_INBOX_ACK_KEYS" || exit 1
   if ! acknowledge_inactive_outcomes acknowledge "$ACK_FINGERPRINTS" \
     || ! acknowledge_inactive_outcomes acknowledge-notice "$ACK_NOTICE_FINGERPRINTS"; then
     echo "wake drain: inactive outcome receipt could not be recorded safely" >&2

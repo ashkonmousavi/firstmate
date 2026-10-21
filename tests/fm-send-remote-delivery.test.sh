@@ -951,7 +951,7 @@ test_remote_inbox_ladder_escalates_bookkeeping_failure() {
 }
 
 test_remote_inbox_marker_retry_preserves_wake_identity() {
-  local mode dir fb ssh_log home rhome rec out wakes rows seq generation rc
+  local mode dir fb ssh_log home rhome rec out wakes rows
   for mode in spent bookkeeping unavailable; do
     dir="$TMP_ROOT/remote-marker-retry-$mode"; mkdir -p "$dir"
     fb=$(make_stubs "$dir"); ssh_log="$dir/ssh.log"; : > "$ssh_log"
@@ -981,19 +981,6 @@ SH
     assert_grep 'escalation marker for 001.msg was not written' "$home/state/.watch-triage.log" \
       "marker transport failure must remain visible in triage"
 
-    send_env "$fb" "$home" "$ssh_log" FM_STATE_OVERRIDE="$home/state" \
-      "$DRAIN" > "$dir/drained" 2> "$dir/drain.err" || fail "$mode wake presentation failed"
-    seq=$(awk -F '\t' '$3 == "stale" {print $2}' "$dir/drained")
-    generation=$(sed -n 's/.*--recovery-generation \([^ ]*\).*/\1/p' "$dir/drain.err")
-    [ -n "$seq" ] && [ -n "$generation" ] || fail "$mode drain did not supply an acknowledgement"
-    rc=0
-    send_env "$fb" "$home" "$ssh_log" FM_STATE_OVERRIDE="$home/state" FM_FAKE_SSH_FAIL_INBOX_MARKER=1 \
-      "$DRAIN" --ack-through "$seq" --recovery-generation "$generation" \
-      > "$dir/ack.out" 2> "$dir/ack.err" || rc=$?
-    expect_code 1 "$rc" "$mode acknowledgement must wait for remote marker confirmation"
-    assert_grep 'wake retained' "$dir/ack.err" "failed marker confirmation must explain the retained wake"
-    [ "$(wc -l < "$home/state/.wake-queue")" = "$wakes" ] || fail "$mode acknowledgement erased the pending notification"
-
     out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_FAKE_SSH_FAIL_INBOX_MARKER=1 2>&1) \
       || fail "$mode repeated marker loss failed: $out"
     [ -z "$out" ] || fail "$mode retry emitted a second wake: $out"
@@ -1004,17 +991,10 @@ SH
     [ -z "$out" ] || fail "$mode marker recovery emitted a second wake: $out"
     [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated" 2>/dev/null)" = 001.msg ] \
       || fail "$mode marker must be retried even when the wake is already queued"
-    [ "$(remote_hops "$ssh_log" escalated)" = 4 ] || fail "$mode must retry each failed marker hop"
+    [ "$(remote_hops "$ssh_log" escalated)" = 3 ] || fail "$mode must retry each failed marker hop"
     rows=$(drain_out "$home")
     [ "$(printf '%s\n' "$rows" | awk -F '\t' '$3 == "stale" {n++} END {print n+0}')" = 1 ] \
       || fail "$mode marker retries must deliver one stale row to the queue consumer"
-    send_env "$fb" "$home" "$ssh_log" FM_STATE_OVERRIDE="$home/state" \
-      "$DRAIN" --ack-through "$seq" --recovery-generation "$generation" \
-      > "$dir/ack.out" 2> "$dir/ack.err" || fail "$mode confirmed marker must permit acknowledgement: $(cat "$dir/ack.err")"
-    [ ! -s "$home/state/.wake-queue" ] || fail "$mode confirmed notification was not consumed"
-    out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" 2>&1) \
-      || fail "$mode tick after acknowledgement failed: $out"
-    [ -z "$out" ] && [ ! -s "$home/state/.wake-queue" ] || fail "$mode acknowledged notification was queued again"
 
     mv "$rec" "$rhome/state/parent-route/rsm.inbox/handled/"
     rec=$(fm_task_inbox_write_idempotent "$rhome/state/parent-route" rsm "please rename the second metric") \
@@ -1023,12 +1003,7 @@ SH
     out=$(remote_inbox_tick_env "$fb" "$home" "$ssh_log" FM_TASK_INBOX_RING_MAX=0 2>&1) \
       || fail "$mode next-record escalation failed: $out"
     assert_contains "$out" 'remote record 002.msg' "a different record must get its own wake"
-    [ "$(wc -l < "$home/state/.wake-queue")" -eq 1 ] || fail "the first record's acknowledgement suppressed the next record"
-    send_env "$fb" "$home" "$ssh_log" "$ROOT/bin/fm-on.sh" rsm \
-      fm-remote-secondmate-control.sh inbox rsm escalated 001.msg > "$dir/old-marker.out" \
-      || fail "confirming an acknowledged inbox record must succeed"
-    [ "$(cat "$rhome/state/parent-route/rsm.inbox/.escalated")" = 002.msg ] \
-      || fail "confirming an old handled record must preserve the newer suppression marker"
+    [ "$(wc -l < "$home/state/.wake-queue")" -eq 2 ] || fail "the first record's queued wake suppressed the next record"
   done
   pass "watcher remote inbox: marker retries preserve one notification per record"
 }
