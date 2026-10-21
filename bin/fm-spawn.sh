@@ -259,8 +259,8 @@
 #   lock through record publication (fm-capacity-lib.sh owns the rules).
 #   Missing machine facts also defer with exit 75.
 #   A batch reports such a pair as `batch: DEFERRED` and exits 75 when nothing
-#   else failed. A relaunch and a --secondmate spawn are never counted against
-#   capacity.
+#   else failed. Relaunch and --secondmate startup bypass admission; the shared
+#   readers own which existing records hold capacity.
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch

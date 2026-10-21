@@ -1067,7 +1067,7 @@ Per-machine Cursor `cli-config.json` attribution-off is not this contract: it do
 ## Machine capacity (config/lane-capacity)
 
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch.
-For example, `config/lane-capacity` containing `5 3` caps the machine at five workers and reserves three GB of available memory.
+For example, `config/lane-capacity` containing `5 3` caps the machine at five workers and reserves three GiB of available memory.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, walker exemptions, refusal rules and locking contract.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 This Linux admission check requires `/proc/meminfo`; an unsupported or unreadable host gets no placement.
@@ -1075,7 +1075,7 @@ Relaunch and persistent secondmate startup remain available to recover existing 
 Project limits below apply in addition to machine admission.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
-It exits 75 when room cannot be proved, leaving a queued task available for retry.
+It exits 75 when room cannot be proved and does not change task state.
 `bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
 External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
 
@@ -1088,7 +1088,7 @@ Advice never reserves a lane, and spawn always rereads live facts under its lock
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.
-Without it, no additional per-project cap applies; the lane limits and resource-admission rules in `AGENTS.md` section 7 still apply.
+Without it, no additional per-project cap applies; [machine admission](#machine-capacity-configlane-capacity) and the dispatch rules in `AGENTS.md` section 7 still apply.
 The file lives in the machine's root Firstmate home, so every local secondmate home reads the same limit, and it holds one line per project:
 
 ```text
