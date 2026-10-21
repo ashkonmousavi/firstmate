@@ -1,4 +1,5 @@
 """End-to-end backstop cases: fake transports, real durable inbox and processes."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -268,6 +269,82 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
         self.assertEqual(self.reader_calls()[0][1], 'fm-remote-file.sh')
 
+    def test_report_body_cannot_advance_mirror_or_clear_incident(self):
+        (self.state / '.last-watcher-beat').touch()
+        mirrored = self.state / '.remote-reply-mirrored-q-server'
+        mirrored.write_text('done [at=1000]: reproduced case at=9000;\n')
+        self.config['remote_file'] = 'done [at=1060]: pending, example [at=9999]\n'
+        self.run_guard()
+        self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
+        incident = self.memory()['episodes']['lag-q-server']
+        mirrored.write_text('done [at=1000]: body [at=999999999999]\n')
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+        mirrored.write_text('done [at=1060]: mirrored; body at=9999;\n')
+        self.run_guard()
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+
+    def test_permissive_timestamp_cursor_is_rebuilt(self):
+        (self.state / '.last-watcher-beat').touch()
+        body = 'done [at=1060]: reply\n'
+        self.config['remote_file'] = body
+        (self.state / '.main-backstop.json').write_text(json.dumps({
+            'readers': {'q-server': {'offset': len(body),
+                                    'prefix': hashlib.sha256(body.encode()).hexdigest(),
+                                    'pending': []}}}))
+        self.run_guard()
+        self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
+        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-file.sh')
+
+    def test_invalid_mirror_timestamp_is_unverified_without_clearing_incident(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote'] = 1060
+        self.run_guard()
+        incident = self.memory()['episodes']['lag-q-server']
+        for line in ('done: at=9000;', 'done [at=1000] [at=9000]: duplicate',
+                     'done [at=01000]: leading zero', 'done [at=-1]: negative',
+                     'done [at=1000.0]: fraction', 'done [at=1000000000000]: overflow'):
+            with self.subTest(line=line):
+                (self.state / '.remote-reply-mirrored-q-server').write_text(line+'\n')
+                self.run_guard()
+                self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+                self.assertIn('q-server', self.memory()['read_fails'])
+        self.assertIn('REPLY DELIVERY UNVERIFIED', self.notes())
+
+    def test_remote_header_contract_across_whole_delta_and_replacement(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote_file'] = 'done [at=1060]: body at=1; [at=9999]\n'
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [1060])
+        self.config['remote_file'] += 'done [corr=example] [at=1200]: body at=2;\n'
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [1060, 1200])
+        self.config['remote_file'] = 'done [at=1300] [key=example]: replacement at=3;\n'
+        self.run_guard()
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [1060, 1200, 1300])
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+
+    def test_invalid_remote_line_does_not_commit_delta_progress(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        offset = self.memory()['readers']['q-server']['offset']
+        for line in ('done: at=1060;', 'done [at=1060] [at=9000]: duplicate',
+                     'done [at=01060]: leading zero', 'done [at=1000000000000]: overflow'):
+            with self.subTest(line=line):
+                self.config['remote_file'] = 'working [at=1000]: remote reply\n'+line+'\n'
+                self.run_guard()
+                self.assertEqual(self.memory()['readers']['q-server']['offset'], offset)
+                self.assertIn('q-server', self.memory()['read_fails'])
+        self.assertIn('REPLY DELIVERY UNVERIFIED', self.notes())
+
+    def test_canonical_timestamp_upper_bound_is_accepted(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 999999999999
+        self.config['remote_file'] = 'done [at=999999999999]: maximum timestamp\n'
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [999999999999])
+
     def test_first_fresh_reply_after_long_silence_is_not_late(self):
         (self.state / '.last-watcher-beat').touch()
         self.now = 100000
@@ -284,7 +361,7 @@ os.execv(real,[command]+sys.argv[3:])
         mirrored.write_text('done [at=1060]: first\n')
         self.run_guard()
         self.assertNotIn('lag-q-server', self.memory()['episodes'])
-        self.assertEqual(self.memory()['readers']['q-server']['pending'], [4990])
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [4990])
         self.now = 6000
         self.run_guard()
         self.assertIn('1010s (oldest_at=4990 ingested_at=1060)', self.notes())
@@ -297,7 +374,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.config['remote_file'] = 'done [at=4990]: fresh replacement\n'
         self.run_guard()
         self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
-        self.assertEqual(self.memory()['readers']['q-server']['pending'], [1060, 4990])
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [1060, 4990])
 
     def test_healthy_beat_and_caught_up_reply_are_quiet(self):
         (self.state / '.last-watcher-beat').touch()
@@ -369,12 +446,12 @@ os.execv(real,[command]+sys.argv[3:])
     def test_remote_source_larger_than_transfer_bound_still_verifies(self):
         (self.state / '.last-watcher-beat').touch()
         self.config['remote_file'] = ''.join(
-            'working [at=%d]: reply %d\n' % (5000 + i * 60, i) for i in range(40000))
+            'working [at=%d]: reply %d; at=1; [at=999999999999]\n' % (5000 + i * 60, i) for i in range(40000))
         self.assertGreater(len(self.config['remote_file']), 1048576)
         newest = 5000 + 39999 * 60
         (self.state / 'q-server.status').write_text('done [at=%d]: caught up\n' % newest)
         (self.state / '.remote-reply-mirrored-q-server').write_text('done [at=%d]: caught up\n' % newest)
-        for _ in range(8):
+        for _ in range(16):
             self.run_guard()
             if self.memory()['readers']['q-server']['offset'] == len(self.config['remote_file'].encode()):
                 self.run_guard()
@@ -382,7 +459,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertNotIn('q-server', self.memory()['read_fails'])
         self.assertFalse(any('REPLY DELIVERY LAG' in p.read_text()
                              for p in (self.state / 'inbox').glob('*.note')))
-        self.assertEqual(self.memory()['readers']['q-server']['pending'], [])
+        self.assertEqual(self.memory()['readers']['q-server']['pending_at'], [])
         cold_calls = len(self.reader_calls())
         self.run_guard()
         self.assertNotIn('lag-q-server', self.memory()['episodes'])
@@ -392,8 +469,8 @@ os.execv(real,[command]+sys.argv[3:])
         (self.state / '.last-watcher-beat').touch()
         self.now = 10000
         self.config['remote_file'] = ''.join(
-            'working [at=%d]: reply %d\n' % (5000 + i * 60, i) for i in range(40000))
-        for _ in range(8):
+            'working [at=%d]: reply %d; at=1; [at=999999999999]\n' % (5000 + i * 60, i) for i in range(40000))
+        for _ in range(16):
             self.run_guard()
             if 'lag-q-server' in self.memory()['episodes']:
                 break

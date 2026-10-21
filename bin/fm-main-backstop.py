@@ -93,15 +93,15 @@ def run(argv, env):
     raise ProbeError('command failed or timed out')
 
 
-def run_status(argv, env, timeout=15):
+def run_status(argv, env, timeout=15, input_data=None):
     """One bounded attempt reporting (exit, stdout, stderr) for any command
     exit, so a caller can classify refusals; only a timeout or a spawn failure
     raises ProbeError."""
     try:
-        process = subprocess.Popen(argv, env=env, stdin=subprocess.DEVNULL,
+        process = subprocess.Popen(argv, env=env, stdin=subprocess.PIPE if input_data is not None else subprocess.DEVNULL,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    start_new_session=True)
-        stdout, stderr = process.communicate(timeout=timeout)
+        stdout, stderr = process.communicate(input=input_data, timeout=timeout)
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
         process.communicate(timeout=2)
@@ -112,10 +112,18 @@ def run_status(argv, env, timeout=15):
 
 
 def stamps(text):
-    found = [int(s) for s in re.findall(r'\bat=(\d+)(?=[\] ;]|$)', text)]
-    if text.strip() and not found:
+    rc, output, _ = run_status(['bash', '-c', r'''
+. "$1" || exit 1
+while IFS= read -r line || [ -n "$line" ]; do
+    [ -n "${line//[$' \t\r']/}" ] || continue
+    status_line_at_epoch "$line" || exit 1
+    printf '\n'
+done
+''', 'backstop-timestamps', str(Path(__file__).parent / 'fm-classify-lib.sh')],
+                               os.environ, input_data=text.encode('utf-8'))
+    if rc != 0:
         raise ProbeError('reply timestamps unavailable')
-    return found
+    return [int(value) for value in output.splitlines()]
 
 
 def newest(text):
@@ -128,7 +136,7 @@ def valid_reader(record):
         return False
     try:
         offset = int(record['offset'])
-        pending = record['pending']
+        pending = record['pending_at']
         prefix = str(record['prefix'])
     except (KeyError, TypeError, ValueError):
         return False
@@ -169,10 +177,10 @@ def delta_call(code, env, mate, offset, prefix):
 def drain_delta(code, env, readers, mate, local):
     for _ in range(DELTA_READ_BUDGET):
         record = readers[mate]
-        record['pending'] = sorted({stamp for stamp in record['pending'] if stamp > local})
+        record['pending_at'] = sorted({stamp for stamp in record['pending_at'] if stamp > local})
         fields, payload = delta_call(code, env, mate, record['offset'], record['prefix'])
         if fields is None:
-            return min(record['pending'], default=0)
+            return min(record['pending_at'], default=0)
         if fields.get('status') == 'continuity-broken':
             return None
         if int(fields['payload_bytes']) != len(payload):
@@ -180,7 +188,7 @@ def drain_delta(code, env, readers, mate, local):
         found = stamps(payload.decode('utf-8', errors='replace'))
         readers[mate] = {'offset': int(fields['to_offset']),
                          'prefix': fields['to_prefix_sha256'],
-                         'pending': sorted(set(record['pending']) | {stamp for stamp in found if stamp > local})}
+                         'pending_at': sorted(set(record['pending_at']) | {stamp for stamp in found if stamp > local})}
     raise ProbeError('remote reply tail not reached within read budget')
 
 
@@ -191,7 +199,7 @@ def remote_oldest(code, env, memory, mate, local, audit):
         oldest = drain_delta(code, env, readers, mate, local)
         if oldest is not None:
             return oldest
-        pending = readers[mate]['pending']
+        pending = readers[mate]['pending_at']
         audit('read %s log moved; resyncing cursor' % mate)
     rc, body, error = run_status([str(code / 'bin/fm-on.sh'), mate,
                                   'fm-remote-file.sh', 'get', DELTA_LOG,
@@ -201,12 +209,12 @@ def remote_oldest(code, env, memory, mate, local, audit):
         pending = sorted(set(pending) | {stamp for stamp in found if stamp > local})
         readers[mate] = {'offset': len(body),
                          'prefix': hashlib.sha256(body).hexdigest(),
-                         'pending': pending}
+                         'pending_at': pending}
         return min(pending, default=0)
     if rc != 1 or b'file exceeds max-bytes' not in error:
         raise ProbeError('command failed or timed out')
     readers[mate] = {'offset': 0, 'prefix': hashlib.sha256(b'').hexdigest(),
-                     'pending': pending}
+                     'pending_at': pending}
     oldest = drain_delta(code, env, readers, mate, local)
     if oldest is None:
         raise ProbeError('remote reply log kept moving')

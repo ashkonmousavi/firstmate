@@ -1,7 +1,7 @@
 {
   "scope": {
     "base": "2c93247f77cfa4c003a1bdc52938e6913805a442",
-    "reviewed_head": "e80d1a629baec982064b39bc5da62b82ffda760f"
+    "reviewed_head": "eb1b03b407616bae1a422d98b40e443b91ad02b0"
   },
   "provenance": "Current review findings independently checked against executable paths; prior inventory retained separately below.",
   "findings": {
@@ -155,6 +155,48 @@
         "corrected_case_command": "bash -c '. tests/lib.sh; export ROOT; python3 tests/fm-main-backstop.test.py Backstop.test_no_ingestion_evidence_does_not_use_local_notices'",
         "coverage": "Whole-file, delta, replacement, oversized and partial-budget scans; controlled-clock close-emission and fresh-after-silence examples; partial mirroring, old cursor migration, durable incident recovery, and the retained draft-safe nudge tests.",
         "old_code_execution": "Not run; all initial changes preceded the focused verification. Only the failing test expectation was corrected before its single-case recheck."
+      }
+    },
+    "review-timestamp-body": {
+      "invariant": "Only the canonical per-line header timestamp may affect remote pending stamps, mirror watermarks, elapsed delay or incident clearing.",
+      "cause": "The shared Python regex accepted at= tokens in report bodies and did not enforce the existing header grammar, canonical decimals or 12-digit bound.",
+      "affected_occurrences": [
+        "bin/fm-main-backstop.py:stamps",
+        "bin/fm-main-backstop.py:newest local mirror watermark",
+        "bin/fm-main-backstop.py:drain_delta delta and oversized reads",
+        "bin/fm-main-backstop.py:remote_oldest whole-file and replacement reads",
+        "bin/fm-main-backstop.py:valid_reader cached timestamp provenance",
+        "bin/fm-main-backstop.py:main elapsed delay and incident clearing"
+      ],
+      "axes": [
+        "whole-file",
+        "delta",
+        "replacement",
+        "oversized bounded scan",
+        "mirror watermark",
+        "incident clearing",
+        "old permissively parsed cursor migration",
+        "body at= tokens and bracketed tags",
+        "missing header timestamp",
+        "duplicate header tags",
+        "noncanonical decimals",
+        "negative and fractional values",
+        "12-digit upper bound",
+        "unreadable timestamp alarm"
+      ],
+      "resolution": "The shared stamps boundary invokes status_line_at_epoch from bin/fm-classify-lib.sh for each nonblank line over bounded stdin. Invalid timestamps make the observation unverified. The pending_at cursor field replaces the old pending field, forcing reconstruction of cursors that could have omitted replies under a falsely advanced watermark.",
+      "negative_evidence": [
+        "No second Python timestamp grammar or bound is introduced.",
+        "Both remote read functions and the mirror reader still converge on stamps.",
+        "Elapsed oldest-unmirrored calculations, draft-safe nudge and fixture cleanup logic are unchanged.",
+        "Declined scope and Grok findings remain unchanged."
+      ],
+      "verification": {
+        "command": "bash bin/fm-test-run.sh --jobs 1 tests/fm-main-backstop.test.sh",
+        "oracle": "The documented status_line_at_epoch contract defines a single header tag before the first colon, canonical unsigned decimal up to 12 digits. Mirrored=1000 with body at=9000 cannot hide pending=1060 at now=5000: the observable durable lag is 3940 seconds; malformed timestamps must leave observations unverified rather than advance or clear incidents.",
+        "result": "2026-10-21: PASS; Ran 44 tests in 196.613s; OK; focused runner exit status 0.",
+        "evidence": ".no-mistakes/review-fixes/backstop-canonical-timestamps.log",
+        "old_code_execution": "Not run; all fixes preceded one final focused verification invocation."
       }
     }
   },
