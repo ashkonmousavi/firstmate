@@ -3,14 +3,21 @@
 
 Usage: fm-main-backstop.py --home PATH [--code-root PATH] [--mate ID ...]
 Run every three minutes. After a five-minute watcher silence with supervision
-work, discover a unique live Claude/Codex primary in this exact home and nudge
-it so its own turn-end owner re-arms. Never launches or kills an agent/watcher,
+work and no state/.afk record, discover a unique live Claude/Codex primary in
+this exact home and nudge it so its own turn-end owner re-arms.
+Successful nudges are at least five minutes apart.
+Never launches or kills an agent/watcher,
 never types into a shell, and never treats data/main-pane as authority.
-A failed discovery/send, registered reply runner read as not alive or remote
-log unreadable on two consecutive passes, or reply timestamp lag above fifteen
+A failed discovery/send, a registered reply runner read as not alive on two
+consecutive passes, remote/local timestamp reads failing on two consecutive
+passes, or reply lag above fifteen
 minutes becomes a durable fm-inbox note and check wake, visible at the next
 drain even when no watcher/pane is alive.
 Only explicitly supplied --mate ids are monitored.
+Reply lag compares remote at= stamps with state/.remote-reply-mirrored-<mate>;
+local status notices cannot advance that ingestion watermark, and a missing
+or empty watermark counts as zero.
+Reply monitoring remains active during .afk.
 Remote reads use only existing fm-on read paths: one bounded fm-remote-file
 get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
 lines. A moved log re-reads its current tail, and a source already past the
