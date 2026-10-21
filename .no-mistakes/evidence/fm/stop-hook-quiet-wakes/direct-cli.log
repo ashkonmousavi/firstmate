@@ -1,0 +1,9 @@
+1
+BEFORE: raw wake rows
+1792559591	1	signal	mate.status	signal: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EBHD0GSJSCV030DA3SZB10/.gate-test/cli-home/state/mate.status
+1792559592	2	check	rearm-resurface	check: rearm-resurface
+1792559594	3	check	supervision-host-return:1	check: supervision-host outcome 1 for mate [routine]
+PROVEN ROUTINE: cutoff and recovery generation: 3	773133.1792559591.jgB5Vj
+AFTER: queue bytes=0; recovery=acked:downtime:773133.1792559591.jgB5Vj
+presentation cursor .status-presentation-cursor remains absent
+presentation cursor .branch-outcomes-cursor remains absent

@@ -1,0 +1,5 @@
+ok - auto-arm: mixed after routine consumption retains handling and unread obligations
+ok - auto-arm: uncertain after routine consumption retains handling and unread obligations
+ok - auto-arm: malformed after routine consumption retains handling and unread obligations
+ok - auto-arm: ack-failed after routine consumption retains handling and unread obligations
+ok - auto-arm: captain after routine consumption retains handling and unread obligations

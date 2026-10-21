@@ -1,0 +1,342 @@
+
+FIXTURE=quiet-all CASE=test_all_routine_wakes_are_acknowledged_without_a_turn
+HOOK_EXIT=0
+HOOK_OUTPUT_BEGIN
+
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:715628.1792559510.rwyGG2
+
+STATE consumed-before-injection: absent
+STATE .wake-queue: 
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: acked:downtime:715628.1792559510.rwyGG2
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 722257
+728279
+
+
+FIXTURE=quiet-empty-rearm CASE=test_empty_rearm_and_routine_host_return_stay_quiet
+HOOK_EXIT=0
+HOOK_OUTPUT_BEGIN
+
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:730643.1792559530.NmPuXW
+
+STATE consumed-before-injection: absent
+STATE .wake-queue: 
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: acked:downtime:730643.1792559530.NmPuXW
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 736326
+741094
+
+
+FIXTURE=quiet-host-return CASE=test_empty_rearm_and_routine_host_return_stay_quiet
+HOOK_EXIT=0
+HOOK_OUTPUT_BEGIN
+
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:742298.1792559550.FiyL9a
+
+STATE consumed-before-injection: absent
+STATE .wake-queue: 
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: acked:downtime:742298.1792559550.FiyL9a
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 748070
+755383
+
+
+FIXTURE=quiet-then-mixed CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:757086.1792559569.4vB3YB
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559584	4	check	rearm-resurface	check: rearm-resurface
+1792559585	5	check	real-event	check: approval required
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:767989.1792559584.XCPlZy
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 762451
+767944
+
+
+FIXTURE=quiet-then-uncertain CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:774135.1792559593.uU29aQ
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559609	4	check	rearm-resurface	check: rearm-resurface
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+surprise: inspect this
+
+STATE .watcher-down: pending:downtime:784881.1792559609.z6NXbo
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 780095
+784854
+
+
+FIXTURE=quiet-then-malformed CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:790528.1792559619.Xtxsg7
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559640	4	check	rearm-resurface	check: rearm-resurface
+malformed row
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:806703.1792559640.S74y16
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 796325
+806568
+
+
+FIXTURE=quiet-then-ack-failed CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:814205.1792559649.OPOqyo
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559663	4	check	rearm-resurface	check: rearm-resurface
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:825084.1792559663.a06pyL
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 820324
+825048
+
+
+FIXTURE=quiet-then-captain CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:830323.1792559670.nYsNAJ
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559682	4	check	rearm-resurface	check: rearm-resurface
+1792559685	5	check	supervision-host-return:2	check: supervision-host outcome 2 for mate [captain]
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:839474.1792559682.DfUqu7
+
+STATE .branch-outcomes: absent
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 834918
+839444
+
+
+FIXTURE=quiet-next-real CASE=test_quiet_repark_delivers_the_next_real_event
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: real event after quiet wake
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:845880.1792559692.EMYwoA
+
+STATE consumed-before-injection: absent
+STATE .wake-queue: 1792559704	4	check	real-event	check: real event after quiet wake
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:855853.1792559704.pqFxyj
+
+STATE branch-outcomes.jsonl: {"seq":1,"epoch":1792559694,"task":"mate","wake":"","verdict":"routine","summary":"routine progress","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4242771:2026-10-20 22:14:52.061936643 -0700"}
+
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 850483
+855853
+
+
+FIXTURE=quiet-then-mixed CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:870302.1792559726.fK0XNg
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559739	4	check	rearm-resurface	check: rearm-resurface
+1792559739	5	check	real-event	check: approval required
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:878643.1792559739.MmOBBt
+
+STATE branch-outcomes.jsonl: {"seq":1,"epoch":1792559729,"task":"mate","wake":"","verdict":"routine","summary":"routine progress","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4326234:2026-10-20 22:15:25.146297763 -0700"}
+
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 875146
+878603
+
+
+FIXTURE=quiet-then-uncertain CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:881563.1792559744.nK40gO
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559754	4	check	rearm-resurface	check: rearm-resurface
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+surprise: inspect this
+
+STATE .watcher-down: pending:downtime:889157.1792559754.xMTQr1
+
+STATE branch-outcomes.jsonl: {"seq":1,"epoch":1792559745,"task":"mate","wake":"","verdict":"routine","summary":"routine progress","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4330598:2026-10-20 22:15:43.670488713 -0700"}
+
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 885589
+889125
+
+
+FIXTURE=quiet-then-malformed CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:892584.1792559760.HEmIcU
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559771	4	check	rearm-resurface	check: rearm-resurface
+malformed row
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:900873.1792559772.CVwY9K
+
+STATE branch-outcomes.jsonl: {"seq":1,"epoch":1792559761,"task":"mate","wake":"","verdict":"routine","summary":"routine progress","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4326982:2026-10-20 22:15:59.526655182 -0700"}
+
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 897262
+900857
+
+
+FIXTURE=quiet-then-ack-failed CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:904006.1792559777.bc6ORa
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559787	4	check	rearm-resurface	check: rearm-resurface
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:911164.1792559787.o8BNu8
+
+STATE branch-outcomes.jsonl: {"seq":1,"epoch":1792559778,"task":"mate","wake":"","verdict":"routine","summary":"routine progress","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4333700:2026-10-20 22:16:16.838844739 -0700"}
+
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 907512
+911131
+
+
+FIXTURE=quiet-then-captain CASE=test_quiet_repark_rechecks_unsafe_batches
+HOOK_EXIT=2
+HOOK_OUTPUT_BEGIN
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+HOOK_OUTPUT_END
+STATE routine-ack: acked:downtime:915797.1792559794.otd9o7
+
+STATE consumed-before-injection: 
+STATE .wake-queue: 1792559802	4	check	rearm-resurface	check: rearm-resurface
+1792559803	5	check	supervision-host-return:2	check: supervision-host outcome 2 for mate [captain]
+
+STATE mate.status: working: checking the queue
+paused: waiting for assigned work
+
+STATE .watcher-down: pending:downtime:922775.1792559802.D1cVXM
+
+STATE branch-outcomes.jsonl: {"seq":1,"epoch":1792559795,"task":"mate","wake":"","verdict":"routine","summary":"routine progress","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4336070:2026-10-20 22:16:33.575030066 -0700"}
+{"seq":2,"epoch":1792559802,"task":"mate","wake":"","verdict":"captain","summary":"decision required","silent":false,"statusEndpoint":62,"statusIdent":"strong:2096:4336070:2026-10-20 22:16:33.575030066 -0700"}
+
+STATE .status-presentation-cursor: absent
+STATE .branch-outcomes-cursor: absent
+STATE arm-ran: 919910
+922745
+

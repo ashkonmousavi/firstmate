@@ -1,0 +1,14 @@
+not ok - quiet: the captain outcome did not wake the present captain's main: 1792560953	start	gen=host-1591785-1792560947	primary=claude
+
+DIAGNOSTIC HOME=quiet-captain
+FILE host.out
+watcher: started pid=1595741 (beacon fresh)
+FILE host.rc
+FILE engine-call.1
+FILE engine-report.log
+FILE state/.supervision-host.log
+1792560953	start	gen=host-1591785-1792560947	primary=claude
+FILE state/.wake-queue
+1792560969	1	signal	demo.status	signal: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EBHD0GSJSCV030DA3SZB10/.gate-diagnose/tmp/fm-supervision-host.fjWF9l/quiet-captain/state/demo.status
+FILE state/.watcher-down
+announced:handling:1595741.1792560969.mWFMGV

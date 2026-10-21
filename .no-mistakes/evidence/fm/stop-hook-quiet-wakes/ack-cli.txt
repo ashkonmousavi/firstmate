@@ -1,0 +1,15 @@
+Before empty recovery acknowledgement: pending:downtime:3529994.1792557264.E7A0Xz
+After empty recovery acknowledgement: acked:downtime:3529994.1792557264.E7A0Xz
+Queued routine recovery row: 1792557266	1	check	rearm-resurface	check: rearm-resurface
+After row acknowledgement: acked:downtime:3529994.1792557267.9YEvwP
+Remaining queue bytes: 0
+Later actionable row remains durable: 1792557269	2	check	real-event	check: approval required
+
+Attempt acknowledgement with a stale recovery generation:
+wake drain: acknowledged wakes through 2 (1 row(s) consumed), but a newer recovery episode is pending; re-run bin/fm-wake-drain.sh and use the new WAKE_ACK_REQUIRED command
+Exit code: 0
+Recovery marker: pending:downtime:3529994.1792557270.UuJ7sV
+Remaining queue: 
+Protocol clarification: stale generation preserves the newer recovery episode and emits a diagnostic; it does not promise a nonzero exit or preservation of rows through the requested cutoff. Re-drive that observable contract:
+wake drain: acknowledged wakes through 3 (1 row(s) consumed), but a newer recovery episode is pending; re-run bin/fm-wake-drain.sh and use the new WAKE_ACK_REQUIRED command
+Newer recovery episode remains: pending:downtime:3529994.1792557270.UuJ7sV

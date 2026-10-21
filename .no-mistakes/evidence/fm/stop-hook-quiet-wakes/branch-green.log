@@ -1,0 +1,17 @@
+BRANCH 8e1eff26: test_all_routine_wakes_are_acknowledged_without_a_turn
+ok - auto-arm: all three routine classes are acknowledged without a model turn or presentation
+EXIT=0
+BRANCH 8e1eff26: test_empty_rearm_and_routine_host_return_stay_quiet
+ok - auto-arm: empty rearm and verified routine host return consume only the recovery acknowledgement
+EXIT=0
+BRANCH 8e1eff26: test_quiet_repark_rechecks_unsafe_batches
+ok - auto-arm: mixed after routine consumption retains handling and unread obligations
+ok - auto-arm: uncertain after routine consumption retains handling and unread obligations
+ok - auto-arm: malformed after routine consumption retains handling and unread obligations
+ok - auto-arm: ack-failed after routine consumption retains handling and unread obligations
+ok - auto-arm: captain after routine consumption retains handling and unread obligations
+tests/gate-routine.test.sh: line 1979: unexpected EOF while looking for matching `"'
+EXIT=2
+BRANCH 8e1eff26: test_quiet_repark_delivers_the_next_real_event
+ok - auto-arm: the same asynchronous hook reparks and delivers the next real event
+EXIT=0

@@ -1,0 +1,16 @@
+BASE 1d7284d0 same branch fixture: test_all_routine_wakes_are_acknowledged_without_a_turn
+not ok - all-routine wakes must stop without a handling turn: expected exit 0, got 2
+EXIT=1
+BASE 1d7284d0 same branch fixture: test_empty_rearm_and_routine_host_return_stay_quiet
+not ok - a rearm-resurface without an unhandled record must stay quiet: expected exit 0, got 2
+EXIT=1
+BASE 1d7284d0 same branch fixture: test_quiet_repark_rechecks_unsafe_batches
+not ok - mixed: hook did not consume the routine batch and repark before injection
+EXIT=1
+BASE 1d7284d0 same branch fixture: test_quiet_repark_delivers_the_next_real_event
+not ok - quiet handling lost the next event (missing: 'real event after quiet wake')
+--- output ---
+firstmate watcher wake - one supervision event needs a handling turn now.
+check: rearm-resurface
+Run bin/fm-wake-drain.sh first, handle the wake, then run its exact WAKE_ACK_REQUIRED --ack-through command. Until that post-handling acknowledgement, interruption leaves the wake durable for idempotent re-handling. This Stop hook owns watcher continuity: when the handling turn ends, the next needed cycle arms automatically - do NOT run bin/fm-watch-arm.sh after an ordinary wake.
+EXIT=1
