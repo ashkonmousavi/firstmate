@@ -1495,10 +1495,6 @@ fm_lock_acquire_wait_bounded() {
     rc=$?
   fi
 
-  owner_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
-  if [ "$owner_pid" = "$caller_pid" ]; then
-    return 0
-  fi
   [ "$rc" -ne 0 ] || rc=1
   # A deadline can kill the helper just after it acquired and before handoff.
   # Give ordinary stale-owner recovery one final non-blocking chance so that
