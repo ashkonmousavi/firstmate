@@ -259,8 +259,8 @@
 #   lock through record publication (fm-capacity-lib.sh owns the rules).
 #   Missing machine facts also defer with exit 75.
 #   A batch reports such a pair as `batch: DEFERRED` and exits 75 when nothing
-#   else failed. Relaunch and --secondmate startup bypass admission; the shared
-#   readers own which existing records hold capacity.
+#   else failed. The shared readers own relaunch admission, startup exemptions,
+#   and which existing records hold capacity.
 #   With no harness arg, a crewmate/scout spawn resolves the CREW harness only when
 #   config/crew-dispatch.json is absent. When that file exists, crewmate/scout
 #   spawns require an explicit harness so firstmate cannot silently skip dispatch
@@ -3440,9 +3440,7 @@ if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" != 1 ] &&
   fm_treehouse_pool_slot "$PROJ_ABS" "$RELAUNCH_WT"; then
   SPAWN_RELAUNCH_POOL_SLOT=1
 fi
-# Every fresh worker, on every backend, shares machine admission. Keep the
-# lock through record publication. Relaunch replaces an existing holder.
-if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
+if [ "$KIND" != secondmate ]; then
   SPAWN_MACHINE_ROOT=$(fm_firstmate_root_home "$FM_HOME") || {
     echo "deferred: cannot resolve machine root for $FM_HOME/config/lane-capacity; task $ID stays queued" >&2
     exit 75

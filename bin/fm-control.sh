@@ -1178,7 +1178,7 @@ record_note() {
 }
 
 do_relaunch() {
-  local exit_result state note_line project
+  local exit_result state note_line project spawn_status
   local -a spawn_args
 
   require_state_verified_backend relaunch
@@ -1268,8 +1268,10 @@ do_relaunch() {
       die "the replacement agent for $ID was launched, but task $ID's republished record no longer passes endpoint validation (the refusal above names the row), so this transaction cannot say which endpoint to confirm it on; reconcile $META before any further control action"
     fi
   else
+    spawn_status=$?
     [ "$(fm_meta_get "$META" control_relaunch_tx)" != "$RELAUNCH_TX" ] \
       || RELAUNCH_META_PUBLISHED=1
+    [ "$spawn_status" -ne 75 ] || exit 75
     die "the replacement agent for $ID could not be launched on $TARGET_HARNESS"
   fi
 

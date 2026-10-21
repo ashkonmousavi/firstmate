@@ -1080,12 +1080,14 @@ Per-machine Cursor `cli-config.json` attribution-off is not this contract: it do
 
 ## Machine capacity (config/lane-capacity)
 
-Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch.
-For example, `config/lane-capacity` containing `5 3` caps the machine at five workers and reserves three GiB of available memory.
+Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
+For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
+Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, walker exemptions, refusal rules and locking contract.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 This Linux admission check requires `/proc/meminfo`; an unsupported or unreadable host gets no placement.
-Relaunch and persistent secondmate startup remain available to recover existing work.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
 
 Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.

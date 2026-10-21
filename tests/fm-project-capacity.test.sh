@@ -80,6 +80,10 @@ make_case() {  # <name> [task-id...]
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$FM_FAKE_CALL_LOG"
 case "$*" in
+  *"#{pane_current_command}"*)
+    printf 'codex\n'
+    exit 0
+    ;;
   *"#{pane_current_path}"*)
     # A spawn that is told to hold waits here, after its capacity check and
     # while it still holds the project lock, until the test releases it.
@@ -96,7 +100,10 @@ case "$*" in
     exit 0
     ;;
 esac
-case "${1:-}" in display-message) printf 'firstmate\n' ;; esac
+case "${1:-}" in
+  list-windows) printf '%s\n' "${FM_FAKE_LIVE_WINDOWS:-}" ;;
+  display-message) printf 'firstmate\n' ;;
+esac
 exit 0
 SH
   cat > "$fakebin/treehouse" <<'SH'
@@ -183,7 +190,7 @@ assert_nothing_created() {  # <case-dir> <home> <id> <calls-before> <worktrees-b
   assert_absent "$home/data/$id/launch-brief.md" "a deferred spawn rendered a launch brief for $id"
   after=$(call_count "$case_dir")
   [ "$after" -eq "$before" ] ||
-    fail "a deferred spawn touched the terminal or worktree pool for $id: $(tail -n +"$((before + 1))" "$case_dir/calls.log")"
+    fail "a deferred spawn mutated the terminal or worktree pool for $id: $(cat "$case_dir/calls.log")"
   assert_equals "$worktrees" "$(worktree_list "$case_dir")" "a deferred spawn left a git worktree for $id"
   if [ "$HAVE_TASKS_AXI" = 1 ]; then
     [ "$(row_state "$home" "$id")" = queued ] ||
@@ -191,7 +198,8 @@ assert_nothing_created() {  # <case-dir> <home> <id> <calls-before> <worktrees-b
   fi
 }
 
-call_count() { wc -l < "$1/calls.log" | tr -d ' '; }
+# Capacity reads enumerate endpoints; only mutations violate a deferral.
+call_count() { awk '$1 != "list-windows" { n++ } END { print n+0 }' "$1/calls.log"; }
 
 worktree_list() { git -C "$1/project" worktree list --porcelain; }
 
@@ -722,7 +730,8 @@ test_machine_concurrent_projects() {
     i=$((i + 1)); [ "$i" -lt 400 ] || fail "first spawn never reached launch: $(cat "$case_dir/a.out")"
     sleep 0.05
   done
-  run_spawn "$case_dir" "$mate" "$case_dir/unused" task-b "$case_dir/other-project" --mode no-mistakes --yolo off > "$case_dir/b.out" 2>&1 &
+  FM_FAKE_LIVE_WINDOWS=fm-task-a \
+    run_spawn "$case_dir" "$mate" "$case_dir/unused" task-b "$case_dir/other-project" --mode no-mistakes --yolo off > "$case_dir/b.out" 2>&1 &
   local second_pid=$!
   : > "$hold.release"
   wait "$pid" || a=$?
