@@ -73,9 +73,9 @@ case "${1:-}" in
     printf '%s\n' "$facts"
     ;;
   *)
-    printf 'capacity: free_lanes=%s reason=%s lanes=%s target=%s secondmates=%s mem_available_kb=%s reserve_kb=%s headroom_kb=%s load1=%s cores=%s mem_free_pct=%s disk_free_mb=%s\n' \
+    printf 'capacity: free_lanes=%s reason=%s lanes=%s target=%s secondmates=%s load1=%s cores=%s mem_free_pct=%s disk_free_mb=%s mem_available_kb=%s reserve_kb=%s headroom_kb=%s\n' \
       "$FM_CAPACITY_FREE" "$FM_CAPACITY_REASON" "$FM_CAPACITY_LANES" "$FM_CAPACITY_TARGET" \
-      "$FM_CAPACITY_SECONDMATES" "$FM_CAPACITY_AVAILABLE_KB" "$FM_CAPACITY_RESERVE_KB" "$FM_CAPACITY_HEADROOM_KB" "$load1" "$cores" "$mem_free_pct" "$disk_free_mb"
+      "$FM_CAPACITY_SECONDMATES" "$load1" "$cores" "$mem_free_pct" "$disk_free_mb" "$FM_CAPACITY_AVAILABLE_KB" "$FM_CAPACITY_RESERVE_KB" "$FM_CAPACITY_HEADROOM_KB"
     printf 'Lanes: %s of %s; %s open. Memory headroom: %s kB.\n' \
       "$FM_CAPACITY_LANES" "$FM_CAPACITY_TARGET" "$FM_CAPACITY_FREE" "$FM_CAPACITY_HEADROOM_KB"
     mem_text="${mem_free_pct}%"; [ "$mem_free_pct" != unknown ] || mem_text=unknown
