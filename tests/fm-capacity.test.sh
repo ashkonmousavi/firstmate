@@ -268,3 +268,106 @@ SH
   assert_contains "$out" 'load1=unknown cores=unknown mem_free_pct=unknown disk_free_mb=unknown' 'missing optional probes stay explicit'
   pass 'upstream host probes remain visible and never replace shared admission facts'
 ) || exit 1
+
+# Fixture membership and hierarchy exercise the same public admission read as
+# fm-spawn without depending on the test host's cgroup or page cache.
+test_cgroup_memory() {
+  local FM_HOME="$TMP_ROOT/cgroup-home"
+  local FM_CAPACITY_MEMINFO="$TMP_ROOT/cgroup-meminfo"
+  local FM_CAPACITY_CGROUP_FILE="$TMP_ROOT/self-cgroup"
+  local FM_CAPACITY_CGROUP_ROOT="$TMP_ROOT/cgroup"
+  local out rc bad
+  export FM_HOME FM_CAPACITY_MEMINFO FM_CAPACITY_CGROUP_FILE FM_CAPACITY_CGROUP_ROOT
+  mkdir -p "$FM_HOME/"{config,state,data} "$FM_CAPACITY_CGROUP_ROOT/crew/lane"
+  printf '5 4\n' > "$FM_HOME/config/lane-capacity"
+  printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
+  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
+  printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 5000000000\nfile 12000000000\nshmem 500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  printf '17500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.current"
+  printf 'MemAvailable: 1 kB\n' > "$FM_CAPACITY_MEMINFO"
+  out=$(bash "$CAPACITY" --json) || fail "cache-heavy cgroup must admit: $out"
+  jq -e '.reason == "ok" and .mem_available_kb == 9277343 and .reserve_kb == 4194304 and .headroom_kb == 5083039 and .headroom_kb >= 3145728' <<< "$out" >/dev/null || fail 'cgroup must leave room for a 3 GiB lane after reserve'
+  pass 'finite ancestor excludes file cache and leaves 8.8 GiB before reserve'
+
+  # The smallest finite balance wins and must use its own statistics.
+  printf '8589934592\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
+  printf 'shmem 0\nanon 4294967296\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'exact cgroup reserve must admit'
+  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'smallest balance not used'
+  printf '16106127360\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 15032385536\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'enclosing pressure refuses despite admissible child'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew memory.high" 'refusal identifies limiting ancestor'
+  out=$(bash "$CAPACITY" --json) || fail 'enclosing pressure must remain readable'
+  jq -e '.reason == "memory" and .free_lanes == 0 and .mem_available_kb == 1048576 and .headroom_kb == -3145728' <<< "$out" >/dev/null || fail 'parent one GiB balance must leave minus three GiB after reserve'
+  printf 'anon 17179869185\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'over-limit ancestor must remain readable'
+  jq -e '.mem_available_kb == -1048577 and .headroom_kb == -5242881' <<< "$out" >/dev/null || fail 'negative ancestor balance must round down'
+  printf 'anon 11811160064\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'ample parent balance must admit'
+  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'larger parent balance must not replace child balance'
+  printf '17179869184\n' > "$FM_CAPACITY_CGROUP_ROOT/memory.high"
+  printf 'anon 16106127360\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'outermost finite ancestor must also constrain admission'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT memory.high" 'outermost limiting ancestor named'
+  rm "$FM_CAPACITY_CGROUP_ROOT/memory.high" "$FM_CAPACITY_CGROUP_ROOT/memory.stat"
+  for bad in '' 'broken'; do
+    printf '%s\n' "$bad" > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    expect_code 75 "$rc" 'malformed ancestor high refuses despite finite child'
+  done
+  printf '16106127360\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 1\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+  expect_code 75 "$rc" 'malformed ancestor statistics refuse despite finite child'
+  rm "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'missing ancestor statistics refuse despite finite child'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat" 'unreadable ancestor named'
+  printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 5000000000\nshmem 500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  pass 'all finite ancestors constrain admission and require readable statistics'
+  printf 'anon 4294967297\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'one byte below reserve refuses'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew/lane" 'cgroup refusal identifies source'
+  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
+
+  for bad in '' 'anon nope' 'anon 5000000000' $'anon 1\nshmem -1' $'anon 1\nanon 2\nshmem 0'; do
+    printf '%s\n' "$bad" > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    expect_code 75 "$rc" 'malformed cgroup statistics refuse'
+  done
+  rm "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'unreadable cgroup statistics refuse'
+  assert_contains "$out" 'memory.stat' 'unreadable statistics named'
+  pass 'cgroup statistics fail closed instead of falling back to host memory'
+
+  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'MemAvailable: 8388608 kB\n' > "$FM_CAPACITY_MEMINFO"
+  out=$(bash "$CAPACITY" --json) || fail 'unlimited cgroup must use host memory'
+  jq -e '.mem_available_kb == 8388608 and .headroom_kb == 4194304' <<< "$out" >/dev/null || fail 'host fallback differs'
+  pass 'all ancestors unlimited falls back to MemAvailable'
+
+  printf '0::/\n' > "$FM_CAPACITY_CGROUP_FILE"
+  out=$(bash "$CAPACITY" --json) || fail 'root cgroup without memory.high must fall back'
+  jq -e '.mem_available_kb == 8388608' <<< "$out" >/dev/null || fail 'root fallback differs'
+  printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
+  printf 'broken\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+  expect_code 75 "$rc" 'malformed high refuses instead of falling back'
+  if [ "$(id -u)" != 0 ]; then
+    printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+    printf 'anon 1\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    chmod 000 "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    chmod 600 "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    expect_code 75 "$rc" 'permission denied statistics refuse'
+  fi
+  pass 'root cgroup fallback and unreadable limit/statistics behave safely'
+}
+test_cgroup_memory || exit 1
