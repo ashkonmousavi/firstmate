@@ -1,0 +1,5 @@
+{
+  "command": "bash tests/fm-supervision-host.test.sh",
+  "exit_code": 0,
+  "elapsed_seconds": 999.511
+}
