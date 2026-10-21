@@ -158,7 +158,6 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   printf '5 3\n' > "$FM_HOME/config/lane-capacity"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$TMP_ROOT/fakebin/tmux"
   chmod +x "$TMP_ROOT/fakebin/tmux"
-  export PATH="$TMP_ROOT/fakebin:$PATH"
   coproc PARKED_SHELL { exec bash -c 'cd "$1"; printf "ready\n"; read -r _' bash "$TMP_ROOT/shell-worktree"; }
   parked_pid=$PARKED_SHELL_PID
   work_pid=
@@ -166,14 +165,14 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   read -r ready <&"${PARKED_SHELL[0]}"
   [ "$ready" = ready ] || fail 'parked shell did not start'
   fm_write_meta "$FM_HOME/state/parked.meta" kind=ship window=test:gone "worktree=$TMP_ROOT/shell-worktree"
-  out=$(bash "$CAPACITY" --json) || fail 'shell-only capacity report failed'
+  out=$(PATH="$TMP_ROOT/fakebin:$PATH" bash "$CAPACITY" --json) || fail 'shell-only capacity report failed'
   jq -e '.lanes == 0 and .free_lanes == 5' <<< "$out" >/dev/null || fail 'idle shell incorrectly holds a seat'
   (
     cd "$TMP_ROOT/shell-worktree" || exit 1
     exec sleep 60
   ) &
   work_pid=$!
-  out=$(bash "$CAPACITY" --json) || fail 'non-shell capacity report failed'
+  out=$(PATH="$TMP_ROOT/fakebin:$PATH" bash "$CAPACITY" --json) || fail 'non-shell capacity report failed'
   jq -e '.lanes == 1 and .free_lanes == 4' <<< "$out" >/dev/null || fail 'non-shell worktree process lost its seat'
   pass 'public capacity command frees shell-only records and counts non-shell work'
 ) || exit 1
