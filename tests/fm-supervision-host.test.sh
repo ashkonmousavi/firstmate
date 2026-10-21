@@ -194,7 +194,22 @@ process_descendants() {  # <pid>
 # unanswered read can keep the host and its arms from stopping. Every wait is
 # bounded, so a case that failed mid-fixture cannot hang the suite.
 stop_home_processes() {  # <home>
-  local home=$1 pid kid fifo kids='' stops
+  local home=$1 pid kid fifo kids='' stops identity
+  # A routine close can repark inside the same async Stop hook. Stop that
+  # fixture-owned hook before its host, or the fake harness can wait forever
+  # while a new host takes over the cycle cleanup just stopped.
+  if [ -e "$home/session.stop" ]; then
+    pid=$(sed -n '1s/.* owner_pid=\([0-9][0-9]*\) .*/\1/p' "$home/state/.claude-autoarm-epoch" 2>/dev/null)
+    identity=$(sed -n '2p' "$home/state/.claude-autoarm-epoch" 2>/dev/null)
+    case "$pid" in
+      ''|*[!0-9]*) ;;
+      *)
+        if [ -n "$identity" ] && [ "$(fm_test_pid_identity "$pid" 2>/dev/null)" = "$identity" ]; then
+          kill -TERM "$pid" 2>/dev/null || true
+        fi
+        ;;
+    esac
+  fi
   while IFS= read -r pid; do
     for kid in $(ps -A -o pid= -o ppid= | awk -v root="$pid" '$2 == root { print $1 }'); do
       kill -STOP "$kid" 2>/dev/null || true
@@ -1053,7 +1068,7 @@ test_attended_captain_outcome_reaches_main_through_branch_outcomes() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "captain: the host never started a watcher cycle"
   append_status "$home" 'ready for review'
-  wait_until 250 host_exited "$home" || fail "captain: the captain outcome did not wake main: $(cat "$home/state/.supervision-host.log")"
+  wait_until "$HOOK_RETRY_POLLS" host_exited "$home" || fail "captain: the captain outcome did not wake main: $(cat "$home/state/.supervision-host.log")"
   expect_code 0 "$(cat "$home/host.rc")" "a captain-outcome exit must exit 0 for the owner to deliver"
   assert_re '^supervision-host: branch-outcome: .*\(store rows 1\); run bin/fm-wake-drain.sh' "$home/host.out" \
     "the exit must name the captain outcome's store row and send main to its drain"
@@ -1107,7 +1122,7 @@ test_quiet_record_without_its_daemon_is_a_present_captain() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "quiet: the host never started a watcher cycle"
   append_status "$home" 'ready for review'
-  wait_until 250 host_exited "$home" || fail "quiet: the captain outcome did not wake the present captain's main: $(cat "$home/state/.supervision-host.log")"
+  wait_until "$HOOK_RETRY_POLLS" host_exited "$home" || fail "quiet: the captain outcome did not wake the present captain's main: $(cat "$home/state/.supervision-host.log")"
   assert_re '	handled	turn=[^	]*	posture=attended	' "$home/state/.supervision-host.log" "a quiet record must leave the host's turn attended"
   assert_no_re '^POSTURE: AWAY' "$home/engine-call.1" "a turn beside a quiet record must carry no away tail"
   assert_re 'MAIN DIALOG MIRROR' "$home/engine-call.1" "a turn beside a quiet record must carry the captain's dialog"
@@ -1123,7 +1138,7 @@ test_quiet_record_without_its_daemon_is_a_present_captain() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "quiet main-only: the host never started a watcher cycle"
   append_status "$home" 'which export format?' needs-decision
-  wait_until 250 host_exited "$home" || fail "quiet main-only: the decision close did not reach main: $(cat "$home/state/.supervision-host.log")"
+  wait_until "$HOOK_RETRY_POLLS" host_exited "$home" || fail "quiet main-only: the decision close did not reach main: $(cat "$home/state/.supervision-host.log")"
   assert_re '^signal: .*demo.status' "$home/host.out" "the decision close must reach main as the arm printed it"
   [ "$(engine_calls "$home")" -eq 0 ] || fail "quiet main-only: the engine took a decision close from a present captain"
   assert_re '	pass-through	attended	main-only	signal:' "$home/state/.supervision-host.log" "the ledger must record the attended main-only pass-through"
@@ -1381,7 +1396,7 @@ test_claude_stop_hook_restores_handoff_when_successor_closed_before_exit_to_main
   turn_end "$home"
   wait_until 150 watcher_live "$home" || fail "closed successor: the Stop hook never started a watcher cycle"
   append_status "$home" 'first actionable wake'
-  wait_until 250 hook_exited "$home" || fail "closed successor: the Stop hook did not finish: $(cat "$home/state/.supervision-host.log")"
+  wait_until "$HOOK_RETRY_POLLS" hook_exited "$home" || fail "closed successor: the Stop hook did not finish: $(cat "$home/state/.supervision-host.log")"
   assert_re '^supervision-host: branch-outcome: ' "$home/hook.err" "the host must hand its captain outcome to main"
   expect_code 2 "$(cat "$home/hook.rc")" "the Stop hook must rewake main after the successor closed"
   assert_re '^(pending|announced):downtime:' "$home/state/.watcher-down" \

@@ -2787,6 +2787,21 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
   [ -n "$hit" ]
 }
 
+# Positive progress-only line classifier shared by watcher and Stop-owned peeks.
+# Unknown notification tags and routed replies always require handling.
+status_line_is_routine_progress() {  # <status-line>
+  local line=$1 verb prefix
+  case "$line" in *corr=*) return 1 ;; esac
+  prefix=${line%%:*}
+  prefix=${prefix/'[notify=routine]'/}
+  case "$prefix" in *notify=*) return 1 ;; esac
+  status_line_verb "$line" verb
+  case "$verb" in
+    working|"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # 0 (benign/absorb) if EVERY task referenced by a no-verb "signal:" wake is provably
 # working; 1 (actionable/surface) if any is not, or no task can be resolved. Pass the
 # same space-separated file list the caller classified with the span read above.
@@ -2808,7 +2823,7 @@ crew_worktree_written_since() {  # <id> <state> <anchor-file>
 # surface more. An unreadable span surfaces. Scoped to .status files - a mate's
 # bare turn-ended ping always used the ordinary provably-working absorb.
 _fm_secondmate_status_new_lines_routine() {  # <status-file> <state>
-  local f=$1 state=$2 start=0 size chunk line verb
+  local f=$1 state=$2 start=0 size chunk line
   if command -v fm_wake_signal_seen_size >/dev/null 2>&1; then
     start=$(fm_wake_signal_seen_size "$state" "$f")
   fi
@@ -2821,12 +2836,7 @@ _fm_secondmate_status_new_lines_routine() {  # <status-file> <state>
   chunk=$(_fm_status_read_span "$f" "$start" "$((size - start))") || return 1
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
-    case "$line" in *corr=*) return 1 ;; esac
-    status_line_verb "$line" verb
-    case "$verb" in
-      working|"${FM_CLASSIFY_PAUSED_VERB:-$FM_CLASSIFY_PAUSED_VERB_DEFAULT}") ;;
-      *) return 1 ;;
-    esac
+    status_line_is_routine_progress "$line" || return 1
   done <<EOF
 $chunk
 EOF

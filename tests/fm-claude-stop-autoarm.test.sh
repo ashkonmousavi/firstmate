@@ -1713,6 +1713,262 @@ test_fm_lock_status_still_works_with_shared_lib() {
   pass "fm-lock: shared session-lock lib preserves the status path"
 }
 
+# Routine wakes use real queue, outcome and acknowledgement code in temp homes.
+make_routine_home() {
+  local dir=$1 script
+  make_primary_dir "$dir" >/dev/null
+  for script in fm-wake-drain.sh fm-branch-outcome.sh fm-line-cap-lib.sh fm-lease-lib.sh; do
+    cp "$ROOT/bin/$script" "$dir/bin/$script"
+  done
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/bin/fm-guard.sh"
+  chmod +x "$dir/bin/fm-guard.sh"
+  printf 'kind=secondmate\n' > "$dir/state/mate.meta"
+  printf 'working: checking the queue\npaused: waiting for assigned work\n' > "$dir/state/mate.status"
+  FM_HOME="$dir" bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    fm_wake_status_reported_commit "$STATE" "$STATE/mate.status" "$(fm_wake_signal_sig "$STATE/mate.status")"
+    fm_wake_append signal mate.status "signal: $STATE/mate.status"
+    fm_wake_append check rearm-resurface "check: rearm-resurface"
+  ' _ "$dir" || fail "routine queue fixture failed"
+  FM_HOME="$dir" "$dir/bin/fm-branch-outcome.sh" append --task mate --verdict routine --summary 'routine progress' >/dev/null \
+    || fail "routine outcome fixture failed"
+  FM_HOME="$dir" bash -c '. "$1/bin/fm-wake-lib.sh"; fm_wake_append check supervision-host-return:1 "check: supervision-host outcome 1 for mate [routine]"' _ "$dir" \
+    || fail "routine branch row fixture failed"
+  cat > "$dir/bin/fm-watch-arm.sh" <<'SH'
+#!/usr/bin/env bash
+if [ -n "${FM_WATCH_PREDECESSOR_ARM_PID:-}" ]; then
+  printf 'watcher: started pid=%s (beacon fresh)\n' "$$"
+  exit 0
+fi
+echo "$$" >> "$FM_HOME/state/arm-ran"
+if [ "$(wc -l < "$FM_HOME/state/arm-ran")" -gt 1 ]; then
+  # Reaching a second park proves no model turn was needed for the first one.
+  cp "$FM_HOME/state/.watcher-down" "$FM_HOME/state/routine-ack"
+  if [ -x "$FM_HOME/bin/inject-next-batch.sh" ]; then
+    "$FM_HOME/bin/inject-next-batch.sh" || exit $?
+    printf 'check: rearm-resurface\n'
+  elif [ -e "$FM_HOME/state/real-next" ]; then
+    . "$FM_HOME/bin/fm-wake-lib.sh"
+    fm_wake_append check real-event 'check: real event after quiet wake'
+    printf 'check: real event after quiet wake\n'
+  else
+    rm -f "$FM_HOME/state/mate.meta"
+    printf 'watcher: attached pid=%s (beacon fresh)\n' "$$"
+  fi
+  exit 0
+fi
+printf 'check: rearm-resurface\n'
+SH
+  chmod +x "$dir/bin/fm-watch-arm.sh"
+}
+
+test_all_routine_wakes_are_acknowledged_without_a_turn() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-all"
+  make_routine_home "$dir"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 0 "$status" "all-routine wakes must stop without a handling turn"
+  [ -z "$out" ] || fail "routine handling emitted output: $out"
+  [ ! -s "$dir/state/.wake-queue" ] || fail "routine wakes were not acknowledged"
+  grep -q '^acked:' "$dir/state/routine-ack" || fail "repark began before generation-bound acknowledgement"
+  [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "quiet peek advanced a status presentation cursor"
+  [ ! -e "$dir/state/.branch-outcomes-cursor" ] || fail "quiet peek advanced an outcome presentation cursor"
+  pass "auto-arm: all three routine classes are acknowledged without a model turn or presentation"
+}
+
+test_routine_batch_with_one_real_row_still_rewakes() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-mixed"
+  make_routine_home "$dir"
+  FM_HOME="$dir" bash -c '. "$1/bin/fm-wake-lib.sh"; fm_wake_append check real-event "check: approval required"' _ "$dir"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "one real row among routine rows must still wake the model"
+  [ "$(wc -l < "$dir/state/.wake-queue")" -eq 4 ] || fail "mixed batch was partially acknowledged"
+  [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "mixed peek consumed presentation"
+  assert_contains "$out" 'one supervision event needs a handling turn' "mixed batch lost its existing handling banner"
+  pass "auto-arm: mixed batches retain every row and the ordinary handling turn"
+}
+
+test_routine_ack_failure_keeps_the_handling_turn() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-ack-failed"
+  make_routine_home "$dir"
+  # Fault the executable acknowledgement boundary, leaving the real peek intact.
+  printf '#!/usr/bin/env bash\nexit 1\n' > "$dir/bin/fm-wake-drain.sh"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "acknowledgement failure must retain the handling turn"
+  [ "$(wc -l < "$dir/state/.wake-queue")" -eq 3 ] || fail "failed acknowledgement consumed rows"
+  assert_contains "$out" 'one supervision event needs a handling turn' "ack failure lost the existing handling banner"
+  pass "auto-arm: failed routine acknowledgement falls back to the handling turn"
+}
+
+test_partial_ack_failure_keeps_the_handling_turn() {
+  local dir out status real_mv
+  dir="$TMP_ROOT/quiet-partial-ack"
+  make_routine_home "$dir"
+  mkdir -p "$dir/failbin"
+  cat > "$dir/failbin/mv" <<'SH'
+#!/usr/bin/env bash
+if [ "${!#}" = "$FM_HOME/state/.wake-queue" ]; then exit 1; fi
+exec "$FM_TEST_REAL_MV" "$@"
+SH
+  chmod +x "$dir/failbin/mv"
+  real_mv=$(command -v mv)
+  out=$(PATH="$dir/failbin:$PATH" FM_TEST_REAL_MV="$real_mv" run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "failure after retiring the recovery marker must still produce a handling turn"
+  [ "$(wc -l < "$dir/state/.wake-queue")" -eq 3 ] || fail "partial ack failure consumed the queue"
+  assert_contains "$out" 'one supervision event needs a handling turn' "partial ack failure lost its handling banner"
+  grep -Eq '^(pending|announced):downtime:' "$dir/state/.watcher-down" || fail "partial ack did not restore retryable downtime"
+  pass "auto-arm: an ack that retired its marker before queue IO failed still delivers a handling turn"
+}
+
+# The routine-wake contract requires reclassification on every park, even after
+# a successful quiet acknowledgement. A cached routine verdict would lose work.
+test_quiet_repark_rechecks_unsafe_batches() {
+  local dir out status kind
+  for kind in mixed uncertain malformed ack-failed captain; do
+    dir="$TMP_ROOT/quiet-then-$kind"
+    make_routine_home "$dir"
+    printf '%s\n' "$kind" > "$dir/state/next-kind"
+    cat > "$dir/bin/inject-next-batch.sh" <<'SH'
+#!/usr/bin/env bash
+# This runs only when the same Stop hook has acknowledged and reparked.
+[ ! -s "$FM_HOME/state/.wake-queue" ] || exit 91
+grep -q '^acked:' "$FM_HOME/state/routine-ack" || exit 92
+: > "$FM_HOME/state/consumed-before-injection"
+. "$FM_HOME/bin/fm-wake-lib.sh"
+fm_wake_append check rearm-resurface 'check: rearm-resurface'
+case "$(cat "$FM_HOME/state/next-kind")" in
+  mixed) fm_wake_append check real-event 'check: approval required' ;;
+  uncertain) printf 'surprise: inspect this\n' >> "$STATE/mate.status" ;;
+  malformed) printf 'malformed row\n' >> "$STATE/.wake-queue" ;;
+  ack-failed)
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$FM_HOME/bin/fm-wake-drain.sh"
+    ;;
+  captain)
+    "$FM_HOME/bin/fm-branch-outcome.sh" append --task mate --verdict captain --summary 'decision required' >/dev/null || exit 93
+    fm_wake_append check supervision-host-return:2 'check: supervision-host outcome 2 for mate [captain]'
+    ;;
+esac
+cp "$STATE/.wake-queue" "$STATE/unsafe-queue"
+cp "$STATE/mate.status" "$STATE/unread-status"
+SH
+    chmod +x "$dir/bin/inject-next-batch.sh"
+    out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+    [ -e "$dir/state/consumed-before-injection" ] || fail "$kind: hook did not consume the routine batch and repark before injection"
+    expect_code 2 "$status" "$kind after quiet repark must keep the handling turn"
+    assert_contains "$out" 'one supervision event needs a handling turn' "$kind after quiet repark lost the handling banner"
+    cmp -s "$dir/state/unsafe-queue" "$dir/state/.wake-queue" || fail "$kind after quiet repark consumed unread queue rows"
+    cmp -s "$dir/state/unread-status" "$dir/state/mate.status" || fail "$kind after quiet repark changed unread status"
+    [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "$kind after quiet repark presented unread status"
+    [ ! -e "$dir/state/.branch-outcomes-cursor" ] || fail "$kind after quiet repark presented unread outcomes"
+    grep -Eq '^(pending|announced):downtime:' "$dir/state/.watcher-down" || fail "$kind after quiet repark retired the recovery obligation"
+    [ "$(wc -l < "$dir/state/arm-ran")" -eq 2 ] || fail "$kind did not return from the second park"
+    pass "auto-arm: $kind after routine consumption retains handling and unread obligations"
+  done
+}
+
+test_quiet_repark_delivers_the_next_real_event() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-next-real"
+  make_routine_home "$dir"
+  : > "$dir/state/real-next"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a real event after quiet consumption must wake the model"
+  assert_contains "$out" 'real event after quiet wake' "quiet handling lost the next event"
+  grep -q '^acked:' "$dir/state/routine-ack" || fail "routine batch was not acknowledged first"
+  [ "$(wc -l < "$dir/state/.wake-queue")" -eq 1 ] || fail "next real event was consumed"
+  pass "auto-arm: the same asynchronous hook reparks and delivers the next real event"
+}
+
+test_quiet_peek_preserves_real_status_and_bad_records() {
+  local dir out status label record
+  while IFS='|' read -r label record; do
+    dir="$TMP_ROOT/quiet-refuse-$label"
+    make_routine_home "$dir"
+    printf '%s\n' "$record" >> "$dir/state/mate.status"
+    out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+    expect_code 2 "$status" "$label must keep the handling turn"
+    [ "$(wc -l < "$dir/state/.wake-queue")" -eq 3 ] || fail "$label consumed queue rows"
+    [ ! -e "$dir/state/.status-presentation-cursor" ] || fail "$label consumed an unread status"
+  done <<'CASES'
+corr|working corr=1234567890abcdef: routed answer
+note|note: answer is ready
+notify|working [notify=captain]: review required
+decision|needs-decision [key=choice]: choose an option
+blocked|blocked [key=credential]: missing login
+done|done: ready for review
+failed|failed: build failed
+unknown|surprise: inspect this
+CASES
+  dir="$TMP_ROOT/quiet-bad-row"
+  make_routine_home "$dir"
+  printf 'malformed row\n' >> "$dir/state/.wake-queue"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "malformed queue rows must retain the handling turn"
+  [ "$(wc -l < "$dir/state/.wake-queue")" -eq 4 ] || fail "malformed queue was changed by the peek"
+  pass "auto-arm: routed answers, notes, decisions, blockers, terminal events, unknown tags and malformed rows remain durable"
+}
+
+test_empty_rearm_and_routine_host_return_stay_quiet() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-empty-rearm"
+  make_routine_home "$dir"
+  rm -f "$dir/state/.wake-queue"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 0 "$status" "a rearm-resurface without an unhandled record must stay quiet"
+  grep -q '^acked:' "$dir/state/routine-ack" || fail "empty rearm episode was not acknowledged"
+  dir="$TMP_ROOT/quiet-host-return"
+  make_routine_home "$dir"
+  rm -f "$dir/config/supervision-host-off"
+  cat > "$dir/bin/fm-supervision-host.sh" <<'SH'
+#!/usr/bin/env bash
+echo "$$" >> "$FM_HOME/state/arm-ran"
+if [ "$(wc -l < "$FM_HOME/state/arm-ran")" -gt 1 ]; then
+  cp "$FM_HOME/state/.watcher-down" "$FM_HOME/state/routine-ack"
+  rm -f "$FM_HOME/state/mate.meta"
+  printf 'supervision-host stood down: fixture complete\n'
+  exit 0
+fi
+printf 'signal: original-handled-completion\n'
+printf 'supervision-host: the captain returned while the away session was handling this wake, which it finished after the return brief was rendered; relay its visible outcomes (store rows 1, listed next and in bin/fm-branch-outcome.sh list) to the captain\n'
+printf 'supervision-host: outcome 1 for mate [routine]: routine progress\n'
+SH
+  chmod +x "$dir/bin/fm-supervision-host.sh"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 0 "$status" "a verified routine host return must stay quiet"
+  [ ! -s "$dir/state/.wake-queue" ] || fail "host return rows were not acknowledged"
+  [ ! -e "$dir/state/.branch-outcomes-cursor" ] || fail "host peek advanced outcome presentation"
+  pass "auto-arm: empty rearm and verified routine host return consume only the recovery acknowledgement"
+}
+
+test_captain_outcome_and_duplicate_signal_never_borrow_routine_evidence() {
+  local dir out status
+  dir="$TMP_ROOT/quiet-captain-outcome"
+  make_routine_home "$dir"
+  FM_HOME="$dir" "$dir/bin/fm-branch-outcome.sh" append --task mate --verdict captain --summary 'decision required' >/dev/null
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "a pending captain outcome must keep the handling turn"
+  [ ! -e "$dir/state/.branch-outcomes-cursor" ] || fail "captain outcome was marked presented"
+  dir="$TMP_ROOT/quiet-duplicate-signal"
+  make_routine_home "$dir"
+  FM_HOME="$dir" bash -c '. "$1/bin/fm-wake-lib.sh"; fm_wake_append signal mate.status "signal: $STATE/mate.status"' _ "$dir"
+  out=$(run_autoarm "$dir" 2>/dev/null); status=$?
+  expect_code 2 "$status" "duplicate signals with no per-row status endpoint must fail closed"
+  [ "$(wc -l < "$dir/state/.wake-queue")" -eq 4 ] || fail "duplicate raw signal was deduplicated away"
+  pass "auto-arm: captain outcomes and ambiguous duplicate signal rows cannot borrow routine evidence"
+}
+
+test_quiet_repark_rechecks_unsafe_batches
+test_all_routine_wakes_are_acknowledged_without_a_turn
+test_routine_batch_with_one_real_row_still_rewakes
+test_routine_ack_failure_keeps_the_handling_turn
+test_partial_ack_failure_keeps_the_handling_turn
+test_quiet_repark_delivers_the_next_real_event
+test_quiet_peek_preserves_real_status_and_bad_records
+test_empty_rearm_and_routine_host_return_stay_quiet
+test_captain_outcome_and_duplicate_signal_never_borrow_routine_evidence
+
 test_inert_in_child_worktree
 test_inert_without_session_lock
 test_reclaims_stale_session_lock_before_arming
