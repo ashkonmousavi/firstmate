@@ -43,7 +43,9 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-tests)
 # HOME and reach the developer's real store, while empty falls through to it
 # and adds no launch prefix, since fm-spawn only prefixes a non-empty value.
 SPAWN_HOME="$TMP_ROOT/user-home"
-mkdir -p "$SPAWN_HOME"
+# Lifecycle locks resolve through FM_HOME even when state/data are overridden.
+export FM_HOME="$TMP_ROOT/home"
+mkdir -p "$SPAWN_HOME" "$FM_HOME/state"
 
 write_spawn_brief() {  # <file> <id>
   fm_test_prep_record "$(dirname "$(dirname "$1")")" "$2" \

@@ -160,9 +160,41 @@ unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_LEASE_HOLDER_PID PI_CODING_A
 # Homes are registered in a file: make_home runs in a command substitution,
 # whose variables never reach this shell.
 HOMES_FILE="$TMP_ROOT/homes"
+stop_fixture_process() {  # <pid>
+  local pid=$1 i=0
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -TERM "$pid" 2>/dev/null || true
+    kill -CONT "$pid" 2>/dev/null || true
+    while [ "$i" -lt 300 ] && kill -0 "$pid" 2>/dev/null \
+      && ps -p "$pid" -o stat= 2>/dev/null | awk '$1 !~ /^Z/ { live = 1 } END { exit !live }'; do
+      sleep 0.1
+      i=$((i + 1))
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
+  wait "$pid" 2>/dev/null || true
+}
+# Every live descendant of <pid>, parents before their children.
+process_descendants() {  # <pid>
+  ps -A -o pid= -o ppid= 2>/dev/null | awk -v root="$1" '
+    { parent[$1] = $2; order[++n] = $1 }
+    END {
+      found[root] = 1
+      do {
+        changed = 0
+        for (i = 1; i <= n; i++) {
+          p = order[i]
+          if (!(p in found) && (parent[p] in found)) { found[p] = 1; changed = 1; print p }
+        }
+      } while (changed)
+    }'
+}
 # Stop whatever a case left running, by the exact pids its home recorded.
+# Fixture holders and blocked FIFO readers go first, since a held lock or an
+# unanswered read can keep the host and its arms from stopping. Every wait is
+# bounded, so a case that failed mid-fixture cannot hang the suite.
 stop_home_processes() {  # <home>
-  local home=$1 pid arms='' i=0 identity
+  local home=$1 pid kid fifo kids='' stops identity
   # A routine close can repark inside the same async Stop hook. Stop that
   # fixture-owned hook before its host, or the fake harness can wait forever
   # while a new host takes over the cycle cleanup just stopped.
@@ -178,28 +210,33 @@ stop_home_processes() {  # <home>
         ;;
     esac
   fi
-  if [ -f "$home/state/.supervision-host" ]; then
-    arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
-    pid=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
-    [ -z "$pid" ] || kill -TERM "$pid" 2>/dev/null || true
-    while [ "$i" -lt 50 ] && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; do
-      sleep 0.1
-      i=$((i + 1))
-    done
-  fi
-  for pid in $arms; do
-    kill -TERM "$pid" 2>/dev/null || true
-  done
-  pid=$(cat "$home/state/.watch.lock/pid" 2>/dev/null || true)
-  [ -z "$pid" ] || kill -TERM "$pid" 2>/dev/null || true
   while IFS= read -r pid; do
-    [ -e "$home/session.stop" ] || kill -TERM "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+    for kid in $(ps -A -o pid= -o ppid= | awk -v root="$pid" '$2 == root { print $1 }'); do
+      kill -STOP "$kid" 2>/dev/null || true
+    done
   done < <(cat "$home/claude-pids" 2>/dev/null)
   while IFS= read -r pid; do
-    kill -TERM "$pid" 2>/dev/null || true
-  done < <(cat "$home/orphan-pid" 2>/dev/null)
+    kids="$kids $(process_descendants "$pid")"
+  done < <(cat "$home/claude-pids" 2>/dev/null)
+  : > "$home/session.stop"
+  stops=$(
+    {
+      cat "$home/fixture-pids" 2>/dev/null
+      printf '%s\n' "$kids" | awk '{ for (i = 1; i <= NF; i++) line[++n] = $i } END { for (i = n; i > 0; i--) print line[i] }'
+      awk -F '\t' '$1 == "host" || $1 == "arm" { print $2 }' "$home/state/.supervision-host" 2>/dev/null
+      cut -f1 "$home/state/.supervision-host-left" 2>/dev/null
+      cat "$home/state/.watch.lock/pid" "$home/claude-pids" "$home/orphan-pid" 2>/dev/null
+    } | awk 'NF && !seen[$1]++ { print $1 }'
+  )
+  for fifo in "$home/stub-release" "$home/render-release"; do
+    [ -p "$fifo" ] || continue
+    { exec 9<> "$fifo" && printf 'release\n' >&9; exec 9>&-; } 2>/dev/null || true
+  done
+  for pid in $stops; do
+    stop_fixture_process "$pid"
+  done
 }
+
 cleanup_case_homes() {
   local home
   while IFS= read -r home; do
@@ -212,6 +249,28 @@ suite_cleanup() {
   fm_test_cleanup
 }
 trap suite_cleanup EXIT
+
+# Hold <lock> from a background fixture process until <home>/<name>.release
+# exists, for at most 60 seconds, so a case that fails before releasing it
+# cannot leave it running. <home>/<name>.held appears once the lock is held.
+# The holder writes nothing to the suite's output, its pid is registered for
+# stop_home_processes, and HOLDER_PID names it.
+HOLDER_PID=
+hold_lock() {  # <home> <lockdir> <name>
+  FM_STATE_OVERRIDE="$1/state" bash -c '
+    . "$1"
+    fm_lock_acquire_wait "$2" || exit 1
+    : > "$3.held"
+    i=0
+    while [ ! -e "$3.release" ] && [ "$i" -lt 600 ]; do
+      sleep 0.1
+      i=$((i + 1))
+    done
+    fm_lock_release "$2"
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$2" "$1/$3" >/dev/null 2>&1 &
+  HOLDER_PID=$!
+  printf '%s\n' "$HOLDER_PID" >> "$1/fixture-pids"
+}
 
 run_test() {
   "$@" || exit "$?"
@@ -327,7 +386,11 @@ case_with_a_parked_host() {
   start_host "$home"
   wait_until 150 watcher_live "$home" || fail "case cleanup: no watcher started"
   wait_until 150 test -s "$home/state/.supervision-host" || fail "case cleanup: no host recorded"
+  # A fixture holder the case never releases, as when a case fails mid-fixture.
+  hold_lock "$home" "$home/state/.case-cleanup.lock" case-cleanup
+  wait_until 100 test -e "$home/case-cleanup.held" || fail "case cleanup: the fixture holder never took its lock"
   {
+    printf '%s\n' "$HOLDER_PID"
     awk -F '\t' '$1 == "host" || $1 == "arm" { print $2 }' "$home/state/.supervision-host"
     cat "$home/state/.watch.lock/pid" "$home/claude-pids"
   } > "$TMP_ROOT/case-cleanup-pids"
@@ -336,11 +399,44 @@ case_with_a_parked_host() {
 test_finished_case_stops_its_fixture_processes() {
   local pid
   run_test case_with_a_parked_host
-  [ "$(wc -l < "$TMP_ROOT/case-cleanup-pids")" -ge 3 ] || fail "case cleanup: fixture did not start its process tree"
+  [ "$(wc -l < "$TMP_ROOT/case-cleanup-pids")" -ge 4 ] || fail "case cleanup: fixture did not start its process tree"
   while IFS= read -r pid; do
     ! kill -0 "$pid" 2>/dev/null || fail "finished case left fixture process $pid running"
   done < "$TMP_ROOT/case-cleanup-pids"
-  pass "host fixtures stop their host, arm, watcher, and fake session at each case boundary"
+  pass "host fixtures stop their host, arm, watcher, fake session, and an unreleased lock holder at each case boundary"
+}
+
+test_case_cleanup_finishes_each_descendant_before_its_parent() {
+  local home session middle leaf
+  home=$(make_home ordered-cleanup attended)
+  cat > "$home/cleanup-worker" <<'SH'
+#!/usr/bin/env bash
+role=$1
+printf '%s\n' "$$" > "$FM_HOME/$role.pid"
+trap 'trap - TERM; printf "%s-term\n" "$role" >> "$FM_HOME/cleanup.log"; sleep 0.3; printf "%s-done\n" "$role" >> "$FM_HOME/cleanup.log"; exit 0' TERM
+if [ "$role" = middle ]; then
+  "$0" leaf &
+fi
+while :; do sleep 0.1; done
+SH
+  chmod +x "$home/cleanup-worker"
+  FM_HOME="$home" "$FAKE_CLAUDE" -c '"$FM_HOME/cleanup-worker" middle & wait' &
+  session=$!
+  printf '%s\n' "$session" > "$home/claude-pids"
+  wait_until 100 test -s "$home/leaf.pid" || fail "ordered cleanup: no leaf process"
+  middle=$(cat "$home/middle.pid")
+  leaf=$(cat "$home/leaf.pid")
+  printf 'host\t%s\narm\t%s\n' "$middle" "$leaf" > "$home/state/.supervision-host"
+  printf '%s\tfixture\n' "$leaf" > "$home/state/.supervision-host-left"
+  mkdir -p "$home/state/.watch.lock"
+  printf '%s\n' "$leaf" > "$home/state/.watch.lock/pid"
+  stop_home_processes "$home"
+  [ "$(cat "$home/cleanup.log")" = "$(printf 'leaf-term\nleaf-done\nmiddle-term\nmiddle-done')" ] \
+    || fail "ordered cleanup interrupted a handler or stopped a parent first: $(cat "$home/cleanup.log")"
+  for session in "$session" "$middle" "$leaf"; do
+    ! kill -0 "$session" 2>/dev/null || fail "ordered cleanup left process $session running"
+  done
+  pass "case cleanup lets each descendant finish one TERM handler before stopping its parent"
 }
 
 # --- report surface -----------------------------------------------------------
@@ -923,21 +1019,14 @@ test_branch_outcomes_keep_a_drain_presented_outcome_across_an_index_repair() {
 test_park_arms_while_the_lease_command_lock_is_held() {
   local home holder_pid
   home=$(make_home lease-lock-held attended)
-  FM_STATE_OVERRIDE="$home/state" FM_TEST_READY="$home/holder-ready" bash -c '
-      . "$1"
-      fm_lock_acquire_wait "$2"
-      : > "$FM_TEST_READY"
-      sleep 60
-    ' _ "$ROOT/bin/fm-wake-lib.sh" "$home/state/.fm-lease-command.lock" >/dev/null 2>&1 &
-  holder_pid=$!
-  wait_until 50 test -e "$home/holder-ready" || fail "lease lock held: the fixture holder never took the lock"
+  hold_lock "$home" "$home/state/.fm-lease-command.lock" lease-lock
+  holder_pid=$HOLDER_PID
+  wait_until 50 test -e "$home/lease-lock.held" || fail "lease lock held: the fixture holder never took the lock"
   start_host "$home"
   wait_until 150 watcher_live "$home" \
-    || { kill "$holder_pid" 2>/dev/null; fail "lease lock held: the park never armed a watcher: $(cat "$home/host.out" "$home/state/.supervision-host.log" 2>/dev/null)"; }
+    || fail "lease lock held: the park never armed a watcher: $(cat "$home/host.out" "$home/state/.supervision-host.log" 2>/dev/null)"
   assert_re "	lease-release-failed	.*held by pid $holder_pid" "$home/state/.supervision-host.log" \
     "lease lock held: the host hid the bounded release failure"
-  kill "$holder_pid" 2>/dev/null
-  wait "$holder_pid" 2>/dev/null
   pass "host: a held lease-command lock cannot stop a park from arming, and the release failure is logged"
 }
 
@@ -1431,7 +1520,7 @@ test_claude_stop_hook_rewakes_a_present_captain_beside_a_quiet_record() {
 # config/supervision-host-off runs the plain watcher arm, mirrors nothing, and every wake
 # reaches main as the arm printed it.
 test_claude_stop_hook_runs_the_host_without_the_file_and_off_opts_out() {
-  local home first
+  local home first descendants pid
   home=$(make_primary_home hook-default-on)
   ln -s "$ROOT/.agents" "$home/.agents"
   rm -f "$home/config/supervision-host"
@@ -1448,8 +1537,15 @@ test_claude_stop_hook_runs_the_host_without_the_file_and_off_opts_out() {
   assert_re '	handled	turn=[^	]*	posture=attended	' "$home/state/.supervision-host.log" "the ledger must record the attended turn"
   [ ! -s "$home/hook.rc" ] || fail "a routine attended wake on a Claude home without the file reached main: $(cat "$home/hook.err")"
   watcher_live "$home" || fail "default-on: the host is not parked on a live successor"
+  descendants=$(process_descendants "$(cat "$home/claude-pids")")
+  [ -n "$descendants" ] || fail "default-on: no session descendants to clean up"
   : > "$home/session.stop"
   stop_home_processes "$home"
+  for pid in $descendants; do
+    ! kill -0 "$pid" 2>/dev/null || fail "default-on: cleanup left descendant $pid running"
+  done
+  ! watcher_live "$home" || fail "default-on: cleanup left a replacement watcher"
+  [ -z "$(home_arms "$home")" ] || fail "default-on: cleanup left a replacement arm"
 
   home=$(make_primary_home hook-opted-out)
   : > "$home/config/supervision-host-off"
@@ -1638,6 +1734,12 @@ home_arms() {  # <home>
         END { for (i = 1; i <= n; i++) if (!(ppid[order[i]] in ppid)) print order[i], ppid[order[i]] }'
 }
 parent_of() { ps -o ppid= -p "$1" 2>/dev/null | tr -d ' '; }
+# Every process running from <home> or this repo's bin, with its state and
+# kernel wait channel, for a failure that must name what kept a process alive.
+home_processes() {  # <home>
+  ps -A -o pid= -o ppid= -o stat= -o wchan= -o command= 2>/dev/null \
+    | awk -v home="$1/" -v bin="$ROOT/bin/" 'index($0, home) || index($0, bin)'
+}
 
 # True once the park's own arm owns the home's only watcher cycle: exactly one
 # arm runs from the home, it is the host's child, and it is the watcher's parent.
@@ -1721,15 +1823,9 @@ test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park() {
   local home holder host
   home=$(make_primary_home hook-takeover-interrupted)
   leave_a_cycle_for_main_and_restart "$home"
-  FM_STATE_OVERRIDE="$home/state" bash -c '
-    . "$1"
-    fm_lock_acquire_wait "$2" || exit 1
-    : > "$3"
-    while [ ! -e "$4" ]; do sleep 0.1; done
-    fm_lock_release "$2"
-  ' _ "$ROOT/bin/fm-wake-lib.sh" "$home/state/.watcher-down.lock" "$home/marker-lock-held" "$home/marker-lock-release" &
-  holder=$!
-  wait_until 100 test -e "$home/marker-lock-held" || fail "fixture: could not hold the recovery-marker lock"
+  hold_lock "$home" "$home/state/.watcher-down.lock" marker-lock
+  holder=$HOLDER_PID
+  wait_until 100 test -e "$home/marker-lock.held" || fail "fixture: could not hold the recovery-marker lock"
   turn_end "$home"
   wait_until 150 grep -q "	take-over	arm=$LEFT_ARM\$" "$home/state/.supervision-host.log" \
     || fail "interrupted takeover: the park did not start a take-over of $LEFT_ARM: $(cat "$home/state/.supervision-host.log")"
@@ -1737,8 +1833,9 @@ test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park() {
   sleep 1
   kill -0 "$LEFT_WATCHER" 2>/dev/null || fail "fixture: the take-over stopped the left watcher before the park was stopped"
   kill -TERM "$host" 2>/dev/null || fail "fixture: the park host $host was not running"
-  wait_until 150 sh -c '! kill -0 "$1" 2>/dev/null' _ "$host" || fail "fixture: the park host did not stop"
-  : > "$home/marker-lock-release"
+  wait_until 150 sh -c '! kill -0 "$1" 2>/dev/null' _ "$host" \
+    || fail "fixture: the park host $host did not stop:"$'\n'"$(home_processes "$home")"$'\n'"$(cat "$home/state/.supervision-host.log")"
+  : > "$home/marker-lock.release"
   wait "$holder" 2>/dev/null || true
   # The Stop hook runs the next park in place of the one stopped by a signal.
   wait_until 150 host_owns_the_only_cycle "$home" \
@@ -1748,6 +1845,55 @@ test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park() {
 }
 
 no_home_arms() { [ -z "$(home_arms "$1")" ]; }
+
+# Hold the host's first identity read of a process it forked (the record it
+# writes for a new arm) while <home>/od.hold exists, for at most 30 seconds,
+# and name that process in <home>/od-held. Reads by any other process, or of
+# any other pid, pass straight through to the real od.
+hold_first_arm_identity_read() {  # <home>
+  local real_od
+  real_od=$(command -v od)
+  cat > "$1/fakebin/od" <<SH
+#!/usr/bin/env bash
+target=\${*: -1}
+case "\$target" in /proc/*/cmdline) pid=\${target#/proc/}; pid=\${pid%/cmdline} ;; *) pid= ;; esac
+host=\$(awk -F '\t' '\$1 == "host" { print \$2; exit }' "\$FM_HOME/state/.supervision-host" 2>/dev/null)
+if [ -e "\$FM_HOME/od.hold" ] && [ -n "\$pid" ] && [ -n "\$host" ] && [ ! -e "\$FM_HOME/od-held" ] \\
+  && [ "\$(ps -o ppid= -p "\$pid" 2>/dev/null | tr -d ' ')" = "\$host" ] \\
+  && tr '\\0' ' ' < "/proc/\$PPID/cmdline" 2>/dev/null | grep -q 'fm-supervision-host\.sh'; then
+  printf '%s\\n' "\$pid" > "\$FM_HOME/od-held"
+  i=0
+  while [ -e "\$FM_HOME/od.hold" ] && [ "\$i" -lt 300 ]; do sleep 0.1; i=\$((i + 1)); done
+fi
+exec "$real_od" "\$@"
+SH
+  chmod +x "$1/fakebin/od"
+}
+
+# A stop signal that lands while the host is starting an arm (here while it
+# reads the new arm's identity for its record) must stop that arm with the
+# host: an arm forked but not yet tracked would outlive it and keep its own
+# cycle running beside the next park's.
+test_a_stop_while_the_host_starts_an_arm_stops_that_arm() {
+  local home host arm
+  [ -r /proc/self/cmdline ] || { printf 'skip: no /proc process identity reads to hold\n'; return 0; }
+  home=$(make_home stop-while-starting attended)
+  hold_first_arm_identity_read "$home"
+  : > "$home/od.hold"
+  start_host "$home"
+  wait_until 150 test -s "$home/od-held" \
+    || fail "fixture: the host's identity read of its new arm was never held: $(cat "$home/host.out" "$home/state/.supervision-host.log" 2>/dev/null)"
+  arm=$(cat "$home/od-held")
+  host=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
+  kill -TERM "$host" 2>/dev/null || fail "fixture: the host $host was not running"
+  rm -f "$home/od.hold"
+  wait_until 150 sh -c '! kill -0 "$1" 2>/dev/null' _ "$host" \
+    || fail "stop while starting: the host $host did not stop:"$'\n'"$(home_processes "$home")"
+  wait_until 150 sh -c '! kill -0 "$1" 2>/dev/null' _ "$arm" \
+    || fail "stop while starting: the arm the host was starting (pid $arm) outlived it:"$'\n'"$(home_processes "$home")"
+  ! watcher_live "$home" || fail "stop while starting: the host's stop left a watcher running:"$'\n'"$(home_processes "$home")"
+  pass "host: a stop that lands while the host is starting an arm stops that arm with the host"
+}
 
 # A successor the host cannot record for the next park's take-over (here the
 # record path is a directory the record would land inside) must not be left
@@ -2462,6 +2608,57 @@ test_engine_turn_is_bounded_and_its_descendants_reaped() {
   pass "host: an engine turn is bounded, and tool processes outside its process group are reaped"
 }
 
+test_stop_before_engine_identity_reaps_its_descendants() {
+  local home host orphan real_mktemp real_od
+  [ -r /proc/self/cmdline ] || { printf 'skip: no /proc identity reads to hold\n'; return 0; }
+  home=$(make_home stop-engine-start away)
+  echo hang > "$home/stub-mode"
+  real_mktemp=$(command -v mktemp)
+  cat > "$home/fakebin/mktemp" <<SH
+#!/usr/bin/env bash
+case "\$*" in
+  *.supervision-host-descendants.*)
+    : > "\$FM_HOME/engine-start-held"
+    i=0
+    while [ ! -e "\$FM_HOME/engine-start-release" ] && [ "\$i" -lt 100 ]; do
+      sleep 0.1
+      i=\$((i + 1))
+    done
+    ;;
+esac
+exec "$real_mktemp" "\$@"
+SH
+  real_od=$(command -v od)
+  cat > "$home/fakebin/od" <<SH
+#!/usr/bin/env bash
+if [ -e "\$FM_HOME/engine-start-release" ] && [ ! -e "\$FM_HOME/state/.supervision-host.engine-pid" ]; then
+  i=0
+  while [ ! -s "\$FM_HOME/orphan-pid" ] && [ "\$i" -lt 100 ]; do
+    sleep 0.1
+    i=\$((i + 1))
+  done
+fi
+exec "$real_od" "\$@"
+SH
+  chmod +x "$home/fakebin/mktemp" "$home/fakebin/od"
+  start_host "$home"
+  wait_until 150 watcher_live "$home" || fail "engine stop: no watcher"
+  append_status "$home" 'start the engine'
+  wait_until 150 test -e "$home/engine-start-held" || fail "engine stop: startup was not held"
+  [ ! -e "$home/state/.supervision-host.engine-pid" ] || fail "engine stop: identity already published"
+  host=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
+  kill -TERM "$host" || fail "engine stop: host was not running"
+  sleep 0.5
+  : > "$home/engine-start-release"
+  wait_until 100 test -s "$home/orphan-pid" || fail "engine stop: detached tool did not start"
+  orphan=$(cat "$home/orphan-pid")
+  wait_until 250 host_exited "$home" || fail "engine stop: host did not stop"
+  expect_code 143 "$(cat "$home/host.rc")" "engine stop: TERM status must survive cleanup"
+  wait_until 50 sh -c '! kill -0 "$1" 2>/dev/null' _ "$orphan" \
+    || fail "engine stop: detached tool outlived the host"
+  pass "host: stopping before engine identity publication still reaps detached tools"
+}
+
 test_restarted_host_stops_what_a_killed_predecessor_left() {
   local home first_host arm watcher
   home=$(make_home away-crash away)
@@ -3065,6 +3262,7 @@ test_superseded_host_leaves_the_owner_untouched() {
   pass "host: a host under a superseded auto-arm generation stands down without touching the owner"
 }
 
+run_test test_case_cleanup_finishes_each_descendant_before_its_parent
 run_test test_finished_case_stops_its_fixture_processes
 run_test test_claude_stop_hook_restores_handoff_when_successor_closed_before_exit_to_main
 run_test test_claude_stop_hook_restores_handoff_when_successor_closed_mid_engine_turn
@@ -3110,6 +3308,7 @@ run_test test_successor_close_during_main_turn_is_delivered_at_the_next_turn_end
 run_test test_pass_through_successor_survives_the_hook_process_group_teardown
 run_test test_next_park_takes_over_the_cycle_a_pass_through_left_for_main
 run_test test_a_park_stopped_mid_take_over_leaves_the_take_over_to_the_next_park
+run_test test_a_stop_while_the_host_starts_an_arm_stops_that_arm
 run_test test_unrecorded_successor_is_stopped_rather_than_left_for_main
 run_test test_primary_without_a_verified_mirror_runs_away_only
 run_test test_attended_wake_carries_the_dialog_mirror
@@ -3130,6 +3329,7 @@ run_test test_incomplete_engine_result_hands_the_wake_to_main
 run_test test_latch_trips_after_two_engine_errors_then_probes_and_recovers
 run_test test_latch_keeps_attended_closes_on_main_and_skips_unopted_homes
 run_test test_attended_latch_keeps_closes_on_main_and_records_recovery_off_main
+run_test test_stop_before_engine_identity_reaps_its_descendants
 run_test test_engine_turn_is_bounded_and_its_descendants_reaped
 run_test test_restarted_host_stops_what_a_killed_predecessor_left
 run_test test_park_boundary_ends_the_park_before_the_hook_timeout

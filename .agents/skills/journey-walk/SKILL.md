@@ -3,14 +3,15 @@ name: journey-walk
 description: >-
   Agent-only procedure for commissioning and supervising a live end-to-end journey walk.
   Load before commissioning, scheduling, or supervising a live end-to-end journey walk, when a walk blocker's fix is installed, and on a served-build check wake reporting a newly served commit.
-  Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, one triage pass per walk batch, same-day cosmetic bundles, class-fix lanes, oldest-break-first ordering, regression-first focused re-walk after install and its automatic served-commit dispatch, the project's walk health record currency, batch reports, and captain-language outcomes.
-  The project's own walk procedure owns the walk itself.
 user-invocable: false
 metadata:
   internal: true
 ---
 
 # journey-walk
+
+Owns firstmate's supervisor duties: one walk owner, the install freeze and its same-turn durable record, the live-version gate, one triage pass per walk batch, same-day cosmetic bundles, class-fix lanes, oldest-break-first ordering, regression-first focused re-walk after install and its automatic served-commit dispatch, the project's walk health record currency, batch reports, and captain-language outcomes.
+The project's own walk procedure owns the walk itself.
 
 Load this before commissioning, scheduling, or supervising a live end-to-end journey walk, when a walk blocker's fix is installed, and on a served-build check wake reporting a newly served commit.
 
@@ -31,8 +32,10 @@ Treat those three as the standing failure modes this skill exists to prevent.
 Name one walk owner for the run, the version reservation, the stage ledger, defect grouping, and the final verdict.
 Do not split those across lanes.
 
-Hold installs for the walk window and its cleanup.
-Q walk dispatch uses `bin/fm-grok-bot-dispatch.sh --walk <id> --walk-owner <owner>` or `bin/fm-spawn.sh --walk <id> --walk-owner <owner> --walk-timeout <seconds>`; `bin/fm-walk-marker-lib.sh` and the dispatch/teardown headers own the lifecycle.
+Hold installs for a person's or Grok's walk and its cleanup for at most 45 minutes per walk; the freeze then lapses on its own.
+Deploys and probes continue outside that freeze.
+Use that freeze limit as the dispatch timeout.
+Q walk dispatch uses `bin/fm-grok-bot-dispatch.sh --walk <id> --walk-owner <owner> --timeout <seconds>` or `bin/fm-spawn.sh --walk <id> --walk-owner <owner> --walk-timeout <seconds>`; `bin/fm-walk-marker-lib.sh` and the dispatch/teardown headers own the lifecycle.
 Record that freeze in the walk task's durable records the same turn it starts, and record its release the same turn it ends.
 A walk that cannot hold the installed version does not start acceptance evidence.
 

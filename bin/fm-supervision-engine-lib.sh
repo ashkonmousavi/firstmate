@@ -384,14 +384,19 @@ fm_supervision_engine_turn() {
     # The bounded process is this shell's unreaped child, so its pid cannot
     # be recycled here; its identity is refreshed until the subshell's exec
     # into the watchdog has settled.
+    identity=
     if [ -n "$pid_file" ]; then
       identity=$(_fm_engine_identity "$watched" || true)
+    fi
+    # Capture descendants before publishing the identity that lets the host
+    # stop the engine; otherwise that stop can erase their ancestry first.
+    _fm_engine_snapshot_descendants "$watched" "$ledger"
+    if [ -n "$pid_file" ]; then
       if [ -n "$identity" ] && [ "$identity" != "$recorded" ]; then
         printf '%s\t%s\n' "$watched" "$identity" > "$pid_file" 2>/dev/null || true
         recorded=$identity
       fi
     fi
-    _fm_engine_snapshot_descendants "$watched" "$ledger"
     # Between the one-second snapshots the engine's exit is probed at a tenth
     # of a second: the turn closes promptly when the engine dies while the
     # process-table scans keep their one-second cadence.

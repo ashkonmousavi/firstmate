@@ -375,6 +375,53 @@ test_lock_steals_dead_pid_lock() {
   pass "dead-pid stale lock is reclaimed by a single acquirer"
 }
 
+test_pid_alive_preserves_live_result_in_exit_trap() {
+  local dir state out rc=0
+  dir=$(make_case pid-alive-exit-trap)
+  state="$dir/state"
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    trap "fm_pid_alive $2 && printf live" EXIT
+    exit 17
+  ' _ "$LIB" "$$") || rc=$?
+  [ "$rc" -eq 17 ] || fail "EXIT trap changed the original exit status (rc=$rc)"
+  [ "$out" = live ] || fail "live process was classified dead inside an EXIT trap"
+  pass "live process stays alive inside a trap entered with a nonzero status"
+}
+
+test_lock_reclaims_thread_id_but_preserves_process() {
+  local dir state lockdir proc live out
+  dir=$(make_case lock-thread-id)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  proc="$dir/proc"
+  sleep 300 &
+  live=$!
+  mkdir -p "$lockdir" "$proc/$live"
+  printf '%s\n' "$live" > "$lockdir/pid"
+  # Keep kill -0 positive in both cases; only the proc thread-group differs.
+  printf 'Name:\tsleep\nTgid:\t%s\nPid:\t%s\n' "$live" "$live" > "$proc/$live/status"
+  out=$(FM_STATE_OVERRIDE="$state" FM_PROC_ROOT_OVERRIDE="$proc" bash -c '
+    . "$1"
+    kill -0 "$3" || exit 6
+    fm_pid_alive "$3" || exit 7
+    if fm_lock_try_acquire "$2"; then exit 8; fi
+    [ "$(cat "$2/pid")" = "$3" ] || exit 9
+    # Model a dead holder number reused as a non-leader thread ID.
+    printf "Name:\tworker\nTgid:\t%s\nPid:\t%s\n" "$4" "$3" > "$FM_PROC_ROOT_OVERRIDE/$3/status"
+    kill -0 "$3" || exit 10
+    fm_lock_try_acquire "$2" || exit 11
+    [ "$(cat "$2/pid")" != "$3" ] || exit 12
+    [ "$FM_LOCK_RECOVERED_PID" = "$3" ] || exit 13
+    fm_lock_release "$2"
+    printf reclaimed
+  ' _ "$LIB" "$lockdir" "$live" "$$")
+  kill "$live" 2>/dev/null || true
+  wait "$live" 2>/dev/null || true
+  [ "$out" = reclaimed ] || fail "thread-id lock was not reclaimed after preserving the live process lock"
+  pass "thread-id stale lock is reclaimed while a live process lock is preserved"
+}
+
 # Start a process that claims each given link lock, then SIGKILL it so every
 # claim is left behind with a dead owner - an acquirer TERMed mid-steal.
 leave_dead_link_locks() {  # <state> <lock>...
@@ -526,6 +573,9 @@ test_lock_steal_reap_cannot_remove_successor() {
   fakebin="$dir/fakebin"
   out="$dir/competitor"
   leave_dead_link_locks "$state" "$steal"
+  # The killed fixture owner may have its PID reused during a loaded serial
+  # shard. Pin a verified-dead PID so the race exercises reaping, not liveness.
+  printf '%s\n' "$(dead_pid)" > "$steal/pid"
   cat > "$fakebin/rm" <<'SH'
 #!/usr/bin/env bash
 last=
@@ -572,32 +622,51 @@ SH
 }
 
 test_lock_stale_steal_single_winner_under_concurrency() {
-  local dir state lockdir dead marker i pids pid wins
+  local dir state lockdir dead marker gate hold i pids pid waiter winner wins
   dir=$(make_case lock-stale-concurrency)
   state="$dir/state"
   lockdir="$state/.contend.lock"
   marker="$dir/wins"
+  gate="$dir/first-winner"
+  hold="$dir/winner-release"
   dead=$(dead_pid)
   mkdir "$lockdir"
   printf '%s\n' "$dead" > "$lockdir/pid"
   : > "$marker"
+  mkfifo "$gate" "$hold"
+  # try_acquire is nonblocking: all one-shot candidates may lose to a transient
+  # steal mutex. A waiting contender guarantees eventual acquisition, and the
+  # FIFO keeps the winner alive until every other contender has finished.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_acquire_wait "$2" || exit 1
+    printf "%s\n" "${BASHPID:-$$}" >> "$3"
+    printf "%s\n" "${BASHPID:-$$}" > "$4"
+    IFS= read -r _ < "$5"
+  ' _ "$LIB" "$lockdir" "$marker" "$gate" "$hold" &
+  waiter=$!
   pids=
   i=1
-  while [ "$i" -le 40 ]; do
+  while [ "$i" -le 39 ]; do
     FM_STATE_OVERRIDE="$state" bash -c '
       . "$1"
       if fm_lock_try_acquire "$2"; then
         printf "%s\n" "${BASHPID:-$$}" >> "$3"
-        sleep 1
+        printf "%s\n" "${BASHPID:-$$}" > "$4"
+        IFS= read -r _ < "$5"
       fi
-    ' _ "$LIB" "$lockdir" "$marker" &
+    ' _ "$LIB" "$lockdir" "$marker" "$gate" "$hold" &
     pids="$pids $!"
     i=$((i + 1))
   done
+  IFS= read -r winner < "$gate"
+  [ "$winner" = "$waiter" ] || { kill "$waiter" 2>/dev/null || true; wait "$waiter" 2>/dev/null || true; }
   for pid in $pids; do
-    wait "$pid" 2>/dev/null || true
+    [ "$pid" = "$winner" ] || wait "$pid" 2>/dev/null || true
   done
   wins=$(awk 'NF { c++ } END { print c + 0 }' "$marker")
+  printf 'release\n' > "$hold"
+  wait "$winner" 2>/dev/null || true
   [ "$wins" -eq 1 ] || fail "expected exactly one stale-lock stealer, got $wins"
   pass "concurrent stale-lock steal yields exactly one winner"
 }
@@ -1599,7 +1668,7 @@ test_proc_pid_identity_ignores_wall_clock_and_detects_pid_reuse() {
   state="$dir/state"
   proc_root="$dir/proc"
   pid=4242
-  identity_key=proc-starttime
+  identity_key="proc-starttime"
   [ "$(uname)" != Linux ] || identity_key=linux-starttime
   mkdir -p "$proc_root"
   printf 'btime 1784094040\n' > "$proc_root/stat"
@@ -1687,6 +1756,7 @@ test_msys_pid_identity_uses_proc() {
   pass "MSYS process identity uses compatible /proc fields"
 }
 
+test_pid_alive_preserves_live_result_in_exit_trap
 test_wait_deadline_reaps_a_stopped_child
 test_singleton_start
 test_pid_identity_is_locale_invariant
@@ -1700,6 +1770,7 @@ test_live_stalled_watch_lock_is_replaced_past_hard_bound
 test_guard_warnings
 test_lock_single_winner_under_concurrency
 test_lock_steals_dead_pid_lock
+test_lock_reclaims_thread_id_but_preserves_process
 test_lock_stale_steal_single_winner_under_concurrency
 test_lock_reclaims_dead_steal_owner_without_nested_markers
 test_lock_recovers_dead_nested_steal_chain

@@ -50,9 +50,6 @@ Use `gh-axi` for GitHub, `chrome-devtools-axi` for browser work, and compatible 
 
 ## 2. Layout and state
 
-`docs/configuration.md` is the single owner of the top-level operational-home layout and configuration schemas; each producing script's header and help own exact child fields and mutation mechanics.
-`FM_HOME` selects an instance's private `data/`, `state/`, `config/`, and `projects/`, while scripts continue to come from their tracked code root.
-Each secondmate has a persistent isolated `FM_HOME`, including its own state, backlog, projects, and session lock.
 `bin/fm-send.sh` fails closed unless `FM_HOME` is explicit, so a steer cannot silently resolve against another home.
 
 Tracked files hold shared instructions and tooling; `data/` holds durable private fleet records; `state/` holds runtime records and append-only status events; `config/` holds local operating choices; and `projects/` contains clones that are read-only to firstmate except under hard rule 1's concrete captain-approved project operation exception.
@@ -90,21 +87,7 @@ Load `session-start-recovery` when the digest reports unfinished checks, actiona
 
 `docs/configuration.md` owns dispatch-profile and runtime-backend schemas, `bin/fm-harness.sh` owns static resolution, and `bin/fm-spawn.sh` owns launch flags and fail-closed validation.
 When dispatch profiles exist, consult them at every crewmate or scout intake and pass the resolved concrete profile required by `fm-spawn`.
-Routing precedence is an explicit per-task captain override, then the best-fit configured rule, then the configured default, then the static crewmate harness.
-Firstmate alone chooses the matching rule; resolve its profile object or array with `bin/fm-dispatch-select.sh` under the selection contract in `docs/configuration.md` ("Crew dispatch profiles").
-Pass that rule to `fm-spawn` as `--dispatch-rule` (omit it for `default`); spawn refuses a ship or scout harness, model, and effort that match none of that rule's candidate profiles (with no configured `default`, the static crewmate harness passes for `default`) unless `data/<id>/dispatch-override` records an explicit captain override.
-A selected Grok Bot target is never spawned; send it through `bin/fm-grok-bot-dispatch.sh` under that same section's Grok Bot contract.
-Ordered selection is the default intake: configured list order wins unless a candidate is unavailable; quota-balanced selection applies only where `select` explicitly requests it.
-Supply concrete unavailability facts and retain the selector's choice and skip reasons; if every candidate is unavailable, stop and report it rather than falling through to another rule.
-Establish model support and provider family from that harness's own authoritative catalog, then apply the [account and scope matching rules in `quota-array-dispatch`](.agents/skills/quota-array-dispatch/SKILL.md#1-eligibility).
-Missing model-level quota, a missing authentication source, unmeasurable headroom, or unmodeled authentication is disclosed uncertainty that keeps a candidate eligible, never a credential or login escalation.
-Only concrete contradictory evidence blocks a candidate, such as an authoritative catalog proving the model unsupported or proof that the credential selected for that surface is unusable; never infer a credential store, provider family, or quota mapping from a harness, model, or source name, and never launch another harness's CLI to judge a candidate.
-Preserve malformed profile configuration as an actionable error rather than selecting around it.
-`quota-axi` owns how model or product windows relate to bounding account windows and remains data-only.
-Load `quota-array-dispatch` only for an explicit `quota-balanced` rule; that skill owns its TOON-first spendPriority procedure, every-candidate accounting, strongest-reasoning protection, and tie escalation.
-Run `bin/fm-dispatch-resolve.sh` directly on the written brief in the same turn, with no preflight; on `clear` take its matched rule and resolve that rule's profile as above, while `ambiguous`, `escalate`, `error`, and off all mean the intake above, unchanged (contract: `docs/configuration.md` "Typed dispatch resolution").
-The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
-Do not add model-specific versions of that policy.
+Read the "Intake routing" section of [`harness-adapters` `references/common/dispatch.md`](.agents/skills/harness-adapters/references/common/dispatch.md#intake-routing) at every crewmate or scout intake; it holds routing precedence, rule and profile selection, candidate eligibility, and typed dispatch resolution.
 
 `secondmate-provisioning` owns secondmate harness pins and inherited local material, while `harness-adapters` owns the harness consequences.
 Dispatch only on a backend that `fm-spawn` validates as spawn-capable; pass an explicit per-spawn `--backend` only under that exact task's own authority, never as later-task precedent (selection contract: [`docs/configuration.md`](docs/configuration.md) "Runtime backend").
@@ -202,10 +185,7 @@ Use as many isolated ship/scout lanes as this home's presequenced, currently par
 Admit each extra lane, one at a time up to ten, only after a fresh WSL reading proves available memory strictly above 3 GiB and no sustained swap-in or memory pressure; load average and busy cores never refuse admission, and missing or failing readings prevent it.
 A project's declared machine capacity (`config/project-capacity`) still bounds that dispatch: a spawn beyond it exits 75 without launching, and its item stays queued rather than blocked.
 Serialize only for a true semantic dependency, shared mutable external state, incompatible concurrent migration, or another concrete condition that makes independent progress or reconciliation unsafe; incidental same-file editing alone is insufficient, and genuine blockers remain durable.
-Write the preparation record before the brief with `bin/fm-brief.sh <task-id> --prep [--surgical]`; `bin/fm-dod-lib.sh` owns the common author checks, outcome table, tier completeness and surgical certainty.
-The preparation author fills the common checks and explicit expected outcomes, then runs that owner's completeness gate on final bytes and records its actual result in the handoff; separate prep review is optional when explicitly requested.
-A ship spawn refuses a task whose preparation record is missing, whose tier header is unanswered, where a section that tier requires is missing, still placeheld, or empty, or whose common checks or outcome table fail the completeness contract in `bin/fm-dod-lib.sh`.
-When a secondmate already filled `data/nav-preps/<id>.md`, install that sheet into this home's `data/<id>/prep.md` with `bin/fm-prep-install.sh` before spawn; an empty local `--prep` scaffold must not hide a filled nav-prep.
+Before writing a ship or scout preparation record or brief, load `task-intake`; it holds the preparation-record, spawn backlog-gate, and brief-filling clauses.
 Write the task-specific brief under section 11 before spawning.
 Fill the task subsections according to section 11.
 
@@ -213,11 +193,10 @@ Fill the task subsections according to section 11.
 
 Spawn only through `bin/fm-spawn.sh` after the profile and backend checks in section 4.
 The spawn must resolve a genuine isolated task worktree distinct from the primary checkout; a failed isolation assertion stops the task.
-When the configured tasks-axi backlog gate applies, the spawn itself moves the work item to In flight and refuses rather than dispatching work this home has no item for, so recording the dispatch is never a separate step to remember; a manual-backend home retains the hand-editing contract in `docs/configuration.md`.
 After spawning, confirm the worker is processing the brief and handle any trust dialog through `harness-adapters`.
 A persistent secondmate is recorded in the secondmate registry and runtime state, never as a backlog work item.
 
-Steer a worker with ordinary text through fail-closed `fm-send`: the message becomes a durable record in the task's steering inbox (multi-line text is legal, local and remote alike) and the worker's terminal receives only a constant doorbell line, with the watcher re-ringing an unacknowledged local message and escalating a stuck one (`bin/fm-task-inbox-lib.sh`; `bin/fm-send.sh` owns the typed-plane carve-outs).
+Steer a worker with ordinary text through fail-closed `fm-send`: the message becomes a durable record in the task's steering inbox (multi-line text is legal, local and remote alike) and the worker's terminal receives only a constant doorbell line, with the watcher re-ringing an unacknowledged message and escalating a stuck one (`bin/fm-task-inbox-lib.sh`; `bin/fm-send.sh` owns the typed-plane carve-outs).
 A remote secondmate steer rides the same durable-inbox model through the remote transport; after an unconfirmed delivery, only the exact `FM_PENDING_REPLY_EXISTING_CORR=<id>` resend command printed by `fm-send` is safe because it preserves the request body for remote enqueue deduplication (`bin/fm-send.sh` header).
 When a steer answers an open keyed decision or blocker, pass `fm-send`'s `--resolve-key` so the answer itself closes that decision record at answer time, identically for local and remote workers (contract: `bin/fm-send.sh` header).
 `fm-send` is the data plane for text the worker should read; never use its key or text paths for interrupt, exit, or other lifecycle control, because routing-marked lifecycle text becomes chat the worker reasons about instead of executing.
@@ -245,12 +224,9 @@ Delivery mode and `yolo` are orthogonal.
 `bin/fm-pr-merge.sh`'s header owns the attended-only, exact-check-name, head-bound waiver and override mechanics.
 Firstmate records the evidence in the task note first: a known shared main cause this PR did not introduce, or a still-running leg with equivalent local proof of the same tests.
 Destructive, irreversible, security-sensitive, money, and product-choice merges still escalate.
-Firstmate orchestrates the landing order at every push and merge: main repair PRs and the current main proof run lead the shared CI queue.
-Lower-priority PR runs may be cancelled and rerun behind main repair work with the reason logged.
-A running main run is never cancelled, and a newer main merge replaces only main legs that have not started.
+Load `ship-landing` before ordering CI work at a push or merge; it holds the landing order and the post-merge captain report.
 Load `ask-user-authority` and `validation-supervision` before deciding an escalated finding; `bin/fm-dod-lib.sh` owns worker triage, autonomous batch fixes and stop-set escalation.
 Use `bin/fm-pr-merge.sh` for every task PR merge so merge metadata is recorded and an unproved merge is refused instead of reported as landed, and use `bin/fm-merge-local.sh` for approved local-only landing; never call a lower-level merge command around their guards.
-After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that `ship-landing` requires before the task counts as landed; a local-only landing gives only the local-main outcome.
 
 ### Validate
 
@@ -294,7 +270,7 @@ Handle actionable wakes as follows:
 1. For `signal:`, read the listed event lines first, then reconcile current state only where action depends on it.
 2. For `stale:`, inspect the recorded endpoint and load `stuck-crewmate-recovery` for a stopped, looping, confused, or unresponsive worker; a deep-inspection reason also requires current-state and validation-log inspection.
 3. For `check:`, act on the named poll result, including merges, contribution signals, Relay events, process-to-event source results, and captain inbox notes; a handled inbox note is also acknowledged with `bin/fm-inbox.sh drain --ack <id>`, or it stays counted as still waiting for firstmate.
-   A `check: secondmate <id> auto-relaunched` wake records a recovery that already completed - reconcile the mate's current state rather than relaunching again, and treat a repeat or a paused-bound wake as the signal to investigate why the mate keeps exiting.
+   On a `check: secondmate <id> auto-relaunched` wake, load `secondmate-provisioning`; its Recovery section holds that wake's handling.
    When the note needs a durable answer the submitter can read, publish it with `bin/fm-inbox.sh reply <id>` (the script header owns the reply contract) rather than leaving the answer only in this transcript.
 4. For `heartbeat:`, review the whole fleet from the structured fleet view, reconcile suspicious tasks and PR state, update the backlog, and never report an unchanged fleet as progress.
    Before sequencing queued work, read the planner wave plan and Q bug list that `.agents/skills/push/SKILL.md` Gather requires.
@@ -404,12 +380,7 @@ Preserve durable structured identifiers, dependencies, and completion artifact l
 
 ## 11. Crewmate briefs
 
-`bin/fm-brief.sh` and its help own scaffold syntax, generated variants, status protocol, delivery-mode definitions of done, and exact safety mechanics.
-Use its scaffold as the contract, then fill `## Captain's intent` (`{TASK}`) with the captain's own ask and any boundary the captain stated, plus the context needed to read it, including the substance of any report, decision, or PR the ask refers to; never widen the ask there into a general goal or an enumerated coverage list, because the reviewer treats that subsection as acceptance criteria.
-Fill `## Firstmate spec` (`{FIRSTMATE_SPEC}`) with only the build instructions that ask requires, naming what stays out of scope when the ask is narrow; a generalization, consistency sweep, or extra hardening the captain did not ask for is follow-up work to note, not scope to add.
-When a step in that spec has a tool that clearly serves it, name that tool for that step rather than leaving the worker to guess or appending a bare list of available tools.
-`bin/fm-dod-lib.sh` owns intent authoring without added speaker labels or direct address, its provenance markers, what a no-mistakes worker may pass as `--intent`, and the string's self-sufficiency rule.
-Keep additions task-specific rather than repeating lifecycle instructions, and alter generated sections only when the task genuinely differs from the standard shape.
+Load `task-intake` before writing a brief; it holds the scaffold ownership and the `## Captain's intent` and `## Firstmate spec` filling rules.
 
 Every ship brief must retain the worktree-isolation assertion and stop if launched in the primary checkout.
 If a ship task touches firstmate's shared tracked material, explicitly require `firstmate-coding-guidelines` before editing.

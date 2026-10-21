@@ -16,6 +16,8 @@ Use `low` for well-understood work with an explicit bounded path and `xhigh` for
 Choose intermediate levels as complexity, uncertainty, blast radius, or open-ended reasoning rises.
 If an adapter lacks `xhigh`, cap at its highest supported non-`max` level rather than silently omitting the intent.
 Never select `max` through this fallback; only an explicit per-task or standing captain preference permits it.
+The generic effort fallback and its precedence are owned by `harness-adapters`: explicit captain and standing configured effort win; otherwise use low for well-understood explicit work, xhigh for ambiguous investigation or design, intermediate levels proportionally, and never max without explicit captain preference.
+Do not add model-specific versions of that policy.
 
 The explicit native `ultra` value follows the model-scoped refusal contract in `../../../bin/fm-harness.sh validate-native-effort`; it is never silently omitted or mapped to a Pi level.
 For other values, if requested effort is outside the adapter's accepted set, the spawn records `effort=` in task metadata but emits no effort flag.
@@ -40,4 +42,4 @@ For an unfamiliar namespace, establish support and provider identity from that h
 An account-reaching listing that omits a model is concrete unsupported evidence; block the candidate and quote it.
 An unreachable surface establishes nothing; report uncertainty instead of a verdict.
 
-After establishing candidate harness support, provider relationships, and uncertainty, return to the selection-mode routing in `AGENTS.md` section 4.
+After establishing candidate harness support, provider relationships, and uncertainty, return to the selection-mode routing in `references/common/dispatch.md` "Intake routing".
