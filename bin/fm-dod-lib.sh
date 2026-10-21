@@ -1126,9 +1126,8 @@ fm_worker_shell_quote() {
 }
 
 # The report text is data, never shell. bin/fm-status-append.sh owns the
-# write, the time stamp, and the one fleet-ledger hook. {state} is the only
-# placeholder the worker replaces in this command; the line of text replaces
-# {one short line} inside the quoted heredoc.
+# write, the time stamp, and the one fleet-ledger hook. The worker replaces
+# {state} in the command and {one short line} inside the quoted heredoc.
 fm_worker_status_append() {  # <root> <state-dir> <task-id> <config-dir>
   local status_file helper config
   status_file=$(fm_worker_shell_quote "$2/$3.status")

@@ -3,9 +3,10 @@
 #
 # A secondmate answering a marked from-firstmate request must report on the
 # parent status channel with the request's corr=<id> token. This helper makes
-# that easy, but correctness must not depend on using it: a plain echo of a
-# status line that includes the same corr token is equally valid
-# (bin/fm-pending-reply-lib.sh).
+# that easy, but correctness must not depend on using it: another literal
+# append to the parent channel with the same corr token is equally valid
+# (bin/fm-pending-reply-lib.sh). For safe shell appends, see the invocation
+# contract in bin/fm-status-append.sh's header.
 #
 # The write destination is mechanical: this helper never takes a status path.
 # It resolves the parent channel through fm_parent_channel_destination
