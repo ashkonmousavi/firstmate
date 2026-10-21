@@ -71,6 +71,27 @@ if [ "$(id -u)" != 0 ]; then
   done
 fi
 pass 'missing and malformed machine facts refuse placement'
+if [ "$(id -u)" != 0 ]; then
+  printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$FM_HOME" > "$TMP_ROOT/mate/.fm-secondmate-parent"
+  for denied in "$FM_HOME/data" "$TMP_ROOT/mate/data"; do
+    for mode in 000 400 100; do
+      chmod "$mode" "$denied"
+      out=$(FM_HOME="$TMP_ROOT/mate" bash "$CAPACITY" --admit 2>&1); rc=$?
+      expect_code 75 "$rc" "inaccessible registry parent: $denied mode $mode"
+      assert_contains "$out" "$denied" 'registry parent refusal names the directory'
+      FM_HOME="$TMP_ROOT/mate" bash "$CAPACITY" --publish >/dev/null 2>&1; rc=$?
+      expect_code 1 "$rc" 'inaccessible registry parent publication fails'
+      jq -e '.readable == false and .reason == "unreadable"' "$TMP_ROOT/mate/state/lane-capacity.json" >/dev/null || fail 'inaccessible registry parent published room'
+      bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/mate/state/lane-capacity.json" >/dev/null 2>&1; rc=$?
+      expect_code 75 "$rc" 'inaccessible registry parent never gets placement'
+      chmod 755 "$denied"
+    done
+  done
+  out=$(FM_HOME="$TMP_ROOT/mate" bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 0 "$rc" 'restored registry parents admit'
+  assert_contains "$out" 'lanes=4 target=5' 'restored registry counts every holder'
+  pass 'inaccessible root and nested registry parents refuse admission and placement'
+fi
 printf 'MemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
 bash "$CAPACITY" --publish > "$TMP_ROOT/report.json" || fail 'publish failed'
 jq -e '.schema == "fm-lane-capacity.v1" and .free_lanes == 1 and .headroom_kb == 1048576' "$FM_HOME/state/lane-capacity.json" >/dev/null || fail 'published facts wrong'

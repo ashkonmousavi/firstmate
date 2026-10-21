@@ -734,6 +734,37 @@ test_machine_concurrent_projects() {
   pass 'concurrent projects in separate homes admit exactly one last machine lane'
 }
 
+test_machine_registry_parent_refuses_spawn() {
+  local case_dir root mate sibling out rc n
+  if [ "$(id -u)" = 0 ]; then
+    printf 'ok - skipped registry-parent permissions (root bypasses mode permissions)\n'
+    return 0
+  fi
+  case_dir=$(make_case registry-parent)
+  root="$case_dir/home"
+  mate="$case_dir/mate"
+  sibling="$case_dir/sibling"
+  make_home "$mate" task-m
+  make_home "$sibling"
+  printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$root" > "$mate/.fm-secondmate-parent"
+  printf -- '- mate - local (home: %s; scope: tests; projects: project; added 2026-09-01)\n' "$mate" > "$root/data/secondmates.md"
+  printf -- '- sibling - local (home: %s; scope: tests; projects: other; added 2026-09-01)\n' "$sibling" >> "$root/data/secondmates.md"
+  printf '5 3\n' > "$root/config/lane-capacity"
+  for n in 1 2 3 4 5; do write_live "$sibling" "live-$n" "$case_dir/other-$n"; done
+  chmod 000 "$root/data"
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  chmod 755 "$root/data"
+  expect_code 75 "$rc" "inaccessible registry parent admitted a sixth lane: $out"
+  assert_contains "$out" "registry parent is unreadable at $root/data" 'spawn names inaccessible registry parent'
+  assert_absent "$mate/state/task-m.meta" 'refused spawn published a record'
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  expect_code 75 "$rc" "restored registry hid sibling holders: $out"
+  assert_contains "$out" 'lanes=5 target=5' 'restored registry counts sibling holders'
+  pass 'inaccessible root registry parent defers a worker from a writable secondmate'
+}
+
 test_undeclared_capacity_keeps_dispatch_uncapped
 test_available_capacity_admits_the_worker
 test_exhausted_capacity_defers_without_leaving_anything_behind
@@ -754,4 +785,5 @@ test_orca_spawn_is_admitted_under_the_shared_project_lock
 test_machine_ceiling_across_projects
 test_machine_memory_and_unreadable
 test_machine_root_lock_refuses_inaccessible_state
+test_machine_registry_parent_refuses_spawn
 test_machine_concurrent_projects
