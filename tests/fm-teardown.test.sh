@@ -902,6 +902,7 @@ test_teardown_manual_backend_leaves_the_backlog_to_the_operator() {
   printf '%s\n' manual > "$case_dir/config/backlog-backend"
   seed_backlog_in_flight "$case_dir"
 
+  install_github_pr_class "$case_dir" merged
   out=$(run_teardown "$case_dir") || fail "teardown failed with manual backlog backend"
   [ "$(backlog_row_state "$case_dir")" = in_flight ] \
     || fail "manual backlog backend was mutated by teardown anyway"
@@ -5670,7 +5671,63 @@ test_merge_wait_preserves_existing_captain_hold() {
   pass "merge waits preserve captain questions and hold lifecycles with and without dependents"
 }
 
-run_teardown_tests() {
+
+test_pr_refusals_apply_without_automatic_backlog() {
+  local case_dir backlog_mode pr_class mode option
+  for backlog_mode in manual absent; do
+    for mode in no-mistakes direct-PR; do
+      for pr_class in open error closed; do
+        case_dir=$(prepare_recorded_github_pr "pr-guard-$backlog_mode-$mode-$pr_class" "$mode")
+        install_github_pr_class "$case_dir" "$pr_class"
+        if [ "$backlog_mode" = manual ]; then
+          printf '%s\n' manual > "$case_dir/config/backlog-backend"
+        else
+          rm "$case_dir/data/backlog.md"
+        fi
+        for option in normal force keep-open; do
+          if [ "$pr_class:$option" = closed:force ] || [ "$pr_class:$option" = open:keep-open ]; then
+            continue
+          fi
+          case "$option" in
+            normal) teardown_capture "$case_dir" ;;
+            force) teardown_capture "$case_dir" --force ;;
+            keep-open) teardown_capture "$case_dir" --keep-open ;;
+          esac
+          expect_code 1 "$TEARDOWN_CAPTURE_RC" "$backlog_mode $mode $pr_class $option must refuse cleanup"
+          assert_present "$case_dir/state/task-x1.meta" "PR refusal removed the task record"
+          assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" "PR refusal omitted the URL"
+          if [ "$pr_class" = open ]; then
+            assert_grep 'clean up after it merges' "$case_dir/stderr" "open PR refusal omitted merge guidance"
+          fi
+        done
+      done
+    done
+  done
+  pass "PR refusals apply in manual and absent backlogs across delivery modes and overrides"
+}
+
+test_keep_open_without_automatic_backlog_requests_merge_hold() {
+  local case_dir backlog_mode
+  for backlog_mode in manual absent; do
+    case_dir=$(prepare_recorded_github_pr "keep-open-$backlog_mode")
+    install_github_pr_class "$case_dir" open
+    if [ "$backlog_mode" = manual ]; then
+      printf '%s\n' manual > "$case_dir/config/backlog-backend"
+    else
+      rm "$case_dir/data/backlog.md"
+    fi
+    teardown_capture "$case_dir" --keep-open
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backlog_mode --keep-open should clean the endpoint"$'\n'"$(cat "$case_dir/stderr")"
+    assert_absent "$case_dir/state/task-x1.meta" "$backlog_mode --keep-open left the task record"
+    assert_grep 'hold it awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" "manual merge-hold instruction omitted"
+    if [ "$backlog_mode" = manual ]; then
+      [ "$(backlog_row_state "$case_dir")" = in_flight ] || fail "manual backlog was mutated"
+    else
+      assert_absent "$case_dir/data/backlog.md" "absent backlog was created"
+    fi
+  done
+  pass "--keep-open requests the manual merge hold when automatic backlog transitions are disabled"
+}
 
 test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_missing_startup_source_refuses_before_cleanup
@@ -5815,12 +5872,5 @@ test_escaped_title_retains_all_blockers
 test_malformed_dependency_rows_refuse_cleanup
 test_merge_hold_preserves_lifecycle_locks
 test_merge_wait_preserves_existing_captain_hold
-}
-
-if [ "$#" -gt 0 ]; then
-  for teardown_test in "$@"; do
-    "$teardown_test"
-  done
-else
-  run_teardown_tests
-fi
+test_pr_refusals_apply_without_automatic_backlog
+test_keep_open_without_automatic_backlog_requests_merge_hold
