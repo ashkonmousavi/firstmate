@@ -160,23 +160,18 @@ unset FM_SUPERVISION_ACTOR FM_BRANCH_REPORT_TURN FM_LEASE_HOLDER_PID PI_CODING_A
 # Homes are registered in a file: make_home runs in a command substitution,
 # whose variables never reach this shell.
 HOMES_FILE="$TMP_ROOT/homes"
-# Stop one fixture process: after <polls> of 0.1s for it to end on its own,
-# TERM, then KILL once 30 more seconds pass, and reap it. The 30 seconds cover
-# a host's own bounded cleanup (each arm it retires, then its lease release),
-# so a host is never killed before it has stopped its arms.
-stop_fixture_process() {  # <pid> [polls]
-  local pid=$1 polls=${2:-0} i=0
-  while [ "$i" -lt "$polls" ] && kill -0 "$pid" 2>/dev/null; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  kill -TERM "$pid" 2>/dev/null || true
-  i=0
-  while [ "$i" -lt 300 ] && kill -0 "$pid" 2>/dev/null; do
-    sleep 0.1
-    i=$((i + 1))
-  done
-  kill -KILL "$pid" 2>/dev/null || true
+stop_fixture_process() {  # <pid>
+  local pid=$1 i=0
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -TERM "$pid" 2>/dev/null || true
+    kill -CONT "$pid" 2>/dev/null || true
+    while [ "$i" -lt 300 ] && kill -0 "$pid" 2>/dev/null \
+      && ps -p "$pid" -o stat= 2>/dev/null | awk '$1 !~ /^Z/ { live = 1 } END { exit !live }'; do
+      sleep 0.1
+      i=$((i + 1))
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
   wait "$pid" 2>/dev/null || true
 }
 # Every live descendant of <pid>, parents before their children.
@@ -199,49 +194,34 @@ process_descendants() {  # <pid>
 # unanswered read can keep the host and its arms from stopping. Every wait is
 # bounded, so a case that failed mid-fixture cannot hang the suite.
 stop_home_processes() {  # <home>
-  local home=$1 pid arms='' fifo kids='' kid
+  local home=$1 pid kid fifo kids='' stops
   while IFS= read -r pid; do
-    kids="$kids $(process_descendants "$pid")"
-    : > "$home/session.stop"
     for kid in $(ps -A -o pid= -o ppid= | awk -v root="$pid" '$2 == root { print $1 }'); do
-      kill -TERM "$kid" 2>/dev/null || true
+      kill -STOP "$kid" 2>/dev/null || true
     done
   done < <(cat "$home/claude-pids" 2>/dev/null)
   while IFS= read -r pid; do
-    stop_fixture_process "$pid"
-  done < <(cat "$home/fixture-pids" 2>/dev/null)
+    kids="$kids $(process_descendants "$pid")"
+  done < <(cat "$home/claude-pids" 2>/dev/null)
+  : > "$home/session.stop"
+  stops=$(
+    {
+      cat "$home/fixture-pids" 2>/dev/null
+      printf '%s\n' "$kids" | awk '{ for (i = 1; i <= NF; i++) line[++n] = $i } END { for (i = n; i > 0; i--) print line[i] }'
+      awk -F '\t' '$1 == "host" || $1 == "arm" { print $2 }' "$home/state/.supervision-host" 2>/dev/null
+      cut -f1 "$home/state/.supervision-host-left" 2>/dev/null
+      cat "$home/state/.watch.lock/pid" "$home/claude-pids" "$home/orphan-pid" 2>/dev/null
+    } | awk 'NF && !seen[$1]++ { print $1 }'
+  )
   for fifo in "$home/stub-release" "$home/render-release"; do
     [ -p "$fifo" ] || continue
-    # Opened read-write, the FIFO takes the line without waiting for a reader.
     { exec 9<> "$fifo" && printf 'release\n' >&9; exec 9>&-; } 2>/dev/null || true
   done
-  if [ -f "$home/state/.supervision-host" ]; then
-    arms=$(awk -F '\t' '$1 == "arm" { print $2 }' "$home/state/.supervision-host")
-    pid=$(awk -F '\t' '$1 == "host" { print $2; exit }' "$home/state/.supervision-host")
-    [ -z "$pid" ] || stop_fixture_process "$pid"
-  fi
-  # The successor a pass-through left for main is in no host's record, and an
-  # arm writes its cycle log after its watcher ends, so each is waited on.
-  arms="$arms $(cut -f1 "$home/state/.supervision-host-left" 2>/dev/null) $(cat "$home/state/.watch.lock/pid" 2>/dev/null)"
-  for pid in $arms; do
-    kill -TERM "$pid" 2>/dev/null || true
-  done
-  for pid in $arms; do
+  for pid in $stops; do
     stop_fixture_process "$pid"
   done
-  for kid in $kids; do
-    kill -TERM "$kid" 2>/dev/null || true
-  done
-  for kid in $(printf '%s\n' "$kids" | awk '{ for (i = 1; i <= NF; i++) line[++n] = $i } END { for (i = n; i > 0; i--) print line[i] }'); do
-    stop_fixture_process "$kid"
-  done
-  while IFS= read -r pid; do
-    stop_fixture_process "$pid"
-  done < <(cat "$home/claude-pids" 2>/dev/null)
-  while IFS= read -r pid; do
-    kill -TERM "$pid" 2>/dev/null || true
-  done < <(cat "$home/orphan-pid" 2>/dev/null)
 }
+
 cleanup_case_homes() {
   local home
   while IFS= read -r home; do
@@ -409,6 +389,39 @@ test_finished_case_stops_its_fixture_processes() {
     ! kill -0 "$pid" 2>/dev/null || fail "finished case left fixture process $pid running"
   done < "$TMP_ROOT/case-cleanup-pids"
   pass "host fixtures stop their host, arm, watcher, fake session, and an unreleased lock holder at each case boundary"
+}
+
+test_case_cleanup_finishes_each_descendant_before_its_parent() {
+  local home session middle leaf
+  home=$(make_home ordered-cleanup attended)
+  cat > "$home/cleanup-worker" <<'SH'
+#!/usr/bin/env bash
+role=$1
+printf '%s\n' "$$" > "$FM_HOME/$role.pid"
+trap 'trap - TERM; printf "%s-term\n" "$role" >> "$FM_HOME/cleanup.log"; sleep 0.3; printf "%s-done\n" "$role" >> "$FM_HOME/cleanup.log"; exit 0' TERM
+if [ "$role" = middle ]; then
+  "$0" leaf &
+fi
+while :; do sleep 0.1; done
+SH
+  chmod +x "$home/cleanup-worker"
+  FM_HOME="$home" "$FAKE_CLAUDE" -c '"$FM_HOME/cleanup-worker" middle & wait' &
+  session=$!
+  printf '%s\n' "$session" > "$home/claude-pids"
+  wait_until 100 test -s "$home/leaf.pid" || fail "ordered cleanup: no leaf process"
+  middle=$(cat "$home/middle.pid")
+  leaf=$(cat "$home/leaf.pid")
+  printf 'host\t%s\narm\t%s\n' "$middle" "$leaf" > "$home/state/.supervision-host"
+  printf '%s\tfixture\n' "$leaf" > "$home/state/.supervision-host-left"
+  mkdir -p "$home/state/.watch.lock"
+  printf '%s\n' "$leaf" > "$home/state/.watch.lock/pid"
+  stop_home_processes "$home"
+  [ "$(cat "$home/cleanup.log")" = "$(printf 'leaf-term\nleaf-done\nmiddle-term\nmiddle-done')" ] \
+    || fail "ordered cleanup interrupted a handler or stopped a parent first: $(cat "$home/cleanup.log")"
+  for session in "$session" "$middle" "$leaf"; do
+    ! kill -0 "$session" 2>/dev/null || fail "ordered cleanup left process $session running"
+  done
+  pass "case cleanup lets each descendant finish one TERM handler before stopping its parent"
 }
 
 # --- report surface -----------------------------------------------------------
@@ -3234,6 +3247,7 @@ test_superseded_host_leaves_the_owner_untouched() {
   pass "host: a host under a superseded auto-arm generation stands down without touching the owner"
 }
 
+run_test test_case_cleanup_finishes_each_descendant_before_its_parent
 run_test test_finished_case_stops_its_fixture_processes
 run_test test_claude_stop_hook_restores_handoff_when_successor_closed_before_exit_to_main
 run_test test_claude_stop_hook_restores_handoff_when_successor_closed_mid_engine_turn
