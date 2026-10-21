@@ -2972,7 +2972,7 @@ SH
     FM_CONFIG_OVERRIDE="$home/config" FM_BOOTSTRAP_NETWORK=skip \
     "$ROOT/bin/fm-bootstrap.sh" 2>&1) \
     || fail "session start could not replay the interrupted retention: $bootstrap"
-  assert_contains "$bootstrap" "kept the captain call for $id open" \
+  assert_contains "$bootstrap" "kept the backlog item for $id open" \
     "session start did not report the retained captain call"
   assert_absent "$home/state/$id.meta" "session start left the interrupted task record behind"
   assert_absent "$home/state/$id.backlog-close" "session start left the pending record behind"
