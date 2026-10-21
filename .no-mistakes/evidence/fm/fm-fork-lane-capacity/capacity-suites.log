@@ -1,0 +1,37 @@
+FM_TEST_BEGIN 2026-10-21T09:02:38Z tests/fm-capacity.test.sh family=unclassified expected_gate_skip=none
+ok - machine ceiling spans local homes and projects; PR handoff and secondmates excluded
+ok - activity, ledger and admission share facts; local walk markers do not bypass limits
+ok - memory reserve is fixed and refuses below zero headroom
+ok - missing and malformed machine facts refuse placement
+ok - inaccessible root and nested registry parents refuse admission and placement
+unavailable: /tmp/fm-capacity.l6EVIq/missing.json
+ok - published facts drive placement; unreadable and stale hosts refused
+FM_TEST_END 2026-10-21T09:02:39Z tests/fm-capacity.test.sh exit=0 duration_ms=1538 gate_skip=false
+FM_TEST_BEGIN 2026-10-21T09:02:40Z tests/fm-project-capacity.test.sh family=backend-dispatch expected_gate_skip=none
+ok - a project with no declared capacity keeps today's uncapped dispatch
+ok - a spawn is admitted while its project still has a free place
+ok - a spawn beyond capacity is deferred before any record, brief, endpoint, worktree, or backlog move exists
+ok - a project name with spaces is declared by taking the capacity from the last field
+ok - a project name beginning with # is declared, and a # comment stays a comment
+ok - a home reached through a symlink counts each of its workers once
+ok - a recorded PR handoff or a cleanup each frees exactly one place
+ok - a restart of a task id does not count that task's own record
+ok - only this project's ship and scout records hold places
+ok - every local home shares one declared capacity per project origin, and remote homes do not count
+ok - an unreadable state directory or task record refuses admission rather than undercounting
+ok - concurrent spawns can never both take the last place
+ok - a spawn that fails after admission leaves no record and holds no place
+ok - an unreadable declaration refuses every fresh spawn rather than guessing the limit
+ok - a batch reports a capacity deferral as deferred, not failed
+ok - an Orca spawn takes the shared project lock whenever a same-origin clone is capped and defers before creating anything
+ok - sixth spawn across three projects stays queued at machine ceiling five
+ok - fresh spawn refuses low memory and unreadable machine facts
+ok - root state access and permanent lock failures defer local secondmate workers
+ok - inaccessible root registry parent defers a worker from a writable secondmate
+ok - concurrent projects in separate homes admit exactly one last machine lane
+FM_TEST_END 2026-10-21T09:04:32Z tests/fm-project-capacity.test.sh exit=0 duration_ms=112849 gate_skip=false
+FM_TEST_SUMMARY total=2 failed=0 skipped_gate=0 duration_ms=114472
+FM_TEST_SUMMARY_FAMILY family=backend-dispatch count=1 duration_ms=112849 failed=0
+FM_TEST_SUMMARY_FAMILY family=unclassified count=1 duration_ms=1538 failed=0
+FM_TEST_SLOWEST rank=1 script=tests/fm-project-capacity.test.sh duration_ms=112849
+FM_TEST_SLOWEST rank=2 script=tests/fm-capacity.test.sh duration_ms=1538

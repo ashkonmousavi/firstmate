@@ -1,0 +1,48 @@
+== real publish on this machine (ceiling 5, 4 lanes held, reserve 3 GB)
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --publish
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792573505,"readable":true,"reason":"ok","error":"","config_file":"/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity","lanes":4,"target":5,"free_lanes":1,"secondmates":1,"mem_available_kb":19369580,"reserve_kb":3145728,"headroom_kb":16223852}
+[exit 0]
+
+--- broken.json
+jq: parse error: Invalid numeric literal at line 2, column 0
+--- laptop-lowmem.json
+{"machine":"laptop-lowmem","reason":"memory","readable":true,"free_lanes":0,"headroom_kb":-2789728,"generated_epoch":1792573505}
+--- laptop-stale.json
+{"machine":"laptop-stale","reason":"ok","readable":true,"free_lanes":9,"headroom_kb":16223852,"generated_epoch":1792572605}
+--- pc.json
+{"machine":"pc","reason":"ok","readable":true,"free_lanes":3,"headroom_kb":4854272,"generated_epoch":1792573505}
+--- server-unreadable.json
+{"machine":"server","reason":"unreadable","readable":false,"free_lanes":7,"headroom_kb":16223852,"generated_epoch":1792573505}
+--- this-machine.json
+{"machine":"WIN-P8MLI888O8M","reason":"ok","readable":true,"free_lanes":1,"headroom_kb":16223852,"generated_epoch":1792573505}
+
+== S5: placement names the machine with most room; unreadable/stale/low-memory/broken never chosen
+$ bash bin/fm-place.sh /tmp/fm-cap-lab.i2IpIX/pub/this-machine.json /tmp/fm-cap-lab.i2IpIX/pub/pc.json /tmp/fm-cap-lab.i2IpIX/pub/server-unreadable.json /tmp/fm-cap-lab.i2IpIX/pub/laptop-stale.json /tmp/fm-cap-lab.i2IpIX/pub/laptop-lowmem.json /tmp/fm-cap-lab.i2IpIX/pub/broken.json /tmp/fm-cap-lab.i2IpIX/pub/missing.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/server-unreadable.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/laptop-stale.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/laptop-lowmem.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/broken.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/missing.json
+Placement: pc (3 lanes free, 4854272 kB memory headroom).
+[exit 0]
+
+== S5b: only ineligible machines -> no placement, exit 75
+$ bash bin/fm-place.sh /tmp/fm-cap-lab.i2IpIX/pub/server-unreadable.json /tmp/fm-cap-lab.i2IpIX/pub/laptop-stale.json /tmp/fm-cap-lab.i2IpIX/pub/laptop-lowmem.json /tmp/fm-cap-lab.i2IpIX/pub/broken.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/server-unreadable.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/laptop-stale.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/laptop-lowmem.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/pub/broken.json
+Placement: none (no readable machine has room).
+[exit 75]
+
+== S5c: this machine's own publication after it becomes full is never chosen
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --publish
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792573505,"readable":true,"reason":"full","error":"/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity: lanes=5 target=5; no free machine lane","config_file":"/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity","lanes":5,"target":5,"free_lanes":0,"secondmates":1,"mem_available_kb":19369224,"reserve_kb":3145728,"headroom_kb":16223496}
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity: lanes=5 target=5; no free machine lane
+[exit 0]
+
+$ bash bin/fm-place.sh /tmp/fm-cap-lab.i2IpIX/root/state/lane-capacity.json
+unavailable: /tmp/fm-cap-lab.i2IpIX/root/state/lane-capacity.json
+Placement: none (no readable machine has room).
+[exit 75]
+

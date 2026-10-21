@@ -1,0 +1,76 @@
+== real /proc/meminfo:
+MemAvailable:   19300252 kB
+== S1: ceiling 5, reserve 3 GB; 3 records in root (2 projects) + 2 in secondmate home + 1 secondmate record
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=full lanes=5 target=5 secondmates=1 mem_available_kb=19289480 reserve_kb=3145728 headroom_kb=16143752
+Lanes: 5 of 5; 0 open. Memory headroom: 16143752 kB.
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity: lanes=5 target=5; no free machine lane
+[exit 75]
+
+== same from secondmate home (machine-wide, root config):
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/mate bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=full lanes=5 target=5 secondmates=1 mem_available_kb=19312416 reserve_kb=3145728 headroom_kb=16166688
+Lanes: 5 of 5; 0 open. Memory headroom: 16166688 kB.
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity: lanes=5 target=5; no free machine lane
+[exit 75]
+
+== S2: pr= handoff frees a lane
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=1 reason=ok lanes=4 target=5 secondmates=1 mem_available_kb=19321388 reserve_kb=3145728 headroom_kb=16175660
+Lanes: 4 of 5; 1 open. Memory headroom: 16175660 kB.
+[exit 0]
+
+== activity / ledger read same facts
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-fleet-view.sh --capacity
+capacity: free_lanes=1 reason=ok lanes=4 target=5 secondmates=1 mem_available_kb=19324876 reserve_kb=3145728 headroom_kb=16179148
+Lanes: 4 of 5; 1 open. Memory headroom: 16179148 kB.
+[exit 0]
+
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-fleet-ledger.sh capacity --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792573488,"readable":true,"reason":"ok","error":"","config_file":"/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity","lanes":4,"target":5,"free_lanes":1,"secondmates":1,"mem_available_kb":19308040,"reserve_kb":3145728,"headroom_kb":16162312}
+[exit 0]
+
+== S3: real low memory - reserve larger than real MemAvailable (reserve 999999 GB)
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=memory lanes=4 target=5 secondmates=1 mem_available_kb=19313560 reserve_kb=1048574951424 headroom_kb=-1048555637864
+Lanes: 4 of 5; 0 open. Memory headroom: -1048555637864 kB.
+fm-capacity: /proc/meminfo MemAvailable=19313560 kB minus reserve=1048574951424 kB (/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity) gives headroom=-1048555637864 kB
+[exit 75]
+
+== S3b adversarial: fake meminfo env var without test seam must NOT be honoured
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root FM_CAPACITY_MEMINFO=/tmp/fm-cap-lab.i2IpIX/fake-meminfo bash bin/fm-capacity.sh --admit
+capacity: free_lanes=1 reason=ok lanes=4 target=5 secondmates=1 mem_available_kb=19307072 reserve_kb=3145728 headroom_kb=16161344
+Lanes: 4 of 5; 1 open. Memory headroom: 16161344 kB.
+[exit 0]
+
+== S4 unreadable host: missing / legacy one-integer / unreadable file
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity is missing or unreadable
+[exit 75]
+
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity reading '5': expected <lane-ceiling> <memory-reserve-gb>
+[exit 75]
+
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity is missing or unreadable
+[exit 75]
+
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792573489,"readable":false,"reason":"unreadable","error":"/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity is missing or unreadable","config_file":"/tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity","lanes":0,"target":0,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":0,"headroom_kb":0}
+fm-capacity: /tmp/fm-cap-lab.i2IpIX/root/config/lane-capacity is missing or unreadable
+[exit 1]
+
+== S4b unreadable secondmate state dir
+$ FM_HOME=/tmp/fm-cap-lab.i2IpIX/root bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=3 target=5 secondmates=1 mem_available_kb=19316140 reserve_kb=3145728 headroom_kb=16170412
+Lanes: 3 of 5; 0 open. Memory headroom: 16170412 kB.
+fm-capacity: machine state /tmp/fm-cap-lab.i2IpIX/mate/state is unreadable
+[exit 75]
+
