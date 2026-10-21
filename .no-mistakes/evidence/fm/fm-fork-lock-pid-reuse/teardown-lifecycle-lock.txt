@@ -1,0 +1,20 @@
+=== teardown, live holder, fix build
+  holder pid=1631829
+    | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.2c8lPe
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1631829 (identity: linux-starttime=30878261 cmdline-hex=<hex…>)
+  -> exit=1
+  elapsed=5s; meta still present: yes
+=== teardown, stale lock whose pid was reused by an unrelated process, fix build
+/tmp/fm-base-471/td.sh: line 9: 1634612 Killed                  bash -c '. "$1"; fm_lock_try_acquire "$2" || exit 1; kill -9 $$' _ "$NEWLIB" "$LOCK" 2> /dev/null
+  lock pid=1634695 (live 'sleep 300'), recorded start=linux-starttime=30878858, actual start=linux-starttime=30878871
+    | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.2c8lPe
+    | REFUSED: remote secondmate metadata is incomplete
+  -> exit=1
+  elapsed=3s; lifecycle lock after: released
+=== teardown, stale lock whose pid was reused by an unrelated process, base build
+/tmp/fm-base-471/td.sh: line 9: 1635475 Killed                  bash -c '. "$1"; fm_lock_try_acquire "$2" || exit 1; kill -9 $$' _ "$NEWLIB" "$LOCK" 2> /dev/null
+  lock pid=1635500 (live 'sleep 300'), recorded start=linux-starttime=30879116, actual start=linux-starttime=30879125
+    | fm-gate-refuse: gate agent lifecycle permitted only against lab home /tmp/fm-lab.2c8lPe
+    | Terminated
+  -> exit=124
+  elapsed=15s; lifecycle lock after: pid=1635500

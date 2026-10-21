@@ -1,0 +1,64 @@
+=== scenario=reused-pid build=fix (c5e051a5)
+  dead holder left: 1588333 identity=linux-starttime=30869069 cmdline-hex=<hex…>
+  unrelated live process pid=1588362 identity_now=linux-starttime=30869078 cmdline-hex=736c6565700033303000
+  lock: pid=1588362 identity=linux-starttime=30869069 cmdline-hex=<hex…>
+    | error: secondmate mate1 is not a configured remote route
+  -> exit=1 elapsed=0.7s
+  lock: pid=- identity=-
+=== scenario=reused-pid build=base (e2d7fe74)
+  dead holder left: 1588768 identity=linux-starttime=30869163 cmdline-hex=<hex…>
+  unrelated live process pid=1588824 identity_now=linux-starttime=30869178 cmdline-hex=736c6565700033303000
+  lock: pid=1588824 identity=linux-starttime=30869163 cmdline-hex=<hex…>
+  -> exit=124 elapsed=15.0s (killed by 15s outer timeout: HUNG)
+  lock: pid=1588824 identity=linux-starttime=30869163 cmdline-hex=<hex…>
+=== scenario=live-holder build=fix (c5e051a5)
+  holder pid=1597720 cmd_now=sleep 30
+  lock: pid=1597720 identity=linux-starttime=30870705 cmdline-hex=<hex…>
+  [arm mate1]
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1597720 (identity: linux-starttime=30870705 cmdline-hex=<hex…>)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=2.4s
+  [handle mate1 1 result]
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1597720 (identity: linux-starttime=30870705 cmdline-hex=<hex…>)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=3.1s
+  [retire mate1]
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1597720 (identity: linux-starttime=30870705 cmdline-hex=<hex…>)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=2.8s
+  lock: pid=1597720 identity=linux-starttime=30870705 cmdline-hex=<hex…>
+=== scenario=legacy-holder build=fix (c5e051a5)
+  holder pid=1604284 cmd_now=sleep 30
+  lock: pid=1604284 identity=-
+  [arm mate1]
+    | ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E78PNAF6EBV8EYB3YNXZJ6/bin/fm-wake-lib.sh: line 1433: /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock/identity: No such file or directory
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1604284 (identity: not recorded)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=2.4s
+  [handle mate1 1 result]
+    | ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E78PNAF6EBV8EYB3YNXZJ6/bin/fm-wake-lib.sh: line 1433: /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock/identity: No such file or directory
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1604284 (identity: not recorded)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=2.9s
+  [retire mate1]
+    | ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5E78PNAF6EBV8EYB3YNXZJ6/bin/fm-wake-lib.sh: line 1433: /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock/identity: No such file or directory
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1604284 (identity: not recorded)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=3.0s
+  lock: pid=1604284 identity=-
+=== scenario=exec-holder build=fix (c5e051a5)
+  holder pid=1612101 cmd_now=sleep 30
+  lock: pid=1612101 identity=linux-starttime=30872525 cmdline-hex=<hex…>
+  [arm mate1]
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1612101 (identity: linux-starttime=30872525 cmdline-hex=<hex…>)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=2.4s
+  [handle mate1 1 result]
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1612101 (identity: linux-starttime=30872525 cmdline-hex=<hex…>)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=2.9s
+  [retire mate1]
+    | error: lock /tmp/fm-lab.2c8lPe/state/.remote-reply-lifecycle-mate1.lock still held after 3s by pid 1612101 (identity: linux-starttime=30872525 cmdline-hex=<hex…>)
+    | error: cannot lock remote reply lifecycle for mate1
+  -> exit=1 elapsed=3.0s
+  lock: pid=1612101 identity=linux-starttime=30872525 cmdline-hex=<hex…>

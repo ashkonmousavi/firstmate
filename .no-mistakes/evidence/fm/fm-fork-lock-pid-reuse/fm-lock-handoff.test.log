@@ -1,0 +1,4 @@
+ok - normal handoff publishes caller identity before accepting ownership
+ok - term handoff publishes caller identity before accepting ownership
+ok - timeout handoff publishes caller identity before accepting ownership
+exit=0
