@@ -32,7 +32,7 @@ HERDR_STATE="$TMP_ROOT/remote-herdr.state"
 CLAIMS="$TMP_ROOT/claims"
 mkdir -p "$PARENT/data" "$PARENT/state" "$PARENT/config" "$PARENT/projects" \
   "$REMOTE_ROOT" "$CLAIMS" "$PROBEBIN" "$TMP_ROOT/pane-home"
-trap 'FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true; if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then kill "$(cat "$TMP_ROOT/remote-jobs/worker.pid")" 2>/dev/null || true; fi; rm -rf -- "$TMP_ROOT"' EXIT
+trap 'FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true; fm_test_cleanup' EXIT
 
 # A synthetic value the remote launch must override rather than inherit, so a
 # launch that only forwarded the ambient environment cannot pass as a floor.
@@ -109,7 +109,7 @@ remote_env() {
   FM_FAKE_REMOTE_ENTRYPOINT="$REMOTE_ROOT/bin/fm-remote-entrypoint.sh" \
   FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
   FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/remote-jobs" \
-  FM_FAKE_REMOTE_CWD="$TMP_ROOT" \
+  FM_FAKE_REMOTE_CWD="$REMOTE_ROOT" \
   FM_SEND_SETTLE=0 FM_SEND_SLEEP=0 \
   "$@"
 }
@@ -144,8 +144,8 @@ run_remote_launch() {  # <label>
   local label=$1
   reset_remote_herdr_fixture "$HERDR_STATE"
   : > "$HERDR_LOG"
-  remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >/dev/null 2>&1 \
-    || fail "$label: the remote second-mate launch failed"
+  remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >"$TMP_ROOT/spawn.out" 2>&1 \
+    || { cat "$TMP_ROOT/spawn.out" >&2; fail "$label: the remote second-mate launch failed"; }
 }
 
 # Replay what the remote pane received, in the order it received it, under a
