@@ -893,3 +893,23 @@ fm_dod_accept_ship_done() {  # <kind> <mode> <worktree> <project> <line> [<state
   printf '%s\n' "named head $sha is unreachable outside the worker copy"
   return 1
 }
+
+fm_worker_shell_quote() {
+  printf "'"
+  printf '%s' "$1" | sed "s/'/'\\\\''/g"
+  printf "'"
+}
+
+# The report text is data, never shell. bin/fm-status-append.sh owns the
+# write, the time stamp, and the one fleet-ledger hook. The worker replaces
+# {state} in the command and {one short line} inside the quoted heredoc.
+fm_worker_status_append() {  # <root> <state-dir> <task-id> <config-dir>
+  local status_file helper config
+  status_file=$(fm_worker_shell_quote "$2/$3.status")
+  helper=$(fm_worker_shell_quote "$1/bin/fm-status-append.sh")
+  config=$(fm_worker_shell_quote "$4")
+  printf '%s\n' \
+    "FM_CONFIG_OVERRIDE=$config $helper $status_file {state} <<'EOF'" \
+    '{one short line}' \
+    'EOF'
+}
