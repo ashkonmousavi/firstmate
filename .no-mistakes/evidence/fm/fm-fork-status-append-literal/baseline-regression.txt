@@ -1,0 +1,6 @@
+Base commit generated status command, executed with harmless worktree-local touch payloads.
+Both command substitutions created their marker files; $HOME expanded.
+Stored status:
+done [at=1790000000]:   ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/baseline-nnph0yhi/user-home single'quote
+The target live transcript demonstrates the same payload remains literal and creates neither marker.
+Disposable baseline fixture removed.

@@ -1,0 +1,35 @@
+Generated ship command executed; stored record:
+done [at=1792558881]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line
+
+Generated direct command executed; stored record:
+done [at=1792558881]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line
+
+Generated local command executed; stored record:
+done [at=1792558881]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line
+
+Generated scout command executed; stored record:
+done [at=1792558883]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line
+
+Generated charter command executed; stored record:
+done [at=1792558883]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line
+
+Payload side effects
+Neither touch marker exists; $HOME, quotes, backslash and percent format text remain literal.
+
+Key/corr order, CRLF/CR/LF folding and current timestamp:
+needs-decision [key=api-shape] [corr=0123456789abcdef] [at=1792558883]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s alpha beta
+
+Ledger immediately after helper append:
+{"v":1,"ts":1792558883,"event":"task.status","task":"keyed","state":"needs-decision","key":"api-shape","text":" `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote \"double\" \\ %s alpha beta"}
+
+Legacy echo append plus capture; no duplicate ledger records:
+{"v":1,"ts":1792558883,"event":"task.status","task":"keyed","state":"needs-decision","key":"api-shape","text":" `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote \"double\" \\ %s alpha beta"}
+{"v":1,"ts":1792558884,"event":"task.status","task":"keyed","state":"working","key":null,"text":" legacy report"}
+
+Second-mate stdin, --doc stdin and legacy argument notes on resolved parent channel:
+done [corr=0123456789abcdef] [at=1792558884]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line (via-helper)
+done [corr=0123456789abcdef] [at=1792558884]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s second line (data/report.md via-helper)
+done [corr=0123456789abcdef] [at=1792558885]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/backtick-created` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5ED5H2S122JNC1V7V3TSYGS/.test-status-tmp/manual-s6c4yi7p/substitution-created) $HOME single'quote "double" \ %s (via-helper)
+
+Final result
+All assertions passed; disposable homes removed on exit.
