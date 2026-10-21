@@ -196,10 +196,12 @@ fm_pending_reply_extract_corr() {  # <text>
 }
 
 # 0 if <text> carries the exact correlation token for <corr_id>, as a whole
-# word: xcorr=<id> or corr=<id>ff is a different token, not this one.
+# word: xcorr=<id> or corr=<id>ff is a different token, not this one. A reply
+# answering several requests at once may list them after one key
+# (corr=<a>,<b>); each listed id counts as carried.
 fm_pending_reply_text_has_corr() {  # <text> <corr_id>
   local text=$1 corr=$2 re
-  re="(^|[^[:alnum:]_])$(fm_pending_reply_corr_token "$corr")([^[:alnum:]_]|\$)"
+  re="(^|[^[:alnum:]_])corr=([A-Fa-f0-9]{16},)*${corr}([^[:alnum:]_]|\$)"
   [[ $text =~ $re ]]
 }
 
@@ -596,6 +598,9 @@ fm_pending_reply_line_resolves() {  # <line> <corr_id>
 }
 
 # Scan a status file for a correlated resolve. Prints the matching line or empty.
+# One grep pass keeps only the lines that carry the token, and the per-line rule
+# still decides each of them, so a long status log costs one pass rather than a
+# shell iteration per line for every open request on every supervision cycle.
 fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
   local status_file=$1 corr=$2 line
   [ -f "$status_file" ] || return 0
@@ -605,8 +610,23 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
       printf '%s' "$line"
       return 0
     fi
-  done < "$status_file"
+  done < <(LC_ALL=C grep -aF -- "$corr" "$status_file" 2>/dev/null)
   return 0
+}
+
+# A one-way notice (a config re-read ping, an FYI, a done/applied/agreed note)
+# asks for no answer, so its record expires once it has been delivered for
+# FM_PENDING_REPLY_ONEWAY_TTL seconds (default 2 h) after it was created,
+# delivered or not, instead of waiting forever and escalating. The notice kind is read from the start of the request summary.
+FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
+fm_pending_reply_oneway_expired() {  # <record-path>
+  local rec=$1 summary created now
+  summary=$(fm_pending_reply_get "$rec" request_summary)
+  [[ $summary =~ $FM_PENDING_REPLY_ONEWAY_RE ]] || return 1
+  created=$(fm_pending_reply_get "$rec" created_epoch)
+  [[ $created =~ ^[0-9]+$ ]] || return 1
+  now=$(fm_pending_reply_now)
+  [ $((now - created)) -ge "${FM_PENDING_REPLY_ONEWAY_TTL:-7200}" ]
 }
 
 fm_pending_reply_file_signature() {  # <path>
@@ -676,6 +696,14 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
   [ -f "$rec" ] || return 1
   phase=$(fm_pending_reply_get "$rec" phase)
   if [ "$phase" = resolved ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
+    return 0
+  fi
+  if [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; then
+    now=$(fm_pending_reply_now)
+    fm_pending_reply_set "$rec" phase resolved || return 1
+    fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
+    fm_pending_reply_set "$rec" resolved_via expired-one-way || return 1
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
