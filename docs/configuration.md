@@ -1085,7 +1085,7 @@ For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunc
 Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, walker exemptions, refusal rules and locking contract.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
-This Linux admission check requires `/proc/meminfo`; an unsupported or unreadable host gets no placement.
+This Linux admission check follows the shared reader's cgroup-aware memory calculation and fail-closed rules.
 Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
@@ -1095,7 +1095,7 @@ It exits 75 when room cannot be proved and does not change task state.
 `bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
 External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
 
-The existing home-summary refresh also atomically publishes `state/lane-capacity.json` with occupancy, free lanes, MemAvailable, reserve, headroom and a timestamp.
+The existing home-summary refresh also atomically publishes `state/lane-capacity.json` with occupancy, free lanes, available memory (`mem_available_kb`), reserve, headroom and a timestamp.
 Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
 The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
 Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
