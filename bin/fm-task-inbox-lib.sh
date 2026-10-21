@@ -87,7 +87,9 @@
 # busy mate as the remote enqueue ring does, so it keeps no busy budget, and
 # no fire-and-forget retry is owed there.
 # The parent passes its effective grace and ring maximum to each remote due
-# check; individual hops have a fixed 30-second bound. Failed hops leave the
+# check; individual hops have a fixed 30-second bound, and ordinary supervision
+# runs the pass detached from its cycle, so a slow host never delays the
+# watcher's own liveness. Failed hops leave the
 # remote refusal's first stderr line (or exit status) in the parent's triage log
 # and retry on a later tick, without waking firstmate for routine re-rings.
 # Confirmed unavailable endpoints or unwritable ring bookkeeping escalate through

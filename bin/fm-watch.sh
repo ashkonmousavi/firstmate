@@ -1296,9 +1296,10 @@ remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
 # this asks each remote mate's host which record is due, rings it there, and
 # queues the same stale wake the local ladder emits once the attempt budget is
 # spent or the endpoint has positively exited. A failed or unreachable hop only
-# lands in the triage log, so a slow host defers a ring to the next tick and
-# never stalls the cycle. Like the liveness tick it finishes every mate before
-# waking once on the first escalation.
+# lands in the triage log, so a slow host defers a ring to the next tick.
+# Like the liveness tick it finishes every mate before waking once on the
+# first escalation. Ordinary supervision runs it detached through
+# remote_inbox_detached, so a slow host never stalls the cycle.
 remote_inbox_tick() {
   local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key queued first_reason=''
   [ "$(age_of "$tick_marker")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
@@ -1361,6 +1362,40 @@ EOF
   [ -z "$first_reason" ] || wake "$first_reason"
   checkpoint_deadline_passed && return 124
   return 0
+}
+
+# Ordinary supervision runs remote_inbox_tick off the cycle, like reconcile
+# delivery, so its remote hops never hold the beacon. The child's escalations
+# are already durable in the wake queue; its one wake line lands in a handoff
+# file by rename, and whichever watcher next finds that file with no pass of
+# its own in flight delivers it, so a wake from a pass that outlived its
+# watcher is still surfaced. A bounded checkpoint cycle keeps the inline call.
+REMOTE_INBOX_PID=
+remote_inbox_detached() {
+  local handoff="$STATE/.remote-inbox-wake" claim reason
+  if [ -n "$REMOTE_INBOX_PID" ]; then
+    kill -0 "$REMOTE_INBOX_PID" 2>/dev/null && return 0
+    wait "$REMOTE_INBOX_PID" 2>/dev/null \
+      || triage_log "remote steer-inbox: detached ladder pass failed; the next tick retries"
+    REMOTE_INBOX_PID=
+  fi
+  if [ -f "$handoff" ]; then
+    claim="$handoff.claim.$$"
+    if mv -f "$handoff" "$claim" 2>/dev/null; then
+      reason=$(head -1 "$claim" 2>/dev/null || true)
+      rm -f "$claim"
+      [ -z "$reason" ] || wake "$reason"
+    fi
+  fi
+  [ "$(age_of "$STATE/.remote-inbox-tick")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
+  (
+    out="$handoff.tmp.${BASHPID:-$$}"
+    # shellcheck disable=SC2317 # Invoked by remote_inbox_tick in this child.
+    wake() { printf '%s\n' "$1" > "$out" && mv -f "$out" "$handoff"; exit 0; }
+    remote_inbox_tick
+    rm -f "$out"
+  ) </dev/null >/dev/null 2>&1 &
+  REMOTE_INBOX_PID=$!
 }
 
 # Consecutive wedge-escalation count for a window past FM_WEDGE_DEMAND_INSPECT_COUNT
@@ -3612,7 +3647,11 @@ while :; do
   # pane loop's inbox_steer_check; remote_inbox_tick runs their ladder there.
   if checkpoint_stage remote-inbox inactive; then
   remote_inbox_rc=0
-  remote_inbox_tick || remote_inbox_rc=$?
+  if [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
+    remote_inbox_tick || remote_inbox_rc=$?
+  else
+    remote_inbox_detached
+  fi
   checkpoint_recovery_surface
   if [ "$remote_inbox_rc" -ne 0 ] && [ "$remote_inbox_rc" -ne 124 ]; then
     echo "watcher: remote steering-inbox check failed" >&2
