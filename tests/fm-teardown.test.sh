@@ -5214,6 +5214,65 @@ EOF
   pass "a walk claim survives every teardown abort before worker termination is proven"
 )
 
+# A pushed PR branch preserves bytes but does not prove the work was merged.
+test_recorded_pr_state() {
+  local scenario=$1 case_dir out rc=0 before args=() expected=OPEN
+  case_dir=$(make_case "recorded-pr-$scenario")
+  write_meta "$case_dir" direct-PR ship
+  wt_commit_file "$case_dir" feature.txt feature
+  git -C "$case_dir/wt" push -q origin HEAD:fm/task-x1
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  seed_backlog_in_flight "$case_dir"
+  case "$scenario" in
+    merged) expected=MERGED ;;
+    closed) expected=CLOSED ;;
+    keep-open) args=(--keep-open) ;;
+    closed-keep-open) expected=CLOSED; args=(--keep-open) ;;
+    discard) args=(--force) ;;
+  esac
+  [ "$scenario" != discard ] || args=(--force)
+  cat > "$case_dir/fakebin/gh-axi" <<SH
+#!/usr/bin/env bash
+[ '$scenario' != error ] || exit 1
+printf '  state: %s\n' '$expected'
+SH
+  chmod +x "$case_dir/fakebin/gh-axi"
+  before=$(cat "$case_dir/state/task-x1.meta")
+  out=$(run_teardown "$case_dir" "${args[@]+"${args[@]}"}" 2>&1) || rc=$?
+  case "$scenario" in
+    merged|discard)
+      expect_code 0 "$rc" "$scenario cleanup: $out"
+      assert_equals done "$(backlog_row_state "$case_dir")" "$scenario closes the item"
+      assert_absent "$case_dir/state/task-x1.meta" "$scenario retires metadata"
+      ;;
+    keep-open)
+      expect_code 0 "$rc" "keep-open cleanup: $out"
+      assert_absent "$case_dir/state/task-x1.meta" "keep-open cleans task metadata"
+      assert_not_contains "$(backlog_row_state "$case_dir")" done "keep-open leaves the item open"
+      tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full > "$case_dir/row"
+      assert_grep 'awaiting merge https://github.com/example/repo/pull/7' "$case_dir/row" "keep-open records the merge hold"
+      assert_grep 'hold_kind: external' "$case_dir/row" "keep-open is an external hold"
+      ;;
+    *)
+      [ "$rc" -ne 0 ] || fail "$scenario PR must refuse cleanup: $out"
+      assert_equals "$before" "$(cat "$case_dir/state/task-x1.meta")" "$scenario preserves metadata"
+      assert_equals in_flight "$(backlog_row_state "$case_dir")" "$scenario leaves the item in flight"
+      assert_contains "$out" 'https://github.com/example/repo/pull/7' "$scenario refusal names the PR"
+      [ "$scenario" != open ] || assert_contains "$out" 'clean up after it merges' "open refusal explains recovery"
+      ;;
+  esac
+  pass "recorded PR state: $scenario"
+}
+
+if [ "${1:-}" = --pr-state-only ]; then
+  shift
+  for scenario in "$@"; do test_recorded_pr_state "$scenario"; done
+  exit 0
+fi
+for scenario in open keep-open merged closed closed-keep-open error discard; do
+  test_recorded_pr_state "$scenario"
+done
+
 test_teardown_walk_tokens_and_failed_release || exit 1
 test_teardown_walk_survives_unproven_termination || exit 1
 test_forced_secondmate_walk_release_failure || exit 1
