@@ -1279,7 +1279,7 @@ secondmate_liveness_tick() {
 # prints the remote side's first stderr line (or the exit status) instead, for
 # the triage log, so a remote copy that predates the inbox verb reads
 # differently from a lost transport.
-remote_inbox_hop() {  # <id> <due|ring|escalated> [record]
+remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
   local id=$1 out err errfile rc=0
   errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
   out=$(checkpoint_read fm_run_timed "$REMOTE_INBOX_TIMEOUT" "$SCRIPT_DIR/fm-on.sh" "$id" \
@@ -1319,7 +1319,7 @@ remote_inbox_tick() {
     case "$id" in ''|*[!A-Za-z0-9._-]*) continue ;; esac
     w=$(fm_meta_get "$meta" window 2>/dev/null || true)
     [ -n "$w" ] || w="remote:$id"
-    if ! due=$(remote_inbox_hop "$id" due); then
+    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
       checkpoint_deadline_passed && return 124
       triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
       continue
@@ -1338,6 +1338,8 @@ EOF
         fi
         if [ "$out" = unavailable ]; then
           reason="stale: $w (unread firstmate instruction: remote record $rec is unhandled and the secondmate's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the secondmate)"
+        elif [ "$out" = bookkeeping-failed ]; then
+          reason="stale: $w (remote steering-inbox ladder bookkeeping unwritable: .ring-state cannot be written while remote record $rec stays unhandled; inspect the inbox directory)"
         else
           triage_log "remote steer-inbox delivery attempt: $id $rec result=$out"
         fi

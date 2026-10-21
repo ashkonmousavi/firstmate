@@ -7,7 +7,7 @@
 #   fm-remote-secondmate-control.sh state <id>
 #   fm-remote-secondmate-control.sh route <id>
 #   fm-remote-secondmate-control.sh send <id> <message> [fire-and-forget]
-#   fm-remote-secondmate-control.sh inbox <id> due|ring <record>|escalated <record>
+#   fm-remote-secondmate-control.sh inbox <id> due <grace-secs> <ring-max>|ring <record>|escalated <record>
 #   fm-remote-secondmate-control.sh key <id> <key>
 #   fm-remote-secondmate-control.sh capture <id> [lines]
 #   fm-remote-secondmate-control.sh observe <id>
@@ -316,8 +316,8 @@ cmd_send() {
 # host-local inbox, driven by the parent watcher's remote_inbox_tick
 # (bin/fm-task-inbox-lib.sh owns the ladder; "Remote leg" there). Each action
 # prints one line:
-#   due              quiet | ring <record> | escalate <record> <count>
-#   ring <record>    rang <ring-status> | handled | unavailable
+#   due <grace> <max> quiet | ring <record> | escalate <record> <count>
+#   ring <record>    rang <ring-status> | handled | unavailable | bookkeeping-failed
 #   escalated <rec>  escalated
 # <record> is a bare NNN.msg name in this inbox. `due` reads only; `ring`
 # re-checks that the record is still unhandled, rings once, and spends one
@@ -331,8 +331,11 @@ cmd_inbox() {
   dir=$(fm_task_inbox_dir "$CONTROL_STATE" "$id")
   case "$action" in
     due)
-      [ "$#" -eq 2 ] || usage
-      due=$(fm_task_inbox_due_action "$CONTROL_STATE" "$id")
+      [ "$#" -eq 4 ] || usage
+      case "$3" in ''|*[!0-9]*) die "invalid inbox grace seconds: $3" ;; esac
+      case "$4" in ''|*[!0-9]*) die "invalid inbox ring maximum: $4" ;; esac
+      due=$(FM_TASK_INBOX_GRACE_SECS="$3" FM_TASK_INBOX_RING_MAX="$4" \
+        fm_task_inbox_due_action "$CONTROL_STATE" "$id")
       verb=${due%% *}
       case "$verb" in
         ring)
@@ -371,7 +374,8 @@ cmd_inbox() {
   fi
   if ! fm_task_inbox_record_ring "$CONTROL_STATE" "$id" "$rec"; then
     [ -f "$rec" ] || { printf 'handled\n'; return 0; }
-    die "inbox ladder bookkeeping could not be written under $dir"
+    printf 'bookkeeping-failed\n'
+    return 0
   fi
   printf 'rang %s\n' "$ring_rc"
 }
@@ -505,7 +509,7 @@ case "${1:-}" in
   state) shift; [ "$#" -eq 1 ] || usage; validate_id "$1"; validate_home "$1"; state_value "$1" ;;
   route) shift; [ "$#" -eq 1 ] || usage; cmd_route "$1" ;;
   send) shift; [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage; cmd_send "$@" ;;
-  inbox) shift; [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage; cmd_inbox "$@" ;;
+  inbox) shift; [ "$#" -ge 2 ] && [ "$#" -le 4 ] || usage; cmd_inbox "$@" ;;
   key) shift; [ "$#" -eq 2 ] || usage; cmd_key "$@" ;;
   capture) shift; [ "$#" -ge 1 ] && [ "$#" -le 2 ] || usage; cmd_capture "$@" ;;
   observe) shift; [ "$#" -eq 1 ] || usage; cmd_observe "$@" ;;
