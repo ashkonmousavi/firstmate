@@ -1814,7 +1814,7 @@ teardown_collect_dependents() {
 # the path that cleans without closing. Runs only when this teardown would
 # otherwise close the backlog item, and before any destructive step.
 teardown_guard_unlanded_close() {
-  local class='' pr_refused=0 dep_refused=0
+  local class='' pr_refused=0 dep_refused=0 hold_status=0
   TEARDOWN_KEEP_OPEN=0
   TEARDOWN_KEEP_OPEN_HOLD=0
   [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] || return 0
@@ -1870,7 +1870,12 @@ teardown_guard_unlanded_close() {
     return 0
   fi
   if [ "$class" = open ]; then
-    if ! fm_backlog_mutate "$DATA" hold "$ID" --kind external --reason "awaiting merge $PR_URL"; then
+    if [ "$TEARDOWN_CAPTAIN_OPEN_STATUS" = 0 ]; then
+      fm_backlog_retain "$DATA" "$ID" --note "awaiting merge $PR_URL" || hold_status=$?
+    else
+      fm_backlog_mutate "$DATA" hold "$ID" --kind external --reason "awaiting merge $PR_URL" || hold_status=$?
+    fi
+    if [ "$hold_status" -ne 0 ]; then
       echo "REFUSED: could not hold $ID awaiting merge $PR_URL." >&2
       [ -z "$FM_BACKLOG_TRANSITION_ERROR" ] || printf '%s\n' "$FM_BACKLOG_TRANSITION_ERROR" >&2
       return 1
@@ -1927,6 +1932,9 @@ backlog_refresh_reminder() {
       printf '%s\n' "Backlog: $ID stays open in $backlog_display, held awaiting merge $PR_URL."
     else
       printf '%s\n' "Backlog: $ID stays open in $backlog_display because other items still list it in blocked-by: $TEARDOWN_DEPENDENTS."
+    fi
+    if [ "$TEARDOWN_CAPTAIN_OPEN_STATUS" = 0 ]; then
+      printf '%s\n' "Backlog: $ID is also still held for the captain with its question preserved. Relay the question and close it only with bin/fm-captain-hold.sh answer."
     fi
   elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
     printf '%s\n' "Backlog: $ID stays open in $backlog_display, still held for the captain with its deliverable recorded. Relay the question and close it only with bin/fm-captain-hold.sh answer."

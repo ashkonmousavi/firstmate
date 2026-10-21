@@ -5634,6 +5634,42 @@ SH
   pass "merge hold retains lifecycle serialization through cleanup"
 }
 
+test_merge_wait_preserves_existing_captain_hold() {
+  local case_dir variant before_body after_body before_identity after_identity reason
+  reason=$'Choose release scope (small or full)?\nKeep the approval question open.'
+  for variant in alone dependent; do
+    case_dir=$(prepare_recorded_github_pr "captain-merge-$variant")
+    install_github_pr_class "$case_dir" open
+    FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" hold task-x1 --reason "$reason" >/dev/null \
+      || fail "could not seed the captain hold"
+    before_body=$(tasks-axi show task-x1 --full --file "$case_dir/data/backlog.md" | sed -n 's/^  body: //p')
+    before_identity=$(FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" open task-x1 --identity) \
+      || fail "seeded captain hold is not discoverable"
+    if [ "$variant" = dependent ]; then
+      add_blocked_by_child "$case_dir" child-one "waiting child"
+    fi
+    teardown_capture "$case_dir" --keep-open
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "captain merge wait must allow cleanup"$'\n'"$(cat "$case_dir/stderr")"
+    assert_absent "$case_dir/state/task-x1.meta" "captain merge wait left the task record"
+    [ "$(shown_hold_reason "$case_dir")" = "$reason" ] \
+      || fail "merge wait replaced the captain question"
+    after_identity=$(FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" open task-x1 --identity) \
+      || fail "merge wait hid the captain hold"
+    [ "$before_identity" = "$after_identity" ] || fail "merge wait changed the captain hold lifecycle"
+    after_body=$(tasks-axi show task-x1 --full --file "$case_dir/data/backlog.md" | sed -n 's/^  body: //p')
+    [ "$after_body" != "$before_body" ] || fail "merge wait was not recorded durably"
+    printf '%s\n' "$after_body" | grep -F 'awaiting merge https://github.com/example/repo/pull/7' >/dev/null \
+      || fail "retained task body omitted the merge wait"
+    assert_grep 'still held for the captain' "$case_dir/stdout" "cleanup omitted the captain obligation"
+    assert_grep 'held awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" "cleanup omitted the merge obligation"
+    [ "$(backlog_row_state "$case_dir")" != done ] || fail "merge wait closed the captain call"
+    if [ "$variant" = dependent ]; then
+      assert_grep 'blocked-by: child-one' "$case_dir/stdout" "cleanup omitted the dependent"
+    fi
+  done
+  pass "merge waits preserve captain questions and hold lifecycles with and without dependents"
+}
+
 run_teardown_tests() {
 
 test_teardown_preserves_opencode_busy_plugin_on_pool_return
@@ -5778,6 +5814,7 @@ test_scout_with_a_dependent_refuses
 test_escaped_title_retains_all_blockers
 test_malformed_dependency_rows_refuse_cleanup
 test_merge_hold_preserves_lifecycle_locks
+test_merge_wait_preserves_existing_captain_hold
 }
 
 if [ "$#" -gt 0 ]; then
