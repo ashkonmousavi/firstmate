@@ -1,0 +1,41 @@
+Captain, I ran `bash .live-lab/drive.sh` with the 120-second timeout. It exited without an error and printed nothing.
+
+I haven't checked that the disposable home actually started and parked, because you asked me not to run anything else. I
+'ve stopped here.
+
+lanes working: unknown (not checked)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Pane is dead (status 0, Tue Oct 20 17:06:22 2026)

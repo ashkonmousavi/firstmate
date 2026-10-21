@@ -1,0 +1,2 @@
+HUP: host=3615972, arm=3616512; exit status=129 (expected 129); host alive=False, arm alive=False
+INT: host=3617534, arm=3618058; exit status=130 (expected 130); host alive=False, arm alive=False

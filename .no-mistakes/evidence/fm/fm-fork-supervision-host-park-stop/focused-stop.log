@@ -1,0 +1,2 @@
+ok - host: a stop that lands while the host is starting an arm stops that arm with the host
+ok - host: stopping before engine identity publication still reaps detached tools

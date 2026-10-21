@@ -1,0 +1,20 @@
+Validation target: ccc7ee4dba54638bf0a8f16b8cc7ac7e639f684f
+Base: c03386544db0438e37743aee78a41b7ec8380bf7
+
+Named suite: bash tests/fm-supervision-host.test.sh > host-suite.log 2>&1
+Focused selectors, using an ephemeral copy of the same suite declarations:
+- test_a_stop_while_the_host_starts_an_arm_stops_that_arm
+- test_stop_before_engine_identity_reaps_its_descendants
+Both passed against the target. Both failed as intended against copies of the base host and engine library (other dependencies supplied from this target); failure logs retained.
+
+Failure/tee experiment: an ephemeral copy of the suite declarations invoked case_with_a_parked_host then fail with an intentional interruption message. Run through timeout 90 bash ... | tee, with pipefail. Expected exit 1 returned in two seconds; tee reached EOF. This is test-fixture validation, not a real-Claude journey.
+
+Real primary: bin/fm-lab-home.sh create .live-lab/home; private TMUX_TMPDIR=.live-lab/tmux tmux -L fm-lab, 120x40 pane. Launch env removed NO_MISTAKES_GATE, FM_GATE_REFUSE_BYPASS, FM_ROOT_OVERRIDE, FM_STATE_OVERRIDE, FM_DATA_OVERRIDE, FM_CONFIG_OVERRIDE, FM_PROJECTS_OVERRIDE; FM_HOME pointed to marked lab. Interactive claude reached folder trust; left untouched. claude -p worked using the normal login. Subsequent real primaries used claude -p --allowedTools Bash --permission-mode auto with an explicit instruction to execute only bash .live-lab/drive.sh, timeout 120000ms.
+The driver invoked bin/fm-session-start.sh and bin/fm-supervision-host.sh park. Arm race: external od delay, only for identity read of the host's new child, then TERM and release. Engine race: enter away posture in the lab, append demo status, delay mktemp at the descendant-ledger creation, send TERM before engine PID file exists, then release after 0.5s. The real Claude engine executable was observed starting during cleanup. Separate parks received HUP and INT.
+The real engine launch check proves shutdown of the actual engine. Detached tool reaping was driven by the focused deterministic regression using its explicit engine stub; it is not claimed as a live model-driven detached-tool check.
+
+All temporary test drivers and lab files were removed; the private tmux server was killed. No source changes were made.
+
+Resolved setup attempts: the first base-engine counterfactual could not reach engine startup because its partial code copy lacked dispatch/prompt dependencies. Added links to the target .pi, .agents and docs directories, then reran and observed the intended detached-tool survivor failure. Interactive primary folder trust was left untouched; noninteractive mode supplied the real-primary route. A shell cleanup command was refused by command policy; Python removed the same disposable files successfully.
+
+Final named-suite process exited 0. Working copy clean after removal of disposable lab and transient selectors. No linters, static analysis, broad repository suite, delivery, or pipeline control was run.

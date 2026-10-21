@@ -1,0 +1,7 @@
+Real Claude primary launched session-start and supervision-host park via Bash.
+Held first arm identity read; host=3441240, arm=3442038.
+    PID    PPID STAT COMMAND
+3441240 3433196 S    bash bin/fm-supervision-host.sh park
+3442038 3441240 S    bash ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5DVCJAF22FSFJ1GMDCA68MG/bin/fm-watch-arm.sh
+host exit status=143; host alive=False; arm alive=False; watcher record=None; watcher alive=False
+host output:

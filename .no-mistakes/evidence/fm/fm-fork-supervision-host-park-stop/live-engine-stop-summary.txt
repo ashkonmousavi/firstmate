@@ -1,0 +1,5 @@
+TERM host=3525862 while engine creation was held and engine PID file absent. Released after 0.5s.
+Real Claude engine PID observed: 3566760
+Host exited 143; host, engine, watchdog and watcher were stopped.
+An initial all-descendants assertion saw the stopped watcher's one-second sleep still finishing. Exact-PID follow-up found no recorded descendant alive.
+Full process-tree transcript: live-engine-stop.txt

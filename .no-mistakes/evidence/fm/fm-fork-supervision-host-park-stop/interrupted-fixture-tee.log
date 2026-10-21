@@ -1,0 +1,2 @@
+not ok - intentional fixture interruption to verify tee reaches EOF
+exit=1 elapsed_seconds=2 (expected exit=1, below timeout=90)

@@ -1,0 +1,41 @@
+Captain, I ran `bash .live-lab/drive.sh`. It finished without an error and printed nothing. Because it printed nothing,
+I can't confirm from its output that the disposable home started and parked. As you instructed, I ran no other commands
+to check.
+
+lanes working: unknown (I didn't check the fleet, as instructed)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Pane is dead (status 0, Tue Oct 20 17:04:54 2026)

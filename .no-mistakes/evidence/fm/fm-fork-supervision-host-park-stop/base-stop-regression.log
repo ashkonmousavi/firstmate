@@ -1,0 +1,4 @@
+not ok - stop while starting: the arm the host was starting (pid 3399969) outlived it:
+3416636 3341078 S    do_wai /tmp/fm-supervision-host.yWhn7A/fakebin/fakebin/claude -c "$0" 2>&1 ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5DVCJAF22FSFJ1GMDCA68MG/bin/fm-wake-drain.sh
+3416640 3416636 S    do_wai bash ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5DVCJAF22FSFJ1GMDCA68MG/bin/fm-wake-drain.sh
+3416784 3416781 S    pipe_r awk -v home=/tmp/fm-supervision-host.zmjcbL/stop-while-starting/ -v bin=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5DVCJAF22FSFJ1GMDCA68MG/bin/ index($0, home) || index($0, bin)
