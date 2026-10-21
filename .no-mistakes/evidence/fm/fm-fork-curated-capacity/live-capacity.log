@@ -1,0 +1,186 @@
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-lab-home.sh create ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615550,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":2,"free_lanes":2,"secondmates":0,"mem_available_kb":11648700,"reserve_kb":0,"headroom_kb":11648700}
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=2 reason=ok lanes=0 target=2 secondmates=0 load1=2.85 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=11647252 reserve_kb=0 headroom_kb=11647252
+Lanes: 0 of 2; 2 open. Memory headroom: 11647252 kB.
+Host: load 2.85 on 16 cores, memory free 81%, disk free 772486 MB.
+exit=0
+
+Independent live kernel memory balances (KiB): [11649988]
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=memory lanes=0 target=2 secondmates=0 load1=2.85 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=11645176 reserve_kb=1048574951424 headroom_kb=-1048563306248
+Lanes: 0 of 2; 0 open. Memory headroom: -1048563306248 kB.
+Host: load 2.85 on 16 cores, memory free 81%, disk free 772486 MB.
+fm-capacity: /sys/fs/cgroup/user.slice/user-1001.slice memory.high-(anon+shmem)=11645176 kB minus reserve=1048574951424 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity) gives headroom=-1048563306248 kB
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615550,"readable":true,"reason":"memory","error":"/sys/fs/cgroup/user.slice/user-1001.slice memory.high-(anon+shmem)=11645680 kB minus reserve=1048574951424 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity) gives headroom=-1048563305744 kB","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":2,"free_lanes":0,"secondmates":0,"mem_available_kb":11645680,"reserve_kb":1048574951424,"headroom_kb":-1048563305744}
+fm-capacity: /sys/fs/cgroup/user.slice/user-1001.slice memory.high-(anon+shmem)=11645680 kB minus reserve=1048574951424 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity) gives headroom=-1048563305744 kB
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 load1=2.85 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+Host: load 2.85 on 16 cores, memory free 81%, disk free 772486 MB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity reading '2': expected <lane-ceiling> <memory-reserve-gb>
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 load1=2.85 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+Host: load 2.85 on 16 cores, memory free 81%, disk free 772486 MB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity is missing or unreadable
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=full lanes=2 target=2 secondmates=1 load1=2.85 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=11643348 reserve_kb=0 headroom_kb=11643348
+Lanes: 2 of 2; 0 open. Memory headroom: 11643348 kB.
+Host: load 2.85 on 16 cores, memory free 81%, disk free 772486 MB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=2 target=2; no free machine lane
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615550,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=2 target=2; no free machine lane","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":2,"target":2,"free_lanes":0,"secondmates":1,"mem_available_kb":11643216,"reserve_kb":0,"headroom_kb":11643216}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=2 target=2; no free machine lane
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615550,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=2 target=2; no free machine lane","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":2,"target":2,"free_lanes":0,"secondmates":1,"mem_available_kb":11649124,"reserve_kb":0,"headroom_kb":11649124}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=2 target=2; no free machine lane
+exit=0
+
+$ git init -q ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project
+exit=0
+
+$ git -C ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project -c user.name=Lab -c user.email=lab@example.invalid commit --allow-empty -qm lab
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-spawn.sh admission ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project --mode local-only --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision with a foreground checkpoint: bin/fm-watch-checkpoint.sh --seconds 180.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+deferred: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=0 target=0; no free machine lane; task admission stays queued
+exit=75
+
+$ git -C ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project worktree list --porcelain
+worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project
+HEAD 2c9b252dd6371cfa8018afc1cb737f82374d50b9
+branch refs/heads/master
+
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-spawn.sh admission ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project --mode local-only --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: /sys/fs/cgroup/user.slice/user-1001.slice memory.high-(anon+shmem)=11661204 kB minus reserve=1048574951424 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity) gives headroom=-1048563290220 kB; task admission stays queued
+exit=75
+
+$ git -C ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project worktree list --porcelain
+worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project
+HEAD 2c9b252dd6371cfa8018afc1cb737f82374d50b9
+branch refs/heads/master
+
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-spawn.sh admission ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project --mode local-only --yolo off --harness codex --backend tmux
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity reading '2': expected <lane-ceiling> <memory-reserve-gb>; task admission stays queued
+exit=75
+
+$ git -C ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project worktree list --porcelain
+worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project
+HEAD 2c9b252dd6371cfa8018afc1cb737f82374d50b9
+branch refs/heads/master
+
+exit=0
+
+$ tmux -S ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/s new-session -d -s fm-lab-capacity -n fm-stopped -x 100 -y 30 -c ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l bash --noprofile --norc
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615553,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":2,"free_lanes":2,"secondmates":1,"mem_available_kb":11664364,"reserve_kb":0,"headroom_kb":11664364}
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615554,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":1,"target":2,"free_lanes":1,"secondmates":1,"mem_available_kb":11659832,"reserve_kb":0,"headroom_kb":11659832}
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=full lanes=1 target=1 secondmates=1 load1=2.78 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=11665612 reserve_kb=0 headroom_kb=11665612
+Lanes: 1 of 1; 0 open. Memory headroom: 11665612 kB.
+Host: load 2.78 on 16 cores, memory free 81%, disk free 772486 MB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=1 target=1; no free machine lane
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615555,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":1,"free_lanes":1,"secondmates":1,"mem_available_kb":11664020,"reserve_kb":0,"headroom_kb":11664020}
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --admit
+capacity: free_lanes=1 reason=ok lanes=0 target=1 secondmates=1 load1=2.78 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=11668280 reserve_kb=0 headroom_kb=11668280
+Lanes: 0 of 1; 1 open. Memory headroom: 11668280 kB.
+Host: load 2.78 on 16 cores, memory free 81%, disk free 772486 MB.
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-spawn.sh stopped --relaunch
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=1 target=1; no free machine lane; task stopped stays queued
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-control.sh stopped relaunch --note Validate admission with another occupied seat.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity: lanes=1 target=1; no free machine lane; task stopped stays queued
+error: stopped's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/project
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-fleet-view.sh --capacity
+capacity: free_lanes=2 reason=ok lanes=0 target=2 secondmates=1 load1=2.80 cores=16 mem_free_pct=81 disk_free_mb=772486 mem_available_kb=11669020 reserve_kb=0 headroom_kb=11669020
+Lanes: 0 of 2; 2 open. Memory headroom: 11669020 kB.
+Host: load 2.80 on 16 cores, memory free 81%, disk free 772486 MB.
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-fleet-ledger.sh capacity --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615558,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":2,"free_lanes":2,"secondmates":1,"mem_available_kb":11665328,"reserve_kb":0,"headroom_kb":11665328}
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --publish
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615558,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":2,"free_lanes":2,"secondmates":1,"mem_available_kb":11666604,"reserve_kb":0,"headroom_kb":11666604}
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-place.sh ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/state/lane-capacity.json
+Placement: WIN-P8MLI888O8M (2 lanes free, 11666604 kB memory headroom).
+exit=0
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-place.sh ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/stale.json
+unavailable: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/stale.json
+Placement: none (no readable machine has room).
+exit=75
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-capacity.sh --publish
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792615559,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity is missing or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity","lanes":0,"target":0,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":0,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/config/lane-capacity is missing or unreadable
+exit=1
+
+$ ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/bin/fm-place.sh ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/state/lane-capacity.json
+unavailable: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5G33VFEPFJSDW5QD92BJ881/.l/state/lane-capacity.json
+Placement: none (no readable machine has room).
+exit=75
+
+All live capacity/report/placement assertions passed.
