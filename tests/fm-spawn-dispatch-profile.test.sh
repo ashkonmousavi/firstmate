@@ -593,31 +593,23 @@ test_codex_omits_max_effort_for_unsupported_model() {
   pass "codex omits max for models without the catalog capability"
 }
 
-# Codex parks a crewmate launch forever on its unanswerable hook-trust modal
-# unless the launch turns the hook layer off. These two cases pin the split:
-# a crewmate runs hook-free, a secondmate keeps the project hooks that carry its
-# own primary-session turn-end guard and session-start digest.
-test_codex_crewmate_launch_disables_the_hook_layer() {
+# Global lifecycle hooks require an enabled engine and automated hook review.
+# The turn-end notify remains independent of semantic busy events.
+test_codex_crewmate_launch_enables_the_global_busy_hook() {
   local rec id out status launch
   id=profile-codex-hooks-z4c
   rec=$(make_spawn_case profile-codex-hooks codex "$id")
   read_case_record "$rec"
-
   out=$(run_ship_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$LAUNCH_LOG" "$id" "$PROJ_DIR")
   status=$?
   expect_code 0 "$status" "codex crewmate spawn should succeed"$'\n'"$out"
   launch=$(cat "$LAUNCH_LOG")
-  assert_contains "$launch" "--disable hooks" \
-    "codex crewmate launch did not disable the hook layer that blocks it on a trust modal"
-  # The opposite posture: this flag RUNS the untrusted hooks instead of
-  # disabling them, so a launch must never reach for it.
-  assert_not_contains "$launch" "--dangerously-bypass-hook-trust" \
-    "codex crewmate launch ran the operator's untrusted hooks instead of disabling them"
-  # Firstmate goes blind without the turn-end signal, which rides this same
-  # launch rather than any hook.
-  assert_contains "$launch" "notify=" \
-    "codex crewmate launch lost the turn-end notify program"
-  pass "a codex crewmate launches with no hook layer and keeps its turn-end signal"
+  assert_contains "$launch" "--enable hooks" "codex busy hooks were disabled"
+  assert_contains "$launch" "--dangerously-bypass-hook-trust" "codex can park on hook review"
+  assert_contains "$launch" "FM_CODEX_BUSY_WORKTREE=" "codex cwd routing is unbound"
+  assert_contains "$launch" "FM_CODEX_BUSY_GEN=" "codex generation is unbound"
+  assert_contains "$launch" "notify=" "codex lost turn-end notifications"
+  pass "a codex crewmate enables global lifecycle hooks with a fixed task binding"
 }
 
 test_codex_secondmate_launch_keeps_the_hook_layer() {
@@ -2793,7 +2785,7 @@ test_claude_threads_model_and_effort
 test_codex_threads_model_and_effort
 test_codex_threads_model_and_max_effort
 test_codex_omits_max_effort_for_unsupported_model
-test_codex_crewmate_launch_disables_the_hook_layer
+test_codex_crewmate_launch_enables_the_global_busy_hook
 test_codex_secondmate_launch_keeps_the_hook_layer
 test_grok_threads_model_and_reasoning_effort
 test_grok_omits_invalid_max_reasoning_effort

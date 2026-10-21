@@ -9,7 +9,8 @@ Exact task chronology, branch names, temporary homes, local paths, process ids, 
 ## Codex idle refusal guard
 
 On 2026-10-07, installed `codex-cli 0.160.1` passed the native idle guard on Linux.
-The guard launches Codex with hooks disabled, matching a worker launch, in an isolated tmux server without submitting a model prompt.
+The guard launches Codex with hooks disabled to isolate idle rendering in an isolated tmux server without submitting a model prompt.
+Current worker lifecycle-hook proof and both refresh guards live in [Codex global busy hooks](supervision.md#codex-global-busy-hooks-2026-10-20).
 It verifies composer readability and passes that same captured screen to the semantic busy classifier.
 Without a verified semantic source, an idle prompt remains unknown rather than asserting working.
 Refresh after a Codex upgrade with:
