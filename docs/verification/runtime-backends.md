@@ -2847,3 +2847,22 @@ Without Firstmate's hooks, Herdr reported the question panel as `blocked`, which
 This live proof covers the watcher and queue boundary; it does not establish live daemon-consumer delivery.
 `bin/fm-test-run.sh tests/fm-daemon.test.sh` exercises that consumer routing separately with portable regressions for busy escalation and busy-bookkeeping failures in away and quiet mode.
 Repeat the hooked-worker check above before publication if watcher or task-inbox busy code changes; `bin/fm-test-run.sh tests/fm-task-inbox.test.sh` refreshes the portable ladder regressions.
+
+## Main backstop discovery guard, 2026-10-20
+
+`tests/fm-main-backstop-live-e2e.test.sh` starts real installed Claude and Codex interfaces without submitting prompts in an isolated Herdr server.
+It belongs to `live-harness-optin` and uses `fm_live_gate` with the token-free default-on policy.
+The guard owns its server process, socket, configuration, harness state and working directories under a temporary directory in the checkout, and terminates that server after the check.
+Each installed supported harness must pass exact-home discovery and wrong-home refusal; a live bash with each harness's stale agent label must refuse discovery, and a run checking no real harness fails.
+Refresh the per-harness evidence with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh`.
+
+Observed on 2026-10-20 with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh` (exit 0):
+
+```text
+# herdr 0.9.5
+ok - claude (2.1.304 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
+This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
+It does not prove prompt delivery or turn-end watcher recovery.
