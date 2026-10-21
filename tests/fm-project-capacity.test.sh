@@ -722,7 +722,7 @@ test_machine_refuses_inaccessible_state() {
   pass 'unreadable root state defers local secondmate workers'
 }
 
-test_machine_concurrent_projects() {
+test_machine_counts_published_lane_without_lock() {
   local case_dir home mate hold wt pid i n a=0 b=0
   case_dir=$(make_case machine-concurrent task-a)
   home="$case_dir/home"
@@ -804,4 +804,4 @@ test_machine_ceiling_across_projects
 test_machine_memory_and_unreadable
 test_machine_refuses_inaccessible_state
 test_machine_registry_parent_refuses_spawn
-test_machine_concurrent_projects
+test_machine_counts_published_lane_without_lock

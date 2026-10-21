@@ -68,6 +68,7 @@ make_home() {  # <name> [task-id...]
   mkdir -p "$home/state" "$home/config" "$home/data" "$home/projects"
   touch "$home/state/.last-watcher-beat"
   printf '%s\n' claude > "$home/config/crew-harness"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' \
     > "$home/data/backlog.md"
   # Pin the adapter per case: without it fm_tasks_axi_backend would fall through

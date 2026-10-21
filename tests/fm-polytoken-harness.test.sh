@@ -796,6 +796,7 @@ Exercise Polytoken dispatch.
 Verify launch and delivery behavior.
 EOF
   printf 'polytoken\n' > "$home/config/crew-harness"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   printf 'version: 4\nproviders:\n  zai:\n    auth:\n      type: static_key\n      key: k\nmodels:\n  zai/glm-5.3-flash:\n    enabled: true\ndefault_permission_matcher: standard\n' \
     > "$home/.config/polytoken/config.yaml"
   fm_git_worktree "$proj" "$wt" "wt-$name"
