@@ -990,12 +990,9 @@ fm_busy_gemini_launch_prompt_tail() {
 }
 
 # fm_busy_launch_prompt_parked: dispatch to the signature above for <harness>,
-# or fail when this harness has none. Consumes the tail on stdin. Scoped to
-# exactly the harnesses fm-spawn.sh arms with the fm-spawn busy source
-# (claude*, opencode*, pi, pi-signed, omp, gemini) since only those can ever
-# read a pinned "busy fm-spawn" record; Codex trusts no stored sources and
-# standalone Kimi returns unknown before records, and opencode ships no
-# trust dialog at all.
+# or fail when this harness has none. Consumes the tail on stdin. Only the
+# verified Claude, Pi/omp, and Gemini launch signatures are recognized here;
+# an armed harness without a signature retains its stored verdict.
 fm_busy_launch_prompt_parked() {  # <harness>
   case "${1:-}" in
     claude*) fm_busy_claude_launch_prompt_tail ;;

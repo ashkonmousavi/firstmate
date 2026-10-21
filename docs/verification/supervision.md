@@ -291,8 +291,8 @@ These guarantees are process semantics, not vendor-emitted signals, so no live-h
 
 ## Semantic busy state
 
-The per-adapter semantic sources behind [`bin/fm-busy-lib.sh`](../../bin/fm-busy-lib.sh) were live-verified on 2026-07-28 against firstmate-launched workers wired exactly as `fm-spawn` writes them.
-Each pass polled `state/<id>.busy-state` while a real turn ran.
+The table records per-adapter verification of the semantic sources behind [`bin/fm-busy-lib.sh`](../../bin/fm-busy-lib.sh), with later verification dates and refresh details called out below.
+The original 2026-07-28 passes polled `state/<id>.busy-state` against firstmate-launched workers wired exactly as `fm-spawn` writes them while a real turn ran.
 
 | Harness | Version verified | Semantic source | Observed result |
 | --- | --- | --- | --- |
