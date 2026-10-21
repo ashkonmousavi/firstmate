@@ -1,0 +1,207 @@
+
+Native host cgroup reporting
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590002,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":11408332,"reserve_kb":0,"headroom_kb":11408332}
+
+Native host admission
+$ bash bin/fm-capacity.sh --admit
+exit=0
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=11407168 reserve_kb=0 headroom_kb=11407168
+Lanes: 0 of 5; 5 open. Memory headroom: 11407168 kB.
+
+Cache-heavy parent: 15 GB minus 5.5 GB working memory leaves 9.5 GB
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590002,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":9277343,"reserve_kb":4194304,"headroom_kb":5083039}
+
+Cache-heavy admission despite only 1 KiB host MemAvailable
+$ bash bin/fm-capacity.sh --admit
+exit=0
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=9277343 reserve_kb=4194304 headroom_kb=5083039
+Lanes: 0 of 5; 5 open. Memory headroom: 5083039 kB.
+
+Reclaimed file cache leaves reported headroom unchanged
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590003,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":9277343,"reserve_kb":4194304,"headroom_kb":5083039}
+
+Closer 8 GiB limit: 4 GiB working set exactly meets 4 GiB reserve
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590003,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":4194304,"reserve_kb":4194304,"headroom_kb":0}
+
+Exact reserve admission
+$ bash bin/fm-capacity.sh --admit
+exit=0
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=4194304 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 5 open. Memory headroom: 0 kB.
+
+One byte below reserve rounds down and refuses
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590003,"readable":true,"reason":"memory","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=4194303 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":4194303,"reserve_kb":4194304,"headroom_kb":-1}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=4194303 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB
+
+One-byte shortfall admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=memory lanes=0 target=5 secondmates=0 mem_available_kb=4194303 reserve_kb=4194304 headroom_kb=-1
+Lanes: 0 of 5; 0 open. Memory headroom: -1 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=4194303 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB
+
+Negative one-byte balance remains negative with zero reserve
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590003,"readable":true,"reason":"memory","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=-1 kB minus reserve=0 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":-1,"reserve_kb":0,"headroom_kb":-1}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=-1 kB minus reserve=0 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB
+
+Negative balance admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=memory lanes=0 target=5 secondmates=0 mem_available_kb=-1 reserve_kb=0 headroom_kb=-1
+Lanes: 0 of 5; 0 open. Memory headroom: -1 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=-1 kB minus reserve=0 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB
+
+Bad statistics refuse without host fallback: ''
+$ bash bin/fm-capacity.sh --json
+exit=1
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590003,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":4194304,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics refuse without host fallback: 'anon nope\nshmem 0\n'
+$ bash bin/fm-capacity.sh --json
+exit=1
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590003,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":4194304,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics refuse without host fallback: 'anon 1\n'
+$ bash bin/fm-capacity.sh --json
+exit=1
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590004,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":4194304,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics refuse without host fallback: 'anon 1\nshmem -1\n'
+$ bash bin/fm-capacity.sh --json
+exit=1
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590004,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":4194304,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics refuse without host fallback: 'anon 1\nanon 2\nshmem 0\n'
+$ bash bin/fm-capacity.sh --json
+exit=1
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590004,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":4194304,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Bad statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Missing statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Permission-denied statistics admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+Malformed limit admission
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.high: malformed limit
+
+Invalid membership admission: '0::/crew/../lane\n'
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/membership: invalid cgroup path
+
+Invalid membership admission: '0::relative\n'
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/membership: cgroup path is not absolute
+
+Invalid membership admission: '0::/crew/lane\n0::/crew\n'
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/membership: cgroup membership malformed or unreadable
+
+Invalid membership admission: '0::/missing\n'
+$ bash bin/fm-capacity.sh --admit
+exit=75
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/missing: cgroup directory unreadable
+
+All ancestors unlimited uses 8 GiB host MemAvailable
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590005,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":4194304,"headroom_kb":4194304}
+
+Hierarchy root with no controller uses host memory
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590005,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":4194304,"headroom_kb":4194304}
+
+No unified cgroup membership uses host memory
+$ bash bin/fm-capacity.sh --json
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590005,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":4194304,"headroom_kb":4194304}
+
+Publish memory refusal for downstream consumers
+$ bash bin/fm-capacity.sh --publish
+exit=0
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590005,"readable":true,"reason":"memory","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=4194303 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":4194303,"reserve_kb":4194304,"headroom_kb":-1}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane memory.high-(anon+shmem)=4194303 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity) gives headroom=-1 kB
+
+Publication replaces old facts when statistics become unreadable
+$ bash bin/fm-capacity.sh --publish
+exit=1
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792590005,"readable":false,"reason":"unreadable","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":0,"reserve_kb":4194304,"headroom_kb":0}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/manual/cgroup/crew/lane/memory.stat: anon or shmem missing, malformed or unreadable
+
+All observable assertions passed.

@@ -1,0 +1,14 @@
+ok - machine ceiling spans local homes and projects; PR handoff and secondmates excluded
+ok - activity, ledger and admission share facts; local walk markers do not bypass limits
+ok - memory reserve is fixed and refuses below zero headroom
+ok - missing and malformed machine facts refuse placement
+ok - inaccessible root and nested registry parents refuse admission and placement
+unavailable: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FAS8QR5Y9J5SWZETGTK90B/.capacity-validation/tmp/fm-capacity.a1xWaj/missing.json
+ok - published facts drive placement; unreadable and stale hosts refused
+ok - capacity counts live endpoints, frees dead records, and retains unknowns
+ok - public capacity command frees shell-only records and counts non-shell work
+ok - stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A
+ok - nearest finite ancestor excludes file cache and leaves 8.8 GiB before reserve
+ok - cgroup statistics fail closed instead of falling back to host memory
+ok - all ancestors unlimited falls back to MemAvailable
+ok - root cgroup fallback and unreadable limit/statistics behave safely
