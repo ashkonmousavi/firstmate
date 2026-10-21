@@ -551,7 +551,8 @@ When a message carries that marker, do the work, then respond via the STATUS/ESC
 Marked requests also carry a privacy-safe \`corr=<id>\` token after the marker; include that exact token in your parent status reply (or in the status pointer to a detailed doc) so the parent can correlate the answer.
 Optional helper: \`bin/fm-secondmate-report.sh <verb> <corr_id>\` reads the note from stdin, as a quoted heredoc, so the note is data, never shell. It appends that correlated line to the parent channel itself - do not pass a status path, and do not write a hand path under this home.
 A note argument still works: \`bin/fm-secondmate-report.sh <verb> <corr_id> <note>\`.
-A plain \`echo\` that includes the same \`corr=<id>\` on this parent channel is equally valid; do not depend on the helper being present.
+For new correlated notes without that helper, use the status command below with \`--corr <id>\` and a quoted heredoc.
+An already-written plain status line with the same \`corr=<id>\` on this parent channel is still accepted.
 For a terse result, a status line is the whole answer.
 For a detailed answer (an investigation, a plan, an audit), write it to a doc under your home's \`data/\` and append a status line that points to that doc - the scout-report pattern - so the main firstmate is woken and can read it.
 Before treating an investigation or visual review as complete, load \`captain-hold-lifecycle\` from this home's \`.agents/skills/\` and pass its shared completion gate.
@@ -567,7 +568,7 @@ The report text is data, never shell.
 Pass --key and --corr before the heredoc when the line needs those tokens.
 $STATUS_APPEND
 States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
-Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+The helper adds the current emission time; see \`bin/fm-status-append.sh\` for the append contract.
 Use \`$PAUSED_VERB: {why}\` for a known external wait, with \`until <YYYY-MM-DDTHH:MMZ>\` when known; use \`blocked:\` when firstmate must act.
 Use this only for material phase changes, a captain decision, a real blocker, a failure, work ready for review, or work you landed.
 Report a merge you performed yourself under standing merge authority and one the captain merged on the forge.
