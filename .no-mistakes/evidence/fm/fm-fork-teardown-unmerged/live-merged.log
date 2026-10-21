@@ -1,0 +1,63 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP
+warning: You appear to have cloned an empty repository.
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/pool/.treehouse/project-ef7a59/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/pool/.treehouse/project-ef7a59/1/project' to release it.
+ok: added live-task (ship) -> Queued
+task:
+  id: live-task
+  title: disposable teardown verification
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-task --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-task --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/data/backlog.md` to record a dependency
+ok: start live-task -> In flight
+help[1]:
+  - Run `tasks-axi done live-task --pr <url> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/data/backlog.md` when it ships
+
+SCENARIO merged
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/project: already current
+teardown live-task complete (window primary:fm-live-task, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/pool/.treehouse/project-ef7a59/1/project)
+Backlog: live-task is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+task:
+  id: live-task
+  title: "disposable teardown verification https://github.com/cli/cli/pull/14770"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-21
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/14770"
+  body: ""
+base  main  (repository default)
+1     available    ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.4MroXP/pool/.treehouse/project-ef7a59/1/project  (detached)

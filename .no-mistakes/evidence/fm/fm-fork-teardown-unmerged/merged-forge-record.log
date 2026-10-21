@@ -1,0 +1,11 @@
+pull_request:
+  number: 14770
+  title: Merge v2.102.1 release branch into trunk
+  state: merged
+  author: BagToad
+  draft: no
+  merged: "2026-10-20T19:47:10Z"
+  checks: "8 passed, 0 failed, 6 skipped, 14 total"
+  body: "<!--\nThank you for contributing to GitHub CLI!\n\nIf you are proposing a fix for a security issue, STOP and follow .github/SECURITY.md instead.\n\nKeep the entire pull request self-contained, reviewer-facing, and diegetic: describe the\nchange, rationale, and evidence within the context of the repository and pull request. Do not\nnarrate how the pull request was produced or refer to private conversations, prior agent work,\nor other behind-the-scenes context. Omit those details unless they materially a\n... (truncated, 5187 chars total - use --full to see complete body)"
+  comment_count: 0 — use --comments to see full comments
+  review_count: 2 — use --reviews to see full reviews

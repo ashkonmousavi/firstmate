@@ -1,0 +1,2 @@
+ok - bootstrap accurately reports merge holds after complete and incomplete cleanup
+ok - GitLab keep-open and both replay paths preserve the external merge hold

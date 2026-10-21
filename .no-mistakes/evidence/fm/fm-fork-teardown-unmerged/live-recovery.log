@@ -1,0 +1,89 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.5SBtrY
+
+SCENARIO replay-github-0
+BOOTSTRAP_INFO: kept the backlog item for replay-github-0 open with its deliverable recorded after an interrupted cleanup
+BOOTSTRAP_INFO: kept the backlog item for replay-github-0 open with its deliverable recorded after an interrupted cleanup
+task:
+  id: replay-github-0
+  title: "disposable merge recovery https://github.com/cli/cli/pull/14768"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "awaiting merge https://github.com/cli/cli/pull/14768"
+  hold_kind: external
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/14768"
+  body: "Deliverable of the finished work: PR https://github.com/cli/cli/pull/14768"
+
+SCENARIO replay-github-1
+BOOTSTRAP_INFO: kept the backlog item for replay-github-1 open with its deliverable recorded after interrupted cleanup; its endpoint or local copy may remain and should be reconciled
+BOOTSTRAP_INFO: kept the backlog item for replay-github-1 open with its deliverable recorded after interrupted cleanup; its endpoint or local copy may remain and should be reconciled
+task:
+  id: replay-github-1
+  title: "disposable merge recovery https://github.com/cli/cli/pull/14768"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "awaiting merge https://github.com/cli/cli/pull/14768"
+  hold_kind: external
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/14768"
+  body: "Deliverable of the finished work: PR https://github.com/cli/cli/pull/14768"
+
+SCENARIO replay-gitlab-0
+BOOTSTRAP_INFO: kept the backlog item for replay-gitlab-0 open with its deliverable recorded after an interrupted cleanup
+BOOTSTRAP_INFO: kept the backlog item for replay-gitlab-0 open with its deliverable recorded after an interrupted cleanup
+task:
+  id: replay-gitlab-0
+  title: disposable merge recovery
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "awaiting merge https://gitlab.com/example/repo/-/merge_requests/7"
+  hold_kind: external
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO replay-gitlab-1
+BOOTSTRAP_INFO: kept the backlog item for replay-gitlab-1 open with its deliverable recorded after interrupted cleanup; its endpoint or local copy may remain and should be reconciled
+BOOTSTRAP_INFO: kept the backlog item for replay-gitlab-1 open with its deliverable recorded after interrupted cleanup; its endpoint or local copy may remain and should be reconciled
+task:
+  id: replay-gitlab-1
+  title: disposable merge recovery
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "awaiting merge https://gitlab.com/example/repo/-/merge_requests/7"
+  hold_kind: external
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""

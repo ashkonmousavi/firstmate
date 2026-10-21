@@ -1,0 +1,165 @@
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI
+warning: You appear to have cloned an empty repository.
+🌳 Setting up worktree...
+🌳 Leased worktree at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/pool/.treehouse/project-7356f8/1/project. Run 'treehouse return ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/pool/.treehouse/project-7356f8/1/project' to release it.
+ok: added live-task (ship) -> Queued
+task:
+  id: live-task
+  title: disposable teardown verification
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi start live-task --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/data/backlog.md` to move it to in flight
+  - Run `tasks-axi block live-task --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/data/backlog.md` to record a dependency
+ok: start live-task -> In flight
+help[1]:
+  - Run `tasks-axi done live-task --pr <url> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/data/backlog.md` when it ships
+
+SCENARIO open URL https://github.com/cli/cli/pull/14768
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: PR https://github.com/cli/cli/pull/14768 is open; clean up after it merges, or use --keep-open to clean up while awaiting merge.
+exit=1
+retained commit=feature
+task:
+  id: live-task
+  title: disposable teardown verification
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO closed URL https://github.com/cli/cli/pull/14765
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI
+WARNING: watcher still down (same stale episode; last beat: 8s ago, grace 300s) - full banner already printed this episode.
+REFUSED: PR https://github.com/cli/cli/pull/14765 is closed without merging; use --force only after explicit discard approval.
+exit=1
+retained commit=feature
+task:
+  id: live-task
+  title: disposable teardown verification
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO closed-keep-open URL https://github.com/cli/cli/pull/14765
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI
+WARNING: watcher still down (same stale episode; last beat: 12s ago, grace 300s) - full banner already printed this episode.
+REFUSED: PR https://github.com/cli/cli/pull/14765 is closed without merging; use --force only after explicit discard approval.
+exit=1
+retained commit=feature
+task:
+  id: live-task
+  title: disposable teardown verification
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO error URL https://github.com/cli/cli/pull/999999999
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI
+WARNING: watcher still down (same stale episode; last beat: 17s ago, grace 300s) - full banner already printed this episode.
+REFUSED: cannot read recorded PR state for https://github.com/cli/cli/pull/999999999; nothing was cleaned up.
+exit=1
+retained commit=feature
+task:
+  id: live-task
+  title: disposable teardown verification
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI
+WARNING: watcher still down (same stale episode; last beat: 25s ago, grace 300s) - full banner already printed this episode.
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/project: already current
+teardown live-task complete (window primary:fm-live-task, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/pool/.treehouse/project-7356f8/1/project)
+Backlog: live-task stays open, awaiting merge https://github.com/cli/cli/pull/14768. Preserve that hold in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/data/backlog.md.
+task:
+  id: live-task
+  title: "disposable teardown verification https://github.com/cli/cli/pull/14768"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "awaiting merge https://github.com/cli/cli/pull/14768"
+  hold_kind: external
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://github.com/cli/cli/pull/14768"
+  body: "Deliverable of the finished work: PR https://github.com/cli/cli/pull/14768"
+
+Pool after cleanup:
+base  main  (repository default)
+1     available    ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EQXJN10KS8EDT1707ND2XG/.test-phase-tmp/fm-lab.Ncl6HI/pool/.treehouse/project-7356f8/1/project  (detached)
