@@ -312,8 +312,75 @@ test_check_timeout_is_reported_on_both_timeout_paths() {
       || fail "a timed-out check was not reported (fallback=$fallback): $(cat "$dir/watch-timeout.out")"
     [ "$(record_field "$record" result)" = timed-out ] && [ "$(record_field "$record" exit)" = 124 ] \
       || fail "the run record does not show the timeout (fallback=$fallback): $(cat "$record")"
+    grep -Eq '^[0-9]+ slow failed$' "$state/.sweep.log" \
+      || fail "the sweep log did not classify the timeout as failed (fallback=$fallback)"
   done
   pass "a state check killed at its bound is reported as a timeout on the installed and fallback paths"
+}
+
+# A single sweep records every executed check, including quiet successes and
+# failures, without making freshness telemetry a prerequisite for supervision.
+sweep_log_case() {  # <name>
+  local dir state name
+  dir=$(make_case "$1")
+  state="$dir/state"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$state/a-ok.check.sh"
+  printf '#!/usr/bin/env bash\nexit 7\n' > "$state/b-fail.check.sh"
+  for name in a-ok b-fail; do
+    chmod 0700 "$state/$name.check.sh"
+    FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" "$name" >/dev/null \
+      || fail "could not register $name for the sweep log"
+  done
+  printf '%s\n' "$dir"
+}
+
+assert_sweep_log_pair() {  # <log>
+  awk '
+    NF != 3 || $1 !~ /^[0-9]+$/ {exit 1}
+    NR == 1 && ($2 != "a-ok" || $3 != "ok") {exit 1}
+    NR == 2 && ($2 != "b-fail" || $3 != "failed") {exit 1}
+    END {if (NR != 2) exit 1}
+  ' "$1" || fail "sweep log did not contain exactly one timestamped result per check"
+}
+
+test_sweep_log_records_each_check() {
+  local dir
+  dir=$(sweep_log_case sweep-log)
+  check_leg "$dir" log
+  wait_for_exit "$CHECK_LEG_PID" 100 || fail "sweep did not finish"
+  assert_sweep_log_pair "$dir/state/.sweep.log"
+  pass "one sweep logs the quiet success and failure in the freshness reader format"
+}
+
+test_sweep_log_retains_newest_ten_thousand_lines() {
+  local dir log
+  dir=$(sweep_log_case sweep-log-cap)
+  log="$dir/state/.sweep.log"
+  awk 'BEGIN {for (i=1; i<=10000; i++) print i, "old", "ok"}' > "$log"
+  check_leg "$dir" cap
+  wait_for_exit "$CHECK_LEG_PID" 100 || fail "capped sweep did not finish"
+  [ "$(wc -l < "$log" | tr -d '[:space:]')" = 10000 ] || fail "sweep log exceeded its line cap"
+  [ "$(head -n 1 "$log")" = '3 old ok' ] || fail "sweep log did not evict the oldest lines"
+  tail -n 2 "$log" > "$dir/newest"
+  assert_sweep_log_pair "$dir/newest"
+  pass "sweep log keeps the newest 10000 lines including this sweep"
+}
+
+test_sweep_log_unwritable_does_not_stop_checks() {
+  local dir state
+  dir=$(sweep_log_case sweep-log-unwritable)
+  state="$dir/state"
+  # A directory cannot be appended to, including when tests run as root.
+  mkdir "$state/.sweep.log"
+  check_leg "$dir" unwritable
+  wait_for_exit "$CHECK_LEG_PID" 100 || fail "unwritable sweep log stopped supervision"
+  [ "$(record_field "$state/.check-run-a-ok" result)" = ok ] \
+    && [ "$(record_field "$state/.check-run-b-fail" result)" = failed ] \
+    || fail "unwritable sweep log prevented a check from being recorded"
+  [ -e "$state/.last-check" ] || fail "unwritable sweep log prevented sweep completion"
+  grep -F 'failed with exit 7' "$dir/watch-unwritable.out" >/dev/null \
+    || fail "unwritable sweep log suppressed the failure wake"
+  pass "unwritable sweep log leaves every check and its failure wake running"
 }
 
 # A check that prints used to wake and exit the sweep, so every later check
@@ -3720,6 +3787,9 @@ test_check_output_is_queued
 test_check_failure_is_one_wake_per_failure_episode
 test_check_timeout_is_reported_on_both_timeout_paths
 test_one_sweep_queues_every_printing_check
+test_sweep_log_records_each_check
+test_sweep_log_retains_newest_ten_thousand_lines
+test_sweep_log_unwritable_does_not_stop_checks
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
 test_drain_asserts_watcher_liveness

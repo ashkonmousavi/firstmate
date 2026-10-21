@@ -2915,6 +2915,29 @@ run_check_capture() {
   fm_check_output_cleanup
 }
 
+# sweep_log_record <check> <epoch> <result>
+# state/.sweep.log is best-effort freshness telemetry for executed state checks:
+#   <epoch> <check-name without .check.sh> <ok|failed>
+# Timeouts count as failed. The singleton watcher appends each complete line in
+# one printf, then atomically trims to the newest 10000 lines when over the cap.
+# Log failures never interrupt checks or their wake/record publication.
+sweep_log_record() {
+  local log="$STATE/.sweep.log" name result=$3 lines tmp
+  [ ! -L "$log" ] && { [ ! -e "$log" ] || [ -f "$log" ]; } || return 0
+  name=$(basename "$1" .check.sh)
+  [ "$result" = ok ] || result=failed
+  {
+    printf '%s %s %s\n' "$2" "$name" "$result" >> "$log" || return 0
+    lines=$(wc -l < "$log") || return 0
+    [ "$lines" -gt 10000 ] || return 0
+    tmp=$(mktemp "$STATE/.sweep.log.tmp.XXXXXX") || return 0
+    if ! tail -n 10000 "$log" > "$tmp" || ! mv -f -- "$tmp" "$log"; then
+      rm -f -- "$tmp"
+    fi
+  } 2>/dev/null
+  return 0
+}
+
 # check_run_record <check> <identity>
 # Records the run the sweep just made of <check> in state/.check-run-<name>,
 # <name> being the check's basename without .check.sh, replaced whole with:
@@ -2939,6 +2962,7 @@ check_run_record() {
     124) result=timed-out ;;
     *) result=failed ;;
   esac
+  sweep_log_record "$c" "$now" "$result"
   if [ -f "$record" ] && [ ! -L "$record" ] \
     && [ "$(sed -n 's/^identity=//p' "$record")" = "$identity" ]; then
     prior=$(sed -n 's/^result=//p' "$record")
