@@ -359,7 +359,8 @@ Under that gate, dispatch accepts only an unheld, unblocked Queued or In flight 
 [`bin/fm-tasks-axi.sh`](../bin/fm-tasks-axi.sh) refuses `add --start` and its `create --start` alias.
 Either would place a row In flight without a task record, status file, or inbox, counting it as live work that nobody is doing.
 The wrapper still passes through the documented direct transition `tasks-axi start <id>`.
-Completion refuses to report success until the item is closed, and session start reconciles this home's own books after an interrupted run.
+Completion refuses to report success until its close or retention transition is committed, and session start reconciles this home's own books after an interrupted run.
+[`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header owns the PR-state and dependent-item cleanup gates and the conditions for retaining an open item.
 
 When a spawn is interrupted after launch delivery began, its exit path re-reads the paired task record and the backlog row under the same per-task lock as the commit, repairs a row the commit believed it had moved, and reports only what was verified or honestly attempted, never intent phrased as outcome ([`bin/fm-spawn.sh`](../bin/fm-spawn.sh); [`tests/fm-backlog-atomicity.test.sh`](../tests/fm-backlog-atomicity.test.sh)).
 
@@ -394,7 +395,8 @@ Compatible means the installed build passes the shared version and feature probe
 Bootstrap requires compatible `tasks-axi` on every profile; see "Toolchain" below for missing-tool reporting and silent default-backend behavior.
 
 Set the local, gitignored `config/backlog-backend` file to `manual` to force manual backlog editing and suppress the verbose `BOOTSTRAP_INFO: tasks-axi available` fact, not missing-tool reporting.
-A `manual` home owns its backlog file outright: the lifecycle transitions above are skipped there, dispatch and completion never fail over the file's contents, and a completed teardown prints the hand edit that is owed instead.
+A `manual` home owns its backlog file outright: the lifecycle transitions above are skipped there, and a completed teardown prints the hand edit that is owed instead.
+This exemption does not bypass the recorded-PR cleanup gate owned by [`bin/fm-teardown.sh`](../bin/fm-teardown.sh)'s header.
 
 Absent or `tasks-axi` selects the tasks-axi path.
 On the default markdown adapter, tasks-axi and manual edits produce the same `## In flight`, `## Queued`, and `## Done` sections.

@@ -74,11 +74,16 @@
 # every record, naming the URL and saying to clean up after it merges, unless
 # --keep-open is given: then the endpoint and worktree are cleaned, because the
 # pushed branch remains, and the item stays open, held "awaiting merge <url>".
+# An existing captain hold and its question are preserved; the merge wait is
+# recorded in the item's note instead of replacing that hold.
 # CLOSED without a merge refuses unless --force, the captain's explicit discard.
 # An unreadable state refuses, and neither --force nor --keep-open overrides that.
-# The same close refuses while any other open item in this home lists this id in
-# blocked-by, naming those items. --keep-open still cleans and leaves this item
-# open, so those dependents stay blocked. --force does not close past them.
+# These PR checks apply even in manual-backend homes and markdown homes without
+# a backlog file; --keep-open then prints the merge hold owed as a manual edit.
+# When the automatic backlog transition gate applies, the same close refuses
+# while any other open item in this home lists this id in blocked-by, naming
+# those items. --keep-open still cleans and leaves this item open, so those
+# dependents stay blocked. --force does not close past them.
 # Uncommitted changes are never landed; dirty refusals distinguish untracked-only
 # leftovers from tracked edits and list at most ten non-exempt untracked paths.
 # local-only projects additionally accept work merged into the local default
