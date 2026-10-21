@@ -11,28 +11,31 @@
 # relaunches. Claude sheds the same credential overrides as a pinned launch;
 # Codex sheds OPENAI_API_KEY, CODEX_API_KEY and CODEX_ACCESS_TOKEN.
 #
-# Automatic recovery is opt-in through a numbered explicit root: claude-N or
-# codex-N. The existing watcher checks fresh profile-only quota once per minute
-# while a nonterminal worker is stably idle, then asks the control transaction
-# for --next-account --from-account-root <observed-root>. Under the lifecycle
+# Automatic recovery for ships and scouts is opt-in through a numbered explicit
+# root: claude-N or codex-N. The existing watcher checks fresh profile-only quota
+# while a nonterminal, unpaused worker is stably idle, throttling background
+# checks to once per minute, then asks the control transaction for
+# --next-account --from-account-root <observed-root>. Under the lifecycle
 # lock the transaction rechecks exhaustion and selects the first higher-numbered
 # sibling with a vendor login and fresh usable quota for the same model scopes.
 # Renewal is delegated to quota-axi, then a strict profile-only reread must
 # prove that exact root. No credential copying, credit purchase or daemon occurs.
 # A stale --from-account-root is a successful no-op, preventing duplicate events
 # from advancing the chain twice. Unsupported/unknown/auth-error quota refuses.
+# Quota probes honor the checkpoint budget; relaunch admission queues recovery
+# when a bounded foreground checkpoint cannot admit the transaction.
 # tmux and Herdr retain their existing verified control-plane capabilities.
 #
 # docs/configuration.md "Worker account pin" owns the operator-facing contract.
-# Sourced by bin/fm-spawn.sh and bin/fm-control.sh.
+# Sourced by bin/fm-spawn.sh, bin/fm-control.sh, and bin/fm-watch.sh.
 #
 # Pinnable runners, each a credential store inside a root its vendor lets a
 # process select:
 #   claude          CLAUDE_CONFIG_DIR     config/claude-account
 #   pi, pi-signed   PI_CODING_AGENT_DIR   config/pi-account
 #
-# The pin is opt-in: an absent file is no pin, and the launch keeps today's
-# ambient behavior byte for byte. A present file must resolve, or the launch
+# The pin is opt-in: an absent file is no pin, and without an explicit task
+# root the launch keeps today's ambient behavior. A present file must resolve, or the launch
 # refuses; nothing falls back to an ambient or vendor-default login once a
 # home has declared one. `ordinary` selects the vendor default: for Claude
 # that is CLAUDE_CONFIG_DIR unset, because Claude reads $CLAUDE_CONFIG_DIR/
@@ -412,7 +415,8 @@ fm_worker_account_next() {  # <harness> <current-root> <model>
 
 # Existing watcher recovery, independent of the model-powered supervision host.
 # Only explicitly selected numbered profiles participate; ambient launches keep
-# their previous behavior. Quota is checked at most once a minute per task.
+# their previous behavior. Background quota checks run at most once a minute
+# per task; checkpoint deferral permits an immediate recovery-cycle retry.
 fm_worker_account_recover() {  # <meta> <script-dir>
   local meta=$1 scripts=$2 root harness model id stamp now previous kind name
   [ "$(fm_meta_get "$meta" account_explicit)" = 1 ] || return 1

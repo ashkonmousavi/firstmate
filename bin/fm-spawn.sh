@@ -459,7 +459,7 @@
 #   bin/fm-worker-account-lib.sh owns selection, pin precedence, and numbered
 #   profile recovery; an explicit root survives a same-harness relaunch.
 # Worker account pin (config/claude-account, config/pi-account):
-#   Opt-in. With no file, a Claude or Pi launch is unchanged: Claude still
+#   Opt-in. With no file or explicit task account, a launch is unchanged: Claude still
 #   receives this process's own CLAUDE_CONFIG_DIR when it is set, and Pi the
 #   destination pane's ambient account. A present file pins every launch of
 #   that runner from this home - ship, scout, local secondmate, raw Claude
@@ -2800,10 +2800,10 @@ fi
 if [ "$HARNESS" = agy ]; then
   agy_model_validate "$AGY_BIN" "$MODEL" || exit 1
 fi
-# Worker account pin (header above): resolved before any endpoint, worktree, or
-# record exists. An absent pin selects nothing and leaves every later launch
-# step exactly as it was. A pinned Claude root is exported here as well, so the
-# trust registration below writes the store the worker will actually read.
+# Worker account selection (header above) precedes endpoint, worktree, and
+# record creation. With no pin or explicit root, ambient behavior is retained.
+# Export the selected root before startup setup so Claude trust registration
+# and Codex hook installation target the same store the worker will read.
 RAW_COMMAND=
 [ "$RAW_LAUNCH" = 0 ] || RAW_COMMAND=$ARG3
 WORKER_ACCOUNT=$(fm_worker_account_select "$HARNESS" "$CONFIG" "$MODEL" "${PI_BIN:-$HARNESS}" "$RAW_COMMAND" "$ACCOUNT_ROOT") || exit 1
