@@ -52,6 +52,7 @@ make_home() {  # <name> [<registry-line>...]
   projects="$TMP_ROOT/$name/projects"
   fakebin="$TMP_ROOT/$name/bin"
   mkdir -p "$home/data" "$home/state" "$home/config" "$projects/proj" "$fakebin"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   git -C "$projects/proj" init -q || fail "could not initialize project fixture"
   printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/tmux.calls"\nexit 1\n' "$fakebin" > "$fakebin/tmux"
   printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s/treehouse.calls"\nexit 1\n' "$fakebin" > "$fakebin/treehouse"

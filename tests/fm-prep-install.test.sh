@@ -12,6 +12,7 @@ TMP_ROOT=$(fm_test_tmproot fm-prep-install)
 
 write_registry() {  # <primary-home> <secondmate-home>
   local primary=$1 sm=$2
+  mkdir -p "$sm/state"
   printf -- '- nav - navigation (home: %s; scope: wayfinding; projects: firstmate; added 2026-09-16)\n' \
     "$sm" > "$primary/data/secondmates.md"
 }
@@ -36,6 +37,7 @@ make_spawn_world() {  # <name>
   projects="$TMP_ROOT/$name/projects"
   fakebin="$TMP_ROOT/$name/bin"
   mkdir -p "$home/data" "$home/state" "$home/config" "$projects/proj" "$fakebin"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   git -C "$projects/proj" init -q || fail "could not initialize project fixture"
   printf '#!/bin/sh\nexit 1\n' > "$fakebin/tmux"
   chmod +x "$fakebin/tmux"

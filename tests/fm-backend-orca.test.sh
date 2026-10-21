@@ -13,7 +13,8 @@ TMP_ROOT=$(fm_test_tmproot fm-backend-orca-tests)
 # HOME and reach the developer's real store, while empty falls through to it
 # and adds no launch prefix, since fm-spawn only prefixes a non-empty value.
 SPAWN_HOME="$TMP_ROOT/user-home"
-mkdir -p "$SPAWN_HOME"
+export FM_HOME="$TMP_ROOT/fm-home"
+mkdir -p "$SPAWN_HOME" "$FM_HOME/state" "$FM_HOME/data"
 
 write_spawn_brief() {  # <data-dir> <id>
   local data=$1 id=$2
@@ -502,6 +503,7 @@ test_spawn_preserves_orca_metadata_when_pathless_worktree_cleanup_fails() {
   config="$TMP_ROOT/pathless-cleanup-config"
   fm_git_init_commit "$proj"
   mkdir -p "$data/$id" "$state" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case pathless-cleanup-fail
@@ -538,6 +540,7 @@ test_spawn_writes_orca_metadata_and_launches_harness() {
   config="$TMP_ROOT/spawn-config"
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case spawn
@@ -608,6 +611,7 @@ test_spawn_refuses_orca_when_runtime_not_ready() {
   config="$TMP_ROOT/runtime-down-config"
   fm_git_init_commit "$proj"
   mkdir -p "$data/$id" "$state" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case runtime-down-spawn
@@ -637,6 +641,7 @@ test_spawn_refuses_orca_nonisolated_worktree() {
   config="$TMP_ROOT/bad-spawn-config"
   fm_git_init_commit "$proj"
   mkdir -p "$data/$id" "$state" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case bad-spawn
@@ -671,6 +676,7 @@ test_spawn_removes_orca_worktree_when_terminal_create_fails() {
   config="$TMP_ROOT/terminal-fail-config"
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case terminal-fail
@@ -704,6 +710,7 @@ test_spawn_preserves_orca_metadata_when_abort_cleanup_fails() {
   config="$TMP_ROOT/cleanup-fail-config"
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   touch "$state/.last-watcher-beat"
   orca_case cleanup-fail
@@ -738,6 +745,7 @@ test_spawn_releases_orca_resources_when_metadata_write_fails() {
   config="$TMP_ROOT/meta-fail-config"
   fm_git_worktree "$proj" "$wt" "fm/$id"
   mkdir -p "$data/$id" "$state/$id.meta" "$config"
+  printf '999999 0\n' > "$config/lane-capacity"
   write_spawn_brief "$data" "$id"
   orca_case meta-fail
   printf '1\n' > "$RESP/1.exit"
