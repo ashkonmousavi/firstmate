@@ -47,10 +47,9 @@ test_report_text_is_literal_and_one_line() {
     "the brief does not say why the report text is data"
   cmd=$(extract_status_command "$brief")
   [ -n "$cmd" ] || fail "scaffold has no status command"
-  payload=$(cat <<'END'
+  IFS= read -r payload <<'END'
 `touch TOUCH_A` $(touch TOUCH_B) $HOME 'quote
 END
-)
   payload=${payload//TOUCH_A/$touch_a}
   payload=${payload//TOUCH_B/$touch_b}
   cmd=${cmd//\{state\}/done}
