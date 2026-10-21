@@ -26,6 +26,7 @@ extract_status_command() { # <brief>
     ' "$brief"
     return 0
   fi
+  # shellcheck disable=SC2016 # Match literal shell syntax without expanding it.
   sed -n '/`echo "{state}/s/.*`\(echo .*\)`.*/\1/p' "$brief" | head -1
 }
 
@@ -60,6 +61,7 @@ END
   [ ! -e "$touch_b" ] || fail "a command substitution in the report text ran"
   line=$(cat "$home/state/$id.status")
   [ "$(wc -l < "$home/state/$id.status" | tr -d ' ')" = 1 ] || fail "status log is not one line: $line"
+  # shellcheck disable=SC2016 # Match literal command substitutions and $HOME.
   case "$line" in
     *'`touch '"$touch_a"'`'*'$(touch '"$touch_b"')'*'$HOME'*"'quote"*) ;;
     *) fail "report text was not stored literally: $line" ;;
@@ -159,6 +161,7 @@ EOF
   [ ! -e "$touch_a" ] || fail "a stdin note ran"
   line=$(cat "$status")
   [ "$(wc -l < "$status" | tr -d ' ')" = 1 ] || fail "stdin note became more than one status line: $line"
+  # shellcheck disable=SC2016 # Match literal $HOME without expanding it.
   case "$line" in
     *"\`touch $touch_a\`"*'$HOME'*"' alpha beta (via-helper)") ;;
     *) fail "stdin note was not stored literally on one line: $line" ;;
