@@ -508,7 +508,7 @@ An unreachable or unreadable remote read is unknown, not evidence that the endpo
 
 ### Replies and the parent channel
 
-Marked requests keep the existing correlation contract.
+[`bin/fm-pending-reply-lib.sh`](../bin/fm-pending-reply-lib.sh) owns marked-request correlation matching and summary-classified one-way notice expiry, which does not establish delivery or acknowledgement.
 The remote charter appends replies to `state/parent-replies.status` in the remote home.
 The remote home's own outcome publishers append there too, through the channel contract in `bin/fm-parent-channel-lib.sh` ([secondmate-parent-channel.md](secondmate-parent-channel.md)).
 The remote charter also names its steering inbox as `state/parent-route/<id>.inbox` in the remote home.
