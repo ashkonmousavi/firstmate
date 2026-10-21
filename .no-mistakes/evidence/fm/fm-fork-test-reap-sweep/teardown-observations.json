@@ -1,0 +1,61 @@
+{
+  "scope": "Non-live regression fixtures; SSH and Herdr are fixtures. These observations demonstrate actual fixture/process teardown, not live product verification.",
+  "runs": [
+    {
+      "fixture": ".no-mistakes/phase-test-tmp/fm-remote-trace-context.HpcCvc",
+      "owner_pid": 3680900,
+      "worker_pid": 3820395,
+      "before_exists": true,
+      "after_exists": false,
+      "after_worker_alive": false,
+      "case": "trace-context regression",
+      "expected_exit": 0,
+      "actual_exit": 0
+    },
+    {
+      "fixture": ".no-mistakes/phase-test-tmp/fm-remote-compact-adviser.gNVdNi",
+      "owner_pid": 3679714,
+      "worker_pid": 3821021,
+      "before_exists": true,
+      "after_exists": false,
+      "after_worker_alive": false,
+      "case": "compact-adviser regression",
+      "expected_exit": 0,
+      "actual_exit": 0
+    },
+    {
+      "fixture": ".no-mistakes/phase-test-tmp/fm-remote-parent-binding.TxUF3I",
+      "owner_pid": 3682524,
+      "worker_pid": 3820106,
+      "before_exists": true,
+      "after_exists": false,
+      "after_worker_alive": false,
+      "case": "parent-binding regression",
+      "expected_exit": 0,
+      "actual_exit": 0
+    },
+    {
+      "fixture": ".no-mistakes/phase-test-tmp/fm-remote-handoff.ojetnQ",
+      "owner_pid": 3796120,
+      "before_exists": true,
+      "worker_pid": 3804301,
+      "after_exists": false,
+      "after_worker_alive": false,
+      "case": "injected early serialization failure",
+      "expected_exit": 1,
+      "actual_exit": 1
+    },
+    {
+      "fixture": ".no-mistakes/phase-test-tmp/fm-remote-handoff.u33Wxd",
+      "owner_pid": 3875653,
+      "before_exists": true,
+      "worker_pid": 3996865,
+      "case": "normal handoff regression",
+      "expected_exit": 0,
+      "actual_exit": 1,
+      "after_exists": false,
+      "after_worker_alive": false
+    }
+  ],
+  "remaining_fixture_processes": []
+}

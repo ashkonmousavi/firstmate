@@ -1,0 +1,5 @@
+stored: state/handoff/ios.outbox.md bytes=127
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+warning: remote outbox and receiver wake completed, but a stale confirmed wake marker remains at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EBA5BQQDZ1XZX6ZG131WQA/.no-mistakes/test-phase-tmp/fm-remote-handoff.DsrZtx/parent/state/.backlog-handoff-ios.wake-pending; later handoffs will ignore it
+received: ios moved=1 already=0
+handed off 1 item(s) to remote secondmate ios: confirmed-marker-stale

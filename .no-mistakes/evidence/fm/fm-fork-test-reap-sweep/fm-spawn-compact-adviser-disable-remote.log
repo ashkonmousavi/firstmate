@@ -1,0 +1,5 @@
+tar: ./.test-phase-tmp/fm-remote-compact-adviser.ZdpoWv/remote-root/.pi/extensions/lib/fm-calm-preservation.ts: Cannot open: Permission denied
+tar: ./.test-phase-tmp/fm-remote-compact-adviser.ZdpoWv/remote-root/.pi/extensions/lib/fm-calm-working-ship-sprite.ts: Cannot open: Permission denied
+tar: ./.test-phase-tmp/fm-remote-compact-adviser.ZdpoWv/remote-root/.test-phase-tmp/fm-remote-handoff.sjWK6N/remote-root/bin/node: Cannot open: Permission denied
+tar: ./.test-phase-tmp/fm-remote-compact-adviser.ZdpoWv/remote-root/.test-phase-tmp/fm-remote-handoff.sjWK6N/remote-root/bin/tasks-axi: Cannot open: Permission denied
+Terminated

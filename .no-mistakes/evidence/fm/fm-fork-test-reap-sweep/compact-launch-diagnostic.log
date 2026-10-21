@@ -1,0 +1,2 @@
+error: refusing fleet lifecycle from inside a no-mistakes gate worktree (~/.no-mistakes/repos/11bdc1ed0d7a.git)
+error: remote host-local secondmate launch failed
