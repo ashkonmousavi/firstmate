@@ -57,9 +57,19 @@ cleanup() {
   fi
   FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" \
     "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
+  (
+    . "$ROOT/bin/fm-remote-job-lib.sh"
+    if fm_remote_job_recorded_owner_alive "$TMP_ROOT/remote-jobs/worker.lock"; then
+      fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID" || exit 1
+    fi
+  ) || return 1
   fm_test_cleanup
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap 'exit 131' QUIT
 
 PUBLISH_HOME="$TMP_ROOT/publication-home"
 PUBLISH_FAKEBIN=$(fm_fakebin "$TMP_ROOT/publication-fake")
