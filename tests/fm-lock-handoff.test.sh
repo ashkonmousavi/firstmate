@@ -44,7 +44,7 @@ for mode in normal term timeout; do
     FM_HANDOFF_REAL_MV="$real_mv" bash -c '
       . "$1"
       fm_lock_acquire_wait_bounded "$2" 1 || exit 10
-      current=$BASHPID
+      fm_current_pid current || exit 17
       [ "$(cat "$2/pid")" = "$current" ] || exit 11
       [ "$(cat "$2/identity")" = "$(fm_pid_identity "$current")" ] || exit 12
       [ "$(cat "$3")" = "$4" ] || exit 13
