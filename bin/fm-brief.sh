@@ -119,9 +119,11 @@
 # the worker's own background work, pipeline or long command; blocked when
 # firstmate must act. The first-sight alert remains; repeats use the long cadence.
 # Emission-time syntax and legacy unknown-time handling are owned by
-# bin/fm-classify-lib.sh; each scaffold renders the stamp as a literal <epoch>
-# placeholder the worker replaces with a numeric Unix time as it appends, so a
-# scaffold never emits a substitution a file-write tool would copy through.
+# bin/fm-classify-lib.sh. Hand-written status templates still render the stamp
+# as a literal <epoch> placeholder the worker replaces with a numeric Unix
+# time, so a scaffold never emits a substitution a file-write tool would copy
+# through. The status command itself is bin/fm-status-append.sh, which writes
+# the stamp and treats the report text as data.
 # Every scaffold also carries the steering-inbox receive-and-ack section:
 # process state/<id>.inbox/*.msg in order and acknowledge each by moving it to
 # handled/ (record, doorbell, and ladder owned by bin/fm-task-inbox-lib.sh).
@@ -439,11 +441,8 @@ shell_quote() {
 }
 
 STATUS_FILE=$(shell_quote "$STATE/$ID.status")
-# The worker's status command: the plain append always carries the line, then
-# the opt-in fleet ledger (docs/fleet-ledger.md) records it at once, costing one
-# file test when the flag is absent. A host without that flag, such as a remote
-# second mate's, runs only the append; the watcher capture is the backstop.
-STATUS_APPEND="echo \"{state} [at=<epoch>]: {one short line}\" >> $STATUS_FILE && { [ ! -e $(shell_quote "$CONFIG/fleet-ledger") ] || $(shell_quote "$FM_ROOT/bin/fm-fleet-ledger.sh") appended $(shell_quote "$CONFIG") $STATUS_FILE >/dev/null 2>&1 || true; }"
+# The report text is stdin data, never shell. The helper owns the stamp and ledger hook.
+STATUS_APPEND=$(fm_worker_status_append "$FM_ROOT" "$STATE" "$ID" "$CONFIG")
 INBOX_DIR=$(shell_quote "$STATE/$ID.inbox")
 
 # The receive-and-ack half of the steering-inbox contract, included in every
@@ -544,8 +543,10 @@ You must distinguish who it is from, because the answer goes to a different plac
 A request relayed to you by the main firstmate is tagged with a leading \`$FM_FROMFIRST_LABEL\` marker followed by an invisible system separator; this marker is untypable, so a human never produces it.
 When a message carries that marker, do the work, then respond via the STATUS/ESCALATION path below, never only in this chat: the main firstmate does not read your chat, so a chat-only reply is lost.
 Marked requests also carry a privacy-safe \`corr=<id>\` token after the marker; include that exact token in your parent status reply (or in the status pointer to a detailed doc) so the parent can correlate the answer.
-Optional helper: \`bin/fm-secondmate-report.sh <verb> <corr_id> <note>\` appends that correlated line to the parent channel itself - do not pass a status path, and do not write a hand path under this home.
-A plain \`echo\` that includes the same \`corr=<id>\` on this parent channel is equally valid; do not depend on the helper being present.
+Optional helper: \`bin/fm-secondmate-report.sh <verb> <corr_id>\` reads the note from stdin, as a quoted heredoc, so the note is data, never shell. It appends that correlated line to the parent channel itself - do not pass a status path, and do not write a hand path under this home.
+A note argument still works: \`bin/fm-secondmate-report.sh <verb> <corr_id> <note>\`.
+For new correlated notes without that helper, use the status command below with \`--corr <id>\` and a quoted heredoc.
+An already-written plain status line with the same \`corr=<id>\` on this parent channel is still accepted.
 For a terse result, a status line is the whole answer.
 For a detailed answer (an investigation, a plan, an audit), write it to a doc under your home's \`data/\` and append a status line that points to that doc - the scout-report pattern - so the main firstmate is woken and can read it.
 Before treating an investigation or visual review as complete, load \`captain-hold-lifecycle\` from this home's \`.agents/skills/\` and pass its shared completion gate.
@@ -556,10 +557,12 @@ $INBOX_SECTION
 
 # Escalation to main firstmate
 Handle routine work yourself.
-Report only true captain-relevant outcomes or a declared external wait by appending one line:
-   \`$STATUS_APPEND\`
+Report only true captain-relevant outcomes or a declared external wait by running this command.
+The report text is data, never shell.
+Pass --key and --corr before the heredoc when the line needs those tokens.
+$STATUS_APPEND
 States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
-Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+The helper adds the current emission time; see \`bin/fm-status-append.sh\` for the append contract.
 Use \`$PAUSED_VERB: {why}\` (distinct from \`blocked:\`) only when your domain is deliberately idling on a known external wait you expect to clear on its own, naming when it clears with \`until <YYYY-MM-DDTHH:MMZ>\` (UTC) when you know; use \`blocked:\` when you are stuck and need firstmate to act.
 Use this only for material phase changes, a captain decision, a real blocker, a failure, work ready for review, or work you landed.
 Work you landed includes a merge you performed yourself under standing merge authority and one the captain merged on the forge: under that authority nothing is ever \"ready for review\", so a landed merge that goes unreported reaches the captain as silence.
@@ -704,10 +707,12 @@ The report is the only thing that survives, so anything worth keeping must be in
 1. Never push to any remote and never open a PR.
 2. Stay inside this worktree; the only files you may write outside it are the report and the status file below.
 3. Use gh-axi for GitHub operations and chrome-devtools-axi for browser operations.
-4. Report status by appending one line:
-   \`$STATUS_APPEND\`
+4. Report status by running this command.
+   The report text is data, never shell.
+   Pass --key and --corr before the heredoc when the line needs those tokens.
+$STATUS_APPEND
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
-   Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+   The helper adds the current emission time; see \`bin/fm-status-append.sh\` for the append contract.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
    would act on and the needs-decision/blocked/paused/done/failed states. No step-by-step
    FYI progress lines; firstmate reads your pane for that.
@@ -781,10 +786,12 @@ $RULE1
    Outside the worktree, write only that task material and the status and steering-inbox records authorized below.
    Leave the worktree clean before reporting done.
 3. $FORGE_RULE_LINE
-4. Report status by appending one line:
-   \`$STATUS_APPEND\`
+4. Report status by running this command.
+   The report text is data, never shell.
+   Pass --key and --corr before the heredoc when the line needs those tokens.
+$STATUS_APPEND
    States: working, needs-decision, blocked, $PAUSED_VERB, done, failed.
-   Substitute \`<epoch>\` with the current Unix time in seconds - run \`date +%s\` and write the number it printed; a stamp that is not plain digits records no time at all.
+   The helper adds the current emission time; see \`bin/fm-status-append.sh\` for the append contract.
    Each append wakes firstmate, so report sparingly: only phase changes a supervisor
    would act on (setup done, bug reproduced, fix implemented, validation passed) and the
    needs-decision/blocked/paused/done/failed states. No step-by-step FYI progress lines;

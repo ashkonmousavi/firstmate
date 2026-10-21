@@ -64,8 +64,8 @@
 # the caller surfaces that failure instead of retrying silently; a concurrently
 # removed inbox is a quiet no-op. Escalation deliberately queues the wake before
 # writing the deduplication marker: normal polls surface a message once, while a
-# crash or marker failure may produce a rare duplicate rather than silently lose
-# a wake.
+# local crash or marker failure may produce a rare duplicate rather than silently
+# lose a wake. The remote leg preserves wake identity as described below.
 #
 # Retry ring (fm_task_inbox_mark_retry): only while config/wait-no-turns is
 # present. A fire-and-forget record never enters the ladder, but when
@@ -77,8 +77,30 @@
 # escalates. A waiting worker does not poll its inbox (bin/fm-brief.sh), so
 # without this retry the record could sit unread until a checkpoint. A pending ordinary record's
 # ladder rings the same inbox, so the retry waits behind it, and an
-# acknowledged record drops its mark. The remote steer leg has no watcher
-# ladder and owes no retry.
+# acknowledged record drops its mark.
+#
+# Remote leg: a remote secondmate's records live in its host's parent-route
+# inbox, and the parent watcher (remote_inbox_tick in bin/fm-watch.sh) drives
+# this same ladder there through bin/fm-remote-secondmate-control.sh's inbox
+# verb: due action and ring run on the remote host, the ladder state stays
+# beside the records, and the parent queues the escalation wake. It rings a
+# busy mate as the remote enqueue ring does, so it keeps no busy budget, and
+# no fire-and-forget retry is owed there.
+# The parent passes its effective grace and ring maximum to each remote due
+# check; individual hops have a fixed 30-second bound, and ordinary supervision
+# runs the pass detached from its cycle, so a slow host never delays the
+# watcher's own liveness.
+# A state-scoped pass lock prevents overlap across watcher restarts; detached
+# passes leave a durable wake handoff for the next watcher to surface even if
+# the launching watcher exits before the pass finishes.
+# Failed hops leave the remote refusal's first stderr line (or exit status) in
+# the parent's triage log and retry on a later tick, without waking firstmate
+# for routine re-rings.
+# Confirmed unavailable endpoints or unwritable ring bookkeeping escalate through
+# the same stale-wake path as a spent budget. Each record uses the stable wake
+# key remote-inbox:<id>:<record>, so a failed escalation-marker hop is retried
+# without appending another wake while that key remains queued; the remote
+# escalation marker suppresses later due actions once written.
 #
 # Inbox names containing bytes outside printable ASCII are unsupported. The
 # doorbell refuses them rather than sending terminal control bytes to a pane.
@@ -242,15 +264,25 @@ fm_task_inbox_write() {  # <state-dir> <task-id> <text> [delivery-mode]
 # secondmate request embeds a per-request correlation token in its body. The
 # local plane keeps plain fm_task_inbox_write: its outcome is synchronous, so
 # a repeated identical local steer is a deliberate new instruction.
+# Only records of the exact byte size this body would produce are compared:
+# the header above is fixed-width, so one find call replaces per-record reads
+# that grew with handled/ and, on a loaded host, outlasted the remote send
+# budget before the doorbell could ring.
 fm_task_inbox_write_idempotent() {  # <state-dir> <task-id> <text> [delivery-mode]
-  local state=$1 task=$2 text=$3 delivery_mode=${4:-} dir lock want have f rec='' status=0
+  local state=$1 task=$2 text=$3 delivery_mode=${4:-} dir lock want have f size rec='' status=0
+  local -a candidates=()
   dir=$(fm_task_inbox_dir "$state" "$task")
   mkdir -p "$dir/handled" || return 1
   lock="$dir/.seq.lock"
   fm_task_inbox_lock_acquire "$lock" || return 1
   if want=$(mktemp "$dir/.dedup.XXXXXX") && have=$(mktemp "$dir/.dedup.XXXXXX"); then
-    if printf '%s' "$text" > "$want"; then
-      for f in "$dir"/*.msg "$dir/handled"/*.msg; do
+    if printf '%s' "$text" > "$want" && size=$(wc -c < "$want"); then
+      size=$((size + ${#FM_TASK_INBOX_SCHEMA} + 35))
+      [ "$delivery_mode" != fire-and-forget ] || size=$((size + 25))
+      while IFS= read -r f; do
+        candidates+=("$f")
+      done < <(find "$dir" "$dir/handled" -maxdepth 1 -type f -name '*.msg' -size "${size}c" 2>/dev/null)
+      for f in ${candidates[@]+"${candidates[@]}"}; do
         if [ ! -e "$f" ]; then
           case "$f" in
             "$dir"/*.msg)

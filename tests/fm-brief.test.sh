@@ -216,7 +216,13 @@ test_ship_modes_generate_clean_briefs() {
     assert_grep 'never a bare number such as "PR 108"' "$brief" "$id: brief missing the full-PR-URL rule"
     assert_grep "mid-task \`working:\` line (including setup complete) is nonterminal" "$brief" \
       "$id: brief missing nonterminal working:/setup-complete gate protection"
-    assert_no_grep "EOF" "$brief" "$id: brief leaked a heredoc EOF marker (unterminated heredoc)"
+    # The status command's quoted heredoc is the only EOF in a finished brief.
+    # An unquoted <<EOF, or the generator's next statement, means that heredoc
+    # closed early and leaked into the brief.
+    [ "$(grep -c "<<'EOF'" "$brief")" = "$(grep -c '^EOF$' "$brief")" ] \
+      || fail "$id: status heredoc delimiter is not paired"
+    assert_no_grep '<<EOF' "$brief" "$id: brief leaked an unquoted heredoc delimiter"
+    assert_no_grep 'append_brief_include' "$brief" "$id: brief leaked the generator after its heredoc"
   done
   pass "fm-brief.sh: no-mistakes/direct-PR/local-only briefs generate cleanly"
 }
@@ -881,7 +887,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable() {
   )
   cmp -s "$baseline" "$brief" \
     || fail "relative FM_HOME changed charter bytes compared with the same absolute home"
-  assert_grep ">> '$home/state/relative-home.status'" "$brief" \
+  assert_grep "'$home/state/relative-home.status'" "$brief" \
     "relative FM_HOME did not render an absolute secondmate status path"
 
   brief="$home/data/relative-state/brief.md"
@@ -897,7 +903,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable() {
   )
   cmp -s "$baseline" "$brief" \
     || fail "relative FM_STATE_OVERRIDE changed charter bytes compared with the same absolute state directory"
-  assert_grep ">> '$state_override/relative-state.status'" "$brief" \
+  assert_grep "'$state_override/relative-state.status'" "$brief" \
     "relative FM_STATE_OVERRIDE did not render an absolute secondmate status path"
 
   brief="$data_override/relative-data/brief.md"
@@ -913,7 +919,7 @@ test_secondmate_directory_paths_are_absolute_and_output_is_stable() {
   )
   cmp -s "$baseline" "$brief" \
     || fail "relative FM_DATA_OVERRIDE changed charter bytes compared with the same absolute data directory"
-  assert_grep ">> '$home/state/relative-data.status'" "$brief" \
+  assert_grep "'$home/state/relative-data.status'" "$brief" \
     "relative FM_DATA_OVERRIDE changed the absolute default status path"
 
   err="$root/unresolved.err"
@@ -989,20 +995,26 @@ test_pause_verb_override_renders_all_brief_scaffolds() {
     # and run it. The stamp must be a value the worker supplies, so the command
     # may not carry an unevaluated substitution that a file-write tool would
     # copy through verbatim.
-    # shellcheck disable=SC2016 # Match literal backticks in the generated interface.
-    append=$(sed -n '/`echo "{state}/s/.*`\(echo .*\)`.*/\1/p' "$brief")
-    now=$(date +%s)
-    append=${append//\{state\}/done}
-    append=${append//\{one short line\}/test event}
-    append=${append//<epoch>/$now}
+    # shellcheck disable=SC2016 # Extract the generated status command.
+    append=$(awk '
+      index($0, "fm-status-append.sh") && !found { found = 1 }
+      found { print }
+      found && $0 == "EOF" { exit }
+    ' "$brief")
+    [ -n "$append" ] || fail "$kind scaffold has no status command"
     case "$append" in
       *"\$("*) fail "$kind scaffold left an unevaluated command in its status-append line" ;;
     esac
+    append=${append//\{state\}/done}
+    append=${append//\{one short line\}/test event}
+    before=$(date +%s)
     mkdir -p "$home/state"
     bash -c "$append" || fail "generated status command failed"
+    after=$(date +%s)
     epoch=$(bash -c '. "$1"; status_line_at_epoch "$(cat "$2")"' _ \
       "$ROOT/bin/fm-classify-lib.sh" "$home/state/$id.status")
-    [ "$epoch" = "$now" ] || fail "$kind scaffold did not record the worker's event time"
+    [ "$epoch" -ge "$before" ] && [ "$epoch" -le "$after" ] \
+      || fail "$kind scaffold did not record the worker's event time"
     # Every status signal the brief instructs a worker to append is a template
     # the worker fills in and writes verbatim, with or without a shell, not only
     # rule 4's echo: substitute each one's named placeholders and read the stamp

@@ -494,10 +494,9 @@ When deduplication finds that the worker already moved the matching record into 
 
 ### Swallowed doorbells
 
-The remote host runs no doorbell re-ring ladder of its own.
-A swallowed doorbell for an ordinary reply-bearing request surfaces through the parent's pending-reply recovery and escalation.
-Its recovery request rings the doorbell again when it is enqueued.
-A fire-and-forget record, such as a reconcile ask, gets its single retry ring only on the local plane, and only when `config/wait-no-turns` is present: the remote steer leg owes no re-ring, so a swallowed remote doorbell for one waits for the next ring into that inbox, and a remote-side retry is known follow-up scope.
+The parent watcher drives remote inbox recovery; the [`fm-task-inbox-lib.sh` header](../bin/fm-task-inbox-lib.sh) ("Remote leg") owns re-ring scheduling, escalation, and liveness isolation.
+A swallowed doorbell for an ordinary reply-bearing request also surfaces through the parent's pending-reply recovery and escalation, whose recovery request rings the doorbell again when it is enqueued.
+A fire-and-forget record, such as a reconcile ask, stays outside the ladder and gets its single retry ring only on the local plane, and only when `config/wait-no-turns` is present, so a swallowed remote doorbell for one waits for the next ring into that inbox.
 
 ### Remote reads
 

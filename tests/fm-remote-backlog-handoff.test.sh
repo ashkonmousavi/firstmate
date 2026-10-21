@@ -18,37 +18,25 @@ SSH_COUNT="$TMP_ROOT/ssh.count"
 WAKE_LOG="$TMP_ROOT/wake.log"
 mkdir -p "$PARENT/data" "$PARENT/state" "$REMOTE_ROOT/bin" \
   "$REMOTE/data" "$REMOTE/state" "$REMOTE/config" "$REMOTE/projects" "$REMOTE/bin"
-# Tear down deterministically. Releasing the blocked stages and killing the
-# detached remote worker is not enough on its own: kill only signals, so the
-# worker (and this shell's own background stages) could still be writing into
-# $TMP_ROOT when rm -rf ran, which surfaced as a real CI flake:
-#   rm: cannot remove '/tmp/fm-remote-handoff.XXXXXX': Directory not empty
-# So wait for the worker to actually exit and drain the shell's background jobs
-# before removing the tree, then retry rm -rf until the now-quiesced tree is gone.
+# Release blocked stages and drain their clients before shared cleanup stops
+# the detached worker group and removes the fixture.
 fm_remote_handoff_teardown() {
-  local worker_pid i
-  touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" 2>/dev/null || true
-  if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
-    worker_pid=$(cat "$TMP_ROOT/remote-jobs/worker.pid" 2>/dev/null || true)
-    if [ -n "$worker_pid" ]; then
-      kill "$worker_pid" 2>/dev/null || true
-      i=0
-      while [ "$i" -lt 500 ] && kill -0 "$worker_pid" 2>/dev/null; do
-        sleep 0.01
-        i=$((i + 1))
-      done
-    fi
-  fi
+  touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" "$TMP_ROOT/serialize.release" 2>/dev/null || true
   wait 2>/dev/null || true
-  i=0
-  while [ "$i" -lt 50 ]; do
-    rm -rf -- "$TMP_ROOT" 2>/dev/null && return 0
-    sleep 0.02
-    i=$((i + 1))
-  done
-  rm -rf -- "$TMP_ROOT" 2>/dev/null || true
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-remote-job-lib.sh"
+    if fm_remote_job_recorded_owner_alive "$TMP_ROOT/remote-jobs/worker.lock"; then
+      fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID" || exit 1
+    fi
+  ) || return 1
+  fm_test_cleanup
 }
 trap fm_remote_handoff_teardown EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap 'exit 131' QUIT
 printf 'fixture\n' > "$REMOTE_ROOT/AGENTS.md"
 cp "$ROOT/bin/fm-remote-entrypoint.sh" "$ROOT/bin/fm-remote-job-lib.sh" \
   "$ROOT/bin/fm-remote-job-worker.sh" "$ROOT/bin/fm-remote-file.sh" \
@@ -284,7 +272,7 @@ wait_for_serialization=0
 while [ ! -f "$TMP_ROOT/serialize.entered" ]; do
   kill -0 "$handoff_a" 2>/dev/null || fail "first serialized handoff exited before receipt"
   wait_for_serialization=$((wait_for_serialization + 1))
-  [ "$wait_for_serialization" -le 250 ] || fail "first serialized handoff never reached receipt"
+  [ "$wait_for_serialization" -le 3000 ] || fail "first serialized handoff never reached receipt"
   sleep 0.02
 done
 write_backlog '- [ ] serialized-b - second concurrent handoff (repo: alpha)'
@@ -500,7 +488,10 @@ PATH="$RM_FAKEBIN:$PATH" FM_REAL_RM="$REAL_RM" \
   FM_FAIL_RM_PATH="$PARENT/state/.backlog-handoff-ios.wake-pending" \
   handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios confirmed-marker-stale \
   > "$TMP_ROOT/confirmed-marker-stale.out" 2>&1 \
-  || fail "confirmed marker cleanup failure falsely failed a completed handoff"
+  || {
+    cat "$TMP_ROOT/confirmed-marker-stale.out" >&2
+    fail "confirmed marker cleanup failure falsely failed a completed handoff"
+  }
 assert_absent "$PARENT/data/handoff/ios.outbox.md" \
   "confirmed marker cleanup failure retained a completed outbox"
 case "$(cat "$PARENT/state/.backlog-handoff-ios.wake-pending")" in

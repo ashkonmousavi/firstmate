@@ -1154,6 +1154,141 @@ secondmate_liveness_tick() {
   [ "$failed" -eq 0 ]
 }
 
+# One bounded hop to a remote mate's inbox verb; prints its one-line answer.
+# Any transport loss, bound hit, remote refusal, or empty answer fails and
+# prints the remote side's first stderr line (or the exit status) instead, for
+# the triage log, so a remote copy that predates the inbox verb reads
+# differently from a lost transport.
+remote_inbox_hop() {  # <id> due <grace> <max> | <id> <ring|escalated> <record>
+  local id=$1 out err errfile rc=0
+  errfile=$(mktemp "${TMPDIR:-/tmp}/fm-remote-inbox.XXXXXX") || { printf 'no temp file'; return 1; }
+  out=$(fm_run_timed 30 "$SCRIPT_DIR/fm-on.sh" "$id" \
+    fm-remote-secondmate-control.sh inbox "$@" < /dev/null 2> "$errfile") || rc=$?
+  err=$(head -1 "$errfile" 2>/dev/null)
+  rm -f "$errfile"
+  if [ "$rc" -ne 0 ] || [ -z "$out" ]; then
+    printf '%s' "${err:-exit $rc}"
+    return 1
+  fi
+  printf '%s' "$out"
+}
+
+# The parent half of the remote steering-inbox ladder; bin/fm-task-inbox-lib.sh
+# ("Remote leg") owns the policy and fm-remote-secondmate-control.sh's inbox
+# verb is the remote half. A remote mate has no local window or inbox, so
+# inbox_steer_check never sees its records. On the ladder's own grace cadence
+# this asks each remote mate's host which record is due, rings it there, and
+# queues the same stale wake the local ladder emits once the attempt budget is
+# spent or the endpoint has positively exited. A failed or unreachable hop only
+# lands in the triage log, so a slow host defers a ring to the next tick.
+# Like the liveness tick it finishes every mate before waking once on the
+# first escalation. Ordinary supervision runs it detached through
+# remote_inbox_detached, so a slow host never stalls the cycle; the pass lock
+# keeps a pass orphaned by a restarted watcher from overlapping the next one.
+remote_inbox_tick() {
+  local lock="$STATE/.remote-inbox.lock" rc=0
+  REMOTE_INBOX_REASON=
+  [ "$(age_of "$STATE/.remote-inbox-tick")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
+  fm_lock_try_acquire "$lock" || return 0
+  remote_inbox_pass || rc=$?
+  fm_lock_release "$lock"
+  [ -z "$REMOTE_INBOX_REASON" ] || wake "$REMOTE_INBOX_REASON"
+  return "$rc"
+}
+
+remote_inbox_pass() {
+  local tick_marker="$STATE/.remote-inbox-tick" meta id kind w due verb rec count out reason notify_key appended first_reason=''
+  touch "$tick_marker" || return 1
+  for meta in "$STATE"/*.meta; do
+    [ -e "$meta" ] || continue
+    kind=$(fm_meta_get "$meta" kind 2>/dev/null || true)
+    [ "$kind" = secondmate ] || continue
+    [ -n "$(fm_meta_get "$meta" remote_host 2>/dev/null || true)" ] || continue
+    id=${meta##*/}
+    id=${id%.meta}
+    case "$id" in ''|*[!A-Za-z0-9._-]*) continue ;; esac
+    w=$(fm_meta_get "$meta" window 2>/dev/null || true)
+    [ -n "$w" ] || w="remote:$id"
+    if ! due=$(remote_inbox_hop "$id" due "$(fm_task_inbox_grace_secs)" "$(fm_task_inbox_ring_max)"); then
+      triage_log "remote steer-inbox: $id due check unreachable or failed ($due); the next tick retries"
+      continue
+    fi
+    reason=''
+    read -r verb rec count <<EOF
+$due
+EOF
+    case "$verb" in
+      ring)
+        if ! out=$(remote_inbox_hop "$id" ring "$rec"); then
+          triage_log "remote steer-inbox delivery attempt: $id $rec unreachable or failed ($out); the next tick retries"
+          continue
+        fi
+        if [ "$out" = unavailable ]; then
+          reason="stale: $w (unread firstmate instruction: remote record $rec is unhandled and the secondmate's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the secondmate)"
+        elif [ "$out" = bookkeeping-failed ]; then
+          reason="stale: $w (remote steering-inbox ladder bookkeeping unwritable: .ring-state cannot be written while remote record $rec stays unhandled; inspect the inbox directory)"
+        else
+          triage_log "remote steer-inbox delivery attempt: $id $rec result=$out"
+        fi
+        ;;
+      escalate)
+        reason="stale: $w (unread firstmate instruction: remote record $rec still unhandled after $count doorbell delivery attempts; inspect the secondmate)"
+        ;;
+      *) continue ;;
+    esac
+    [ -n "$reason" ] || continue
+    notify_key="remote-inbox:$id:$rec"
+    fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK" || return 1
+    if ! fm_wake_queued_keys_locked stale | grep -Fx "$notify_key" >/dev/null 2>&1; then
+      appended=0
+      fm_wake_append_locked stale "$notify_key" "$reason" || appended=$?
+      fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+      [ "$appended" -eq 0 ] || return 1
+      [ -n "$first_reason" ] || first_reason=$reason
+    else
+      fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    fi
+    out=$(remote_inbox_hop "$id" escalated "$rec") \
+      || triage_log "remote steer-inbox: $id escalation marker for $rec was not written ($out); the next tick retries the marker"
+  done
+  REMOTE_INBOX_REASON=$first_reason
+  return 0
+}
+
+# Ordinary supervision runs remote_inbox_tick off the cycle, like reconcile
+# delivery, so its remote hops never hold the beacon. The child's escalations
+# are already durable in the wake queue; its one wake line lands in a handoff
+# file by rename, and whichever watcher next finds that file with no pass of
+# its own in flight delivers it, so a wake from a pass that outlived its
+# watcher is still surfaced.
+REMOTE_INBOX_PID=
+remote_inbox_detached() {
+  local handoff="$STATE/.remote-inbox-wake" claim reason
+  if [ -n "$REMOTE_INBOX_PID" ]; then
+    kill -0 "$REMOTE_INBOX_PID" 2>/dev/null && return 0
+    wait "$REMOTE_INBOX_PID" 2>/dev/null \
+      || triage_log "remote steer-inbox: detached ladder pass failed; the next tick retries"
+    REMOTE_INBOX_PID=
+  fi
+  if [ -f "$handoff" ]; then
+    claim="$handoff.claim.$$"
+    if mv -f "$handoff" "$claim" 2>/dev/null; then
+      reason=$(head -1 "$claim" 2>/dev/null || true)
+      rm -f "$claim"
+      [ -z "$reason" ] || wake "$reason"
+    fi
+  fi
+  [ "$(age_of "$STATE/.remote-inbox-tick")" -ge "$(fm_task_inbox_grace_secs)" ] || return 0
+  (
+    out="$handoff.tmp.${BASHPID:-$$}"
+    # shellcheck disable=SC2317 # Invoked by remote_inbox_tick in this child.
+    wake() { printf '%s\n' "$1" > "$out" && mv -f "$out" "$handoff"; exit 0; }
+    remote_inbox_tick
+    rm -f "$out"
+  ) </dev/null >/dev/null 2>&1 &
+  REMOTE_INBOX_PID=$!
+}
+
 # Consecutive wedge-escalation count for a window past FM_WEDGE_DEMAND_INSPECT_COUNT
 # (default 3): a pane that keeps re-wedging on the SAME stale hash - each
 # escalation gets absorbed again as "still validating" one poll later, since the
@@ -2996,6 +3131,12 @@ while :; do
   # the parent without consuming or rewriting the receiving home's record.
   secondmate_wake_stall_tick || {
     echo "watcher: secondmate wake-loop observation failed" >&2
+    exit 1
+  }
+
+  # A remote mate's host-local inbox needs the same re-ring ladder.
+  remote_inbox_detached || {
+    echo "watcher: remote steering-inbox check failed" >&2
     exit 1
   }
 

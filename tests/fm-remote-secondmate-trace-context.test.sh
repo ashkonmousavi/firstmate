@@ -33,7 +33,23 @@ TMUX_LOG="$TMP_ROOT/remote-tmux.log"
 TMUX_STATE="$TMP_ROOT/remote-tmux.state"
 CLAIMS="$TMP_ROOT/claims"
 mkdir -p "$PARENT/data" "$PARENT/state" "$PARENT/config" "$PARENT/projects" "$REMOTE_ROOT" "$CLAIMS"
-trap 'FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true; if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then kill "$(cat "$TMP_ROOT/remote-jobs/worker.pid")" 2>/dev/null || true; fi; rm -rf -- "$TMP_ROOT"' EXIT
+cleanup() {
+  FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" \
+    "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-remote-job-lib.sh"
+    if fm_remote_job_recorded_owner_alive "$TMP_ROOT/remote-jobs/worker.lock"; then
+      fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID" || exit 1
+    fi
+  ) || return 1
+  fm_test_cleanup
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap 'exit 131' QUIT
 
 # The remote host's tracked code root is this branch, as a real git repository:
 # fm-on and the remote entrypoint both require the dispatched command to be
@@ -133,7 +149,7 @@ remote_env() {
   FM_FAKE_REMOTE_ENTRYPOINT="$REMOTE_ROOT/bin/fm-remote-entrypoint.sh" \
   FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
   FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/remote-jobs" \
-  FM_FAKE_REMOTE_CWD="$TMP_ROOT" \
+  FM_FAKE_REMOTE_CWD="$REMOTE_ROOT" \
   FM_SEND_SETTLE=0 FM_SEND_SLEEP=0 \
   "$@"
 }
@@ -172,8 +188,8 @@ FM_SECONDMATE_CHARTER='Own iOS delivery on the build Mac.' \
 # --- disabled: the remote route must stay byte-identically untraced ----------
 freeze_parent_session
 : > "$HERDR_LOG"
-remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >/dev/null 2>&1 \
-  || fail "default-off remote secondmate spawn failed"
+remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >"$TMP_ROOT/default-off-spawn.out" 2>&1 \
+  || { cat "$TMP_ROOT/default-off-spawn.out" >&2; fail "default-off remote secondmate spawn failed"; }
 assert_present "$PARENT/state/ios.meta" "default-off remote spawn published no parent metadata"
 ! grep -q '^traceparent=' "$PARENT/state/ios.meta" \
   || fail "default-off remote spawn must not record a traceparent= line"
@@ -192,8 +208,8 @@ pass "disabled: a remote-routed second mate records and receives no carrier and 
 freeze_parent_session
 reset_remote_herdr_fixture "$HERDR_STATE"   # the previous endpoint is gone; this is an ordinary relaunch
 : > "$HERDR_LOG"
-remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >/dev/null 2>&1 \
-  || fail "enabled remote secondmate spawn failed"
+remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >"$TMP_ROOT/enabled-spawn.out" 2>&1 \
+  || { cat "$TMP_ROOT/enabled-spawn.out" >&2; fail "enabled remote secondmate spawn failed"; }
 
 PARENT_TP=$(meta_traceparent "$PARENT/state/ios.meta")
 REMOTE_TP=$(meta_traceparent "$REMOTE_HOME/state/parent-route/ios.meta")
@@ -224,8 +240,8 @@ pass "enabled: a remote-routed second mate receives one carrier in its pane, ide
 # --- relaunch stability on the remote path ----------------------------------
 reset_remote_herdr_fixture "$HERDR_STATE"
 : > "$HERDR_LOG"
-remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >/dev/null 2>&1 \
-  || fail "enabled remote secondmate relaunch failed"
+remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >"$TMP_ROOT/relaunch-spawn.out" 2>&1 \
+  || { cat "$TMP_ROOT/relaunch-spawn.out" >&2; fail "enabled remote secondmate relaunch failed"; }
 RELAUNCH_TP=$(meta_traceparent "$PARENT/state/ios.meta")
 RELAUNCH_INJECTED=$(remote_injected_traceparent)
 [ "$RELAUNCH_TP" = "$PARENT_TP" ] \
@@ -246,8 +262,8 @@ FM_SECONDMATE_CHARTER='Own the second build Mac.' \
   || fail "second remote seed failed"
 reset_remote_herdr_fixture "$HERDR_STATE"
 : > "$HERDR_LOG"
-TRACEPARENT="$AMBIENT" remote_env "$ROOT/bin/fm-spawn.sh" ios2 --secondmate >/dev/null 2>&1 \
-  || fail "second remote secondmate spawn failed"
+TRACEPARENT="$AMBIENT" remote_env "$ROOT/bin/fm-spawn.sh" ios2 --secondmate >"$TMP_ROOT/second-spawn.out" 2>&1 \
+  || { cat "$TMP_ROOT/second-spawn.out" >&2; fail "second remote secondmate spawn failed"; }
 SECOND_TP=$(meta_traceparent "$PARENT/state/ios2.meta")
 fm_trace_context_valid "$SECOND_TP" \
   || fail "the second remote route must record a valid carrier (got '$SECOND_TP')"

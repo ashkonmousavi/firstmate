@@ -763,6 +763,23 @@ It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact fl
 It spends no model tokens, so it runs by default wherever Codex is installed.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
 
+## 2026-10-20 Grok weekly-limit border coverage
+
+The dedicated token-free guard requires the real weekly-limit border before checking empty and unsent typed input through the tmux wrapper and styled/plain cursorless reads.
+It uses an isolated Grok home with a copy of the managed authentication file and submits no prompt.
+On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
+The guard therefore failed rather than claiming coverage of the weekly-limit surface.
+Live verification of that surface remains outstanding; the portable regression is not a substitute.
+`test_matrix_grok_weekly_limit_border` in `tests/fm-composer-lib.test.sh` pins empty, typed, and malformed-title verdicts across the shared capture capability profiles.
+
+```sh
+FM_COMPOSER_GROK_WEEKLY_LIVE=1 bash tests/fm-composer-grok-weekly-live-e2e.test.sh
+```
+
+```text
+not ok - grok (grok 1.0.62 (1474f9cbdd91) [stable]): weekly-limit border not rendered; live coverage unavailable
+```
+
 ## Composer classification matrix
 
 The shared composer classifier (`bin/fm-composer-lib.sh`, `fm_composer_classify_screen`) owns every composer shape fleet-wide; each backend contributes only a capture and a capability descriptor.
@@ -794,7 +811,7 @@ Kimi was not installed on the verification machine; its bordered shape is pinned
 This guard is the refresh command after an upgrade to any matrix-covered harness; rerun it and update the versions above rather than trusting this table across releases.
 The 2026-08-23 steering-inbox doorbell run observed grok 1.0.5's idle composer classifying `unknown` (and sometimes pending-family), never `empty`.
 Issue #3436's recorded idle capture reproduced the cause on 2026-09-14: Grok 1.0.5 renders the titled bottom border three columns wider than its aligned top and content rows, so the cursorless Herdr profile rejected the otherwise complete box as ambiguous.
-The classifier now accepts only that exact three-column overhang (`FM_COMPOSER_GROK_TITLE_OVERHANG` in `bin/fm-composer-lib.sh`) carrying a typed `Grok <model> (<effort>)` title; the portable regressions feed the real capture through both the shared Herdr capability profile and `fm_backend_herdr_composer_state`, and prove idle is `empty`, typed content is `pending`, and an unrecognized oversized title remains `unknown`.
+The current titled-border acceptance rules are owned by `_fm_composer_titled_bottom_ok` in `bin/fm-composer-lib.sh`; the portable regressions feed the real capture through both the shared Herdr capability profile and `fm_backend_herdr_composer_state`, and prove idle is `empty`, typed content is `pending`, and an unrecognized oversized title remains `unknown`.
 Grok was not installed on the verification machine for this 2026-09-14 change, so the live guard still owes a refresh against the current release rather than treating the portable capture as current live evidence; the three-column width is not live-verified and may need adjustment if Grok's title rendering changes or scales with title length.
 This closes only #3436's idle-composer-misclassification symptom (Grok/Herdr composer read `unknown` instead of `empty`, blocking away-mode injection). The issue's second symptom - a leftover watcher never yielding and never being taken over or refused at AFK start - is unrelated to composer classification and is tracked separately in #2270, where #3436's reproduction serves as corroborating evidence.
 Cursor is deliberately outside this cursor-anchored empty-composer matrix because its terminal cursor is parked outside the composer; tmux's Cursor-specific, process-identity-gated cursorless fallback is covered by the [Cursor Agent CLI](#cursor-agent-cli) section's separate live evidence and drift guard.
@@ -2706,3 +2723,22 @@ Without Firstmate's hooks, Herdr reported the question panel as `blocked`, which
 This live proof covers the watcher and queue boundary; it does not establish live daemon-consumer delivery.
 `bin/fm-test-run.sh tests/fm-daemon.test.sh` exercises that consumer routing separately with portable regressions for busy escalation and busy-bookkeeping failures in away and quiet mode.
 Repeat the hooked-worker check above before publication if watcher or task-inbox busy code changes; `bin/fm-test-run.sh tests/fm-task-inbox.test.sh` refreshes the portable ladder regressions.
+
+## Main backstop discovery guard, 2026-10-20
+
+`tests/fm-main-backstop-live-e2e.test.sh` starts real installed Claude and Codex interfaces without submitting prompts in an isolated Herdr server.
+It belongs to `live-harness-optin` and uses `fm_live_gate` with the token-free default-on policy.
+The guard owns its server process, socket, configuration, harness state and working directories under a temporary directory in the checkout, and terminates that server after the check.
+Each installed supported harness must pass exact-home discovery and wrong-home refusal; a live bash with each harness's stale agent label must refuse discovery, and a run checking no real harness fails.
+Refresh the per-harness evidence with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh`.
+
+Observed on 2026-10-20 with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh` (exit 0):
+
+```text
+# herdr 0.9.5
+ok - claude (2.1.304 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
+This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
+It does not prove prompt delivery or turn-end watcher recovery.

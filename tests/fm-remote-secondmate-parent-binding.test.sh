@@ -50,7 +50,6 @@ PUBLISH_PID=
 mkdir -p "$PARENT/data" "$PARENT/state" "$PARENT/config" "$PARENT/projects" "$REMOTE_ROOT" "$CLAIMS"
 
 cleanup() {
-  local worker_pid=''
   if [ -n "$PUBLISH_PID" ]; then
     touch "$PUBLISH_RELEASE" 2>/dev/null || true
     kill "$PUBLISH_PID" 2>/dev/null || true
@@ -58,13 +57,20 @@ cleanup() {
   fi
   FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" \
     "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
-  if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
-    worker_pid=$(cat "$TMP_ROOT/remote-jobs/worker.pid")
-    kill "$worker_pid" 2>/dev/null || true
-  fi
-  rm -rf -- "$TMP_ROOT"
+  (
+    # shellcheck source=/dev/null
+    . "$ROOT/bin/fm-remote-job-lib.sh"
+    if fm_remote_job_recorded_owner_alive "$TMP_ROOT/remote-jobs/worker.lock"; then
+      fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID" || exit 1
+    fi
+  ) || return 1
+  fm_test_cleanup
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap 'exit 131' QUIT
 
 PUBLISH_HOME="$TMP_ROOT/publication-home"
 PUBLISH_FAKEBIN=$(fm_fakebin "$TMP_ROOT/publication-fake")
@@ -97,7 +103,7 @@ publish_wait=0
 while [ ! -f "$PUBLISH_ENTERED" ]; do
   kill -0 "$PUBLISH_PID" 2>/dev/null || fail "remote provisioning exited before its completion marker"
   publish_wait=$((publish_wait + 1))
-  [ "$publish_wait" -le 250 ] || fail "remote provisioning never reached its completion marker"
+  [ "$publish_wait" -le 6000 ] || fail "remote provisioning never reached its completion marker"
   sleep 0.02
 done
 cmp -s "$PUBLISH_HOME/.fm-secondmate-parent" <(
@@ -198,7 +204,7 @@ remote_env() {
   FM_FAKE_REMOTE_ENTRYPOINT="$REMOTE_ROOT/bin/fm-remote-entrypoint.sh" \
   FM_REMOTE_JOB_PLATFORM_OVERRIDE=Linux \
   FM_REMOTE_JOB_STATE_ROOT="$TMP_ROOT/remote-jobs" \
-  FM_FAKE_REMOTE_CWD="$TMP_ROOT" \
+  FM_FAKE_REMOTE_CWD="$REMOTE_ROOT" \
   FM_FAKE_DOCTOR_LOG="$DOCTOR_LOG" \
   FM_SEND_SETTLE=0 FM_SEND_SLEEP=0 \
   "$@"
