@@ -146,6 +146,11 @@
 # Activation removes the
 # record only once that identity is no longer alive, so a later host retries a
 # take-over that left it running.
+# A stop signal (HUP, TERM, INT) ends the host through its cleanup, which stops
+# the engine turn and every arm the host tracks; one that lands while an arm or
+# an engine turn is being started is held until that process is tracked, so
+# none outlives the host. Cleanup preserves the signal's exit status:
+# HUP=129, TERM=143, INT=130.
 #
 # STATE (all under state/, owned here): .supervision-host (this host's pid and
 # the processes it runs), .supervision-host-engine (the engine conversation:
@@ -269,6 +274,8 @@ SUCCESSOR_OUT=
 SUCCESSOR_WATCHER=
 SUCCESSOR_GENERATION=
 ENGINE_RUNNING=0
+LAUNCHING=0
+HELD_EXIT=
 # The successor arm a predecessor's pass-through left for main, which the
 # first cycle takes over.
 LEFT_ARM=
@@ -405,20 +412,45 @@ activate() {
 
 # Stop a running engine turn: TERM the bounded process, whose watchdog passes
 # it on and KILLs after its grace, then let the turn's own poller reap the
-# engine's descendants before giving up on it.
+# engine's descendants before giving up on it. Startup may not have published
+# the engine identity yet; keep observing it within the bound, and give the
+# poller a fresh grace-plus-reap window once TERM reaches the verified process.
 stop_engine_turn() {
-  local pid='' identity='' i limit
-  [ -f "$ENGINE_PID_FILE" ] && IFS="$(printf '\t')" read -r pid identity < "$ENGINE_PID_FILE"
-  if [ -n "$pid" ] && fm_pid_alive "$pid" && [ "$(identity_of "$pid")" = "$identity" ]; then
-    kill -TERM "$pid" 2>/dev/null || true
-  fi
+  local pid='' identity='' i limit signalled=0
   limit=$(( (ENGINE_GRACE + 10) * 10 ))
   i=0
   while [ -n "$ENGINE_SUBSHELL" ] && fm_pid_alive "$ENGINE_SUBSHELL" && [ "$i" -lt "$limit" ]; do
+    if [ "$signalled" -eq 0 ] && [ -f "$ENGINE_PID_FILE" ]; then
+      IFS="$(printf '\t')" read -r pid identity < "$ENGINE_PID_FILE"
+      if [ -n "$pid" ] && fm_pid_alive "$pid" && [ "$(identity_of "$pid")" = "$identity" ]; then
+        if kill -TERM "$pid" 2>/dev/null; then
+          signalled=1
+          i=0
+        fi
+      fi
+    fi
     sleep 0.1
     i=$((i + 1))
   done
   [ -z "$ENGINE_SUBSHELL" ] || kill -KILL "$ENGINE_SUBSHELL" 2>/dev/null || true
+}
+
+# A stop signal that lands between forking an arm or the engine turn and
+# tracking its pid is held until the pid is tracked: the cleanup retires only
+# tracked processes, so an untracked arm would outlive this host and keep a
+# cycle running beside the next park's.
+# shellcheck disable=SC2329 # Invoked by the signal traps.
+on_stop_signal() {  # <exit-status>
+  if [ "$LAUNCHING" -eq 1 ]; then
+    HELD_EXIT=$1
+    return 0
+  fi
+  exit "$1"
+}
+
+launched() {
+  LAUNCHING=0
+  [ -z "$HELD_EXIT" ] || exit "$HELD_EXIT"
 }
 
 # shellcheck disable=SC2329 # Invoked by the EXIT trap.
@@ -470,10 +502,14 @@ host_still_owner() {
     && [ "$FM_AUTOARM_OUTCOME" = arming ]
 }
 
-start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pid/output
-  local predecessor=$1 out pid
-  shift
+# Start an arm and track it at once as ARM_PID/ARM_OUT (role arm) or
+# SUCCESSOR_PID/SUCCESSOR_OUT (role successor), holding any stop signal until
+# it is tracked (on_stop_signal).
+start_arm() {  # <arm|successor> <predecessor-arm-pid or empty> [arm options...]
+  local role=$1 predecessor=$2 out pid
+  shift 2
   out=$(mktemp "$STATE/.supervision-host-arm.XXXXXX") || return 1
+  LAUNCHING=1
   # An arm left for main outlives this host, and Claude tears the hook's
   # process group down after the exit-2 rewake, so it gets a group of its own
   # (the shape start_handling_successor in bin/fm-claude-stop-autoarm.sh uses).
@@ -485,9 +521,15 @@ start_arm() {  # <predecessor-arm-pid or empty> [--restart]; sets the started pi
   fi
   pid=$!
   [ "${ARM_OWN_GROUP:-0}" -ne 1 ] || set +m 2>/dev/null || true
+  if [ "$role" = successor ]; then
+    SUCCESSOR_PID=$pid
+    SUCCESSOR_OUT=$out
+  else
+    ARM_PID=$pid
+    ARM_OUT=$out
+  fi
   record_process arm "$pid"
-  STARTED_ARM_PID=$pid
-  STARTED_ARM_OUT=$out
+  launched
 }
 
 park_elapsed() {  # Sets PARK_ELAPSED without a production clock/helper fork.
@@ -666,9 +708,7 @@ start_successor() {  # <predecessor-arm-pid>
   local deadline line
   SUCCESSOR_WATCHER=
   SUCCESSOR_GENERATION=
-  start_arm "$1" || return 1
-  SUCCESSOR_PID=$STARTED_ARM_PID
-  SUCCESSOR_OUT=$STARTED_ARM_OUT
+  start_arm successor "$1" || return 1
   deadline=$(( $(date +%s) + READY_TIMEOUT ))
   while :; do
     line=$(grep -E '^watcher: (started|attached) pid=[0-9]+' "$SUCCESSOR_OUT" 2>/dev/null | head -n 1)
@@ -966,6 +1006,7 @@ handle_wake() {  # <reason-lines>
   ENGINE_RUNNING=1
   # Backgrounded and waited, so a signal to the host is handled at once
   # instead of after the whole turn; the cleanup stops the engine.
+  LAUNCHING=1
   (
     export FM_HOME STATE
     [ -z "${FM_STATE_OVERRIDE:-}" ] || export FM_STATE_OVERRIDE
@@ -980,6 +1021,7 @@ handle_wake() {  # <reason-lines>
       "$result" "$errors" "$ENGINE_PID_FILE"
   ) &
   ENGINE_SUBSHELL=$!
+  launched
   wait "$ENGINE_SUBSHELL"
   rc=$?
   ENGINE_SUBSHELL=
@@ -1062,23 +1104,21 @@ if ! host_still_owner; then
   stand_down "this session does not own supervision"
 fi
 trap cleanup EXIT
-trap 'exit 129' HUP
-trap 'exit 143' TERM
-trap 'exit 130' INT
+trap 'on_stop_signal 129' HUP
+trap 'on_stop_signal 143' TERM
+trap 'on_stop_signal 130' INT
 activate || { echo "supervision-host stood down: the host record could not be written"; exit 0; }
 log_line "start	gen=$GEN	primary=$PRIMARY"
 
 # The first cycle.
 if [ "$FIRST_ARM_RESTART" -eq 1 ]; then
-  start_arm "$OWNER_PREDECESSOR" --restart
+  start_arm arm "$OWNER_PREDECESSOR" --restart
 elif [ -n "$LEFT_ARM" ]; then
   log_line "take-over	arm=$LEFT_ARM"
-  start_arm "$OWNER_PREDECESSOR" --take-over "$LEFT_ARM"
+  start_arm arm "$OWNER_PREDECESSOR" --take-over "$LEFT_ARM"
 else
-  start_arm "$OWNER_PREDECESSOR"
+  start_arm arm "$OWNER_PREDECESSOR"
 fi || { echo "watcher: FAILED - the supervision host could not start a watcher cycle"; exit 1; }
-ARM_PID=$STARTED_ARM_PID
-ARM_OUT=$STARTED_ARM_OUT
 
 while :; do
   boundary_reached && boundary_exit

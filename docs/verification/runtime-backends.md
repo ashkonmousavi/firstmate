@@ -730,6 +730,62 @@ skip-runner: pi-signed is not installed, so its pin check was not exercised
 
 The guard submits no prompt and spends no tokens, so it runs by default wherever a runner is installed; rerun it after every Claude or Pi upgrade.
 
+## Secondmate busy contract
+
+Verified 2026-09-22 on this host with Claude Code 2.1.278, OpenCode 1.18.31, Pi 0.86.1, and Grok 1.0.40.
+
+[`fm-spawn.sh`](../../bin/fm-spawn.sh) owns secondmate busy wiring, [configuration.md](../configuration.md#installed-hooks-and-launch-details) owns Claude session settings, and [turnend-guard.md](../turnend-guard.md#harness-integrations) owns Claude secondmate Stop ownership and eligibility.
+The `--settings` load and the merge of its hook entries with the home's own hooks rest on Claude Code's documentation (<https://code.claude.com/docs/en/cli-reference>, <https://code.claude.com/docs/en/hooks>) and not on a live run recorded in this section: the sample output below predates the `--settings` mechanism.
+Claude Code 2.1.278 was probed live in a scratch project with logging `UserPromptSubmit` and `Stop` hooks.
+A synchronous Stop hook that exits 2 forced a continuation with no `UserPromptSubmit`, which is why the guard itself records busy when it blocks.
+An `asyncRewake` Stop hook that exited 2 six seconds after the turn ended woke a new turn, and `UserPromptSubmit` fired 45ms after that hook exited.
+So a secondmate turn started by the Stop auto-arm reopens busy through the same `UserPromptSubmit` hook as a typed prompt, and the auto-arm needs no busy writer of its own.
+
+```text
+# asyncRewake probe                # synchronous block probe
+ups    1790092380.194370578        ups   1790092417.676751768
+stop   1790092380.968402195        stop  1790092418.684176531
+rewake 1790092386.979819188        block 1790092418.692480013
+ups    1790092387.025050498        stop  1790092419.717886938
+stop   1790092388.953108486
+```
+Codex stays unverified.
+Grok keeps its rendered-tail verdict and gets no parent turn-end hook.
+Cursor's transcript sidecar is written for a secondmate the same way it is for an ordinary worker, and this host has no Cursor agent binary, so that path was not started.
+Kimi stays unarmed, and a secondmate still gets no parent turn-end token.
+
+The portable regression is `tests/fm-busy-adapter-wiring.test.sh`.
+It spawns those harnesses through the real `bin/fm-spawn.sh --secondmate` path on a fake tmux pane, drives the generated hook or extension, and runs the stall gate while the record is busy and again after it goes idle.
+
+The live guard is `tests/fm-secondmate-busy-contract-live-e2e.test.sh`.
+It submits prompts and is opt-in through `FM_SECONDMATE_BUSY_LIVE=1` or `FM_LIVE=1`.
+The sleeper launch generates wiring without submitting a fleet brief; it is not lifecycle evidence.
+Each installed harness then executes a real, bounded shell-tool round trip.
+For an armed harness the guard requires an adapter-written busy record while the tool waits, followed by an idle record on completion, with no parent turn-end notification.
+Claude additionally runs the real secondmate Stop guard with unsupervised work, requires `busy claude-hook stop-blocked`, then removes that work and requires the continued Stop to settle idle.
+The unarmed Grok and Codex cases execute the same tool round trip and must leave parent busy and turn-end state absent.
+Absent harnesses are named explicitly and a run that exercises none fails.
+
+```sh
+FM_SECONDMATE_BUSY_LIVE=1 bash tests/fm-secondmate-busy-contract-live-e2e.test.sh
+```
+
+The earlier process-survival run did not establish lifecycle transitions and is not evidence for this guarantee.
+On 2026-10-19, the opt-in command above exercised five installed harnesses on Linux and produced these passing lifecycle results:
+
+```text
+ok - claude 2.1.304 (Claude Code): real secondmate lifecycle transitions from adapter busy to idle
+ok - omp omp/18.2.7: real secondmate lifecycle transitions from adapter busy to idle
+ok - codex codex-cli 0.159.3: real secondmate lifecycle stays unarmed and emits no parent turn-end
+```
+
+Claude's passing result includes the blocked Stop and the continued Stop settling idle.
+Pi 1.0.0 failed before its tool round trip because its managed OAuth refresh token was expired.
+Grok 1.0.52 returned HTTP 402 because its usage balance was exhausted.
+OpenCode and Pi-signed were absent and reported explicitly.
+The command exited 1 with `not ok - secondmate busy contract live guard: 2 of 5 installed harnesses failed`; Pi and Grok lifecycle behavior remains unverified on this host.
+[Claude's hook reference](https://code.claude.com/docs/en/hooks) owns the Stop exit-2 continuation contract.
+
 ## Codex hook trust
 
 Verified 2026-09-16 on codex-cli 0.151.0, macOS arm64, in a fresh linked worktree of this repository.
@@ -787,6 +843,23 @@ It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact fl
 It spends no model tokens, so it runs by default wherever Codex is installed.
 The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
 
+## 2026-10-20 Grok weekly-limit border coverage
+
+The dedicated token-free guard requires the real weekly-limit border before checking empty and unsent typed input through the tmux wrapper and styled/plain cursorless reads.
+It uses an isolated Grok home with a copy of the managed authentication file and submits no prompt.
+On Linux with `grok 1.0.62 (1474f9cbdd91) [stable]`, the real idle composer rendered `Grok 4.7 (high) · always-approve` without `Weekly limit left:`.
+The guard therefore failed rather than claiming coverage of the weekly-limit surface.
+Live verification of that surface remains outstanding; the portable regression is not a substitute.
+`test_matrix_grok_weekly_limit_border` in `tests/fm-composer-lib.test.sh` pins empty, typed, and malformed-title verdicts across the shared capture capability profiles.
+
+```sh
+FM_COMPOSER_GROK_WEEKLY_LIVE=1 bash tests/fm-composer-grok-weekly-live-e2e.test.sh
+```
+
+```text
+not ok - grok (grok 1.0.62 (1474f9cbdd91) [stable]): weekly-limit border not rendered; live coverage unavailable
+```
+
 ## Composer classification matrix
 
 The shared composer classifier (`bin/fm-composer-lib.sh`, `fm_composer_classify_screen`) owns every composer shape fleet-wide; each backend contributes only a capture and a capability descriptor.
@@ -818,7 +891,7 @@ Kimi was not installed on the verification machine; its bordered shape is pinned
 This guard is the refresh command after an upgrade to any matrix-covered harness; rerun it and update the versions above rather than trusting this table across releases.
 The 2026-08-23 steering-inbox doorbell run observed grok 1.0.5's idle composer classifying `unknown` (and sometimes pending-family), never `empty`.
 Issue #3436's recorded idle capture reproduced the cause on 2026-09-14: Grok 1.0.5 renders the titled bottom border three columns wider than its aligned top and content rows, so the cursorless Herdr profile rejected the otherwise complete box as ambiguous.
-The classifier now accepts only that exact three-column overhang (`FM_COMPOSER_GROK_TITLE_OVERHANG` in `bin/fm-composer-lib.sh`) carrying a typed `Grok <model> (<effort>)` title; the portable regressions feed the real capture through both the shared Herdr capability profile and `fm_backend_herdr_composer_state`, and prove idle is `empty`, typed content is `pending`, and an unrecognized oversized title remains `unknown`.
+The current titled-border acceptance rules are owned by `_fm_composer_titled_bottom_ok` in `bin/fm-composer-lib.sh`; the portable regressions feed the real capture through both the shared Herdr capability profile and `fm_backend_herdr_composer_state`, and prove idle is `empty`, typed content is `pending`, and an unrecognized oversized title remains `unknown`.
 Grok was not installed on the verification machine for this 2026-09-14 change, so the live guard still owes a refresh against the current release rather than treating the portable capture as current live evidence; the three-column width is not live-verified and may need adjustment if Grok's title rendering changes or scales with title length.
 This closes only #3436's idle-composer-misclassification symptom (Grok/Herdr composer read `unknown` instead of `empty`, blocking away-mode injection). The issue's second symptom - a leftover watcher never yielding and never being taken over or refused at AFK start - is unrelated to composer classification and is tracked separately in #2270, where #3436's reproduction serves as corroborating evidence.
 Cursor is deliberately outside this cursor-anchored empty-composer matrix because its terminal cursor is parked outside the composer; tmux's Cursor-specific, process-identity-gated cursorless fallback is covered by the [Cursor Agent CLI](#cursor-agent-cli) section's separate live evidence and drift guard.
@@ -1305,7 +1378,7 @@ The refusal is a JSON error on stderr with exit 1 and empty stdout, and both cli
 ### Submit confirmation
 
 On 2026-09-24, a read-only guard against an existing idle Claude Code 2.1.282 pane on Herdr 0.9.1 confirmed that the titled-rule, bare `❯`, closing-rule composer classified `empty` with native Claude idle identity.
-`FM_CLAUDE_HERDR_COMPOSER_LIVE=1 FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<pane> bin/fm-test-run.sh tests/fm-claude-herdr-composer-live-e2e.test.sh` refreshes this check without launching or changing a pane.
+The read-only refresh guard is described with its scrolled controls below.
 
 Measured 2026-08-19 against Herdr 0.8.0 and Claude Code 2.1.236 in an isolated `fm-lab-` session.
 
@@ -1332,8 +1405,7 @@ Typing `/exit` makes Claude Code render its command popup between the composer a
 The composer row lands outside a bounded 20-row tail of the pane, so the adapter's bounded composer reads reported the composer as empty while it actually held `/exit`.
 The pre-Enter payload proof then judged the typed command unsent, pressed Ctrl+U, and reported `send-failed` without ever pressing Enter, so `bin/fm-control.sh exit` never exited the worker (and `bin/fm-secondmate-restart.sh` inherited the failure through its exit step).
 
-The fix captures the FULL VISIBLE VIEWPORT for every herdr adapter composer read (`pane read --source visible [--format ansi]`, `fm_backend_herdr_composer_state` and `fm_backend_herdr_composer_content`): the composer is by definition inside the viewport, and the viewport is the one bound that always contains it.
-The shared inbox pending-line confirmation read (`bin/fm-task-inbox-lib.sh`) stays a bounded tail on every backend, herdr included; its payloads are task lines, not slash commands, so the popup shape does not arise there.
+The current capture-selection contract is owned by [Claude composer proof](../herdr-backend.md#claude-composer-proof).
 The popup rows sit below the composer's closing rule, which is a structural edge row, so the shared classifier still selects only the composer and the menu rows never read as typed text.
 Verified live in the lab: with the popup up the state read answers `pending` (previously `empty`) and the payload proof returns `/exit` (previously empty), the submit presses Enter, and the Claude process exits, leaving the shell prompt.
 Growing the window only adds rows above the composer, so the bottom-most-shape selection, the footer zone, and every previously passing verdict are unchanged.
@@ -1357,6 +1429,62 @@ FM_HERDR_SUBMIT_CONFIRM_LIVE=1 tests/fm-herdr-submit-confirm-live-e2e.test.sh
 
 ```text
 ok - live Herdr submit confirm: Claude Code (2.1.283 (Claude Code)) on herdr 0.9.0 proves and submits a typed /exit behind its command popup
+```
+
+Scrolled-viewer verification for [Claude composer proof](../herdr-backend.md#claude-composer-proof):
+Portable regression, fake CLI, no Herdr server, 2026-10-13:
+
+```sh
+bash tests/fm-backend-herdr.test.sh
+```
+
+```text
+ok - fm_backend_herdr_composer_state: scrolled history with an empty bottom composer reads empty
+ok - fm_backend_herdr_composer_state: real text at the bottom of a scrolled pane reads pending
+ok - fm_backend_herdr_composer_state: an unreadable bottom on a scrolled pane reads unknown
+```
+
+The read-only guard now requires three prepared idle Claude panes: an unscrolled empty composer, a scrolled empty composer, and a scrolled composer holding the exact supplied draft.
+It verifies state and content through both ANSI and plain captures and requires history to differ from the live bottom for each scrolled control.
+A single-line bare draft is `pending` with ANSI styling and conservatively `unknown` without styling, where a ghost suggestion cannot be distinguished; both content reads must still match the prepared text exactly.
+Refresh with:
+
+```sh
+FM_CLAUDE_HERDR_COMPOSER_LIVE=1 \
+FM_CLAUDE_HERDR_COMPOSER_TARGET=<session>:<workspace>:<unscrolled-empty-pane> \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET=<session>:<workspace>:<scrolled-empty-pane> \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET=<session>:<workspace>:<scrolled-pending-pane> \
+FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='prepared draft' \
+bash tests/fm-claude-herdr-composer-live-e2e.test.sh
+```
+
+Measured 2026-10-19 against Herdr 0.9.5 (protocol 22) and Claude Code 2.1.304 in the isolated `fm-lab-c` session.
+All Herdr runtime, Claude configuration, transcript, and lab ownership files lived under the review worktree's `.r/` directory.
+`XDG_CONFIG_HOME=.r` kept the named session's Unix socket path short enough without writing outside the worktree.
+Claude used its [documented classic renderer](https://code.claude.com/docs/en/env-vars), selected at launch with `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1`; fullscreen mode keeps application-owned history and reported no host scrollback, so it could not exercise a positive Herdr scroll offset.
+The controls ran with repository hooks disabled and `claudeMdExcludes` set to `["**"]` in an isolated launch settings file.
+The two scrolled controls contained real Haiku 5.5 replies of 80 numbered lines, with `scrolled draft control` typed but never submitted in the pending control.
+The real socket API request `pane.scroll` with `{"pane_id":"w1:pB","offset_from_bottom":60}`, repeated for `w1:pC`, moved each viewer into history.
+Both panes reported `offset_from_bottom=60`, `max_offset_from_bottom=67`, and `viewport_rows=40`; their visible history differed from their recent bottom captures.
+The unscrolled control was `w1:pA` with an empty composer.
+The guard checked native Claude idle identity, the public composer-state result, the content proof, and separate ANSI and plain state/content extraction against those prepared controls.
+
+Command run from the worktree with the isolated environment selected:
+
+```sh
+XDG_CONFIG_HOME=.r FM_HOME="$PWD/.r/fm" \
+FM_CLAUDE_HERDR_COMPOSER_LIVE=1 \
+FM_CLAUDE_HERDR_COMPOSER_TARGET=fm-lab-c:w1:pA \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_EMPTY_TARGET=fm-lab-c:w1:pB \
+FM_CLAUDE_HERDR_COMPOSER_SCROLLED_PENDING_TARGET=fm-lab-c:w1:pC \
+FM_CLAUDE_HERDR_COMPOSER_PENDING_TEXT='scrolled draft control' \
+bash tests/fm-claude-herdr-composer-live-e2e.test.sh
+```
+
+```text
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: unscrolled empty composer: ANSI=empty, plain=empty; both content reads match the prepared draft
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: scrolled empty composer: ANSI=empty, plain=empty; both content reads match the prepared draft
+ok - Claude 2.1.304 (Claude Code), herdr 0.9.5: scrolled pending composer: ANSI=pending, plain=unknown; both content reads match the prepared draft
 ```
 
 ### Claude background-task exit picker
@@ -2719,3 +2847,22 @@ Without Firstmate's hooks, Herdr reported the question panel as `blocked`, which
 This live proof covers the watcher and queue boundary; it does not establish live daemon-consumer delivery.
 `bin/fm-test-run.sh tests/fm-daemon.test.sh` exercises that consumer routing separately with portable regressions for busy escalation and busy-bookkeeping failures in away and quiet mode.
 Repeat the hooked-worker check above before publication if watcher or task-inbox busy code changes; `bin/fm-test-run.sh tests/fm-task-inbox.test.sh` refreshes the portable ladder regressions.
+
+## Main backstop discovery guard, 2026-10-20
+
+`tests/fm-main-backstop-live-e2e.test.sh` starts real installed Claude and Codex interfaces without submitting prompts in an isolated Herdr server.
+It belongs to `live-harness-optin` and uses `fm_live_gate` with the token-free default-on policy.
+The guard owns its server process, socket, configuration, harness state and working directories under a temporary directory in the checkout, and terminates that server after the check.
+Each installed supported harness must pass exact-home discovery and wrong-home refusal; a live bash with each harness's stale agent label must refuse discovery, and a run checking no real harness fails.
+Refresh the per-harness evidence with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh`.
+
+Observed on 2026-10-20 with `FM_MAIN_BACKSTOP_LIVE=1 bash tests/fm-main-backstop-live-e2e.test.sh` (exit 0):
+
+```text
+# herdr 0.9.5
+ok - claude (2.1.304 (Claude Code)): exact-home discovery, wrong-home and stale-label shell refusal
+ok - codex (codex-cli 0.160.0): exact-home discovery, wrong-home and stale-label shell refusal
+```
+
+This proves live process discovery and shell refusal, including startup interfaces without a submitted prompt.
+It does not prove prompt delivery or turn-end watcher recovery.

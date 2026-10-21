@@ -66,8 +66,8 @@
 #          tasks-axi and quota-axi are essential bootstrap tools.
 #          A compatible tasks-axi default backend is silent.
 #          quota-axi supports the explicit quota-balanced dispatch procedure
-#          and ordered-mode established-exhaustion facts in AGENTS.md
-#          section 4 and .agents/skills/quota-array-dispatch/SKILL.md.
+#          and ordered-mode established-exhaustion facts in .agents/skills/harness-adapters/references/common/dispatch.md
+#          "Intake routing" and .agents/skills/quota-array-dispatch/SKILL.md.
 #          X mode is OPTIONAL and inert unless FM_HOME/.env has a non-empty
 #          FMX_PAIRING_TOKEN. When opted in, bootstrap requires curl+jq, writes
 #          the relay poll shim and 30s cadence config, and prints an FMX line.
@@ -764,7 +764,7 @@ secondmate_liveness_one() {  # <meta> <id>
       if fm_secondmate_liveness_relaunch "$meta" "$id"; then
         secondmate_note_respawned "$id"
         report_relaunch "$id" "$FM_SM_LIVE_CAUSE" "$FM_SM_LIVE_WHERE"
-      elif [ "$FM_SM_LIVE_STATUS" = skipped ]; then
+      elif [ "$FM_SM_LIVE_STATUS" = skipped ] || [ "$FM_SM_LIVE_STATUS" = deferred ]; then
         echo "SECONDMATE_LIVENESS: secondmate $id: skipped: $FM_SM_LIVE_REASON"
       else
         echo "SECONDMATE_LIVENESS: secondmate $id: respawn failed after $FM_SM_LIVE_CAUSE: $(first_line "$FM_SM_LIVE_OUT")"

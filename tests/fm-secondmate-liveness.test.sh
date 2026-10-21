@@ -297,6 +297,9 @@ case "${1:-}" in
     ;;
   new-window|kill-window)
     printf '%s\n' "$*" >> "${FM_TMUX_CALL_LOG:?}"
+    if [ "${1:-}" = new-window ] && [ -n "${FM_TEST_NEW_WINDOW_PAUSE:-}" ]; then
+      sleep "$FM_TEST_NEW_WINDOW_PAUSE"
+    fi
     [ "${1:-}" = kill-window ] && : > "${FM_TMUX_CALL_LOG}.killed"
     [ "${FM_TEST_FAIL_NEW_WINDOW:-0}" = 1 ] && [ "${1:-}" = new-window ] && exit 1
     [ "${1:-}" = new-window ] && rm -f "${FM_TMUX_CALL_LOG}.killed"
@@ -376,6 +379,29 @@ test_sweep_respawns_confirmed_dead_secondmate() {
   pass "sweep: a confirmed-dead secondmate endpoint is killed and respawned"
 }
 
+test_sweep_serializes_distinct_secondmate_relaunches() {
+  local w fb tmuxfb log out id
+  w=$(new_world sweep-concurrent-relaunch)
+  add_sm_home "$w" sm1 firstmate:fm-sm1
+  add_sm_home "$w" sm2 firstmate:fm-sm2
+  fb=$(make_toolchain "$w"); tmuxfb=$(make_liveness_tmux "$w")
+  log="$w/calls.log"; : > "$log"
+
+  # Keep the first fresh spawn inside new-window with its task-set lock held.
+  # A parallel sweep races the second spawn into that lock and loses it.
+  out=$(run_bootstrap "$tmuxfb:$fb" "$w/home" missing "$log" FM_TEST_NEW_WINDOW_PAUSE=2)
+
+  assert_not_contains "$out" 'SECONDMATE_LIVENESS: secondmate sm' \
+    "both distinct mates should relaunch without task-set contention"
+  for id in sm1 sm2; do
+    assert_grep 'relaunched' "$w/home/state/.secondmate-relaunch-$id" \
+      "$id did not complete its relaunch"
+  done
+  [ "$(grep -c '^new-window ' "$log")" -eq 2 ] \
+    || fail "both mates should reach a fresh spawn: $(cat "$log")"
+  pass "sweep: distinct secondmate relaunches serialize across the task-set lock"
+}
+
 test_sweep_skips_mate_whose_liveness_lock_is_held() {
   local w fb tmuxfb log out holder i=0
   w=$(new_world sweep-lock-held)
@@ -404,6 +430,96 @@ test_sweep_skips_mate_whose_liveness_lock_is_held() {
   wait "$holder" 2>/dev/null || true
   pass "sweep: a mate mid-episode under the shared liveness lock is skipped entirely"
 }
+
+test_relaunch_waits_for_other_mates_relaunch_lock() {
+  local w fb tmuxfb log out holder i=0 lock
+  w=$(new_world sweep-relaunch-lock-held)
+  add_sm_home "$w" sm1 firstmate:fm-sm1
+  fb=$(make_toolchain "$w"); tmuxfb=$(make_liveness_tmux "$w")
+  log="$w/calls.log"; : > "$log"
+  lock="$w/home/state/.secondmate-relaunch.lock"
+
+  ( STATE="$w/home/state" bash -c \
+      '. "$1" && fm_lock_try_acquire "$2" && trap '\''fm_lock_release "$2"'\'' EXIT && sleep 5' \
+      _ "$ROOT/bin/fm-wake-lib.sh" "$lock" ) &
+  holder=$!
+  while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ -e "$lock" ] || fail "the fixture never acquired the per-home relaunch lock"
+
+  out=$(PATH="$tmuxfb:$fb:$BASE_PATH" FM_HOME="$w/home" FM_BACKEND=tmux \
+    FM_ROOT="$ROOT" FM_TEST_PANE_CMD=zsh FM_TMUX_CALL_LOG="$log" \
+    STATE="$w/home/state" bash -c '
+      . "$1/bin/fm-secondmate-liveness-lib.sh"
+      fm_secondmate_liveness_probe "$2" sm1 poll
+      rc=0
+      fm_secondmate_liveness_relaunch "$2" sm1 1 || rc=$?
+      printf "rc=%s status=%s reason=%s\n" "$rc" "$FM_SM_LIVE_STATUS" "$FM_SM_LIVE_REASON"
+    ' _ "$ROOT" "$w/home/state/sm1.meta")
+  kill "$holder" 2>/dev/null || true
+  wait "$holder" 2>/dev/null || true
+
+  assert_contains "$out" "rc=1 status=deferred" \
+    "a relaunch blocked on another mate must return a bounded deferral"
+  assert_contains "$out" "another secondmate relaunch still owns the per-home relaunch lock after 1s" \
+    "a liveness relaunch must bound its lock wait by the spawn timeout"
+  [ ! -e "$w/home/state/.secondmate-relaunch-sm1" ] \
+    || fail "a relaunch blocked on another mate was counted as an attempt"
+  [ ! -s "$log" ] || fail "a blocked relaunch touched the endpoint: $(cat "$log")"
+  pass "relaunch: the spawn timeout bounds the lock wait before touching the endpoint"
+}
+
+test_watcher_defers_contended_relaunch_without_stopping() (
+  # Oracle: normal lock contention defers recovery, preserving supervision,
+  # endpoints and attempt budgets. A fatal skipped verdict fails this journey.
+  command -v tmux >/dev/null 2>&1 || { echo 'skip: tmux not found'; exit 0; }
+  local w socket_dir holder='' rc=0 id
+  w=$(new_world watcher-relaunch-contention)
+  socket_dir=$(mktemp -d /tmp/fm-live.XXXXXX) || exit 1
+  trap 'if [ -n "$holder" ]; then kill "$holder" 2>/dev/null || true; wait "$holder" 2>/dev/null || true; fi; tmux -L fm-lab kill-server 2>/dev/null || true; rm -rf "$socket_dir"' EXIT
+  TMUX="$socket_dir/tmux-$(id -u)/fm-lab,0,0"
+  export TMUX_TMPDIR="$socket_dir" TMUX
+  export FM_HOME="$w/home" FM_ROOT_OVERRIDE="$ROOT" FM_BACKEND=tmux
+  mkdir -p "$w/home/data"
+  touch "$w/home/config/supervision-host-off"
+  tmux -L fm-lab new-session -d -s firstmate -n anchor || fail 'private tmux startup failed'
+  for id in first second; do
+    add_sm_home "$w" "$id" "firstmate:fm-$id"
+    tmux -L fm-lab new-window -d -t firstmate -n "fm-$id" || fail 'private endpoint creation failed'
+    printf -- '- %s (home: %s) - fixture (projects: none; scope: test)\n' "$id" "$w/$id" \
+      >> "$w/home/data/secondmates.md"
+  done
+  bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    fm_lock_acquire_wait "$FM_HOME/state/.secondmate-relaunch.lock" || exit 1
+    trap '\''fm_lock_release "$FM_HOME/state/.secondmate-relaunch.lock"'\'' EXIT
+    touch "$FM_HOME/held"
+    while :; do sleep 0.1; done
+  ' _ "$ROOT" &
+  holder=$!
+  local i=0
+  while [ ! -e "$w/home/held" ] && [ "$i" -lt 100 ]; do
+    kill -0 "$holder" 2>/dev/null || break
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ -e "$w/home/held" ] || fail 'relaunch lock holder never became ready'
+  FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    FM_SECONDMATE_LIVENESS_SECS=1 FM_SECONDMATE_LIVENESS_TIMEOUT=1 \
+    timeout 12 bash "$ROOT/bin/fm-watch.sh" > "$w/watch.out" 2> "$w/watch.err" || rc=$?
+  [ "$rc" -eq 124 ] || fail "contention stopped supervision (exit=$rc): $(cat "$w/watch.out" "$w/watch.err")"
+  for id in first second; do
+    [ "$(tmux -L fm-lab display-message -p -t "firstmate:fm-$id" '#{window_name}')" = "fm-$id" ] \
+      || fail "contention destroyed $id's endpoint"
+    [ ! -e "$w/home/state/.secondmate-relaunch-$id" ] || fail 'contention consumed an attempt'
+    [ "$(grep -c "secondmate $id .*per-home relaunch lock" "$w/home/state/.watch-triage.log")" -ge 2 ] \
+      || fail "watcher did not retry $id after deferral"
+  done
+  [ ! -s "$w/home/state/.wake-queue" ] || fail 'contention published a relaunch wake'
+  pass 'watcher: relaunch contention defers both mates while supervision keeps polling'
+)
 
 test_sweep_refuses_relaunch_on_ledger_errors() {
   local w fb tmuxfb log out mode ledger word
@@ -746,6 +862,7 @@ test_tmux_agent_state_rejects_malformed_targets_before_probe
 test_herdr_agent_state_preserves_husk_classifier
 test_agent_state_dispatcher_and_compatibility
 test_sweep_respawns_confirmed_dead_secondmate
+test_sweep_serializes_distinct_secondmate_relaunches
 test_sweep_leaves_alive_secondmate_untouched
 test_sweep_respawns_authoritatively_missing_pi_secondmate
 test_sweep_respawns_authoritatively_missing_pi_signed_secondmate
@@ -757,6 +874,8 @@ test_sweep_converges_no_retouch_once_alive
 test_sweep_skipped_under_detect_only
 test_sweep_noop_with_no_secondmate_meta
 test_sweep_skips_mate_whose_liveness_lock_is_held
+test_relaunch_waits_for_other_mates_relaunch_lock
+test_watcher_defers_contended_relaunch_without_stopping
 test_sweep_refuses_relaunch_on_ledger_errors
 test_remote_poll_probe_maps_states
 test_remote_poll_probe_unreachable_preserves_route
