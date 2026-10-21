@@ -111,3 +111,43 @@ jq '.generated_epoch=1' "$TMP_ROOT/laptop.json" > "$TMP_ROOT/stale.json"
 bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/stale.json" >/dev/null 2>&1; rc=$?
 expect_code 75 "$rc" 'stale machine never chosen'
 pass 'published facts drive placement; unreadable and stale hosts refused'
+
+# Exercise the record loop through its public read API. Endpoint states are
+# supplied at the existing backend boundary; cwd scans use real processes.
+(
+  . "$ROOT/bin/fm-wake-lib.sh"
+  . "$ROOT/bin/fm-backend.sh"
+  . "$ROOT/bin/fm-secondmate-registry-lib.sh"
+  . "$ROOT/bin/fm-project-capacity-lib.sh"
+  . "$ROOT/bin/fm-capacity-lib.sh"
+  . "$ROOT/bin/fm-agent-process-lib.sh"
+  mkdir -p "$TMP_ROOT/live/"{state,config,data} "$TMP_ROOT/empty-worktree"
+  FM_HOME="$TMP_ROOT/live"
+  printf '5 3\n' > "$TMP_ROOT/live/config/lane-capacity"
+  fm_backend_agent_state() {
+    case "$2" in
+      live-*) printf alive ;;
+      gone-*) printf missing ;;
+      *) printf unreadable ;;
+    esac
+  }
+  for n in 1 2; do
+    fm_write_meta "$TMP_ROOT/live/state/dead-$n.meta" kind=ship "window=gone-$n" "worktree=$TMP_ROOT/empty-worktree"
+  done
+  for n in 1 2 3 4 5; do
+    fm_write_meta "$TMP_ROOT/live/state/live-$n.meta" kind=ship "window=live-$n" "worktree=$TMP_ROOT/empty-worktree"
+  done
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
+  expect_code 75 "$rc" 'five live workers fill ceiling despite dead records'
+  expect_code 5 "$FM_CAPACITY_LANES" 'dead endpoints with no worktree process hold no seats'
+  [ "$FM_CAPACITY_REASON" = full ] || fail 'live workers should fill ceiling'
+  rm "$TMP_ROOT/live/state/live-5.meta"
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state" || fail 'four live workers should admit'
+  expect_code 1 "$FM_CAPACITY_FREE" 'dead records leave one seat free'
+  fm_write_meta "$TMP_ROOT/live/state/unknown.meta" kind=ship window=unknown "worktree=$TMP_ROOT/empty-worktree"
+  fm_capacity_read "$TMP_ROOT/live" "$TMP_ROOT/live/config" "$TMP_ROOT/live/state"; rc=$?
+  expect_code 75 "$rc" 'unknown endpoint liveness holds a seat'
+  expect_code 5 "$FM_CAPACITY_LANES" 'unknown record counted'
+  rm "$TMP_ROOT/live/state/unknown.meta"
+  pass 'capacity counts live endpoints, frees dead records, and retains unknowns'
+) || exit 1

@@ -1081,7 +1081,7 @@ Per-machine Cursor `cli-config.json` attribution-off is not this contract: it do
 ## Machine capacity (config/lane-capacity)
 
 Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch.
-For example, `config/lane-capacity` containing `5 3` caps the machine at five workers and reserves three GiB of available memory.
+For example, `config/lane-capacity` containing `5 3` refuses fresh dispatch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, walker exemptions, refusal rules and locking contract.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
 This Linux admission check requires `/proc/meminfo`; an unsupported or unreadable host gets no placement.
