@@ -177,3 +177,50 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
   jq -e '.lanes == 1 and .free_lanes == 4' <<< "$out" >/dev/null || fail 'non-shell worktree process lost its seat'
   pass 'public capacity command frees shell-only records and counts non-shell work'
 ) || exit 1
+
+(
+  . "$ROOT/tests/fixtures.sh"
+  case_dir="$TMP_ROOT/relaunch"
+  relaunch_home="$case_dir/home"
+  fakebin=$(fm_test_make_spawn_fakebin "$case_dir/fake")
+  fm_test_spawn_home "$relaunch_home" codex
+  printf '1 0\n' > "$relaunch_home/config/lane-capacity"
+  for task in capacity-a capacity-b; do
+    fm_git_worktree "$case_dir/project-$task" "$case_dir/wt-$task" "wt-$task"
+    fm_test_spawn_brief "$relaunch_home" "$task"
+  done
+  mv "$fakebin/tmux" "$fakebin/tmux-original"
+  cat > "$fakebin/tmux" <<'SH'
+#!/usr/bin/env bash
+if [[ "$*" == *'#{pane_current_command}'* && "$*" == *'fm-capacity-b'* && "${CAPACITY_B_LIVE:-}" = 1 ]]; then
+  printf 'codex\n'
+  exit 0
+fi
+exec "${BASH_SOURCE[0]%/*}/tmux-original" "$@"
+SH
+  chmod +x "$fakebin/tmux"
+  export FM_FAKE_PANE_COMMAND=bash FM_FAKE_LAUNCH_LOG="$case_dir/launch.log"
+  out=$(fm_test_run_spawn "$relaunch_home" "$case_dir/wt-capacity-a" "$fakebin" \
+    capacity-a "$case_dir/project-capacity-a" --mode no-mistakes --yolo off); rc=$?
+  expect_code 0 "$rc" "initial worker A spawns: $out"
+  export FM_FAKE_DUPLICATE_WINDOW=fm-capacity-a
+  out=$(fm_test_run_spawn "$relaunch_home" "$case_dir/wt-capacity-b" "$fakebin" \
+    capacity-b "$case_dir/project-capacity-b" --mode no-mistakes --yolo off); rc=$?
+  expect_code 0 "$rc" "stopped A frees its seat for B: $out"
+  export FM_FAKE_DUPLICATE_WINDOW=$'fm-capacity-a\nfm-capacity-b' CAPACITY_B_LIVE=1
+  cp "$relaunch_home/state/capacity-a.meta" "$case_dir/prior.meta"
+  : > "$FM_FAKE_LAUNCH_LOG"
+  out=$(fm_test_run_spawn "$relaunch_home" "$case_dir/wt-capacity-a" "$fakebin" capacity-a --relaunch); rc=$?
+  expect_code 75 "$rc" "direct relaunch refuses B's occupied seat: $out"
+  cmp -s "$case_dir/prior.meta" "$relaunch_home/state/capacity-a.meta" || fail 'direct refusal changed stopped record'
+  [ ! -s "$FM_FAKE_LAUNCH_LOG" ] || fail 'direct refusal delivered a launch'
+  out=$(env -u HERDR_ENV -u HERDR_PANE_ID -u HERDR_SESSION -u HERDR_SOCKET_PATH \
+    -u HERDR_TAB_ID -u HERDR_WORKSPACE_ID \
+    PATH="$fakebin:$PATH" FM_HOME="$relaunch_home" HOME="$relaunch_home/user-home" \
+    FM_FAKE_PANE_PATH="$case_dir/wt-capacity-a" FM_SPAWN_NO_GUARD=1 \
+    "$ROOT/bin/fm-control.sh" capacity-a relaunch --note 'continue stopped work' 2>&1); rc=$?
+  expect_code 75 "$rc" "control relaunch preserves admission refusal: $out"
+  cmp -s "$case_dir/prior.meta" "$relaunch_home/state/capacity-a.meta" || fail 'control refusal changed stopped record'
+  [ ! -s "$FM_FAKE_LAUNCH_LOG" ] || fail 'control refusal delivered a launch'
+  pass 'stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A'
+) || exit 1

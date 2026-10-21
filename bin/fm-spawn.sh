@@ -3440,9 +3440,7 @@ if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" != 1 ] &&
   fm_treehouse_pool_slot "$PROJ_ABS" "$RELAUNCH_WT"; then
   SPAWN_RELAUNCH_POOL_SLOT=1
 fi
-# Every fresh worker, on every backend, shares machine admission. Keep the
-# lock through record publication. Relaunch replaces an existing holder.
-if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
+if [ "$KIND" != secondmate ]; then
   SPAWN_MACHINE_ROOT=$(fm_firstmate_root_home "$FM_HOME") || {
     echo "deferred: cannot resolve machine root for $FM_HOME/config/lane-capacity; task $ID stays queued" >&2
     exit 75
