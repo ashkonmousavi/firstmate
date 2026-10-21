@@ -689,6 +689,14 @@ for _ in $(seq 1 200); do
   sleep 0.01
 done
 [ -s "$concurrent_marker" ] || fail "first concurrent bind never reached its pre-publication handshake"
+# Persisted lock-owner contract: the shell-to-Node exec must publish the
+# current holder's fm_pid_identity, not the replaced shell's identity.
+FM_STATE_OVERRIDE="$H_CONCURRENT/state" bash -c '
+  . "$1"
+  pid=$(cat "$2/pid") || exit 1
+  [ "$(cat "$2/identity")" = "$(fm_pid_identity "$pid")" ]
+' _ "$ROOT/bin/fm-wake-lib.sh" "$H_CONCURRENT/state/procevent/.extension-binding-lifecycle.lock" \
+  || fail "extension lifecycle exec did not publish its current owner identity"
 bind_package "$H_CONCURRENT" "$P_CONCURRENT_TWO" ext-concurrent > "$TMP_ROOT/concurrent-second.out" 2>&1 &
 second_bind_pid=$!
 sleep 0.2

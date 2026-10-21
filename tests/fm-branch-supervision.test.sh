@@ -1274,7 +1274,7 @@ test_release_actor_is_bounded_and_named() {
       . "$1"
       fm_lock_acquire_wait "$2"
       : > "$FM_TEST_READY"
-      sleep 30
+      sleep 30; : # Keep the acquiring shell identity alive.
     ' _ "$ROOT/bin/fm-wake-lib.sh" "$home/state/.fm-lease-command.lock" >/dev/null 2>&1 &
   holder_pid=$!
   wait_for_lease_fixture "$holder_pid" "$home/holder-ready"

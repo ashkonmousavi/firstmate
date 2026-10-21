@@ -725,7 +725,7 @@ if [ "$last" = "$FM_TEST_RACE_PATH" ] && mkdir "$FM_TEST_RACE_ONCE" 2>/dev/null;
     . "$1"
     if fm_lock_try_acquire_steal_mutex "$2"; then
       printf "won %s\n" "${BASHPID:-$$}" > "$3"
-      exec sleep 30
+      sleep 30; exit 0
     fi
     printf "lost\n" > "$3"
   ' _ "$FM_TEST_LIB" "$last" "$FM_TEST_RACE_OUT" >/dev/null 2>&1 &

@@ -463,7 +463,7 @@ FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$HOME_DIR" bash -c '
   . "$1/bin/fm-wake-lib.sh"
   fm_lock_acquire_wait "$2/state/.home-summary-refresh.lock"
   : > "$3"
-  sleep 30
+  sleep 30; : # Keep the acquiring shell identity alive.
 ' _ "$ROOT" "$HOME_DIR" "$LOCK_MARKER" &
 LOCK_HOLDER_PID=$!
 i=0
@@ -759,7 +759,7 @@ FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$BEAT_HOME" bash -c '
   . "$1/bin/fm-wake-lib.sh"
   fm_lock_acquire_wait "$2/state/.home-summary-refresh.lock"
   : > "$3"
-  sleep 120
+  sleep 120; : # Keep the acquiring shell identity alive.
 ' _ "$ROOT" "$BEAT_HOME" "$BEAT_LOCK_MARKER" &
 LOCK_HOLDER_PID=$!
 i=0
@@ -836,7 +836,7 @@ FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$RESTART_HOME" bash -c '
   . "$1/bin/fm-wake-lib.sh"
   fm_lock_acquire_wait "$2/state/.home-summary-refresh.lock"
   : > "$3"
-  sleep 30
+  sleep 30; : # Keep the acquiring shell identity alive.
 ' _ "$ROOT" "$RESTART_HOME" "$RESTART_LOCK_MARKER" &
 LOCK_HOLDER_PID=$!
 i=0
@@ -1030,7 +1030,7 @@ FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$ORDER_HOME" bash -c '
   . "$1/bin/fm-wake-lib.sh"
   fm_lock_acquire_wait "$2/state/.home-summary-refresh.lock"
   : > "$3"
-  sleep 30
+  sleep 30; : # Keep the acquiring shell identity alive.
 ' _ "$ROOT" "$ORDER_HOME" "$ORDER_LOCK_MARKER" &
 LOCK_HOLDER_PID=$!
 i=0

@@ -2548,7 +2548,7 @@ hold_task_set_lock() {  # <state-dir> [role] -> echoes "<holder-pid> <lock-path>
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
     [ -z "$role" ] || fm_lock_set_role "$lock" "$role" || exit 1
-    sleep 30
+    sleep 30; : # Keep the acquiring shell identity alive.
   ) >/dev/null 2>&1 &
   # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
   holder=$!

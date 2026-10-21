@@ -709,7 +709,7 @@ hold_lifecycle_lock() {  # <lock-path>
   local lifecycle_lock_path=$1
   . "$ROOT/bin/fm-wake-lib.sh"
   fm_lock_try_acquire "$lifecycle_lock_path" || return 1
-  sleep 30
+  sleep 30; : # Keep the acquiring shell identity alive.
 }
 
 test_interrupt_and_exit_lock_before_task_state_resolution() {

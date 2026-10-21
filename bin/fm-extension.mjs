@@ -2051,6 +2051,15 @@ async function claimInheritedLifecycleLock(home) {
   const delegatedOwnerPid = captureCapability?.claimPid || null;
   activeLifecycleLock = { lockPath, ownerPath, delegatedOwnerPid, captureCapability };
   await assertLifecycleLockOwned();
+  if (!delegatedOwnerPid) {
+    // The shell drops its command-bearing identity before exec. The pid-only
+    // record stays live across exec; now publish this process's new identity.
+    await selfIdentity(); // Set the host title before recording its command-bearing identity.
+    const identity = await capturedProcessOutput("bash", ["-c", 'FM_STATE_OVERRIDE=$3; . "$1"; fm_pid_identity "$2"',
+      "_", path.join(CODE_ROOT, "bin", "fm-wake-lib.sh"), String(process.pid), path.dirname(lockPath)], MAX_JSON_BYTES);
+    await writeFile(path.join(ownerPath, "identity.tmp"), `${identity}\n`, { mode: 0o600 });
+    await rename(path.join(ownerPath, "identity.tmp"), path.join(ownerPath, "identity"));
+  }
   return mode;
 }
 
@@ -2059,6 +2068,7 @@ async function releaseLifecycleLock() {
   const { lockPath, ownerPath } = activeLifecycleLock;
   await unlink(lockPath);
   await unlink(path.join(ownerPath, "pid"));
+  await rm(path.join(ownerPath, "identity"), { force: true });
   await rmdir(ownerPath);
   activeLifecycleLock = null;
 }

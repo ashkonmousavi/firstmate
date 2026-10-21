@@ -1619,7 +1619,7 @@ test_tick_leaves_settled_records_alone() {
 
   # A live foreign process holds one settled record's per-record lock.
   lib="$ROOT/bin/fm-wake-lib.sh"
-  bash -c '. "$1"; fm_lock_acquire_wait "$2" && : > "$3"; exec sleep 300' _ \
+  bash -c '. "$1"; fm_lock_acquire_wait "$2" && : > "$3"; sleep 30; :0' _ \
     "$lib" "$state/.pending-reply-00005e7700000000.lock" "$home/held" &
   holder=$!
   for _ in $(seq 1 100); do [ -e "$home/held" ] && break; sleep 0.1; done
