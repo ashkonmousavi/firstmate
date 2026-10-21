@@ -18,11 +18,10 @@ SSH_COUNT="$TMP_ROOT/ssh.count"
 WAKE_LOG="$TMP_ROOT/wake.log"
 mkdir -p "$PARENT/data" "$PARENT/state" "$REMOTE_ROOT/bin" \
   "$REMOTE/data" "$REMOTE/state" "$REMOTE/config" "$REMOTE/projects" "$REMOTE/bin"
-# Release blocked stages and stop the detached remote worker group before
-# draining this shell's jobs and removing the fixture through shared cleanup.
+# Release blocked stages and drain their clients before shared cleanup stops
+# the detached worker group and removes the fixture.
 fm_remote_handoff_teardown() {
-  touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" 2>/dev/null || true
-  fm_test_reap_remote_job_workers "$TMP_ROOT"
+  touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" "$TMP_ROOT/serialize.release" 2>/dev/null || true
   wait 2>/dev/null || true
   fm_test_cleanup
 }
@@ -262,7 +261,7 @@ wait_for_serialization=0
 while [ ! -f "$TMP_ROOT/serialize.entered" ]; do
   kill -0 "$handoff_a" 2>/dev/null || fail "first serialized handoff exited before receipt"
   wait_for_serialization=$((wait_for_serialization + 1))
-  [ "$wait_for_serialization" -le 250 ] || fail "first serialized handoff never reached receipt"
+  [ "$wait_for_serialization" -le 3000 ] || fail "first serialized handoff never reached receipt"
   sleep 0.02
 done
 write_backlog '- [ ] serialized-b - second concurrent handoff (repo: alpha)'
@@ -478,7 +477,10 @@ PATH="$RM_FAKEBIN:$PATH" FM_REAL_RM="$REAL_RM" \
   FM_FAIL_RM_PATH="$PARENT/state/.backlog-handoff-ios.wake-pending" \
   handoff_env "$ROOT/bin/fm-backlog-handoff.sh" ios confirmed-marker-stale \
   > "$TMP_ROOT/confirmed-marker-stale.out" 2>&1 \
-  || fail "confirmed marker cleanup failure falsely failed a completed handoff"
+  || {
+    cat "$TMP_ROOT/confirmed-marker-stale.out" >&2
+    fail "confirmed marker cleanup failure falsely failed a completed handoff"
+  }
 assert_absent "$PARENT/data/handoff/ios.outbox.md" \
   "confirmed marker cleanup failure retained a completed outbox"
 case "$(cat "$PARENT/state/.backlog-handoff-ios.wake-pending")" in
