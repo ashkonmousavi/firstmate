@@ -46,6 +46,68 @@ test_codex_global_install_preserves_other_configuration() {
   pass "Codex global install preserves other config, is idempotent, and refuses malformed hooks"
 }
 
+test_codex_global_install_survives_killed_owner() {
+  python3 - "$ROOT/bin/fm-codex-busy.sh" "$TMP_ROOT/codex-lock" <<'PY' || fail "Codex installer lock lifecycle failed"
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+installer, directory = sys.argv[1:]
+home = Path(directory)
+fakebin = home / "fakebin"
+fakebin.mkdir(parents=True)
+config = home / "hooks.json"
+original = '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"existing-stop"}]}]}}'
+config.write_text(original)
+ready = home / "ready"
+shim = fakebin / "jq"
+shim.write_text('#!/usr/bin/env bash\nkill -STOP "$PPID"\n: > "$READY"\nexec "$REAL_JQ" "$@"\n')
+shim.chmod(0o755)
+env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ["PATH"],
+           REAL_JQ=shutil.which("jq"), READY=str(ready))
+processes = []
+try:
+    first = subprocess.Popen(["bash", installer, "install", str(home)], env=env,
+                             start_new_session=True)
+    processes.append(first)
+    deadline = time.monotonic() + 5
+    while not ready.exists():
+        assert first.poll() is None, "first installer exited before acquiring lock"
+        assert time.monotonic() < deadline, "first installer did not reach merge"
+        time.sleep(0.01)
+    second = subprocess.Popen(["bash", installer, "install", str(home)],
+                              start_new_session=True)
+    processes.append(second)
+    try:
+        second.wait(timeout=0.3)
+    except subprocess.TimeoutExpired:
+        pass
+    else:
+        raise AssertionError("second installer bypassed the live lock owner")
+    assert config.read_text() == original, "contender changed hooks while owner was live"
+    os.killpg(first.pid, signal.SIGKILL)
+    first.wait(timeout=5)
+    assert second.wait(timeout=5) == 0, "installer did not recover after SIGKILL"
+    hooks = json.loads(config.read_text())["hooks"]
+    assert hooks["Stop"][0]["hooks"][0]["command"] == "existing-stop"
+    assert {name: len(hooks[name]) for name in ("Stop", "UserPromptSubmit", "SessionEnd")} == {
+        "Stop": 2, "UserPromptSubmit": 1, "SessionEnd": 1}
+    (home / ".fm-busy-hooks.lock").mkdir(exist_ok=True)
+    subprocess.run(["bash", installer, "install", str(home)], check=True, timeout=5)
+finally:
+    for process in processes:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=5)
+PY
+  pass "Codex install serializes live owners and recovers after SIGKILL and abandoned legacy locks"
+}
+
 # --- writer: arm and apply ---------------------------------------------------
 
 test_arm_seeds_busy_spawn() {
@@ -637,6 +699,7 @@ test_progress_is_generation_bound_and_not_semantic_state() {
 test_progress_is_generation_bound_and_not_semantic_state
 
 test_codex_global_install_preserves_other_configuration
+test_codex_global_install_survives_killed_owner
 test_arm_seeds_busy_spawn
 test_apply_advances_seq_and_source
 test_apply_current_gen_reset

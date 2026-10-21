@@ -16,15 +16,24 @@ if [ "${1:-}" = install ]; then
   mkdir -p "$codex_home" || exit 1
   config=$codex_home/hooks.json
   [ ! -L "$config" ] || { echo 'error: Codex global hooks.json is a symlink; refusing to replace it' >&2; exit 1; }
-  lock=$codex_home/.fm-busy-hooks.lock
-  attempts=0
-  until mkdir "$lock" 2>/dev/null; do
-    attempts=$((attempts + 1))
-    [ "$attempts" -lt 100 ] || { echo 'error: Codex busy hook installation lock timeout' >&2; exit 1; }
-    sleep 0.1
-  done
+  exec 9> "$codex_home/.fm-busy-hooks.flock" || exit 1
+  python3 - <<'PY' || exit 1
+import fcntl
+import sys
+import time
+
+deadline = time.monotonic() + 10
+while True:
+    try:
+        fcntl.flock(9, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        break
+    except BlockingIOError:
+        if time.monotonic() >= deadline:
+            sys.exit("error: Codex busy hook installation lock timeout")
+        time.sleep(0.1)
+PY
   tmp=
-  trap '[ -z "$tmp" ] || rm -f "$tmp"; rmdir "$lock"' EXIT
+  trap '[ -z "$tmp" ] || rm -f "$tmp"' EXIT
   # The executable comes from each launch, so one shared registration serves
   # multiple Firstmate homes without pinning a disposable checkout or scanning
   # other homes. No task binding means no side effects in ordinary sessions.
