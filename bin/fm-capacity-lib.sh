@@ -11,7 +11,8 @@
 # Every local registered home is counted through fm_local_firstmate_state_dirs.
 # Task records hold a lane unless the endpoint is proven agent-free and the
 # worktree has no non-shell process. Unknown liveness counts, including ready-PR
-# handoffs whose processes still run. Persistent secondmate records are exempt. External bots have no local records;
+# handoffs whose processes still run. Persistent secondmate records are exempt.
+# External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.
 # Unreadable config, state, registry or MemAvailable fails closed with exit 75.
 # Admission is a fresh reading before launch, including relaunch. No machine

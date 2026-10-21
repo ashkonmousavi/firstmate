@@ -89,6 +89,10 @@ TOML
 # shellcheck disable=SC2034
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Spawn fixtures use deterministic Linux memory facts, including on macOS.
+# Admission regressions explicitly override this test-only reader input.
+export FM_CAPACITY_MEMINFO=${FM_CAPACITY_MEMINFO:-$ROOT/tests/captures/capacity-meminfo}
+
 # --- reporters --------------------------------------------------------------
 
 fail() {
