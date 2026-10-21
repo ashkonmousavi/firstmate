@@ -83,7 +83,8 @@ test_projects_path_scoping() {
     [ -n "$label" ] || continue
     home="$TMP_ROOT/$id home"
     projects="$TMP_ROOT/$id projects"
-    mkdir -p "$home/data" "$projects/alpha"
+    mkdir -p "$home/data" "$home/state" "$home/config" "$projects/alpha"
+    printf '999999 0\n' > "$home/config/lane-capacity"
     git -C "$projects/alpha" init -q || fail "$label: could not initialize project fixture"
     git -c user.name=test -c user.email=test@example.com -C "$projects/alpha" commit -q --allow-empty -m init || fail "$label: could not commit project fixture"
     if [ "$use_override" = yes ]; then
