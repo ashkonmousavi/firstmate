@@ -7,7 +7,9 @@
 # outbound message, and later resolves that expectation only from a correlated
 # line in the asked task's own parent status log, or a document it points to -
 # never from transport success, chat content, unrelated status activity, or
-# another task's line that echoes or quotes the token.
+# another task's line that echoes or quotes the token. Summary-classified
+# one-way notices are the exception: fm_pending_reply_oneway_expired below
+# owns their expiry rule, which does not prove delivery or acknowledgement.
 #
 # Safety property (captain direction 2026-07-22): a secondmate agent may ignore
 # the marker and answer only in its visible conversation. The parent must notice
@@ -17,8 +19,9 @@
 # own open decision or blocker), and
 # escalate once if the recovery turn also completes without a correlated
 # report. Never loop, never repeatedly inject, never silently expire unresolved
-# records, and never treat wrong-home or structured-home heuristics as
-# acknowledgement. A same-basename restatement-copy of the mate home's
+# reply-bearing records outside the one-way exception, and never treat
+# wrong-home or structured-home heuristics as acknowledgement.
+# A same-basename restatement-copy of the mate home's
 # state/<task_id>.status onto the parent channel is a repair of the
 # FM_HOME-relative mixup, not acknowledgement of an arbitrary mate-home file.
 #
@@ -62,7 +65,7 @@
 #                           escalation was closed again (see the escalation
 #                           lifecycle note below); empty until then
 #   resolved_epoch=
-#   resolved_via=           status | document | helper | empty
+#   resolved_via=           status | document | helper | expired-one-way | empty
 #   wrong_home_hits=        count of corr sightings under the secondmate home
 #   wrong_home_first_sighting= encoded path:line identity of the first sighting
 #   wrong_home_sightings=   comma-separated encoded path:line identities
@@ -93,8 +96,8 @@
 # to resend under the same correlation (fm-send's FM_PENDING_REPLY_EXISTING_CORR
 # contract; the remote enqueue deduplicates onto the same record). The resend
 # resets the record to awaiting_report and leaves the published escalation
-# decision open: a confirmed delivery does not settle the request, only a
-# correlated report does. A later escalation reuses that key rather than
+# decision open: a confirmed delivery does not settle the request; see the
+# resolution contract above. A later escalation reuses that key rather than
 # opening a duplicate while the decision stays open, and only the ordinary
 # resolve close closes it. Once that close is in the log, the next escalation
 # of a record that already escalated and was reset is a new episode: it
@@ -114,6 +117,8 @@
 #                                 completion for the recovery repost, and from
 #                                 the recovery turn's completion for the
 #                                 missed-report escalation - never from delivery
+#   FM_PENDING_REPLY_ONEWAY_TTL   one-way notice expiry; see
+#                                 fm_pending_reply_oneway_expired below
 #   FM_PENDING_REPLY_DIR_OVERRIDE override the pending-replies directory (tests)
 #   FM_PENDING_REPLY_SEND_HOOK    optional command template for recovery delivery
 #                                 (tests); receives task_id and full message as args
@@ -196,10 +201,12 @@ fm_pending_reply_extract_corr() {  # <text>
 }
 
 # 0 if <text> carries the exact correlation token for <corr_id>, as a whole
-# word: xcorr=<id> or corr=<id>ff is a different token, not this one.
+# word: xcorr=<id> or corr=<id>ff is a different token, not this one. A reply
+# answering several requests at once may list them after one key
+# (corr=<a>,<b>); each listed id counts as carried.
 fm_pending_reply_text_has_corr() {  # <text> <corr_id>
   local text=$1 corr=$2 re
-  re="(^|[^[:alnum:]_])$(fm_pending_reply_corr_token "$corr")([^[:alnum:]_]|\$)"
+  re="(^|[^[:alnum:]_])corr=([A-Fa-f0-9]{16},)*${corr}([^[:alnum:]_]|\$)"
   [[ $text =~ $re ]]
 }
 
@@ -596,6 +603,9 @@ fm_pending_reply_line_resolves() {  # <line> <corr_id>
 }
 
 # Scan a status file for a correlated resolve. Prints the matching line or empty.
+# One grep pass keeps only the lines that carry the token, and the per-line rule
+# still decides each of them, so a long status log costs one pass rather than a
+# shell iteration per line for every open request on every supervision cycle.
 fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
   local status_file=$1 corr=$2 line
   [ -f "$status_file" ] || return 0
@@ -605,8 +615,25 @@ fm_pending_reply_find_resolve_line() {  # <status-file> <corr_id>
       printf '%s' "$line"
       return 0
     fi
-  done < "$status_file"
+  done < <(LC_ALL=C grep -aF -- "$corr" "$status_file" 2>/dev/null)
   return 0
+}
+
+# The regex below classifies one-way notices from the start of request_summary,
+# including config re-read, FYI, done/applied/agreed, and correction notices.
+# During ordinary resolution (without a status-file override), a matching record
+# expires FM_PENDING_REPLY_ONEWAY_TTL seconds (default 7200) after creation,
+# whether delivered or not. Resolution records expired-one-way and closes any
+# escalation; it does not establish delivery or a correlated reply.
+FM_PENDING_REPLY_ONEWAY_RE='^(CONFIG_REREAD:|Firstmate instructions or inherited config changed|(MAIN[:,]? )?(FYI|fyi)\b|MAIN fyi|Done by MAIN|Applied:|Agreed:|Correction to )'
+fm_pending_reply_oneway_expired() {  # <record-path>
+  local rec=$1 summary created now
+  summary=$(fm_pending_reply_get "$rec" request_summary)
+  [[ $summary =~ $FM_PENDING_REPLY_ONEWAY_RE ]] || return 1
+  created=$(fm_pending_reply_get "$rec" created_epoch)
+  [[ $created =~ ^[0-9]+$ ]] || return 1
+  now=$(fm_pending_reply_now)
+  [ $((now - created)) -ge "${FM_PENDING_REPLY_ONEWAY_TTL:-7200}" ]
 }
 
 fm_pending_reply_file_signature() {  # <path>
@@ -676,6 +703,14 @@ _fm_pending_reply_try_resolve_locked() {  # <state-dir> <corr_id> [status-file-o
   [ -f "$rec" ] || return 1
   phase=$(fm_pending_reply_get "$rec" phase)
   if [ "$phase" = resolved ]; then
+    _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
+    return 0
+  fi
+  if [ -z "$status_override" ] && fm_pending_reply_oneway_expired "$rec"; then
+    now=$(fm_pending_reply_now)
+    fm_pending_reply_set "$rec" phase resolved || return 1
+    fm_pending_reply_set "$rec" resolved_epoch "$now" || return 1
+    fm_pending_reply_set "$rec" resolved_via expired-one-way || return 1
     _fm_pending_reply_close_escalation_locked "$state" "$corr" || true
     return 0
   fi
