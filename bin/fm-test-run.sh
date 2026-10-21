@@ -359,7 +359,7 @@ family_for_basename() {
     fm-composer-grok-weekly-live-e2e.test.sh|\
     fm-composer-codex-idle-live-e2e.test.sh|\
     fm-composer-dialog-live-e2e.test.sh|\
-    fm-codex-continuity-live-e2e.test.sh|fm-codex-hook-layer-live-e2e.test.sh|\
+    fm-codex-busy-live-e2e.test.sh|fm-codex-continuity-live-e2e.test.sh|fm-codex-hook-layer-live-e2e.test.sh|\
     fm-grok-continuity-live-e2e.test.sh|\
     fm-cursor-primary-live-e2e.test.sh|\
     fm-grok-stop-live-e2e.test.sh|fm-harness-adapter-instructions-live-e2e.test.sh|\

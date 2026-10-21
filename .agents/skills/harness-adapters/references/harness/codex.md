@@ -25,9 +25,11 @@ The decision persists for the repository, so later worktrees of the same project
 A second dialog, "Hooks need review - N hooks are new or changed", appears whenever the machine's `~/.codex/hooks.json` or a project's own `.codex/hooks.json` carries a hook Codex has not persisted trust for.
 It is unanswerable rather than merely inconvenient: its selection starts on "Review hooks", which is neither trusting nor declining, and Firstmate's key plane carries Enter, Escape and Ctrl-C with no arrow navigation.
 Writing Codex's own trust store to pre-accept it would manufacture an operator consent that was never given.
-So crewmate and scout launches disable Codex's hook layer outright (`bin/fm-spawn.sh`'s launch template owns the flag), which is the opposite of `--dangerously-bypass-hook-trust` - that flag RUNS the untrusted hooks.
-A crewmate loses nothing: its turn-end signal is the `-c notify=` program on the same launch, and the Firstmate hooks in a project's `.codex/hooks.json` are primary-session infrastructure that stands down in a child worktree.
-A secondmate is a primary in its own home and keeps its hooks, so an unanswerable modal there is still possible and is the operator's own hook review to settle.
+Crewmate and scout launches enable the verified global busy hook and bypass hook review for that automated invocation; `bin/fm-spawn.sh` owns the flags and launch binding.
+Existing user and project hooks also run under that invocation's hook-trust bypass.
+[`fm-codex-busy.sh`](../../../../../bin/fm-codex-busy.sh) owns global registration and task routing, and [supervision verification](../../../../../docs/verification/supervision.md#semantic-busy-state) records the live proof.
+The turn-end notification remains on the launch command independently of busy state.
+A secondmate keeps its primary hook posture without this worker binding, so its own hook review remains an operator action.
 
 ## Skill popup
 

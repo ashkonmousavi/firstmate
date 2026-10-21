@@ -9,7 +9,8 @@ Exact task chronology, branch names, temporary homes, local paths, process ids, 
 ## Codex idle refusal guard
 
 On 2026-10-07, installed `codex-cli 0.160.1` passed the native idle guard on Linux.
-The guard launches Codex with hooks disabled, matching a worker launch, in an isolated tmux server without submitting a model prompt.
+The guard launches Codex with hooks disabled to isolate idle rendering in an isolated tmux server without submitting a model prompt.
+Current worker lifecycle-hook proof and both refresh guards live in [Codex global busy hooks](supervision.md#codex-global-busy-hooks-2026-10-20).
 It verifies composer readability and passes that same captured screen to the semantic busy classifier.
 Without a verified semantic source, an idle prompt remains unknown rather than asserting working.
 Refresh after a Codex upgrade with:
@@ -786,11 +787,12 @@ OpenCode and Pi-signed were absent and reported explicitly.
 The command exited 1 with `not ok - secondmate busy contract live guard: 2 of 5 installed harnesses failed`; Pi and Grok lifecycle behavior remains unverified on this host.
 [Claude's hook reference](https://code.claude.com/docs/en/hooks) owns the Stop exit-2 continuation contract.
 
-## Codex hook trust
+## Historical Codex hook trust, 2026-09-16
 
-Verified 2026-09-16 on codex-cli 0.151.0, macOS arm64, in a fresh linked worktree of this repository.
+The following historical evidence was recorded on codex-cli 0.151.0, macOS arm64, in a fresh linked worktree of this repository.
+Current worker behavior and the guards that refresh its proof are owned by [Codex global busy hooks](supervision.md#codex-global-busy-hooks-2026-10-20).
 
-Codex gates hooks it has no persisted trust for behind an interactive modal.
+That version gated hooks it had no persisted trust for behind an interactive modal.
 A crewmate launch built by `bin/fm-spawn.sh` was driven under a real PTY and stopped there before the brief was ever submitted:
 
 ```text
@@ -808,7 +810,7 @@ That count covers every hook Codex had no persisted trust for, drawn from both t
 Writing Codex's own trust store to pre-accept the modal would record an operator consent that was never given, so it is not an option either.
 
 `codex --help` documents `--dangerously-bypass-hook-trust` as "Run enabled hooks without requiring persisted hook trust for this invocation", which RUNS the untrusted hooks.
-That is the opposite of what an unattended worker needs, so the control used is the hook feature flag:
+The worker launch at that time avoided running untrusted hooks by disabling the hook feature flag:
 
 ```sh
 codex features list | grep '^hooks'
@@ -822,7 +824,7 @@ hooks                                    stable             false
 Error: Unknown feature flag: no_such_feature
 ```
 
-The last arm is what makes the control safe to depend on: an unknown feature name is a hard error, so a release that renames or drops the flag fails the launch loudly instead of silently restoring the modal.
+The last arm established that an unknown feature name was a hard error, so a release that renamed or dropped the flag would fail that historical launch loudly instead of silently restoring the modal.
 
 The same launch with the hook layer disabled reached the composer with no modal, answered the prompt, and fired the turn-end program that rides the launch rather than any hook:
 
@@ -838,10 +840,7 @@ $ ls "$TURNEND"
 <turn-end file present>
 ```
 
-`tests/fm-codex-hook-layer-live-e2e.test.sh` is the command that refreshes this record.
-It captures the launch `bin/fm-spawn.sh` actually builds, replays those exact flags against the installed Codex, and fails naming the harness and version if the hook layer comes back on.
-It spends no model tokens, so it runs by default wherever Codex is installed.
-The portable half, `tests/fm-spawn-dispatch-profile.test.sh`, pins the split the launch template makes: a crewmate launches hook-free while a secondmate, which runs a primary session on this repository's own project hooks, keeps them.
+The former hook-disabled expectations in `tests/fm-codex-hook-layer-live-e2e.test.sh` and `tests/fm-spawn-dispatch-profile.test.sh` have been superseded by the current worker lifecycle-hook verification linked above.
 
 ## 2026-10-20 Grok weekly-limit border coverage
 
