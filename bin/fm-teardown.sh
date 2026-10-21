@@ -32,7 +32,7 @@
 # automatic backend without compatible tasks-axi refuses before cleanup.
 # None of this loosens the landed-work gates below: the transition runs only on
 # the paths that already proceed to remove the record.
-# The close - and only the close - is replaced by `tasks-axi reopen` with the
+# For an open captain call, the close is replaced by `tasks-axi reopen` with the
 # deliverable recorded while the backlog item is still an open captain call
 # (bin/fm-captain-hold.sh `open` owns that predicate), because the policy holds
 # the very work item a question gates and cleanup must never retire the
@@ -54,9 +54,9 @@
 # --force after explicit discard approval bypasses this PR-state guard.
 # The recorded URL selects gh-axi, glab or tea through bin/fm-pr-lib.sh.
 #
-# REFUSES if the worktree holds work that has not LANDED, because cleanup
-# hard-resets/removes the worktree and kills its processes. Work has landed when it is
-# reachable from any remote-tracking branch (a fork counts as a remote, so
+# Independently REFUSES if the worktree holds work that is not preserved, because
+# cleanup hard-resets/removes the worktree and kills its processes. Preservation
+# is proven when work is reachable from any remote-tracking branch (a fork counts as a remote, so
 # upstream-contribution PRs pushed to a fork satisfy this in any mode), OR - for a
 # normal ship task whose commits are not so reachable - when its PR is merged and
 # GitHub reports a PR head that contains the current local work, or its content is
