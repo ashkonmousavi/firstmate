@@ -30,6 +30,12 @@ SECONDMATE_REGISTRY_ERROR=
 
 secondmate_registry_lock_path() { printf '%s/.secondmate-registry.lock\n' "$1"; }
 secondmate_reply_lifecycle_lock_path() { printf '%s/.remote-reply-lifecycle-%s.lock\n' "$1" "$2"; }
+# Bounded so a holder that never releases fails the caller with the holder's
+# pid and identity instead of hanging it (fm_lock_acquire_wait_reporting in
+# bin/fm-wake-lib.sh, which the caller must have sourced).
+secondmate_reply_lifecycle_lock_wait() {  # <lockdir>
+  fm_lock_acquire_wait_reporting "$1" "${FM_REMOTE_REPLY_LIFECYCLE_LOCK_WAIT:-600}"
+}
 
 secondmate_registry_parse_line() {
   local line=$1

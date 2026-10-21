@@ -1131,7 +1131,7 @@ remote_secondmate_teardown_locked() {
     return 1
   }
   REMOTE_REPLY_LIFECYCLE_LOCK=$(secondmate_reply_lifecycle_lock_path "$STATE" "$ID")
-  fm_lock_acquire_wait "$REMOTE_REPLY_LIFECYCLE_LOCK" || {
+  secondmate_reply_lifecycle_lock_wait "$REMOTE_REPLY_LIFECYCLE_LOCK" || {
     remote_teardown_locks_release
     return 1
   }

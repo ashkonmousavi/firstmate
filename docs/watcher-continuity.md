@@ -212,6 +212,11 @@ The shared `fm_pid_alive` check preserves live process holders but rejects a rec
 Without readable proc status or a `Tgid` field, it retains the portable `kill -0` result.
 `tests/fm-watcher-lock.test.sh` covers that distinction and live-process detection inside an EXIT trap entered with a nonzero exit status.
 
+Each lock owner also records its `fm_pid_identity` beside its pid, and `fm_lock_holder_alive` in [fm-wake-lib.sh](../bin/fm-wake-lib.sh) treats a live pid whose current identity differs from the recorded one as a reused pid, so the ordinary steal path reclaims the lock.
+A lock with no recorded identity, written by older code or on a platform where the identity cannot be computed, keeps the pid-only rule.
+The remote-reply lifecycle waits are bounded by `FM_REMOTE_REPLY_LIFECYCLE_LOCK_WAIT` and fail naming the holder's pid and identity instead of hanging behind a holder that never releases.
+`tests/fm-watcher-lock.test.sh` covers the reused-pid reclaim, a matching live holder, a legacy pid-only lock, and the bounded lifecycle wait.
+
 The turn-end guard remains the final backstop rather than the normal continuity mechanism.
 In its `--claude` mode it cooperates with the auto-arm.
 

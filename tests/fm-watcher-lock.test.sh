@@ -422,6 +422,146 @@ test_lock_reclaims_thread_id_but_preserves_process() {
   pass "thread-id stale lock is reclaimed while a live process lock is preserved"
 }
 
+# Start a bash process that takes <lock> through the ordinary acquire and
+# holds it, staying bash (no exec) so its recorded identity stays its own.
+# Prints the holder pid once the claim has returned.
+start_identity_lock_holder() {  # <state> <lock> <ready-file>
+  local state=$1 lock=$2 ready=$3 holder i=0
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2" || exit 7
+    : > "$3"
+    trap "kill \$! 2>/dev/null; exit 0" TERM
+    sleep 300 &
+    wait
+  ' _ "$LIB" "$lock" "$ready" >/dev/null 2>&1 &
+  holder=$!
+  while [ "$i" -lt 100 ] && [ ! -e "$ready" ]; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ -e "$ready" ] || { kill "$holder" 2>/dev/null || true; return 1; }
+  printf '%s\n' "$holder"
+}
+
+stop_identity_lock_holder() {  # <pid>
+  kill "$1" 2>/dev/null || true
+  wait "$1" 2>/dev/null || true
+}
+
+# A dead holder's pid reused by an unrelated live process passes kill -0, so
+# only the identity the holder recorded at acquire time can prove the lock
+# stale. Reproduced deterministically: a real holder takes the lock and dies,
+# then its pid record is pointed at a live unrelated process, exactly the
+# record a reused pid leaves behind.
+test_lock_reclaims_reused_pid_with_mismatched_identity() {
+  local dir state lockdir reused owner out
+  dir=$(make_case lock-reused-pid)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  # The holder exits without releasing, leaving its record behind.
+  FM_STATE_OVERRIDE="$state" bash -c '. "$1"; fm_lock_try_acquire "$2"' _ "$LIB" "$lockdir" \
+    || fail "identity fixture holder never acquired its lock"
+  owner=$(readlink "$lockdir" 2>/dev/null || true)
+  [ -n "$owner" ] && [ -s "$owner/pid" ] || fail "identity fixture left no lock owner record"
+  sleep 300 &
+  reused=$!
+  printf '%s\n' "$reused" > "$owner/pid"
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_pid_alive "$3" || exit 6
+    [ "$(fm_pid_identity "$3")" != "$(cat "$2/identity")" ] || exit 7
+    fm_lock_try_acquire "$2" || exit 8
+    [ "$(cat "$2/pid")" != "$3" ] || exit 9
+    [ "$FM_LOCK_RECOVERED_PID" = "$3" ] || exit 10
+    fm_lock_release "$2"
+    printf reclaimed
+  ' _ "$LIB" "$lockdir" "$reused") || true
+  kill -0 "$reused" 2>/dev/null || fail "reclaiming the lock touched the unrelated process"
+  kill "$reused" 2>/dev/null || true
+  wait "$reused" 2>/dev/null || true
+  [ "$out" = reclaimed ] || fail "lock whose pid was reused by an unrelated live process was not reclaimed ($out)"
+  pass "lock held by a reused pid with a different identity is reclaimed"
+}
+
+test_lock_live_holder_with_matching_identity_blocks() {
+  local dir state lockdir holder out
+  dir=$(make_case lock-identity-live)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  holder=$(start_identity_lock_holder "$state" "$lockdir" "$dir/held") \
+    || fail "identity fixture holder never acquired its lock"
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    [ -s "$2/identity" ] || exit 6
+    [ "$(fm_pid_identity "$3")" = "$(cat "$2/identity")" ] || exit 7
+    if fm_lock_try_acquire "$2"; then exit 8; fi
+    printf "held=%s" "$FM_LOCK_HELD_PID"
+  ' _ "$LIB" "$lockdir" "$holder") || true
+  [ "$(cat "$lockdir/pid" 2>/dev/null || true)" = "$holder" ] \
+    || { stop_identity_lock_holder "$holder"; fail "live identity-matched holder's lock was clobbered"; }
+  stop_identity_lock_holder "$holder"
+  [ "$out" = "held=$holder" ] || fail "live holder with a matching identity did not block ($out)"
+  pass "live holder with a matching identity still blocks"
+}
+
+# Locks written before identities were recorded carry only pid; a mixed fleet
+# must keep today's pid-only rule for them, in both lock formats.
+test_lock_legacy_pid_only_live_holder_blocks() {
+  local dir state lockdir owner live out
+  dir=$(make_case lock-identity-legacy)
+  state="$dir/state"
+  sleep 300 &
+  live=$!
+  lockdir="$state/.link.lock"
+  owner="$lockdir.owner.legacy"
+  mkdir "$owner"
+  printf '%s\n' "$live" > "$owner/pid"
+  ln -s "$owner" "$lockdir"
+  mkdir "$state/.dir.lock"
+  printf '%s\n' "$live" > "$state/.dir.lock/pid"
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    for lock in "$2" "$3"; do
+      if fm_lock_try_acquire "$lock"; then exit 8; fi
+      [ "$FM_LOCK_HELD_PID" = "$4" ] || exit 9
+      [ "$(cat "$lock/pid")" = "$4" ] || exit 10
+    done
+    printf blocked
+  ' _ "$LIB" "$lockdir" "$state/.dir.lock" "$live") || true
+  kill "$live" 2>/dev/null || true
+  wait "$live" 2>/dev/null || true
+  [ "$out" = blocked ] || fail "legacy pid-only lock with a live pid did not block ($out)"
+  pass "legacy pid-only lock with a live pid still blocks"
+}
+
+# The remote-reply lifecycle waits are bounded: against a live holder the
+# real adapter entry fails within its bound and names the holder, rather than
+# spinning forever the way the reused-pid incident hung the reply runner.
+test_remote_reply_lifecycle_wait_is_bounded() {
+  local dir state lockdir holder pid rc err
+  dir=$(make_case lock-lifecycle-bound)
+  state="$dir/state"
+  mkdir -p "$dir/data"
+  lockdir="$state/.remote-reply-lifecycle-mate1.lock"
+  holder=$(start_identity_lock_holder "$state" "$lockdir" "$dir/held") \
+    || fail "lifecycle fixture holder never acquired its lock"
+  err="$dir/arm.err"
+  FM_STATE_OVERRIDE="$state" FM_DATA_OVERRIDE="$dir/data" FM_REMOTE_REPLY_LIFECYCLE_LOCK_WAIT=1 \
+    bash "$ROOT/bin/fm-procevent-remote-reply.sh" arm mate1 >/dev/null 2>"$err" &
+  pid=$!
+  rc=0
+  wait_for_exit "$pid" 100 || rc=$?
+  stop_identity_lock_holder "$holder"
+  [ "$rc" -ne 124 ] || fail "lifecycle wait spun past its bound against a live holder"
+  [ "$rc" -ne 0 ] || fail "lifecycle wait reported success against a live holder"
+  grep -F "by pid $holder (identity: " "$err" >/dev/null \
+    || fail "lifecycle wait timeout did not name the holder pid and identity: $(cat "$err")"
+  grep -F 'cannot lock remote reply lifecycle for mate1' "$err" >/dev/null \
+    || fail "lifecycle wait timeout did not refuse the arm: $(cat "$err")"
+  pass "bounded remote-reply lifecycle wait fails with the holder's identity"
+}
+
 # Start a process that claims each given link lock, then SIGKILL it so every
 # claim is left behind with a dead owner - an acquirer TERMed mid-steal.
 leave_dead_link_locks() {  # <state> <lock>...
@@ -1779,6 +1919,10 @@ test_lock_reclaims_self_held_steal_mutex
 test_lock_resumes_own_interrupted_steal_reap
 test_lock_live_steal_mutex_is_not_reclaimed
 test_lock_does_not_steal_live_lock
+test_lock_reclaims_reused_pid_with_mismatched_identity
+test_lock_live_holder_with_matching_identity_blocks
+test_lock_legacy_pid_only_live_holder_blocks
+test_remote_reply_lifecycle_wait_is_bounded
 test_lock_disappearing_during_format_check_is_not_malformed
 test_lock_empty_pid_uses_minimum_grace
 test_lock_wait_refuses_a_removed_lock_directory

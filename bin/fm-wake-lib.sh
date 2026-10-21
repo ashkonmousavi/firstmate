@@ -514,6 +514,8 @@ fm_lock_clean_known_files() {
     "$lockdir/pid" \
     "$lockdir/fm-home" \
     "$lockdir/pid-identity" \
+    "$lockdir/identity" \
+    "$lockdir/identity.tmp" \
     "$lockdir/role" \
     "$lockdir/watcher-path" \
     2>/dev/null || true
@@ -551,12 +553,35 @@ fm_lock_owner_dir() {
   mktemp -d "${lock_abs}.owner.XXXXXX" 2>/dev/null
 }
 
+# The owner directory is still unlinked here, so pid and identity become
+# visible together when fm_lock_try_create links it. An identity this platform
+# cannot compute is omitted, which leaves that lock on the pid-only rule.
 fm_lock_prepare_owner() {
-  local ownerdir=$1 mypid back
+  local ownerdir=$1 mypid back identity
   fm_current_pid mypid || return 1
   printf '%s\n' "$mypid" > "$ownerdir/pid" 2>/dev/null || return 1
   back=$(cat "$ownerdir/pid" 2>/dev/null || true)
-  [ "$back" = "$mypid" ]
+  [ "$back" = "$mypid" ] || return 1
+  if identity=$(fm_pid_identity "$mypid" 2>/dev/null) && [ -n "$identity" ]; then
+    printf '%s\n' "$identity" > "$ownerdir/identity" 2>/dev/null || rm -f "$ownerdir/identity" 2>/dev/null
+  fi
+  return 0
+}
+
+# fm_lock_holder_alive <lock-or-owner-dir> <pid>
+# A holder is live only while its pid runs and, when the owner recorded its
+# fm_pid_identity, that pid still carries the same identity. A pid reused by an
+# unrelated process therefore reads as stale and the ordinary steal path
+# reclaims the lock. A lock written without an identity (older code, or a
+# platform where it cannot be computed) keeps the pid-only rule.
+fm_lock_holder_alive() {
+  local dir=$1 pid=$2 recorded='' current
+  fm_pid_alive "$pid" || return 1
+  [ -e "$dir/identity" ] || return 0
+  { IFS= read -r recorded || [ -n "$recorded" ]; } < "$dir/identity" 2>/dev/null || true
+  [ -n "$recorded" ] || return 0
+  current=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
+  [ "$current" = "$recorded" ]
 }
 
 fm_lock_link_owner() {
@@ -679,15 +704,16 @@ fm_lock_mid_acquire_is_fresh() {
 }
 
 fm_lock_recheck_stale_owner() {
-  local lockdir=$1 expected_owner=$2 expected_pid=$3 actual_pid
+  local lockdir=$1 expected_owner=$2 expected_pid=$3 actual_pid holder
   if [ -n "$expected_owner" ]; then
     fm_lock_points_to_owner "$lockdir" "$expected_owner" || return 1
   elif [ -e "$lockdir" ] || [ -L "$lockdir" ]; then
     [ -d "$lockdir" ] && [ ! -L "$lockdir" ] || return 1
   fi
-  actual_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+  holder=${expected_owner:-$lockdir}
+  actual_pid=$(cat "$holder/pid" 2>/dev/null || true)
   [ "$actual_pid" = "$expected_pid" ] || return 1
-  if fm_pid_alive "$actual_pid"; then
+  if fm_lock_holder_alive "$holder" "$actual_pid"; then
     return 1
   fi
   if fm_lock_mid_acquire_is_fresh "$lockdir" "$actual_pid"; then
@@ -1274,7 +1300,7 @@ fm_lock_try_acquire() {
     FM_LOCK_HELD_PID=$(cat "$lockdir/pid" 2>/dev/null || true)
     return 1
   fi
-  if fm_pid_alive "$pid"; then
+  if fm_lock_holder_alive "$lockdir" "$pid"; then
     FM_LOCK_HELD_PID=$pid
     return 1
   fi
@@ -1292,7 +1318,7 @@ fm_lock_try_acquire() {
   steal_owner=${FM_LOCK_OWNER_DIR:-}
 
   cur=$(cat "$lockdir/pid" 2>/dev/null || true)
-  if fm_pid_alive "$cur"; then
+  if fm_lock_holder_alive "$lockdir" "$cur"; then
     fm_lock_release "$steal"
     FM_LOCK_HELD_PID=$cur
     FM_LOCK_OWNER_DIR=
@@ -1375,12 +1401,29 @@ fm_lock_acquire_wait_max() {  # <lockdir> <max-seconds>
   done
 }
 
+# fm_lock_acquire_wait_reporting <lockdir> <max-seconds>
+# fm_lock_acquire_wait_max for a caller that must refuse rather than hang
+# behind a holder that never lets go. On timeout it names the holder's recorded
+# pid and identity on stderr and returns 124; a malformed lock path returns 1
+# after fm_lock_report_malformed has named it.
+fm_lock_acquire_wait_reporting() {  # <lockdir> <max-seconds>
+  local lockdir=$1 seconds=$2 pid identity=''
+  case "$seconds" in ''|*[!0-9]*|0) return 2 ;; esac
+  fm_lock_acquire_wait_max "$lockdir" "$seconds" && return 0
+  [ -z "$FM_LOCK_MALFORMED" ] || return 1
+  pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+  { IFS= read -r identity || [ -n "$identity" ]; } < "$lockdir/identity" 2>/dev/null || true
+  printf 'error: lock %s still held after %ss by pid %s (identity: %s)\n' \
+    "$lockdir" "$seconds" "${pid:-unknown}" "${identity:-not recorded}" >&2
+  return 124
+}
+
 # Acquire in the timed helper process, then transfer the lock record to the
 # waiting caller before exiting. The lock's ordinary stale-owner recovery makes
 # every interruption safe: before transfer the helper is the owner; after
 # transfer the still-live caller is the owner.
 _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
-  local lockdir=$1 caller_pid=$2 ownerdir current back
+  local lockdir=$1 caller_pid=$2 ownerdir current back identity
   case "$caller_pid" in ''|*[!0-9]*) return 1 ;; esac
   fm_pid_alive "$caller_pid" || return 1
   trap 'fm_lock_release "$lockdir"; exit 143' TERM INT
@@ -1395,11 +1438,19 @@ _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
   fi
   fm_current_pid current || { fm_lock_release "$lockdir"; return 1; }
   back=$(cat "$ownerdir/pid" 2>/dev/null || true)
+  # Drop this helper's identity before the pid changes hands: between the two
+  # writes the record falls back to the pid-only rule, under which both the
+  # helper and the caller read as live, so no observer sees a mismatch.
   if [ "$back" != "$current" ] \
+    || ! rm -f "$ownerdir/identity" 2>/dev/null \
     || ! printf '%s\n' "$caller_pid" > "$ownerdir/pid" 2>/dev/null \
     || [ "$(cat "$ownerdir/pid" 2>/dev/null || true)" != "$caller_pid" ]; then
     fm_lock_release "$lockdir"
     return 1
+  fi
+  if identity=$(fm_pid_identity "$caller_pid" 2>/dev/null) && [ -n "$identity" ] \
+    && printf '%s\n' "$identity" > "$ownerdir/identity.tmp" 2>/dev/null; then
+    mv -f "$ownerdir/identity.tmp" "$ownerdir/identity" 2>/dev/null || rm -f "$ownerdir/identity.tmp" 2>/dev/null
   fi
   trap - TERM INT
 }
@@ -1460,7 +1511,7 @@ fm_lock_acquire_wait_bounded() {
     case "$owner_pid" in
       ''|*[!0-9]*|0) ;;
       *)
-        if [ "$owner_pid" -gt 0 ] 2>/dev/null && fm_pid_alive "$owner_pid"; then
+        if [ "$owner_pid" -gt 0 ] 2>/dev/null && fm_lock_holder_alive "$lockdir" "$owner_pid"; then
           FM_LOCK_HELD_PID=$owner_pid
           return 124
         fi
