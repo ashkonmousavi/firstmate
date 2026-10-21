@@ -1687,7 +1687,7 @@ fm_local_firstmate_state_dirs() {  # <first-state>
     [ "$known" = 1 ] || FM_LOCAL_FIRSTMATE_STATES+=("$home/state")
     reg="$home/data/secondmates.md"
     [ ! -e "$reg" ] && [ ! -L "$reg" ] && continue
-    [ -f "$reg" ] && [ ! -L "$reg" ] || {
+    [ -f "$reg" ] && [ ! -L "$reg" ] && [ -r "$reg" ] || {
       FM_LOCAL_FIRSTMATE_ERROR="local Firstmate registry is unsafe at $reg"
       return 1
     }

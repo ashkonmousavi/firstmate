@@ -255,6 +255,9 @@
 #   every place held prints one `deferred:` line and exits 75 before any brief
 #   render, endpoint, worktree, record, or backlog move exists, so the task stays
 #   exactly as queued as it was; an unreadable declaration refuses with exit 1.
+#   Machine admission runs first on all backends under a shared root-home
+#   lock through record publication (fm-capacity-lib.sh owns the rules).
+#   Missing machine facts also defer with exit 75.
 #   A batch reports such a pair as `batch: DEFERRED` and exits 75 when nothing
 #   else failed. A relaunch and a --secondmate spawn are never counted against
 #   capacity.
@@ -827,6 +830,8 @@ fm_backlog_directory_present "$STATE" "state directory" || {
 . "$SCRIPT_DIR/fm-walk-marker-lib.sh"
 # shellcheck source=bin/fm-project-capacity-lib.sh
 . "$SCRIPT_DIR/fm-project-capacity-lib.sh"
+# shellcheck source=bin/fm-capacity-lib.sh
+. "$SCRIPT_DIR/fm-capacity-lib.sh"
 # shellcheck source=bin/fm-worker-account-lib.sh
 . "$SCRIPT_DIR/fm-worker-account-lib.sh"
 # Fail closed before any fleet mutation: a no-mistakes gate agent must never spawn
@@ -1451,6 +1456,8 @@ SPAWN_META_PUBLISH_STARTED=0
 SPAWN_FRESH_COMMIT_PENDING=0
 SPAWN_TASK_SET_LOCK=
 SPAWN_TASK_SET_LOCK_HELD=0
+SPAWN_MACHINE_CAPACITY_LOCK=
+SPAWN_MACHINE_CAPACITY_LOCK_HELD=0
 SPAWN_TREEHOUSE_PROJECT_LOCK=
 SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
 SPAWN_SLOT_CLAIMED=0
@@ -1645,6 +1652,10 @@ spawn_abort_cleanup() {
       echo "warning: leaving task $ID's slot claim on $WT in place; the Treehouse project lock is no longer held, so the next spawn's claim replaces it" >&2
     fi
   fi
+  if [ "$SPAWN_MACHINE_CAPACITY_LOCK_HELD" = 1 ]; then
+    SPAWN_MACHINE_CAPACITY_LOCK_HELD=0
+    fm_lock_release "$SPAWN_MACHINE_CAPACITY_LOCK" || true
+  fi
   if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
     SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
     fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK" || true
@@ -1798,7 +1809,7 @@ if [ "${#POS[@]}" -gt 0 ] && [ "${POS[0]}" != "$idpart" ] && case "$idpart" in *
     pair_rc=0
     FM_SPAWN_NO_GUARD=1 "$FM_ROOT/bin/fm-spawn.sh" "${pair_args[@]}" || pair_rc=$?
     if [ "$pair_rc" -eq "$FM_PROJECT_CAPACITY_DEFER_EXIT" ]; then
-      echo "batch: DEFERRED ${pair%%=*} (${pair#*=}) - its project is at capacity, so it stays queued" >&2
+      echo "batch: DEFERRED ${pair%%=*} (${pair#*=}) - machine or project admission deferred it, so it stays queued" >&2
       [ "$rc" -ne 0 ] || rc=$FM_PROJECT_CAPACITY_DEFER_EXIT
     elif [ "$pair_rc" -ne 0 ]; then
       echo "batch: FAILED to spawn ${pair%%=*} (${pair#*=})" >&2
@@ -3402,6 +3413,24 @@ if [ "$RELAUNCH" -eq 1 ] && [ "$SPAWN_CONTROL_PARENT" != 1 ] &&
   [ "$KIND" != secondmate ] && [ "$BACKEND" != orca ] &&
   fm_treehouse_pool_slot "$PROJ_ABS" "$RELAUNCH_WT"; then
   SPAWN_RELAUNCH_POOL_SLOT=1
+fi
+# Every fresh worker, on every backend, shares machine admission. Keep the
+# lock through record publication. Relaunch replaces an existing holder.
+if [ "$RELAUNCH" -eq 0 ] && [ "$KIND" != secondmate ]; then
+  SPAWN_MACHINE_ROOT=$(fm_firstmate_root_home "$FM_HOME") || {
+    echo "deferred: cannot resolve machine root for $FM_HOME/config/lane-capacity; task $ID stays queued" >&2
+    exit 75
+  }
+  SPAWN_MACHINE_CAPACITY_LOCK="$SPAWN_MACHINE_ROOT/state/.machine-lane-capacity.lock"
+  if ! fm_lock_acquire_wait "$SPAWN_MACHINE_CAPACITY_LOCK"; then
+    echo "deferred: cannot lock $SPAWN_MACHINE_CAPACITY_LOCK; task $ID stays queued" >&2
+    exit 75
+  fi
+  SPAWN_MACHINE_CAPACITY_LOCK_HELD=1
+  if ! fm_capacity_read "$FM_HOME" "$CONFIG" "$STATE" "$ID"; then
+    echo "deferred: $FM_CAPACITY_ERROR; task $ID stays queued" >&2
+    exit 75
+  fi
 fi
 # Project capacity admission (bin/fm-project-capacity-lib.sh owns the
 # declaration, what holds a place, and why this is race-safe). A fresh worker
@@ -5836,6 +5865,10 @@ fi
 # still being delivered, cannot observe or complete a fresh provisional record
 # between its state check and `tasks-axi start`, and a delivery failure cannot
 # follow a committed In-flight transition.
+if [ "$SPAWN_MACHINE_CAPACITY_LOCK_HELD" = 1 ]; then
+  SPAWN_MACHINE_CAPACITY_LOCK_HELD=0
+  fm_lock_release "$SPAWN_MACHINE_CAPACITY_LOCK"
+fi
 if [ "$SPAWN_TREEHOUSE_PROJECT_LOCK_HELD" = 1 ]; then
   SPAWN_TREEHOUSE_PROJECT_LOCK_HELD=0
   fm_lock_release "$SPAWN_TREEHOUSE_PROJECT_LOCK"

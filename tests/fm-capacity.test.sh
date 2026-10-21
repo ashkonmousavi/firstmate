@@ -1,177 +1,92 @@
 #!/usr/bin/env bash
-# Behavioral coverage for bin/fm-capacity.sh: lane counting from task metadata,
-# the optional config/lane-capacity target, host-constraint verdicts from faked
-# probes, graceful degradation when probes are unavailable, and a real-host smoke.
+# Machine-wide capacity reports, admission, publication and placement behavior.
 set -u
-
 # shellcheck source=tests/lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-
-BASE_PATH=${FM_TEST_BASE_PATH:-/usr/bin:/bin:/usr/sbin:/sbin}
 TMP_ROOT=$(fm_test_tmproot fm-capacity)
 CAPACITY="$ROOT/bin/fm-capacity.sh"
+mkdir -p "$TMP_ROOT/home/"{state,config,data} "$TMP_ROOT/mate/"{state,config,data}
+export FM_HOME="$TMP_ROOT/home" FM_CAPACITY_MEMINFO="$TMP_ROOT/meminfo"
+printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+printf 'MemTotal: 16777216 kB\nMemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
+printf -- '- mate - local (home: %s; scope: tests; projects: a; added 2026-09-01)\n' "$TMP_ROOT/mate" > "$FM_HOME/data/secondmates.md"
+for n in 1 2 3; do
+  fm_write_meta "$FM_HOME/state/task-$n.meta" kind=ship "project=project-$n"
+done
+for n in 4 5; do
+  fm_write_meta "$TMP_ROOT/mate/state/task-$n.meta" kind=scout "project=project-$n"
+done
+fm_write_meta "$FM_HOME/state/mate.meta" kind=secondmate
+out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+expect_code 75 "$rc" "sixth lane at ceiling five"
+assert_contains "$out" 'lanes=5 target=5' 'all projects and local homes count'
+printf 'pr=https://github.com/o/r/pull/1\n' >> "$TMP_ROOT/mate/state/task-5.meta"
+out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+expect_code 0 "$rc" 'PR handoff frees a place'
+assert_contains "$out" 'free_lanes=1' 'secondmate holds no place'
+pass 'machine ceiling spans local homes and projects; PR handoff and secondmates excluded'
+# External bots do not create local task records. A local walk cannot evade
+# admission by naming itself after an exempt external bot.
+fm_write_meta "$FM_HOME/state/local-walk.meta" kind=ship walk_owner=grok-bot
+out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+expect_code 75 "$rc" 'ordinary local walk holds a lane'
+rm "$FM_HOME/state/local-walk.meta"
+out=$(bash "$ROOT/bin/fm-fleet-view.sh" --capacity) || fail 'activity facts failed'
+assert_contains "$out" 'lanes=4 target=5' 'activity uses machine reading'
+out=$(bash "$ROOT/bin/fm-fleet-ledger.sh" capacity --json) || fail 'ledger facts failed'
+jq -e '.lanes == 4 and .target == 5 and .reserve_kb == 3145728' <<< "$out" >/dev/null || fail 'ledger facts differ'
+pass 'activity, ledger and admission share facts; local walk markers do not bypass limits'
 
-# make_home <name> <ship-count> <secondmate-count>: a home with that many
-# ship metas and secondmate metas.
-make_home() {
-  local home="$TMP_ROOT/$1" i
-  mkdir -p "$home/state" "$home/config"
-  i=0
-  while [ "$i" -lt "$2" ]; do
-    fm_write_meta "$home/state/ship-$i.meta" "kind=ship" "mode=no-mistakes"
-    i=$((i + 1))
+printf 'MemAvailable: 3145728 kB\n' > "$FM_CAPACITY_MEMINFO"
+bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+expect_code 0 "$rc" 'exact reserve has zero headroom and is admissible'
+printf 'MemAvailable: 356000 kB\n' > "$FM_CAPACITY_MEMINFO"
+out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+expect_code 75 "$rc" 'low memory'
+assert_contains "$out" 'reason=memory' 'memory refusal'
+assert_contains "$out" "$FM_CAPACITY_MEMINFO" 'reading named'
+pass 'memory reserve is fixed and refuses below zero headroom'
+for bad in '' '5' '5 -1' '5 3 extra' 'NaN 3'; do
+  printf '%s\n' "$bad" > "$FM_HOME/config/lane-capacity"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" "invalid config: $bad"
+  assert_contains "$out" "$FM_HOME/config/lane-capacity" 'bad file named'
+done
+rm "$FM_HOME/config/lane-capacity"
+bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+expect_code 75 "$rc" 'missing declaration'
+printf '5 3\n' > "$FM_HOME/config/lane-capacity"
+for bad in '' 'MemAvailable: nope kB' 'MemAvailable: 4 MB' $'MemAvailable: 4 kB\nMemAvailable: 8 kB'; do
+  printf '%s\n' "$bad" > "$FM_CAPACITY_MEMINFO"
+  bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+  expect_code 75 "$rc" 'unreadable host reading'
+done
+printf 'MemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
+if [ "$(id -u)" != 0 ]; then
+  for denied in "$FM_HOME/config/lane-capacity" "$FM_CAPACITY_MEMINFO" "$FM_HOME/data/secondmates.md"; do
+    chmod 000 "$denied"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    chmod 600 "$denied"
+    expect_code 75 "$rc" "unreadable file: $denied"
   done
-  i=0
-  while [ "$i" -lt "$3" ]; do
-    fm_write_secondmate_meta "$home/state/sm-$i.meta" "$home"
-    i=$((i + 1))
-  done
-  printf '%s\n' "$home"
-}
-
-# make_probes <dir> <load1> <mem-free-pct> <cores> <avail-kb>: fake Darwin
-# probes. An empty value makes that probe fail.
-make_probes() {
-  local fakebin
-  fakebin=$(fm_fakebin "$1")
-  printf '#!/usr/bin/env bash\necho Darwin\n' > "$fakebin/uname"
-  cat > "$fakebin/sysctl" <<SH
-#!/usr/bin/env bash
-case "\$2" in
-  vm.loadavg) [ -n "$2" ] && echo "{ $2 1.00 1.00 }" ;;
-  kern.memorystatus_level) [ -n "$3" ] && echo "$3" ;;
-  hw.logicalcpu) [ -n "$4" ] && echo "$4" ;;
-esac
-SH
-  printf '#!/usr/bin/env bash\nexit 1\n' > "$fakebin/getconf"
-  cat > "$fakebin/df" <<SH
-#!/usr/bin/env bash
-[ -n "$5" ] || exit 1
-echo "Filesystem 1024-blocks Used Available Capacity Mounted"
-echo "/dev/fake 999999999 1 $5 1% /"
-SH
-  chmod +x "$fakebin"/*
-  printf '%s\n' "$fakebin"
-}
-
-run_capacity() {  # <home> <fakebin>
-  PATH="$2:$BASE_PATH" FM_HOME="$1" "$CAPACITY" 2>&1
-}
-
-test_no_target_prints_counts_only() {
-  local home fakebin out rc
-  home=$(make_home no-target 3 1)
-  fakebin=$(make_probes "$TMP_ROOT/p-no-target" 0.50 60 8 20971520)
-  out=$(run_capacity "$home" "$fakebin"); rc=$?
-  expect_code 0 "$rc" "absent target"
-  assert_contains "$(printf '%s\n' "$out" | head -1)" \
-    'capacity: free_lanes=unknown reason=no-target lanes=3 target=none secondmates=1 load1=0.50 cores=8 mem_free_pct=60 disk_free_mb=20480' \
-    "absent target must report counts without inventing one"
-  pass "absent config/lane-capacity reports counts and no target"
-}
-
-test_no_target_never_prints_constrained_line() {
-  local home fakebin out rc
-  home=$(make_home no-target-constrained 1 0)
-  fakebin=$(make_probes "$TMP_ROOT/p-no-target-constrained" 9.50 9 8 1048576)
-  out=$(run_capacity "$home" "$fakebin"); rc=$?
-  expect_code 0 "$rc" "absent target on a constrained host"
-  assert_contains "$out" 'free_lanes=unknown reason=no-target '     "constrained host without a target must still report no-target"
-  assert_not_contains "$out" 'Constrained:'     "the hold-dispatch line is opt-in on config/lane-capacity"
-  printf '6\n' > "$home/config/lane-capacity"
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'Constrained: cpu,memory,disk'     "the hold-dispatch line appears once config/lane-capacity exists"
-  pass "the Constrained line is printed only when config/lane-capacity exists"
-}
-
-test_target_yields_open_lanes_and_full() {
-  local home fakebin out
-  home=$(make_home target 2 1)
-  fakebin=$(make_probes "$TMP_ROOT/p-target" 0.50 60 8 20971520)
-  printf '5\n' > "$home/config/lane-capacity"
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'capacity: free_lanes=3 reason=ok lanes=2 target=5 secondmates=1 ' \
-    "secondmates must not consume lanes"
-  printf '2\n' > "$home/config/lane-capacity"
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'free_lanes=0 reason=full lanes=2 target=2' "target reached must be full"
-  printf '1\n' > "$home/config/lane-capacity"
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'free_lanes=0 reason=full lanes=2 target=1' "over target must not go negative"
-  pass "a target yields open lanes, full, and never a negative count"
-}
-
-test_host_constraints_close_lanes() {
-  local home fakebin out
-  home=$(make_home constrained 1 0)
-  printf '6\n' > "$home/config/lane-capacity"
-  fakebin=$(make_probes "$TMP_ROOT/p-cpu" 8.00 60 8 20971520)
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'free_lanes=0 reason=cpu ' "load at core count must constrain"
-  fakebin=$(make_probes "$TMP_ROOT/p-all" 9.50 9 8 1048576)
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'free_lanes=0 reason=cpu,memory,disk ' "every constraint must be named"
-  assert_contains "$out" 'Constrained: cpu,memory,disk' "human summary must name constraints"
-  fakebin=$(make_probes "$TMP_ROOT/p-edge" 7.99 10 8 5242880)
-  out=$(run_capacity "$home" "$fakebin")
-  assert_contains "$out" 'free_lanes=5 reason=ok ' "values just inside thresholds must not constrain"
-  pass "cpu, memory, and disk pressure close every lane and are named"
-}
-
-test_unavailable_probes_degrade() {
-  local home fakebin out rc
-  home=$(make_home degrade 1 0)
-  printf '4\n' > "$home/config/lane-capacity"
-  fakebin=$(make_probes "$TMP_ROOT/p-none" "" "" "" "")
-  out=$(run_capacity "$home" "$fakebin"); rc=$?
-  expect_code 0 "$rc" "unavailable probes"
-  assert_contains "$out" 'capacity: free_lanes=3 reason=ok lanes=1 target=4 secondmates=0 load1=unknown cores=unknown mem_free_pct=unknown disk_free_mb=unknown' \
-    "unavailable probes must print unknown and not constrain"
-  pass "unavailable probes print unknown and do not constrain"
-}
-
-test_invalid_target_is_reported() {
-  local home fakebin out rc
-  home=$(make_home invalid 1 0)
-  fakebin=$(make_probes "$TMP_ROOT/p-invalid" 0.50 60 8 20971520)
-  printf 'lots\n' > "$home/config/lane-capacity"
-  out=$(run_capacity "$home" "$fakebin"); rc=$?
-  expect_code 1 "$rc" "invalid target"
-  assert_contains "$out" 'free_lanes=unknown reason=invalid-target lanes=1 target=invalid' \
-    "invalid target must not be guessed"
-  assert_contains "$out" 'fm-capacity: config/lane-capacity must hold one non-negative integer' \
-    "invalid target must name the problem"
-  local bad
-  for bad in '3\n4\n' '1 2\n' '99999999999999999999\n'; do
-    printf '%b' "$bad" >"$home/config/lane-capacity"
-    out=$(run_capacity "$home" "$fakebin"); rc=$?
-    expect_code 1 "$rc" "invalid target $bad"
-    assert_contains "$out" 'reason=invalid-target' "target '$bad' must be rejected"
-  done
-  printf '  3 \n' > "$home/config/lane-capacity"
-  out=$(run_capacity "$home" "$fakebin"); rc=$?
-  assert_contains "$out" 'target=3' "surrounding whitespace is tolerated"
-  pass "a malformed target is reported, not guessed"
-}
-
-test_real_host_smoke() {
-  local home out rc
-  home=$(make_home real 0 0)
-  out=$(FM_HOME="$home" "$CAPACITY" 2>&1); rc=$?
-  expect_code 0 "$rc" "real host"
-  case "$(printf '%s\n' "$out" | head -1)" in
-    'capacity: free_lanes=unknown reason=no-target lanes=0 target=none secondmates=0 load1='*' cores='*' mem_free_pct='*' disk_free_mb='*) : ;;
-    *) fail "real host line malformed: $out" ;;
-  esac
-  pass "real host probes produce a well-formed report"
-}
-
-test_no_target_prints_counts_only
-test_no_target_never_prints_constrained_line
-test_target_yields_open_lanes_and_full
-test_host_constraints_close_lanes
-test_unavailable_probes_degrade
-test_invalid_target_is_reported
-test_real_host_smoke
-
-echo '# all fm-capacity tests passed'
+fi
+pass 'missing and malformed machine facts refuse placement'
+printf 'MemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
+bash "$CAPACITY" --publish > "$TMP_ROOT/report.json" || fail 'publish failed'
+jq -e '.schema == "fm-lane-capacity.v1" and .free_lanes == 1 and .headroom_kb == 1048576' "$FM_HOME/state/lane-capacity.json" >/dev/null || fail 'published facts wrong'
+cp "$FM_HOME/state/lane-capacity.json" "$TMP_ROOT/laptop.json"
+printf 'MemAvailable: nope kB\n' > "$FM_CAPACITY_MEMINFO"
+bash "$CAPACITY" --publish >/dev/null 2>&1; rc=$?
+expect_code 1 "$rc" 'unreadable publication reports failure'
+jq -e '.readable == false and .free_lanes == 0' "$FM_HOME/state/lane-capacity.json" >/dev/null || fail 'old good publication survived unreadable host'
+printf 'MemAvailable: 4194304 kB\n' > "$FM_CAPACITY_MEMINFO"
+jq '.machine="server" | .free_lanes=3 | .lanes=2 | .headroom_kb=2097152 | .mem_available_kb=5242880' "$TMP_ROOT/laptop.json" > "$TMP_ROOT/server.json"
+out=$(bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/laptop.json" "$TMP_ROOT/server.json" "$TMP_ROOT/missing.json") || fail 'placement failed'
+assert_contains "$out" 'Placement: server' 'machine with most room'
+jq '.readable=false' "$TMP_ROOT/server.json" > "$TMP_ROOT/unreadable.json"
+out=$(bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/unreadable.json" "$TMP_ROOT/missing.json" 2>&1); rc=$?
+expect_code 75 "$rc" 'unreadable machines never chosen'
+jq '.generated_epoch=1' "$TMP_ROOT/laptop.json" > "$TMP_ROOT/stale.json"
+bash "$ROOT/bin/fm-place.sh" "$TMP_ROOT/stale.json" >/dev/null 2>&1; rc=$?
+expect_code 75 "$rc" 'stale machine never chosen'
+pass 'published facts drive placement; unreadable and stale hosts refused'

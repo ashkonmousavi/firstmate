@@ -25,6 +25,7 @@
 #   fm-fleet-ledger.sh merged <task> pr <url>
 #   fm-fleet-ledger.sh merged <task> local
 #   fm-fleet-ledger.sh cleaned_up <task>
+#   fm-fleet-ledger.sh capacity [--json]  (same machine facts as activity/admission)
 #   fm-fleet-ledger.sh capture
 #   fm-fleet-ledger.sh appended <config> <state>/<task>.status
 #
@@ -74,6 +75,10 @@ task_ok() {
 }
 
 cmd=${1:-}
+if [ "$cmd" = capacity ]; then
+  shift
+  exec "$SCRIPT_DIR/fm-capacity.sh" "$@"
+fi
 case "$cmd" in
   dispatched) { [ "$#" -eq 6 ] && task_ok "$2"; } || usage ;;
   pr_ready) { [ "$#" -eq 3 ] && task_ok "$2" && [ -n "$3" ]; } || usage ;;

@@ -15,6 +15,9 @@
 # relative BASH_SOURCE resolved only at call time would then miss this repo.
 FM_TEST_PREP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Spawn fixtures declare generous machine room; admission suites override it.
+export FM_CAPACITY_MEMINFO=${FM_CAPACITY_MEMINFO:-$FM_TEST_PREP_ROOT/tests/captures/capacity-meminfo}
+
 # fm_test_prep_record <data-dir> <id> [<q1>] [<q2>] [<ui-wiring>] [<depth-mode>]
 # Writes an answered record for <id> under <data-dir>. The tier header answers
 # default to three noes with the tier-1 sections; pass yes to
@@ -24,6 +27,10 @@ FM_TEST_PREP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fm_test_prep_record() {
   local data=$1 id=$2 q1=${3:-no} q2=${4:-no} ui=${5:-no} depth_mode=${6:-no-mistakes} root prep
   root=$FM_TEST_PREP_ROOT
+  mkdir -p "$data/../config"
+  if [ ! -e "$data/../config/lane-capacity" ]; then
+    printf '999999 0\n' > "$data/../config/lane-capacity"
+  fi
   prep="$data/$id/prep.md"
   if [ ! -e "$prep" ]; then
     mkdir -p "$data/$id"
