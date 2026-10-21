@@ -4054,6 +4054,8 @@ EOF
           triage_log "continued exhausted account on the next signed-in profile: $task"
           continue
         fi
+        checkpoint_recovery_surface
+        checkpoint_deadline_passed && break
         # The pane is idle/stale at hash $h. Triage decides whether this wakes
         # firstmate. Detection itself is unchanged from above.
         #

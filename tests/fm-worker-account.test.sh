@@ -77,6 +77,13 @@ if [ "\${1:-}" = login ] && [ "\${2:-}" = status ]; then
   exit
 fi
 printf 'CODEX_HOME=%s\n' "\${CODEX_HOME-unset}" > '$dir/codex-worker'
+if [ -n "\${FM_CODEX_BUSY_GEN:-}" ]; then
+  for event in UserPromptSubmit Stop; do
+    command=\$(jq -er --arg event "\$event" '.hooks[\$event][0].hooks[0].command' "\$CODEX_HOME/hooks.json") || exit 1
+    jq -n --arg cwd "\$FM_CODEX_BUSY_WORKTREE" --arg event "\$event" \
+      '{cwd: \$cwd, hook_event_name: \$event, session_id: "account-test"}' | bash -c "\$command" || exit 1
+  done
+fi
 SH
   chmod +x "$fakebin/codex"
 }
@@ -410,6 +417,9 @@ test_explicit_account_roots() {
     assert_contains "$(cat "$CASE/$runner-worker")" "$root" "destination ambient account must not win"
     if [ "$runner" = claude ]; then
       assert_contains "$(cat "$CASE/claude-worker")" 'ANTHROPIC_API_KEY=unset' "explicit root must shed ambient credentials"
+    else
+      assert_grep ' state=idle ' "$HOME_DIR/state/$id.busy-state" "hooks in the selected root must settle the worker"
+      assert_absent "$HOME_DIR/user-home/.codex/hooks.json" "selected account setup must leave the ambient root untouched"
     fi
   done
   new_case explicit-conflict claude
@@ -449,6 +459,8 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 case "$provider" in claude) root=$CLAUDE_CONFIG_DIR ;; *) root=$CODEX_HOME ;; esac
+if [ -f "$root/slow" ]; then sleep 3; fi
+if [ -f "$root/quota.json" ]; then cat "$root/quota.json"; exit; fi
 if [ -f "$root/auth-error" ]; then
   if [ "$profile" = 1 ]; then
     jq -n --arg p "$provider" '{schemaVersion:5,providers:[{provider:$p,state:{status:"auth_required"},quotaSemantics:{status:"unknown",effectiveAvailability:[]}}]}'
@@ -485,6 +497,21 @@ SH
   touch "$CASE/codex-2/renewable"
   out=$(OPENAI_API_KEY=ambient-renewal-fixture PATH="$FAKEBIN:$PATH" fm_worker_account_quota codex "$CASE/codex-2" default)
   [ "$out" = healthy ] && [ -f "$CASE/codex-2/renewed" ] || fail "vendor-renewed profile must be reread strictly before use"
+  jq -n '{schemaVersion:5,providers:[{provider:"codex",state:{status:"fresh"},quotaSemantics:{status:"known",effectiveAvailability:[
+    {scope:"all_models",status:"known",effectivePercentRemaining:50,runway:{status:"through_reset"}},
+    {scope:"model:codex_bengalfox",status:"known",effectivePercentRemaining:0,runway:{status:"exhausted_now"}}
+  ]}}]}' > "$CASE/codex-2/quota.json"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_quota codex "$CASE/codex-2" gpt-5.3-codex-spark)
+  [ "$out" = exhausted ] || fail "the documented Bengalfox window must bound Spark"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_quota codex "$CASE/codex-2" gpt-5.5)
+  [ "$out" = healthy ] || fail "the Spark window must not bound other models"
+  out=$(PATH="$FAKEBIN:$PATH" fm_worker_account_next codex "$CASE/codex-1" gpt-5.3-codex-spark)
+  [ "$out" = "$CASE/codex-3" ] || fail "Spark replacement selection must skip an exhausted Spark window"
+  touch "$CASE/codex-1/slow"
+  out=$(FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 1 )) PATH="$FAKEBIN:$PATH" \
+    fm_worker_account_quota codex "$CASE/codex-1" default)
+  [ "$out" = unknown ] || fail "a quota read exceeding the checkpoint must not return exhausted"
+  rm "$CASE/codex-1/slow"
   mkdir -p "$CASE/recovery-bin" "$CASE/recovery-state"
   cat > "$CASE/recovery-bin/fm-control.sh" <<'SH'
 #!/usr/bin/env bash
@@ -497,6 +524,15 @@ harness=codex
 kind=ship
 model=default
 EOF
+  fm_wake_queued_keys() { :; }
+  fm_wake_append() { printf '%s\n' "$@" >> "$CASE/queued-recovery"; }
+  FM_CHECKPOINT_DEADLINE=$(( $(date +%s) + 30 )) PATH="$FAKEBIN:$PATH" \
+    fm_worker_account_recover "$CASE/recovery-state/t.meta" "$CASE/recovery-bin"; rc=$?
+  expect_code 124 "$rc" "bounded checkpoints must defer relaunch"
+  assert_contains "$(cat "$CASE/queued-recovery")" 'checkpoint-recovery-relaunch-t' "deferral must queue recovery"
+  assert_absent "$CASE/recovery-log" "bounded checkpoints must not start a relaunch"
+  assert_absent "$CASE/recovery-state/.t.account-check" "a deferred observation must not throttle recovery"
+  unset -f fm_wake_queued_keys fm_wake_append
   FM_RECOVERY_LOG="$CASE/recovery-log" PATH="$FAKEBIN:$PATH" \
     fm_worker_account_recover "$CASE/recovery-state/t.meta" "$CASE/recovery-bin" || fail "watcher must invoke recovery without a model turn"
   assert_contains "$(cat "$CASE/recovery-log")" '--from-account-root' "recovery must bind the observed account"

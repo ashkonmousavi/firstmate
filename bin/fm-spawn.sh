@@ -2817,6 +2817,8 @@ if [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = claude ]; then
   else
     unset CLAUDE_CONFIG_DIR
   fi
+elif [ -n "$WORKER_ACCOUNT" ] && [ "$HARNESS" = codex ]; then
+  export CODEX_HOME=$WORKER_ACCOUNT_ROOT
 fi
 
 secondmate_registry_value() {

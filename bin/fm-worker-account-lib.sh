@@ -336,7 +336,7 @@ fm_worker_account_claude_shed() {
 # fallback result, then reread this exact root. Never parse credentials here.
 # Print healthy, exhausted, or unknown for the worker's applicable scopes.
 fm_worker_account_quota() {  # <harness> <root> <model>
-  local harness=$1 root=$2 model=$3 json selector name
+  local harness=$1 root=$2 model=$3 json selector name budget
   local -a renewal_env=(env)
   case "$harness" in
     claude) selector=CLAUDE_CONFIG_DIR ;;
@@ -346,7 +346,8 @@ fm_worker_account_quota() {  # <harness> <root> <model>
   [ -d "$root" ] || { printf 'unknown\n'; return; }
   # shellcheck source=bin/fm-quota-axi-lib.sh
   . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fm-quota-axi-lib.sh"
-  json=$(fm_run_timed 15 env "$selector=$root" quota-axi --provider "$harness" \
+  budget=$(fm_checkpoint_budget 15) || { printf 'unknown\n'; return; }
+  json=$(fm_run_timed "$budget" env "$selector=$root" quota-axi --provider "$harness" \
     --profile-only --no-credential-refresh --json 2>/dev/null </dev/null) || :
   if printf '%s\n' "$json" | fm_quota_json_valid &&
     printf '%s\n' "$json" | jq -e --arg p "$harness" '
@@ -358,9 +359,11 @@ fm_worker_account_quota() {  # <harness> <root> <model>
       renewal_env+=(-u OPENAI_API_KEY -u CODEX_API_KEY -u CODEX_ACCESS_TOKEN)
     fi
     renewal_env+=("$selector=$root")
-    fm_run_timed 30 "${renewal_env[@]}" quota-axi --provider "$harness" --json \
+    budget=$(fm_checkpoint_budget 30) || { printf 'unknown\n'; return; }
+    fm_run_timed "$budget" "${renewal_env[@]}" quota-axi --provider "$harness" --json \
       >/dev/null 2>&1 </dev/null || :
-    json=$(fm_run_timed 15 env "$selector=$root" quota-axi --provider "$harness" \
+    budget=$(fm_checkpoint_budget 15) || { printf 'unknown\n'; return; }
+    json=$(fm_run_timed "$budget" env "$selector=$root" quota-axi --provider "$harness" \
       --profile-only --no-credential-refresh --json 2>/dev/null </dev/null) || :
   fi
   printf '%s\n' "$json" | fm_quota_json_valid || { printf 'unknown\n'; return; }
@@ -370,6 +373,7 @@ fm_worker_account_quota() {  # <harness> <root> <model>
     else .[0].quotaSemantics.effectiveAvailability |
       map(select(.scope as $scope |
         $scope == "all_models" or $scope == ("model:" + $model) or
+        ($provider == "codex" and $model == "gpt-5.3-codex-spark" and $scope == "model:codex_bengalfox") or
         (($scope | startswith("model:")) and
          (($model | split("-") | index($scope | ltrimstr("model:"))) != null)))) as $scopes |
       if ($scopes | length) == 0 then "unknown"
@@ -427,6 +431,10 @@ fm_worker_account_recover() {  # <meta> <script-dir>
   printf '%s\n' "$now" > "$stamp" || return 1
   model=$(fm_meta_get "$meta" model)
   [ "$(fm_worker_account_quota "$harness" "$root" "$model")" = exhausted ] || return 1
+  if [ -n "${FM_CHECKPOINT_DEADLINE:-}" ]; then
+    rm -f "$stamp" || return 1
+  fi
+  fm_checkpoint_admit "$id" relaunch || return 124
   fm_run_timed 180 bash "$scripts/fm-control.sh" "$id" relaunch \
     --next-account --from-account-root "$root" \
     --note "The previous account exhausted its applicable quota. Continue the same task from its durable instructions and checkpoint; preserve existing work." \
