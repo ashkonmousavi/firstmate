@@ -1147,8 +1147,8 @@ EOF
 # task on every wake, which grows unbounded as tasks run longer and accumulate
 # status history. status_open_decisions_incremental and scan_open_decisions_incremental
 # below are the bounded-cost siblings used for that per-drain path: each call
-# reads only the bytes appended to a status file since its own last call (a
-# persisted per-file byte cursor) and folds just those new lines into a
+# reads only the bytes appended to a status file since the last committed
+# per-file byte cursor and folds just those new lines into a
 # persisted running open-set, via the exact same _fm_decision_fold_line rule
 # status_open_decisions uses - so the two strategies can never disagree on what
 # is open. Cost is bounded by NEW appends since the last drain, not by the
@@ -1175,9 +1175,9 @@ EOF
 # (replaced/rotated/recreated), which a changed device+inode makes an O(1) check
 # via a single `stat` call - no content hashing, no re-reading the consumed
 # prefix. Any signal falls back to a full re-fold of the whole current file from
-# byte 0 - byte for byte what status_open_decisions itself would compute - and
-# rewrites the cursor from that clean baseline. A same-inode, same-size,
-# in-place byte edit is NOT detected; that is a deliberately accepted gap
+# byte 0 - byte for byte what status_open_decisions itself would compute.
+# A committing call also rewrites the cursor from that clean baseline.
+# A same-inode, same-size, in-place byte edit is NOT detected; that is an accepted gap
 # because no code path in this repo ever does that to a status file.
 #
 # The other real failure mode is OUR OWN read failing (a stat/wc/tail I/O
@@ -1186,8 +1186,8 @@ EOF
 # risking a silent invalidation that would wipe it - never a bare "empty" as if
 # nothing were open.
 #
-# Not a pure status-file read: this writes/rewrites the sibling cursor file as a
-# side effect (state/.<task>.open-decisions-cursor), the library's second
+# Not a pure status-file read: by default this writes/rewrites the sibling cursor
+# file as a side effect (state/.<task>.open-decisions-cursor), the library's second
 # documented exception to the pure-read rule after crew_absorb_class. The write
 # is atomic (temp file + rename), so a crash between calls leaves either the
 # prior cursor or the new one, never a partial one. bin/fm-wake-drain.sh calls
@@ -1196,6 +1196,11 @@ EOF
 # drop an open decision - because a losing writer's offset can only ever be
 # equal to or behind an already-recorded byte position, and the next call
 # re-derives from whatever offset actually landed on disk.
+#
+# status_open_decisions_peek uses this same fold without committing the cursor
+# or persisted open-set. It reads from the drain's last trusted cursor, or from
+# byte 0 when none is trusted, and leaves every cursor consumer's offset intact.
+# It still uses the temporary span file while reading new appends.
 _fm_open_decisions_cursor_path() {  # <status-file>
   local f=$1 dir base
   dir=$(dirname "$f")
@@ -1410,13 +1415,10 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
   printf '%s' "$open"
 }
 
-# Read-only sibling of status_open_decisions_incremental, for a caller that asks
-# about one task every supervision cycle (the pending-reply recovery gate, the
-# watcher's ring and nudge gates). It starts from the cursor the drain commits
-# and folds only the bytes appended since, so its cost follows new appends, not
-# the log's lifetime size, but it never writes that cursor: the drain's own
-# bookkeeping and every reader of the cursor offset are unchanged. With no
-# trusted cursor it folds the whole file, exactly as status_open_decisions does.
+# Non-committing sibling of status_open_decisions_incremental, for a caller
+# asking about one task every supervision cycle (the pending-reply recovery gate, the
+# watcher's ring and nudge gates). See the incremental open-decisions fold
+# contract above for cursor ownership and fallback behavior.
 status_open_decisions_peek() {  # <status-file>
   local _FM_OPEN_DECISIONS_PEEK=1
   status_open_decisions_incremental "$1"
