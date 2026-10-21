@@ -1527,6 +1527,9 @@ fm_lock_acquire_wait_bounded() {
 
   owner_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
   if [ "$owner_pid" = "$caller_pid" ]; then
+    # Accept the handoff in place: dropping and recreating this lock would let
+    # a contender acquire it between those operations. If the helper was
+    # interrupted after the pid write, finish publishing our identity in place.
     [ -e "$lockdir/identity" ] || fm_lock_publish_identity "$lockdir" "$caller_pid"
     return 0
   fi

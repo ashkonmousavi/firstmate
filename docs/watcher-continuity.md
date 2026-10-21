@@ -216,7 +216,7 @@ Each lock owner also records its `fm_pid_identity` beside its pid, and `fm_lock_
 A live pid whose start time differs is a reused pid, so the ordinary steal path reclaims the lock.
 The command line is not compared because a holder that execs after acquiring, explicitly or through bash running a final command in place, keeps its pid and start time but changes its command line, and must still block.
 A lock with no recorded identity, written by older code or on a platform where the identity cannot be computed, keeps the pid-only rule.
-The remote-reply lifecycle waits are bounded by `FM_REMOTE_REPLY_LIFECYCLE_LOCK_WAIT` and fail naming the holder's pid and identity instead of hanging behind a holder that never releases.
+For the remote-reply lifecycle wait limit and timeout diagnostics, see `FM_REMOTE_REPLY_LIFECYCLE_LOCK_WAIT` in [configuration.md](configuration.md#environment-variables).
 `tests/fm-watcher-lock.test.sh` covers the reused-pid reclaim, a matching live holder, a holder that execs after acquiring, a legacy pid-only lock, and the bounded lifecycle wait.
 
 The turn-end guard remains the final backstop rather than the normal continuity mechanism.
