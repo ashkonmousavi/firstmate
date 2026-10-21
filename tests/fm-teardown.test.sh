@@ -5313,12 +5313,59 @@ test_bootstrap_preserves_merge_hold() (
   pass "bootstrap accurately reports merge holds after complete and incomplete cleanup"
 )
 
+test_gitlab_keep_open_and_replay() (
+  local scenario case_dir out marker
+  local url=https://gitlab.com/example/repo/-/merge_requests/7
+  . "$ROOT/bin/fm-tasks-axi-lib.sh"
+  . "$ROOT/bin/fm-backlog-transition-lib.sh"
+  for scenario in immediate replay replay-incomplete; do
+    case_dir=$(make_case "gitlab-keep-open-$scenario")
+    write_meta "$case_dir" direct-PR ship
+    wt_commit_file "$case_dir" feature.txt feature
+    git -C "$case_dir/wt" push -q origin HEAD:fm/task-x1
+    printf 'pr=%s\n' "$url" >> "$case_dir/state/task-x1.meta"
+    seed_backlog_in_flight "$case_dir"
+    cat > "$case_dir/fakebin/glab" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"state":"opened"}'
+SH
+    chmod +x "$case_dir/fakebin/glab"
+    marker="$case_dir/state/task-x1.backlog-close"
+    if [ "$scenario" = immediate ]; then
+      out=$(run_teardown "$case_dir" --keep-open 2>&1) || fail "GitLab keep-open failed: $out"
+    else
+      fm_backlog_close_marker_write "$case_dir/state" task-x1 "$case_dir/data" \
+        teardown-test-task-x1 --await-merge --pr "$url" || fail "could not stage GitLab replay"
+      if [ "$scenario" = replay ]; then
+        rm "$case_dir/state/task-x1.meta"
+      fi
+      out=$(PATH="$case_dir/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir" \
+        FM_STATE_OVERRIDE="$case_dir/state" FM_DATA_OVERRIDE="$case_dir/data" \
+        FM_CONFIG_OVERRIDE="$case_dir/config" FM_BOOTSTRAP_NETWORK=skip \
+        bash "$ROOT/bin/fm-bootstrap.sh" 2>&1) || fail "GitLab replay failed: $out"
+      assert_contains "$out" 'kept the backlog item for task-x1 open' "GitLab replay reports retention"
+      assert_not_contains "$out" 'kept the captain call for task-x1' "GitLab merge wait is not a captain decision"
+      if [ "$scenario" = replay-incomplete ]; then
+        assert_contains "$out" 'its endpoint or local copy may remain' "GitLab replay reports incomplete cleanup"
+      fi
+    fi
+    assert_absent "$case_dir/state/task-x1.meta" "GitLab $scenario retires metadata"
+    assert_absent "$marker" "GitLab $scenario completes its transition"
+    assert_equals queued "$(backlog_row_state "$case_dir")" "GitLab $scenario reopens the item"
+    tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full > "$case_dir/row"
+    assert_grep "awaiting merge $url" "$case_dir/row" "GitLab $scenario preserves its URL in the hold"
+    assert_grep 'hold_kind: external' "$case_dir/row" "GitLab $scenario sets the external hold"
+  done
+  pass "GitLab keep-open and both replay paths preserve the external merge hold"
+)
+
 if [ "${1:-}" = --pr-state-only ]; then
   shift
   for scenario in "$@"; do test_recorded_pr_state "$scenario"; done
   exit 0
 fi
 test_bootstrap_preserves_merge_hold
+test_gitlab_keep_open_and_replay
 for scenario in open keep-open merged closed closed-keep-open error discard; do
   test_recorded_pr_state "$scenario"
 done

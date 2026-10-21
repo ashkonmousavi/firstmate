@@ -2,8 +2,8 @@
   "scope": {
     "run": "01M5EQXJN10KS8EDT1707ND2XG",
     "base": "0846a727e51e0f4e02eed7f7e8f7fc32ac61b3e1",
-    "reviewed_head": "f6945a8379ea81c963f83c22fde75b894cf42168",
-    "assigned_finding": "R4"
+    "reviewed_head": "89600d9fc276aa9584698df604327ceb2ad05652",
+    "assigned_finding": "R2, R3, review-1"
   },
   "provenance": "Reconstructed from the current executable paths, commit f6945a83, and the preceding fix turn visible in this conversation. No original pre-edit inventory file was retained. This record does not retroactively establish that retention occurred before those edits.",
   "retained_inventory": "tests/captures/fm-teardown-review-inventory.json",
@@ -120,6 +120,48 @@
       ],
       "correction": "Retain this JSON using the existing tests/captures review-inventory pattern, within the authorized worktree.",
       "limitation": "The outer executor owns publication to the configured no-mistakes/evidence branch; this phase does not publish it or claim the evidence branch has been updated."
+    },
+    "R3": {
+      "aliases": [
+        "review-1"
+      ],
+      "invariant": "The await-merge transition must reopen its item and preserve the URL in an external hold without passing unsupported GitLab MR artifacts to tasks-axi --pr.",
+      "cause": "The shared await-merge transition forwards every forge URL to fm_backlog_retain as --pr, but tasks-axi rejects GitLab MR URLs before reopen and hold.",
+      "affected_occurrences": [
+        "bin/fm-backlog-transition-lib.sh:fm_backlog_await_merge_transition immediate transition",
+        "bin/fm-backlog-transition-lib.sh:fm_backlog_close_marker_replay complete cleanup",
+        "bin/fm-backlog-transition-lib.sh:fm_backlog_close_marker_replay incomplete cleanup",
+        "bin/fm-bootstrap.sh:backlog_record_reconcile retained and retained_incomplete messages"
+      ],
+      "search_scope": [
+        "bin/fm-teardown.sh await-merge selection and atomic transition",
+        "bin/fm-backlog-transition-lib.sh await-merge dispatch, marker validation, replay, retention and artifact handling",
+        "bin/fm-pr-lib.sh GitLab URL parser and state reader",
+        "tests/fm-teardown.test.sh recorded PR and recovery scenarios"
+      ],
+      "negative_evidence": [
+        "Immediate and replayed await-merge both dispatch to the same transition function.",
+        "The persisted marker keeps the original --pr URL; filtering the downstream retention arguments leaves the hold reason intact.",
+        "Captain-held retain and merged close transitions are separate pre-existing paths, outside this authorized await-merge correction.",
+        "GitHub and Forgejo keep their existing supported --pr artifacts; no new representation or abstraction is needed."
+      ],
+      "planned_correction": "At the shared await-merge boundary omit the --pr retention argument for parsed GitLab MR URLs; then reopen and set the existing external hold with the original URL.",
+      "regression": {
+        "oracle": "The accepted decision requires an open GitLab MR with --keep-open to clean up and leave a queued item held externally with awaiting merge <url>; replay must converge to that same state without announcing a captain call.",
+        "test": "test_gitlab_keep_open_and_replay",
+        "status": "PASS: final focused invocation exited 0.",
+        "execution": "Python wrote tests/.review-gitlab-keep-open.test.sh from the existing test definitions before the selector, appended calls to test_gitlab_keep_open_and_replay, test_bootstrap_preserves_merge_hold, and test_recorded_pr_state keep-open, ran bash on that runner, then removed it in finally.",
+        "observations": [
+          "ok - GitLab keep-open and both replay paths preserve the external merge hold",
+          "ok - bootstrap accurately reports merge holds after complete and incomplete cleanup",
+          "ok - recorded PR state: keep-open"
+        ],
+        "limitations": [
+          "No pre-fix executable reproduction was run in this fix round.",
+          "No full test or lint suite was run."
+        ]
+      },
+      "trace_after_fix": "Immediate teardown and complete/incomplete replay call the same await-merge transition. Parsed GitLab URLs invoke retention without artifact arguments, so reopen succeeds; the original URL remains in the marker arguments and supplies the external hold reason. Other forges retain their prior arguments. The parser runs in a subshell and cannot change caller forge identity. No helper, parameter or caller became unreachable."
     }
   },
   "regression_evidence": {
@@ -165,13 +207,7 @@
   },
   "next_review": {
     "instructions": "Read this exact inventory, inspect each listed occurrence and axis, compare the retained prior results with the behavioral assertions, and search the named scopes for missed siblings. Do not treat this artifact as evidence of tests beyond the listed execution.",
-    "unresolved": [
-      {
-        "id": "R3",
-        "status": "Not selected for this fix phase; not implemented or verified.",
-        "description": "GitLab MR links may fail the shared tasks-axi artifact boundary during keep-open retention and replay."
-      }
-    ],
-    "current_round_verification": "PASS: python3 JSON handoff integrity check; R1 has six occurrences, R1/R2 inventories contain all required fields, referenced worktree paths exist, seven prior PR scenarios are recorded, and R3 remains explicitly unresolved. No behavioral test rerun."
+    "unresolved": [],
+    "current_round_verification": "PASS: GitLab immediate cleanup and both replay paths; existing GitHub complete/incomplete recovery and keep-open regression; combined focused bash invocation exited 0."
   }
 }

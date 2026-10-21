@@ -870,7 +870,11 @@ fm_backlog_await_merge_transition() {
   shift 5
   [ "${1:-}" = --pr ] && [ -n "${2:-}" ] || return 1
   [ -z "$meta" ] || fm_backlog_record_remove "$meta" "task record" "$state" || return 1
-  fm_backlog_retain "$data" "$id" "$@" || return 1
+  if ( fm_pr_url_parse "$2" && [ "$FM_PR_PROVIDER" = gitlab ] ); then
+    fm_backlog_retain "$data" "$id" || return 1
+  else
+    fm_backlog_retain "$data" "$id" "$@" || return 1
+  fi
   fm_backlog_mutate "$data" hold "$id" --kind external --reason "awaiting merge $2" || return 1
   fm_backlog_record_remove "$marker" "pending-close record" "$state"
 }
