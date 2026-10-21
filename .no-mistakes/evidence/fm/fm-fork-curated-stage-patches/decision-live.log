@@ -1,0 +1,11 @@
+Peek with no saved cursor: design	needs-decision	choose blue; cursor absent
+Repeated own-decision peek after appends: ship	needs-decision	release now; saved cursor byte-identical; reserved keys excluded
+Ordinary drain subsequently advances cursor:
+version=9:ship
+offset=217
+ident=strong:2112:3603684:2026-10-21 09:53:42.780532190 -0700
+ship	needs-decision	release now
+remote-reply-continuity-x	needs-decision	transport
+captain-hold-x	needs-decision	heldRotated log peek: new	needs-decision	rotated record; old cursor still byte-identical
+Comma-list acknowledgement resolved records: f7342e78dd948345=resolved be8af7b27ba099ef=resolved
+One-way notice expires at 7200 seconds as expired-one-way; reply-bearing request remains awaiting_report

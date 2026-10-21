@@ -1,0 +1,15 @@
+Worker ownership record:
+3001148
+proc-starttime=3396618
+Running job job-8ba5qm process identities:
+owner=3001479
+owner_start=proc-starttime=3396658
+supervisor=3001479
+supervisor_start=proc-starttime=3396658
+group=3001625
+group_start=proc-starttime=3396676
+Published result: state=done exit=0
+remote job executed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FNVP5Q7E3546Y9CSQY9J3N/.test-tmp/remote-live/home; active=1; argument=acceptance
+Live stage owner accepted with its actual process cookie
+Wrong process-start cookie rejected while actual worker remains alive
+Legacy lstart stage owner accepted across the identity upgrade

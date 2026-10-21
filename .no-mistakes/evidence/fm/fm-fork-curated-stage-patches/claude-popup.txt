@@ -1,0 +1,40 @@
+ ▐▛███▛█   Claude Code v2.1.306
+▝▜██████▀  Opus 5.5 · Claude Max
+ ▝▝   ▝▝   ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FNVP5Q7E3546Y9CSQY9J3N
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /exit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ❯ /exit                                       Exit the CLI
+    /context-engineering                        Optimizes agent context setup. Use when starting a new session, when
+                                                agent output quality degrades, when switching between tasks, or when …
+    /context                                    Visualize current context usage as a colored grid
+    /product-management:competitive-brief       (product-management) Create a competitive analysis brief for one or
+                                                more competitors or a feature area. Use when informing product strate…
+    /marketing:competitive-brief                (marketing) Research competitors and generate a positioning and
+                                                messaging comparison with content gaps, opportunities, and threats. U…
+    /modern-web-guidance:chrome-extensions      (modern-web-guidance) Build and publish Chrome Extensions using
+                                                Manifest V3 best practices. Use this skill whenever the user asks to …
+    /usage-credits                              Configure usage credits or request them from your admin when you hit a
+                                                limit
+    /quiet                                      Enter quiet supervision mode when the captain invokes /quiet or asks
+                                                for quiet mode, quiet-while-present, or fewer routine wake turns whil…
+    /marketing:email-sequence                   (marketing) Design and draft multi-email sequences with full copy,
+                                                timing, branching logic, exit conditions, and performance benchmarks.…
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

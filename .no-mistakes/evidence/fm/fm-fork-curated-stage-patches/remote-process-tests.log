@@ -1,0 +1,14 @@
+ok - fake /proc starttime is a stable single-line token parsed after the last )
+ok - token changes when the starttime changes (pid reuse)
+ok - malformed /proc stat data and pids are rejected
+ok - ps lstart is the fallback when /proc is absent
+ok - pre-update bare lstart still verifies; drifted and dead cookies do not
+skip: cross-locale legacy identity needs a locale rendering ps lstart differently from C
+tests/fm-remote-job-process-start.test.sh: line 226: 2849004 Killed                  nohup env HOME="$account_home" FM_ROOT_OVERRIDE="$root" FM_REMOTE_JOB_STATE_ROOT="$FM_REMOTE_JOB_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE="${FM_REMOTE_JOB_PLATFORM_OVERRIDE:-}" "$worker" >> "$FM_REMOTE_JOB_STATE/logs/$FM_REMOTE_JOB_LABEL.log" 2>&1 < /dev/null
+ok - a dead owner with a stale heartbeat yields exactly one replacement
+tests/fm-remote-job-process-start.test.sh: line 219: 2849696 Killed                  nohup env HOME="$account_home" FM_ROOT_OVERRIDE="$root" FM_REMOTE_JOB_STATE_ROOT="$FM_REMOTE_JOB_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE="${FM_REMOTE_JOB_PLATFORM_OVERRIDE:-}" "$worker" >> "$FM_REMOTE_JOB_STATE/logs/$FM_REMOTE_JOB_LABEL.log" 2>&1 < /dev/null
+ok - pre-update lock start verifies; code-identity replace yields one supervisor
+tests/fm-remote-job-process-start.test.sh: line 219: 2851473 Killed                  nohup env HOME="$account_home" FM_ROOT_OVERRIDE="$root" FM_REMOTE_JOB_STATE_ROOT="$FM_REMOTE_JOB_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE="${FM_REMOTE_JOB_PLATFORM_OVERRIDE:-}" "$worker" >> "$FM_REMOTE_JOB_STATE/logs/$FM_REMOTE_JOB_LABEL.log" 2>&1 < /dev/null
+ok - repeated ensure against a healthy worker keeps exactly one supervisor
+ALL TESTS PASSED
+tests/lib.sh: line 255: 2853094 Killed                  nohup env HOME="$account_home" FM_ROOT_OVERRIDE="$root" FM_REMOTE_JOB_STATE_ROOT="$FM_REMOTE_JOB_STATE" FM_REMOTE_JOB_PLATFORM_OVERRIDE="${FM_REMOTE_JOB_PLATFORM_OVERRIDE:-}" "$worker" >> "$FM_REMOTE_JOB_STATE/logs/$FM_REMOTE_JOB_LABEL.log" 2>&1 < /dev/null

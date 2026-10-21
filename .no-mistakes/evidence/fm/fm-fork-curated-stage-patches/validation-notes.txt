@@ -1,0 +1,6 @@
+Live Claude: private fm-lab tmux socket, 120x40 terminal, marked disposable FM_HOME; popup /exit extracted exactly, product submit exited agent (post-exit verdict unknown). Lab removed.
+Herdr: guarded helper refused provisioning because exactly one running default session was unavailable; no default session changed and no lab session created.
+Remote workers: actual worker processes and queued job; stopped and fixture roots removed.
+Decision APIs: actual classifier and pending-reply library operated on disposable persisted status/cursor/request records.
+Supplemental composer, Herdr adapter, and remote process-start tests exited zero. Process-start tests repeated with a workspace-local de_DE.UTF-8 locale to cover the initially skipped case.
+No source changes. All disposable workspace fixtures and generated locale removed.
