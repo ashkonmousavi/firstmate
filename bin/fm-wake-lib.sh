@@ -600,7 +600,7 @@ fm_lock_holder_alive() {
   local dir=$1 pid=$2 recorded='' current
   fm_pid_alive "$pid" || return 1
   [ -e "$dir/identity" ] || return 0
-  { IFS= read -r recorded || [ -n "$recorded" ]; } < "$dir/identity" 2>/dev/null || true
+  { IFS= read -r recorded || [ -n "$recorded" ]; } 2>/dev/null < "$dir/identity" || true
   [ -n "$recorded" ] || return 0
   recorded=$(fm_pid_identity_start "$recorded") || return 0
   current=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
@@ -1436,7 +1436,7 @@ fm_lock_acquire_wait_reporting() {  # <lockdir> <max-seconds>
   fm_lock_acquire_wait_max "$lockdir" "$seconds" && return 0
   [ -z "$FM_LOCK_MALFORMED" ] || return 1
   pid=$(cat "$lockdir/pid" 2>/dev/null || true)
-  { IFS= read -r identity || [ -n "$identity" ]; } < "$lockdir/identity" 2>/dev/null || true
+  { IFS= read -r identity || [ -n "$identity" ]; } 2>/dev/null < "$lockdir/identity" || true
   printf 'error: lock %s still held after %ss by pid %s (identity: %s)\n' \
     "$lockdir" "$seconds" "${pid:-unknown}" "${identity:-not recorded}" >&2
   return 124
