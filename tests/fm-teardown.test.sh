@@ -268,6 +268,52 @@ land_on_origin_main() {
   rm -rf "$tmp"
 }
 
+# A recorded pr= is closed only when its forge reads MERGED. Install the reader
+# the URL selects, so a close-the-item case is that merged state and not an
+# unread pull request.
+install_merged_recorded_pr() {
+  local case_dir=$1 url head number host
+  url=$(sed -n 's/^pr=//p' "$case_dir/state/task-x1.meta" | tail -1)
+  head=$(git -C "$case_dir/wt" rev-parse HEAD)
+  number=${url##*/}
+  case "$url" in
+    https://github.com/*/pull/*)
+      add_gh_pr_merged_for_head "$case_dir" "$head"
+      ;;
+    https://*/-/merge_requests/*)
+      cat > "$case_dir/fakebin/glab" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"state":"merged"}'
+SH
+      chmod +x "$case_dir/fakebin/glab"
+      ;;
+    https://*/c/*/+/[0-9]*)
+      cat > "$case_dir/fakebin/gerrit-axi" <<SH
+#!/usr/bin/env bash
+printf '%s\n' '{"ok":true,"changes":[{"change":$number,"status":"MERGED"}]}'
+SH
+      chmod +x "$case_dir/fakebin/gerrit-axi"
+      ;;
+    https://*/pulls/*)
+      host=${url#https://}
+      host=${host%%/*}
+      cat > "$case_dir/fakebin/tea" <<SH
+#!/usr/bin/env bash
+if [ "\${1:-} \${2:-}" = "login list" ]; then
+  printf '%s\n' '[{"name":"fj","url":"https://$host"}]'
+  exit 0
+fi
+[ "\${1:-}" = api ] || exit 1
+printf '{"state":"closed","merged":true,"head":{"sha":"%s"}}\n' '$head'
+SH
+      chmod +x "$case_dir/fakebin/tea"
+      ;;
+    *)
+      fail "install_merged_recorded_pr: no merged reader for $url"
+      ;;
+  esac
+}
+
 # Override GitHub lookups to report PR 7 as merged with the supplied head.
 add_gh_pr_merged_for_head() {
   local case_dir=$1 head=$2
@@ -732,6 +778,7 @@ test_teardown_closes_the_backlog_item_itself() {
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  install_merged_recorded_pr "$case_dir"
 
   out=$(run_teardown "$case_dir") || fail "teardown failed with a real backlog"
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
@@ -772,6 +819,7 @@ done
 exec "$real_tasks_axi" "\$@"
 SH
   chmod +x "$case_dir/fakebin/tasks-axi"
+  install_merged_recorded_pr "$case_dir"
 
   out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed Gerrit task failed: $out"
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
@@ -787,6 +835,7 @@ SH
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
   cp "$TMP_ROOT/tasks-axi-close-gerrit/fakebin/tasks-axi" "$case_dir/fakebin/tasks-axi"
+  install_merged_recorded_pr "$case_dir"
   out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed GitHub task failed: $out"
   tasks-axi show task-x1 --file "$case_dir/data/backlog.md" \
     | grep -F 'links: "pr:https://github.com/example/repo/pull/7"' >/dev/null \
@@ -818,6 +867,7 @@ done
 exec "$real_tasks_axi" "\$@"
 SH
   chmod +x "$case_dir/fakebin/tasks-axi"
+  install_merged_recorded_pr "$case_dir"
 
   out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed GitLab task failed: $out"
   [ "$(backlog_row_state "$case_dir")" = "done" ] \
@@ -835,6 +885,7 @@ SH
     printf 'pr=%s\n' "$url" >> "$case_dir/state/task-x1.meta"
     seed_backlog_in_flight "$case_dir"
     cp "$TMP_ROOT/tasks-axi-close-gitlab/fakebin/tasks-axi" "$case_dir/fakebin/tasks-axi"
+    install_merged_recorded_pr "$case_dir"
     out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed task with $url failed: $out"
     tasks-axi show task-x1 --file "$case_dir/data/backlog.md" \
       | grep -F "links: \"pr:$url\"" >/dev/null \
@@ -2001,8 +2052,12 @@ test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag() {
   local case_dir rc out
   case_dir=$(make_case windowless-retry)
   write_windowless_legacy_meta "$case_dir" no-mistakes ship "$case_dir/missing-wt"
-  printf '%s\n' 'pr=not-a-valid-url' >> "$case_dir/state/task-x1.meta"
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
+  install_github_pr_class "$case_dir" merged
+  # A directory where the close marker must be a file makes the close unrecordable
+  # after the pull request has already read as merged.
+  mkdir "$case_dir/state/task-x1.backlog-close"
   add_failing_truncate_perl "$case_dir"
 
   set +e
@@ -2014,6 +2069,7 @@ test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag() {
     || fail "windowless-retry: the failed attempt did not leave its legacy stamp on the record"
 
   rm -f "$case_dir/fakebin/perl"
+  rm -rf "$case_dir/state/task-x1.backlog-close"
   sed -i.bak '/^pr=/d' "$case_dir/state/task-x1.meta" && rm -f "$case_dir/state/task-x1.meta.bak"
   out=$(run_teardown "$case_dir") \
     || fail "windowless-retry: the flag-less retry refused the retained legacy stamp"
@@ -2104,10 +2160,12 @@ test_legacy_record_rolls_the_stamp_back_when_the_marker_write_fails() {
   local case_dir rc before
   case_dir=$(make_case legacy-stamp-rollback)
   write_legacy_meta "$case_dir" no-mistakes ship
-  printf '%s\n' 'pr=not-a-valid-url' >> "$case_dir/state/task-x1.meta"
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
+  install_github_pr_class "$case_dir" merged
+  mkdir "$case_dir/state/task-x1.backlog-close"
   before=$(cksum "$case_dir/state/task-x1.meta" | awk '{print $1, $2}')
 
   set +e
@@ -2157,10 +2215,12 @@ test_retained_legacy_stamp_still_faces_the_endpoint_gate() {
   local case_dir rc stamped
   case_dir=$(make_case legacy-stamp-retained)
   write_legacy_meta "$case_dir" no-mistakes ship
-  printf '%s\n' 'pr=not-a-valid-url' >> "$case_dir/state/task-x1.meta"
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
   seed_backlog_in_flight "$case_dir"
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
+  install_github_pr_class "$case_dir" merged
+  mkdir "$case_dir/state/task-x1.backlog-close"
   add_failing_truncate_perl "$case_dir"
 
   set +e
@@ -5213,6 +5273,288 @@ test_retained_sources_still_reach_the_ordinary_refusal() {
   pass "present required sources still reach the ordinary teardown refusal"
 }
 
+# GitHub close-gate record. class is open, closed, merged, or error.
+# graphql is the reader the gate uses first; gh-axi is the fallback.
+install_github_pr_class() {
+  local case_dir=$1 class=$2 gql_state gql_merged axi_state
+  case "$class" in
+    open) gql_state=OPEN; gql_merged=false; axi_state=open ;;
+    closed) gql_state=CLOSED; gql_merged=false; axi_state=closed ;;
+    merged) gql_state=MERGED; gql_merged=true; axi_state=merged ;;
+    error)
+      add_gh_axi_error "$case_dir"
+      return 0
+      ;;
+    *) fail "install_github_pr_class: unknown class $class" ;;
+  esac
+  cat > "$case_dir/fakebin/gh" <<SH
+#!/usr/bin/env bash
+case "\${1:-} \${2:-}" in
+  "api graphql")
+    printf '%s\n' 'state=$gql_state' 'merged=$gql_merged'
+    exit 0
+    ;;
+esac
+echo "error: pull request not found" >&2
+exit 1
+SH
+  cat > "$case_dir/fakebin/gh-axi" <<SH
+#!/usr/bin/env bash
+case "\${1:-} \${2:-}" in
+  "pr view")
+    printf '%s\n' 'pull_request:' '  number: 7' '  state: $axi_state'
+    exit 0
+    ;;
+esac
+exit 1
+SH
+  chmod +x "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-axi"
+}
+
+# A ship whose commits are already on origin, with a recorded GitHub pull request.
+prepare_recorded_github_pr() {
+  local case_dir
+  case_dir=$(make_case "$1")
+  write_meta "$case_dir" "${2:-no-mistakes}" ship
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  seed_backlog_in_flight "$case_dir"
+  printf '%s\n' "$case_dir"
+}
+
+teardown_capture() {
+  local case_dir=$1
+  shift
+  set +e
+  run_teardown "$case_dir" "$@" > "$case_dir/stdout" 2> "$case_dir/stderr"
+  TEARDOWN_CAPTURE_RC=$?
+  set -e
+}
+
+shown_hold_reason() {
+  local case_dir=$1 id=${2:-task-x1} raw payload
+  raw=$(tasks-axi show "$id" --file "$case_dir/data/backlog.md" | sed -n 's/^  hold_reason: //p' | head -1)
+  case "$raw" in
+    \"*\") raw=${raw#\"}; raw=${raw%\"} ;;
+  esac
+  case "$raw" in
+    fm-hold-v1:*)
+      payload=${raw#fm-hold-v1:}
+      printf '%s' "$payload" | base64 -d
+      printf '\n'
+      ;;
+    *) printf '%s\n' "$raw" ;;
+  esac
+}
+
+add_blocked_by_child() {
+  local case_dir=$1 id=$2 title=$3
+  tasks-axi add "$id" "$title" --kind ship --file "$case_dir/data/backlog.md" >/dev/null
+  tasks-axi block "$id" --by task-x1 --file "$case_dir/data/backlog.md" >/dev/null
+}
+
+test_open_pr_refuses_close_and_keeps_the_record() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr open-pr-refuses)
+  install_github_pr_class "$case_dir" open
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "open-pr: an open pull request must refuse teardown"
+  assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" \
+    "open-pr: the refusal did not name the pull request URL"
+  assert_grep 'clean up after it merges' "$case_dir/stderr" \
+    "open-pr: the refusal did not say to clean up after it merges"
+  assert_present "$case_dir/state/task-x1.meta" "open-pr: the refusal removed the task record"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "open-pr: the refusal closed the backlog item"
+  pass "an open pull request refuses teardown and keeps the backlog item"
+}
+
+test_open_pr_force_still_refuses() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr open-pr-force)
+  install_github_pr_class "$case_dir" open
+  teardown_capture "$case_dir" --force
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "open-pr-force: --force must not close an open pull request"
+  assert_grep 'clean up after it merges' "$case_dir/stderr" \
+    "open-pr-force: the refusal did not say to clean up after it merges"
+  assert_present "$case_dir/state/task-x1.meta" "open-pr-force: the refusal removed the task record"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "open-pr-force: --force closed the backlog item"
+  pass "--force does not close a ship whose pull request is still open"
+}
+
+test_open_pr_keep_open_cleans_and_holds() {
+  local case_dir reason
+  case_dir=$(prepare_recorded_github_pr open-pr-keep)
+  install_github_pr_class "$case_dir" open
+  teardown_capture "$case_dir" --keep-open
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "open-pr-keep: --keep-open should clean an open pull request"$'\n'"$(cat "$case_dir/stderr")"
+  assert_absent "$case_dir/state/task-x1.meta" "open-pr-keep: the task record was left behind"
+  [ "$(backlog_row_state "$case_dir")" != "done" ] \
+    || fail "open-pr-keep: --keep-open closed the backlog item"
+  reason=$(shown_hold_reason "$case_dir")
+  [ "$reason" = "awaiting merge https://github.com/example/repo/pull/7" ] \
+    || fail "open-pr-keep: hold reason was '$reason'"
+  assert_grep 'held awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" \
+    "open-pr-keep: the result did not say the item is held awaiting merge"
+  pass "--keep-open cleans an open pull request and holds the item awaiting merge"
+}
+
+test_direct_pr_open_refuses_the_same_way() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr direct-pr-open direct-PR)
+  install_github_pr_class "$case_dir" open
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "direct-pr-open: an open pull request must refuse"
+  assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" \
+    "direct-pr-open: the refusal did not name the pull request URL"
+  assert_present "$case_dir/state/task-x1.meta" "direct-pr-open: the refusal removed the task record"
+  pass "a direct-PR ship with an open pull request refuses teardown"
+}
+
+test_merged_pr_on_a_reachable_branch_closes() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr merged-pr-closes)
+  install_github_pr_class "$case_dir" merged
+  teardown_capture "$case_dir"
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "merged-pr: a merged pull request should close"$'\n'"$(cat "$case_dir/stderr")"
+  [ "$(backlog_row_state "$case_dir")" = "done" ] \
+    || fail "merged-pr: teardown left the item at $(backlog_row_state "$case_dir")"
+  assert_absent "$case_dir/state/task-x1.meta" "merged-pr: the task record was left behind"
+  pass "a merged pull request on an already reachable branch closes the item"
+}
+
+test_closed_unmerged_pr_refuses_unless_force() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr closed-pr-refuses)
+  install_github_pr_class "$case_dir" closed
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "closed-pr: a closed unmerged pull request must refuse"
+  assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" \
+    "closed-pr: the refusal did not name the pull request URL"
+  assert_grep 'closed without merging' "$case_dir/stderr" \
+    "closed-pr: the refusal did not say the pull request closed without merging"
+  assert_present "$case_dir/state/task-x1.meta" "closed-pr: the refusal removed the task record"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "closed-pr: the refusal closed the backlog item"
+
+  teardown_capture "$case_dir" --keep-open
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "closed-pr: --keep-open must not discard a closed unmerged pull request"
+  assert_present "$case_dir/state/task-x1.meta" "closed-pr: --keep-open removed the task record"
+
+  teardown_capture "$case_dir" --force
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "closed-pr: --force should discard a closed unmerged pull request"$'\n'"$(cat "$case_dir/stderr")"
+  [ "$(backlog_row_state "$case_dir")" = "done" ] \
+    || fail "closed-pr: --force left the item at $(backlog_row_state "$case_dir")"
+  assert_absent "$case_dir/state/task-x1.meta" "closed-pr: --force left the task record behind"
+  pass "a closed unmerged pull request refuses unless --force discards it"
+}
+
+test_unreadable_pr_refuses_even_with_force() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr unreadable-pr)
+  install_github_pr_class "$case_dir" error
+  teardown_capture "$case_dir" --force
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "unreadable-pr: a pull request that cannot be read must refuse even with --force"
+  assert_grep 'could not be read' "$case_dir/stderr" \
+    "unreadable-pr: the refusal did not say the pull request could not be read"
+  assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" \
+    "unreadable-pr: the refusal did not name the pull request URL"
+  assert_present "$case_dir/state/task-x1.meta" "unreadable-pr: the refusal removed the task record"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "unreadable-pr: the refusal closed the backlog item"
+  teardown_capture "$case_dir" --keep-open
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "unreadable-pr: --keep-open must not clean an unreadable pull request"
+  assert_present "$case_dir/state/task-x1.meta" "unreadable-pr: --keep-open removed the task record"
+  pass "an unreadable pull request refuses teardown, including --force and --keep-open"
+}
+
+test_blocked_by_dependent_refuses_and_names_it() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr blocked-by-refuses)
+  install_github_pr_class "$case_dir" merged
+  add_blocked_by_child "$case_dir" child-one "child, one"
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "blocked-by: a dependent must refuse the close"
+  assert_grep 'blocked-by of: child-one' "$case_dir/stderr" \
+    "blocked-by: the refusal did not name the dependent"
+  assert_present "$case_dir/state/task-x1.meta" "blocked-by: the refusal removed the task record"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "blocked-by: the refusal closed the parent"
+  tasks-axi show child-one --file "$case_dir/data/backlog.md" | grep -F 'blocked_by: task-x1' >/dev/null \
+    || fail "blocked-by: the child no longer lists the parent"
+  teardown_capture "$case_dir" --force
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "blocked-by: --force must not close an item other items list"
+  assert_present "$case_dir/state/task-x1.meta" "blocked-by: --force removed the task record"
+  pass "teardown refuses to close an item another item lists in blocked-by, and names it"
+}
+
+test_blocked_by_names_every_dependent() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr blocked-by-two)
+  install_github_pr_class "$case_dir" merged
+  add_blocked_by_child "$case_dir" child-z "later child"
+  add_blocked_by_child "$case_dir" child-a "earlier child"
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "blocked-by-two: dependents must refuse the close"
+  assert_grep 'blocked-by of: child-a,child-z' "$case_dir/stderr" \
+    "blocked-by-two: the refusal did not name both dependents in order"
+  assert_present "$case_dir/state/task-x1.meta" "blocked-by-two: the refusal removed the task record"
+  pass "teardown names every blocked-by dependent"
+}
+
+test_keep_open_with_a_dependent_cleans_and_leaves_it_blocked() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr blocked-by-keep)
+  install_github_pr_class "$case_dir" merged
+  add_blocked_by_child "$case_dir" child-one "child, one"
+  teardown_capture "$case_dir" --keep-open
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "blocked-by-keep: --keep-open should clean while a dependent remains"$'\n'"$(cat "$case_dir/stderr")"
+  assert_absent "$case_dir/state/task-x1.meta" "blocked-by-keep: the task record was left behind"
+  [ "$(backlog_row_state "$case_dir")" != "done" ] \
+    || fail "blocked-by-keep: --keep-open closed the parent"
+  assert_grep 'blocked-by: child-one' "$case_dir/stdout" \
+    "blocked-by-keep: the result did not name the dependent"
+  tasks-axi show child-one --file "$case_dir/data/backlog.md" | grep -F 'blocked_by: task-x1' >/dev/null \
+    || fail "blocked-by-keep: the child no longer lists the parent"
+  pass "--keep-open cleans an item other items still list in blocked-by and leaves it open"
+}
+
+test_open_pr_keep_open_with_a_dependent_holds_and_names_it() {
+  local case_dir reason
+  case_dir=$(prepare_recorded_github_pr open-and-blocked)
+  install_github_pr_class "$case_dir" open
+  add_blocked_by_child "$case_dir" child-one "child, one"
+  teardown_capture "$case_dir" --keep-open
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "open-and-blocked: --keep-open should clean"$'\n'"$(cat "$case_dir/stderr")"
+  [ "$(backlog_row_state "$case_dir")" != "done" ] \
+    || fail "open-and-blocked: --keep-open closed the parent"
+  reason=$(shown_hold_reason "$case_dir")
+  [ "$reason" = "awaiting merge https://github.com/example/repo/pull/7" ] \
+    || fail "open-and-blocked: hold reason was '$reason'"
+  assert_grep 'held awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" \
+    "open-and-blocked: the result did not say the item is held awaiting merge"
+  assert_grep 'blocked-by: child-one' "$case_dir/stdout" \
+    "open-and-blocked: the result did not name the dependent"
+  pass "--keep-open holds an open pull request and names the items that still list it"
+}
+
+test_scout_with_a_dependent_refuses() {
+  local case_dir
+  case_dir=$(make_case scout-blocked-by)
+  write_meta "$case_dir" no-mistakes scout
+  prepare_scout_teardown "$case_dir"
+  seed_backlog_in_flight "$case_dir" scout
+  add_blocked_by_child "$case_dir" child-one "child, one"
+  teardown_capture "$case_dir"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "scout-blocked-by: a dependent must refuse the scout close"
+  assert_grep 'blocked-by of: child-one' "$case_dir/stderr" \
+    "scout-blocked-by: the refusal did not name the dependent"
+  assert_present "$case_dir/state/task-x1.meta" "scout-blocked-by: the refusal removed the task record"
+  [ "$(backlog_row_state "$case_dir")" = in_flight ] \
+    || fail "scout-blocked-by: the refusal closed the scout"
+  pass "teardown refuses to close a scout another item lists in blocked-by"
+}
+
 test_teardown_preserves_opencode_busy_plugin_on_pool_return
 test_missing_startup_source_refuses_before_cleanup
 test_unreadable_startup_source_refuses_before_cleanup
@@ -5340,3 +5682,15 @@ test_process_spawned_during_grace_is_reaped_on_later_pass
 test_persistent_scan_refuses_after_bounded_retries
 test_process_exit_during_identity_lookup_does_not_refuse
 test_run_abort_precedes_process_reap_precedes_worktree_removal
+test_open_pr_refuses_close_and_keeps_the_record
+test_open_pr_force_still_refuses
+test_open_pr_keep_open_cleans_and_holds
+test_direct_pr_open_refuses_the_same_way
+test_merged_pr_on_a_reachable_branch_closes
+test_closed_unmerged_pr_refuses_unless_force
+test_unreadable_pr_refuses_even_with_force
+test_blocked_by_dependent_refuses_and_names_it
+test_blocked_by_names_every_dependent
+test_keep_open_with_a_dependent_cleans_and_leaves_it_blocked
+test_open_pr_keep_open_with_a_dependent_holds_and_names_it
+test_scout_with_a_dependent_refuses

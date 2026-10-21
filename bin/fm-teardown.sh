@@ -67,6 +67,18 @@
 # by itself causes a false refusal of landed work.
 # A gh lookup error falls back to the content check; if that is also inconclusive,
 # teardown refuses rather than risk discarding unlanded work.
+# Reachability from a remote-tracking branch is not enough to close the backlog
+# item. A ship in a PR delivery mode (no-mistakes or direct-PR) with a recorded
+# pr= reads that pull request through bin/fm-pr-lib.sh (gh, glab, tea, or
+# gerrit-axi) before the close. MERGED closes as before. OPEN refuses and keeps
+# every record, naming the URL and saying to clean up after it merges, unless
+# --keep-open is given: then the endpoint and worktree are cleaned, because the
+# pushed branch remains, and the item stays open, held "awaiting merge <url>".
+# CLOSED without a merge refuses unless --force, the captain's explicit discard.
+# An unreadable state refuses, and neither --force nor --keep-open overrides that.
+# The same close refuses while any other open item in this home lists this id in
+# blocked-by, naming those items. --keep-open still cleans and leaves this item
+# open, so those dependents stay blocked. --force does not close past them.
 # Uncommitted changes are never landed; dirty refusals distinguish untracked-only
 # leftovers from tracked edits and list at most ten non-exempt untracked paths.
 # local-only projects additionally accept work merged into the local default
@@ -197,10 +209,18 @@
 # leased home releases its durable treehouse lease so the pool slot is freed,
 # never left leased forever. If the treehouse return fails, teardown leaves the
 # leased home and state in place instead of hiding a still-held lease.
-# Usage: fm-teardown.sh <task-id> [--force] [--legacy-record]
+# Usage: fm-teardown.sh <task-id> [--force] [--keep-open] [--legacy-record]
 #   --force skips ordinary-task dirty and landed-work checks, skips scout report
 #   checks, and discards secondmate child work for kind=secondmate. Only use it
-#   when the captain has explicitly said to discard the work.
+#   when the captain has explicitly said to discard the work. It is also the
+#   explicit discard for a recorded pull request that is closed without merging.
+#   It does not close an item other items still list in blocked-by, and it does
+#   not override an unreadable pull-request state.
+#   --keep-open cleans the endpoint and worktree of a ship whose recorded pull
+#   request is still open, or of an item other open items still list in
+#   blocked-by, and leaves that backlog item open. It does not discard unlanded
+#   work, and it does not clean up a pull request that was closed without merging
+#   or whose state cannot be read.
 #   --legacy-record accepts a task record that predates the spawn_gen field:
 #   teardown then proceeds only when the recorded endpoint is confirmed dead or
 #   agent-less (bin/fm-backend.sh's recovery-grade classifier), and without
@@ -408,11 +428,16 @@ fi
 ID=$1
 TEARDOWN_LOST_SLOT_EXIT=4
 FORCE=
+KEEP_OPEN=0
+TEARDOWN_KEEP_OPEN=0
+TEARDOWN_KEEP_OPEN_HOLD=0
+TEARDOWN_DEPENDENTS=
 LEGACY_RECORD_GIVEN=0
 shift
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) FORCE=--force ;;
+    --keep-open) KEEP_OPEN=1 ;;
     --legacy-record) LEGACY_RECORD_GIVEN=1 ;;
     *)
       echo "error: invalid teardown request" >&2
@@ -1666,6 +1691,198 @@ work_is_landed() {
   content_in_default
 }
 
+# One word for the recorded pull request: merged, open, closed, or unreadable.
+# merged=true wins, because Forgejo reports a merged request as closed.
+teardown_pr_class_from_record() {
+  local state_lc
+  if [ "$FM_PR_RECORD_MERGED" = true ]; then
+    printf 'merged\n'
+    return 0
+  fi
+  state_lc=$(printf '%s' "$FM_PR_RECORD_STATE" | tr '[:upper:]' '[:lower:]')
+  case "$state_lc" in
+    merged) printf 'merged\n' ;;
+    open|opened|new) printf 'open\n' ;;
+    closed|abandoned) printf 'closed\n' ;;
+    *) printf 'unreadable\n' ;;
+  esac
+}
+
+teardown_recorded_pr_class() {
+  local owner repo
+  if ! fm_pr_url_parse "$PR_URL"; then
+    printf 'unreadable\n'
+    return 0
+  fi
+  case "$FM_PR_PROVIDER" in
+    github)
+      owner=${FM_PR_PATH%%/*}
+      repo=${FM_PR_PATH#*/}
+      fm_pr_github_read_record "$owner" "$repo" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
+      ;;
+    gitlab)
+      fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
+      ;;
+    forgejo)
+      fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
+      ;;
+    gerrit)
+      fm_pr_gerrit_read_record "$FM_PR_HOST" "$FM_PR_NUMBER" || { printf 'unreadable\n'; return 0; }
+      ;;
+    *)
+      printf 'unreadable\n'
+      return 0
+      ;;
+  esac
+  teardown_pr_class_from_record
+}
+
+# Ids of other open items whose blocked-by lists $1. List text is on stdin.
+# Rows are tasks-axi's quoted TOON table; the id is the first field and
+# blocked-by is the last, so a comma inside a title cannot hide a dependent.
+teardown_dependents_from_list() {
+  perl -e '
+    my $want = shift;
+    sub fields {
+      my ($line) = @_;
+      $line =~ s/^\s+//;
+      my @f;
+      my $cur = "";
+      my $q = 0;
+      foreach my $ch (split //, $line) {
+        if ($q) {
+          if ($ch eq q{"}) { $q = 0 } else { $cur .= $ch }
+        } elsif ($ch eq q{"}) {
+          $q = 1;
+        } elsif ($ch eq ",") {
+          push @f, $cur;
+          $cur = "";
+        } else {
+          $cur .= $ch;
+        }
+      }
+      push @f, $cur;
+      return @f;
+    }
+    while (<STDIN>) {
+      chomp;
+      next unless /^\s+[A-Za-z0-9._-]+,/;
+      my @f = fields($_);
+      next unless @f >= 2;
+      my $id = $f[0];
+      next if $id eq $want;
+      my $blocked = $f[-1];
+      next if $blocked eq "" || $blocked eq "none" || $blocked eq "-";
+      foreach my $dep (split /,/, $blocked) {
+        if ($dep eq $want) {
+          print "$id\n";
+          last;
+        }
+      }
+    }
+  ' "$1"
+}
+
+# Open items in this home that still list $ID in blocked-by. Done rows are not
+# waiting on it. A list that cannot be read refuses the close.
+teardown_collect_dependents() {
+  local state list found
+  TEARDOWN_DEPENDENTS=
+  found=
+  for state in queued in_flight held; do
+    if ! list=$(fm_backlog_row_list "$DATA" --state "$state" --fields blocked_by); then
+      echo "REFUSED: could not read this home's backlog to see which items list $ID in blocked-by." >&2
+      return 1
+    fi
+    found="${found}$(printf '%s\n' "$list" | teardown_dependents_from_list "$ID")"$'\n'
+  done
+  TEARDOWN_DEPENDENTS=$(printf '%s\n' "$found" | sed '/^$/d' | sort -u | paste -sd, -)
+}
+
+# Refuse to close a ship whose recorded pull request is not merged, and refuse
+# to close any item other open items still list in blocked-by. --keep-open is
+# the path that cleans without closing. Runs only when this teardown would
+# otherwise close the backlog item, and before any destructive step.
+teardown_guard_unlanded_close() {
+  local class='' pr_refused=0 dep_refused=0 hold_out
+  TEARDOWN_KEEP_OPEN=0
+  TEARDOWN_KEEP_OPEN_HOLD=0
+  [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ] || return 0
+  teardown_collect_dependents || return 1
+
+  if [ "$KIND" = ship ]; then
+    case "$MODE" in
+      no-mistakes|direct-PR)
+        if [ -n "$PR_URL" ]; then
+          class=$(teardown_recorded_pr_class)
+        fi
+        ;;
+    esac
+  fi
+
+  case "$class" in
+    ''|merged) ;;
+    open)
+      if [ "$KEEP_OPEN" = 1 ]; then
+        TEARDOWN_KEEP_OPEN=1
+      else
+        echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
+        pr_refused=1
+      fi
+      ;;
+    closed)
+      if [ "$FORCE" != --force ]; then
+        echo "REFUSED: pull request $PR_URL is closed without merging." >&2
+        echo "Refusing cleanup unless the captain explicitly discards it with --force." >&2
+        pr_refused=1
+      fi
+      ;;
+    *)
+      echo "REFUSED: pull request $PR_URL could not be read, so teardown will not close $ID." >&2
+      pr_refused=1
+      ;;
+  esac
+
+  if [ -n "$TEARDOWN_DEPENDENTS" ]; then
+    if [ "$KEEP_OPEN" = 1 ] && [ "$pr_refused" = 0 ]; then
+      TEARDOWN_KEEP_OPEN=1
+    else
+      echo "REFUSED: $ID is listed in blocked-by of: $TEARDOWN_DEPENDENTS." >&2
+      echo "Refusing to close it while those items depend on it." >&2
+      dep_refused=1
+    fi
+  fi
+
+  if [ "$pr_refused" = 1 ] || [ "$dep_refused" = 1 ]; then
+    return 1
+  fi
+  if [ "$TEARDOWN_KEEP_OPEN" != 1 ]; then
+    return 0
+  fi
+  if [ "$class" = open ]; then
+    # captain-hold takes the same control lock this script already holds for
+    # the whole teardown. Release it only for that call, which takes the lock
+    # itself, then take it back before any cleanup.
+    if [ "$CONTROL_LOCK_HELD" = 1 ]; then
+      fm_lock_release "$CONTROL_LOCK" || true
+      CONTROL_LOCK_HELD=0
+    fi
+    if ! hold_out=$(FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" \
+        FM_DATA_OVERRIDE="$DATA" FM_CONFIG_OVERRIDE="$CONFIG" \
+        "$SCRIPT_DIR/fm-captain-hold.sh" hold "$ID" --reason "awaiting merge $PR_URL" 2>&1); then
+      fm_lock_acquire_wait "$CONTROL_LOCK"
+      CONTROL_LOCK_HELD=1
+      echo "REFUSED: could not hold $ID awaiting merge $PR_URL." >&2
+      [ -z "$hold_out" ] || printf '%s\n' "$hold_out" >&2
+      return 1
+    fi
+    fm_lock_acquire_wait "$CONTROL_LOCK"
+    CONTROL_LOCK_HELD=1
+    TEARDOWN_KEEP_OPEN_HOLD=1
+  fi
+  TEARDOWN_BACKLOG_TRANSITION=retain
+}
+
 # The completion links this teardown already holds locally. A scout's
 # deliverable is its report, a local-only ship lands on local main, and every
 # other ship carries the PR recorded on its own record.
@@ -1706,7 +1923,15 @@ backlog_refresh_reminder() {
   else
     backlog_display="${DATA%/}/backlog.md"
   fi
-  if [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
+  if [ "$BACKLOG_CLOSED" = 1 ] && [ "$TEARDOWN_KEEP_OPEN" = 1 ]; then
+    if [ "$TEARDOWN_KEEP_OPEN_HOLD" = 1 ] && [ -n "$TEARDOWN_DEPENDENTS" ]; then
+      printf '%s\n' "Backlog: $ID stays open in $backlog_display, held awaiting merge $PR_URL, because other items still list it in blocked-by: $TEARDOWN_DEPENDENTS."
+    elif [ "$TEARDOWN_KEEP_OPEN_HOLD" = 1 ]; then
+      printf '%s\n' "Backlog: $ID stays open in $backlog_display, held awaiting merge $PR_URL."
+    else
+      printf '%s\n' "Backlog: $ID stays open in $backlog_display because other items still list it in blocked-by: $TEARDOWN_DEPENDENTS."
+    fi
+  elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
     printf '%s\n' "Backlog: $ID stays open in $backlog_display, still held for the captain with its deliverable recorded. Relay the question and close it only with bin/fm-captain-hold.sh answer."
   elif [ "$BACKLOG_CLOSED" = 1 ]; then
     printf '%s\n' "Backlog: $ID is closed in $backlog_display. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due."
@@ -3562,6 +3787,10 @@ if [ "$BACKEND" = herdr ]; then
   fm_backend_herdr_parse_target "$T" || exit 1
   TEARDOWN_HERDR_SESSION=$FM_BACKEND_HERDR_SESSION
   TEARDOWN_HERDR_PANE=$FM_BACKEND_HERDR_PANE
+fi
+
+if ! teardown_guard_unlanded_close; then
+  exit 1
 fi
 
 BACKLOG_CLOSED=0
