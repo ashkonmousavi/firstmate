@@ -28,7 +28,8 @@ A spawn stops with an actionable setup message when the CLI, minimum version, `j
 
 Routine supervision uses `bin/fm-peek.sh <id>` and `FM_HOME=<home> bin/fm-send.sh <id> '<text>'` without bringing the Paseo window forward.
 
-Verify setup by spawning a small task and confirming metadata contains `backend=paseo`, `paseo_terminal_id=`, and `paseo_workspace_id=`.
+Worker launch and relaunch are subject to the shared [machine admission requirements and platform limits](configuration.md#machine-capacity-configlane-capacity).
+For an existing task, confirm metadata contains `backend=paseo`, `paseo_terminal_id=`, and `paseo_workspace_id=`.
 
 ## Selection is explicit
 

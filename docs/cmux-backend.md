@@ -46,7 +46,8 @@ The adapter may launch the app with `open -a cmux` only when the socket is down;
 Routine supervision uses `bin/fm-peek.sh <id>` and `FM_HOME=<home> bin/fm-send.sh <id> '<text>'` without bringing the cmux window forward.
 Task workspace and surface creation use `focus=false`.
 
-Verify setup by spawning a small task and confirming metadata contains `backend=cmux`, `cmux_workspace_id=`, and `cmux_surface_id=`.
+Worker launch and relaunch are subject to the shared [machine admission requirements and platform limits](configuration.md#machine-capacity-configlane-capacity).
+For an existing task, confirm metadata contains `backend=cmux`, `cmux_workspace_id=`, and `cmux_surface_id=`.
 
 ## Runtime detection
 

@@ -144,6 +144,7 @@ make_spawn_case() {
   id="muse-$name-x1"
   mkdir -p "$home/data/$id" "$home/projects" "$home/state" "$home/config" \
     "$home/xdgconfig" "$home/xdgdata"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   cat > "$home/data/$id/brief.md" <<'EOF'
 # Task
 ## Captain's intent

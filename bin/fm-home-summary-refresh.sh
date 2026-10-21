@@ -177,6 +177,7 @@ home_summary_refresh_once() {
     home_summary_fail "could not set the publication file mode"
     return 1
   fi
+  "$SCRIPT_DIR/fm-capacity.sh" --publish >/dev/null 2>&1 || true
   if ! mv -f -- "$HOME_SUMMARY_TMP" "$LEDGER" 2>/dev/null; then
     home_summary_fail "atomic ledger replacement failed: $LEDGER"
     return 1

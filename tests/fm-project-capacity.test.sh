@@ -48,6 +48,7 @@ make_home() {  # <home> [task-id...]
   shift
   mkdir -p "$home/state" "$home/config" "$home/data" "$home/projects"
   touch "$home/state/.last-watcher-beat"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   printf '%s\n' codex > "$home/config/crew-harness"
   if [ "$HAVE_TASKS_AXI" = 1 ]; then
     printf '%s\n' '# Backlog' '' '## In flight' '' '## Queued' '' '## Done' \
@@ -79,6 +80,7 @@ make_case() {  # <name> [task-id...]
 printf '%s\n' "$*" >> "$FM_FAKE_CALL_LOG"
 window_file="$FM_FAKE_CALL_LOG.window"
 case "$*" in
+  *"#{pane_current_command}"*) printf 'codex\n'; exit 0 ;;
   *"#{pane_current_path}"*)
     # A spawn that is told to hold waits here, after its capacity check and
     # while it still holds the project lock, until the test releases it.
@@ -206,7 +208,7 @@ assert_nothing_created() {  # <case-dir> <home> <id> <calls-before> <worktrees-b
   assert_absent "$home/data/$id/launch-brief.md" "a deferred spawn rendered a launch brief for $id"
   after=$(call_count "$case_dir")
   [ "$after" -eq "$before" ] ||
-    fail "a deferred spawn touched the terminal or worktree pool for $id: $(tail -n +"$((before + 1))" "$case_dir/calls.log")"
+    fail "a deferred spawn mutated the terminal or worktree pool for $id: $(cat "$case_dir/calls.log")"
   assert_equals "$worktrees" "$(worktree_list "$case_dir")" "a deferred spawn left a git worktree for $id"
   if [ "$HAVE_TASKS_AXI" = 1 ]; then
     [ "$(row_state "$home" "$id")" = queued ] ||
@@ -214,7 +216,8 @@ assert_nothing_created() {  # <case-dir> <home> <id> <calls-before> <worktrees-b
   fi
 }
 
-call_count() { wc -l < "$1/calls.log" | tr -d ' '; }
+# Admission may read endpoint inventory; only mutations violate deferral.
+call_count() { awk '$1 != "list-windows" { n++ } END { print n+0 }' "$1/calls.log"; }
 
 worktree_list() { git -C "$1/project" worktree list --porcelain; }
 
@@ -471,8 +474,8 @@ test_unreadable_holders_refuse_admission() {
   chmod 000 "$root/state/live-a.meta"
   out=$(spawn_ship "$case_dir" task-c "$case_dir/unused") || rc=$?
   chmod 600 "$root/state/live-a.meta"
-  expect_code 1 "$rc" "an unreadable task record did not refuse admission: $out"
-  assert_contains "$out" "task record $root/state/live-a.meta cannot be read" \
+  expect_code 75 "$rc" "an unreadable task record did not refuse admission: $out"
+  assert_contains "$out" "task record $root/state/live-a.meta is unreadable" \
     "the refusal did not name the unreadable task record"
   assert_absent "$root/state/task-c.meta" "a spawn published past an unreadable task record"
 
@@ -480,8 +483,8 @@ test_unreadable_holders_refuse_admission() {
   rc=0
   out=$(spawn_ship "$case_dir" task-c "$case_dir/unused") || rc=$?
   chmod 755 "$mate/state"
-  expect_code 1 "$rc" "an unreadable local state directory did not refuse admission: $out"
-  assert_contains "$out" "local Firstmate state directory $mate/state cannot be read" \
+  expect_code 75 "$rc" "an unreadable local state directory did not refuse admission: $out"
+  assert_contains "$out" "machine state $mate/state is unreadable" \
     "the refusal did not name the unreadable state directory"
   assert_absent "$root/state/task-c.meta" "a spawn published past an unreadable state directory"
 
@@ -575,7 +578,7 @@ test_batch_reports_a_deferred_pair() {
   write_live "$home" live-a "$case_dir/project"
   out=$(run_spawn "$case_dir" "$home" "$case_dir/unused" "task-c=$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
   expect_code "$DEFER_EXIT" "$rc" "a batch whose only pair was deferred did not exit with the deferral status: $out"
-  assert_contains "$out" "batch: DEFERRED task-c ($case_dir/project) - its project is at capacity, so it stays queued" \
+  assert_contains "$out" "batch: DEFERRED task-c ($case_dir/project) - machine or project admission deferred it, so it stays queued" \
     "the batch did not report the deferral"
   assert_not_contains "$out" "batch: FAILED" "the batch reported a deferral as a failure"
   pass "a batch reports a capacity deferral as deferred, not failed"
@@ -649,6 +652,137 @@ SH
   pass "an Orca spawn takes the shared project lock whenever a same-origin clone is capped and defers before creating anything"
 }
 
+test_machine_ceiling_across_projects() {
+  local case_dir home out rc=0 n
+  case_dir=$(make_case machine-ceiling task-six)
+  home="$case_dir/home"
+  printf '5 3\n' > "$home/config/lane-capacity"
+  for n in 1 2 3 4 5; do
+    write_live "$home" "live-$n" "$case_dir/project-$((n % 3))"
+  done
+  out=$(spawn_ship "$case_dir" task-six "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" "sixth worker across three projects: $out"
+  assert_contains "$out" 'lanes=5 target=5' 'machine reading'
+  assert_absent "$home/state/task-six.meta" 'deferred record'
+  assert_absent "$home/data/task-six/launch-brief.md" 'deferred brief'
+  [ "$HAVE_TASKS_AXI" != 1 ] || [ "$(row_state "$home" task-six)" = queued ] || fail 'backlog moved'
+  pass 'sixth spawn across three projects stays queued at machine ceiling five'
+}
+
+test_machine_memory_and_unreadable() {
+  local case_dir home out rc memfile
+  case_dir=$(make_case machine-memory task-a)
+  home="$case_dir/home"
+  printf '5 3\n' > "$home/config/lane-capacity"
+  memfile="$case_dir/meminfo"
+  printf 'MemAvailable: 356000 kB\n' > "$memfile"
+  rc=0
+  out=$(FM_CAPACITY_MEMINFO="$memfile" spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" "low memory: $out"
+  assert_contains "$out" 'headroom=-' 'negative headroom refuses'
+  assert_absent "$home/state/task-a.meta" 'low memory record'
+  printf 'MemAvailable: unknown kB\n' > "$memfile"
+  rc=0
+  out=$(FM_CAPACITY_MEMINFO="$memfile" spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" "unreadable machine: $out"
+  assert_contains "$out" "$memfile" 'unreadable machine names reading'
+  printf 'broken\n' > "$home/config/lane-capacity"
+  rc=0
+  out=$(spawn_ship "$case_dir" task-a "$case_dir/unused") || rc=$?
+  expect_code 75 "$rc" "unreadable declaration: $out"
+  assert_contains "$out" "$home/config/lane-capacity" 'unreadable file named'
+  pass 'fresh spawn refuses low memory and unreadable machine facts'
+}
+
+test_machine_refuses_inaccessible_state() {
+  local case_dir root mate mode out rc
+  if [ "$(id -u)" = 0 ]; then
+    printf 'ok - skipped the inaccessible-root case (root bypasses mode permissions)\n'
+    return 0
+  fi
+  case_dir=$(make_case inaccessible-root)
+  root="$case_dir/home"
+  mate="$case_dir/mate"
+  make_home "$mate" task-m
+  printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$root" > "$mate/.fm-secondmate-parent"
+  printf -- '- mate - local (home: %s; scope: tests; projects: project; added 2026-09-01)\n' "$mate" > "$root/data/secondmates.md"
+  for mode in 000 400 100; do
+    chmod "$mode" "$root/state"
+    rc=0
+    out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+    chmod 755 "$root/state"
+    expect_code 75 "$rc" "root state mode $mode did not defer: $out"
+    assert_contains "$out" "machine state $root/state" 'refusal names inaccessible root state'
+    assert_absent "$mate/state/task-m.meta" 'refused spawn published a record'
+  done
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$(new_worktree "$case_dir" task-m)" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  expect_code 0 "$rc" "readable root state did not admit the worker: $out"
+  assert_present "$mate/state/task-m.meta" 'admitted secondmate worker published a record'
+  pass 'unreadable root state defers local secondmate workers'
+}
+
+test_machine_counts_published_lane_without_lock() {
+  local case_dir home mate hold wt pid i n a=0 b=0
+  case_dir=$(make_case machine-concurrent task-a)
+  home="$case_dir/home"
+  mate="$case_dir/mate"
+  make_home "$mate" task-b
+  printf -- '- mate - local (home: %s; scope: tests; projects: other-project; added 2026-09-01)\n' "$mate" > "$home/data/secondmates.md"
+  printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$home" > "$mate/.fm-secondmate-parent"
+  printf '5 3\n' > "$home/config/lane-capacity"
+  for n in 1 2 3 4; do write_live "$home" "live-$n" "$case_dir/other-$n"; done
+  hold="$case_dir/hold"
+  wt=$(new_worktree "$case_dir" task-a)
+  FM_FAKE_HOLD="$hold" spawn_ship "$case_dir" task-a "$wt" > "$case_dir/a.out" 2>&1 &
+  pid=$!
+  i=0
+  while [ ! -f "$hold.reached" ]; do
+    i=$((i + 1)); [ "$i" -lt 400 ] || fail "first spawn never reached launch: $(cat "$case_dir/a.out")"
+    sleep 0.05
+  done
+  assert_absent "$home/state/.machine-lane-capacity.lock" 'machine lock must not span launch'
+  : > "$hold.release"
+  wait "$pid" || a=$?
+  run_spawn "$case_dir" "$mate" "$case_dir/unused" task-b "$case_dir/other-project" --mode no-mistakes --yolo off > "$case_dir/b.out" 2>&1 || b=$?
+  expect_code 0 "$a" "first spawn: $(cat "$case_dir/a.out")"
+  expect_code 75 "$b" "concurrent other-project spawn: $(cat "$case_dir/b.out")"
+  assert_present "$home/state/task-a.meta" 'winner published'
+  assert_absent "$mate/state/task-b.meta" 'loser did not publish'
+  pass 'machine admission holds no lock across launch and counts the published lane across projects'
+}
+
+test_machine_registry_parent_refuses_spawn() {
+  local case_dir root mate sibling out rc n
+  if [ "$(id -u)" = 0 ]; then
+    printf 'ok - skipped registry-parent permissions (root bypasses mode permissions)\n'
+    return 0
+  fi
+  case_dir=$(make_case registry-parent)
+  root="$case_dir/home"
+  mate="$case_dir/mate"
+  sibling="$case_dir/sibling"
+  make_home "$mate" task-m
+  make_home "$sibling"
+  printf '%s\n' schema=fm-secondmate-parent.v1 route=local "parent_home=$root" > "$mate/.fm-secondmate-parent"
+  printf -- '- mate - local (home: %s; scope: tests; projects: project; added 2026-09-01)\n' "$mate" > "$root/data/secondmates.md"
+  printf -- '- sibling - local (home: %s; scope: tests; projects: other; added 2026-09-01)\n' "$sibling" >> "$root/data/secondmates.md"
+  printf '5 3\n' > "$root/config/lane-capacity"
+  for n in 1 2 3 4 5; do write_live "$sibling" "live-$n" "$case_dir/other-$n"; done
+  chmod 000 "$root/data"
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  chmod 755 "$root/data"
+  expect_code 75 "$rc" "inaccessible registry parent admitted a sixth lane: $out"
+  assert_contains "$out" "registry parent is unreadable at $root/data" 'spawn names inaccessible registry parent'
+  assert_absent "$mate/state/task-m.meta" 'refused spawn published a record'
+  rc=0
+  out=$(run_spawn "$case_dir" "$mate" "$case_dir/unused" task-m "$case_dir/project" --mode no-mistakes --yolo off) || rc=$?
+  expect_code 75 "$rc" "restored registry hid sibling holders: $out"
+  assert_contains "$out" 'lanes=5 target=5' 'restored registry counts sibling holders'
+  pass 'inaccessible root registry parent defers a worker from a writable secondmate'
+}
+
 test_undeclared_capacity_keeps_dispatch_uncapped
 test_available_capacity_admits_the_worker
 test_exhausted_capacity_defers_without_leaving_anything_behind
@@ -665,3 +799,9 @@ test_failed_spawn_after_admission_holds_no_place
 test_unreadable_declaration_refuses_every_spawn
 test_batch_reports_a_deferred_pair
 test_orca_spawn_is_admitted_under_the_shared_project_lock
+
+test_machine_ceiling_across_projects
+test_machine_memory_and_unreadable
+test_machine_refuses_inaccessible_state
+test_machine_registry_parent_refuses_spawn
+test_machine_counts_published_lane_without_lock

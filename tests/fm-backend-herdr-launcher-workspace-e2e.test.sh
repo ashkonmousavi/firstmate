@@ -162,10 +162,12 @@ LAB_SOCKET=$(lab session list --json 2>/dev/null \
 PRIMARY_HOME="$TMP_ROOT/primary-home"
 mkdir -p "$PRIMARY_HOME/state" "$PRIMARY_HOME/config"
 printf 'off\n' > "$PRIMARY_HOME/config/herdr-presentation-spaces"
+printf '999999 0\n' > "$PRIMARY_HOME/config/lane-capacity"
 SM_ID="lwsm1"
 SM_HOME="$TMP_ROOT/secondmate-home"
 mkdir -p "$SM_HOME/state" "$SM_HOME/config" "$SM_HOME/projects" "$SM_HOME/bin" "$SM_HOME/data"
 printf 'off\n' > "$SM_HOME/config/herdr-presentation-spaces"
+printf '999999 0\n' > "$SM_HOME/config/lane-capacity"
 printf '# scratch secondmate home AGENTS.md placeholder\n' > "$SM_HOME/AGENTS.md"
 printf '%s\n' "$SM_ID" > "$SM_HOME/.fm-secondmate-home"
 printf 'trivial e2e secondmate charter: nothing to do.\n' > "$SM_HOME/data/charter.md"
@@ -186,6 +188,7 @@ git -C "$SM2_HOME" init -q -b main
 PRES_HOME="$TMP_ROOT/presentation-home"
 mkdir -p "$PRES_HOME/state" "$PRES_HOME/config"
 : > "$PRES_HOME/config/herdr-presentation-spaces"
+printf '999999 0\n' > "$PRES_HOME/config/lane-capacity"
 
 write_ship_brief() {  # <file> <id>
   cat > "$1" <<EOF

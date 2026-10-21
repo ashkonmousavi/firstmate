@@ -128,6 +128,7 @@ make_spawn_case() {
   fakebin=$(make_spawn_fakebin "$case_dir/fake")
   mkdir -p "$home/data" "$home/projects" "$home/state" "$home/config"
   printf 'claude\n' > "$home/config/crew-harness"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   printf '%s\n' "$$" > "$home/state/.lock"
   printf '%s off\n' "$$" > "$home/state/.trace-context-effective"
   fm_git_worktree "$proj" "$wt" "wt-$name"
@@ -222,12 +223,14 @@ run_two_level() {
   sm="$base/sm"
   mkdir -p "$prim/config" "$prim/data" "$prim/state" "$prim/projects"
   printf 'claude\n' > "$prim/config/crew-harness"
+  printf '999999 0\n' > "$prim/config/lane-capacity"
   [ "$pfile" = present ] && : > "$prim/config/trace-context"
   touch "$prim/state/.last-watcher-beat"
   start_trace_session "$prim" "$penv"
 
   # Seed the secondmate home so validate_firstmate_home_for_spawn accepts it.
-  mkdir -p "$sm/bin" "$sm/data"
+  mkdir -p "$sm/bin" "$sm/data" "$sm/config"
+  printf '999999 0\n' > "$sm/config/lane-capacity"
   printf '# Firstmate\n' > "$sm/AGENTS.md"
   printf 'sm-%s\n' "$name" > "$sm/.fm-secondmate-home"
   printf 'charter\n' > "$sm/data/charter.md"
@@ -543,6 +546,7 @@ test_two_routed_tasks_through_one_secondmate_root_distinct_traces() {
   sm="$base/sm-home"
   mkdir -p "$sm/data" "$sm/projects" "$sm/state" "$sm/config"
   printf 'claude\n' > "$sm/config/crew-harness"
+  printf '999999 0\n' > "$sm/config/lane-capacity"
   : > "$sm/config/trace-context"
   printf '%s\n' "$$" > "$sm/state/.lock"
   touch "$sm/state/.last-watcher-beat"

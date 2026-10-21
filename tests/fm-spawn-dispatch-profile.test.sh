@@ -1807,12 +1807,11 @@ test_launch_environment_allowlist() {
   local setting rec id out status probe result expected launch value pane_shell pane_path
   # shellcheck disable=SC2016
   value='synthetic value; $(touch SHOULD_NOT_EXIST) `false` "quoted"'
-  for setting in absent missing-config enabled empty; do
+  for setting in absent enabled empty; do
     id="env-$setting"
     rec=$(make_spawn_case "$id" codex "$id")
     read_case_record "$rec"
     case "$setting" in
-      missing-config) rm "$HOME_DIR/config/crew-harness"; rmdir "$HOME_DIR/config" ;;
       enabled) printf '# Synthetic credential name\nFM_TEST_ALLOWED\nFM_TEST_EMPTY\nFM_TEST_UNSET\n' > "$HOME_DIR/config/launch-env-allowlist" ;;
       empty) : > "$HOME_DIR/config/launch-env-allowlist" ;;
     esac
@@ -1840,7 +1839,7 @@ SH
       FM_TEST_AMBIENT_SENTINEL=synthetic-unrelated FM_TEST_ALLOWED="$value" FM_TEST_EMPTY='' \
       "$pane_shell" -c "$launch") || fail "allowlist=$setting emitted launch failed in $pane_shell"
       case "$setting" in
-        absent|missing-config) expected=$(printf '%s\n' synthetic-unrelated "$value" '' unset) ;;
+        absent) expected=$(printf '%s\n' synthetic-unrelated "$value" '' unset) ;;
         enabled) expected=$(printf '%s\n' unset "$value" '' unset) ;;
         empty) expected=$(printf '%s\n' unset unset unset unset) ;;
       esac

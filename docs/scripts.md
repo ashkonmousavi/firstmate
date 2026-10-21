@@ -18,6 +18,9 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-home-summary-refresh.sh` | Atomically publish this home's structured summary ledger                         |
 | `fm-fleet-ledger.sh`     | Append the opt-in fleet activity ledger's records ([contract](fleet-ledger.md))      |
 | `fm-fleet-view.sh`       | Render the fleet snapshot as a human Markdown view                                   |
+| [`fm-capacity.sh`](../bin/fm-capacity.sh) | Report, publish, or check machine admission facts ([setup](configuration.md#machine-capacity-configlane-capacity)) |
+| [`fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) | Own the shared machine admission contract and reader |
+| [`fm-place.sh`](../bin/fm-place.sh) | Advise placement from published machine capacity facts |
 | `fm-bearings-snapshot.sh` | Project the bounded remote-ledger fleet snapshot to compact TOON; `--include-prs` adds live GitHub enrichment |
 | `fm-bearings-board.sh`   | Build and arm the stable interactive `/bearings lavish` fleet board                  |
 | `fm-secondmate-reconcile.sh` | Queue Bearings reconcile requests for later supervision delivery and ask each mismatched home through its durable inbox with a per-home cooldown |
@@ -46,7 +49,6 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-test-run.sh`         | Behavior-test runner: selection, portable lanes, bounded concurrency, budgets, coverage guard, timing/JSON; refuses to execute in the repository primary checkout when `FM_TASK_ID` marks a task worker |
 | `fm-test-isolation-proof.sh` | Concurrent isolation harness and portable candidate set owner |
 | `fm-ensure-agents-md.sh` | Manually initialize project agent-memory files (see the helper's header and help) |
-| `fm-capacity.sh`         | Read-only report of open lanes against the optional `config/lane-capacity` target and host headroom for queued-work dispatch |
 | `fm-guard.sh`            | Warn on primary-checkout tangles, main-session pending wakes, and unhealthy supervision |
 | [`fm-main-backstop.py`](../bin/fm-main-backstop.py) | Private cron backstop for Herdr primary wake delivery; its header owns deployment requirements and monitoring limits |
 | `fm-primary-scope-lib.sh` | Shared marker-or-plain-checkout primary-home predicate for tracked hooks             |

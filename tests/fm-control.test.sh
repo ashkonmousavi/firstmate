@@ -215,7 +215,8 @@ SH
 # new_case <name> -> echoes a case dir holding home/, fake/, and fakebin.
 new_case() {
   local dir="$TMP_ROOT/$1-$RANDOM"
-  mkdir -p "$dir/home/state" "$dir/home/data" "$dir/fake"
+  mkdir -p "$dir/home/state" "$dir/home/data" "$dir/home/config" "$dir/fake"
+  printf '999999 0\n' > "$dir/home/config/lane-capacity"
   : > "$dir/fake/literal"
   : > "$dir/fake/keys"
   printf 'zsh' > "$dir/fake/command"

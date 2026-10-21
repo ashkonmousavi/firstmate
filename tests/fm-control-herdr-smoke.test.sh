@@ -81,7 +81,8 @@ LAB_PREPARED=1
 SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/fm-control-herdr.XXXXXX")
 SCRATCH=$(cd "$SCRATCH" && pwd)
 HOME_DIR="$SCRATCH/home"
-mkdir -p "$HOME_DIR/state" "$HOME_DIR/data/hsmoke"
+mkdir -p "$HOME_DIR/state" "$HOME_DIR/data/hsmoke" "$HOME_DIR/config"
+printf '999999 0\n' > "$HOME_DIR/config/lane-capacity"
 cat > "$HOME_DIR/data/hsmoke/brief.md" <<'EOF'
 # Task
 ## Captain's intent

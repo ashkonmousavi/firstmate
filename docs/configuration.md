@@ -641,12 +641,7 @@ The file is a home-local site choice and is not inherited by secondmate homes; `
 
 ## Lane capacity (config/lane-capacity)
 
-The optional local, gitignored `config/lane-capacity` file holds one non-negative integer: how many ship and scout lanes this home should run at once.
-`bin/fm-capacity.sh` reads it to report how many lanes are open for queued work, alongside running lanes, 1-minute load against logical cores, free memory, and free disk.
-With the file absent the report prints counts and host figures only, never invents a target, and never advises holding dispatch; a malformed value is reported as invalid rather than guessed.
-Persistent secondmates hold no lane.
-The file is a per-machine choice and is not inherited by secondmate homes.
-The script's header owns the output line, the host-constraint thresholds, and the probe fallbacks.
+See [Machine capacity](#machine-capacity-configlane-capacity) for machine admission, reporting and placement.
 
 ## Turn-end pane-churn absorb (config/turnend-churn-absorb)
 
@@ -1270,10 +1265,34 @@ When stripping is enabled, the hooks directory is read-only, so a hook manager r
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
 
+## Machine capacity (config/lane-capacity)
+
+Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
+For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
+Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
+[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, exemptions and refusal rules.
+Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
+Worker dispatch and relaunch require Linux memory readings; macOS can host a primary session, but local worker admission fails closed there.
+The shared reader owns the cgroup-aware memory calculation and fail-closed rules.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Persistent secondmate startup remains exempt from machine admission.
+Project limits below apply in addition to machine admission.
+
+Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
+It exits 75 when room cannot be proved and does not change task state.
+`bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
+External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
+
+The existing home-summary refresh also atomically publishes `state/lane-capacity.json` with occupancy, free lanes, available memory (`mem_available_kb`), reserve, headroom and a timestamp.
+Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
+The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
+Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
+Advice never reserves a lane, and spawn always rereads live facts before launch.
+
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.
-Without it, dispatch stays uncapped as `AGENTS.md` section 7 describes, and a surplus worker is launched only to spend full-context turns waiting for the resource.
+Without it, no project-specific limit applies; [machine admission](#machine-capacity-configlane-capacity) still bounds dispatch.
 The file lives in the machine's root Firstmate home, so every local secondmate home reads the same limit, and it holds one line per project:
 
 ```text

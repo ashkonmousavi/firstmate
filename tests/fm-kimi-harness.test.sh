@@ -250,6 +250,7 @@ Exercise Kimi dispatch.
 Verify launch and delivery behavior.
 EOF
   printf 'kimi\n' > "$home/config/crew-harness"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   fm_git_worktree "$proj" "$wt" "wt-$name"
   touch "$home/state/.last-watcher-beat"
   : > "$case_dir/launch.log"
