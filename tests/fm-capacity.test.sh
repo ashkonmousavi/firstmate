@@ -153,7 +153,6 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
 
 (
   mkdir -p "$TMP_ROOT/shell-home/"{state,config,data} "$TMP_ROOT/shell-worktree" "$TMP_ROOT/fakebin"
-  # shellcheck disable=SC2030 # subshell-local by design
   FM_HOME="$TMP_ROOT/shell-home"
   export FM_HOME
   printf '5 3\n' > "$FM_HOME/config/lane-capacity"
@@ -232,11 +231,13 @@ SH
 
 # Fixture membership and hierarchy exercise the same public admission read as
 # fm-spawn without depending on the test host's cgroup or page cache.
-(
-  # shellcheck disable=SC2030,SC2031 # This subshell deliberately selects a new fixture home.
-  export FM_HOME="$TMP_ROOT/cgroup-home"
-  export FM_CAPACITY_CGROUP_FILE="$TMP_ROOT/self-cgroup"
-  export FM_CAPACITY_CGROUP_ROOT="$TMP_ROOT/cgroup"
+test_cgroup_memory() {
+  local FM_HOME="$TMP_ROOT/cgroup-home"
+  local FM_CAPACITY_MEMINFO="$TMP_ROOT/cgroup-meminfo"
+  local FM_CAPACITY_CGROUP_FILE="$TMP_ROOT/self-cgroup"
+  local FM_CAPACITY_CGROUP_ROOT="$TMP_ROOT/cgroup"
+  local out rc bad
+  export FM_HOME FM_CAPACITY_MEMINFO FM_CAPACITY_CGROUP_FILE FM_CAPACITY_CGROUP_ROOT
   mkdir -p "$FM_HOME/"{config,state,data} "$FM_CAPACITY_CGROUP_ROOT/crew/lane"
   printf '5 4\n' > "$FM_HOME/config/lane-capacity"
   printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
@@ -293,4 +294,5 @@ SH
     expect_code 75 "$rc" 'permission denied statistics refuse'
   fi
   pass 'root cgroup fallback and unreadable limit/statistics behave safely'
-) || exit 1
+}
+test_cgroup_memory || exit 1
