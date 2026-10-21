@@ -388,6 +388,8 @@ fm_supervision_engine_turn() {
     if [ -n "$pid_file" ]; then
       identity=$(_fm_engine_identity "$watched" || true)
     fi
+    # Capture descendants before publishing the identity that lets the host
+    # stop the engine; otherwise that stop can erase their ancestry first.
     _fm_engine_snapshot_descendants "$watched" "$ledger"
     if [ -n "$pid_file" ]; then
       if [ -n "$identity" ] && [ "$identity" != "$recorded" ]; then

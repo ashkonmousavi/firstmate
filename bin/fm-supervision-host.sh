@@ -149,7 +149,8 @@
 # A stop signal (HUP, TERM, INT) ends the host through its cleanup, which stops
 # the engine turn and every arm the host tracks; one that lands while an arm or
 # an engine turn is being started is held until that process is tracked, so
-# none outlives the host.
+# none outlives the host. Cleanup preserves the signal's exit status:
+# HUP=129, TERM=143, INT=130.
 #
 # STATE (all under state/, owned here): .supervision-host (this host's pid and
 # the processes it runs), .supervision-host-engine (the engine conversation:
@@ -411,7 +412,9 @@ activate() {
 
 # Stop a running engine turn: TERM the bounded process, whose watchdog passes
 # it on and KILLs after its grace, then let the turn's own poller reap the
-# engine's descendants before giving up on it.
+# engine's descendants before giving up on it. Startup may not have published
+# the engine identity yet; keep observing it within the bound, and give the
+# poller a fresh grace-plus-reap window once TERM reaches the verified process.
 stop_engine_turn() {
   local pid='' identity='' i limit signalled=0
   limit=$(( (ENGINE_GRACE + 10) * 10 ))
