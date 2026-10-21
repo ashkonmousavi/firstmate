@@ -1,0 +1,2 @@
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=8114116 reserve_kb=4194304 headroom_kb=3919812
+Lanes: 0 of 5; 5 open. Memory headroom: 3919812 kB.

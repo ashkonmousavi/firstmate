@@ -1,0 +1,105 @@
+INPUT: high=15,000,000,000 bytes; anon+shmem=5,500,000,000; memory.current=17,500,000,000; host MemAvailable=1 kB. Independent expected balance: 9,500,000,000 bytes, 9,277,343 KiB; after 4 GiB reserve: 5,083,039 KiB.
+CASE: cache-heavy ancestor admits despite low host available and high current
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=9277343 reserve_kb=4194304 headroom_kb=5083039
+Lanes: 0 of 5; 5 open. Memory headroom: 5083039 kB.
+exit=0
+CASE: cache-heavy machine-readable headroom
+$ bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792595071,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":9277343,"reserve_kb":4194304,"headroom_kb":5083039}
+exit=0
+CASE: exact 4 GiB balance admits
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=4194304 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 5 open. Memory headroom: 0 kB.
+exit=0
+CASE: exact reserve reports zero headroom
+$ bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792595071,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":4194304,"reserve_kb":4194304,"headroom_kb":0}
+exit=0
+CASE: one byte below reserve refuses
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=memory lanes=0 target=5 secondmates=0 mem_available_kb=4194303 reserve_kb=4194304 headroom_kb=-1
+Lanes: 0 of 5; 0 open. Memory headroom: -1 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/lane memory.high-(anon+shmem)=4194303 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity) gives headroom=-1 kB
+exit=75
+CASE: tight parent refuses even with admissible child
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=memory lanes=0 target=5 secondmates=0 mem_available_kb=1048576 reserve_kb=4194304 headroom_kb=-3145728
+Lanes: 0 of 5; 0 open. Memory headroom: -3145728 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew memory.high-(anon+shmem)=1048576 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity) gives headroom=-3145728 kB
+exit=75
+CASE: tight parent report
+$ bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792595071,"readable":true,"reason":"memory","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew memory.high-(anon+shmem)=1048576 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity) gives headroom=-3145728 kB","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":1048576,"reserve_kb":4194304,"headroom_kb":-3145728}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew memory.high-(anon+shmem)=1048576 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity) gives headroom=-3145728 kB
+exit=0
+CASE: over-limit parent negative balance rounds down
+$ bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792595071,"readable":true,"reason":"memory","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew memory.high-(anon+shmem)=-1048577 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity) gives headroom=-5242881 kB","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":-1048577,"reserve_kb":4194304,"headroom_kb":-5242881}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew memory.high-(anon+shmem)=-1048577 kB minus reserve=4194304 kB (~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity) gives headroom=-5242881 kB
+exit=0
+CASE: missing shmem refuses despite abundant host memory
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.stat: anon or shmem missing, malformed or unreadable
+exit=75
+CASE: duplicate anon refuses despite abundant host memory
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.stat: anon or shmem missing, malformed or unreadable
+exit=75
+CASE: nonnumeric refuses despite abundant host memory
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.stat: anon or shmem missing, malformed or unreadable
+exit=75
+CASE: negative refuses despite abundant host memory
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.stat: anon or shmem missing, malformed or unreadable
+exit=75
+CASE: missing statistics refuses
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.stat: anon or shmem missing, malformed or unreadable
+exit=75
+CASE: permission-denied statistics refuses
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.stat: anon or shmem missing, malformed or unreadable
+exit=75
+CASE: malformed limit refuses
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/cgroup/crew/memory.high: malformed limit
+exit=75
+CASE: unlimited cgroup uses MemAvailable
+$ bash bin/fm-capacity.sh --json
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792595072,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/home/config/lane-capacity","lanes":0,"target":5,"free_lanes":5,"secondmates":0,"mem_available_kb":8388608,"reserve_kb":4194304,"headroom_kb":4194304}
+exit=0
+CASE: root with no memory controller uses MemAvailable
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=5 reason=ok lanes=0 target=5 secondmates=0 mem_available_kb=8388608 reserve_kb=4194304 headroom_kb=4194304
+Lanes: 0 of 5; 5 open. Memory headroom: 4194304 kB.
+exit=0
+CASE: unlimited host unreadable MemAvailable refuses
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/meminfo: MemAvailable reading missing, malformed or unreadable
+exit=75
+CASE: malformed membership refuses
+$ bash bin/fm-capacity.sh --admit
+capacity: free_lanes=0 reason=unreadable lanes=0 target=5 secondmates=0 mem_available_kb=0 reserve_kb=4194304 headroom_kb=0
+Lanes: 0 of 5; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/lab-4010dd83/membership: invalid cgroup path
+exit=75
+All CLI scenarios satisfied independent expected values and refusal exit codes. No runtime or launcher was mocked; only kernel input files were disposable fixtures through the supported test seam.

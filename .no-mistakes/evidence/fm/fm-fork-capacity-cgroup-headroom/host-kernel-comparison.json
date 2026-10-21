@@ -1,0 +1,34 @@
+{
+  "before_kernel_snapshot": {
+    "high": 15032385536,
+    "anon": 6641004544,
+    "shmem": 24367104,
+    "current": 11570737152,
+    "expected_available_kb": 8170912
+  },
+  "product_json": {
+    "schema": "fm-lane-capacity.v1",
+    "machine": "WIN-P8MLI888O8M",
+    "generated_epoch": 1792595120,
+    "readable": true,
+    "reason": "ok",
+    "error": "",
+    "config_file": "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5FF8AH8309FRHGGS3P868YD/.capacity-validation-tmp/host-home/config/lane-capacity",
+    "lanes": 0,
+    "target": 5,
+    "free_lanes": 5,
+    "secondmates": 0,
+    "mem_available_kb": 8144508,
+    "reserve_kb": 4194304,
+    "headroom_kb": 3950204
+  },
+  "after_kernel_snapshot": {
+    "high": 15032385536,
+    "anon": 6666485760,
+    "shmem": 24367104,
+    "current": 11594969088,
+    "expected_available_kb": 8146028
+  },
+  "exit": 0,
+  "note": "Live values move during sampling; compare within 64 MiB tolerance. Independent oracle: author formula applied to kernel snapshots."
+}
