@@ -1,0 +1,26 @@
+SCENARIO: five-live-two-dead
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584404,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=5 target=5; no free machine lane","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":5,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":17767576,"reserve_kb":0,"headroom_kb":17767576}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=5 target=5; no free machine lane
+SCENARIO: four-live-two-dead
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584406,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":4,"target":5,"free_lanes":1,"secondmates":0,"mem_available_kb":15968692,"reserve_kb":0,"headroom_kb":15968692}
+SCENARIO: unknown-retains-seat
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=5 target=5; no free machine lane
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584407,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=5 target=5; no free machine lane","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":5,"target":5,"free_lanes":0,"secondmates":0,"mem_available_kb":15435504,"reserve_kb":0,"headroom_kb":15435504}
+SCENARIO: exemptions
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584407,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":4,"target":5,"free_lanes":1,"secondmates":1,"mem_available_kb":15247484,"reserve_kb":0,"headroom_kb":15247484}
+SCENARIO: shell-only
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584409,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":4,"target":5,"free_lanes":1,"secondmates":1,"mem_available_kb":15289680,"reserve_kb":0,"headroom_kb":15289680}
+SCENARIO: pipeline-retains-seat
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584410,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=5 target=5; no free machine lane","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":5,"target":5,"free_lanes":0,"secondmates":1,"mem_available_kb":15324420,"reserve_kb":0,"headroom_kb":15324420}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=5 target=5; no free machine lane
+capacity: free_lanes=0 reason=unreadable lanes=0 target=0 secondmates=0 mem_available_kb=0 reserve_kb=0 headroom_kb=0
+Lanes: 0 of 0; 0 open. Memory headroom: 0 kB.
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity is missing or unreadable
+missing-config admission exit=75
+primary:0 command=node grid=120x40
+primary:1 command=node grid=120x40
+primary:2 command=node grid=120x40
+primary:3 command=node grid=120x40
+primary:4 command=node grid=120x40
+primary:5 command=bash grid=120x40
+primary:6 command=sleep grid=120x40

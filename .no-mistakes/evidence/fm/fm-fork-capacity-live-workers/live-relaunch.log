@@ -1,0 +1,22 @@
+Capacity before relaunch:
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584421,"readable":true,"reason":"full","error":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=1 target=1; no free machine lane","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":1,"target":1,"free_lanes":0,"secondmates":0,"mem_available_kb":16515268,"reserve_kb":0,"headroom_kb":16515268}
+fm-capacity: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=1 target=1; no free machine lane
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  2 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+deferred: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=1 target=1; no free machine lane; task capacity-a stays queued
+direct-relaunch exit=75
+Direct refusal preserved stopped record.
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc
+WARNING: watcher still down (same stale episode; last beat: never, grace 300s) - full banner already printed this episode.
+deferred: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity: lanes=1 target=1; no free machine lane; task capacity-a stays queued
+error: capacity-a's agent was stopped but the replacement did not launch; no agent is running, and its work plus the recorded progress note are preserved at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/wt-a
+control-relaunch exit=75
+Control refusal preserved stopped record.
+A endpoint state after refusals: dead

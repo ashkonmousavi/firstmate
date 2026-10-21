@@ -1,0 +1,1 @@
+{"schema":"fm-lane-capacity.v1","machine":"WIN-P8MLI888O8M","generated_epoch":1792584407,"readable":true,"reason":"ok","error":"","config_file":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F4TP4RGP70Q9S4NR5X1TK2/.lc/config/lane-capacity","lanes":4,"target":5,"free_lanes":1,"secondmates":1,"mem_available_kb":15247484,"reserve_kb":0,"headroom_kb":15247484}
