@@ -364,7 +364,7 @@ def main():
             episodes.pop('runner-' + mate, None)
         try:
             remote = remote_stamp(code, env, memory, mate, audit)
-            local_path = state / (mate + '.status')
+            local_path = state / ('.remote-reply-mirrored-' + mate)
             local = newest(local_path.read_text()) if local_path.exists() else 0
             lag = remote - local
             if lag > 900:

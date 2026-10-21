@@ -33,6 +33,7 @@ class Backstop(unittest.TestCase):
         self.config = {'agent': 'claude', 'process': 'claude', 'remote': 1000,
                        'local': 1000, 'fail_send': False, 'panes': 1}
         (self.state / 'q-server.status').write_text('working [at=1000]: caught up\n')
+        (self.state / '.remote-reply-mirrored-q-server').write_text('working [at=1000]: caught up\n')
         self.executable(self.fake / 'herdr', '''#!/usr/bin/env python3
 import json,os,subprocess,sys
 from pathlib import Path
@@ -251,6 +252,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertGreater(len(self.config['remote_file']), 1048576)
         newest = 5000 + 39999 * 60
         (self.state / 'q-server.status').write_text('done [at=%d]: caught up\n' % newest)
+        (self.state / '.remote-reply-mirrored-q-server').write_text('done [at=%d]: caught up\n' % newest)
         self.run_guard()
         self.assertEqual(self.notes(), '')
         self.assertEqual(self.memory()['readers']['q-server']['stamp'], newest)
@@ -308,6 +310,46 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertIn('REPLY DELIVERY LAG q-server: 901s', self.notes())
         self.assertEqual(self.memory()['readers']['q-server']['offset'],
                          len(self.config['remote_file'].encode()))
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+
+    def test_adapter_notices_cannot_advance_ingestion_or_clear_lag(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.run_guard()
+        self.config['remote_file'] = 'done [at=3000]: undelivered reply\n'
+        status = self.state / 'q-server.status'
+        with status.open('a') as out:
+            out.write('note [at=4000]: remote reply continuity broken\n')
+        self.run_guard()
+        self.assertIn('REPLY DELIVERY LAG q-server: 2000s (remote_at=3000 ingested_at=1000)',
+                      self.notes())
+        incident = self.memory()['episodes']['lag-q-server']
+        before = len(list((self.state / 'inbox').glob('*.note')))
+        with status.open('a') as out:
+            out.write('note [at=5000]: remote document did not transfer\n')
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+        self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
+        with status.open('a') as out:
+            out.write(self.config['remote_file'])
+        (self.state / '.remote-reply-mirrored-q-server').write_text(
+            self.config['remote_file'])
+        self.run_guard()
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+
+    def test_no_ingestion_evidence_does_not_use_local_notices(self):
+        (self.state / '.last-watcher-beat').touch()
+        (self.state / 'q-server.status').write_text('note [at=4000]: adapter notice\n')
+        mirrored = self.state / '.remote-reply-mirrored-q-server'
+        mirrored.unlink()
+        self.config['remote'] = 1901
+        self.run_guard()
+        self.assertIn('REPLY DELIVERY LAG q-server: 1901s (remote_at=1901 ingested_at=0)',
+                      self.notes())
+        incident = self.memory()['episodes']['lag-q-server']
+        mirrored.touch()
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
         self.assertNotIn('q-server', self.memory()['read_fails'])
 
     def test_multi_chunk_backlog_reports_tail_lag(self):
@@ -381,6 +423,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertNotIn('read-q-server', self.memory()['episodes'])
         self.assertEqual(len(list((self.state / 'inbox').glob('*.note'))), before)
         (self.state / 'q-server.status').write_text('done [at=1901]: caught up\n')
+        (self.state / '.remote-reply-mirrored-q-server').write_text('done [at=1901]: caught up\n')
         self.run_guard()
         self.assertNotIn('lag-q-server', self.memory()['episodes'])
         self.config['remote'] = 3000

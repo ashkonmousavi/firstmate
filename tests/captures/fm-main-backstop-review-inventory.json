@@ -1,0 +1,61 @@
+{
+  "scope": {
+    "base": "f8a8cb8867915267231084312ced4dab147af081",
+    "reviewed_head": "32a572338f69165714a34c5df468a3528ee1043e"
+  },
+  "provenance": "Reconstructed from current executable paths for R1 and R2; no earlier retained inventory was supplied.",
+  "findings": {
+    "R1": {
+      "invariant": "Only actual mirrored remote replies may advance the local ingestion watermark.",
+      "cause": "The shared local watermark reads a status stream mixing mirrored replies and adapter-authored notices.",
+      "sequence": "Mirrored at=1000; remote replacement at=3000; local continuity notice at=4000; expected delivery lag 2000 seconds.",
+      "affected_occurrences": [
+        "bin/fm-main-backstop.py:main local watermark and lag comparison",
+        "bin/fm-main-backstop.py:main lag incident clearing",
+        "tests/fm-main-backstop.test.py:setUp mirrored ingestion fixture",
+        "tests/fm-main-backstop.test.py:oversized-source caught-up fixture",
+        "tests/fm-main-backstop.test.py:lag incident recovery fixture",
+        "tests/fm-main-backstop.test.py:test_adapter_notices_cannot_advance_ingestion_or_clear_lag",
+        "tests/fm-main-backstop.test.py:test_no_ingestion_evidence_does_not_use_local_notices"
+      ],
+      "axes": [
+        "whole-file bootstrap",
+        "steady-state delta",
+        "continuity-break resync",
+        "oversized-source bootstrap",
+        "missing or empty ingestion record",
+        "inconclusive read",
+        "positive recovery and incident deduplication"
+      ],
+      "search_scope": [
+        "bin/fm-main-backstop.py",
+        "tests/fm-main-backstop*",
+        "bin/fm-procevent-remote-reply.sh",
+        "docs/scripts.md"
+      ],
+      "negative_evidence": [
+        "newest() has one production caller, the shared local comparison.",
+        "All remote read paths return to that same comparison.",
+        "Adapter commits mirrored-source identities after appending status content; continuity and document notices bypass that identity record.",
+        "No harness discovery, runner identity, transport byte handling, or retry behavior changes are required."
+      ],
+      "regression": {
+        "command": "bash tests/fm-main-backstop.test.sh",
+        "oracle": "At remote=3000 and mirrored=1000, later local notices cannot suppress the specified 2000-second delivery lag; actual mirrored catch-up clears the incident.",
+        "result": "PASS: Ran 29 tests in 58.905s; OK; exit status 0",
+        "old_code_execution": "Not run; verification was limited to one final focused test invocation.",
+        "coverage": "Real backstop executable and durable inbox; both new regression cases passed alongside existing cold, delta, oversized, Unicode, transient-read and incident-recovery cases."
+      }
+    },
+    "R2": {
+      "invariant": "The next reviewer must have an exact retained inventory of the cause, occurrences, search scope, negative evidence and regression result.",
+      "cause": "Prior handoff supplied findings without a retained inventory accessible in the worktree.",
+      "affected_occurrences": [
+        "Review-to-fix handoff",
+        "Fix-to-next-review handoff"
+      ],
+      "retained_inventory": "tests/captures/fm-main-backstop-review-inventory.json",
+      "next_review": "Read this exact file, inspect every listed occurrence and axis, check the regression result, and search the stated scope for missed siblings."
+    }
+  }
+}
