@@ -5258,13 +5258,13 @@ SH
   case "$scenario" in
     merged|discard)
       expect_code 0 "$rc" "$scenario cleanup: $out"
-      assert_equals done "$(backlog_row_state "$case_dir")" "$scenario closes the item"
+      assert_equals "done" "$(backlog_row_state "$case_dir")" "$scenario closes the item"
       assert_absent "$case_dir/state/task-x1.meta" "$scenario retires metadata"
       ;;
     keep-open)
       expect_code 0 "$rc" "keep-open cleanup: $out"
       assert_absent "$case_dir/state/task-x1.meta" "keep-open cleans task metadata"
-      assert_not_contains "$(backlog_row_state "$case_dir")" done "keep-open leaves the item open"
+      assert_not_contains "$(backlog_row_state "$case_dir")" "done" "keep-open leaves the item open"
       tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full > "$case_dir/row"
       assert_grep 'awaiting merge https://github.com/example/repo/pull/7' "$case_dir/row" "keep-open records the merge hold"
       assert_grep 'hold_kind: external' "$case_dir/row" "keep-open is an external hold"
