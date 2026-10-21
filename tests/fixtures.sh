@@ -287,6 +287,7 @@ SH
 fm_test_spawn_home() {
   local home=$1 harness=${2-}
   mkdir -p "$home/data" "$home/projects" "$home/state" "$home/config"
+  printf '999999 0\n' > "$home/config/lane-capacity"
   touch "$home/state/.last-watcher-beat"
   if [ -n "$harness" ]; then
     printf '%s\n' "$harness" > "$home/config/crew-harness"

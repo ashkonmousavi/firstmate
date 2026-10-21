@@ -10,15 +10,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-usage: fm-fleet-view.sh [--json]
+usage: fm-fleet-view.sh [--json|--capacity]
 
 Render a human fleet view from fm-fleet-snapshot.sh.
 Use --json to print the underlying snapshot.
+Use --capacity for machine-wide activity/admission facts from fm-capacity.sh.
 EOF
 }
 
 case "${1:-}" in
   -h|--help) usage; exit 0 ;;
+  --capacity) exec "$SCRIPT_DIR/fm-capacity.sh" ;;
   --json) "$SCRIPT_DIR/fm-fleet-snapshot.sh" --json; exit $? ;;
   "") ;;
   *) usage >&2; exit 2 ;;

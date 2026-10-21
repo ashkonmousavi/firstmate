@@ -1270,6 +1270,29 @@ When stripping is enabled, the hooks directory is read-only, so a hook manager r
 The flag is a home-wide attribution choice, so it is inherited into secondmate homes under the [`secondmate-provisioning`](../.agents/skills/secondmate-provisioning/SKILL.md) inherited-local-material contract and a secondmate's own workers keep AI trailers too.
 Per-machine Cursor `cli-config.json` attribution-off is not this contract: it does not travel with Firstmate, defaults back to on when unset, and only feeds the CLI's request to the server, so it suppresses the trailer rather than preventing it.
 
+## Machine capacity (config/lane-capacity)
+
+Every machine's local root Firstmate home must declare its lane ceiling and fixed memory reserve before fresh ship or scout dispatch or relaunch.
+For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunch when the observed occupancy reaches five lanes and reserves three GiB of available memory.
+Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
+[`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, exemptions and refusal rules.
+Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
+This Linux admission check requires `/proc/meminfo`; an unsupported or unreadable host gets no placement.
+Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
+Persistent secondmate startup remains exempt from machine admission.
+Project limits below apply in addition to machine admission.
+
+Use `bin/fm-capacity.sh --admit` for a dry spawn or CI-runner admission check without allocating anything.
+It exits 75 when room cannot be proved and does not change task state.
+`bin/fm-fleet-view.sh --capacity` supplies activity's human report and `bin/fm-fleet-ledger.sh capacity --json` supplies the ledger's machine-readable facts from the same reader.
+External activity and CI-runner tools should consume this API instead of retaining ceiling or reserve constants.
+
+The existing home-summary refresh also atomically publishes `state/lane-capacity.json` with occupancy, free lanes, MemAvailable, reserve, headroom and a timestamp.
+Fetch that file from each machine through the existing fleet transport, then pass the local copies to `bin/fm-place.sh` for advisory placement.
+The placement command names the eligible machine with the most free lanes, breaking ties by available memory headroom and then machine name.
+Missing, unreadable or stale publications never qualify; [`bin/fm-place.sh`](../bin/fm-place.sh) owns the publication freshness bound.
+Advice never reserves a lane, and spawn always rereads live facts before launch.
+
 ## Project capacity (config/project-capacity)
 
 The optional local, gitignored `config/project-capacity` tells Firstmate how many workers a project can run at once on this machine, for a project whose machine-local resource - a heavy test suite, a local editor stack, a device - only serves a few workers at a time.

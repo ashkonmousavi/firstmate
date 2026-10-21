@@ -1508,8 +1508,17 @@ fm_local_firstmate_state_dirs() {  # <first-state>
     done
     [ "$known" = 1 ] || FM_LOCAL_FIRSTMATE_STATES+=("$home/state")
     reg="$home/data/secondmates.md"
+    if [ ! -d "$home" ] || [ ! -r "$home" ] || [ ! -x "$home" ]; then
+      FM_LOCAL_FIRSTMATE_ERROR="local Firstmate registry parent is unreadable at $home"
+      return 1
+    fi
+    [ -e "$home/data" ] || [ -L "$home/data" ] || continue
+    if [ ! -d "$home/data" ] || [ ! -r "$home/data" ] || [ ! -x "$home/data" ]; then
+      FM_LOCAL_FIRSTMATE_ERROR="local Firstmate registry parent is unreadable at $home/data"
+      return 1
+    fi
     [ ! -e "$reg" ] && [ ! -L "$reg" ] && continue
-    [ -f "$reg" ] && [ ! -L "$reg" ] || {
+    [ -f "$reg" ] && [ ! -L "$reg" ] && [ -r "$reg" ] || {
       FM_LOCAL_FIRSTMATE_ERROR="local Firstmate registry is unsafe at $reg"
       return 1
     }
@@ -1533,7 +1542,10 @@ fm_local_firstmate_state_dirs() {  # <first-state>
           [ "$known" = 1 ] || homes+=("$child")
           ;;
       esac
-    done < "$reg"
+    done < "$reg" || {
+      FM_LOCAL_FIRSTMATE_ERROR="cannot read local Firstmate registry at $reg"
+      return 1
+    }
   done
 }
 
