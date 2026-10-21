@@ -37,7 +37,8 @@
 # open-decisions fold" below) also writes: it persists a per-status-file byte
 # cursor and folded open-set as a side effect, so a per-drain fleet-wide scan
 # stays bounded by new appends instead of re-reading each task's whole lifetime
-# log every time. status_home_appends_record writes the per-task home-owned
+# log every time; status_open_decisions_peek reads through that same cursor and
+# never commits it. status_home_appends_record writes the per-task home-owned
 # append ledger (see "home-owned status-append ledger" below) so the wake scan
 # can treat this home's own bookkeeping bytes as already owned.
 # crew_worktree_written_since reads the task's meta file and walks a bounded slice
@@ -936,10 +937,11 @@ EOF
 # decision a secondmate escalated to the captain (bin/fm-captain-hold.sh) while
 # it keeps working, so the task is not waiting on any of them. Pending-reply
 # recovery and a fire-and-forget retry ring consult this set and leave a task
-# alone while it is non-empty.
+# alone while it is non-empty. They ask every supervision cycle, so it folds
+# through status_open_decisions_peek rather than re-reading the whole log.
 status_own_open_decisions() {  # <status-file>
   local line prefix
-  status_open_decisions "$1" | while IFS= read -r line || [ -n "$line" ]; do
+  status_open_decisions_peek "$1" | while IFS= read -r line || [ -n "$line" ]; do
     for prefix in ${FM_CLASSIFY_RESERVED_KEY_PREFIXES:-$FM_CLASSIFY_RESERVED_KEY_PREFIXES_DEFAULT} remote-reply-continuity- captain-hold-; do
       case "$line" in "$prefix"*) continue 2 ;; esac
     done
@@ -1145,8 +1147,8 @@ EOF
 # task on every wake, which grows unbounded as tasks run longer and accumulate
 # status history. status_open_decisions_incremental and scan_open_decisions_incremental
 # below are the bounded-cost siblings used for that per-drain path: each call
-# reads only the bytes appended to a status file since its own last call (a
-# persisted per-file byte cursor) and folds just those new lines into a
+# reads only the bytes appended to a status file since the last committed
+# per-file byte cursor and folds just those new lines into a
 # persisted running open-set, via the exact same _fm_decision_fold_line rule
 # status_open_decisions uses - so the two strategies can never disagree on what
 # is open. Cost is bounded by NEW appends since the last drain, not by the
@@ -1173,9 +1175,9 @@ EOF
 # (replaced/rotated/recreated), which a changed device+inode makes an O(1) check
 # via a single `stat` call - no content hashing, no re-reading the consumed
 # prefix. Any signal falls back to a full re-fold of the whole current file from
-# byte 0 - byte for byte what status_open_decisions itself would compute - and
-# rewrites the cursor from that clean baseline. A same-inode, same-size,
-# in-place byte edit is NOT detected; that is a deliberately accepted gap
+# byte 0 - byte for byte what status_open_decisions itself would compute.
+# A committing call also rewrites the cursor from that clean baseline.
+# A same-inode, same-size, in-place byte edit is NOT detected; that is an accepted gap
 # because no code path in this repo ever does that to a status file.
 #
 # The other real failure mode is OUR OWN read failing (a stat/wc/tail I/O
@@ -1184,8 +1186,8 @@ EOF
 # risking a silent invalidation that would wipe it - never a bare "empty" as if
 # nothing were open.
 #
-# Not a pure status-file read: this writes/rewrites the sibling cursor file as a
-# side effect (state/.<task>.open-decisions-cursor), the library's second
+# Not a pure status-file read: by default this writes/rewrites the sibling cursor
+# file as a side effect (state/.<task>.open-decisions-cursor), the library's second
 # documented exception to the pure-read rule after crew_absorb_class. The write
 # is atomic (temp file + rename), so a crash between calls leaves either the
 # prior cursor or the new one, never a partial one. bin/fm-wake-drain.sh calls
@@ -1194,6 +1196,11 @@ EOF
 # drop an open decision - because a losing writer's offset can only ever be
 # equal to or behind an already-recorded byte position, and the next call
 # re-derives from whatever offset actually landed on disk.
+#
+# status_open_decisions_peek uses this same fold without committing the cursor
+# or persisted open-set. It reads from the drain's last trusted cursor, or from
+# byte 0 when none is trusted, and leaves every cursor consumer's offset intact.
+# It still uses the temporary span file while reading new appends.
 _fm_open_decisions_cursor_path() {  # <status-file>
   local f=$1 dir base
   dir=$(dirname "$f")
@@ -1395,7 +1402,7 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
     offset=$size
     cursor_dirty=1
   fi
-  if [ "$cursor_dirty" -eq 1 ]; then
+  if [ "$cursor_dirty" -eq 1 ] && [ "${_FM_OPEN_DECISIONS_PEEK:-0}" != 1 ]; then
     target_cursor="$cf.tmp.$$"
     {
       printf 'version=%s\n' "$fold_version"
@@ -1406,6 +1413,15 @@ status_open_decisions_incremental() {  # <status-file> [<captured-end-offset>]
     mv -f "$target_cursor" "$cf" || return 1
   fi
   printf '%s' "$open"
+}
+
+# Non-committing sibling of status_open_decisions_incremental, for a caller
+# asking about one task every supervision cycle (the pending-reply recovery gate, the
+# watcher's ring and nudge gates). See the incremental open-decisions fold
+# contract above for cursor ownership and fallback behavior.
+status_open_decisions_peek() {  # <status-file>
+  local _FM_OPEN_DECISIONS_PEEK=1
+  status_open_decisions_incremental "$1"
 }
 
 # Incremental sibling of scan_open_decisions: same fleet-wide directory walk and
