@@ -1915,7 +1915,7 @@ test_concurrent_relaunch_is_refused() {
     # shellcheck source=/dev/null
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
-    sleep 30; : # Keep the acquiring shell identity alive.
+    sleep 30
   ) &
   holder=$!
   i=0
@@ -1948,7 +1948,7 @@ test_direct_spawn_relaunch_participates_in_the_lifecycle_lock() {
   (
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
-    sleep 30; : # Keep the acquiring shell identity alive.
+    sleep 30
   ) &
   holder=$!
   while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do
@@ -1975,7 +1975,7 @@ test_promotion_participates_in_the_lifecycle_lock_before_metadata_resolution() {
   (
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
-    sleep 30; : # Keep the acquiring shell identity alive.
+    sleep 30
   ) &
   holder=$!
   while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do
@@ -2976,7 +2976,7 @@ hold_project_lock() {  # <case-dir>
   lock=$(FM_HOME="$dir/home" bash -c '. "$1"; fm_treehouse_project_lock_path "$2"' _ \
     "$ROOT/bin/fm-wake-lib.sh" "$dir/proj") || fail "could not resolve the project lock"
   FM_HOME="$dir/home" bash -c \
-    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; /bin/sleep 30; :' _ \
+    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec /bin/sleep 30' _ \
     "$ROOT/bin/fm-wake-lib.sh" "$lock" "$dir/lock-held" &
   # shellcheck disable=SC2031 # The background PID is captured immediately in this shell.
   HOLDER=$!

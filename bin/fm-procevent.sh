@@ -2555,7 +2555,6 @@ cmd_extension_retirement() {
   export FM_EXTENSION_RETIREMENT_MODE="$mode"
   export FM_EXTENSION_LIFECYCLE_LOCK="$EXTENSION_LIFECYCLE_LOCK"
   export FM_EXTENSION_LIFECYCLE_OWNER="$owner"
-  rm -f "$owner/identity" || die "cannot transfer the extension lifecycle lock"
   exec "$EXTENSION_HOST" "$@"
 }
 
@@ -2568,7 +2567,6 @@ cmd_extension_bind() {
   export FM_EXTENSION_RETIREMENT_MODE=bind
   export FM_EXTENSION_LIFECYCLE_LOCK="$EXTENSION_LIFECYCLE_LOCK"
   export FM_EXTENSION_LIFECYCLE_OWNER="$owner"
-  rm -f "$owner/identity" || die "cannot transfer the extension lifecycle lock"
   exec "$EXTENSION_HOST" "$@"
 }
 
@@ -2591,7 +2589,6 @@ cmd_extension_process_event() {
   { exec 7<&-; } 2>/dev/null || true
   { exec 8<&-; } 2>/dev/null || true
   { exec 9<&-; } 2>/dev/null || true
-  rm -f "$owner/identity" || die "cannot transfer the extension lifecycle lock"
   exec "$EXTENSION_HOST" process-event "$@"
 }
 

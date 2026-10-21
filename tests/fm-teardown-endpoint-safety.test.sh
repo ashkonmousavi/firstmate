@@ -123,7 +123,7 @@ test_control_lock_contention_refuses_before_mutation() {
     # shellcheck source=/dev/null
     . "$ROOT/bin/fm-wake-lib.sh"
     fm_lock_try_acquire "$lock" || exit 1
-    sleep 30; : # Keep the acquiring shell identity alive.
+    sleep 30
   ) &
   holder=$!
   while [ ! -e "$lock" ] && [ "$i" -lt 100 ]; do
@@ -846,7 +846,7 @@ test_remote_layout_homes_serialize_on_one_project_lock() {
   lock=$(resolve_project_lock "$child_home" "$child_project") \
     || fail "the local child could not resolve the shared project lock"
   FM_HOME="$child_home" bash -c \
-    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; sleep 30; :' _ \
+    '. "$1"; fm_lock_try_acquire "$2" || exit 1; : > "$3"; exec sleep 30' _ \
     "$ROOT/bin/fm-wake-lib.sh" "$lock" "$dir/lock-held" &
   holder=$!
   while [ ! -e "$dir/lock-held" ] && [ "$waited" -lt 100 ]; do

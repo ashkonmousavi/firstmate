@@ -143,7 +143,7 @@ hold_publish_lock() {  # <home>
   FM_STATE_OVERRIDE="$1/state" FM_ROOT_OVERRIDE="$ROOT" bash -c '
     . "$1/fm-wake-lib.sh"
     fm_lock_try_acquire "$2" || exit 1
-    sleep 120; :' _ "$ROOT/bin" "$lock" >/dev/null 2>&1 </dev/null &
+    exec sleep 120' _ "$ROOT/bin" "$lock" >/dev/null 2>&1 </dev/null &
   holder=$!
   while [ "$(cat "$lock/pid" 2>/dev/null || true)" != "$holder" ] && [ "$waited" -lt 50 ]; do
     sleep 0.1

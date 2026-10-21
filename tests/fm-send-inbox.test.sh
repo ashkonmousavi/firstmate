@@ -419,7 +419,7 @@ test_meta_lock_contention_fails_bounded() {
     . "$1"
     fm_lock_acquire_wait "$2"
     touch "$3"
-    sleep 30; : # Keep the acquiring shell identity alive.
+    sleep 30
   ' _ "$ROOT/bin/fm-wake-lib.sh" "$lock" "$marker" &
   holder=$!
   i=0
