@@ -13,8 +13,12 @@
 # worktree has no non-shell process. Unknown liveness counts. Secondmates and
 # records with pr= handoffs are exempt. External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.
-# Memory is minimum finite cgroup-v2 memory.high minus (anon + shmem), excluding
-# reclaimable file cache; without a finite high limit, use MemAvailable.
+# Available memory is the smallest memory.high minus (anon + shmem) balance
+# across the current cgroup-v2 group and its ancestors with finite memory.high,
+# using each group's own memory.stat and excluding reclaimable file cache.
+# Only without a finite high limit, use /proc/meminfo's MemAvailable.
+# Reports retain mem_available_kb for this pre-reserve balance, floored to KiB;
+# headroom_kb subtracts the configured reserve. Either balance may be negative.
 # Unreadable config, state, registry or memory facts fail closed with exit 75.
 # fm-spawn holds the root state's .machine-lane-capacity.lock from this read
 # through record publication; reporting is advisory and never locks.

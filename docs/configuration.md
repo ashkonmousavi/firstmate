@@ -1085,7 +1085,7 @@ For example, `config/lane-capacity` containing `5 3` refuses dispatch or relaunc
 Seats count live workers, including non-shell processes in their worktrees; a proven-dead endpoint with no such process holds no seat, while unknown liveness retains its seat.
 [`bin/fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) owns the format, units, occupancy, walker exemptions, refusal rules and locking contract.
 Existing one-integer declarations must be extended with the reserve before updating; a missing declaration refuses new workers.
-This Linux admission check uses the minimum cgroup-v2 `memory.high - (anon + shmem)` balance across all finite ancestors when a finite `memory.high` is found, otherwise `/proc/meminfo`'s `MemAvailable`; the shared reader above owns the calculation and fail-closed rules.
+This Linux admission check follows the shared reader's cgroup-aware memory calculation and fail-closed rules.
 Relaunch uses the same machine admission as fresh dispatch, excluding its own task record, and exits 75 without launching a replacement when full; the stopped record is preserved.
 Persistent secondmate startup remains exempt from machine admission.
 Project limits below apply in addition to machine admission.
