@@ -87,9 +87,15 @@
 # busy mate as the remote enqueue ring does, so it keeps no busy budget, and
 # no fire-and-forget retry is owed there.
 # The parent passes its effective grace and ring maximum to each remote due
-# check; individual hops have a fixed 30-second bound. Failed hops leave the
-# remote refusal's first stderr line (or exit status) in the parent's triage log
-# and retry on a later tick, without waking firstmate for routine re-rings.
+# check; individual hops have a fixed 30-second bound, and ordinary supervision
+# runs the pass detached from its cycle, so a slow host never delays the
+# watcher's own liveness. Bounded checkpoint cycles keep the inline pass.
+# A state-scoped pass lock prevents overlap across watcher restarts; detached
+# passes leave a durable wake handoff for the next watcher to surface even if
+# the launching watcher exits before the pass finishes.
+# Failed hops leave the remote refusal's first stderr line (or exit status) in
+# the parent's triage log and retry on a later tick, without waking firstmate
+# for routine re-rings.
 # Confirmed unavailable endpoints or unwritable ring bookkeeping escalate through
 # the same stale-wake path as a spent budget. Each record uses the stable wake
 # key remote-inbox:<id>:<record>, so a failed escalation-marker hop is retried
