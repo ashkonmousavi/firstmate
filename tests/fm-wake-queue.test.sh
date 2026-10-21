@@ -2856,6 +2856,15 @@ SH
   recorded_pid=$(cat "$dir/waiter.ready")
   [ "$recorded_pid" = "$waiter_pid" ] && [ "$(cat "$lock/pid" 2>/dev/null || true)" = "$waiter_pid" ] \
     || { kill "$waiter_pid" 2>/dev/null || true; fail "bounded acquire did not hand lock ownership to its caller"; }
+  # The handoff carries the caller's identity, so a contender still reads the
+  # live caller as the holder rather than a reused pid.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    [ "$(cat "$2/identity" 2>/dev/null)" = "$(fm_pid_identity "$3")" ] || exit 1
+    if fm_lock_try_acquire "$2"; then exit 2; fi
+    [ "$FM_LOCK_HELD_PID" = "$3" ]
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$lock" "$waiter_pid" \
+    || { kill "$waiter_pid" 2>/dev/null || true; fail "handed-off lock did not carry its caller's identity"; }
 
   : > "$dir/release-waiter"
   wait "$waiter_pid" || fail "caller could not release its handed-off lock"

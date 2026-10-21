@@ -2059,6 +2059,7 @@ async function releaseLifecycleLock() {
   const { lockPath, ownerPath } = activeLifecycleLock;
   await unlink(lockPath);
   await unlink(path.join(ownerPath, "pid"));
+  await rm(path.join(ownerPath, "identity"), { force: true });
   await rmdir(ownerPath);
   activeLifecycleLock = null;
 }
