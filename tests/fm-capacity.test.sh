@@ -248,13 +248,48 @@ test_cgroup_memory() {
   printf 'MemAvailable: 1 kB\n' > "$FM_CAPACITY_MEMINFO"
   out=$(bash "$CAPACITY" --json) || fail "cache-heavy cgroup must admit: $out"
   jq -e '.reason == "ok" and .mem_available_kb == 9277343 and .reserve_kb == 4194304 and .headroom_kb == 5083039 and .headroom_kb >= 3145728' <<< "$out" >/dev/null || fail 'cgroup must leave room for a 3 GiB lane after reserve'
-  pass 'nearest finite ancestor excludes file cache and leaves 8.8 GiB before reserve'
+  pass 'finite ancestor excludes file cache and leaves 8.8 GiB before reserve'
 
-  # A closer finite limit wins and must use its own statistics.
+  # The smallest finite balance wins and must use its own statistics.
   printf '8589934592\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
   printf 'shmem 0\nanon 4294967296\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
   out=$(bash "$CAPACITY" --json) || fail 'exact cgroup reserve must admit'
-  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'nearest limit not used'
+  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'smallest balance not used'
+  printf '16106127360\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 15032385536\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'enclosing pressure refuses despite admissible child'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew memory.high" 'refusal identifies limiting ancestor'
+  out=$(bash "$CAPACITY" --json) || fail 'enclosing pressure must remain readable'
+  jq -e '.reason == "memory" and .free_lanes == 0 and .mem_available_kb == 1048576 and .headroom_kb == -3145728' <<< "$out" >/dev/null || fail 'parent one GiB balance must leave minus three GiB after reserve'
+  printf 'anon 17179869185\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'over-limit ancestor must remain readable'
+  jq -e '.mem_available_kb == -1048577 and .headroom_kb == -5242881' <<< "$out" >/dev/null || fail 'negative ancestor balance must round down'
+  printf 'anon 11811160064\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'ample parent balance must admit'
+  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'larger parent balance must not replace child balance'
+  printf '17179869184\n' > "$FM_CAPACITY_CGROUP_ROOT/memory.high"
+  printf 'anon 16106127360\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'outermost finite ancestor must also constrain admission'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT memory.high" 'outermost limiting ancestor named'
+  rm "$FM_CAPACITY_CGROUP_ROOT/memory.high" "$FM_CAPACITY_CGROUP_ROOT/memory.stat"
+  for bad in '' 'broken'; do
+    printf '%s\n' "$bad" > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    expect_code 75 "$rc" 'malformed ancestor high refuses despite finite child'
+  done
+  printf '16106127360\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 1\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+  expect_code 75 "$rc" 'malformed ancestor statistics refuse despite finite child'
+  rm "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'missing ancestor statistics refuse despite finite child'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat" 'unreadable ancestor named'
+  printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 5000000000\nshmem 500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  pass 'all finite ancestors constrain admission and require readable statistics'
   printf 'anon 4294967297\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
   out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
   expect_code 75 "$rc" 'one byte below reserve refuses'

@@ -13,7 +13,7 @@
 # worktree has no non-shell process. Unknown liveness counts. Secondmates and
 # records with pr= handoffs are exempt. External bots have no local records;
 # ordinary local workers carrying walk markers still hold a lane.
-# Memory is nearest finite cgroup-v2 memory.high minus (anon + shmem), excluding
+# Memory is minimum finite cgroup-v2 memory.high minus (anon + shmem), excluding
 # reclaimable file cache; without a finite high limit, use MemAvailable.
 # Unreadable config, state, registry or memory facts fail closed with exit 75.
 # fm-spawn holds the root state's .machine-lane-capacity.lock from this read
@@ -25,7 +25,7 @@
 fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
   local home=$1 config=$2 state=$3 self=${4:-} config_dir raw ceiling reserve extra
   local dir meta kind available meminfo=/proc/meminfo memory_source
-  local cgroup_file=/proc/self/cgroup cgroup_root=/sys/fs/cgroup cgroup_path cgroup_dir high stats anon shmem bytes
+  local cgroup_file=/proc/self/cgroup cgroup_root=/sys/fs/cgroup cgroup_path cgroup_dir high stats anon shmem bytes balance_kb
   local backend target worktree processes line pid path holds name args argv0
   FM_CAPACITY_ERROR='' FM_CAPACITY_REASON=unreadable
   FM_CAPACITY_LANES=0 FM_CAPACITY_SECONDMATES=0 FM_CAPACITY_FREE=0
@@ -102,10 +102,12 @@ fm_capacity_read() { # <home> <config> <state> [replaced-task-id]
             read -r anon shmem <<< "$stats"
             bytes=$((10#$high - 10#$anon - 10#$shmem))
             # Floor to KiB, including a negative sub-KiB balance.
-            if [ "$bytes" -lt 0 ]; then available=$(((bytes - 1023) / 1024))
-            else available=$((bytes / 1024)); fi
-            memory_source="$cgroup_dir memory.high-(anon+shmem)"
-            break
+            if [ "$bytes" -lt 0 ]; then balance_kb=$(((bytes - 1023) / 1024))
+            else balance_kb=$((bytes / 1024)); fi
+            if [ -z "$available" ] || [ "$balance_kb" -lt "$available" ]; then
+              available=$balance_kb
+              memory_source="$cgroup_dir memory.high-(anon+shmem)"
+            fi
           fi
         fi
         [ "$cgroup_dir" != "${cgroup_root%/}" ] || break
