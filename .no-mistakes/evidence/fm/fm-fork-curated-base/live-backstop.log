@@ -1,0 +1,88 @@
+
+SCENARIO: whole-file: body timestamp cannot suppress overdue reply
+REPLY DELIVERY LAG labmate: 1100s (oldest_at=1792586518 ingested_at=1792586458); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=1792587618s alarms=2
+ 
+{"episodes": {"lag-labmate": "backstop-70edc2af17354b7f95d13bc04ceccc04", "recovery": "backstop-854370844c03442fb1817657e3705230"}, "lag_oldest": {"labmate": 1792586518}, "read_fails": {}, "readers": {"labmate": {"offset": 30, "pending_at": [1792586518], "prefix": "8d4b1048eeef0f954323ee54fff61eb042b31d14665a021d20f782e477f9e02d"}}, "runner_fails": {}}
+
+SCENARIO: delta: fresh append retains oldest outstanding incident
+REPLY DELIVERY LAG labmate: 1118s (oldest_at=1792586518 ingested_at=1792586458); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=1792587636s alarms=2
+ 
+{"episodes": {"lag-labmate": "backstop-70edc2af17354b7f95d13bc04ceccc04", "recovery": "backstop-854370844c03442fb1817657e3705230"}, "lag_oldest": {"labmate": 1792586518}, "read_fails": {}, "readers": {"labmate": {"offset": 72, "pending_at": [1792586518, 1792587618], "prefix": "e57fd023c53a7a0ce6b1dea9e548856f20b9a56e7587a764e2ca6463652bcc63"}}, "runner_fails": {}}
+
+SCENARIO: mirror progress clears oldest incident; fresh reply is not late
+checked watcher_age=1792587657s alarms=0
+ 
+{"episodes": {}, "lag_oldest": {}, "read_fails": {}, "readers": {"labmate": {"offset": 72, "pending_at": [1792587618], "prefix": "e57fd023c53a7a0ce6b1dea9e548856f20b9a56e7587a764e2ca6463652bcc63"}}, "runner_fails": {}}
+
+SCENARIO: replacement log resynchronizes and remains quiet
+read labmate log moved; resyncing cursor
+checked watcher_age=1792587659s alarms=0
+ 
+{"episodes": {}, "lag_oldest": {}, "read_fails": {}, "readers": {"labmate": {"offset": 35, "pending_at": [1792587618, 1792587619], "prefix": "b56d54d783576d36f97dfdf76ff5d9d90ccabfd0c7c93f13f4df21dea2181b06"}}, "runner_fails": {}}
+
+SCENARIO: invalid mirror rejected: done: body at=9999;
+read failed once, tolerating one pass: labmate
+checked watcher_age=1792587664s alarms=0
+ 
+{"episodes": {}, "lag_oldest": {}, "read_fails": {"labmate": 1792587664}, "readers": {"labmate": {"offset": 35, "pending_at": [1792587618, 1792587619], "prefix": "b56d54d783576d36f97dfdf76ff5d9d90ccabfd0c7c93f13f4df21dea2181b06"}}, "runner_fails": {}}
+
+SCENARIO: invalid mirror rejected: done [at=01]: bad
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1792587664s alarms=1
+ 
+{"episodes": {"read-labmate": "backstop-acaec96a04df4e48887c6071d6bff571"}, "lag_oldest": {}, "read_fails": {"labmate": 1792587664}, "readers": {"labmate": {"offset": 35, "pending_at": [1792587618, 1792587619], "prefix": "b56d54d783576d36f97dfdf76ff5d9d90ccabfd0c7c93f13f4df21dea2181b06"}}, "runner_fails": {}}
+
+SCENARIO: invalid mirror rejected: done [at=1] [at=2]: duplicate
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1792587665s alarms=1
+ 
+{"episodes": {"read-labmate": "backstop-acaec96a04df4e48887c6071d6bff571"}, "lag_oldest": {}, "read_fails": {"labmate": 1792587665}, "readers": {"labmate": {"offset": 35, "pending_at": [1792587618, 1792587619], "prefix": "b56d54d783576d36f97dfdf76ff5d9d90ccabfd0c7c93f13f4df21dea2181b06"}}, "runner_fails": {}}
+
+SCENARIO: invalid mirror rejected: done [at=1000000000000]: overflow
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1792587665s alarms=1
+ 
+{"episodes": {"read-labmate": "backstop-acaec96a04df4e48887c6071d6bff571"}, "lag_oldest": {}, "read_fails": {"labmate": 1792587665}, "readers": {"labmate": {"offset": 35, "pending_at": [1792587618, 1792587619], "prefix": "b56d54d783576d36f97dfdf76ff5d9d90ccabfd0c7c93f13f4df21dea2181b06"}}, "runner_fails": {}}
+
+SCENARIO: oversized remote file uses bounded delta scan
+read failed once, tolerating one pass: labmate
+checked watcher_age=1792587665s alarms=0
+ 
+{"episodes": {}, "lag_oldest": {}, "read_fails": {"labmate": 1792587665}, "readers": {"labmate": {"offset": 261464, "pending_at": [1792586518], "prefix": "6dd729845228bc2365030ac4ec1f4bf984dded183c04dfca91062bd2dc6761ee"}}, "runner_fails": {}}
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation-live/drive.py", line 35, in <module>
+    journal.unlink();m=run('oversized remote file uses bounded delta scan');assert m['lag_oldest']['labmate']==old
+                                                                                   ~~~~~~~~~~~~~~~^^^^^^^^^^^
+KeyError: 'labmate'
+SETUP CORRECTION: 1.3 MB exceeds four 64 KiB reads per pass. First pass correctly preserved cursor and marked unverified. Continue successive passes, as the documented contract requires.
+
+SCENARIO: oversized backlog bounded continuation pass 2
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1792587706s alarms=1
+ 
+{"episodes": {"read-labmate": "backstop-c28b807d99ac4da1995b9d3338517210"}, "lag_oldest": {}, "read_fails": {"labmate": 1792587706}, "readers": {"labmate": {"offset": 522928, "pending_at": [1792586518], "prefix": "9e655416f64a5c3ec3daad455a991c3435472379bdc814783b9faed3d58e8d87"}}, "runner_fails": {}}
+
+SCENARIO: oversized backlog bounded continuation pass 3
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1792587716s alarms=1
+ 
+{"episodes": {"read-labmate": "backstop-c28b807d99ac4da1995b9d3338517210"}, "lag_oldest": {}, "read_fails": {"labmate": 1792587716}, "readers": {"labmate": {"offset": 784392, "pending_at": [1792586518], "prefix": "3e9d8361e7b8f5c77fdd02a022323a835260ca4d85bd648c098593f3fbce74ff"}}, "runner_fails": {}}
+
+SCENARIO: oversized backlog bounded continuation pass 4
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+checked watcher_age=1792587727s alarms=1
+ 
+{"episodes": {"read-labmate": "backstop-c28b807d99ac4da1995b9d3338517210"}, "lag_oldest": {}, "read_fails": {"labmate": 1792587727}, "readers": {"labmate": {"offset": 1045856, "pending_at": [1792586518], "prefix": "9cec7b6bd3f9a96d7bef038c62e8c377b5108a3568c30196373071a73433ccbd"}}, "runner_fails": {}}
+
+SCENARIO: oversized backlog bounded continuation pass 5
+REPLY DELIVERY LAG labmate: 1223s (oldest_at=1792586518 ingested_at=1792586458); primary wake path needs recovery.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=1792587741s alarms=2
+ 
+{"episodes": {"lag-labmate": "backstop-e6a1eeb8a75a4a8d9389a8f3b22c04c9", "recovery": "backstop-901b1652baca45959e4c805037f6e87e"}, "lag_oldest": {"labmate": 1792586518}, "read_fails": {}, "readers": {"labmate": {"offset": 1218000, "pending_at": [1792586518], "prefix": "e46b84b6130082bd25d7a8fa443188e21064357e29a43171c8543f5b103f95b2"}}, "runner_fails": {}}
+OVERSIZED LIVE SSH SCENARIO PASSED: tail reached; oldest outstanding timestamp retained
+DURABLE ALARM RECORDS:

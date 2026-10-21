@@ -1,0 +1,12 @@
+exec(open('.validation-live/drive.py').read().split('# canonical body token')[0].replace('journal.unlink(missing_ok=True)','pass'))
+print('SETUP CORRECTION: 1.3 MB exceeds four 64 KiB reads per pass. First pass correctly preserved cursor and marked unverified. Continue successive passes, as the documented contract requires.',flush=True)
+expected=json.loads(journal.read_text())['readers']['labmate']['pending_at'][0]
+for i in range(8):
+ m=run('oversized backlog bounded continuation pass '+str(i+2))
+ if 'labmate' not in m['read_fails']:
+  assert m['lag_oldest']['labmate']==expected;break
+else:raise AssertionError('backlog never reached tail')
+print('OVERSIZED LIVE SSH SCENARIO PASSED: tail reached; oldest outstanding timestamp retained',flush=True)
+print('DURABLE ALARM RECORDS:',flush=True)
+for p in sorted(state.rglob('*.msg')):
+ print(str(p.relative_to(home)));print(p.read_text()[:1000])

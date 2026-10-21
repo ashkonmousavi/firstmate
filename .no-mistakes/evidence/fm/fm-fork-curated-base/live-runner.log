@@ -1,0 +1,6 @@
+Pass 1: runner not alive once, tolerating one pass: lab
+checked watcher_age=1792589020s alarms=0
+Pass 2: REPLY RUNNER DOWN lab: registered runner is dead or missing; restore primary supervision to reconcile it.
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+checked watcher_age=1792589023s alarms=2
+PASS: a missing registered runner is tolerated once, then emits a durable RUNNER DOWN incident while away.

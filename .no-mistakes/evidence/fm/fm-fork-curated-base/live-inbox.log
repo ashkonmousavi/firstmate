@@ -1,0 +1,11 @@
+Idempotent enqueue persisted one exact record: schema=fm-task-inbox.v1
+at=2026-10-21T13:21:19Z
+--
+ordinary durable steer
+remote inbox due 0 2 -> ring 001.msg
+remote inbox due 0 2 -> escalate 001.msg 2
+remote inbox escalated 001.msg -> escalated
+remote inbox due 0 2 -> quiet
+remote inbox due 0 2 -> quiet
+remote inbox due 0 2 -> quiet
+PASS: real SSH remote inbox protocol returned ring/escalate/quiet, deduplicated enqueue, and excluded handled and fire-and-forget records. Physical doorbell delivery was not exercised.

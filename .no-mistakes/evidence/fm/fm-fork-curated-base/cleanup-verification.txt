@@ -1,0 +1,1 @@
+Stopped disposable loopback sshd and identity-checked remote worker tree; removed .validation. No worker executable remains under either targeted runner fixture root. Git status is clean. Initial process check matched its own shell command; corrected check inspected executable position.

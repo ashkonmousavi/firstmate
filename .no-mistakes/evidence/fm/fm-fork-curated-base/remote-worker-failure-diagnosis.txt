@@ -1,0 +1,9 @@
+Finding: test-remote-worker-exit
+Red-capable command already run: bash bin/fm-test-run.sh --jobs 1 tests/fm-brief.test.sh tests/fm-fleet-ledger.test.sh tests/fm-remote-backlog-handoff.test.sh tests/fm-remote-secondmate-parent-binding.test.sh tests/fm-remote-secondmate-trace-context.test.sh tests/fm-secondmate-safety.test.sh
+Failed selector: tests/fm-remote-secondmate-trace-context.test.sh
+Trigger: after the disabled remote spawn passed, enable trace-context, freeze the parent decision, reset the fixture endpoint, and launch ios again (line 210).
+Expected: successful enabled launch with one matching trace carrier in the parent metadata, remote metadata, and received launch environment.
+Observed: remote job worker stopped before this job completed; error: remote secondmate ios inheritance failed; launch refused; not ok - enabled remote secondmate spawn failed. Exit 1.
+Diagnosis from emitted log and executable path: bin/fm-remote-job-worker.sh:657 emits this exact diagnostic only while worker_reclaim_running_job stops a recorded execution, clears a dead claim and publishes exit 125. This localizes the immediate failure to remote-job reclamation during inheritance, before trace-carrier assertions. It does not establish why that worker/claim became unowned.
+Comparison: the compact remote fixture passed both launches in this run; the trace fixture passed its disabled launch before failing its enabled launch. The signature matches the earlier recorded compact-remote failure; the cause is not proven identical.
+Limits: the fixture EXIT trap stopped its worker tree and removed its temporary worker logs before the runner returned. Only the emitted failure transcript remains. No unchanged retry was run, no fixture was weakened, and no speculative source fix was applied. Further diagnosis should preserve worker identity, claim records, and worker logs before fixture cleanup, then run the targeted red-capable selector.

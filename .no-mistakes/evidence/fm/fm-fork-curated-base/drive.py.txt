@@ -1,0 +1,39 @@
+from pathlib import Path
+import subprocess,os,json,time
+root=Path.cwd();base=root/'.validation-live';home=base/'parent';remote=base/'remote';state=home/'state'
+env=dict(os.environ,FM_HOME=str(home),FM_SSH_BIN=str(base/'ssh'),HERDR_SESSION='fm-lab-curated-test',LAB_CODE=str(root),PATH=str(base/'guardbin')+':'+os.environ['PATH'],XDG_CONFIG_HOME=str(base/'xdg-config'),XDG_DATA_HOME=str(base/'xdg-data'),XDG_STATE_HOME=str(base/'xdg-state'),XDG_CACHE_HOME=str(base/'xdg-cache'),FM_HERDR_LAB_STATE_DIR=str(base/'herdr-lab'))
+for k in ('FM_ROOT_OVERRIDE','FM_STATE_OVERRIDE','FM_DATA_OVERRIDE','FM_CONFIG_OVERRIDE'):env.pop(k,None)
+source=remote/'state/parent-replies.status';mirror=state/'.remote-reply-mirrored-labmate';journal=state/'.main-backstop.json'
+journal.unlink(missing_ok=True)
+now=int(time.time());old=now-1100;fresh=now
+
+def run(label):
+ print('\nSCENARIO:',label,flush=True)
+ p=subprocess.run(['python3','bin/fm-main-backstop.py','--home',str(home),'--code-root',str(root),'--mate','labmate'],env=env,text=True,capture_output=True,timeout=120)
+ print(p.stdout,p.stderr,flush=True);assert p.returncode==0
+ m=json.loads(journal.read_text());print(json.dumps(m,sort_keys=True),flush=True);return m
+# canonical body token must not hide oldest undelivered reply
+mirror.write_text(f'done [at={old-60}]: reproduced case at=999999999999;\n')
+source.write_text(f'done [at={old}]: pending\n')
+m=run('whole-file: body timestamp cannot suppress overdue reply');assert m['lag_oldest']['labmate']==old
+request=m['episodes']['lag-labmate']
+# delta catches fresh append while old outstanding incident remains
+source.open('a').write(f'done [at={fresh}]: fresh after silence\n')
+m=run('delta: fresh append retains oldest outstanding incident');assert m['episodes']['lag-labmate']==request
+# canonical mirror clears old incident; fresh reply must not alarm
+mirror.write_text(f'done [at={old}]: ingested old; body at=999999999999;\n')
+m=run('mirror progress clears oldest incident; fresh reply is not late');assert 'lag-labmate' not in m['episodes']
+# replacement preserves unmirrored old outstanding stamp, independent cursor
+source.write_text(f'done [at={fresh+1}]: replaced log\n')
+m=run('replacement log resynchronizes and remains quiet');assert m['readers']['labmate']['pending_at']==[fresh,fresh+1]
+# malformed mirror detected; repeated failure durable notification
+for text in ('done: body at=9999;', 'done [at=01]: bad','done [at=1] [at=2]: duplicate','done [at=1000000000000]: overflow'):
+ mirror.write_text(text+'\n');m=run('invalid mirror rejected: '+text);assert 'labmate' in m['read_fails']
+assert 'read-labmate' in m['episodes']
+# oversized bootstrap via actual bounded delta command
+mirror.write_text(f'done [at={old-60}]: mirror\n');source.write_text((f'done [at={old}]: '+('x'*180)+'\n')*6000)
+journal.unlink();m=run('oversized remote file uses bounded delta scan');assert m['lag_oldest']['labmate']==old
+print('\nDURABLE INBOX FILES',flush=True)
+for p in sorted((state/'inbox').rglob('*')) if (state/'inbox').exists() else []:
+ if p.is_file(): print(p.relative_to(home),p.read_text()[:1000])
+print('LIVE SSH BACKSTOP SCENARIOS PASSED',flush=True)

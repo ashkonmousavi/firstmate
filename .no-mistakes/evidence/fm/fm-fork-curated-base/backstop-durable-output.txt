@@ -1,0 +1,97 @@
+inbox/.announced/1792587620-7CEh7A
+2026-10-21T13:00:20Z
+
+inbox/.announced/1792587635-sOksCZ
+2026-10-21T13:00:35Z
+
+inbox/.announced/1792587664-NVRUXn
+2026-10-21T13:01:04Z
+
+inbox/.announced/1792587716-qxJWI7
+2026-10-21T13:01:56Z
+
+inbox/.announced/1792587755-8wHfcv
+2026-10-21T13:02:36Z
+
+inbox/.announced/1792587771-M3Rx0t
+2026-10-21T13:02:51Z
+
+inbox/.requests/backstop-70edc2af17354b7f95d13bc04ceccc04
+1792587620-7CEh7A
+
+inbox/.requests/backstop-854370844c03442fb1817657e3705230
+1792587635-sOksCZ
+
+inbox/.requests/backstop-901b1652baca45959e4c805037f6e87e
+1792587771-M3Rx0t
+
+inbox/.requests/backstop-acaec96a04df4e48887c6071d6bff571
+1792587664-NVRUXn
+
+inbox/.requests/backstop-c28b807d99ac4da1995b9d3338517210
+1792587716-qxJWI7
+
+inbox/.requests/backstop-e6a1eeb8a75a4a8d9389a8f3b22c04c9
+1792587755-8wHfcv
+
+inbox/1792587620-7CEh7A.note
+id=1792587620-7CEh7A
+at=2026-10-21T13:00:20Z
+source=text
+announce_marker=1
+request_id=backstop-70edc2af17354b7f95d13bc04ceccc04
+--
+REPLY DELIVERY LAG labmate: 1100s (oldest_at=1792586518 ingested_at=1792586458); primary wake path needs recovery.
+
+inbox/1792587635-sOksCZ.note
+id=1792587635-sOksCZ
+at=2026-10-21T13:00:35Z
+source=text
+announce_marker=1
+request_id=backstop-854370844c03442fb1817657e3705230
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+inbox/1792587664-NVRUXn.note
+id=1792587664-NVRUXn
+at=2026-10-21T13:01:04Z
+source=text
+announce_marker=1
+request_id=backstop-acaec96a04df4e48887c6071d6bff571
+--
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+
+inbox/1792587716-qxJWI7.note
+id=1792587716-qxJWI7
+at=2026-10-21T13:01:56Z
+source=text
+announce_marker=1
+request_id=backstop-c28b807d99ac4da1995b9d3338517210
+--
+REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+
+inbox/1792587755-8wHfcv.note
+id=1792587755-8wHfcv
+at=2026-10-21T13:02:35Z
+source=text
+announce_marker=1
+request_id=backstop-e6a1eeb8a75a4a8d9389a8f3b22c04c9
+--
+REPLY DELIVERY LAG labmate: 1223s (oldest_at=1792586518 ingested_at=1792586458); primary wake path needs recovery.
+
+inbox/1792587771-M3Rx0t.note
+id=1792587771-M3Rx0t
+at=2026-10-21T13:02:51Z
+source=text
+announce_marker=1
+request_id=backstop-901b1652baca45959e4c805037f6e87e
+--
+BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+
+WAKE QUEUE
+1792587620	1	check	inbox:1792587620-7CEh7A	check: captain inbox note 1792587620-7CEh7A - REPLY DELIVERY LAG labmate: 1100s (oldest_at=1792586518 ingested_at=1792586458); primary wake path n
+1792587635	2	check	inbox:1792587635-sOksCZ	check: captain inbox note 1792587635-sOksCZ - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was 
+1792587664	3	check	inbox:1792587664-NVRUXn	check: captain inbox note 1792587664-NVRUXn - REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery befo
+1792587716	4	check	inbox:1792587716-qxJWI7	check: captain inbox note 1792587716-qxJWI7 - REPLY DELIVERY UNVERIFIED labmate: bounded remote/local timestamp read failed; inspect delivery befo
+1792587755	5	check	inbox:1792587755-8wHfcv	check: captain inbox note 1792587755-8wHfcv - REPLY DELIVERY LAG labmate: 1223s (oldest_at=1792586518 ingested_at=1792586458); primary wake path n
+1792587771	6	check	inbox:1792587771-M3Rx0t	check: captain inbox note 1792587771-M3Rx0t - BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: labmate. No watcher was 

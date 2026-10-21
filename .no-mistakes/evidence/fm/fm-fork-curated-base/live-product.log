@@ -1,0 +1,39 @@
+whole-file: report-body tokens must not hide 1060: REPLY DELIVERY LAG lab: 1792587740s (oldest_at=1060 ingested_at=1000); primary wake path needs recovery. | BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm. | checked watcher_age=1792588800s alarms=2
+  episodes={"lag-lab": "backstop-10fe30df291544eeb6c887a622a15e56", "recovery": "backstop-20323b8f92a8457497c33be800eb5501"} pending=[1060] read_fails=[]
+delta append: both replies remain outstanding: REPLY DELIVERY LAG lab: 1792587744s (oldest_at=1060 ingested_at=1000); primary wake path needs recovery. | BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm. | checked watcher_age=1792588804s alarms=2
+  episodes={"lag-lab": "backstop-10fe30df291544eeb6c887a622a15e56", "recovery": "backstop-20323b8f92a8457497c33be800eb5501"} pending=[1060, 1200] read_fails=[]
+replacement: preserve outstanding oldest and incident: read lab log moved; resyncing cursor | REPLY DELIVERY LAG lab: 1792587751s (oldest_at=1060 ingested_at=1000); primary wake path needs recovery. | BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm. | checked watcher_age=1792588811s alarms=2
+  episodes={"lag-lab": "backstop-10fe30df291544eeb6c887a622a15e56", "recovery": "backstop-20323b8f92a8457497c33be800eb5501"} pending=[1060, 1200, 1300] read_fails=[]
+mirror catches up: clear lag incident: checked watcher_age=1792588821s alarms=0
+  episodes={} pending=[] read_fails=[]
+fresh reply: no immediate lag alarm: read lab log moved; resyncing cursor | checked watcher_age=1792588825s alarms=0
+  episodes={} pending=[1792588825] read_fails=[]
+body-only first read: unknown time: read failed once, tolerating one pass: lab | checked watcher_age=1792588835s alarms=0
+  episodes={} pending=null read_fails=["lab"]
+body-only repeated read: durable unverified alarm: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588840s alarms=1
+  episodes={"read-lab": "backstop-124cc4d0ec064902ba96e965ca351df3"} pending=null read_fails=["lab"]
+duplicate first read: unknown time: read failed once, tolerating one pass: lab | checked watcher_age=1792588846s alarms=0
+  episodes={} pending=null read_fails=["lab"]
+duplicate repeated read: durable unverified alarm: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588851s alarms=1
+  episodes={"read-lab": "backstop-3f3b0678937c496f8d08b4d15332cdc4"} pending=null read_fails=["lab"]
+leading-zero first read: unknown time: read failed once, tolerating one pass: lab | checked watcher_age=1792588861s alarms=0
+  episodes={} pending=null read_fails=["lab"]
+leading-zero repeated read: durable unverified alarm: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588867s alarms=1
+  episodes={"read-lab": "backstop-a2d5331d6d004108a9af7dd3f654daa3"} pending=null read_fails=["lab"]
+over-bound first read: unknown time: read failed once, tolerating one pass: lab | checked watcher_age=1792588875s alarms=0
+  episodes={} pending=null read_fails=["lab"]
+over-bound repeated read: durable unverified alarm: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588883s alarms=1
+  episodes={"read-lab": "backstop-8add948167d5401c88f4410cf8ba57e1"} pending=null read_fails=["lab"]
+oversized bounded scan pass 1: read failed once, tolerating one pass: lab | checked watcher_age=1792588891s alarms=0
+  episodes={} pending=[] read_fails=["lab"]
+oversized bounded scan pass 2: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588927s alarms=1
+  episodes={"read-lab": "backstop-20d3ded2f24b4cf9944edfbbb6de34b2"} pending=[] read_fails=["lab"]
+oversized bounded scan pass 3: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588943s alarms=1
+  episodes={"read-lab": "backstop-20d3ded2f24b4cf9944edfbbb6de34b2"} pending=[] read_fails=["lab"]
+oversized bounded scan pass 4: REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up. | checked watcher_age=1792588957s alarms=1
+  episodes={"read-lab": "backstop-20d3ded2f24b4cf9944edfbbb6de34b2"} pending=[] read_fails=["lab"]
+oversized bounded scan pass 5: REPLY DELIVERY LAG lab: 1792587912s (oldest_at=1060 ingested_at=1000); primary wake path needs recovery. | BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm. | checked watcher_age=1792588972s alarms=2
+  episodes={"lag-lab": "backstop-cf992b7b24a74d02b933648f92e5037b", "recovery": "backstop-189054d4b6cd44668ce8d4ee6759a0cb"} pending=[1060] read_fails=[]
+PASS: real loopback SSH, remote worker, file/delta readers, canonical timestamps, durable inbox alarms and incident clearing.
+LITERAL STATUS OUTPUT: done [at=1792588983]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/should-not-exist` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/should-not-exist) $HOME quoted second line
+PASS: substitutions were stored literally; no marker created and one line persisted.

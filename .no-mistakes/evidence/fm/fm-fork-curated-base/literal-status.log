@@ -1,0 +1,4 @@
+Command: fm-status-append.sh <disposable-status> needs-decision --key example --corr 0123456789abcdef; stdin contains literal shell substitutions and a newline
+Exit: 0
+Stored status: needs-decision [key=example] [corr=0123456789abcdef] [at=1792587657]: `touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation-live/parent/must-not-exist` $(touch ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation-live/parent/must-not-exist) $HOME second line
+Shell side-effect marker exists: False

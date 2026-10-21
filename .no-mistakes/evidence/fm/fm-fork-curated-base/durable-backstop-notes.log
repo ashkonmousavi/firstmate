@@ -1,0 +1,22 @@
+1792588803-AaGeAR
+    BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+1792588803-ezrPpI
+    REPLY DELIVERY LAG lab: 1792587740s (oldest_at=1060 ingested_at=1000); primary wake path needs recovery.
+1792588845-FOJgwH
+    REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+1792588860-bolE7x
+    REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+1792588874-YPphpM
+    REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+1792588890-YPi2Fe
+    REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+1792588942-Oxzg7t
+    REPLY DELIVERY UNVERIFIED lab: bounded remote/local timestamp read failed; inspect delivery before assuming caught up.
+1792588983-aYuZIa
+    REPLY DELIVERY LAG lab: 1792587912s (oldest_at=1060 ingested_at=1000); primary wake path needs recovery.
+1792588983-zYgtbe
+    BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply lag: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.
+1792589023-9BeLvz
+    REPLY RUNNER DOWN lab: registered runner is dead or missing; restore primary supervision to reconcile it.
+1792589026-AoNkkq
+    BACKSTOP FAILURE: primary nudge failed or discovery unavailable; reply runner down: lab. No watcher was started externally; restore the primary and let its own turn-end owner re-arm.

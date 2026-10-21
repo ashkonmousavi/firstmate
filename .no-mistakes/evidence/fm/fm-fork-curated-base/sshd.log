@@ -1,0 +1,416 @@
+Server listening on 127.0.0.1 port 47443.
+Connection from 127.0.0.1 port 45966 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 45966 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 45966 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 546662
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 45966 id 0
+Received disconnect from 127.0.0.1 port 45966:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 45966
+Connection from 127.0.0.1 port 51520 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 51520 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 51520 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 613125
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 51520 id 0
+Received disconnect from 127.0.0.1 port 51520:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 51520
+Connection from 127.0.0.1 port 51526 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 51526 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 51526 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 617193
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 51526 id 0
+Received disconnect from 127.0.0.1 port 51526:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 51526
+Connection from 127.0.0.1 port 51538 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 51538 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 51538 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 620739
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 51538 id 0
+Received disconnect from 127.0.0.1 port 51538:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 51538
+Connection from 127.0.0.1 port 54072 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 54072 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 54072 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 626002
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 54072 id 0
+Received disconnect from 127.0.0.1 port 54072:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 54072
+Connection from 127.0.0.1 port 54080 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 54080 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 54080 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 631183
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 54080 id 0
+Received disconnect from 127.0.0.1 port 54080:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 54080
+Connection from 127.0.0.1 port 33798 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 33798 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 33798 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 637736
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 33798 id 0
+Received disconnect from 127.0.0.1 port 33798:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 33798
+Connection from 127.0.0.1 port 33804 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 33804 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 33804 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 644370
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 33804 id 0
+Received disconnect from 127.0.0.1 port 33804:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 33804
+Connection from 127.0.0.1 port 37582 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 37582 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 37582 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 649868
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 37582 id 0
+Received disconnect from 127.0.0.1 port 37582:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 37582
+Connection from 127.0.0.1 port 37584 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 37584 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 37584 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 655969
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 37584 id 0
+Received disconnect from 127.0.0.1 port 37584:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 37584
+Connection from 127.0.0.1 port 46702 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 46702 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 46702 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 661600
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 46702 id 0
+Received disconnect from 127.0.0.1 port 46702:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 46702
+Connection from 127.0.0.1 port 46714 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 46714 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 46714 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 668880
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 46714 id 0
+Received disconnect from 127.0.0.1 port 46714:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 46714
+Connection from 127.0.0.1 port 36032 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 36032 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 36032 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 676501
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 36032 id 0
+Received disconnect from 127.0.0.1 port 36032:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 36032
+Connection from 127.0.0.1 port 53930 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 53930 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 53930 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 684730
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 53930 id 0
+Received disconnect from 127.0.0.1 port 53930:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 53930
+Connection from 127.0.0.1 port 53936 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 53936 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 53936 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 692446
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 53936 id 0
+Received disconnect from 127.0.0.1 port 53936:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 53936
+Connection from 127.0.0.1 port 32940 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 32940 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 32940 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 699297
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 32940 id 0
+Connection from 127.0.0.1 port 46172 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 46172 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 46172 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 703299
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 46172 id 0
+Close session: user zcrew from 127.0.0.1 port 32940 id 0
+Received disconnect from 127.0.0.1 port 32940:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 32940
+Connection from 127.0.0.1 port 46176 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 46176 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 46176 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 706729
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 46176 id 0
+Received disconnect from 127.0.0.1 port 46172:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 46172
+Connection from 127.0.0.1 port 46188 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 46188 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 46188 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 710125
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 46188 id 0
+Received disconnect from 127.0.0.1 port 46176:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 46176
+Connection from 127.0.0.1 port 42648 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 42648 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 42648 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 713480
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 42648 id 0
+Received disconnect from 127.0.0.1 port 46188:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 46188
+Connection from 127.0.0.1 port 42660 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 42660 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 42660 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 717210
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 42660 id 0
+Received disconnect from 127.0.0.1 port 42648:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 42648
+Connection from 127.0.0.1 port 42674 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 42674 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 42674 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 720287
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 42674 id 0
+Received disconnect from 127.0.0.1 port 42660:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 42660
+Connection from 127.0.0.1 port 41420 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 41420 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 41420 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 723260
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 41420 id 0
+Received disconnect from 127.0.0.1 port 42674:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 42674
+Connection from 127.0.0.1 port 41428 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 41428 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 41428 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 726058
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 41428 id 0
+Received disconnect from 127.0.0.1 port 41420:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 41420
+Connection from 127.0.0.1 port 49712 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 49712 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 49712 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 728802
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 49712 id 0
+Close session: user zcrew from 127.0.0.1 port 41428 id 0
+Received disconnect from 127.0.0.1 port 41428:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 41428
+Connection from 127.0.0.1 port 49718 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 49718 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 49718 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 732114
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 49718 id 0
+Received disconnect from 127.0.0.1 port 49712:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 49712
+Connection from 127.0.0.1 port 49720 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 49720 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 49720 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 734950
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 49720 id 0
+Received disconnect from 127.0.0.1 port 49718:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 49718
+Connection from 127.0.0.1 port 38228 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 38228 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 38228 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 738325
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 38228 id 0
+Received disconnect from 127.0.0.1 port 49720:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 49720
+Close session: user zcrew from 127.0.0.1 port 38228 id 0
+Received disconnect from 127.0.0.1 port 38228:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 38228
+Connection from 127.0.0.1 port 38230 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 38230 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 38230 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 744291
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 38230 id 0
+Received disconnect from 127.0.0.1 port 38230:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 38230
+Connection from 127.0.0.1 port 45678 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 45678 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 45678 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 748987
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 45678 id 0
+Received disconnect from 127.0.0.1 port 45678:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 45678
+Connection from 127.0.0.1 port 45684 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 45684 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 45684 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 754003
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 45684 id 0
+Received disconnect from 127.0.0.1 port 45684:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 45684
+Connection from 127.0.0.1 port 35712 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 35712 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 35712 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 757755
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 35712 id 0
+Close session: user zcrew from 127.0.0.1 port 35712 id 0
+Received disconnect from 127.0.0.1 port 35712:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 35712
+Connection from 127.0.0.1 port 35720 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 35720 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 35720 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 762895
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 35720 id 0
+Close session: user zcrew from 127.0.0.1 port 35720 id 0
+Received disconnect from 127.0.0.1 port 35720:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 35720
+Connection from 127.0.0.1 port 35730 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 35730 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 35730 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 766748
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 35730 id 0
+Received disconnect from 127.0.0.1 port 35730:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 35730
+Connection from 127.0.0.1 port 60896 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 60896 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 60896 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 770240
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 60896 id 0
+Received disconnect from 127.0.0.1 port 60896:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 60896
+Connection from 127.0.0.1 port 60912 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 60912 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 60912 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 774032
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 60912 id 0
+Close session: user zcrew from 127.0.0.1 port 60912 id 0
+Received disconnect from 127.0.0.1 port 60912:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 60912
+Connection from 127.0.0.1 port 60914 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 60914 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 60914 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 778752
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 60914 id 0
+Close session: user zcrew from 127.0.0.1 port 60914 id 0
+Received disconnect from 127.0.0.1 port 60914:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 60914
+Connection from 127.0.0.1 port 47634 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 47634 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 47634 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 783195
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 47634 id 0
+Received disconnect from 127.0.0.1 port 47634:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 47634
+Connection from 127.0.0.1 port 47640 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 47640 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 47640 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 786564
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 47640 id 0
+Received disconnect from 127.0.0.1 port 47640:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 47640
+Connection from 127.0.0.1 port 49780 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 49780 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 49780 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 789828
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 49780 id 0
+Received disconnect from 127.0.0.1 port 49780:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 49780
+Connection from 127.0.0.1 port 49796 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 49796 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 49796 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 793693
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 49796 id 0
+Close session: user zcrew from 127.0.0.1 port 49796 id 0
+Received disconnect from 127.0.0.1 port 49796:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 49796
+Connection from 127.0.0.1 port 49812 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 49812 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 49812 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 796819
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 49812 id 0
+Received disconnect from 127.0.0.1 port 49812:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 49812
+Connection from 127.0.0.1 port 35586 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 35586 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 35586 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 799764
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 35586 id 0
+Close session: user zcrew from 127.0.0.1 port 35586 id 0
+Received disconnect from 127.0.0.1 port 35586:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 35586
+Connection from 127.0.0.1 port 50790 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 50790 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 50790 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 836239
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 50790 id 0
+Received disconnect from 127.0.0.1 port 50790:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 50790
+Connection from 127.0.0.1 port 50804 on 127.0.0.1 port 47443 rdomain ""
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Postponed publickey for zcrew from 127.0.0.1 port 50804 ssh2 [preauth]
+Accepted key ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE found at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/authorized_keys:1
+Accepted publickey for zcrew from 127.0.0.1 port 50804 ssh2: ED25519 SHA256:Y4/iOJeprJXrX7og5UQJPTjwDIYimitqDgPp9gKSEPE
+User child is on pid 838657
+Starting session: forced-command (config) '~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5F5DD6WTKHHE7JRFWAK6906/.validation/ssh/entry' for zcrew from 127.0.0.1 port 50804 id 0
+Received disconnect from 127.0.0.1 port 50804:11: disconnected by user
+Disconnected from user zcrew 127.0.0.1 port 50804
+Received signal 15; terminating.
