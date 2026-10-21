@@ -18,6 +18,9 @@ The shared no-mistakes gate lifecycle boundary is summarized in [architecture.md
 | `fm-home-summary-refresh.sh` | Atomically publish this home's structured summary ledger                         |
 | `fm-fleet-ledger.sh`     | Append the opt-in fleet activity ledger's records ([contract](fleet-ledger.md))      |
 | `fm-fleet-view.sh`       | Render the fleet snapshot as a human Markdown view                                   |
+| [`fm-capacity.sh`](../bin/fm-capacity.sh) | Report, publish, or check machine admission facts ([setup](configuration.md#machine-capacity-configlane-capacity)) |
+| [`fm-capacity-lib.sh`](../bin/fm-capacity-lib.sh) | Own the shared machine admission contract and reader |
+| [`fm-place.sh`](../bin/fm-place.sh) | Advise placement from published machine capacity facts |
 | `fm-bearings-snapshot.sh` | Project the bounded remote-ledger fleet snapshot to compact TOON; `--include-prs` adds live GitHub enrichment |
 | `fm-bearings-board.sh`   | Build and arm the stable interactive `/bearings lavish` fleet board                  |
 | `fm-secondmate-reconcile.sh` | Queue Bearings reconcile requests for later supervision delivery and ask each mismatched home through its durable inbox with a per-home cooldown |
