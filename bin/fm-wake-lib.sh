@@ -120,6 +120,25 @@ fm_pid_identity() {
   printf '%s\n' "$out" | sed 's/^[[:space:]]*//'
 }
 
+# fm_pid_identity_start <identity>
+# Prints the start-time component of an fm_pid_identity value: the
+# `<key>-starttime=N` field of the /proc form, or the five-field lstart prefix
+# of the ps fallback. Unlike the command line, the start time survives exec,
+# while a reused pid always gets a new one.
+fm_pid_identity_start() {
+  local identity=$1 a b c d e rest
+  case "$identity" in
+    *-starttime=*)
+      printf '%s\n' "${identity%% *}"
+      ;;
+    *)
+      read -r a b c d e rest <<< "$identity"
+      [ -n "$e" ] || return 1
+      printf '%s %s %s %s %s\n' "$a" "$b" "$c" "$d" "$e"
+      ;;
+  esac
+}
+
 fm_path_mtime() {
   if [ "$_FM_UNAME" = Darwin ]; then
     /usr/bin/stat -f %m "$1" 2>/dev/null
@@ -570,17 +589,22 @@ fm_lock_prepare_owner() {
 
 # fm_lock_holder_alive <lock-or-owner-dir> <pid>
 # A holder is live only while its pid runs and, when the owner recorded its
-# fm_pid_identity, that pid still carries the same identity. A pid reused by an
-# unrelated process therefore reads as stale and the ordinary steal path
-# reclaims the lock. A lock written without an identity (older code, or a
-# platform where it cannot be computed) keeps the pid-only rule.
+# fm_pid_identity, that pid still has the same start time
+# (fm_pid_identity_start). A pid reused by an unrelated process therefore reads
+# as stale and the ordinary steal path reclaims the lock, while a holder that
+# execs after acquiring (an explicit exec, or bash running a final command in
+# place) keeps its start time and stays live. A lock written without an
+# identity (older code, or a platform where it cannot be computed) keeps the
+# pid-only rule.
 fm_lock_holder_alive() {
   local dir=$1 pid=$2 recorded='' current
   fm_pid_alive "$pid" || return 1
   [ -e "$dir/identity" ] || return 0
   { IFS= read -r recorded || [ -n "$recorded" ]; } < "$dir/identity" 2>/dev/null || true
   [ -n "$recorded" ] || return 0
+  recorded=$(fm_pid_identity_start "$recorded") || return 0
   current=$(fm_pid_identity "$pid" 2>/dev/null) || return 1
+  current=$(fm_pid_identity_start "$current") || return 1
   [ "$current" = "$recorded" ]
 }
 

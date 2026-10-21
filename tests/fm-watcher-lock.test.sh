@@ -505,6 +505,38 @@ test_lock_live_holder_with_matching_identity_blocks() {
   pass "live holder with a matching identity still blocks"
 }
 
+# A holder that execs after acquiring keeps its pid and start time but changes
+# its command line; it must still block, or a live lock would be stolen.
+test_lock_holder_that_execs_after_acquiring_blocks() {
+  local dir state lockdir holder i=0 out
+  dir=$(make_case lock-identity-exec)
+  state="$dir/state"
+  lockdir="$state/.contend.lock"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    fm_lock_try_acquire "$2" || exit 7
+    : > "$3"
+    exec sleep 300
+  ' _ "$LIB" "$lockdir" "$dir/held" >/dev/null 2>&1 &
+  holder=$!
+  while [ "$i" -lt 100 ] && ! { [ -e "$dir/held" ] && [ "$(ps -p "$holder" -o comm= 2>/dev/null)" = sleep ]; }; do
+    sleep 0.05
+    i=$((i + 1))
+  done
+  [ "$(ps -p "$holder" -o comm= 2>/dev/null)" = sleep ] \
+    || { stop_identity_lock_holder "$holder"; fail "exec fixture holder never acquired and exec'd"; }
+  out=$(FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    [ -s "$2/identity" ] || exit 6
+    [ "$(fm_pid_identity "$3")" != "$(cat "$2/identity")" ] || exit 7
+    if fm_lock_try_acquire "$2"; then exit 8; fi
+    printf "held=%s" "$FM_LOCK_HELD_PID"
+  ' _ "$LIB" "$lockdir" "$holder") || true
+  stop_identity_lock_holder "$holder"
+  [ "$out" = "held=$holder" ] || fail "holder that exec'd after acquiring did not block ($out)"
+  pass "holder that execs after acquiring still blocks"
+}
+
 # Locks written before identities were recorded carry only pid; a mixed fleet
 # must keep today's pid-only rule for them, in both lock formats.
 test_lock_legacy_pid_only_live_holder_blocks() {
@@ -1921,6 +1953,7 @@ test_lock_live_steal_mutex_is_not_reclaimed
 test_lock_does_not_steal_live_lock
 test_lock_reclaims_reused_pid_with_mismatched_identity
 test_lock_live_holder_with_matching_identity_blocks
+test_lock_holder_that_execs_after_acquiring_blocks
 test_lock_legacy_pid_only_live_holder_blocks
 test_remote_reply_lifecycle_wait_is_bounded
 test_lock_disappearing_during_format_check_is_not_malformed
