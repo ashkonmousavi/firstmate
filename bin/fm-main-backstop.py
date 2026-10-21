@@ -237,14 +237,16 @@ def remote_stamp(code, env, memory, mate, audit):
 
 
 def live_primary(home, env):
-    listing = json.loads(run(['herdr', 'pane', 'list'], env))
+    listing = json.loads(run(['herdr', 'pane', 'list', '--session',
+                              env.get('HERDR_SESSION', 'default')], env))
     candidates = []
     for pane in listing['result']['panes']:
         agent = pane.get('agent')
         if agent not in ('claude', 'codex') or pane.get('cwd') != str(home):
             continue
         pane_id = pane['pane_id']
-        info = json.loads(run(['herdr', 'pane', 'process-info', '--pane', pane_id], env))
+        info = json.loads(run(['herdr', 'pane', 'process-info', '--pane', pane_id,
+                               '--session', env.get('HERDR_SESSION', 'default')], env))
         processes = info['result']['process_info']['foreground_processes']
         # Herdr's live foreground process observation is required in addition
         # to display metadata. A stale agent label over bash is not an agent.
@@ -402,8 +404,15 @@ def main():
                 if live_primary(home, env) != pane:
                     raise ProbeError('primary changed during discovery')
                 text = '[backstop] ' + '; '.join(trouble) + '. Drain wakes and handle the recovery; your turn-end owner re-arms supervision.'
-                run(['herdr', 'pane', 'send-text', pane, text], env)
-                run(['herdr', 'pane', 'send-keys', pane, 'enter'], env)
+                target = env.get('HERDR_SESSION', 'default') + ':' + pane
+                verdict = run(['bash', '-c', '''
+. "$1" || exit 1
+state=$(fm_backend_composer_state herdr "$2") || exit 1
+[ "$state" = empty ] || { printf 'refused'; exit 0; }
+fm_backend_send_text_submit herdr "$2" "$3" 2 0.4 0.3
+''', 'backstop-nudge', str(code / 'bin/fm-backend.sh'), target, text], env)
+                if verdict.strip() != 'empty':
+                    raise ProbeError('primary nudge failed: composer occupied or submission unconfirmed')
                 memory['last_nudge'] = now
                 (home / 'data/main-pane').write_text(pane + '\n')
                 audit('nudged verified primary pane=' + pane)

@@ -24,6 +24,8 @@ class Backstop(unittest.TestCase):
         for path in [self.state, self.home / 'data', self.code / 'bin', self.fake]:
             path.mkdir(parents=True)
         self.executable(self.code / 'bin/fm-inbox.sh', '#!/bin/bash\nexec \"' + str(ROOT / 'bin/fm-inbox.sh') + '\" \"$@\"\n')
+        self.executable(self.code / 'bin/fm-backend.sh',
+                        '. ' + repr(str(ROOT / 'bin/fm-backend.sh')) + '\n')
         (self.state / 'example.meta').touch()
         (self.state / '.last-watcher-beat').touch()
         os.utime(self.state / '.last-watcher-beat', (time.time() - 600,) * 2)
@@ -31,7 +33,7 @@ class Backstop(unittest.TestCase):
         self.fixture = self.base / 'fixture.json'
         self.calls = self.base / 'calls.jsonl'
         self.config = {'agent': 'claude', 'process': 'claude', 'remote': 1000,
-                       'local': 1000, 'fail_send': False, 'panes': 1}
+                       'local': 1000, 'fail_send': False, 'panes': 1, 'draft': ''}
         (self.state / 'q-server.status').write_text('working [at=1000]: caught up\n')
         (self.state / '.remote-reply-mirrored-q-server').write_text('working [at=1000]: caught up\n')
         self.executable(self.fake / 'herdr', '''#!/usr/bin/env python3
@@ -39,6 +41,7 @@ import json,os,subprocess,sys
 from pathlib import Path
 c=json.loads(Path(os.environ['BACKSTOP_FIXTURE']).read_text())
 a=sys.argv[1:]
+if a[-2:-1]==['--session']:a=a[:-2]
 with open(os.environ['BACKSTOP_CALLS'],'a') as f:f.write(json.dumps(a)+'\\n')
 if a==['pane','list']:
  p={'pane_id':'live:p1','agent':c['agent'],'cwd':os.environ['FM_HOME']}
@@ -49,8 +52,28 @@ elif a[:2]==['pane','process-info']:
   name=subprocess.check_output(['ps','-p',str(c['process_pid']),'-o','comm='],text=True).strip()
   p={'name':Path(name).name,'pid':c['process_pid'],'cwd':c['process_cwd']}
  print(json.dumps({'result':{'process_info':{'foreground_processes':[p]}}}))
-elif a[:2] in (['pane','send-text'],['pane','send-keys']):
- sys.exit(1 if c['fail_send'] else 0)
+elif a[:2]==['status','--json']:
+ print(json.dumps({'server':{'running':True}}))
+elif a[:2]==['agent','get']:
+ print(json.dumps({'result':{'agent':{'agent':c['agent'],'agent_status':c.get('status','idle')}}}))
+elif a[:2]==['pane','read']:
+ if c.get('unreadable'):sys.exit(1)
+ glyph='❯' if c['agent']=='claude' else '›'
+ print('────────────────────────')
+ print(glyph+' '+c['draft'])
+ print('────────────────────────')
+elif a[:2]==['pane','send-text']:
+ if c['fail_send']:sys.exit(1)
+ c['draft']+=a[3]
+ Path(os.environ['BACKSTOP_FIXTURE']).write_text(json.dumps(c))
+elif a[:2]==['pane','send-keys']:
+ if c['fail_send']:sys.exit(1)
+ if a[3]=='enter' and not c.get('hold_enter'):
+  c.setdefault('submitted',[]).append(c['draft'])
+  c['draft']=''
+  c['status']='working'
+ elif a[3]=='ctrl+u':c['draft']=''
+ Path(os.environ['BACKSTOP_FIXTURE']).write_text(json.dumps(c))
 else:sys.exit(2)
 ''')
         self.executable(self.code / 'bin/fm-on.sh', '''#!/usr/bin/env python3
@@ -118,9 +141,50 @@ os.execv(real,[command]+sys.argv[3:])
         sends = [c for c in self.commands() if c[:2] == ['pane', 'send-text']]
         self.assertEqual(len(sends), 1)
         self.assertEqual(sends[0][2], 'live:p1')
+        observed = json.loads(self.fixture.read_text())
+        self.assertEqual(observed.get('submitted'), [sends[0][3]])
+        self.assertEqual(observed['draft'], '')
         self.assertEqual((self.home / 'data/main-pane').read_text().strip(), 'live:p1')
         self.run_guard()
         self.assertEqual(len([c for c in self.commands() if c[:2] == ['pane','send-text']]), 1)
+
+    def test_pending_primary_draft_is_preserved_and_recovery_alarms(self):
+        for harness in ('claude', 'codex'):
+            with self.subTest(harness=harness):
+                self.config.update(agent=harness, process=harness, draft='unfinished owner draft')
+                self.run_guard()
+                observed = json.loads(self.fixture.read_text())
+                self.assertEqual(observed['draft'], 'unfinished owner draft')
+                self.assertEqual(observed.get('submitted', []), [])
+                self.assertEqual(self.sends(), [])
+                self.assertFalse(any(c[:2] == ['pane', 'send-keys'] for c in self.commands()))
+                self.assertIn('BACKSTOP FAILURE', self.notes())
+                self.assertIn('BACKSTOP FAILURE', (self.state / '.wake-queue').read_text())
+                self.assertNotIn('last_nudge', self.memory())
+
+    def test_empty_codex_primary_uses_confirmed_submission(self):
+        self.config.update(agent='codex', process='codex')
+        self.run_guard()
+        observed = json.loads(self.fixture.read_text())
+        self.assertEqual(len(observed.get('submitted', [])), 1)
+        self.assertTrue(observed['submitted'][0].startswith('[backstop] watcher silent'))
+        self.assertEqual(observed['draft'], '')
+        self.assertIn('last_nudge', self.memory())
+
+    def test_unconfirmed_submission_does_not_advance_nudge_time(self):
+        self.config['hold_enter'] = True
+        self.run_guard()
+        observed = json.loads(self.fixture.read_text())
+        self.assertEqual(observed.get('submitted', []), [])
+        self.assertNotIn('last_nudge', self.memory())
+        self.assertIn('BACKSTOP FAILURE', self.notes())
+
+    def test_unreadable_composer_refuses_nudge(self):
+        self.config['unreadable'] = True
+        self.run_guard()
+        self.assertEqual(self.sends(), [])
+        self.assertNotIn('last_nudge', self.memory())
+        self.assertIn('BACKSTOP FAILURE', self.notes())
 
     def test_shell_pane_is_never_typed_into_and_alarm_reaches_drain(self):
         self.config['process'] = 'bash'

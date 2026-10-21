@@ -1,61 +1,187 @@
 {
   "scope": {
-    "base": "f8a8cb8867915267231084312ced4dab147af081",
-    "reviewed_head": "32a572338f69165714a34c5df468a3528ee1043e"
+    "base": "2c93247f77cfa4c003a1bdc52938e6913805a442",
+    "reviewed_head": "b1a3035ee23f8d029da64f5386ffa44d128ded0c"
   },
-  "provenance": "Reconstructed from current executable paths for R1 and R2; no earlier retained inventory was supplied.",
+  "provenance": "Current review findings independently checked against executable paths; prior inventory retained separately below.",
   "findings": {
-    "R1": {
-      "invariant": "Only actual mirrored remote replies may advance the local ingestion watermark.",
-      "cause": "The shared local watermark reads a status stream mixing mirrored replies and adapter-authored notices.",
-      "sequence": "Mirrored at=1000; remote replacement at=3000; local continuity notice at=4000; expected delivery lag 2000 seconds.",
+    "R1_fixture_cleanup": {
+      "invariant": "Every fixture-owned remote worker tree must stop before its directory is removed.",
+      "cause": "Shared fixture cleanup reaped watchers and process-event runners but not detached remote job workers.",
       "affected_occurrences": [
-        "bin/fm-main-backstop.py:main local watermark and lag comparison",
-        "bin/fm-main-backstop.py:main lag incident clearing",
-        "tests/fm-main-backstop.test.py:setUp mirrored ingestion fixture",
-        "tests/fm-main-backstop.test.py:oversized-source caught-up fixture",
-        "tests/fm-main-backstop.test.py:lag incident recovery fixture",
-        "tests/fm-main-backstop.test.py:test_adapter_notices_cannot_advance_ingestion_or_clear_lag",
-        "tests/fm-main-backstop.test.py:test_no_ingestion_evidence_does_not_use_local_notices"
+        "tests/fm-remote-backlog-handoff.test.sh",
+        "tests/fm-remote-secondmate-parent-binding.test.sh",
+        "tests/fm-remote-secondmate-trace-context.test.sh",
+        "tests/fm-spawn-compact-adviser-disable-remote.test.sh"
       ],
       "axes": [
-        "whole-file bootstrap",
-        "steady-state delta",
-        "continuity-break resync",
-        "oversized-source bootstrap",
-        "missing or empty ingestion record",
-        "inconclusive read",
-        "positive recovery and incident deduplication"
+        "successful completion",
+        "early failure without a worker",
+        "EXIT",
+        "INT",
+        "TERM",
+        "HUP",
+        "QUIT",
+        "stale or reused PID",
+        "whole detached worker group"
       ],
-      "search_scope": [
-        "bin/fm-main-backstop.py",
-        "tests/fm-main-backstop*",
-        "bin/fm-procevent-remote-reply.sh",
-        "docs/scripts.md"
-      ],
-      "negative_evidence": [
-        "newest() has one production caller, the shared local comparison.",
-        "All remote read paths return to that same comparison.",
-        "Adapter commits mirrored-source identities after appending status content; continuity and document notices bypass that identity record.",
-        "No harness discovery, runner identity, transport byte handling, or retry behavior changes are required."
-      ],
-      "regression": {
-        "command": "bash tests/fm-main-backstop.test.sh",
-        "oracle": "At remote=3000 and mirrored=1000, later local notices cannot suppress the specified 2000-second delivery lag; actual mirrored catch-up clears the incident.",
-        "result": "PASS: Ran 29 tests in 58.905s; OK; exit status 0",
-        "old_code_execution": "Not run; verification was limited to one final focused test invocation.",
-        "coverage": "Real backstop executable and durable inbox; both new regression cases passed alongside existing cold, delta, oversized, Unicode, transient-read and incident-recovery cases."
+      "resolution": "Previous round added identity-checked recorded-owner verification and bounded worker-tree stop at all four cleanup sites, with signals routed through EXIT.",
+      "verification": {
+        "command": "bash bin/fm-test-run.sh --jobs 1 tests/fm-remote-backlog-handoff.test.sh tests/fm-remote-secondmate-parent-binding.test.sh tests/fm-remote-secondmate-trace-context.test.sh tests/fm-spawn-compact-adviser-disable-remote.test.sh",
+        "result": "2026-10-21: three passed; parent binding failed before its publication marker. No green claim for parent binding or live signal-path proof.",
+        "evidence": ".no-mistakes/review-fixes/remote-cleanup.log"
       }
     },
-    "R2": {
-      "invariant": "The next reviewer must have an exact retained inventory of the cause, occurrences, search scope, negative evidence and regression result.",
-      "cause": "Prior handoff supplied findings without a retained inventory accessible in the worktree.",
+    "review-1_Grok": {
+      "invariant": "Vendor-rendered weekly-limit classification must have real empty and unsent-input proof.",
+      "cause": "Portable fixture and classifier share a rendering assumption that the installed harness does not display.",
       "affected_occurrences": [
-        "Review-to-fix handoff",
-        "Fix-to-next-review handoff"
+        "bin/fm-composer-lib.sh:_fm_composer_titled_bottom_ok",
+        "tests/fm-composer-lib.test.sh:test_matrix_grok_weekly_limit_border",
+        "tests/fm-composer-grok-weekly-live-e2e.test.sh",
+        "docs/verification/runtime-backends.md:Grok weekly-limit border coverage"
       ],
-      "retained_inventory": "tests/captures/fm-main-backstop-review-inventory.json",
-      "next_review": "Read this exact file, inspect every listed occurrence and axis, check the regression result, and search the stated scope for missed siblings."
+      "axes": [
+        "empty composer",
+        "unsent typed input",
+        "tmux wrapper",
+        "styled cursorless capture",
+        "plain cursorless capture",
+        "border absent refusal"
+      ],
+      "resolution": "Unresolved; required border absent on installed Grok 1.0.62 (1474f9cbdd91) [stable]. Do not replace real proof with portable fixtures or weaken the guard.",
+      "verification": {
+        "command": "FM_COMPOSER_GROK_WEEKLY_LIVE=1 bash bin/fm-test-run.sh --jobs 1 tests/fm-composer-grok-weekly-live-e2e.test.sh",
+        "result": "2026-10-21: exit 1, weekly-limit border not rendered; live coverage unavailable. Neither empty nor unsent assertions reached.",
+        "evidence": ".no-mistakes/review-fixes/grok-weekly-live.log",
+        "current_round": "Not repeated: same installed version, guard, and missing-surface precondition; worktree boundary forbids installing or upgrading the harness."
+      }
+    },
+    "R5_inventory": {
+      "invariant": "The next reviewer must receive current causes, sibling occurrences, inspected axes and actual verification limits.",
+      "cause": "Retained inventory described unrelated older review scope and finding identities.",
+      "affected_occurrences": [
+        "tests/captures/fm-main-backstop-review-inventory.json",
+        "review-to-fix handoff",
+        "fix-to-next-review handoff"
+      ],
+      "resolution": "Current inventory is retained here with historical evidence preserved under previous_inventory; no parallel pipeline handoff mechanism added."
+    },
+    "R6_draft_submission": {
+      "invariant": "Recovery nudges preserve existing input and record success only after guarded submission from a proven empty composer.",
+      "cause": "The shared backstop nudge used raw send-text followed by Enter, bypassing the backend composer and submission guards.",
+      "affected_occurrences": [
+        "bin/fm-main-backstop.py:main shared trouble-to-nudge path",
+        "bin/fm-main-backstop.py:live_primary session binding",
+        "bin/fm-backend.sh:fm_backend_composer_state",
+        "bin/fm-backend.sh:fm_backend_send_text_submit",
+        "bin/backends/herdr.sh:fm_backend_herdr_send_text_submit",
+        "tests/fm-main-backstop.test.py:Backstop"
+      ],
+      "axes": [
+        "watcher silence",
+        "reply runner down",
+        "reply lag",
+        "Claude",
+        "Codex",
+        "empty",
+        "pending",
+        "unreadable or unknown",
+        "submission failure or unconfirmed delivery",
+        "durable recovery alarm",
+        "last_nudge and pane record update",
+        "discovery and delivery in the same Herdr session"
+      ],
+      "resolution": "The shared nudge now requires an empty composer and uses existing backend submission guards; refusals enter the existing durable recovery alarm path without advancing last_nudge.",
+      "negative_evidence": [
+        "All three trouble causes converge on one nudge block.",
+        "All remote read representations feed the same trouble path; their timestamp metric is unchanged.",
+        "No other raw text/Enter pair remains in the backstop.",
+        "Tmux, Orca, cmux, paseo and zellij are outside the Herdr-only backstop interface.",
+        "The real live Herdr guard was not run: this phase has no isolated-lab authorization."
+      ],
+      "verification": {
+        "command": "bash bin/fm-test-run.sh --jobs 1 tests/fm-main-backstop.test.sh",
+        "oracle": "An unfinished owner draft remains byte-for-byte intact, receives no Enter and no successful nudge timestamp, while a durable recovery note and wake are produced; an empty primary receives one confirmed nudge.",
+        "result": "2026-10-21: PASS; Ran 33 tests in 39.517s; OK; exit status 0.",
+        "evidence": ".no-mistakes/review-fixes/backstop-draft-guard.log",
+        "coverage": "Real backstop executable, shared composer classifier, backend submission implementation and durable inbox, with stateful fake Herdr transport. Pending drafts for Claude and Codex remained unchanged; empty Claude and Codex submissions confirmed; unreadable composers and unconfirmed submissions alarmed without advancing last_nudge.",
+        "old_code_execution": "Not run; verification was limited to one final focused invocation after all code fixes."
+      }
+    }
+  },
+  "search_scope": [
+    "bin/fm-main-backstop.py",
+    "bin/fm-task-inbox-lib.sh:fm_task_inbox_ring",
+    "bin/fm-backend.sh:composer and submission dispatch",
+    "bin/backends/herdr.sh:composer and submission guards",
+    "tests/fm-main-backstop.test.py",
+    "tests/fm-main-backstop-live.test.py",
+    "tests/lib.sh:fm_test_cleanup",
+    "four remote fixture cleanup functions",
+    "tests/fm-composer-grok-weekly-live-e2e.test.sh",
+    "docs/verification/runtime-backends.md"
+  ],
+  "next_review": "Read current findings and their evidence limits, retrace each listed path and axis, and inspect the stated search scope for siblings. Historical finding ids are scoped to previous_inventory.",
+  "previous_inventory": {
+    "scope": {
+      "base": "f8a8cb8867915267231084312ced4dab147af081",
+      "reviewed_head": "32a572338f69165714a34c5df468a3528ee1043e"
+    },
+    "provenance": "Reconstructed from current executable paths for R1 and R2; no earlier retained inventory was supplied.",
+    "findings": {
+      "R1": {
+        "invariant": "Only actual mirrored remote replies may advance the local ingestion watermark.",
+        "cause": "The shared local watermark reads a status stream mixing mirrored replies and adapter-authored notices.",
+        "sequence": "Mirrored at=1000; remote replacement at=3000; local continuity notice at=4000; expected delivery lag 2000 seconds.",
+        "affected_occurrences": [
+          "bin/fm-main-backstop.py:main local watermark and lag comparison",
+          "bin/fm-main-backstop.py:main lag incident clearing",
+          "tests/fm-main-backstop.test.py:setUp mirrored ingestion fixture",
+          "tests/fm-main-backstop.test.py:oversized-source caught-up fixture",
+          "tests/fm-main-backstop.test.py:lag incident recovery fixture",
+          "tests/fm-main-backstop.test.py:test_adapter_notices_cannot_advance_ingestion_or_clear_lag",
+          "tests/fm-main-backstop.test.py:test_no_ingestion_evidence_does_not_use_local_notices"
+        ],
+        "axes": [
+          "whole-file bootstrap",
+          "steady-state delta",
+          "continuity-break resync",
+          "oversized-source bootstrap",
+          "missing or empty ingestion record",
+          "inconclusive read",
+          "positive recovery and incident deduplication"
+        ],
+        "search_scope": [
+          "bin/fm-main-backstop.py",
+          "tests/fm-main-backstop*",
+          "bin/fm-procevent-remote-reply.sh",
+          "docs/scripts.md"
+        ],
+        "negative_evidence": [
+          "newest() has one production caller, the shared local comparison.",
+          "All remote read paths return to that same comparison.",
+          "Adapter commits mirrored-source identities after appending status content; continuity and document notices bypass that identity record.",
+          "No harness discovery, runner identity, transport byte handling, or retry behavior changes are required."
+        ],
+        "regression": {
+          "command": "bash tests/fm-main-backstop.test.sh",
+          "oracle": "At remote=3000 and mirrored=1000, later local notices cannot suppress the specified 2000-second delivery lag; actual mirrored catch-up clears the incident.",
+          "result": "PASS: Ran 29 tests in 58.905s; OK; exit status 0",
+          "old_code_execution": "Not run; verification was limited to one final focused test invocation.",
+          "coverage": "Real backstop executable and durable inbox; both new regression cases passed alongside existing cold, delta, oversized, Unicode, transient-read and incident-recovery cases."
+        }
+      },
+      "R2": {
+        "invariant": "The next reviewer must have an exact retained inventory of the cause, occurrences, search scope, negative evidence and regression result.",
+        "cause": "Prior handoff supplied findings without a retained inventory accessible in the worktree.",
+        "affected_occurrences": [
+          "Review-to-fix handoff",
+          "Fix-to-next-review handoff"
+        ],
+        "retained_inventory": "tests/captures/fm-main-backstop-review-inventory.json",
+        "next_review": "Read this exact file, inspect every listed occurrence and axis, check the regression result, and search the stated scope for missed siblings."
+      }
     }
   }
 }
