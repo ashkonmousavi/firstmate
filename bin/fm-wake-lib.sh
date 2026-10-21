@@ -1472,11 +1472,17 @@ _fm_lock_acquire_wait_handoff() {  # <lockdir> <caller-pid>
     fm_lock_release "$lockdir"
     return 1
   fi
-  if identity=$(fm_pid_identity "$caller_pid" 2>/dev/null) && [ -n "$identity" ] \
+  fm_lock_publish_identity "$ownerdir" "$caller_pid"
+  trap - TERM INT
+}
+
+fm_lock_publish_identity() {  # <owner-dir> <pid>
+  local ownerdir=$1 pid=$2 identity
+  if identity=$(fm_pid_identity "$pid" 2>/dev/null) && [ -n "$identity" ] \
     && printf '%s\n' "$identity" > "$ownerdir/identity.tmp" 2>/dev/null; then
     mv -f "$ownerdir/identity.tmp" "$ownerdir/identity" 2>/dev/null || rm -f "$ownerdir/identity.tmp" 2>/dev/null
   fi
-  trap - TERM INT
+  return 0
 }
 
 fm_checkpoint_lock() {
@@ -1519,6 +1525,11 @@ fm_lock_acquire_wait_bounded() {
     rc=$?
   fi
 
+  owner_pid=$(cat "$lockdir/pid" 2>/dev/null || true)
+  if [ "$owner_pid" = "$caller_pid" ]; then
+    [ -e "$lockdir/identity" ] || fm_lock_publish_identity "$lockdir" "$caller_pid"
+    return 0
+  fi
   [ "$rc" -ne 0 ] || rc=1
   # A deadline can kill the helper just after it acquired and before handoff.
   # Give ordinary stale-owner recovery one final non-blocking chance so that

@@ -20,6 +20,7 @@ cat > "$TMP_ROOT/fakebin/mv" <<'SH'
 #!/usr/bin/env bash
 case "$*" in
   *identity.tmp*)
+    [ ! -e "$FM_HANDOFF_INTERRUPTED" ] || exec "$FM_HANDOFF_REAL_MV" "$@"
     printf '%s\n' "$FM_HANDOFF_MODE" > "$FM_HANDOFF_INTERRUPTED"
     case "$FM_HANDOFF_MODE" in
       term) kill -TERM "$PPID"; exit 1 ;;
