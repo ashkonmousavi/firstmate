@@ -18,35 +18,13 @@ SSH_COUNT="$TMP_ROOT/ssh.count"
 WAKE_LOG="$TMP_ROOT/wake.log"
 mkdir -p "$PARENT/data" "$PARENT/state" "$REMOTE_ROOT/bin" \
   "$REMOTE/data" "$REMOTE/state" "$REMOTE/config" "$REMOTE/projects" "$REMOTE/bin"
-# Tear down deterministically. Releasing the blocked stages and killing the
-# detached remote worker is not enough on its own: kill only signals, so the
-# worker (and this shell's own background stages) could still be writing into
-# $TMP_ROOT when rm -rf ran, which surfaced as a real CI flake:
-#   rm: cannot remove '/tmp/fm-remote-handoff.XXXXXX': Directory not empty
-# So wait for the worker to actually exit and drain the shell's background jobs
-# before removing the tree, then retry rm -rf until the now-quiesced tree is gone.
+# Release blocked stages and stop the detached remote worker group before
+# draining this shell's jobs and removing the fixture through shared cleanup.
 fm_remote_handoff_teardown() {
-  local worker_pid i
   touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" 2>/dev/null || true
-  if [ -f "$TMP_ROOT/remote-jobs/worker.pid" ]; then
-    worker_pid=$(cat "$TMP_ROOT/remote-jobs/worker.pid" 2>/dev/null || true)
-    if [ -n "$worker_pid" ]; then
-      kill "$worker_pid" 2>/dev/null || true
-      i=0
-      while [ "$i" -lt 500 ] && kill -0 "$worker_pid" 2>/dev/null; do
-        sleep 0.01
-        i=$((i + 1))
-      done
-    fi
-  fi
+  fm_test_reap_remote_job_workers "$TMP_ROOT"
   wait 2>/dev/null || true
-  i=0
-  while [ "$i" -lt 50 ]; do
-    rm -rf -- "$TMP_ROOT" 2>/dev/null && return 0
-    sleep 0.02
-    i=$((i + 1))
-  done
-  rm -rf -- "$TMP_ROOT" 2>/dev/null || true
+  fm_test_cleanup
 }
 trap fm_remote_handoff_teardown EXIT
 printf 'fixture\n' > "$REMOTE_ROOT/AGENTS.md"
