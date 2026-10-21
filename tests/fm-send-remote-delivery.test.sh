@@ -149,7 +149,7 @@ if [ "${FM_FAKE_SSH_FAIL_INBOX_MARKER:-0}" = 1 ] \
   && [ "${rargs[1]:-}" = inbox ] && [ "${rargs[3]:-}" = escalated ]; then
   exit 255
 fi
-[ "${FM_FAKE_SSH_DELAY:-0}" -eq 0 ] || sleep "$FM_FAKE_SSH_DELAY"
+[ "${FM_FAKE_SSH_DELAY:-0}" -eq 0 ] || /bin/sleep "$FM_FAKE_SSH_DELAY"
 rc=0
 env -i PATH="$PATH" HOME="$HOME" FM_FAKE_HERDR_LOG="${FM_FAKE_HERDR_LOG:-}" \
   FM_HOME="$remote_home" FM_ROOT_OVERRIDE="$FM_REMOTE_CODE_ROOT" \
