@@ -1,0 +1,6 @@
+Fresh record, grace=3600: quiet
+Aged unhandled record: ring 001.msg
+After worker acknowledgement via handled/: quiet
+Persisted exhausted budget, second record: escalate 002.msg 1
+Persist escalation marker: escalated
+After durable escalation marker: quiet

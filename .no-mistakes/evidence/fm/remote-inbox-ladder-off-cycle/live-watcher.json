@@ -1,0 +1,73 @@
+[
+  {
+    "scenario": "watcher beacon advances while real SSH is stalled before handshake",
+    "connections": 2,
+    "beacon_observations": [
+      {
+        "elapsed": 2.13,
+        "mtime_ns": 1792560062577907376,
+        "connections": 0
+      },
+      {
+        "elapsed": 5.31,
+        "mtime_ns": 1792560065757941244,
+        "connections": 1
+      },
+      {
+        "elapsed": 7.72,
+        "mtime_ns": 1792560068273967972,
+        "connections": 1
+      },
+      {
+        "elapsed": 9.84,
+        "mtime_ns": 1792560070317990415,
+        "connections": 1
+      },
+      {
+        "elapsed": 12.25,
+        "mtime_ns": 1792560072766017545,
+        "connections": 1
+      },
+      {
+        "elapsed": 14.21,
+        "mtime_ns": 1792560074718039143,
+        "connections": 1
+      },
+      {
+        "elapsed": 17.13,
+        "mtime_ns": 1792560077562068328,
+        "connections": 1
+      },
+      {
+        "elapsed": 19.71,
+        "mtime_ns": 1792560080146094853,
+        "connections": 1
+      },
+      {
+        "elapsed": 23.72,
+        "mtime_ns": 1792560084162135978,
+        "connections": 1
+      },
+      {
+        "elapsed": 27.4,
+        "mtime_ns": 1792560087850179788,
+        "connections": 2
+      }
+    ],
+    "watcher_running": true,
+    "ladder_lock_exists": true,
+    "pass": true
+  },
+  {
+    "scenario": "failed SSH handshake is logged without a stale wake and later cycles retry",
+    "triage": "[2026-10-20T22:21:21-0700] remote steer-inbox: rsm due check unreachable or failed (Connection timed out during banner exchange\n); the next tick retries\n",
+    "connections": 2,
+    "wake_queue": "",
+    "pass": true
+  },
+  {
+    "processes": [
+      "1111011 1111001 /usr/bin/ssh -F ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5EDB3MBWCZX063DZJ8QGKGJ/.live-inbox/ssh-config -o ForwardAgent=no -o ClearAllForwardings=yes -o SendEnv=-* -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -- inbox-lab fm-remote-entrypoint.sh 1 L2hvbWUvemNyZXcvLm5vLW1pc3Rha2VzL3dvcmt0cmVlcy8xMWJkYzFlZDBkN2EvMDFNNUVEQjNNQldDWlgwNjNEWko4UUdLR0o= L2hvbWUvemNyZXcvLm5vLW1pc3Rha2VzL3dvcmt0cmVlcy8xMWJkYzFlZDBkN2EvMDFNNUVEQjNNQldDWlgwNjNEWko4UUdLR0ovLmxpdmUtaW5ib3gvaG9tZQ== Zm0tcmVtb3RlLXNlY29uZG1hdGUtY29udHJvbC5zaABpbmJveAByc20AZHVlADEAMwA="
+    ]
+  }
+]

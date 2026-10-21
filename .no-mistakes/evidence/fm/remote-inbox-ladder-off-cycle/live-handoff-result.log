@@ -1,0 +1,3 @@
+Restart over durable handoff: stale: remote:rsm (remote record 001.msg still unhandled after 1 doorbell delivery attempts)
+Next watcher output: check: rearm-resurface
+PASS: saved handoff consumed by real watcher and not repeated on next arm. Normal downtime recovery may separately resurface. Producer was not exercised by this scenario.

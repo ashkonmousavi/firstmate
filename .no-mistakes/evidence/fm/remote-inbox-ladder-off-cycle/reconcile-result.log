@@ -1,0 +1,8 @@
+Command: bash tests/fm-secondmate-reconcile.test.sh
+Exit status: 1
+ok - reconcile requests stop oversized streams at the capture bound
+ok - reconcile requests require exactly one snapshot document
+ok - reconcile requests coalesce per target and retire independently after delivery
+not ok - Bearings and request publication waited past the collector budget behind remote delivery (7s)
+Host load reading afterward: load average 45.47, 50.52, 49.08.
+Cause remains unproven; the required test was not changed.

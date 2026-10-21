@@ -1,0 +1,28 @@
+[
+  {
+    "scenario": "slow SSH handshake",
+    "accepted_connections": 1,
+    "beacon_mtime_ns": [
+      1792559166640307193,
+      1792559166640307193,
+      1792559166640307193,
+      1792559166640307193,
+      1792559166640307193,
+      1792559166640307193,
+      1792559166640307193,
+      1792559175152401914,
+      1792559175152401914,
+      1792559175152401914,
+      1792559175152401914,
+      1792559179776449806
+    ],
+    "watcher_running": true
+  },
+  {
+    "scenario": "connection closed/refused",
+    "triage": "[2026-10-20T22:06:21-0700] remote steer-inbox: rsm due check unreachable or failed (kex_exchange_identification: read: Connection reset by peer\n); the next tick retries\n[2026-10-20T22:06:24-0700] remote steer-inbox: rsm due check unreachable or failed (ssh: connect to host 127.0.0.1 port 9698: Connection refused\n); the next tick retries\n",
+    "beacon_before": 1792559179776449806,
+    "beacon_after": 1792559183368484535,
+    "wake_queue": ""
+  }
+]

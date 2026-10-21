@@ -1,0 +1,10 @@
+Executed the definitions from tests/fm-send-remote-delivery.test.sh unchanged in a temporary tests/.inbox-ladder-gate.test.sh runner, selecting:
+test_remote_inbox_ladder_rerings_unacknowledged_record
+test_remote_inbox_ladder_quiet_after_acknowledgement
+test_remote_inbox_ladder_escalates_after_ring_max
+test_remote_inbox_detached_pass_never_holds_the_cycle
+test_remote_inbox_pass_never_overlaps_an_inflight_pass
+test_remote_inbox_ladder_escalates_bookkeeping_failure
+test_remote_inbox_marker_retry_preserves_wake_identity
+These use mocked SSH and Herdr and are not live delivery evidence.
+The full remote-delivery script was stopped after its first three checks passed, to limit this phase to the changed ladder behavior.

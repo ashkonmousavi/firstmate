@@ -1,0 +1,2 @@
+PASS: real watcher maintained beacon during stalled OpenSSH handshake; distinct beacon values during seconds 7-27: 5
+SSH connections: 2 (retry after bounded failed hop); samples: live-watch-samples.json

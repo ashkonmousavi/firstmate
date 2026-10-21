@@ -1,0 +1,7 @@
+ok - watcher remote inbox: an unacknowledged remote record re-rings after grace without waking firstmate
+ok - watcher remote inbox: an acknowledged remote record is never re-rung
+ok - watcher remote inbox: a spent ring budget queues exactly one stale wake
+ok - watcher remote inbox: a detached pass never holds the cycle and its wake is still delivered
+ok - watcher remote inbox: a pass never overlaps one still in flight
+ok - watcher remote inbox: confirmed bookkeeping failure escalates once instead of retrying forever
+ok - watcher remote inbox: marker retries preserve one notification per record

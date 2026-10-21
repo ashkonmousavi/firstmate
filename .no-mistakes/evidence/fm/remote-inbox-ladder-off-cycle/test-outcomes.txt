@@ -1,0 +1,5 @@
+Required unchanged reconciliation test exited 1 twice: Bearings/request publication took 5s and 10s; required bound is strictly less than 5s. Host load was 45-62 with 16 CPUs; contention is possible but unproven.
+Focused remote-delivery suite exited 0, including detached handoff, overlap exclusion, marker retry identity and independent records. SSH and Herdr are mocked in that suite.
+Live watcher with real SSH against a disposable loopback endpoint advanced its beacon during a stalled handshake and after reset/refusal, with no stale notification. Initial live driver sampling expectation was corrected for loaded-host cycle duration and re-driven successfully; product unchanged.
+Herdr prepare refused because its default-session fleet tripwire was unavailable. Remote control also hardcodes fm-remote, incompatible with mandated fm-lab-* isolation. No fleet sessions changed.
+Disposable lab processes and directories cleaned up. No source or test edits; no other pipeline phases executed. Shell cleanup was rejected by command guard; Python removed only the named run directories.

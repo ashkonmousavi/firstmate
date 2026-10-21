@@ -1,0 +1,260 @@
+[
+  {
+    "second": 0.0,
+    "beacon": null,
+    "alive": true,
+    "ssh_connections": 0
+  },
+  {
+    "second": 1.0,
+    "beacon": null,
+    "alive": true,
+    "ssh_connections": 0
+  },
+  {
+    "second": 2.0,
+    "beacon": null,
+    "alive": true,
+    "ssh_connections": 0
+  },
+  {
+    "second": 3.0,
+    "beacon": null,
+    "alive": true,
+    "ssh_connections": 0
+  },
+  {
+    "second": 4.0,
+    "beacon": 1792560641.0247185,
+    "alive": true,
+    "ssh_connections": 0
+  },
+  {
+    "second": 5.0,
+    "beacon": 1792560641.0247185,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 6.0,
+    "beacon": 1792560641.0247185,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 7.0,
+    "beacon": 1792560641.0247185,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 8.1,
+    "beacon": 1792560641.0247185,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 9.1,
+    "beacon": 1792560641.0247185,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 10.1,
+    "beacon": 1792560646.6328435,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 11.1,
+    "beacon": 1792560646.6328435,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 12.1,
+    "beacon": 1792560646.6328435,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 13.1,
+    "beacon": 1792560646.6328435,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 14.1,
+    "beacon": 1792560650.7409217,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 15.1,
+    "beacon": 1792560650.7409217,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 16.1,
+    "beacon": 1792560650.7409217,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 17.1,
+    "beacon": 1792560650.7409217,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 18.1,
+    "beacon": 1792560655.5450137,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 19.1,
+    "beacon": 1792560655.5450137,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 20.1,
+    "beacon": 1792560655.5450137,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 21.2,
+    "beacon": 1792560655.5450137,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 22.2,
+    "beacon": 1792560659.5810778,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 23.2,
+    "beacon": 1792560659.5810778,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 24.2,
+    "beacon": 1792560659.5810778,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 25.2,
+    "beacon": 1792560659.5810778,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 26.2,
+    "beacon": 1792560659.5810778,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 27.2,
+    "beacon": 1792560663.9091508,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 28.2,
+    "beacon": 1792560663.9091508,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 29.8,
+    "beacon": 1792560663.9091508,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 30.8,
+    "beacon": 1792560663.9091508,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 31.8,
+    "beacon": 1792560663.9091508,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 32.8,
+    "beacon": 1792560669.7972622,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 33.8,
+    "beacon": 1792560669.7972622,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 34.8,
+    "beacon": 1792560669.7972622,
+    "alive": true,
+    "ssh_connections": 1
+  },
+  {
+    "second": 35.8,
+    "beacon": 1792560672.693317,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 36.8,
+    "beacon": 1792560672.693317,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 37.8,
+    "beacon": 1792560672.693317,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 38.8,
+    "beacon": 1792560675.7733757,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 39.8,
+    "beacon": 1792560675.7733757,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 40.8,
+    "beacon": 1792560675.7733757,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 41.8,
+    "beacon": 1792560679.2014415,
+    "alive": true,
+    "ssh_connections": 2
+  },
+  {
+    "second": 42.9,
+    "beacon": 1792560679.2014415,
+    "alive": true,
+    "ssh_connections": 2
+  }
+]
