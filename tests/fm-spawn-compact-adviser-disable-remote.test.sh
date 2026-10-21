@@ -144,8 +144,8 @@ run_remote_launch() {  # <label>
   local label=$1
   reset_remote_herdr_fixture "$HERDR_STATE"
   : > "$HERDR_LOG"
-  remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >/dev/null 2>&1 \
-    || fail "$label: the remote second-mate launch failed"
+  remote_env "$ROOT/bin/fm-spawn.sh" ios --secondmate >"$TMP_ROOT/spawn.out" 2>&1 \
+    || { cat "$TMP_ROOT/spawn.out" >&2; fail "$label: the remote second-mate launch failed"; }
 }
 
 # Replay what the remote pane received, in the order it received it, under a
