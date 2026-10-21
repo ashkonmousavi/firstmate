@@ -153,6 +153,7 @@ pass 'published facts drive placement; unreadable and stale hosts refused'
 
 (
   mkdir -p "$TMP_ROOT/shell-home/"{state,config,data} "$TMP_ROOT/shell-worktree" "$TMP_ROOT/fakebin"
+  # shellcheck disable=SC2030 # subshell-local by design
   FM_HOME="$TMP_ROOT/shell-home"
   export FM_HOME
   printf '5 3\n' > "$FM_HOME/config/lane-capacity"
@@ -227,4 +228,69 @@ SH
   cmp -s "$case_dir/prior.meta" "$relaunch_home/state/capacity-a.meta" || fail 'control refusal changed stopped record'
   [ ! -s "$FM_FAKE_LAUNCH_LOG" ] || fail 'control refusal delivered a launch'
   pass 'stopped A frees a ceiling-one seat for B; both relaunch entry points refuse A'
+) || exit 1
+
+# Fixture membership and hierarchy exercise the same public admission read as
+# fm-spawn without depending on the test host's cgroup or page cache.
+(
+  # shellcheck disable=SC2030,SC2031 # This subshell deliberately selects a new fixture home.
+  export FM_HOME="$TMP_ROOT/cgroup-home"
+  export FM_CAPACITY_CGROUP_FILE="$TMP_ROOT/self-cgroup"
+  export FM_CAPACITY_CGROUP_ROOT="$TMP_ROOT/cgroup"
+  mkdir -p "$FM_HOME/"{config,state,data} "$FM_CAPACITY_CGROUP_ROOT/crew/lane"
+  printf '5 4\n' > "$FM_HOME/config/lane-capacity"
+  printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
+  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
+  printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'anon 5000000000\nfile 12000000000\nshmem 500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  printf '17500000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.current"
+  printf 'MemAvailable: 1 kB\n' > "$FM_CAPACITY_MEMINFO"
+  out=$(bash "$CAPACITY" --json) || fail "cache-heavy cgroup must admit: $out"
+  jq -e '.reason == "ok" and .mem_available_kb == 9277343 and .reserve_kb == 4194304 and .headroom_kb == 5083039 and .headroom_kb >= 3145728' <<< "$out" >/dev/null || fail 'cgroup must leave room for a 3 GiB lane after reserve'
+  pass 'nearest finite ancestor excludes file cache and leaves 8.8 GiB before reserve'
+
+  # A closer finite limit wins and must use its own statistics.
+  printf '8589934592\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
+  printf 'shmem 0\nanon 4294967296\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
+  out=$(bash "$CAPACITY" --json) || fail 'exact cgroup reserve must admit'
+  jq -e '.headroom_kb == 0' <<< "$out" >/dev/null || fail 'nearest limit not used'
+  printf 'anon 4294967297\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'one byte below reserve refuses'
+  assert_contains "$out" "$FM_CAPACITY_CGROUP_ROOT/crew/lane" 'cgroup refusal identifies source'
+  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/lane/memory.high"
+
+  for bad in '' 'anon nope' 'anon 5000000000' $'anon 1\nshmem -1' $'anon 1\nanon 2\nshmem 0'; do
+    printf '%s\n' "$bad" > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    expect_code 75 "$rc" 'malformed cgroup statistics refuse'
+  done
+  rm "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+  out=$(bash "$CAPACITY" --admit 2>&1); rc=$?
+  expect_code 75 "$rc" 'unreadable cgroup statistics refuse'
+  assert_contains "$out" 'memory.stat' 'unreadable statistics named'
+  pass 'cgroup statistics fail closed instead of falling back to host memory'
+
+  printf 'max\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  printf 'MemAvailable: 8388608 kB\n' > "$FM_CAPACITY_MEMINFO"
+  out=$(bash "$CAPACITY" --json) || fail 'unlimited cgroup must use host memory'
+  jq -e '.mem_available_kb == 8388608 and .headroom_kb == 4194304' <<< "$out" >/dev/null || fail 'host fallback differs'
+  pass 'all ancestors unlimited falls back to MemAvailable'
+
+  printf '0::/\n' > "$FM_CAPACITY_CGROUP_FILE"
+  out=$(bash "$CAPACITY" --json) || fail 'root cgroup without memory.high must fall back'
+  jq -e '.mem_available_kb == 8388608' <<< "$out" >/dev/null || fail 'root fallback differs'
+  printf '0::/crew/lane\n' > "$FM_CAPACITY_CGROUP_FILE"
+  printf 'broken\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+  bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+  expect_code 75 "$rc" 'malformed high refuses instead of falling back'
+  if [ "$(id -u)" != 0 ]; then
+    printf '15000000000\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.high"
+    printf 'anon 1\nshmem 0\n' > "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    chmod 000 "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    bash "$CAPACITY" --admit >/dev/null 2>&1; rc=$?
+    chmod 600 "$FM_CAPACITY_CGROUP_ROOT/crew/memory.stat"
+    expect_code 75 "$rc" 'permission denied statistics refuse'
+  fi
+  pass 'root cgroup fallback and unreadable limit/statistics behave safely'
 ) || exit 1
