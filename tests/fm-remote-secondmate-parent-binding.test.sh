@@ -58,6 +58,7 @@ cleanup() {
   FM_HOME="$PARENT" FM_PROCEVENT_CLAIM_ROOT="$CLAIMS" \
     "$ROOT/bin/fm-procevent.sh" sweep-home >/dev/null 2>&1 || true
   (
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-remote-job-lib.sh"
     if fm_remote_job_recorded_owner_alive "$TMP_ROOT/remote-jobs/worker.lock"; then
       fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID" || exit 1

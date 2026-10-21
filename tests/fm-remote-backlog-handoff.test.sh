@@ -24,6 +24,7 @@ fm_remote_handoff_teardown() {
   touch "$TMP_ROOT/put.release" "$TMP_ROOT/route.release" "$TMP_ROOT/serialize.release" 2>/dev/null || true
   wait 2>/dev/null || true
   (
+    # shellcheck source=/dev/null
     . "$ROOT/bin/fm-remote-job-lib.sh"
     if fm_remote_job_recorded_owner_alive "$TMP_ROOT/remote-jobs/worker.lock"; then
       fm_remote_job_stop_worker_tree "$FM_REMOTE_JOB_RECORDED_PID" || exit 1
