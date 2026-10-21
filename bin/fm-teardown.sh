@@ -32,7 +32,7 @@
 # automatic backend without compatible tasks-axi refuses before cleanup.
 # None of this loosens the landed-work gates below: the transition runs only on
 # the paths that already proceed to remove the record.
-# The close - and only the close - is replaced by `tasks-axi reopen` with the
+# For an open captain call, the close is replaced by `tasks-axi reopen` with the
 # deliverable recorded while the backlog item is still an open captain call
 # (bin/fm-captain-hold.sh `open` owns that predicate), because the policy holds
 # the very work item a question gates and cleanup must never retire the
@@ -46,9 +46,17 @@
 # lift the deferral (it authorizes discarding unlanded WORK, never the
 # captain's question), and bin/fm-captain-hold.sh answer stays the only act
 # that closes the call.
-# REFUSES if the worktree holds work that has not LANDED, because cleanup
-# hard-resets/removes the worktree and kills its processes. Work has landed when it is
-# reachable from any remote-tracking branch (a fork counts as a remote, so
+# For a PR-based ship with recorded pr=, the forge must report MERGED before
+# cleanup, even if all commits are pushed. OPEN refuses with the PR URL unless
+# --keep-open is given: ordinary worktree safety still applies, but cleanup
+# reopens the item with an external "awaiting merge <url>" hold. A captain call
+# keeps its existing hold. CLOSED unmerged and unreadable states refuse. Only
+# --force after explicit discard approval bypasses this PR-state guard.
+# The recorded URL selects gh-axi, glab or tea through bin/fm-pr-lib.sh.
+#
+# Independently REFUSES if the worktree holds work that is not preserved, because
+# cleanup hard-resets/removes the worktree and kills its processes. Preservation
+# is proven when work is reachable from any remote-tracking branch (a fork counts as a remote, so
 # upstream-contribution PRs pushed to a fork satisfy this in any mode), OR - for a
 # normal ship task whose commits are not so reachable - when its PR is merged and
 # GitHub reports a PR head that contains the current local work, or its content is
@@ -211,7 +219,9 @@
 # leased home releases its durable treehouse lease so the pool slot is freed,
 # never left leased forever. If the treehouse return fails, teardown leaves the
 # leased home and state in place instead of hiding a still-held lease.
-# Usage: fm-teardown.sh <task-id> [--force] [--legacy-record]
+# Usage: fm-teardown.sh <task-id> [--force] [--keep-open] [--legacy-record]
+#   --keep-open permits cleanup of a pushed ship whose recorded PR is OPEN,
+#   preserving its backlog item under the merge hold described above.
 #   --force skips ordinary-task dirty and landed-work checks, skips scout report
 #   checks, and discards secondmate child work for kind=secondmate. Only use it
 #   when the captain has explicitly said to discard the work.
@@ -425,11 +435,14 @@ fi
 ID=$1
 TEARDOWN_LOST_SLOT_EXIT=4
 FORCE=
+KEEP_OPEN=0
+TEARDOWN_AWAITING_MERGE=0
 LEGACY_RECORD_GIVEN=0
 shift
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) FORCE=--force ;;
+    --keep-open) KEEP_OPEN=1 ;;
     --legacy-record) LEGACY_RECORD_GIVEN=1 ;;
     *)
       echo "error: invalid teardown request" >&2
@@ -1663,6 +1676,51 @@ work_is_landed() {
   content_in_default
 }
 
+# Remote reachability proves preservation, not merge. This independent gate
+# also covers missing/reassigned worktrees and manual backlog homes.
+require_recorded_pr_merged() {
+  local state
+  [ "$KIND" = ship ] && [ "$MODE" != local-only ] && [ -n "$PR_URL" ] || return 0
+  [ "$FORCE" != --force ] || return 0
+  if ! fm_pr_url_parse "$PR_URL"; then
+    echo "REFUSED: cannot read recorded PR state for $PR_URL; nothing was cleaned up." >&2
+    return 1
+  fi
+  case "$FM_PR_PROVIDER" in
+    github) fm_pr_github_read_record_with_gh_axi "$FM_PR_OWNER" "$FM_PR_REPO" "$FM_PR_NUMBER" ;;
+    gitlab) fm_pr_gitlab_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" ;;
+    forgejo) fm_pr_forgejo_read_record "$FM_PR_HOST" "$FM_PR_PATH" "$FM_PR_NUMBER" ;;
+    gerrit) return 0 ;; # Change submission is outside the PR/MR lifecycle.
+    *) return 1 ;;
+  esac || {
+    echo "REFUSED: cannot read recorded PR state for $PR_URL; nothing was cleaned up." >&2
+    return 1
+  }
+  state=$(printf '%s' "$FM_PR_RECORD_STATE" | tr '[:lower:]' '[:upper:]')
+  if [ "$FM_PR_RECORD_MERGED" = true ]; then
+    case "$state" in MERGED|CLOSED) return 0 ;; esac
+  elif [ "$FM_PR_RECORD_MERGED" = false ]; then
+    case "$state" in
+      OPEN|OPENED)
+        if [ "$KEEP_OPEN" = 1 ]; then
+          TEARDOWN_AWAITING_MERGE=1
+          # Preserve a pre-existing captain call rather than replacing its hold.
+          [ "$TEARDOWN_BACKLOG_TRANSITION" = retain ] || TEARDOWN_BACKLOG_TRANSITION=await-merge
+          return 0
+        fi
+        echo "REFUSED: PR $PR_URL is open; clean up after it merges, or use --keep-open to clean up while awaiting merge." >&2
+        return 1
+        ;;
+      CLOSED)
+        echo "REFUSED: PR $PR_URL is closed without merging; use --force only after explicit discard approval." >&2
+        return 1
+        ;;
+    esac
+  fi
+  echo "REFUSED: unreadable recorded PR state for $PR_URL; nothing was cleaned up." >&2
+  return 1
+}
+
 # The completion links this teardown already holds locally. A scout's
 # deliverable is its report, a local-only ship lands on local main, and every
 # other ship carries the PR recorded on its own record.
@@ -1703,7 +1761,9 @@ backlog_refresh_reminder() {
   else
     backlog_display="${DATA%/}/backlog.md"
   fi
-  if [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
+  if [ "$TEARDOWN_AWAITING_MERGE" = 1 ] && [ "$BACKLOG_TRANSITION" != retain ]; then
+    printf '%s\n' "Backlog: $ID stays open, awaiting merge $PR_URL. Preserve that hold in $backlog_display."
+  elif [ "$BACKLOG_CLOSED" = 1 ] && [ "$BACKLOG_TRANSITION" = retain ]; then
     printf '%s\n' "Backlog: $ID stays open in $backlog_display, still held for the captain with its deliverable recorded. Relay the question and close it only with bin/fm-captain-hold.sh answer."
   elif [ "$BACKLOG_CLOSED" = 1 ]; then
     printf '%s\n' "Backlog: $ID is closed in $backlog_display. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due."
@@ -3578,6 +3638,8 @@ if { teardown_owns_worktree || [ "$TEARDOWN_SHARED_COPY_INSPECT" = 1 ]; } &&
   fi
 fi
 
+require_recorded_pr_merged || exit 1
+
 # A Herdr close may reposition shared workspace order, so the whole
 # destructive sequence below (worktree return, pane close, record removal)
 # runs under the named-session presentation lock, acquired BEFORE anything is
@@ -3600,7 +3662,10 @@ TEARDOWN_ENDPOINT_UNCONFIRMED=0
 BACKLOG_CLOSED=0
 BACKLOG_TRANSITION=$TEARDOWN_BACKLOG_TRANSITION
 BACKLOG_TRANSITION_FLAGS=()
-[ "$BACKLOG_TRANSITION" = close ] || BACKLOG_TRANSITION_FLAGS=(--retain)
+case "$BACKLOG_TRANSITION" in
+  retain) BACKLOG_TRANSITION_FLAGS=(--retain) ;;
+  await-merge) BACKLOG_TRANSITION_FLAGS=(--await-merge) ;;
+esac
 BACKLOG_SKIP_REASON=
 if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
   backlog_done_args || {
@@ -3929,8 +3994,8 @@ rm -f "$STATE/$ID.turn-ended" "$STATE/$ID.progress" "$STATE/$ID.prompt-waiting" 
   "$STATE/.gate-nudge-$ID" "$STATE/.$ID.branch-outcome-index" \
   "$STATE/.secondmate-relaunch-$ID" "$STATE/.secondmate-relaunch-bound-$ID"
 # The steering inbox (bin/fm-task-inbox-lib.sh) is runtime state for the
-# retired endpoint; teardown only runs after landing is confirmed, so any
-# leftover unhandled steer here is moot rather than unlanded work.
+# retired endpoint; teardown has confirmed work preservation and any required
+# PR-state permission before removing leftover steering records here.
 # state/<id>.git-hooks is the spawn-owned commit-msg strip directory, left
 # read-only by its installer.
 chmod u+w "$STATE/$ID.git-hooks" 2>/dev/null || true
@@ -3960,6 +4025,8 @@ if [ "$BACKLOG_CLOSED" = 1 ]; then
     META_LOCK_HELD=0
     if [ "$BACKLOG_TRANSITION" = retain ]; then
       echo "error: $ID's endpoint and local copy are cleaned up, but its captain-held backlog item could not be returned to Queued atomically ($FM_BACKLOG_TRANSITION_ERROR); the pending retention is recorded and the next session start retries it" >&2
+    elif [ "$BACKLOG_TRANSITION" = await-merge ]; then
+      echo "error: $ID's endpoint and local copy are cleaned up, but its awaiting-merge backlog hold could not be recorded ($FM_BACKLOG_TRANSITION_ERROR); the pending retention is recorded and the next session start retries it" >&2
     else
       echo "error: $ID's endpoint and local copy are cleaned up, but its backlog item could not be closed atomically ($FM_BACKLOG_TRANSITION_ERROR); the pending close is recorded and the next session start retries it" >&2
     fi

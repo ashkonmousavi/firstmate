@@ -21,7 +21,7 @@ Firstmate orchestrates the landing order at every push and merge: main repair PR
 Lower-priority PR runs may be cancelled and rerun behind main repair work with the reason logged.
 A running main run is never cancelled, and a newer main merge replaces only main legs that have not started.
 For a PR-based landing, verify the default-branch CI run that the merge triggers when the project runs one, plus any deploy or release workflow and the live version when the project has a deploy target.
-Report those concrete results before calling the task landed or tearing it down; a local-only landing reports its local outcome once the fast-forward merge succeeds.
+Report those concrete results before calling the task landed or cleaning up a merged task; a local-only landing reports its local outcome once the fast-forward merge succeeds.
 After an autonomous PR merge, give the captain the one-line full-URL outcome together with the post-merge verification outcome that `ship-landing` requires before the task counts as landed; a local-only landing gives only the local-main outcome.
 When a post-merge main run turns red, firstmate lands a revert of that merge within one hour of the red result unless a fix is already green on main; never put a fix chain ahead of the queue.
 Dispatch a ship to prepare isolated revert source and publish its own real PR, then use the existing verified-head merge guard; `bin/fm-pr-merge.sh`'s header owns the worker preparation command and ordinary merge invocation.
@@ -30,10 +30,10 @@ Retain the red-main and revert PR/head/check receipts and verify the revert's po
 For any custom `state/<id>.check.sh` you write yourself, keep it an ordinary single-link mode-`0700` file, print one line only when firstmate should wake, print nothing otherwise, exit 0 unless the check itself failed, finish before `FM_CHECK_TIMEOUT`, then bind its current bytes with `bin/fm-check-register.sh <id>` before the watcher may execute it.
 Retire a custom check only through `bin/fm-check-unregister.sh <id>` (or `bin/fm-teardown.sh` for a spawned task); never hand-compose an `rm` with `$STATE`/`$ID`.
 
-Tear down a ship task only after landing is confirmed.
+For ship cleanup eligibility, follow the contract in [`bin/fm-teardown.sh`](../../../bin/fm-teardown.sh)'s header.
 A teardown refusal for uncommitted or unlanded work is a stop-and-investigate result, never an obstacle to bypass.
 Never force teardown without explicit discard authority.
-After successful teardown, record completion, retain only the configured recent Done history, and re-evaluate queued work whose blockers and time gates have cleared.
+After successful teardown, preserve the reported backlog outcome; when the item is closed, retain only the configured recent Done history and re-evaluate queued work whose blockers and time gates have cleared.
 
 A secondmate is persistent and an empty queue is healthy.
 Retire one only on an explicit captain or main-firstmate decision, after loading `secondmate-provisioning`; its home must contain no work under way, and forced discard still requires explicit captain authority.

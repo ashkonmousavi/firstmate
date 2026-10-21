@@ -55,6 +55,9 @@
 # closes a row that reads as an open captain call. An answer that closes the row
 # first applies any supported retained artifact from the validated record, then
 # replay simply retires the record.
+# PR cleanups with --keep-open use mode=await-merge and a --pr link: replay
+# reopens the item and adds an external awaiting-merge hold before retiring the
+# marker, so removing a pushed worktree cannot silently complete unmerged work.
 
 # Set by fm_backlog_transition_applies for a return-1 exemption.
 # shellcheck disable=SC2034 # Output global, read by the sourcing caller.
@@ -860,6 +863,22 @@ fm_backlog_retain_transition() {
   fm_backlog_record_remove "$marker" "pending-close record" "$state"
 }
 
+# A PR cleanup keeps the row open and externally held. The marker carries
+# this distinct mode so crash replay cannot accidentally close the item.
+fm_backlog_await_merge_transition() {
+  local meta=$1 marker=$2 data=$3 id=$4 state=$5
+  shift 5
+  [ "${1:-}" = --pr ] && [ -n "${2:-}" ] || return 1
+  [ -z "$meta" ] || fm_backlog_record_remove "$meta" "task record" "$state" || return 1
+  if ( fm_pr_url_parse "$2" && [ "$FM_PR_PROVIDER" = gitlab ] ); then
+    fm_backlog_retain "$data" "$id" || return 1
+  else
+    fm_backlog_retain "$data" "$id" "$@" || return 1
+  fi
+  fm_backlog_mutate "$data" hold "$id" --kind external --reason "awaiting merge $2" || return 1
+  fm_backlog_record_remove "$marker" "pending-close record" "$state"
+}
+
 fm_backlog_atomic_transition() {
   local operation=$1
   shift
@@ -870,6 +889,7 @@ fm_backlog_atomic_transition() {
     rollback) fm_backlog_dispatch_rollback "$@" ;;
     close) fm_backlog_close_transition "$@" ;;
     retain) fm_backlog_retain_transition "$@" ;;
+    await-merge) fm_backlog_await_merge_transition "$@" ;;
     *) FM_BACKLOG_TRANSITION_ERROR="unknown backlog atomic transition $operation"; return 2 ;;
   esac
 }
@@ -916,7 +936,7 @@ fm_backlog_close_marker_validate() {  # <marker-path> <authorized-data-dir> <exp
     return 1
   fi
   case "$mode" in
-    close|retain) ;;
+    close|retain|await-merge) ;;
     *)
       FM_BACKLOG_TRANSITION_ERROR="invalid transition mode in pending-close record $marker"
       return 1
@@ -1042,6 +1062,10 @@ fm_backlog_close_marker_validate() {  # <marker-path> <authorized-data-dir> <exp
       ;;
     *) FM_BACKLOG_TRANSITION_ERROR="invalid pending-close arguments in $marker"; return 1 ;;
   esac
+  if [ "$mode" = await-merge ] && [ "${args[0]-}" != --pr ]; then
+    FM_BACKLOG_TRANSITION_ERROR="await-merge requires a PR link in $marker"
+    return 1
+  fi
   FM_BACKLOG_CLOSE_VALIDATED_ID=$id
   FM_BACKLOG_CLOSE_VALIDATED_DATA=$data_resolved
   FM_BACKLOG_CLOSE_VALIDATED_SPAWN_GEN=$marker_spawn_gen
@@ -1052,7 +1076,7 @@ fm_backlog_close_marker_validate() {  # <marker-path> <authorized-data-dir> <exp
 
 # A leading `--retain` flag records the captain-held transition (`mode=retain`)
 # instead of a close; the remaining flags are the same completion links either
-# transition records.
+# transition records. --await-merge records a replayable external merge hold.
 fm_backlog_close_marker_stage() {  # <temporary-path> <id> <data-dir> <spawn-gen> <state-dir> <cleanup-incomplete: 0|1> [--retain] [flag...]
   local tmp=$1 id=$2 data spawn_gen=$4 state=$5 cleanup_incomplete=$6 arg previous_arg=''
   local mode=close serialized_args=()
@@ -1072,6 +1096,9 @@ fm_backlog_close_marker_stage() {  # <temporary-path> <id> <data-dir> <spawn-gen
   shift 6
   if [ "${1:-}" = --retain ]; then
     mode=retain
+    shift
+  elif [ "${1:-}" = --await-merge ]; then
+    mode=await-merge
     shift
   fi
   for arg in "$@"; do
@@ -1149,7 +1176,10 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
   marker_spawn_gen=$FM_BACKLOG_CLOSE_VALIDATED_SPAWN_GEN
   cleanup_incomplete=$FM_BACKLOG_CLOSE_VALIDATED_CLEANUP_INCOMPLETE
   mode=$FM_BACKLOG_CLOSE_VALIDATED_MODE
-  [ "$mode" = close ] || mode_flags=(--retain)
+  case "$mode" in
+    retain) mode_flags=(--retain) ;;
+    await-merge) mode_flags=(--await-merge) ;;
+  esac
   args=("${FM_BACKLOG_CLOSE_VALIDATED_ARGS[@]+"${FM_BACKLOG_CLOSE_VALIDATED_ARGS[@]}"}")
   if [ "${args[0]-}" = --note ]; then
     args[1]="local main"
@@ -1214,7 +1244,7 @@ fm_backlog_close_marker_replay() {  # <state-dir> <marker-path> <authorized-data
   esac
   if fm_backlog_atomic_transition "$mode" '' "$marker" "$data" "$id" "$state" \
       "${args[@]+"${args[@]}"}"; then
-    if [ "$mode" = retain ]; then
+    if [ "$mode" != close ]; then
       if [ "$cleanup_incomplete" = 1 ]; then
         FM_BACKLOG_CLOSE_REPLAY_RESULT=retained_incomplete
       else

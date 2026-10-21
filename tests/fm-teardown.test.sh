@@ -725,6 +725,7 @@ test_teardown_closes_the_backlog_item_itself() {
   case_dir=$(make_case tasks-axi-close)
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  add_gh_pr_merged_for_head "$case_dir" "$(git -C "$case_dir/wt" rev-parse HEAD)"
   seed_backlog_in_flight "$case_dir"
 
   out=$(run_teardown "$case_dir") || fail "teardown failed with a real backlog"
@@ -779,6 +780,7 @@ SH
   case_dir=$(make_case tasks-axi-close-github-under-refusal)
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  add_gh_pr_merged_for_head "$case_dir" "$(git -C "$case_dir/wt" rev-parse HEAD)"
   seed_backlog_in_flight "$case_dir"
   cp "$TMP_ROOT/tasks-axi-close-gerrit/fakebin/tasks-axi" "$case_dir/fakebin/tasks-axi"
   out=$(run_teardown "$case_dir" 2>&1) || fail "teardown of a landed GitHub task failed: $out"
@@ -793,6 +795,7 @@ test_teardown_manual_backend_leaves_the_backlog_to_the_operator() {
   case_dir=$(make_case tasks-axi-manual-optout)
   write_meta "$case_dir" no-mistakes ship
   printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  add_gh_pr_merged_for_head "$case_dir" "$(git -C "$case_dir/wt" rev-parse HEAD)"
   printf '%s\n' manual > "$case_dir/config/backlog-backend"
   seed_backlog_in_flight "$case_dir"
 
@@ -1969,11 +1972,24 @@ test_windowless_record_outside_the_leftover_class_still_refuses() {
   pass "a windowless record with a spawn_gen, a non-tmux backend or endpoint identity, no backlog validation, or ambiguous, foreign, or malformed identity still refuses"
 }
 
+add_failing_close_marker_mv() {
+  local case_dir=$1 real
+  real=$(command -v mv)
+  cat > "$case_dir/fakebin/mv" <<SH
+#!/usr/bin/env bash
+for arg in "\$@"; do
+  case "\$arg" in *.backlog-close) exit 1 ;; esac
+done
+exec "$real" "\$@"
+SH
+  chmod +x "$case_dir/fakebin/mv"
+}
+
 test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag() {
   local case_dir rc out
   case_dir=$(make_case windowless-retry)
   write_windowless_legacy_meta "$case_dir" no-mistakes ship "$case_dir/missing-wt"
-  printf '%s\n' 'pr=not-a-valid-url' >> "$case_dir/state/task-x1.meta"
+  add_failing_close_marker_mv "$case_dir"
   seed_backlog_in_flight "$case_dir"
   add_failing_truncate_perl "$case_dir"
 
@@ -1986,7 +2002,7 @@ test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag() {
     || fail "windowless-retry: the failed attempt did not leave its legacy stamp on the record"
 
   rm -f "$case_dir/fakebin/perl"
-  sed -i.bak '/^pr=/d' "$case_dir/state/task-x1.meta" && rm -f "$case_dir/state/task-x1.meta.bak"
+  rm -f "$case_dir/fakebin/mv"
   out=$(run_teardown "$case_dir") \
     || fail "windowless-retry: the flag-less retry refused the retained legacy stamp"
   printf '%s\n' "$out" | grep -Fq 'legacy record accepted without spawn_gen: endpoint missing' \
@@ -2076,7 +2092,7 @@ test_legacy_record_rolls_the_stamp_back_when_the_marker_write_fails() {
   local case_dir rc before
   case_dir=$(make_case legacy-stamp-rollback)
   write_legacy_meta "$case_dir" no-mistakes ship
-  printf '%s\n' 'pr=not-a-valid-url' >> "$case_dir/state/task-x1.meta"
+  add_failing_close_marker_mv "$case_dir"
   seed_backlog_in_flight "$case_dir"
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
@@ -2129,7 +2145,7 @@ test_retained_legacy_stamp_still_faces_the_endpoint_gate() {
   local case_dir rc stamped
   case_dir=$(make_case legacy-stamp-retained)
   write_legacy_meta "$case_dir" no-mistakes ship
-  printf '%s\n' 'pr=not-a-valid-url' >> "$case_dir/state/task-x1.meta"
+  add_failing_close_marker_mv "$case_dir"
   seed_backlog_in_flight "$case_dir"
   wt_commit "$case_dir" "landed legacy work"
   add_fork_with_pushed_branch "$case_dir"
@@ -5213,6 +5229,146 @@ EOF
   done
   pass "a walk claim survives every teardown abort before worker termination is proven"
 )
+
+# A pushed PR branch preserves bytes but does not prove the work was merged.
+test_recorded_pr_state() {
+  local scenario=$1 case_dir out rc=0 before args=() expected=OPEN
+  case_dir=$(make_case "recorded-pr-$scenario")
+  write_meta "$case_dir" direct-PR ship
+  wt_commit_file "$case_dir" feature.txt feature
+  git -C "$case_dir/wt" push -q origin HEAD:fm/task-x1
+  printf '%s\n' 'pr=https://github.com/example/repo/pull/7' >> "$case_dir/state/task-x1.meta"
+  seed_backlog_in_flight "$case_dir"
+  case "$scenario" in
+    merged) expected=MERGED ;;
+    closed) expected=CLOSED ;;
+    keep-open) args=(--keep-open) ;;
+    closed-keep-open) expected=CLOSED; args=(--keep-open) ;;
+    discard) args=(--force) ;;
+  esac
+  [ "$scenario" != discard ] || args=(--force)
+  cat > "$case_dir/fakebin/gh-axi" <<SH
+#!/usr/bin/env bash
+[ '$scenario' != error ] || exit 1
+printf '  state: %s\n' '$expected'
+SH
+  chmod +x "$case_dir/fakebin/gh-axi"
+  before=$(cat "$case_dir/state/task-x1.meta")
+  out=$(run_teardown "$case_dir" "${args[@]+"${args[@]}"}" 2>&1) || rc=$?
+  case "$scenario" in
+    merged|discard)
+      expect_code 0 "$rc" "$scenario cleanup: $out"
+      assert_equals "done" "$(backlog_row_state "$case_dir")" "$scenario closes the item"
+      assert_absent "$case_dir/state/task-x1.meta" "$scenario retires metadata"
+      ;;
+    keep-open)
+      expect_code 0 "$rc" "keep-open cleanup: $out"
+      assert_absent "$case_dir/state/task-x1.meta" "keep-open cleans task metadata"
+      assert_not_contains "$(backlog_row_state "$case_dir")" "done" "keep-open leaves the item open"
+      tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full > "$case_dir/row"
+      assert_grep 'awaiting merge https://github.com/example/repo/pull/7' "$case_dir/row" "keep-open records the merge hold"
+      assert_grep 'hold_kind: external' "$case_dir/row" "keep-open is an external hold"
+      ;;
+    *)
+      [ "$rc" -ne 0 ] || fail "$scenario PR must refuse cleanup: $out"
+      assert_equals "$before" "$(cat "$case_dir/state/task-x1.meta")" "$scenario preserves metadata"
+      assert_equals in_flight "$(backlog_row_state "$case_dir")" "$scenario leaves the item in flight"
+      assert_contains "$out" 'https://github.com/example/repo/pull/7' "$scenario refusal names the PR"
+      [ "$scenario" != open ] || assert_contains "$out" 'clean up after it merges' "open refusal explains recovery"
+      ;;
+  esac
+  pass "recorded PR state: $scenario"
+}
+
+test_bootstrap_preserves_merge_hold() (
+  local incomplete case_dir out marker
+  . "$ROOT/bin/fm-tasks-axi-lib.sh"
+  . "$ROOT/bin/fm-backlog-transition-lib.sh"
+  for incomplete in 0 1; do
+    case_dir=$(make_case "merge-hold-replay-$incomplete")
+    seed_backlog_in_flight "$case_dir"
+    marker="$case_dir/state/task-x1.backlog-close"
+    fm_backlog_close_marker_write "$case_dir/state" task-x1 "$case_dir/data" \
+      teardown-test-task-x1 --await-merge --pr https://github.com/example/repo/pull/7 \
+      || fail "could not stage the merge hold"
+    if [ "$incomplete" = 1 ]; then
+      fm_backlog_close_marker_mark_cleanup_incomplete "$case_dir/state" "$marker" \
+        task-x1 "$case_dir/data" teardown-test-task-x1 --await-merge \
+        --pr https://github.com/example/repo/pull/7 || fail "could not mark incomplete cleanup"
+    fi
+    out=$(PATH="$case_dir/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir" \
+      FM_STATE_OVERRIDE="$case_dir/state" FM_DATA_OVERRIDE="$case_dir/data" \
+      FM_CONFIG_OVERRIDE="$case_dir/config" FM_BOOTSTRAP_NETWORK=skip \
+      bash "$ROOT/bin/fm-bootstrap.sh" 2>&1) || fail "merge hold recovery failed: $out"
+    assert_contains "$out" 'kept the backlog item for task-x1 open' "recovery reports the open item"
+    assert_not_contains "$out" 'kept the captain call for task-x1' "merge waits are not captain decisions"
+    if [ "$incomplete" = 1 ]; then
+      assert_contains "$out" 'its endpoint or local copy may remain' "recovery reports incomplete cleanup"
+    fi
+    tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full > "$case_dir/row"
+    assert_grep 'hold_kind: external' "$case_dir/row" "recovery keeps an external hold"
+    assert_grep 'awaiting merge https://github.com/example/repo/pull/7' "$case_dir/row" "recovery keeps the merge reason"
+    assert_absent "$marker" "recovery retires its marker"
+  done
+  pass "bootstrap accurately reports merge holds after complete and incomplete cleanup"
+)
+
+test_gitlab_keep_open_and_replay() (
+  local scenario case_dir out marker
+  local url=https://gitlab.com/example/repo/-/merge_requests/7
+  . "$ROOT/bin/fm-tasks-axi-lib.sh"
+  . "$ROOT/bin/fm-backlog-transition-lib.sh"
+  for scenario in immediate replay replay-incomplete; do
+    case_dir=$(make_case "gitlab-keep-open-$scenario")
+    write_meta "$case_dir" direct-PR ship
+    wt_commit_file "$case_dir" feature.txt feature
+    git -C "$case_dir/wt" push -q origin HEAD:fm/task-x1
+    printf 'pr=%s\n' "$url" >> "$case_dir/state/task-x1.meta"
+    seed_backlog_in_flight "$case_dir"
+    cat > "$case_dir/fakebin/glab" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '{"state":"opened"}'
+SH
+    chmod +x "$case_dir/fakebin/glab"
+    marker="$case_dir/state/task-x1.backlog-close"
+    if [ "$scenario" = immediate ]; then
+      out=$(run_teardown "$case_dir" --keep-open 2>&1) || fail "GitLab keep-open failed: $out"
+    else
+      fm_backlog_close_marker_write "$case_dir/state" task-x1 "$case_dir/data" \
+        teardown-test-task-x1 --await-merge --pr "$url" || fail "could not stage GitLab replay"
+      if [ "$scenario" = replay ]; then
+        rm "$case_dir/state/task-x1.meta"
+      fi
+      out=$(PATH="$case_dir/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$case_dir" \
+        FM_STATE_OVERRIDE="$case_dir/state" FM_DATA_OVERRIDE="$case_dir/data" \
+        FM_CONFIG_OVERRIDE="$case_dir/config" FM_BOOTSTRAP_NETWORK=skip \
+        bash "$ROOT/bin/fm-bootstrap.sh" 2>&1) || fail "GitLab replay failed: $out"
+      assert_contains "$out" 'kept the backlog item for task-x1 open' "GitLab replay reports retention"
+      assert_not_contains "$out" 'kept the captain call for task-x1' "GitLab merge wait is not a captain decision"
+      if [ "$scenario" = replay-incomplete ]; then
+        assert_contains "$out" 'its endpoint or local copy may remain' "GitLab replay reports incomplete cleanup"
+      fi
+    fi
+    assert_absent "$case_dir/state/task-x1.meta" "GitLab $scenario retires metadata"
+    assert_absent "$marker" "GitLab $scenario completes its transition"
+    assert_equals queued "$(backlog_row_state "$case_dir")" "GitLab $scenario reopens the item"
+    tasks-axi show task-x1 --file "$case_dir/data/backlog.md" --full > "$case_dir/row"
+    assert_grep "awaiting merge $url" "$case_dir/row" "GitLab $scenario preserves its URL in the hold"
+    assert_grep 'hold_kind: external' "$case_dir/row" "GitLab $scenario sets the external hold"
+  done
+  pass "GitLab keep-open and both replay paths preserve the external merge hold"
+)
+
+if [ "${1:-}" = --pr-state-only ]; then
+  shift
+  for scenario in "$@"; do test_recorded_pr_state "$scenario"; done
+  exit 0
+fi
+test_bootstrap_preserves_merge_hold
+test_gitlab_keep_open_and_replay
+for scenario in open keep-open merged closed closed-keep-open error discard; do
+  test_recorded_pr_state "$scenario"
+done
 
 test_teardown_walk_tokens_and_failed_release || exit 1
 test_teardown_walk_survives_unproven_termination || exit 1

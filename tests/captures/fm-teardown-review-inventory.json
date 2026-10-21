@@ -1,0 +1,213 @@
+{
+  "scope": {
+    "run": "01M5EQXJN10KS8EDT1707ND2XG",
+    "base": "0846a727e51e0f4e02eed7f7e8f7fc32ac61b3e1",
+    "reviewed_head": "89600d9fc276aa9584698df604327ceb2ad05652",
+    "assigned_finding": "R2, R3, review-1"
+  },
+  "provenance": "Reconstructed from the current executable paths, commit f6945a83, and the preceding fix turn visible in this conversation. No original pre-edit inventory file was retained. This record does not retroactively establish that retention occurred before those edits.",
+  "retained_inventory": "tests/captures/fm-teardown-review-inventory.json",
+  "findings": {
+    "R1": {
+      "invariant": "A fixture must satisfy preceding safety gates and fail at the boundary its assertions exercise.",
+      "cause": "The new recorded-PR state gate rejects default unreadable PR responses and malformed PR URLs before successful cleanup or legacy marker publication can occur.",
+      "classification": "Test-fixture boundary mismatch introduced by a shared pre-cleanup safety gate.",
+      "affected_occurrences": [
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_teardown_closes_the_backlog_item_itself",
+          "correction": "Supply MERGED through add_gh_pr_merged_for_head."
+        },
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note",
+          "correction": "Supply MERGED for its GitHub sibling fixture; preserve the Gerrit note and GitHub --pr assertions."
+        },
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_teardown_manual_backend_leaves_the_backlog_to_the_operator",
+          "correction": "Supply MERGED even when backlog mutation is manual."
+        },
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag",
+          "correction": "Fail marker publication through add_failing_close_marker_mv; remove that injection before retry."
+        },
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_legacy_record_rolls_the_stamp_back_when_the_marker_write_fails",
+          "correction": "Fail marker publication directly, retaining rollback and endpoint-gate assertions."
+        },
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_retained_legacy_stamp_still_faces_the_endpoint_gate",
+          "correction": "Fail marker publication directly alongside the existing truncate failure; retain both retry refusals."
+        }
+      ],
+      "axes": [
+        "Automatic backlog close",
+        "Manual backlog opt-out",
+        "GitHub PR link versus Gerrit note",
+        "Windowless legacy retry",
+        "Legacy stamp rollback succeeds",
+        "Legacy stamp rollback fails and endpoint identity becomes unreadable"
+      ],
+      "search_scope": [
+        "tests/fm-teardown.test.sh recorded pr= fixtures and malformed URL injections",
+        "tests/fm-captain-hold-lifecycle.test.sh interrupted cleanup fixture",
+        "bin/fm-teardown.sh require_recorded_pr_merged and legacy stamp/marker publication",
+        "bin/fm-backlog-transition-lib.sh fm_backlog_close_marker_write and fm_backlog_record_publish"
+      ],
+      "negative_evidence": [
+        "The three malformed-URL injections were replaced at all three legacy marker/stamp fixtures; the current teardown test file has no not-a-valid-url injection.",
+        "Other merged-PR fixtures already supply explicit merged responses through add_gh_pr_merged_for_head.",
+        "The stale-local-offline and gh-error fixtures deliberately override forge lookup with errors and expect refusal; they must not receive merged success responses.",
+        "The Gerrit success fixture bypasses the PR/MR lifecycle intentionally; this fixture correction does not change forge selection or runtime adapters."
+      ],
+      "trace_after_fix": "Successful GitHub fixtures pass the merge gate and reach their original backlog assertions. Legacy fixtures have no recorded PR, pass the PR gate, stamp the accepted incarnation, and fail only when mv publishes the .backlog-close marker. Rollback succeeds or fails according to the existing truncate injection. The windowless retry removes both injections and completes; endpoint refusal retries still stop before stamping."
+    },
+    "R2": {
+      "invariant": "Recovery must describe retained external merge holds and captain holds accurately for both complete and incomplete cleanup.",
+      "cause": "await-merge and retain share retained and retained_incomplete replay results, but their bootstrap consumer formerly described both as captain calls.",
+      "classification": "Shared result consumer wording assumed one hold owner.",
+      "affected_occurrences": [
+        {
+          "path": "bin/fm-backlog-transition-lib.sh",
+          "symbol": "fm_backlog_close_marker_replay",
+          "role": "Producer of retained and retained_incomplete for retain and await-merge."
+        },
+        {
+          "path": "bin/fm-bootstrap.sh",
+          "symbol": "backlog_record_reconcile",
+          "role": "Both retained result messages now say backlog item."
+        },
+        {
+          "path": "tests/fm-teardown.test.sh",
+          "symbol": "test_bootstrap_preserves_merge_hold",
+          "role": "Checks both cleanup states via bootstrap output and persisted external hold."
+        },
+        {
+          "path": "tests/fm-captain-hold-lifecycle.test.sh",
+          "symbol": "test_interrupted_cleanup_keeps_the_captain_call_recoverable",
+          "role": "Checks neutral output while preserving the captain hold and deliverable."
+        }
+      ],
+      "axes": [
+        "retain / captain hold",
+        "await-merge / external hold",
+        "retained / cleanup complete",
+        "retained_incomplete / cleanup may remain"
+      ],
+      "search_scope": [
+        "bin/ and tests/ shell files: FM_BACKLOG_CLOSE_REPLAY_RESULT and fm_backlog_close_marker_replay",
+        "bin/fm-bootstrap.sh retained and retained_incomplete messages",
+        "tests/fm-teardown.test.sh merge-hold replay",
+        "tests/fm-captain-hold-lifecycle.test.sh retained captain-call message assertion"
+      ],
+      "negative_evidence": [
+        "The bin/ and tests/ shell search finds bootstrap as the only caller and result-message consumer of fm_backlog_close_marker_replay.",
+        "The answered result remains captain-specific because only an already answered retained captain row produces it.",
+        "The correction changes output wording and its assertion, not replay states, hold ownership, or transition ordering."
+      ],
+      "trace_after_fix": "Both hold modes replay through the existing transition, then select retained or retained_incomplete. Bootstrap reports an open backlog item in either case and retains the incomplete endpoint warning. Existing captain recovery still preserves its captain hold; merge recovery preserves the external awaiting-merge reason."
+    },
+    "R4": {
+      "invariant": "The next reviewer must have a retained inventory of cause, affected occurrences, search scope, negative evidence, and regression results.",
+      "cause": "The prior fix described its invariant and results in chat but did not retain a worktree-readable inventory.",
+      "affected_occurrences": [
+        "Review-to-fix inventory handoff",
+        "Fix-to-next-review inventory and regression handoff"
+      ],
+      "correction": "Retain this JSON using the existing tests/captures review-inventory pattern, within the authorized worktree.",
+      "limitation": "The outer executor owns publication to the configured no-mistakes/evidence branch; this phase does not publish it or claim the evidence branch has been updated."
+    },
+    "R3": {
+      "aliases": [
+        "review-1"
+      ],
+      "invariant": "The await-merge transition must reopen its item and preserve the URL in an external hold without passing unsupported GitLab MR artifacts to tasks-axi --pr.",
+      "cause": "The shared await-merge transition forwards every forge URL to fm_backlog_retain as --pr, but tasks-axi rejects GitLab MR URLs before reopen and hold.",
+      "affected_occurrences": [
+        "bin/fm-backlog-transition-lib.sh:fm_backlog_await_merge_transition immediate transition",
+        "bin/fm-backlog-transition-lib.sh:fm_backlog_close_marker_replay complete cleanup",
+        "bin/fm-backlog-transition-lib.sh:fm_backlog_close_marker_replay incomplete cleanup",
+        "bin/fm-bootstrap.sh:backlog_record_reconcile retained and retained_incomplete messages"
+      ],
+      "search_scope": [
+        "bin/fm-teardown.sh await-merge selection and atomic transition",
+        "bin/fm-backlog-transition-lib.sh await-merge dispatch, marker validation, replay, retention and artifact handling",
+        "bin/fm-pr-lib.sh GitLab URL parser and state reader",
+        "tests/fm-teardown.test.sh recorded PR and recovery scenarios"
+      ],
+      "negative_evidence": [
+        "Immediate and replayed await-merge both dispatch to the same transition function.",
+        "The persisted marker keeps the original --pr URL; filtering the downstream retention arguments leaves the hold reason intact.",
+        "Captain-held retain and merged close transitions are separate pre-existing paths, outside this authorized await-merge correction.",
+        "GitHub and Forgejo keep their existing supported --pr artifacts; no new representation or abstraction is needed."
+      ],
+      "planned_correction": "At the shared await-merge boundary omit the --pr retention argument for parsed GitLab MR URLs; then reopen and set the existing external hold with the original URL.",
+      "regression": {
+        "oracle": "The accepted decision requires an open GitLab MR with --keep-open to clean up and leave a queued item held externally with awaiting merge <url>; replay must converge to that same state without announcing a captain call.",
+        "test": "test_gitlab_keep_open_and_replay",
+        "status": "PASS: final focused invocation exited 0.",
+        "execution": "Python wrote tests/.review-gitlab-keep-open.test.sh from the existing test definitions before the selector, appended calls to test_gitlab_keep_open_and_replay, test_bootstrap_preserves_merge_hold, and test_recorded_pr_state keep-open, ran bash on that runner, then removed it in finally.",
+        "observations": [
+          "ok - GitLab keep-open and both replay paths preserve the external merge hold",
+          "ok - bootstrap accurately reports merge holds after complete and incomplete cleanup",
+          "ok - recorded PR state: keep-open"
+        ],
+        "limitations": [
+          "No pre-fix executable reproduction was run in this fix round.",
+          "No full test or lint suite was run."
+        ]
+      },
+      "trace_after_fix": "Immediate teardown and complete/incomplete replay call the same await-merge transition. Parsed GitLab URLs invoke retention without artifact arguments, so reopen succeeds; the original URL remains in the marker arguments and supplies the external hold reason. Other forges retain their prior arguments. The parser runs in a subshell and cannot change caller forge identity. No helper, parameter or caller became unreachable."
+    }
+  },
+  "regression_evidence": {
+    "provenance": "Observed in the preceding fix turn in this same conversation; not rerun in this inventory-only round.",
+    "candidate": "f6945a8379ea81c963f83c22fde75b894cf42168 records the code verified in that turn.",
+    "execution": "One Python invocation wrote temporary tests/.review-fm-teardown.test.sh and tests/.review-fm-captain-hold-lifecycle.test.sh containing the original fixture definitions and only the selected calls, ran each through bash, and removed the temporary runners in finally blocks.",
+    "teardown_selection": [
+      "test_teardown_closes_the_backlog_item_itself",
+      "test_teardown_closes_a_gerrit_task_with_its_change_url_as_a_note",
+      "test_teardown_manual_backend_leaves_the_backlog_to_the_operator",
+      "test_windowless_leftover_retries_its_retained_legacy_stamp_without_the_flag",
+      "test_legacy_record_rolls_the_stamp_back_when_the_marker_write_fails",
+      "test_retained_legacy_stamp_still_faces_the_endpoint_gate",
+      "test_bootstrap_preserves_merge_hold"
+    ],
+    "pr_state_scenarios": [
+      "open",
+      "keep-open",
+      "merged",
+      "closed",
+      "closed-keep-open",
+      "error",
+      "discard"
+    ],
+    "captain_selection": [
+      "test_interrupted_cleanup_keeps_the_captain_call_recoverable"
+    ],
+    "result": "PASS: selected executable checks each emitted ok; the combined invocation exited 0.",
+    "oracle": "Author intent requires open/unmerged/error refusal with metadata retained, MERGED closure, and keep-open cleanup with an external awaiting-merge hold. Existing legacy tests require byte-preserving rollback or retained-stamp endpoint checks. Captain-held work remains open until answered.",
+    "wrong_behavior_rejected": [
+      "Unreadable default forge state prevents successful fixture cleanup",
+      "PR validation prevents the legacy fixture from ever stamping",
+      "Legacy rollback or retry silently skips the endpoint gate",
+      "Merge recovery announces a captain call",
+      "Merge recovery drops its external hold or URL",
+      "Captain recovery closes the unanswered call"
+    ],
+    "limitations": [
+      "No pre-fix executable reproduction was run in the preceding fix turn.",
+      "No complete repository test or lint suite was run.",
+      "GitLab keep-open behavior was not exercised; R3 remains unresolved."
+    ]
+  },
+  "next_review": {
+    "instructions": "Read this exact inventory, inspect each listed occurrence and axis, compare the retained prior results with the behavioral assertions, and search the named scopes for missed siblings. Do not treat this artifact as evidence of tests beyond the listed execution.",
+    "unresolved": [],
+    "current_round_verification": "PASS: GitLab immediate cleanup and both replay paths; existing GitHub complete/incomplete recovery and keep-open regression; combined focused bash invocation exited 0."
+  }
+}

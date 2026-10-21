@@ -71,7 +71,8 @@ run_teardown() {  # <home> <id>
   local home=$1 id=$2
   PATH="$home/fakebin:$PATH" FM_ROOT_OVERRIDE="$ROOT" FM_HOME="$home" \
     FM_STATE_OVERRIDE="$home/state" FM_DATA_OVERRIDE="$home/data" \
-    FM_CONFIG_OVERRIDE="$home/config" "$TEARDOWN" "$id"
+    FM_CONFIG_OVERRIDE="$home/config" FM_TEST_GH_AXI_LOG="$home/gh-axi.log" \
+    "$TEARDOWN" "$id"
 }
 
 tasks_in() {  # <home> <tasks-axi args...>
@@ -2676,6 +2677,7 @@ test_retained_row_artifacts_survive_captain_answers() {
   local local_repo local_wt
   local precedence_pr rejected_pr approved_pr released_pr json show
   home=$(make_home retained-row-artifacts)
+  configure_merged_github "$home"
   perl -0pi -e 's/done_keep = 10/done_keep = 20/' "$home/.tasks.toml"
   retained_id=sample-retained-report
   mkdir -p "$home/data/$retained_id"
@@ -2972,7 +2974,7 @@ SH
     FM_CONFIG_OVERRIDE="$home/config" FM_BOOTSTRAP_NETWORK=skip \
     "$ROOT/bin/fm-bootstrap.sh" 2>&1) \
     || fail "session start could not replay the interrupted retention: $bootstrap"
-  assert_contains "$bootstrap" "kept the captain call for $id open" \
+  assert_contains "$bootstrap" "kept the backlog item for $id open" \
     "session start did not report the retained captain call"
   assert_absent "$home/state/$id.meta" "session start left the interrupted task record behind"
   assert_absent "$home/state/$id.backlog-close" "session start left the pending record behind"
@@ -3332,6 +3334,7 @@ SH
 test_merge_approval_releases_before_zero_done_retention() {
   local home id archive repo wt pr show
   home=$(make_home zero-done-retention)
+  configure_merged_github "$home"
   id=sample-zero-retention-merge
   archive="$home/data/done-archive.md"
   repo="$home/projects/sample"
