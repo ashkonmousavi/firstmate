@@ -1,0 +1,11 @@
+--- bin/fm-watch.sh
++++ disposable-copy/bin/fm-watch.sh
+@@ -317,6 +317,8 @@
+ }
+ checkpoint_wake_failed() {
+   if [ "$1" -eq 124 ] && [ -n "$WATCHER_CHECKPOINT_DEADLINE" ]; then
++    printf "signal: deliberately false completion\n"
++    exit 0
+     WATCHER_QUIET_EXIT=1
+     if [ -z "${WATCHER_PID:-}" ]; then
+       fm_lock_release "$WATCH_LOCK" || exit 1

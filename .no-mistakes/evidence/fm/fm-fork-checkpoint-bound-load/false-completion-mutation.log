@@ -1,0 +1,6 @@
+CHECKPOINT kind=status budget=3 exit=124 holder=absent
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=status budget=6 exit=0 holder=ready
+signal: deliberately false completion
+1792572402	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.q49JFi/partial-status/state/a.status /tmp/fm-wake-checkpoint-publication.q49JFi/partial-status/state/b.status
+not ok - partial status publication missed the clean bound: : expected exit 124, got 0

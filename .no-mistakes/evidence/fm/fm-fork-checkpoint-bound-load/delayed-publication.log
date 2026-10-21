@@ -1,0 +1,60 @@
+CHECKPOINT kind=status budget=3 exit=124 holder=absent
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=status budget=6 exit=124 holder=ready
+checkpoint: no actionable wake within 6s
+1792572323	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/a.status /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/b.status
+1792572323	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/a.status /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/b.status
+wake annotation: latest wake-EVENT observed at drain, not current state: a.status: done: first
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+a done: first
+b done: later
+CHECKPOINT kind=status budget=60 exit=0 holder=ready
+signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/b.status
+1792572334	2	signal	b.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/b.status
+1792572334	2	signal	b.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/b.status
+wake annotation: latest wake-EVENT observed at drain, not current state: b.status: done: later
+CHECKPOINT kind=status budget=3 exit=124 holder=ready
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=normal budget=60 exit=0 holder=ready
+signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/a.status
+1792572348	3	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/a.status
+1792572348	3	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-status/state/a.status
+wake annotation: latest wake-EVENT observed at drain, not current state: a.status: done: new event
+STATUS OUTCOME BACKSTOP (newest captain-facing task event has no covering branch outcome):
+a done: new event
+CHECKPOINT kind=turn-ended budget=3 exit=124 holder=absent
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=turn-ended budget=6 exit=124 holder=ready
+checkpoint: no actionable wake within 6s
+1792572364	1	signal	a.turn-ended	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/a.turn-ended /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/b.turn-ended
+1792572364	1	signal	a.turn-ended	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/a.turn-ended /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/b.turn-ended
+CHECKPOINT kind=turn-ended budget=60 exit=0 holder=ready
+signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/b.turn-ended
+1792572372	2	signal	b.turn-ended	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/b.turn-ended
+1792572372	2	signal	b.turn-ended	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-turn-ended/state/b.turn-ended
+CHECKPOINT kind=turn-ended budget=3 exit=124 holder=ready
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=unreadable budget=3 exit=124 holder=absent
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=unreadable budget=6 exit=124 holder=ready
+checkpoint: no actionable wake within 6s
+1792572391	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/a.status /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/b.turn-ended
+1792572391	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/a.status /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/b.turn-ended
+CHECKPOINT kind=unreadable budget=60 exit=0 holder=ready
+signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/b.turn-ended
+1792572402	2	signal	b.turn-ended	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/b.turn-ended
+1792572402	2	signal	b.turn-ended	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-unreadable/state/b.turn-ended
+CHECKPOINT kind=unreadable budget=3 exit=124 holder=ready
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=fallback budget=3 exit=124 holder=absent
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=fallback budget=6 exit=124 holder=ready
+checkpoint: no actionable wake within 6s
+1792572424	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-fallback/state/a.status /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-fallback/state/b.status
+1792572424	1	signal	a.status	signal: /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-fallback/state/a.status /tmp/fm-wake-checkpoint-publication.vjh5xN/partial-fallback/state/b.status
+wake annotation: latest wake-EVENT observed at drain, not current state: a.status: working: first
+CHECKPOINT kind=fallback budget=3 exit=124 holder=ready
+checkpoint: no actionable wake within 3s
+CHECKPOINT kind=fallback budget=3 exit=124 holder=ready
+checkpoint: no actionable wake within 3s
+ok - contended primary and fallback publication commit each successful file before deferral without duplicate acknowledgement

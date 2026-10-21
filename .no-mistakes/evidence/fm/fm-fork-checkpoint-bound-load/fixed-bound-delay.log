@@ -1,0 +1,3 @@
+CHECKPOINT kind=status budget=3 exit=124 holder=absent
+checkpoint: no actionable wake within 3s
+not ok - contention did not reach the post-publication acquisition
