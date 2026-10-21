@@ -6,6 +6,8 @@ Run every three minutes. After a five-minute watcher silence with supervision
 work and no state/.afk record, discover a unique live Claude/Codex primary in
 this exact home and nudge it so its own turn-end owner re-arms.
 Successful nudges are at least five minutes apart.
+Nudges require the shared composer classifier to prove the input empty;
+occupied or unknown input is preserved and reported as a recovery failure.
 Never launches or kills an agent/watcher,
 never types into a shell, and never treats data/main-pane as authority.
 A failed discovery/send, a registered reply runner read as not alive on two
@@ -16,6 +18,9 @@ drain even when no watcher/pane is alive.
 Only explicitly supplied --mate ids are monitored.
 Reply lag is the elapsed time since the oldest remote at= stamp not yet
 mirrored in state/.remote-reply-mirrored-<mate>, or zero when caught up.
+All reply and watermark timestamps use status_line_at_epoch in
+bin/fm-classify-lib.sh, the canonical status timestamp grammar owner.
+An unparseable nonblank line makes the read fail rather than imply caught up.
 An incident clears only when its oldest reply is mirrored.
 Local status notices cannot advance that ingestion watermark, and a missing
 or empty watermark counts as zero.
