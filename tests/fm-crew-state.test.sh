@@ -2540,6 +2540,32 @@ test_no_run_busy_pane() {
   pass "no run + a busy semantic record reads working, attributed to its source"
 }
 
+test_codex_global_hook_reaches_crew_state() {
+  reset_fakes
+  local d gen out payload ev
+  d=$(new_case codex-global)
+  make_repo_on_branch "$d/wt" fm/codex-global
+  make_fakebin "$d" >/dev/null
+  fm_write_meta "$d/state/codex-global.meta" "window=fm:fm-codex-global" "worktree=$d/wt" "kind=ship" "harness=codex"
+  FM_FAKE_AXI_STATUS=""
+  FM_FAKE_RUNS_LIST=""
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$d/state" codex-global)
+  for ev in UserPromptSubmit Stop; do
+    payload=$(jq -nc --arg cwd "$d/wt" --arg ev "$ev" '{cwd:$cwd,hook_event_name:$ev,session_id:"crew-state"}')
+    printf '%s' "$payload" | FM_CODEX_BUSY_WORKTREE="$d/wt" FM_CODEX_BUSY_STATE="$d/state" \
+      FM_CODEX_BUSY_ID=codex-global FM_CODEX_BUSY_GEN="$gen" bash "$ROOT/bin/fm-codex-busy.sh" >/dev/null
+    out=$(run_crew_state "$d" codex-global)
+    assert_not_contains "$out" codex-unverified "Codex lifecycle was ignored by crew-state"
+    if [ "$ev" = UserPromptSubmit ]; then
+      assert_contains "$out" 'state: working' "Codex submitted turn must be working"
+      assert_contains "$out" codex-hook "Codex state must name its actual source"
+    else
+      assert_not_contains "$out" 'state: working' "Stopped Codex turn must not remain working"
+    fi
+  done
+  pass "Codex global lifecycle reaches the public crew-state helper"
+}
+
 # A launch pinned at the fm-spawn seed (no hook has posted yet) whose pane
 # renders a recognized interactive prompt must read unknown, never working -
 # this is the load-bearing link the launch-prompt backstop depends on:
@@ -5832,6 +5858,7 @@ test_no_mistakes_prevalidation_done_stays_done
 test_moved_remote_branch_without_named_head_is_blocked
 test_codex_native_fallback
 test_codex_captured_native_pairs
+test_codex_global_hook_reaches_crew_state
 test_no_run_busy_pane
 test_no_run_launch_prompt_parked_is_not_working
 test_no_run_footer_text_alone_is_not_working

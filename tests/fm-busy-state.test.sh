@@ -26,6 +26,88 @@ new_state_dir() {  # <name>
   printf '%s' "$d"
 }
 
+test_codex_global_install_preserves_other_configuration() {
+  local home snapshot out
+  home="$TMP_ROOT/codex-install"
+  mkdir -p "$home"
+  printf '%s\n' 'model = "example-model"' > "$home/config.toml"
+  printf '%s\n' '{"description":"existing","hooks":{"Stop":[{"hooks":[{"type":"command","command":"existing-stop"}]}]}}' > "$home/hooks.json"
+  bash "$ROOT/bin/fm-codex-busy.sh" install "$home" || fail "Codex hook install failed"
+  snapshot=$(cat "$home/hooks.json")
+  bash "$ROOT/bin/fm-codex-busy.sh" install "$home" || fail "Repeated Codex hook install failed"
+  [ "$snapshot" = "$(cat "$home/hooks.json")" ] || fail "Repeated install changed hooks"
+  jq -e '.description == "existing" and .hooks.Stop[0].hooks[0].command == "existing-stop" and (.hooks.Stop | length) == 2 and (.hooks.UserPromptSubmit | length) == 1 and (.hooks.SessionEnd | length) == 1' "$home/hooks.json" >/dev/null \
+    || fail "Codex installer changed other hooks or duplicated its own"
+  [ "$(cat "$home/config.toml")" = 'model = "example-model"' ] || fail "Codex installer changed config.toml"
+  printf '%s\n' 'invalid JSON' > "$home/hooks.json"
+  out=$(bash "$ROOT/bin/fm-codex-busy.sh" install "$home" 2>&1) && fail "Malformed global hooks accepted: $out"
+  [ "$(cat "$home/hooks.json")" = 'invalid JSON' ] || fail "Malformed global config was overwritten"
+  [ ! -d "$home/.fm-busy-hooks.lock" ] || fail "Failed install leaked its lock"
+  pass "Codex global install preserves other config, is idempotent, and refuses malformed hooks"
+}
+
+test_codex_global_install_survives_killed_owner() {
+  python3 - "$ROOT/bin/fm-codex-busy.sh" "$TMP_ROOT/codex-lock" <<'PY' || fail "Codex installer lock lifecycle failed"
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+installer, directory = sys.argv[1:]
+home = Path(directory)
+fakebin = home / "fakebin"
+fakebin.mkdir(parents=True)
+config = home / "hooks.json"
+original = '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"existing-stop"}]}]}}'
+config.write_text(original)
+ready = home / "ready"
+shim = fakebin / "jq"
+shim.write_text('#!/usr/bin/env bash\nkill -STOP "$PPID"\n: > "$READY"\nexec "$REAL_JQ" "$@"\n')
+shim.chmod(0o755)
+env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ["PATH"],
+           REAL_JQ=shutil.which("jq"), READY=str(ready))
+processes = []
+try:
+    first = subprocess.Popen(["bash", installer, "install", str(home)], env=env,
+                             start_new_session=True)
+    processes.append(first)
+    deadline = time.monotonic() + 5
+    while not ready.exists():
+        assert first.poll() is None, "first installer exited before acquiring lock"
+        assert time.monotonic() < deadline, "first installer did not reach merge"
+        time.sleep(0.01)
+    second = subprocess.Popen(["bash", installer, "install", str(home)],
+                              start_new_session=True)
+    processes.append(second)
+    try:
+        second.wait(timeout=0.3)
+    except subprocess.TimeoutExpired:
+        pass
+    else:
+        raise AssertionError("second installer bypassed the live lock owner")
+    assert config.read_text() == original, "contender changed hooks while owner was live"
+    os.killpg(first.pid, signal.SIGKILL)
+    first.wait(timeout=5)
+    assert second.wait(timeout=5) == 0, "installer did not recover after SIGKILL"
+    hooks = json.loads(config.read_text())["hooks"]
+    assert hooks["Stop"][0]["hooks"][0]["command"] == "existing-stop"
+    assert {name: len(hooks[name]) for name in ("Stop", "UserPromptSubmit", "SessionEnd")} == {
+        "Stop": 2, "UserPromptSubmit": 1, "SessionEnd": 1}
+    (home / ".fm-busy-hooks.lock").mkdir(exist_ok=True)
+    subprocess.run(["bash", installer, "install", str(home)], check=True, timeout=5)
+finally:
+    for process in processes:
+        if process.poll() is None:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=5)
+PY
+  pass "Codex install serializes live owners and recovers after SIGKILL and abandoned legacy locks"
+}
+
 # --- writer: arm and apply ---------------------------------------------------
 
 test_arm_seeds_busy_spawn() {
@@ -441,16 +523,16 @@ Ctrl+c:cancel')
 
 # --- kimi verification gate -----------------------------------------------------
 
-test_codex_unverified_gate() {
+test_codex_verified_global_hook_gate() {
   local state gen out
   state=$(new_state_dir codex-gate)
   gen=$("$EV" arm "$state" t1)
   "$EV" apply "$state" t1 busy --gen "$gen" --source codex-hook --event user-prompt-submit
   out=$(fm_busy_classify tmux w1 codex t1 "$state")
-  [ "$out" = "unknown source-mismatch" ] || fail "unverified codex writer must classify unknown, got '$out'"
-  [ -z "$(fm_busy_sources_for_harness codex)" ] \
-    || fail "codex must trust no semantic source until one is verified"
-  pass "codex classifies unknown until a semantic source passes its verification gate"
+  [ "$out" = "busy codex-hook" ] || fail "verified codex hook must classify busy, got '$out'"
+  fm_busy_source_trusted codex codex-hook || fail "Codex hook source is not trusted"
+  if fm_busy_source_trusted codex codex-appserver; then fail "Unverified Codex app-server source was trusted"; fi
+  pass "codex trusts its verified global lifecycle source"
 }
 
 test_kimi_unverified_gate() {
@@ -616,6 +698,8 @@ test_progress_is_generation_bound_and_not_semantic_state() {
 
 test_progress_is_generation_bound_and_not_semantic_state
 
+test_codex_global_install_preserves_other_configuration
+test_codex_global_install_survives_killed_owner
 test_arm_seeds_busy_spawn
 test_apply_advances_seq_and_source
 test_apply_current_gen_reset
@@ -639,7 +723,7 @@ test_launch_prompt_scoped_to_armed_harnesses
 test_launch_prompt_never_reclassifies_an_advanced_record
 test_launch_prompt_requires_a_captured_tail
 test_grok_regex_isolated
-test_codex_unverified_gate
+test_codex_verified_global_hook_gate
 test_kimi_unverified_gate
 test_cursor_ignores_rendered_and_native_signals
 test_dead_endpoint_overrides

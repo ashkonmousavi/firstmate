@@ -2401,33 +2401,16 @@ launch_template() {
     # naming it is passed. A record that cannot be published stops the spawn.
     printf '%s' '__MODELFLAG____EFFORTFLAG____BRIEFDOORBELL__'
     ;;
-  # --disable hooks (equivalent to -c features.hooks=false) turns codex's whole
-  # lifecycle-hook layer off for CREWMATE and SCOUT launches only.
-  # Without it a crewmate launch parks forever on codex's hook-trust modal
-  # ("N hooks are new or changed"), whose selection sits on "Review hooks" -
-  # neither trusting nor declining. Firstmate's key plane carries Enter, Escape
-  # and Ctrl-C with no arrow navigation, so the selection cannot be moved, and
-  # pre-accepting the prompt by writing codex's own trust store would manufacture
-  # an operator consent that was never given. The hooks it asks about are the
-  # OPERATOR's machine-level ~/.codex/hooks.json plus any project-local
-  # .codex/hooks.json, and a crewmate needs none of them: its turn-end signal is
-  # the -c notify= program on this same launch (verified still firing with hooks
-  # disabled, codex-cli 0.151.0), and firstmate's own .codex/hooks.json registers
-  # PRIMARY-session infrastructure that already stands down in a child worktree.
-  # This is the opposite of --dangerously-bypass-hook-trust, which RUNS untrusted
-  # hooks; disabling the feature runs none of them and leaves the operator's
-  # ~/.codex untouched. An unknown feature name is a hard codex error, so a future
-  # release that drops this flag fails the launch loudly instead of silently
-  # restoring the modal.
-  # A secondmate is a firstmate PRIMARY in its own home, and its turn-end guard,
-  # session-start digest, and cd/arm seatbelts are exactly those project hooks
-  # (docs/turnend-guard.md, docs/sessionstart-nudge.md, docs/cd-guard.md), so the
-  # secondmate launch deliberately keeps hooks on.
+  # Codex workers use the verified global lifecycle hook. The launch binds its
+  # cwd and fixed busy generation below. Bypass hook review for this automated
+  # launch, as documented by Codex, so the hook cannot park on its trust modal.
+  # Existing user/project hooks also run; secondmates keep their own primary
+  # hook posture and are not armed by this worker-only path.
   codex)
     if [ "$kind" = secondmate ]; then
       printf '%s' '__CODEXPRIMARY__ __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
     else
-      printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --disable hooks -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
+      printf '%s' 'codex __MODELFLAG____EFFORTFLAG__--dangerously-bypass-approvals-and-sandbox --enable hooks --dangerously-bypass-hook-trust -c "notify=[\"bash\",\"-c\",\"touch __TURNEND__\"]" "$(__OPINPUT__ encode launch-brief < __BRIEF__)"'
     fi
     ;;
   opencode) printf '%s' 'OPENCODE_CONFIG_CONTENT='\''{"permission":{"*":"allow"}__EFFORTFLAG__}'\'' opencode __MODELFLAG__--prompt "$(__OPINPUT__ encode launch-brief < __BRIEF__)"' ;;
@@ -5227,9 +5210,10 @@ fi
 BUSY_GEN=
   case "$WIRING_HARNESS" in
   codex*)
-    if fm_busy_codex_semantic_source; then
-      echo "error: codex semantic busy-state wiring is not implemented; extend the probe only together with verified wiring" >&2
-      exit 1
+    if [ "$KIND" != secondmate ] && [ "$RAW_LAUNCH" -eq 0 ] && fm_busy_codex_hooks_verified; then
+      bash "$SCRIPT_DIR/fm-codex-busy.sh" install || exit 1
+      BUSY_GEN=$("$FM_ROOT/bin/fm-busy-event.sh" arm "$STATE_REAL" "$ID") || exit 1
+      [ "$RELAUNCH" -ne 1 ] || RELAUNCH_REPLACEMENT_BUSY_GEN=$BUSY_GEN
     fi
     ;;
   esac
@@ -5525,15 +5509,11 @@ export default function (pi: any) {
 EOF
     ;;
   codex*)
-    # Semantic busy-state source negotiation (bin/fm-busy-lib.sh owns the
-    # probes and the evidence). Neither Codex path is usable on the
-    # installed binary: a pane worker's turns are not observable through
-    # the app-server protocol, and its lifecycle hooks did not fire for a
-    # firstmate-launched worker. Codex therefore classifies unknown with
-    # an explicit reason rather than falling back to idle, and no busy
-    # wiring is installed. The turn-end NOTIFICATION marker still rides
-    # the launch command via -c notify=[...] and __TURNEND__.
+    # The global lifecycle registration is installed before arming above;
+    # the task's cwd/gen binding is exported with LAUNCH below. Turn-end
+    # notification remains independent through the existing notify command.
     ;;
+
   grok*)
     # Parent turn-end wiring only. A secondmate already classifies through the
     # rendered-tail fallback, and a parent turn-ended marker is not its signal.
@@ -6066,6 +6046,9 @@ fi
 # "$FM_TASK_INBOX" instead of a path that grows with the home's depth. Like the
 # kill switch below it is an export statement, so it survives a compound raw
 # launch and the launch-env-allowlist `env -i` wrapper.
+if [ "$HARNESS" = codex ] && [ -n "$BUSY_GEN" ]; then
+  LAUNCH="export CODEX_HOME=$(shell_quote "${CODEX_HOME:-$HOME/.codex}") FM_CODEX_BUSY_HOOK=$(shell_quote "$SCRIPT_DIR/fm-codex-busy.sh") FM_CODEX_BUSY_WORKTREE=$(shell_quote "$WT") FM_CODEX_BUSY_STATE=$(shell_quote "$STATE_REAL") FM_CODEX_BUSY_ID=$(shell_quote "$ID") FM_CODEX_BUSY_GEN=$(shell_quote "$BUSY_GEN"); $LAUNCH"
+fi
 LAUNCH="export FM_TASK_INBOX=$(shell_quote "$STATE_REAL/$ID.inbox"); $LAUNCH"
 LAUNCH="export COMPACT_ADVISER_DISABLE=1; $LAUNCH"
 # When the live-harness gate has exported DISABLE_AUTOUPDATER into this spawn's

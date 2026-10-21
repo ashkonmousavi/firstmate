@@ -324,21 +324,51 @@ test_claude_hooks_stale_incarnation_harmless() {
   pass "claude hook events from a superseded incarnation are rejected without breaking the hook"
 }
 
-test_codex_unverified_until_a_semantic_source_exists() {
-  local rec id=busy-cx-1 out state
-  rec=$(make_spawn_case codex-unverified codex "$id")
+test_codex_global_hooks_semantic_lifecycle() {
+  local rec id=busy-cx-1 out state gen hook settings ev payload old_gen
+  rec=$(make_spawn_case codex-global codex "$id")
   read_case_record "$rec"
   out=$(run_spawn "$HOME_DIR" "$WT_DIR" "$FAKEBIN_DIR" "$id" "$PROJ_DIR")
   expect_code 0 $? "codex spawn should succeed: $out"
   state="$HOME_DIR/state"
-  assert_absent "$state/$id.busy-gen" "codex must not arm a busy contract with no verified semantic source"
-  assert_absent "$WT_DIR/.codex/hooks.json" "codex must not install unverified busy hooks"
-  assert_contains "$out" 'spawned '"$id"' harness=codex' "codex spawn did not complete normally"
+  settings="$HOME_DIR/user-home/.codex/hooks.json"
+  assert_present "$settings" "codex spawn did not install the global busy hook"
+  assert_absent "$WT_DIR/.codex/hooks.json" "codex busy hooks must not change project hook config"
+  gen=$(cat "$state/$id.busy-gen")
   out=$(classify codex "$id" "$state")
-  [ "$out" = "unknown codex-unverified" ] || fail "codex must classify 'unknown codex-unverified', got '$out'"
-  out=$(fm_busy_classify tmux fake:w codex "$id" "$state" '• Working (6s • esc to interrupt)')
-  [ "$out" = "unknown codex-unverified" ] || fail "codex must not fall back to footer text, got '$out'"
-  pass "codex classifies unknown until a semantic source is verified, never idle or footer-matched"
+  [ "$out" = 'busy fm-spawn' ] || fail "codex seed: $out"
+  for ev in UserPromptSubmit Stop UserPromptSubmit SessionEnd; do
+    hook=$(jq -r --arg ev "$ev" '.hooks[$ev][] .hooks[] | select(.command | contains("FM_CODEX_BUSY_HOOK")) | .command' "$settings")
+    payload=$(jq -nc --arg ev "$ev" --arg cwd "$WT_DIR" '{hook_event_name:$ev,cwd:$cwd,session_id:"worker-session"}')
+    out=$(printf '%s' "$payload" | FM_CODEX_BUSY_HOOK="$ROOT/bin/fm-codex-busy.sh" \
+      FM_CODEX_BUSY_WORKTREE="$WT_DIR" FM_CODEX_BUSY_STATE="$state" \
+      FM_CODEX_BUSY_ID="$id" FM_CODEX_BUSY_GEN="$gen" bash -c "$hook")
+    [ "$out" = '{}' ] || fail "codex hook must return harmless JSON: $out"
+    out=$(classify codex "$id" "$state")
+    case "$ev:$out" in UserPromptSubmit:'busy codex-hook'|Stop:'idle codex-hook'|SessionEnd:'idle codex-hook') ;;
+      *) fail "codex $ev classified $out" ;; esac
+  done
+  payload=$(jq -nc --arg cwd "$WT_DIR" '{hook_event_name:"UserPromptSubmit",cwd:$cwd,session_id:"worker-session"}')
+  printf '%s' "$payload" | FM_CODEX_BUSY_WORKTREE="$WT_DIR" FM_CODEX_BUSY_STATE="$state" \
+    FM_CODEX_BUSY_ID="$id" FM_CODEX_BUSY_GEN="$gen" bash "$ROOT/bin/fm-codex-busy.sh" >/dev/null
+  payload=$(jq -nc --arg cwd "$WT_DIR" '{hook_event_name:"Stop",cwd:$cwd,session_id:"nested-review"}')
+  printf '%s' "$payload" | FM_CODEX_BUSY_WORKTREE="$WT_DIR" FM_CODEX_BUSY_STATE="$state" \
+    FM_CODEX_BUSY_ID="$id" FM_CODEX_BUSY_GEN="$gen" bash "$ROOT/bin/fm-codex-busy.sh" >/dev/null
+  out=$(classify codex "$id" "$state")
+  [ "$out" = 'busy codex-hook' ] || fail "nested Codex session closed worker turn: $out"
+  payload=$(jq -nc --arg cwd "$WT_DIR" '{hook_event_name:"UserPromptSubmit",cwd:$cwd,session_id:"worker-session"}')
+  old_gen=$gen
+  gen=$("$ROOT/bin/fm-busy-event.sh" arm "$state" "$id")
+  printf '%s' "$payload" | FM_CODEX_BUSY_WORKTREE="$WT_DIR" FM_CODEX_BUSY_STATE="$state" \
+    FM_CODEX_BUSY_ID="$id" FM_CODEX_BUSY_GEN="$old_gen" bash "$ROOT/bin/fm-codex-busy.sh" >/dev/null
+  out=$(classify codex "$id" "$state")
+  [ "$out" = 'busy fm-spawn' ] || fail "old codex session altered replacement: $out"
+  payload=$(jq -nc --arg cwd "$PROJ_DIR" '{hook_event_name:"Stop",cwd:$cwd,session_id:"worker-session"}')
+  printf '%s' "$payload" | FM_CODEX_BUSY_WORKTREE="$WT_DIR" FM_CODEX_BUSY_STATE="$state" \
+    FM_CODEX_BUSY_ID="$id" FM_CODEX_BUSY_GEN="$gen" bash "$ROOT/bin/fm-codex-busy.sh" >/dev/null
+  out=$(classify codex "$id" "$state")
+  [ "$out" = 'busy fm-spawn' ] || fail "foreign cwd altered task: $out"
+  pass "Codex global hooks bind cwd and generation, close and reopen turns through the busy writer"
 }
 
 # Gemini's hooks are PROJECT hooks in the worktree's own .gemini/settings.json,
@@ -955,6 +985,7 @@ test_secondmate_codex_and_grok_do_not_arm_a_parent_turnend() {
   pass "codex and grok secondmates stay on their existing verdicts and do not emit a parent turn-end"
 }
 
+test_codex_global_hooks_semantic_lifecycle
 test_secondmate_claude_spawn_arms_busy_for_the_stall_gate
 test_raw_secondmate_launch_writes_no_busy_wiring
 test_secondmate_claude_stop_guard_owns_the_stop_verdict
@@ -978,6 +1009,5 @@ test_gemini_hooks_semantic_lifecycle
 test_gemini_hooks_stale_incarnation_harmless
 test_raw_gemini_launch_has_no_semantic_wiring
 test_gemini_is_refused_as_a_secondmate
-test_codex_unverified_until_a_semantic_source_exists
 
 echo "all fm-busy-adapter-wiring tests passed"

@@ -36,7 +36,7 @@
 #                    cancellation emits no Stop, so control invalidates to unknown.
 #   gemini-hook      Gemini agent hooks (BeforeAgent opens; AfterAgent and
 #                    SessionEnd close)
-#   codex-hook, codex-appserver  reserved: Codex, gated by
+#   codex-hook, codex-appserver  Codex, individually gated by
 #                    fm_busy_codex_semantic_source
 #   kimi-wire, kimi-hook  reserved: standalone Kimi, gated by fm_busy_kimi_verified
 # Firstmate-owned sources accepted for every converted adapter:
@@ -118,10 +118,9 @@
 # `ctrl+c to stop` footer is deliberately not a state source here.
 #
 # Codex negotiation (fm_busy_codex_appserver_observable,
-# fm_busy_codex_hooks_verified): the approved contract prefers Codex's
-# app-server turn lifecycle with capability negotiation, and sanctions its
-# stable lifecycle hooks as the intermediate. Neither is usable on the
-# installed binary, so fm-spawn installs no Codex busy wiring. With no record,
+# fm_busy_codex_hooks_verified): the app-server lifecycle remains unavailable.
+# Global hooks are verified on codex-cli 0.160.0 and fm-spawn wires ordinary
+# workers through them. With no record,
 # Codex may use the independent Herdr native busy source; without that positive
 # evidence it remains unknown codex-unverified, never idle from a pane footer.
 # docs/verification/supervision.md owns the evidence for both probes.
@@ -167,18 +166,12 @@ fm_busy_codex_appserver_observable() {
   return 1
 }
 
-# fm_busy_codex_hooks_verified: the sanctioned intermediate - Codex's stable
-# hooks engine (UserPromptSubmit to open a turn, Stop and SessionEnd to close
-# it). Returns 0 only once those hooks are live-verified to fire for a
-# firstmate-launched worker. codex-cli 0.145.0 verdict (live, 2026-07-28):
-# NOT verified. Firstmate-written project hooks under <worktree>/.codex/
-# never fired in an interactive pane whose directory trust was granted, nor
-# under `codex exec`, in either case with --dangerously-bypass-hook-trust,
-# while global hooks fired in the same runs. Codex additionally exposes no
-# StopFailure hook, so an API-error turn end would need separate coverage
-# even after the discovery problem is solved.
+# Global UserPromptSubmit / Stop / SessionEnd hooks were live-verified on
+# codex-cli 0.160.0. fm-codex-busy.sh owns registration and cwd/gen routing;
+# fm-spawn enables this source only for ordinary managed worker launches.
+# Missing wiring remains unknown. See docs/verification/supervision.md.
 fm_busy_codex_hooks_verified() {
-  return 1
+  return 0
 }
 
 # fm_busy_codex_semantic_source: 0 when ANY verified Codex semantic source
@@ -230,7 +223,8 @@ fm_busy_sources_for_harness() {  # <harness>
     claude*) adapter=claude-hook ;;
     codex*)
       fm_busy_codex_semantic_source || { printf ''; return 0; }
-      adapter='codex-hook codex-appserver'
+      if fm_busy_codex_hooks_verified; then adapter=codex-hook; fi
+      if fm_busy_codex_appserver_observable; then adapter="${adapter:+$adapter }codex-appserver"; fi
       ;;
     opencode*) adapter=opencode-plugin ;;
     gemini*) adapter=gemini-hook ;;
@@ -996,12 +990,9 @@ fm_busy_gemini_launch_prompt_tail() {
 }
 
 # fm_busy_launch_prompt_parked: dispatch to the signature above for <harness>,
-# or fail when this harness has none. Consumes the tail on stdin. Scoped to
-# exactly the harnesses fm-spawn.sh arms with the fm-spawn busy source
-# (claude*, opencode*, pi, pi-signed, omp, gemini) since only those can ever
-# read a pinned "busy fm-spawn" record; Codex trusts no stored sources and
-# standalone Kimi returns unknown before records, and opencode ships no
-# trust dialog at all.
+# or fail when this harness has none. Consumes the tail on stdin. Only the
+# verified Claude, Pi/omp, and Gemini launch signatures are recognized here;
+# an armed harness without a signature retains its stored verdict.
 fm_busy_launch_prompt_parked() {  # <harness>
   case "${1:-}" in
     claude*) fm_busy_claude_launch_prompt_tail ;;
