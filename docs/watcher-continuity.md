@@ -86,7 +86,7 @@ Claude's `.claude/settings.json` Stop `asyncRewake` hook (`bin/fm-claude-stop-au
 Do not run the hook as a manual arm from a tool turn: a short-lived tool process cannot own its park; its header and help own the invocation contract.
 The hook fires on every Stop.
 On each Stop, an eligible primary with supervision need admits one home-scoped owner, which foregrounds `bin/fm-watch-arm.sh` inside the hook-owned process tree.
-While supervision is still needed and away mode remains inactive, an actionable close wakes the idle session through exit 2.
+While supervision is still needed and away mode remains inactive, a close requiring handling wakes the idle session through exit 2; [`turnend-guard.md`](turnend-guard.md#routine-closes-without-a-model-turn) owns the routine-close exception.
 
 ### Claude session-lock ownership
 
@@ -208,6 +208,17 @@ The Claude hook's detached handling successor is launched by the hook itself, wh
 
 For a malformed lock-path error, [fm-wake-lib.sh](../bin/fm-wake-lib.sh)'s `fm_lock_path_malformed` and `fm_lock_report_malformed` own the format check and safe recovery diagnostic.
 
+The shared `fm_pid_alive` check preserves live process holders but rejects a recorded PID reused as a non-leader thread ID when readable proc status supplies a different `Tgid`, allowing stale-lock recovery even though Linux `kill -0` succeeds.
+Without readable proc status or a `Tgid` field, it retains the portable `kill -0` result.
+`tests/fm-watcher-lock.test.sh` covers that distinction and live-process detection inside an EXIT trap entered with a nonzero exit status.
+
+Each lock owner also records its `fm_pid_identity` beside its pid, and `fm_lock_holder_alive` in [fm-wake-lib.sh](../bin/fm-wake-lib.sh) compares only the start-time component of the recorded and current identities (`fm_pid_identity_start`).
+A live pid whose start time differs is a reused pid, so the ordinary steal path reclaims the lock.
+The command line is not compared because a holder that execs after acquiring, explicitly or through bash running a final command in place, keeps its pid and start time but changes its command line, and must still block.
+A lock with no recorded identity, written by older code or on a platform where the identity cannot be computed, keeps the pid-only rule.
+For the remote-reply lifecycle wait limit and timeout diagnostics, see `FM_REMOTE_REPLY_LIFECYCLE_LOCK_WAIT` in [configuration.md](configuration.md#environment-variables).
+`tests/fm-watcher-lock.test.sh` covers the reused-pid reclaim, a matching live holder, a holder that execs after acquiring, a legacy pid-only lock, and the bounded lifecycle wait.
+
 The turn-end guard remains the final backstop rather than the normal continuity mechanism.
 In its `--claude` mode it cooperates with the auto-arm.
 
@@ -224,6 +235,8 @@ The first recovery marks that generation announced, and later empty-queue arms l
 A non-successor watcher start checks the durable queue and recovery marker under their locks.
 If an announced-but-unacknowledged episode has an empty queue, the arm leaves that generation announced, making repeated empty-queue arms idempotent while a long-poll source is merely alive.
 If a durable row arrived after the announcement, the arm opens a fresh pending downtime generation so buried work still resurfaces once.
+A Codex foreground checkpoint skips the announced-episode reopen transition, so an already-announced generation stays announced while the checkpoint continues its bounded supervision.
+Its ordinary arm check still announces a never-announced generation, including one made pending by a durable queue append during the checkpoint.
 
 ### Generation reuse
 

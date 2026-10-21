@@ -2,7 +2,7 @@
 # tests/fm-wake-queue.test.sh - wake-queue losslessness (the queue safety matrix):
 # concurrent append/drain, bounded structural enrichment and presentation-lock
 # waits, interruption safety, signal catch-up while no watcher runs, stale/check enqueue-before-suppressor
-# ordering, atomic double-drain, duplicate collapse, and liveness assertion.
+# ordering, one sweep queuing every printing check, atomic double-drain, duplicate collapse, and liveness assertion.
 # Nothing is lost and nothing is double-consumed. General watcher/lock liveness
 # lives in fm-watcher-lock.test.sh; daemon classification/injection in
 # fm-daemon.test.sh.
@@ -314,6 +314,44 @@ test_check_timeout_is_reported_on_both_timeout_paths() {
       || fail "the run record does not show the timeout (fallback=$fallback): $(cat "$record")"
   done
   pass "a state check killed at its bound is reported as a timeout on the installed and fallback paths"
+}
+
+# A check that prints used to wake and exit the sweep, so every later check
+# waited for the next interval and could be starved for good. One sweep must
+# queue every printing check and still run a quiet check between them.
+test_one_sweep_queues_every_printing_check() {
+  local dir state fakebin out drain_out early late quiet marker rows
+  dir=$(make_case sweep-all-checks)
+  state="$dir/state"
+  fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  drain_out="$dir/drain.out"
+  marker="$dir/quiet-ran"
+  early="$state/a-news.check.sh"
+  quiet="$state/b-quiet.check.sh"
+  late="$state/c-news.check.sh"
+  printf '#!/usr/bin/env bash\nprintf "memory-low\\n"\n' > "$early"
+  printf '#!/usr/bin/env bash\nprintf "ran\\n" > %q\n' "$marker" > "$quiet"
+  printf '#!/usr/bin/env bash\nprintf "disk-full\\n"\n' > "$late"
+  chmod 0700 "$early" "$quiet" "$late"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" a-news >/dev/null \
+    || fail "could not register the early printing check"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" b-quiet >/dev/null \
+    || fail "could not register the quiet check"
+  FM_STATE_OVERRIDE="$state" "$ROOT/bin/fm-check-register.sh" c-news >/dev/null \
+    || fail "could not register the later printing check"
+  PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=0 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  wait_for_exit "$!" 100 || fail "watcher did not exit after one check sweep"
+  [ -f "$marker" ] || fail "the quiet check between two printing checks did not run"
+  FM_STATE_OVERRIDE="$state" "$DRAIN" > "$drain_out" || fail "drain after the check sweep failed"
+  grep -F "$(printf '\tcheck\t%s\t' "$early")" "$drain_out" | grep -F 'memory-low' >/dev/null \
+    || fail "the early printing check was not queued in the sweep"
+  grep -F "$(printf '\tcheck\t%s\t' "$late")" "$drain_out" | grep -F 'disk-full' >/dev/null \
+    || fail "the later printing check was not queued in the same sweep"
+  rows=$(awk -F '\t' 'NF >= 5 && $3 == "check" { count++ } END { print count + 0 }' "$drain_out")
+  [ "$rows" -eq 2 ] || fail "the sweep queued $rows check rows; expected the two printing checks"
+  [ -e "$state/.last-check" ] || fail "the sweep did not stamp the check cadence once it finished"
+  pass "one sweep queues every printing check and still runs a quiet check"
 }
 
 test_atomic_double_drain() {
@@ -877,14 +915,10 @@ SH
 # so a mate stuck busy forever still alarms.
 #
 # Scope, so this case is not read as more coverage than it is: the fixture arms
-# the busy contract by hand through fm-busy-event.sh. A real --secondmate spawn
-# never does - bin/fm-spawn.sh arms the contract inside its `[ "$KIND" !=
-# secondmate ]` guard, so both arm calls are skipped for a mate - and with no
-# record fm_busy_classify_meta answers "unknown missing" for a tmux-backed
-# claude, pi, opencode, or omp mate, which is not a busy verdict. Hand-arming is
-# what isolates the launch-aging defect this case pins, and the launch-aging
-# defect is all it pins: on tmux the stall alarm is still reachable through that
-# missing busy record, tracked upstream as issue 4268.
+# the busy contract by hand through fm-busy-event.sh and backdates the launch
+# record afterwards. That isolates the launch-aging defect this case pins.
+# A real --secondmate spawn of claude, opencode, pi, or omp arms the same
+# contract itself; tests/fm-busy-adapter-wiring.test.sh owns that path.
 test_secondmate_long_lived_mate_mid_turn_is_not_a_stall() {
   local dir state sub fakebin stall_count row_epoch
   dir=$(make_case secondmate-long-lived-active-turn)
@@ -2822,6 +2856,15 @@ SH
   recorded_pid=$(cat "$dir/waiter.ready")
   [ "$recorded_pid" = "$waiter_pid" ] && [ "$(cat "$lock/pid" 2>/dev/null || true)" = "$waiter_pid" ] \
     || { kill "$waiter_pid" 2>/dev/null || true; fail "bounded acquire did not hand lock ownership to its caller"; }
+  # The handoff carries the caller's identity, so a contender still reads the
+  # live caller as the holder rather than a reused pid.
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1"
+    [ "$(cat "$2/identity" 2>/dev/null)" = "$(fm_pid_identity "$3")" ] || exit 1
+    if fm_lock_try_acquire "$2"; then exit 2; fi
+    [ "$FM_LOCK_HELD_PID" = "$3" ]
+  ' _ "$ROOT/bin/fm-wake-lib.sh" "$lock" "$waiter_pid" \
+    || { kill "$waiter_pid" 2>/dev/null || true; fail "handed-off lock did not carry its caller's identity"; }
 
   : > "$dir/release-waiter"
   wait "$waiter_pid" || fail "caller could not release its handed-off lock"
@@ -3676,6 +3719,7 @@ test_not_working_stale_enqueue_before_suppressor
 test_check_output_is_queued
 test_check_failure_is_one_wake_per_failure_episode
 test_check_timeout_is_reported_on_both_timeout_paths
+test_one_sweep_queues_every_printing_check
 test_atomic_double_drain
 test_drain_dedupes_obvious_duplicates
 test_drain_asserts_watcher_liveness

@@ -1186,7 +1186,10 @@ SH
 }
 
 stop_grok_process() {  # <case-dir>
-  kill "$(cat "$1/fake/agent-pid")" 2>/dev/null || true
+  local pid
+  pid=$(cat "$1/fake/agent-pid")
+  kill "$pid" 2>/dev/null || true
+  wait "$pid" 2>/dev/null || true
 }
 
 assert_switched_to_claude_without_typing() {  # <case-dir> <out> <label>
@@ -1211,30 +1214,32 @@ test_grok_usage_picker_relaunch_stops_on_interrupt_key() {
   pass "fm-control relaunch: grok's open usage picker stops on its interrupt key and switches runtime without typing"
 }
 
-test_grok_usage_picker_relaunch_falls_back_to_sigterm() {
+test_grok_usage_picker_relaunch_falls_back_to_sigterm() (
   local dir out rc
   dir=$(grok_case picker-sigterm "$(cat "$ROOT/tests/captures/grok-weekly-limit-picker.txt")")
   start_grok_process "$dir"
+  # Keep cleanup after every assertion, including failure exits.
+  trap 'stop_grok_process "$dir"' EXIT
   out=$(run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  stop_grok_process "$dir"
   expect_code 0 "$rc" "relaunch should SIGTERM a grok agent that survives its interrupt key"$'\n'"$out"
   [ -e "$dir/fake/terminated" ] || fail "the grok agent process should have received SIGTERM"
   assert_switched_to_claude_without_typing "$dir" "$out" "open picker, SIGTERM"
   pass "fm-control relaunch: a grok usage picker that survives C-c is stopped by SIGTERM to its pane's agent and the runtime switches"
-}
+)
 
-test_grok_dismissed_usage_picker_relaunch_with_unknown_composer() {
+test_grok_dismissed_usage_picker_relaunch_with_unknown_composer() (
   local dir out rc
   dir=$(grok_case picker-dismissed "$GROK_DISMISSED_PICKER")
   [ "$(composer_state_of "$dir")" = unknown ] || fail "fixture: the dismissed picker's composer should read unknown"
   start_grok_process "$dir"
+  # Keep cleanup after every assertion, including failure exits.
+  trap 'stop_grok_process "$dir"' EXIT
   out=$(run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  stop_grok_process "$dir"
   expect_code 0 "$rc" "relaunch after the grok usage picker is dismissed should switch runtime"$'\n'"$out"
   [ -e "$dir/fake/terminated" ] || fail "the grok agent process should have received SIGTERM"
   assert_switched_to_claude_without_typing "$dir" "$out" "dismissed picker"
   pass "fm-control relaunch: after grok's usage picker is dismissed, an unknown composer beside the limit notice still switches runtime without typing"
-}
+)
 
 test_grok_pending_text_refuses_relaunch_beside_usage_limit() {
   local dir out rc
@@ -1250,14 +1255,15 @@ test_grok_pending_text_refuses_relaunch_beside_usage_limit() {
   pass "fm-control relaunch: genuine grok pending text refuses even with the usage-limit notice visible"
 }
 
-test_grok_pending_unproven_refuses_relaunch_beside_usage_limit() {
+test_grok_pending_unproven_refuses_relaunch_beside_usage_limit() (
   local dir out rc
   dir=$(grok_case pending-unproven $'  You hit your weekly limit.\n\n╭─ grok ─╮\n│ hello  │\n╰────────╯\n')
   printf '3\n' > "$dir/fake/cursor"
   [ "$(composer_state_of "$dir")" = pending-unproven ] || fail "fixture: the titled typed composer should read pending-unproven"
   start_grok_process "$dir"
+  # Keep cleanup after every assertion, including failure exits.
+  trap 'stop_grok_process "$dir"' EXIT
   out=$(FM_FAKE_INTERRUPT_STOPS_AGENT=1 run_relaunch "$dir" t1 relaunch --harness claude --note "grok is out of usage"); rc=$?
-  stop_grok_process "$dir"
   expect_code 1 "$rc" "typed text whose composer reads pending-unproven must refuse even beside the limit notice"$'\n'"$out"
   assert_contains "$out" "composer state is 'pending-unproven', not proven empty" "the refusal should name the unproven typed composer"
   [ "$(cat "$dir/fake/command")" = grok ] || fail "a pending-unproven refusal must leave grok running"
@@ -1265,7 +1271,7 @@ test_grok_pending_unproven_refuses_relaunch_beside_usage_limit() {
   [ -z "$(keys_sent "$dir")" ] && [ -z "$(literals "$dir")" ] \
     || fail "nothing may be sent to a grok composer that may hold typed text"
   pass "fm-control relaunch: grok typed text reading pending-unproven refuses even with the usage-limit notice visible"
-}
+)
 
 test_grok_unknown_composer_without_usage_limit_refuses_relaunch() {
   local dir out rc
@@ -1421,10 +1427,10 @@ test_agent_that_does_not_stop_fails_closed
 test_grok_interrupt_without_acknowledgement_reports_unconfirmed
 test_grok_idle_footer_does_not_confirm_cancellation
 test_grok_usage_picker_relaunch_stops_on_interrupt_key
-test_grok_usage_picker_relaunch_falls_back_to_sigterm
-test_grok_dismissed_usage_picker_relaunch_with_unknown_composer
+test_grok_usage_picker_relaunch_falls_back_to_sigterm || exit 1
+test_grok_dismissed_usage_picker_relaunch_with_unknown_composer || exit 1
 test_grok_pending_text_refuses_relaunch_beside_usage_limit
-test_grok_pending_unproven_refuses_relaunch_beside_usage_limit
+test_grok_pending_unproven_refuses_relaunch_beside_usage_limit || exit 1
 test_grok_unknown_composer_without_usage_limit_refuses_relaunch
 test_grok_usage_picker_refuses_when_agent_cannot_be_stopped
 test_secondmate_control_command_carries_no_marker

@@ -270,6 +270,12 @@ Each enabled primary harness adapts its own turn-end mechanism to the shared gua
 The registrations in detail:
 
 - Claude registers two `Stop` hooks in `.claude/settings.json`, both anchored through `CLAUDE_PROJECT_DIR`: `bin/fm-turnend-guard.sh --claude`, and `bin/fm-claude-stop-autoarm.sh` with `asyncRewake: true` and `timeout: 28800`.
+  In a Claude secondmate home, `bin/fm-spawn.sh` writes a `.fm-busy-stop` pointer and gives the mate no `Stop` busy hook, so `--claude` is the only Stop writer of the parent home's busy record for that generation.
+  It records idle when it allows the Stop and busy when its exit 2 blocks it into a continuation, because Claude runs Stop hooks in parallel and that continuation fires no `UserPromptSubmit`.
+  A home whose guard predates `.fm-busy-stop` stays unarmed until its guard is updated; it receives no semantic busy hooks or parent Stop notification.
+  The same eligibility boundary leaves a secondmate unarmed when worker, user, project, or local Claude settings disable hooks or add synchronous Stop decisions beyond the tracked owned registration; asynchronous command hooks remain compatible.
+  Spawn preserves those settings and retires any earlier busy generation and Stop pointer before launching an incompatible configuration.
+  [Runtime backend verification](verification/runtime-backends.md#secondmate-busy-contract) owns the live evidence.
 - Codex registers a `Stop` hook in `.codex/hooks.json`, anchors the executable to the hook process working directory, verifies a Firstmate-shaped hook-bearing root, and passes the original payload with `--codex` to the shared guard.
 - OpenCode listens for `session.idle` in `.opencode/plugins/fm-primary-turnend-guard.js`, lets the watcher coordinator act first, and calls `client.session.promptAsync` once when the guard returns 2.
 - Pi listens for `agent_settled` in `.pi/extensions/fm-primary-turnend-guard.ts`, runs once per logical agent run, and calls `pi.sendUserMessage(..., { deliverAs: "followUp" })` once when the guard returns 2.
@@ -321,6 +327,17 @@ It allows the stop when any of these holds:
 - The watcher is healthy.
 - The auto-arm's generation claim is open.
 - `state/.claude-autoarm-epoch` contains a fresh actionable rewake owned by this event epoch.
+
+#### Routine closes without a model turn
+
+Before delivering an actionable close, the Claude auto-arm uses `fm_wake_routine_peek` in `bin/fm-wake-lib.sh` to inspect every raw queued row, open status obligation, unread status span, and unread or unprocessed branch outcome without advancing presentation cursors.
+It can consume a batch only when every row is a recorded routine branch outcome, an empty `rearm-resurface`, or a current routine secondmate status report with no routed reply, decision, blocker, completion, failure, or unknown notification tag.
+The peek also verifies the arm close itself, so an empty queue cannot hide a real close.
+A successful peek supplies the existing sequence cutoff and recovery generation to `bin/fm-wake-drain.sh --ack-through`; no new acknowledgement format is used.
+After a successful acknowledgement, the same asynchronous hook parks again without waking the model, keeping future real events supervised while the turn remains stopped.
+A mixed batch, uncertain read, or acknowledgement failure retains the ordinary handling-turn behavior.
+The hook never captures a presentation drain as a substitute for handling, because doing so could consume an unread note before the model sees it.
+Cursor's park adapter has a separate implementation and does not use this path.
 
 #### Auto-arm generation claim
 

@@ -2,13 +2,14 @@
 name: retro
 description: >-
   When the captain invokes /retro, $retro, or asks for a retro, bring the written rules and the sleeping work back in line with what the period taught, on every machine, without making the rulebook longer.
-  Route each lesson to one owner at the decision point, cut rules that cost time, wake every sleeping item to its next step, reconcile disagreeing records, propagate to all mates, and report with the AGENTS.md line count before and after.
 user-invocable: true
 metadata:
   internal: true
 ---
 
 # retro
+
+Route each lesson to one owner at the decision point, cut rules that cost time, wake every sleeping item to its next step, reconcile disagreeing records, propagate to all mates, and report with the AGENTS.md line count before and after.
 
 After a push or any hard period, bring the written rules and the sleeping work back in line with what was learned, on every machine, without making the rulebook longer.
 This skill writes only through the existing Firstmate ownership and write boundaries: shared tracked material through the PR path per `AGENTS.md` section 1, private records directly, mates through `secondmate-provisioning`.

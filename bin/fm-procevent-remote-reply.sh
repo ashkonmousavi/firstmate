@@ -282,7 +282,7 @@ cmd_arm() {
   validate_id "$id"
   lock=$(secondmate_reply_lifecycle_lock_path "$STATE" "$id")
   (
-    fm_lock_acquire_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
+    secondmate_reply_lifecycle_lock_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
     trap 'fm_lock_release "$lock"' EXIT
     cmd_arm_locked "$id"
   )
@@ -725,7 +725,7 @@ cmd_handle() {
   validate_id "$id"
   lock=$(secondmate_reply_lifecycle_lock_path "$STATE" "$id")
   (
-    fm_lock_acquire_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
+    secondmate_reply_lifecycle_lock_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
     trap 'fm_lock_release "$lock"' EXIT
     cmd_handle_locked "$@"
   )
@@ -804,7 +804,7 @@ cmd_retire() {
   validate_id "$id"
   lock=$(secondmate_reply_lifecycle_lock_path "$STATE" "$id")
   (
-    fm_lock_acquire_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
+    secondmate_reply_lifecycle_lock_wait "$lock" || die "cannot lock remote reply lifecycle for $id"
     trap 'fm_lock_release "$lock"' EXIT
     cmd_retire_quiesce_locked "$id" "$force" || return 1
     cmd_retire_finalize_locked "$id" "$force"

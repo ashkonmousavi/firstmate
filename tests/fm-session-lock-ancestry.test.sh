@@ -137,6 +137,18 @@ SH
   [ "$got" = 1 ] || fail "ancestry resolved '$got', expected the namespace harness pid 1"
   lib_eval "$fakebin" "fm_session_lock_owned_by_self '$dir/state'" \
     || fail "the session holding the lock at namespace pid 1 did not recognize itself as the owner"
+  mkdir -p "$dir/state/procevent"
+  printf '0\n' > "$dir/state/procevent/.owner-lease"
+  local owner_expr
+  owner_expr="FM_WAKE_LIB_DIR='$ROOT/bin'; . '$ROOT/bin/fm-procevent-lib.sh'; ! fm_procevent_owner_alive '$dir/state' 1 && fm_procevent_owner_present '$dir/state' 1"
+  lib_eval "$fakebin" "$owner_expr" \
+    || fail "the runner owner guard rejected a namespace primary at pid 1 without a fresh lease"
+  if FM_TEST_PID1_COMM=systemd lib_eval "$fakebin" "$owner_expr"; then
+    fail "the runner owner guard accepted host init without a fresh lease"
+  fi
+  if FM_TEST_KILL_RC=1 lib_eval "$fakebin" "$owner_expr"; then
+    fail "the runner owner guard accepted a dead namespace primary without a fresh lease"
+  fi
   pass "session-lock: a harness that is pid 1 of its own namespace is examined, not skipped"
 }
 
