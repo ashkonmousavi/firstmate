@@ -14,14 +14,17 @@ passes, or reply lag above fifteen
 minutes becomes a durable fm-inbox note and check wake, visible at the next
 drain even when no watcher/pane is alive.
 Only explicitly supplied --mate ids are monitored.
-Reply lag compares remote at= stamps with state/.remote-reply-mirrored-<mate>;
-local status notices cannot advance that ingestion watermark, and a missing
+Reply lag is the elapsed time since the oldest remote at= stamp not yet
+mirrored in state/.remote-reply-mirrored-<mate>, or zero when caught up.
+An incident clears only when its oldest reply is mirrored.
+Local status notices cannot advance that ingestion watermark, and a missing
 or empty watermark counts as zero.
 Reply monitoring remains active during .afk.
 Remote reads use only existing fm-on read paths: one bounded fm-remote-file
 get bootstraps a delta cursor, then fm-remote-delta-read returns only appended
-lines. A moved log re-reads its current tail, and a source already past the
-whole-file transfer bound is bootstrapped through the delta path alone.
+lines. A moved log is re-read from the beginning, preserving unmirrored
+stamps; a source past the whole-file bound is scanned from the beginning
+through the bounded delta path across successive passes.
 A delta scan must reach the current tail within four reads; exhausting that
 budget counts as a failed read while preserving cursor progress for the next
 pass, never reporting an intermediate timestamp as current. Delta reads allow one
@@ -60,9 +63,7 @@ class ProbeError(Exception):
 TRANSFER_BOUND = 1048576  # fm-remote-file.sh's hard whole-file ceiling
 DELTA_LOG = 'state/parent-replies.status'
 DELTA_WAIT = '0'  # never block: a cron pass must stay bounded
-DELTA_CHUNK = 65536  # fm-remote-delta-read.sh's fixed payload bound
 DELTA_READ_BUDGET = 4
-DELTA_PROBE = 1 << 40  # above any real log: forces a size-reporting break
 # The reply runner long-polls the same remote job lane with a 55-second window,
 # and a queued delta read does not preempt a running one, so one delta call can
 # legitimately wait a full window behind it before its own bounded read.
@@ -122,16 +123,17 @@ def newest(text):
 
 
 def valid_reader(record):
-    """A persisted (offset, prefix hash, newest stamp) delta cursor."""
+    """A persisted offset, prefix hash and unmirrored timestamp set."""
     if not isinstance(record, dict):
         return False
     try:
         offset = int(record['offset'])
-        stamp = int(record['stamp'])
+        pending = record['pending']
         prefix = str(record['prefix'])
     except (KeyError, TypeError, ValueError):
         return False
-    return (offset >= 0 and stamp >= 0
+    return (offset >= 0 and isinstance(pending, list)
+            and all(type(stamp) is int and stamp >= 0 for stamp in pending)
             and re.fullmatch(r'[0-9a-f]{64}', prefix) is not None)
 
 
@@ -164,21 +166,13 @@ def delta_call(code, env, mate, offset, prefix):
     return fields, payload
 
 
-def adopt_prefix(code, env, mate, offset):
-    """The continuity break's actual prefix hash at <offset>; the cursor
-    protocol offers it instead of rebasing, so a tail read adopts it."""
-    fields, _ = delta_call(code, env, mate, offset, hashlib.sha256(b'').hexdigest())
-    if fields is None or fields.get('status') != 'continuity-broken':
-        raise ProbeError('delta record is malformed')
-    return int(fields['to_offset']), fields['to_prefix_sha256']
-
-
-def drain_delta(code, env, readers, mate):
+def drain_delta(code, env, readers, mate, local):
     for _ in range(DELTA_READ_BUDGET):
         record = readers[mate]
+        record['pending'] = sorted({stamp for stamp in record['pending'] if stamp > local})
         fields, payload = delta_call(code, env, mate, record['offset'], record['prefix'])
         if fields is None:
-            return int(record['stamp'])
+            return min(record['pending'], default=0)
         if fields.get('status') == 'continuity-broken':
             return None
         if int(fields['payload_bytes']) != len(payload):
@@ -186,54 +180,37 @@ def drain_delta(code, env, readers, mate):
         found = stamps(payload.decode('utf-8', errors='replace'))
         readers[mate] = {'offset': int(fields['to_offset']),
                          'prefix': fields['to_prefix_sha256'],
-                         'stamp': max([int(record['stamp'])] + found)}
+                         'pending': sorted(set(record['pending']) | {stamp for stamp in found if stamp > local})}
     raise ProbeError('remote reply tail not reached within read budget')
 
 
-def remote_stamp(code, env, memory, mate, audit):
-    """Newest remote at= stamp after a bounded scan reaches the current tail."""
+def remote_oldest(code, env, memory, mate, local, audit):
     readers = memory.setdefault('readers', {})
+    pending = []
     if valid_reader(readers.get(mate)):
-        stamp = drain_delta(code, env, readers, mate)
-        if stamp is not None:
-            return stamp
+        oldest = drain_delta(code, env, readers, mate, local)
+        if oldest is not None:
+            return oldest
+        pending = readers[mate]['pending']
         audit('read %s log moved; resyncing cursor' % mate)
     rc, body, error = run_status([str(code / 'bin/fm-on.sh'), mate,
                                   'fm-remote-file.sh', 'get', DELTA_LOG,
                                   str(TRANSFER_BOUND)], env)
     if rc == 0:
         found = stamps(body.decode('utf-8', errors='replace'))
+        pending = sorted(set(pending) | {stamp for stamp in found if stamp > local})
         readers[mate] = {'offset': len(body),
                          'prefix': hashlib.sha256(body).hexdigest(),
-                         'stamp': max(found, default=0)}
-        return readers[mate]['stamp']
+                         'pending': pending}
+        return min(pending, default=0)
     if rc != 1 or b'file exceeds max-bytes' not in error:
         raise ProbeError('command failed or timed out')
-    # Past the whole-file bound: learn the size, adopt the offered prefix hash,
-    # then read only the last chunk through the same cursor protocol.
-    fields, _ = delta_call(code, env, mate, DELTA_PROBE,
-                           hashlib.sha256(b'').hexdigest())
-    if fields is None or fields.get('status') != 'continuity-broken':
-        raise ProbeError('delta record is malformed')
-    if fields.get('reason') == 'missing':
-        raise ProbeError('remote reply log is missing')
-    size = int(fields['to_offset'])
-    offset = max(0, size - DELTA_CHUNK)
-    for _ in range(2):
-        if offset == 0:
-            prefix = hashlib.sha256(b'').hexdigest()
-        else:
-            reported, prefix = adopt_prefix(code, env, mate, offset)
-            if reported < offset:
-                size = reported  # The log shrank mid-read; follow it once.
-                offset = max(0, size - DELTA_CHUNK)
-                continue
-        readers[mate] = {'offset': offset, 'prefix': prefix, 'stamp': 0}
-        stamp = drain_delta(code, env, readers, mate)
-        if stamp is not None:
-            return stamp
-        raise ProbeError('remote reply log is unreadable')
-    raise ProbeError('remote reply log kept moving')
+    readers[mate] = {'offset': 0, 'prefix': hashlib.sha256(b'').hexdigest(),
+                     'pending': pending}
+    oldest = drain_delta(code, env, readers, mate, local)
+    if oldest is None:
+        raise ProbeError('remote reply log kept moving')
+    return oldest
 
 
 def live_primary(home, env):
@@ -353,6 +330,7 @@ def main():
         trouble.append('watcher silent for %ds' % beat_age)
     read_fails = memory.setdefault('read_fails', {})
     runner_fails = memory.setdefault('runner_fails', {})
+    lag_oldest = memory.setdefault('lag_oldest', {})
     for mate in mates:
         source = state / 'procevent' / ('remote-reply-' + mate + '.source')
         if source.exists() and not runner_alive(source.with_suffix('.runner'), mate):
@@ -372,16 +350,21 @@ def main():
             runner_fails.pop(mate, None)
             episodes.pop('runner-' + mate, None)
         try:
-            remote = remote_stamp(code, env, memory, mate, audit)
             local_path = state / ('.remote-reply-mirrored-' + mate)
             local = newest(local_path.read_text()) if local_path.exists() else 0
-            lag = remote - local
+            oldest = remote_oldest(code, env, memory, mate, local, audit)
+            lag = max(0, now - oldest) if oldest else 0
+            if mate in lag_oldest and local >= lag_oldest[mate]:
+                episodes.pop('lag-' + mate, None)
+                lag_oldest.pop(mate)
             if lag > 900:
-                message = 'REPLY DELIVERY LAG %s: %ds (remote_at=%d ingested_at=%d); primary wake path needs recovery.' % (mate, lag, remote, local)
+                message = 'REPLY DELIVERY LAG %s: %ds (oldest_at=%d ingested_at=%d); primary wake path needs recovery.' % (mate, lag, oldest, local)
+                lag_oldest.setdefault(mate, oldest)
                 alarm('lag-' + mate, message)
                 trouble.append('reply lag: ' + mate)
-            else:
+            elif not oldest:
                 episodes.pop('lag-' + mate, None)
+                lag_oldest.pop(mate, None)
             read_fails.pop(mate, None)
             episodes.pop('read-' + mate, None)
         except (ProbeError, OSError, ValueError):

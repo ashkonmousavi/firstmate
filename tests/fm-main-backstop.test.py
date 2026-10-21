@@ -30,6 +30,8 @@ class Backstop(unittest.TestCase):
         (self.state / '.last-watcher-beat').touch()
         os.utime(self.state / '.last-watcher-beat', (time.time() - 600,) * 2)
         (self.home / 'data/main-pane').write_text('dead:old\n')
+        self.now = 5000
+        os.utime(self.state / '.last-watcher-beat', (4400, 4400))
         self.fixture = self.base / 'fixture.json'
         self.calls = self.base / 'calls.jsonl'
         self.config = {'agent': 'claude', 'process': 'claude', 'remote': 1000,
@@ -117,7 +119,10 @@ os.execv(real,[command]+sys.argv[3:])
 
     def run_guard(self):
         self.fixture.write_text(json.dumps(self.config))
-        result = subprocess.run(['python3', str(ROOT / 'bin/fm-main-backstop.py'),
+        result = subprocess.run(['python3', '-c',
+                                 'import runpy,sys,time; clock=float(sys.argv.pop(1)); time.time=lambda:clock; '
+                                 'sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name="__main__")',
+                                 str(self.now), str(ROOT / 'bin/fm-main-backstop.py'),
                                  '--home', str(self.home), '--code-root', str(self.code),
                                  '--mate', 'q-server'], env=self.env,
                                 capture_output=True, text=True, timeout=25)
@@ -230,6 +235,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertIn('primary nudge failed', self.notes())
 
     def test_reply_lag_above_fifteen_minutes_alarms_even_with_fresh_beat(self):
+        self.now = 2802
         (self.state / '.last-watcher-beat').touch()
         self.config['remote'] = 1901
         self.run_guard()
@@ -237,10 +243,61 @@ os.execv(real,[command]+sys.argv[3:])
         self.assertIn('REPLY DELIVERY LAG', (self.state / '.wake-queue').read_text())
 
     def test_exact_fifteen_minute_lag_does_not_alarm(self):
+        self.now = 2800
         (self.state / '.last-watcher-beat').touch()
         self.config['remote'] = 1900
         self.run_guard()
         self.assertEqual(self.notes(), '')
+
+    def test_close_emissions_alarm_as_undelivered_reply_ages(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote'] = 1060
+        self.now = 1100
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+        self.now = 1961
+        self.run_guard()
+        self.assertIn('901s (oldest_at=1060 ingested_at=1000)', self.notes())
+
+    def test_newest_only_cursor_is_rebuilt_before_reporting_delay(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote'] = 1060
+        (self.state / '.main-backstop.json').write_text(json.dumps({
+            'readers': {'q-server': {'offset': 9999, 'prefix': '0' * 64, 'stamp': 99999}}}))
+        self.run_guard()
+        self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
+        self.assertEqual(self.reader_calls()[0][1], 'fm-remote-file.sh')
+
+    def test_first_fresh_reply_after_long_silence_is_not_late(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.now = 100000
+        self.config['remote'] = 99990
+        self.run_guard()
+        self.assertEqual(self.notes(), '')
+
+    def test_partial_mirroring_advances_oldest_and_clears_its_incident(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote_file'] = 'done [at=1060]: first\ndone [at=4990]: second\n'
+        self.run_guard()
+        self.assertIn('3940s (oldest_at=1060 ingested_at=1000)', self.notes())
+        mirrored = self.state / '.remote-reply-mirrored-q-server'
+        mirrored.write_text('done [at=1060]: first\n')
+        self.run_guard()
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
+        self.assertEqual(self.memory()['readers']['q-server']['pending'], [4990])
+        self.now = 6000
+        self.run_guard()
+        self.assertIn('1010s (oldest_at=4990 ingested_at=1060)', self.notes())
+
+    def test_replacement_cannot_discard_an_unmirrored_incident(self):
+        (self.state / '.last-watcher-beat').touch()
+        self.config['remote'] = 1060
+        self.run_guard()
+        incident = self.memory()['episodes']['lag-q-server']
+        self.config['remote_file'] = 'done [at=4990]: fresh replacement\n'
+        self.run_guard()
+        self.assertEqual(self.memory()['episodes']['lag-q-server'], incident)
+        self.assertEqual(self.memory()['readers']['q-server']['pending'], [1060, 4990])
 
     def test_healthy_beat_and_caught_up_reply_are_quiet(self):
         (self.state / '.last-watcher-beat').touch()
@@ -317,22 +374,31 @@ os.execv(real,[command]+sys.argv[3:])
         newest = 5000 + 39999 * 60
         (self.state / 'q-server.status').write_text('done [at=%d]: caught up\n' % newest)
         (self.state / '.remote-reply-mirrored-q-server').write_text('done [at=%d]: caught up\n' % newest)
-        self.run_guard()
-        self.assertEqual(self.notes(), '')
-        self.assertEqual(self.memory()['readers']['q-server']['stamp'], newest)
+        for _ in range(8):
+            self.run_guard()
+            if self.memory()['readers']['q-server']['offset'] == len(self.config['remote_file'].encode()):
+                self.run_guard()
+                break
+        self.assertNotIn('q-server', self.memory()['read_fails'])
+        self.assertFalse(any('REPLY DELIVERY LAG' in p.read_text()
+                             for p in (self.state / 'inbox').glob('*.note')))
+        self.assertEqual(self.memory()['readers']['q-server']['pending'], [])
         cold_calls = len(self.reader_calls())
         self.run_guard()
-        self.assertEqual(self.notes(), '')
+        self.assertNotIn('lag-q-server', self.memory()['episodes'])
         self.assertEqual(len(self.reader_calls()), cold_calls + 1)
 
-    def test_lag_alarm_carries_exact_stamp_from_over_bound_source(self):
+    def test_lag_alarm_carries_oldest_stamp_from_over_bound_source(self):
         (self.state / '.last-watcher-beat').touch()
+        self.now = 10000
         self.config['remote_file'] = ''.join(
             'working [at=%d]: reply %d\n' % (5000 + i * 60, i) for i in range(40000))
-        newest = 5000 + 39999 * 60
-        self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: %ds (remote_at=%d ingested_at=1000)'
-                      % (newest - 1000, newest), self.notes())
+        for _ in range(8):
+            self.run_guard()
+            if 'lag-q-server' in self.memory()['episodes']:
+                break
+        self.assertIn('REPLY DELIVERY LAG q-server: 5000s (oldest_at=5000 ingested_at=1000)',
+                      self.notes())
 
     def test_steady_state_reads_only_appended_lines(self):
         (self.state / '.last-watcher-beat').touch()
@@ -343,7 +409,7 @@ os.execv(real,[command]+sys.argv[3:])
                                       'done [at=1901]: newer reply\n')
         self.run_guard()
         self.assertEqual(len(self.reader_calls()), cold_calls + 2)
-        self.assertIn('REPLY DELIVERY LAG q-server: 901s (remote_at=1901 ingested_at=1000)',
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s (oldest_at=1901 ingested_at=1000)',
                       self.notes())
 
     def test_unicode_and_crlf_preserve_transport_cursor(self):
@@ -352,7 +418,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.config['remote_file'] += 'done [at=1901]: café\r\n'
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 901s', self.notes())
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s', self.notes())
         self.assertEqual(self.memory()['readers']['q-server']['offset'],
                          len(self.config['remote_file'].encode()))
         self.assertNotIn('q-server', self.memory()['read_fails'])
@@ -361,8 +427,11 @@ os.execv(real,[command]+sys.argv[3:])
         (self.state / '.last-watcher-beat').touch()
         self.config['remote_file'] = 'working [at=1000]: café\n' * 50000
         self.config['remote_file'] += 'done [at=1901]: café\n'
-        self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 901s', self.notes())
+        for _ in range(8):
+            self.run_guard()
+            if 'lag-q-server' in self.memory()['episodes']:
+                break
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s', self.notes())
         self.assertEqual(self.memory()['readers']['q-server']['offset'],
                          len(self.config['remote_file'].encode()))
 
@@ -371,7 +440,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.config['remote_file'] = 'done [at=1901]: café\r\n'
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 901s', self.notes())
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s', self.notes())
         self.assertEqual(self.memory()['readers']['q-server']['offset'],
                          len(self.config['remote_file'].encode()))
         self.assertNotIn('q-server', self.memory()['read_fails'])
@@ -384,7 +453,7 @@ os.execv(real,[command]+sys.argv[3:])
         with status.open('a') as out:
             out.write('note [at=4000]: remote reply continuity broken\n')
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 2000s (remote_at=3000 ingested_at=1000)',
+        self.assertIn('REPLY DELIVERY LAG q-server: 2000s (oldest_at=3000 ingested_at=1000)',
                       self.notes())
         incident = self.memory()['episodes']['lag-q-server']
         before = len(list((self.state / 'inbox').glob('*.note')))
@@ -408,7 +477,7 @@ os.execv(real,[command]+sys.argv[3:])
         mirrored.unlink()
         self.config['remote'] = 1901
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 1901s (remote_at=1901 ingested_at=0)',
+        self.assertIn('REPLY DELIVERY LAG q-server: 3099s (oldest_at=1901 ingested_at=0)',
                       self.notes())
         incident = self.memory()['episodes']['lag-q-server']
         mirrored.touch()
@@ -423,7 +492,7 @@ os.execv(real,[command]+sys.argv[3:])
                                       'working [at=1200]: backlog\n' * 5000 +
                                       'done [at=3000]: latest\n')
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 2000s', self.notes())
+        self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
 
     def test_over_budget_backlog_stays_unverified_until_tail(self):
@@ -438,7 +507,7 @@ os.execv(real,[command]+sys.argv[3:])
         self.run_guard()
         self.assertIn('REPLY DELIVERY UNVERIFIED q-server', self.notes())
         self.run_guard()
-        self.assertIn('REPLY DELIVERY LAG q-server: 2000s', self.notes())
+        self.assertIn('REPLY DELIVERY LAG q-server: 3800s', self.notes())
         self.assertNotIn('q-server', self.memory()['read_fails'])
 
     def test_single_transient_read_failure_is_tolerated_without_alarm(self):

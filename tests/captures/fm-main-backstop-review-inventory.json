@@ -1,7 +1,7 @@
 {
   "scope": {
     "base": "2c93247f77cfa4c003a1bdc52938e6913805a442",
-    "reviewed_head": "b1a3035ee23f8d029da64f5386ffa44d128ded0c"
+    "reviewed_head": "e80d1a629baec982064b39bc5da62b82ffda760f"
   },
   "provenance": "Current review findings independently checked against executable paths; prior inventory retained separately below.",
   "findings": {
@@ -95,7 +95,7 @@
       "resolution": "The shared nudge now requires an empty composer and uses existing backend submission guards; refusals enter the existing durable recovery alarm path without advancing last_nudge.",
       "negative_evidence": [
         "All three trouble causes converge on one nudge block.",
-        "All remote read representations feed the same trouble path; their timestamp metric is unchanged.",
+        "All remote read representations feed the same guarded nudge path after the shared elapsed-delay comparison.",
         "No other raw text/Enter pair remains in the backstop.",
         "Tmux, Orca, cmux, paseo and zellij are outside the Herdr-only backstop interface.",
         "The real live Herdr guard was not run: this phase has no isolated-lab authorization."
@@ -107,6 +107,54 @@
         "evidence": ".no-mistakes/review-fixes/backstop-draft-guard.log",
         "coverage": "Real backstop executable, shared composer classifier, backend submission implementation and durable inbox, with stateful fake Herdr transport. Pending drafts for Claude and Codex remained unchanged; empty Claude and Codex submissions confirmed; unreadable composers and unconfirmed submissions alarmed without advancing last_nudge.",
         "old_code_execution": "Not run; verification was limited to one final focused invocation after all code fixes."
+      }
+    },
+    "R3_elapsed_delivery": {
+      "invariant": "Lag is the elapsed age of the oldest unmirrored reply, zero when caught up, and an incident clears only after its recorded oldest reply is mirrored.",
+      "cause": "The shared comparison subtracted two emission timestamps, while the oversized reader skipped older replies and the cursor retained only the newest timestamp.",
+      "affected_occurrences": [
+        "bin/fm-main-backstop.py:header monitoring contract",
+        "bin/fm-main-backstop.py:valid_reader cursor contract",
+        "bin/fm-main-backstop.py:drain_delta",
+        "bin/fm-main-backstop.py:remote_oldest",
+        "bin/fm-main-backstop.py:main watermark, lag and incident clearing",
+        "tests/fm-main-backstop.test.py:controlled-clock executable regressions"
+      ],
+      "axes": [
+        "whole-file bootstrap",
+        "steady-state delta",
+        "partial progress over scan budget",
+        "replacement and truncation",
+        "oversized bootstrap from byte zero",
+        "Unicode and CRLF byte offsets",
+        "missing or empty mirror watermark",
+        "close emission timestamps",
+        "first fresh reply after long silence",
+        "partial mirroring",
+        "incident deduplication and clearing",
+        "inconclusive reads",
+        "migration from newest-only cursors"
+      ],
+      "resolution": "Keep deduplicated unmirrored timestamps in the existing byte cursor, compute age from their minimum at the shared comparison, and retain each alarm timestamp until the watermark passes it. Remove tail-only bootstrap and its now-unused prefix adoption helper and constants.",
+      "negative_evidence": [
+        "Whole-file and delta results converge on remote_oldest and one shared main comparison.",
+        "Local status notices remain excluded from the ingestion watermark.",
+        "Over-budget scans preserve cursor progress and remain unverified until the tail is reached.",
+        "Replacement scans preserve pending timestamps until mirrored, so truncation cannot clear an existing incident.",
+        "R1 fixture cleanup and R6 draft-safe nudge paths are retained unchanged.",
+        "Declined later-stage scope and Grok proof work are unchanged."
+      ],
+      "verification": {
+        "command": "bash bin/fm-test-run.sh --jobs 1 tests/fm-main-backstop.test.sh",
+        "oracle": "At mirrored=1000 and pending=1060, now=1100 is quiet and now=1961 alarms at 901 seconds; at now=100000 a first reply emitted at 99990 is only ten seconds old. Partial mirroring advances the oldest timestamp and resolves only the mirrored incident.",
+        "result": "2026-10-21: focused suite ran 38 tests in 81.469s; 37 passed and one failed because the test expectation was mistyped as 13099 instead of 3099. Corrected that expectation; the affected case passed in 2.492s. No product code changed after the full focused run.",
+        "evidence": [
+          ".no-mistakes/review-fixes/backstop-elapsed-delay.log",
+          ".no-mistakes/review-fixes/backstop-elapsed-delay-corrected-case.log"
+        ],
+        "corrected_case_command": "bash -c '. tests/lib.sh; export ROOT; python3 tests/fm-main-backstop.test.py Backstop.test_no_ingestion_evidence_does_not_use_local_notices'",
+        "coverage": "Whole-file, delta, replacement, oversized and partial-budget scans; controlled-clock close-emission and fresh-after-silence examples; partial mirroring, old cursor migration, durable incident recovery, and the retained draft-safe nudge tests.",
+        "old_code_execution": "Not run; all initial changes preceded the focused verification. Only the failing test expectation was corrected before its single-case recheck."
       }
     }
   },
