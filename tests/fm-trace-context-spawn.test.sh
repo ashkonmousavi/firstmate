@@ -229,7 +229,8 @@ run_two_level() {
   start_trace_session "$prim" "$penv"
 
   # Seed the secondmate home so validate_firstmate_home_for_spawn accepts it.
-  mkdir -p "$sm/bin" "$sm/data"
+  mkdir -p "$sm/bin" "$sm/data" "$sm/config"
+  printf '999999 0\n' > "$sm/config/lane-capacity"
   printf '# Firstmate\n' > "$sm/AGENTS.md"
   printf 'sm-%s\n' "$name" > "$sm/.fm-secondmate-home"
   printf 'charter\n' > "$sm/data/charter.md"
