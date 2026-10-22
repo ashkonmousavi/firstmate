@@ -792,7 +792,7 @@ fm_dod_nm_handoff_line_epoch() {  # <line> <head>
 # Exit 0 when the file is readable, including when nothing is printed.
 # Exit 1 when the file is missing or unreadable.
 # Does not read the current kind or mode.
-# bin/fm-watch.sh is the caller and must not grow a second parser.
+# bin/fm-nm-handoff-lib.sh consumes this list for both supervision paths.
 fm_dod_nm_handoff_ids() {  # <status-file> <head>
   local f=$1 head=$2 line epoch
   [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 1

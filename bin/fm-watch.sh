@@ -17,9 +17,8 @@
 # while an away record (state/.afk-contract, never quiet mode's) exists an
 # item held for the captain is never rechecked at all, in either posture.
 # While state/.afk exists, the daemon owns triage and this watcher queues and exits
-# on every wake, except a stopped-before-validation handoff: bin/fm-dod-lib.sh's
-# id list decides that one, the first current-head handoff is absorbed, and the
-# one escalation still queues. Printed reason lines:
+# on every wake, subject to the shared handoff policy in bin/fm-nm-handoff-lib.sh.
+# Printed reason lines:
 #   signal: <file>...      status/turn-end signals, surfaced when a listed status
 #                          span has a captain-relevant event OR a no-verb signal lacks
 #                          positive execution evidence, unless afk is active
@@ -239,8 +238,7 @@ WATCH_HOME_EXISTED=0
 # (inbox_steer_check below).
 # shellcheck source=bin/fm-task-inbox-lib.sh
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
-# Handoff identity is fm_dod_nm_handoff_ids. This watcher only counts those
-# epochs and sends the one steer or the one escalation.
+# Shared handoff decision and delivery policy for both supervision paths.
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/fm-nm-handoff-lib.sh"
 # The away-posture record (state/.afk-contract) is the posture in both the
@@ -2868,8 +2866,7 @@ EOF
 }
 
 # Drop absorbed and escalated tasks out of this signal batch.
-# A total of 1 sends the steer. Reaching two eligible lines enqueues one
-# signal row keyed nm-handoff-<sha> and does not also enqueue an ordinary row.
+# bin/fm-nm-handoff-lib.sh owns the decision; unrelated events stay in the batch.
 # NM_HANDOFF_EXIT_REASON is set when that escalation is the only remaining wake.
 nm_handoff_apply_batch() {
   local sf sig f task tasks="" action steer drop="" next_pending="" next_files="" row_task
@@ -2931,7 +2928,7 @@ EOF
 }
 
 # 0 when a stale pane for this head should be absorbed instead of waking.
-# total 1 sends the steer when it is not already recorded.
+# Uses the shared handoff policy before committing the snapshot endpoint.
 nm_handoff_absorb_stale_pane() {  # <task>
   local task=$1 status="$STATE/$1.status" action
   nm_handoff_decide "$task" "$(hb_surfaced_offset "$task")"

@@ -8101,6 +8101,135 @@ test_nm_handoff_payload_review_round() {
   test_nm_handoff_direct_and_scout_do_not_steer
 }
 
+# Recorded acceptance oracle: handoff counts are per HEAD, hooks are not
+# handoffs, and only stopped-before-validation no-mistakes ships are steered.
+# Each case enters the watcher batch or daemon wake boundary independently;
+# canned crew state and the send recorder make these fixtures, not live proofs.
+nm_handoff_gap_case() {
+  local scenario=$1 consumer=$2 mode=$3 dir state fakebin repo sha
+  dir=$(make_case "nm-gap-$scenario-$consumer-$mode"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  [ "$mode" != away ] || : > "$state/.afk"
+  cat > "$fakebin/fm-send.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+mkdir -p "$FM_STATE_OVERRIDE/$1.inbox"
+n=$(ls "$FM_STATE_OVERRIDE/$1.inbox/" | wc -l | tr -d '[:space:]')
+printf '%s\n' -- "$2" > "$FM_STATE_OVERRIDE/$1.inbox/$n.msg"
+SH
+  chmod +x "$fakebin/fm-send.sh"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" FM_NM_HANDOFF_SEND_DIR="$fakebin" \
+    FM_ESCALATE_BATCH_SECS=999999 FM_HEARTBEAT_SCAN_SECS=0 \
+    bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" "$fakebin" \
+    "$scenario" "$consumer" "$sha" "$repo" <<'SH' || fail "paired handoff gap: $scenario/$consumer/$mode"
+set -eu
+. "$1"
+. "$2"
+SCRIPT_DIR=$3
+scenario=$4 consumer=$5 sha=$6 repo=$7
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+check() {
+  "$@" || {
+    printf 'acceptance assertion failed: %s\n' "$*" >&2
+    for evidence in "$LOG" "$STATE/.subsuper-escalations" "$STATE/remaining-files"; do
+      if [ -f "$evidence" ]; then
+        printf 'consumer output %s:\n' "$evidence" >&2
+        cat "$evidence" >&2
+      fi
+    done
+    exit 1
+  }
+}
+steers() { find_count=0; for msg in "$STATE/ship1.inbox/"*.msg; do [ ! -f "$msg" ] || find_count=$((find_count+1)); done; printf '%s' "$find_count"; }
+# Drive real consumer functions, and retain their observable output for assertions.
+consume() {
+  nm_handoff_snapshot_clear
+  if [ "$consumer" = watcher ]; then
+    pending=$(scan_signals)
+    files=$*
+    signal_files_actionable "$@" || :
+    nm_handoff_apply_batch
+    printf '%s\n' "$files" > "$STATE/remaining-files"
+  else
+    handle_wake "signal: $*" "$STATE"
+  fi
+}
+check_no_escalation() { check test ! -s "$STATE/.wake-queue"; }
+check_one_escalation() {
+  check awk -F '\t' -v key="nm-handoff-$sha" -v path="$STATE/ship1.status" '
+    $3 == "signal" { all++; if ($4 == key && $5 == "signal: " path " stopped-before-validation head=" substr(key,12) " lines=100,200") n++ }
+    END { exit !(all == 1 && n == 1) }' "$STATE/.wake-queue"
+}
+case "$scenario" in
+  preloaded)
+    printf 'done [at=100] [handoff=%s]: café\ndone [at=200] [handoff=%s]: second\n' "$sha" "$sha" > "$STATE/ship1.status"
+    consume "$STATE/ship1.status"
+    check_one_escalation
+    check test "$(steers)" = 0
+    consume "$STATE/ship1.status"
+    check_one_escalation
+    ;;
+  hooks)
+    printf 'done [at=100] [handoff=%s]: first\n' "$sha" > "$STATE/ship1.status"
+    : > "$STATE/ship1.turn-ended"
+    consume "$STATE/ship1.status" "$STATE/ship1.turn-ended"
+    check test "$(steers)" = 1
+    check_no_escalation
+    if [ "$consumer" = watcher ]; then
+      check test -z "$(cat "$STATE/remaining-files")"
+    else
+      check test ! -s "$STATE/.subsuper-escalations"
+    fi
+    printf 'done [at=200] [handoff=%s]: second\n' "$sha" >> "$STATE/ship1.status"
+    consume "$STATE/ship1.status"
+    check_one_escalation
+    handle_durable_wakes fallback "$STATE"
+    check test "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1
+    printf 'later\n' >> "$STATE/ship1.turn-ended"
+    consume "$STATE/ship1.turn-ended"
+    check_no_escalation
+    check test "$(steers)" = 1
+    check test "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1
+    printf 'kind=ship\nmode=no-mistakes\n' > "$STATE/other.meta"
+    : > "$STATE/other.turn-ended"
+    consume "$STATE/other.turn-ended"
+    if [ "$consumer" = watcher ]; then
+      check grep -F "$STATE/other.turn-ended" "$STATE/remaining-files"
+    else
+      check grep -F 'other.turn-ended' "$STATE/.subsuper-escalations"
+    fi
+    printf 'next\n' >> "$repo/README.md"
+    git -C "$repo" add README.md
+    git -C "$repo" -c user.name=Tests -c user.email=tests@example.invalid commit -qm next
+    printf 'new head hook\n' >> "$STATE/ship1.turn-ended"
+    consume "$STATE/ship1.turn-ended"
+    check test "$(steers)" = 1
+    check_no_escalation
+    ;;
+esac
+SH
+  nm_no_marker "$state" || fail "paired gap left a marker: $scenario/$consumer/$mode"
+  pass "paired handoff acceptance $scenario via $consumer ($mode)"
+}
+
+test_nm_handoff_gap_preloaded() {
+  local mode consumer
+  for mode in attended away; do
+    for consumer in watcher daemon; do nm_handoff_gap_case preloaded "$consumer" "$mode"; done
+  done
+}
+
+test_nm_handoff_gap_hooks() {
+  local mode consumer
+  for mode in attended away; do
+    for consumer in watcher daemon; do nm_handoff_gap_case hooks "$consumer" "$mode"; done
+  done
+}
+
 # CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
 # churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
 if [ -n "${FM_TEST_ONLY:-}" ]; then
@@ -8294,3 +8423,6 @@ test_nm_handoff_head_change_hook_does_not_escalate
 test_nm_handoff_working_failure_is_not_absorbed
 test_nm_handoff_done_state_does_not_steer
 test_nm_handoff_direct_and_scout_do_not_steer
+
+test_nm_handoff_gap_preloaded
+test_nm_handoff_gap_hooks

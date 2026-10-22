@@ -17,7 +17,7 @@
 # names this branch and reports runs_on_current_branch: 0. Missing or unreadable
 # no-mistakes tooling is not positive absence and leaves the usual verdict intact.
 # An attributed passed run with a PR stays authoritative over a handoff log line.
-# bin/fm-watch.sh owns the one start-validation steer and the one escalation for this state.
+# bin/fm-nm-handoff-lib.sh owns automatic handoff handling for both supervisors.
 #
 # The determinism lives entirely here - run-step / pane / log reads, fixed
 # mapping logic, and terminal passed-run PR detail from bounded evidence only,

@@ -11,9 +11,10 @@
 #   EOF
 #
 # One line is written:
-#   <state> [key=K] [corr=ID] [at=<epoch>]: <text>
+#   <state> [key=K] [corr=ID] [at=<epoch>] [handoff=<sha>]: <text>
 # Key and corr are omitted when those flags are absent. Their order is the
 # documented before-colon order: key, then corr, then the time stamp.
+# The optional handoff tag follows the rule below.
 # Newlines in the text are folded to spaces. One trailing newline, the
 # heredoc's usual terminator, is dropped before that fold.
 # The clock is read here. A hand-written status line still uses the literal

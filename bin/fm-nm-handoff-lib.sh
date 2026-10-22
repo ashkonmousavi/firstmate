@@ -1,4 +1,27 @@
 #!/usr/bin/env bash
+# Shared stopped-before-validation handoff policy for the watcher and away daemon.
+# Crew-state classification is owned by bin/fm-crew-state.sh; eligible log-line
+# identity is owned by fm_dod_nm_handoff_ids in bin/fm-dod-lib.sh.
+# Decisions use a bounded status-log snapshot, current crew state, and worktree
+# HEAD, without a per-task handoff marker file.
+# Only stopped-before-validation crews enter the steer/escalation policy.
+# One eligible current-head handoff requests this exact steer:
+#   The done line at=<epoch> for head <sha> is the handoff, not completion. Start validation now with /no-mistakes.
+# An identical body in the task inbox or handled inbox suppresses another send.
+# Two or more eligible handoffs not already queued or receipted escalate without
+# steering, with queue key
+# nm-handoff-<sha> and a payload naming the absolute status path, head, and
+# comma-separated epochs in file order.
+# Publication rechecks the queued key and live log receipt under the queue lock;
+# the receipt suppresses republication even after the queue row is acknowledged.
+# Internal done [handoff-escalated=<sha>] receipts are filtered independently of
+# crew state, preserving byte positions so they cannot become another done wake.
+# Unrelated actionable status events retain ordinary classification alongside
+# the handoff action; needs-decision spans retain ordinary handling.
+# Snapshot endpoints bound consumption so appends during classification or send
+# remain unread for the next pass.
+# Regression entry points: tests/fm-watch-triage.test.sh,
+# tests/fm-dod-lib.test.sh, and tests/fm-status-append.test.sh.
 NM_HANDOFF_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=bin/fm-dod-lib.sh
 . "$NM_HANDOFF_LIB_DIR/fm-dod-lib.sh"
