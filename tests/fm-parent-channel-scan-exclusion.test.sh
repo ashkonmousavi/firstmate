@@ -263,6 +263,8 @@ test_heartbeat_backstop_skips_channel_in_remote_mate() {
   esac
   # A genuine task's captain-relevant line must keep reaching the backstop.
   printf 'blocked [key=wedge]: the crew is stuck\n' >> "$dir/home/state/real-task.status"
+  # Start the next watcher pass, as the production poll loop does.
+  nm_handoff_snapshot_clear
   heartbeat_scan_finds_actionable; rc=$?
   [ "$rc" -eq 0 ] || fail "a genuine task's decision must surface through the heartbeat backstop"
   case "$FM_HEARTBEAT_SURFACE_ENDPOINTS" in

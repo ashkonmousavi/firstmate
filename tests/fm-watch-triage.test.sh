@@ -7162,168 +7162,6 @@ test_paused_bg_job_until_timeout_rechecks_after_the_job_ends() {
   pass "until set to a background job's timeout rechecks the worker paused on it once the job must have ended"
 }
 
-# CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
-# churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
-if [ -n "${FM_TEST_ONLY:-}" ]; then
-  "$FM_TEST_ONLY"
-  exit 0
-fi
-
-test_status_span_actionable_classifier
-test_status_span_survives_a_later_routine_append
-test_status_span_respects_decision_closure
-test_status_span_closure_from_an_offset
-test_malformed_seen_signature_reads_the_whole_log
-test_stale_is_terminal_classifier
-test_classifier_primitives
-test_unrecognized_status_prefix_is_visible
-test_crew_is_provably_working_classifier
-test_status_is_paused_classifier
-test_crew_absorb_class_classifier
-test_crew_worktree_written_since_classifier
-test_empty_write_prune_widens_the_probe
-test_empty_write_prune_from_the_environment_widens_the_probe
-test_worktree_write_probe_is_wall_clock_bounded
-test_signal_crew_provably_working_classifier
-test_secondmate_status_routine_absorbed_routed_surfaced_classifier
-test_provably_working_signal_absorbed
-test_turn_ended_provably_working_absorbed
-test_turn_ended_not_working_surfaced
-test_turn_ended_churning_pane_absorbed
-test_turn_ended_churn_resets_prior_stale_classification
-test_turn_ended_churn_resets_wedge_state_before_stale_poll
-test_turn_ended_churn_existing_marker_absorbed
-test_turn_ended_still_pane_surfaced
-test_turn_ended_malformed_prior_hash_surfaced
-test_unknown_alive_stale_is_bounded_after_its_first_alarm
-test_unknown_alive_stale_without_progress_keeps_surfacing
-test_turn_ended_trailing_newline_prior_hash_surfaced
-test_secondmate_turn_ended_churning_pane_surfaced
-test_turn_ended_colliding_window_key_surfaced
-test_turn_ended_duplicate_endpoint_records_surfaced
-test_turn_ended_mixed_positive_evidence_batch_absorbed
-test_turn_ended_mixed_positive_evidence_batch_default_off
-test_status_and_turn_end_batch_never_uses_churn_evidence
-test_turn_ended_churn_absorb_off_by_default
-test_turn_ended_churn_absorb_bounded
-test_turn_ended_churn_timer_write_failure_surfaced
-test_turn_ended_invalid_churn_bound_surfaced
-test_turn_ended_oversized_churn_bound_surfaced
-test_turn_ended_invalid_churn_deadline_surfaced
-test_turn_ended_surfaced_batch_opens_no_partial_deadline
-test_working_note_not_working_surfaced
-test_secondmate_status_note_surfaced_despite_busy_agent
-test_secondmate_routine_progress_absorbed_then_note_surfaced
-test_secondmate_buried_block_wakes_despite_busy_agent
-test_self_announced_close_does_not_rewake_but_next_note_does
-test_self_announced_close_after_open_decisions_fold_does_not_rewake
-test_folded_worker_decision_without_home_append_still_wakes
-test_separate_self_announced_answers_after_fold_wake_once
-test_self_announced_close_after_fold_still_surfaces_folded_worker_failure
-test_self_announced_close_after_fold_still_surfaces_folded_secondmate_lines
-test_actionable_signal_surfaced
-test_needs_decision_signal_payload_marked_for_branch_exclusion
-test_needs_decision_reconciliation_required_still_marked
-test_captain_held_signal_payload_marked_for_branch_exclusion
-test_pending_reply_escalation_signal_payload_marked_for_branch_exclusion
-test_ordinary_blocked_signal_payload_remains_branch_eligible
-test_routine_signal_payload_not_marked_needs_decision
-test_actionable_signal_survives_a_later_routine_append
-test_keyed_decision_signal_reads_only_the_new_span
-test_release_completion_survives_a_later_routine_append
-test_routine_appends_after_a_classified_event_stay_absorbed
-test_unreadable_status_reports_once_per_file_state
-test_permission_recovery_surfaces_preserved_status
-test_terminal_stale_surfaced
-test_stale_terminal_status_overridden_by_active_run
-test_nonterminal_stale_provably_working_absorbed_then_escalated
-test_wedge_escalation_marks_demand_deep_inspection_after_threshold
-test_wedge_escalation_resets_when_pane_becomes_active
-test_gone_endpoint_reports_once_instead_of_escalating_forever
-test_live_and_unproven_endpoints_still_wedge_escalate
-test_wedge_guards_absent_config_keeps_the_unchanged_ladder
-test_wedge_guard_critical_defers_one_window_at_a_time_up_to_the_cap
-test_wedge_guard_failures_fail_open
-test_wedge_guard_never_defers_a_gone_endpoint
-test_gone_report_rearms_when_the_endpoint_comes_back
-test_second_death_after_a_same_window_relaunch_reports_in_full
-test_identical_dead_display_of_a_successor_still_reports
-test_term_stops_a_watcher_blocked_inside_a_poll
-test_term_stops_a_watcher_whose_cleanup_marker_lock_is_held
-test_cleanup_marker_lock_bound_is_decimal_with_zero_default
-test_busy_pane_below_turn_age_bound_is_absorbed
-test_busy_pane_stable_hash_escalates_past_turn_age_bound
-test_busy_pane_changing_hash_escalates_past_turn_age_bound
-test_busy_pane_turn_end_touch_resets_age
-test_busy_pane_native_progress_resets_age
-test_busy_pane_repeated_escalation_reaches_demand_deep_inspection
-test_busy_pane_default_turn_age_bound_is_3600s
-test_busy_declared_pause_is_rechecked_not_wedge_escalated
-test_afk_busy_declared_pause_hands_off_plain_stale
-test_afk_busy_declared_pause_ticking_pane_hands_off_once
-test_nonterminal_stale_not_working_surfaced
-test_nonterminal_stale_paused_absorbed_then_resurfaced
-test_exited_declared_pause_is_bounded_but_live_gate_surfaces
-test_own_work_wait_keeps_first_alert_then_long_cadence
-test_absorbed_replacement_wait_does_not_inherit_the_old_throttle
-test_live_declared_wait_churn_honors_the_resurface_throttle
-test_live_paused_until_controls_recheck_time
-test_wedge_threshold_defers_to_a_declared_wait_under_a_working_verdict
-test_wedge_threshold_keeps_a_wait_past_a_default_key_answer
-test_wedge_threshold_recheck_names_the_captain_for_a_held_lane
-test_wedge_threshold_defers_to_a_backlog_captain_hold
-test_wedge_threshold_defers_to_a_parked_gate_awaiting_a_human
-test_wedge_threshold_parked_gate_needs_an_unanswered_decision
-test_wedge_threshold_parked_gate_is_off_until_armed
-test_wedge_threshold_defers_to_a_worker_blocker
-test_wedge_threshold_worker_wait_is_off_until_armed
-test_wedge_defer_refuses_a_half_filled_wait_record
-test_open_captain_call_bounds_stale_churn
-test_stale_churn_without_a_captain_call_still_alarms
-test_failed_wake_append_does_not_arm_the_captain_hold_throttle
-test_reheld_captain_call_starts_its_own_resurface_window
-test_secondmate_paused_resurfaces_in_normal_mode
-test_secondmate_captain_held_resurfaces_in_normal_mode
-test_secondmate_nonpaused_stale_remains_suppressed
-test_secondmate_unpause_clears_pause_tracking
-test_nonterminal_stale_pause_transitions_reclassify_unchanged_hash
-test_nonterminal_paused_rechecks_authoritative_state
-test_paused_authoritative_working_preserves_wedge_timer
-test_nonterminal_stale_repairs_missing_or_corrupt_timer
-test_wedge_escalation_deferred_while_worktree_is_written
-test_write_deferral_resurfaces_on_the_bounded_cadence
-test_secondmate_home_supervision_churn_is_not_write_evidence
-test_timer_repair_drops_a_finished_write_deferral_chain
-test_terminal_first_sight_drops_a_finished_write_deferral_chain
-test_triage_log_size_cap_accepts_spaced_wc_counts
-test_procevent_captured_result_surfaces_proactively
-test_procevent_unacknowledged_result_redrains_until_handled
-test_procevent_marker_keys_are_injective
-test_procevent_headlines_classify_queue_keys
-test_procevent_launch_failed_episodes_are_each_delivered
-test_procevent_surface_serializes_with_drain
-test_procevent_surface_crash_boundaries
-test_procevent_marker_failure_exits_and_replays
-test_heartbeat_no_change_absorbed
-test_heartbeat_backstop_surfaces_unsurfaced_status
-test_heartbeat_backstop_surfaces_a_masked_status
-test_beacon_stays_fresh_while_absorbing
-test_afk_signal_records_heartbeat_endpoint
-test_afk_present_reverts_watcher_to_one_shot
-test_afk_paused_changed_pane_hands_off_plain_stale
-test_captain_held_never_rechecked_while_away_record_exists
-test_live_captain_held_first_sight_silenced_by_away_record
-test_backlog_hold_never_rechecked_while_away_record_exists
-test_afk_one_shot_never_hands_off_captain_held_under_away_record
-test_captain_held_rechecked_under_a_quiet_record
-test_paused_until_near_future_is_quiet_before_the_cadence
-test_paused_until_wrong_year_is_bounded_by_the_cadence
-test_paused_until_that_passed_is_rechecked_before_the_cadence
-test_paused_bg_job_without_until_stays_silent_after_the_job_ends
-test_paused_bg_job_until_timeout_rechecks_after_the_job_ends
-
-# The recorded Claude background-task exit picker. The footer is the last
-# non-blank row, which is what fm_composer_blocking_dialog requires.
 write_exit_picker() {  # <file>
   printf '%s\n' \
     'Background work is running' \
@@ -7502,8 +7340,1089 @@ test_closed_exit_picker_drops_saved_dialog_name() {
   pass "a closed picker drops the saved dialog name, and the stale stays ordinary"
 }
 
+# Stateless no-mistakes handoff: one steer, one escalation, no marker file.
+NM_STOPPED='state: stopped-before-validation · source: status-log · stopped-before-validation'
+
+nm_repo_sha() {  # <dir>
+  fm_git_init_commit "$1"
+  git -C "$1" rev-parse HEAD
+}
+
+nm_ship_meta() {  # <state> <id> <repo> [kind] [mode] [window]
+  local state=$1 id=$2 repo=$3 kind=${4:-ship} mode=${5:-no-mistakes} window=${6:-}
+  if [ -z "$window" ]; then
+    window="test:fm-$id"
+  fi
+  fm_write_meta "$state/$id.meta" "kind=$kind" "mode=$mode" "worktree=$repo" "window=$window"
+}
+
+nm_inbox_body() {  # <record>
+  local line past=0 body=
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$past" -eq 1 ]; then
+      if [ -n "$body" ]; then body="$body"$'\n'"$line"; else body=$line; fi
+    fi
+    [ "$line" = -- ] && past=1
+  done < "$1"
+  printf '%s' "$body"
+}
+
+nm_steer_text() {  # <epoch> <sha>
+  printf 'The done line at=%s for head %s is the handoff, not completion. Start validation now with /no-mistakes.' "$1" "$2"
+}
+
+nm_steer_count() {  # <state> <id> <text>
+  local state=$1 id=$2 want=$3 dir n=0 f body
+  dir="$state/$id.inbox"
+  for f in "$dir"/*.msg "$dir/handled"/*.msg; do
+    [ -f "$f" ] || continue
+    body=$(nm_inbox_body "$f")
+    [ "$body" = "$want" ] && n=$((n + 1))
+  done
+  printf '%s\n' "$n"
+}
+
+nm_escalation_count() {  # <state> <sha>
+  local state=$1 sha=$2 n=0 line
+  [ -f "$state/.wake-queue" ] || { printf '0\n'; return 0; }
+  while IFS= read -r line; do
+    case "$line" in
+      *$'\t'"signal"$'\t'"nm-handoff-$sha"$'\t'*) n=$((n + 1)) ;;
+    esac
+  done < "$state/.wake-queue"
+  printf '%s\n' "$n"
+}
+
+nm_watch_quiet() {  # <state> <fakebin> <out> [crew-state]
+  export FM_FAKE_CREW_STATE="${4:-$NM_STOPPED}"
+  watch_bg "$1" "$2" "$3"
+  pid=$!
+  if ! wait_poll_cycle "$1" "$pid" 300; then
+    reap "$pid"
+    return 1
+  fi
+}
+
+nm_watch_exit() {  # <state> <fakebin> <out> [crew-state]
+  export FM_FAKE_CREW_STATE="${4:-$NM_STOPPED}"
+  watch_bg "$1" "$2" "$3"
+  pid=$!
+  wait_for_exit "$pid" 200
+}
+
+nm_no_marker() {  # <state>
+  local f
+  for f in "$1"/*.nm-handoff "$1"/.nm-handoff "$1"/*/.nm-handoff; do
+    [ -e "$f" ] && return 1
+  done
+  return 0
+}
+
+test_nm_handoff_first_steers_once() {
+  local dir state fakebin out repo sha text n
+  dir=$(make_case nm-first); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  text=$(nm_steer_text 100 "$sha")
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "first handoff woke: $(cat "$out")"
+  n=$(nm_steer_count "$state" ship1 "$text")
+  [ "$n" -eq 1 ] || fail "first handoff steer count was $n, inbox=$(ls "$state/ship1.inbox" 2>/dev/null)"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 0 ] || fail "first handoff escalated"
+  wait_poll_cycle "$state" "$pid" 300 || { reap "$pid"; fail "second poll of an unchanged handoff woke: $(cat "$out")"; }
+  n=$(nm_steer_count "$state" ship1 "$text")
+  [ "$n" -eq 1 ] || fail "second poll wrote another steer ($n)"
+  [ ! -s "$state/.wake-queue" ] || fail "unchanged handoff queued a wake: $(cat "$state/.wake-queue")"
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "one tagged handoff steers once and does not wake"
+}
+
+test_nm_handoff_second_escalates_once() {
+  local dir state fakebin out repo sha text held
+  dir=$(make_case nm-second); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  text=$(nm_steer_text 100 "$sha")
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "first of two handoffs woke: $(cat "$out")"
+  printf 'done [at=200] [handoff=%s]: implementation complete\n' "$sha" >> "$state/ship1.status"
+  wait_for_exit "$pid" 200 || { reap "$pid"; fail "second handoff did not escalate: $(cat "$out")"; }
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "second handoff sent another steer"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 1 ] || fail "second handoff escalation count was not 1: $(cat "$state/.wake-queue" 2>/dev/null)"
+  grep -F "lines=100,200" "$state/.wake-queue" >/dev/null || fail "escalation did not list both epochs: $(cat "$state/.wake-queue")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the escalation"
+  held=$(nm_escalation_count "$state" "$sha")
+  printf 'done [at=300] [handoff=%s]: implementation complete\n' "$sha" >> "$state/ship1.status"
+  : > "$out"
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "third handoff woke again: $(cat "$out") $(cat "$state/.wake-queue")"
+  [ "$(nm_escalation_count "$state" "$sha")" = "$held" ] || fail "third handoff escalated again"
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "the second handoff escalates once and a third does not"
+}
+
+test_nm_handoff_both_lines_escalate_without_steer() {
+  local dir state fakebin out repo sha
+  dir=$(make_case nm-both); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" "$sha" > "$state/ship1.status"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "two handoffs already on disk did not wake: $(cat "$out")"
+  [ "$(nm_steer_count "$state" ship1 "$(nm_steer_text 100 "$sha")")" -eq 0 ] || fail "two handoffs on the first poll sent a steer"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 1 ] || fail "two handoffs did not write one escalation: $(cat "$state/.wake-queue" 2>/dev/null)"
+  awk -F '\t' '$3 == "signal" && $4 == "ship1.status" { found=1 } END { exit found }' "$state/.wake-queue" \
+    || fail "two handoffs also wrote an ordinary signal row: $(cat "$state/.wake-queue")"
+  unset FM_FAKE_CREW_STATE
+  pass "two handoffs already on disk escalate once and do not steer"
+}
+
+test_nm_handoff_utf8_note_still_escalates() {
+  local dir state fakebin out repo sha
+  dir=$(make_case nm-utf8); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: café\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" "$sha" > "$state/ship1.status"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "a café note dropped the second handoff: $(cat "$out")"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 1 ] || fail "utf-8 handoff did not escalate once: $(cat "$state/.wake-queue" 2>/dev/null)"
+  grep -F "lines=100,200" "$state/.wake-queue" >/dev/null || fail "utf-8 escalation dropped an epoch: $(cat "$state/.wake-queue")"
+  unset FM_FAKE_CREW_STATE
+  pass "a café note does not drop the second handoff"
+}
+
+test_nm_handoff_mixed_batch_wakes_blocked_and_escalates_once() {
+  local dir state fakebin out repo sha window key capture pane_hash held
+  dir=$(make_case "nm-mixed${1:-}"); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  fm_write_meta "$state/ay.meta" "kind=ship" "mode=no-mistakes"
+  printf 'blocked [at=1]: disk full\n' > "$state/ay.status"
+  nm_ship_meta "$state" bee "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" "$sha" > "$state/bee.status"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "mixed batch did not wake: $(cat "$out")"
+  grep -F "$state/ay.status" "$state/.wake-queue" >/dev/null || fail "blocked task was not queued: $(cat "$state/.wake-queue")"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 1 ] || fail "mixed batch escalation count was not 1: $(cat "$state/.wake-queue")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the mixed batch"
+  held=$(nm_escalation_count "$state" "$sha")
+  [ "${1:-}" != afk ] || : > "$state/.afk"
+  window="test:fm-bee"
+  capture=$dir/pane.txt
+  printf 'idle' > "$capture"
+  key=$(printf '%s' "$window" | tr ':/.' '___')
+  pane_hash=$(hash_text "idle")
+  printf '%s' "$pane_hash" > "$state/.hash-$key"
+  printf '1\n' > "$state/.count-$key"
+  : > "$out"
+  export FM_FAKE_CREW_STATE="$NM_STOPPED"
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_STALE_ESCALATE_SECS=999 FM_POLL=1 FM_SIGNAL_GRACE=1 \
+    FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 "$WATCH" > "$out" &
+  pid=$!
+  if ! wait_poll_cycle "$state" "$pid" 300; then
+    reap "$pid"
+    fail "stale poll after the mixed batch woke again: $(cat "$out")"
+  fi
+  [ "$(nm_escalation_count "$state" "$sha")" = "$held" ] || { reap "$pid"; fail "stale poll escalated again: $(cat "$state/.wake-queue")"; }
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "a mixed batch wakes the blocked task, escalates the handoff once, and a stale poll does not escalate again"
+}
+
+test_nm_handoff_hook_after_escalation_is_quiet() {
+  local dir state fakebin out repo sha held
+  dir=$(make_case nm-hook-after); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" "$sha" > "$state/ship1.status"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "setup escalation did not wake: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the escalation"
+  held=$(nm_escalation_count "$state" "$sha")
+  : > "$state/ship1.turn-ended"
+  : > "$out"
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "a turn-end after escalation woke: $(cat "$out")"
+  [ "$(nm_escalation_count "$state" "$sha")" = "$held" ] || fail "the later turn-end escalated again"
+  [ ! -s "$out" ] || fail "the later turn-end printed a wake: $(cat "$out")"
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "a turn-end after the escalation is absorbed"
+}
+
+test_nm_handoff_coalesced_hook_steers_without_wake() {
+  local dir state fakebin out repo sha text n
+  dir=$(make_case nm-hook-with); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  : > "$state/ship1.turn-ended"
+  text=$(nm_steer_text 100 "$sha")
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "a handoff coalesced with its turn-end woke: $(cat "$out")"
+  n=$(nm_steer_count "$state" ship1 "$text")
+  [ "$n" -eq 1 ] || fail "coalesced handoff steer count was $n"
+  [ ! -s "$state/.wake-queue" ] || fail "coalesced handoff queued a wake: $(cat "$state/.wake-queue")"
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "a turn-end coalesced with the first handoff is absorbed with the steer"
+}
+
+test_nm_handoff_unrelated_hook_still_wakes() {
+  local dir state fakebin out repo sha held
+  dir=$(make_case nm-hook-other); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" bee "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" "$sha" > "$state/bee.status"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "setup escalation did not wake: $(cat "$out")"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the escalation"
+  held=$(nm_escalation_count "$state" "$sha")
+  fm_write_meta "$state/cee.meta" "kind=ship" "mode=no-mistakes"
+  : > "$state/cee.turn-ended"
+  : > "$out"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "an unrelated turn-end did not wake: $(cat "$out")"
+  grep -F "$state/cee.turn-ended" "$out" >/dev/null || fail "the unrelated turn-end was not in the wake: $(cat "$out")"
+  [ "$(nm_escalation_count "$state" "$sha")" = "$held" ] || fail "the unrelated turn-end escalated the other task again: $(cat "$state/.wake-queue")"
+  unset FM_FAKE_CREW_STATE
+  pass "an unrelated turn-end still wakes after another task has escalated"
+}
+
+test_nm_handoff_failed_line_wakes_and_steers() {
+  local dir state fakebin out repo sha text
+  dir=$(make_case nm-failed); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'failed [at=1]: validation could not start\ndone [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  text=$(nm_steer_text 100 "$sha")
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "a failed line beside a handoff did not wake: $(cat "$out")"
+  grep -F "$state/ship1.status" "$state/.wake-queue" >/dev/null || fail "the failure was not queued: $(cat "$state/.wake-queue" 2>/dev/null)"
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "the handoff beside a failure did not steer"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 0 ] || fail "one handoff beside a failure escalated"
+  unset FM_FAKE_CREW_STATE
+  pass "a failed line still wakes, and the one handoff still steers"
+}
+
+test_nm_handoff_reused_task_id_steers() {
+  local dir state fakebin out repo sha sha2 text
+  dir=$(make_case nm-reuse); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: old\n' "$sha" > "$state/ship1.status"
+  FM_STATE_OVERRIDE="$state" bash -c '
+    . "$1/bin/fm-wake-lib.sh"
+    . "$1/bin/fm-classify-lib.sh"
+    status_retire_presentation_task "$2" ship1
+  ' _ "$ROOT" "$state" || fail "could not retire the previous presentation"
+  [ ! -e "$state/ship1.status" ] || fail "retire left the status log in place"
+  printf 'next\n' >> "$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm next
+  sha2=$(git -C "$repo" rev-parse HEAD)
+  printf 'done [at=200] [handoff=%s]: implementation complete\n' "$sha2" > "$state/ship1.status"
+  text=$(nm_steer_text 200 "$sha2")
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "a reused task id woke: $(cat "$out")"
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "a reused task id did not steer once"
+  nm_no_marker "$state" || fail "a reused task id left a handoff marker file"
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  pass "a reused task id steers once and writes no handoff marker"
+}
+
+test_nm_handoff_promotion_history_steers() {
+  local dir state fakebin out repo sha text
+  dir=$(make_case nm-promote); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100]: scout report\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  text=$(nm_steer_text 200 "$sha")
+  nm_watch_exit "$state" "$fakebin" "$out" || true
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "promotion history did not steer the ship handoff: $(cat "$out")"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 0 ] || fail "promotion history escalated the scout done: $(cat "$state/.wake-queue" 2>/dev/null)"
+  unset FM_FAKE_CREW_STATE
+  pass "an untagged scout done does not escalate the later ship handoff"
+}
+
+test_nm_handoff_unstamped_history_still_steers() {
+  local dir state fakebin out repo sha text
+  dir=$(make_case nm-unstamped); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done: old handoff without a tag\ndone [at=200] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  text=$(nm_steer_text 200 "$sha")
+  nm_watch_exit "$state" "$fakebin" "$out" || true
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "an unstamped older done blocked the steer: $(cat "$out")"
+  unset FM_FAKE_CREW_STATE
+  pass "an unstamped older done does not block the steer"
+}
+
+test_nm_handoff_head_change_hook_does_not_escalate() {
+  local dir state fakebin out repo sha sha2 text
+  dir=$(make_case nm-newhead); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  text=$(nm_steer_text 100 "$sha")
+  nm_watch_quiet "$state" "$fakebin" "$out" || fail "the first head did not stay quiet: $(cat "$out")"
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "the first head did not steer"
+  reap "$pid"
+  ack_stopped_cycle "$state" || fail "could not acknowledge the quiet stop"
+  printf 'next\n' >> "$repo/README.md"
+  git -C "$repo" add README.md
+  git -C "$repo" -c user.name='Firstmate Tests' -c user.email='tests@example.invalid' commit -qm next
+  sha2=$(git -C "$repo" rev-parse HEAD)
+  : > "$state/ship1.turn-ended"
+  : > "$out"
+  nm_watch_exit "$state" "$fakebin" "$out" || true
+  [ "$(nm_steer_count "$state" ship1 "$text")" -eq 1 ] || fail "the head change rewrote the first steer"
+  [ "$(nm_steer_count "$state" ship1 "$(nm_steer_text 100 "$sha2")")" -eq 0 ] || fail "the head change steered the new head"
+  [ "$(nm_escalation_count "$state" "$sha")" -eq 0 ] || fail "the head change escalated the old head"
+  [ "$(nm_escalation_count "$state" "$sha2")" -eq 0 ] || fail "the head change escalated the new head"
+  unset FM_FAKE_CREW_STATE
+  pass "a head change followed only by a turn-end does not steer or escalate the new head"
+}
+
+test_nm_handoff_working_failure_is_not_absorbed() {
+  local dir state fakebin out repo sha
+  dir=$(make_case nm-working-fail); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'failed [at=1]: boom\ndone [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  nm_watch_exit "$state" "$fakebin" "$out" 'state: working · source: run-step · running' \
+    || fail "a working crew's failure was absorbed: $(cat "$out")"
+  [ "$(nm_steer_count "$state" ship1 "$(nm_steer_text 100 "$sha")")" -eq 0 ] || fail "a working crew was steered"
+  grep -F "$state/ship1.status" "$state/.wake-queue" >/dev/null || fail "the failure was not queued"
+  unset FM_FAKE_CREW_STATE
+  pass "a working crew is not steered and its failure still wakes"
+}
+
+test_nm_handoff_done_state_does_not_steer() {
+  local dir state fakebin out repo sha
+  dir=$(make_case nm-done-state); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: implementation complete\n' "$sha" > "$state/ship1.status"
+  nm_watch_exit "$state" "$fakebin" "$out" 'state: done · source: status-log · done' || true
+  [ "$(nm_steer_count "$state" ship1 "$(nm_steer_text 100 "$sha")")" -eq 0 ] || fail "a done crew state was steered"
+  unset FM_FAKE_CREW_STATE
+  pass "a done crew state does not steer"
+}
+
+test_nm_handoff_direct_and_scout_do_not_steer() {
+  local dir state fakebin out repo sha
+  dir=$(make_case nm-other-modes); state="$dir/state"; fakebin="$dir/fakebin"; out="$dir/watch.out"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" direct1 "$repo" ship direct-PR
+  nm_ship_meta "$state" scout1 "$repo" scout no-mistakes
+  printf 'done [at=100]: implementation complete\n' > "$state/direct1.status"
+  printf 'done [at=100]: implementation complete\n' > "$state/scout1.status"
+  nm_watch_exit "$state" "$fakebin" "$out" || fail "an untagged direct-PR or scout done did not take the ordinary path: $(cat "$out")"
+  [ "$(nm_steer_count "$state" direct1 "$(nm_steer_text 100 "$sha")")" -eq 0 ] || fail "a direct-PR done steered"
+  [ "$(nm_steer_count "$state" scout1 "$(nm_steer_text 100 "$sha")")" -eq 0 ] || fail "a scout done steered"
+  unset FM_FAKE_CREW_STATE
+  pass "a direct-PR done and a scout done do not steer"
+}
+
+nm_handoff_snapshot_race() {
+  local dir state fakebin repo sha when=$1
+  dir=$(make_case "nm-race-$when"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: café\n' "$sha" > "$state/ship1.status"
+  cat > "$fakebin/fm-send.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+mkdir -p "$FM_STATE_OVERRIDE/$1.inbox"
+printf '%s\n' -- "$2" > "$FM_STATE_OVERRIDE/$1.inbox/1.msg"
+printf 'sent\n' >> "$FM_STATE_OVERRIDE/sends"
+if [ "$RACE_WHEN" = send ]; then
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$FM_STATE_OVERRIDE/$1.status"
+fi
+SH
+  chmod +x "$fakebin/fm-send.sh"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" RACE_WHEN="$when" RACE_SHA="$sha" \
+    bash -s -- "$WATCH" "$fakebin" <<'SH' || fail "snapshot race failed: $when"
+set -eu
+. "$1"
+SCRIPT_DIR=$2
+trap nm_handoff_snapshot_clear EXIT
+pending=$(scan_signals)
+files="$STATE/ship1.status"
+signal_files_actionable $files
+first_end=$NM_HANDOFF_END
+if [ "$RACE_WHEN" = scan ]; then
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$STATE/ship1.status"
+fi
+nm_handoff_apply_batch
+nm_handoff_absorb_stale_pane ship1
+[ ! -s "$STATE/.wake-queue" ]
+[ "$(hb_surfaced_offset ship1)" = "$first_end" ]
+nm_handoff_snapshot_clear
+pending=$(scan_signals)
+files="$STATE/ship1.status"
+signal_files_actionable $files
+nm_handoff_apply_batch
+[ "$NM_HANDOFF_EXIT_REASON" = "signal: $STATE/ship1.status stopped-before-validation head=$RACE_SHA lines=100,200" ]
+[ "$(wc -l < "$STATE/sends" | tr -d '[:space:]')" = 1 ]
+SH
+  [ "$(nm_escalation_count "$state" "$sha")" = 1 ] || fail "$when race did not escalate exactly once"
+  ack_stopped_cycle "$state" || fail "could not acknowledge $when race"
+  nm_watch_quiet "$state" "$fakebin" "$dir/watch.out" || fail "$when race woke after acknowledgement"
+  [ ! -s "$state/.wake-queue" ] || { reap "$pid"; fail "$when race queued again"; }
+  reap "$pid"
+  unset FM_FAKE_CREW_STATE
+  nm_no_marker "$state" || fail "$when race left a marker"
+  pass "$when append stays new until the next pass and escalates once"
+}
+
+test_nm_handoff_snapshot_regressions() {
+  nm_handoff_snapshot_race send
+  nm_handoff_snapshot_race scan
+  test_nm_handoff_mixed_batch_wakes_blocked_and_escalates_once afk
+}
+
+nm_handoff_consumer_case() {
+  local mode=$1 race=$2 dir state fakebin repo sha
+  dir=$(make_case "nm-consumers-$mode-$race"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: café\n' "$sha" > "$state/ship1.status"
+  [ "$mode" != away ] || : > "$state/.afk"
+  cat > "$fakebin/fm-send.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+mkdir -p "$FM_STATE_OVERRIDE/$1.inbox"
+printf '%s\n' -- "$2" > "$FM_STATE_OVERRIDE/$1.inbox/1.msg"
+printf 'sent\n' >> "$FM_STATE_OVERRIDE/sends"
+if [ "$RACE_WHEN" = send ]; then
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$FM_STATE_OVERRIDE/$1.status"
+fi
+SH
+  chmod +x "$fakebin/fm-send.sh"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" FM_NM_HANDOFF_SEND_DIR="$fakebin" \
+    RACE_WHEN="$race" RACE_SHA="$sha" FM_ESCALATE_BATCH_SECS=999999 \
+    FM_HEARTBEAT_SCAN_SECS=0 bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" "$fakebin" <<'SH' \
+      || fail "handoff consumers failed: $mode/$race"
+set -u
+. "$1"
+. "$2"
+SCRIPT_DIR=$3
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+first_end=$(wc -c < "$STATE/ship1.status" | tr -d '[:space:]')
+pending=$(scan_signals)
+files="$STATE/ship1.status"
+signal_files_actionable $files
+if [ "$RACE_WHEN" = scan ]; then
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$STATE/ship1.status"
+fi
+nm_handoff_apply_batch
+nm_handoff_absorb_stale_pane ship1 || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(hb_surfaced_offset ship1)" = "$first_end" ] || exit 1
+nm_handoff_snapshot_clear
+if [ "$RACE_WHEN" = normal ]; then
+  housekeeping "$STATE" || exit 1
+  [ ! -s "$STATE/.subsuper-escalations" ] || exit 1
+  [ ! -s "$STATE/.wake-queue" ] || exit 1
+  case "$(classify_signal "$STATE/ship1.status" "$STATE")" in self\|*) ;; *) exit 1 ;; esac
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$STATE/ship1.status"
+  pending=$(scan_signals)
+  files="$STATE/ship1.status"
+  signal_files_actionable $files
+  nm_handoff_apply_batch
+  nm_handoff_snapshot_clear
+else
+  housekeeping "$STATE" || exit 1
+fi
+awk -F '\t' -v key="nm-handoff-$RACE_SHA" -v path="$STATE/ship1.status" '
+  $3 == "signal" && $4 == key && $5 == "signal: " path " stopped-before-validation head=" substr(key,12) " lines=100,200" { n++ }
+  END { exit n != 1 }
+' "$STATE/.wake-queue" || exit 1
+[ "$(wc -l < "$STATE/sends" | tr -d '[:space:]')" = 1 ] || exit 1
+handle_durable_wakes fallback "$STATE" || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1 ] || exit 1
+grep -F "signal: $STATE/ship1.status stopped-before-validation head=$RACE_SHA lines=100,200" "$STATE/.subsuper-escalations" >/dev/null || exit 1
+housekeeping "$STATE" || exit 1
+handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1
+handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1 ] || exit 1
+printf 'blocked [at=300]: unrelated disk failure\n' > "$STATE/other.status"
+handle_wake "signal: $STATE/other.status" "$STATE" || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 2 ] || exit 1
+SH
+  nm_no_marker "$state" || fail "consumer fixture left a marker"
+  pass "watcher and daemon share one steer and escalation in $mode mode ($race append)"
+}
+
+test_nm_handoff_shared_consumers() {
+  local mode race
+  for mode in attended away; do
+    for race in normal send scan; do
+      nm_handoff_consumer_case "$mode" "$race"
+    done
+  done
+}
+
+nm_handoff_dirty_case() {
+  local mode=$1 intake=$2 dir state fakebin repo sha
+  dir=$(make_case "nm-dirty-$mode-$intake"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: café\nfailed [at=150]: disk operation failed\ndone [at=200] [handoff=%s]: complete\n' "$sha" "$sha" > "$state/ship1.status"
+  [ "$mode" != away ] || : > "$state/.afk"
+  if [ "$intake" = watcher-batch ]; then
+    nm_watch_exit "$state" "$fakebin" "$dir/watch.out" || fail "mixed handoff batch did not wake"
+    awk -F '\t' '$3 == "signal" && $4 == "ship1.status" { n++ } END { exit n < 1 }' "$state/.wake-queue" \
+      || fail "mixed batch discarded the ordinary signal: $(cat "$state/.wake-queue")"
+  fi
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" DIRTY_INTAKE="$intake" DIRTY_SHA="$sha" \
+    FM_ESCALATE_BATCH_SECS=999999 FM_HEARTBEAT_SCAN_SECS=0 \
+    bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" <<'SH' \
+      || fail "mixed handoff span lost an event: $mode/$intake"
+set -u
+. "$1"
+. "$2"
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+case "$DIRTY_INTAKE" in
+  watcher-batch) : ;;
+  watcher-stale)
+    if nm_handoff_absorb_stale_pane ship1; then exit 1; fi
+    [ "$(hb_surfaced_offset ship1)" = 0 ] || exit 1
+    nm_handoff_snapshot_clear
+    housekeeping "$STATE" || exit 1
+    ;;
+  daemon-signal) handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1 ;;
+  daemon-stale) handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1 ;;
+  daemon-scan) housekeeping "$STATE" || exit 1 ;;
+esac
+awk -F '\t' -v key="nm-handoff-$DIRTY_SHA" '
+  $3 == "signal" && $4 == key && $5 ~ /lines=100,200$/ { n++ }
+  END { exit n != 1 }
+' "$STATE/.wake-queue" || exit 1
+handle_durable_wakes fallback "$STATE" || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(grep -c -F 'disk operation failed' "$STATE/.subsuper-escalations")" = 1 ] || exit 1
+[ "$(grep -c -F -x "signal: $STATE/ship1.status stopped-before-validation head=$DIRTY_SHA lines=100,200" "$STATE/.subsuper-escalations")" = 1 ] || exit 1
+before=$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')
+housekeeping "$STATE" || exit 1
+handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1
+handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = "$before" ] || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+SH
+  nm_no_marker "$state" || fail "mixed handoff left a marker"
+  unset FM_FAKE_CREW_STATE
+  pass "mixed handoff preserves the failure through $intake in $mode mode"
+}
+
+test_nm_handoff_dirty_spans() {
+  local mode intake
+  for mode in attended away; do
+    for intake in watcher-batch watcher-stale daemon-signal daemon-stale daemon-scan; do
+      nm_handoff_dirty_case "$mode" "$intake"
+    done
+  done
+}
+
+test_nm_handoff_concurrent_publishers() {
+  local dir state repo sha fakebin
+  dir=$(make_case nm-concurrent); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: first\ndone [at=200] [handoff=%s]: second\n' "$sha" "$sha" > "$state/ship1.status"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" bash -s -- "$WATCH" <<'SH' \
+      || fail "concurrent publication fixture failed"
+set -u
+. "$1"
+mkfifo "$STATE/start-watcher" "$STATE/start-daemon" || exit 1
+for publisher in watcher daemon; do
+  (
+    trap nm_handoff_snapshot_clear EXIT
+    nm_handoff_decide ship1 0
+    [ "$NM_HANDOFF_ACTION" = escalate ] || exit 1
+    : > "$STATE/ready-$publisher"
+    IFS= read -r start < "$STATE/start-$publisher" || exit 1
+    nm_handoff_publish ship1
+  ) &
+  case "$publisher" in watcher) first=$! ;; daemon) second=$! ;; esac
+done
+ready=0
+for ((attempt=0; attempt<250; attempt++)); do
+  if [ -f "$STATE/ready-watcher" ] && [ -f "$STATE/ready-daemon" ]; then ready=1; break; fi
+  sleep 0.02
+done
+[ "$ready" = 1 ] || { kill "$first" "$second"; wait; exit 1; }
+printf 'start\n' > "$STATE/start-watcher"
+printf 'start\n' > "$STATE/start-daemon"
+wait "$first" || exit 1
+wait "$second" || exit 1
+SH
+  [ "$(nm_escalation_count "$state" "$sha")" = 1 ] || fail "concurrent publishers queued duplicate handoffs"
+  ack_stopped_cycle "$state" || fail "could not acknowledge concurrent publication"
+  FM_STATE_OVERRIDE="$state" bash -s -- "$WATCH" "$sha" <<'SH' || fail "receipted publisher failed"
+set -u
+. "$1"
+NM_HANDOFF_HEAD=$2
+NM_HANDOFF_KEY="nm-handoff-$2"
+NM_HANDOFF_PAYLOAD="signal: $STATE/ship1.status stopped-before-validation head=$2 lines=100,200"
+nm_handoff_publish ship1 || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(grep -c -F "done [handoff-escalated=$2]: " "$STATE/ship1.status")" = 1 ] || exit 1
+SH
+  nm_no_marker "$state" || fail "concurrent publication left a marker"
+  pass "concurrent publishers queue once and a stale publisher respects the live receipt after acknowledgement"
+}
+
+nm_handoff_receipt_transition_case() {
+  local mode=$1 verdict=$2 dir state fakebin repo sha crew_state
+  dir=$(make_case "nm-receipt-$mode-$verdict"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: first\ndone [at=200] [handoff=%s]: second\n' "$sha" "$sha" > "$state/ship1.status"
+  [ "$mode" != away ] || : > "$state/.afk"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" <<'SH' \
+      || fail "could not publish receipt transition fixture"
+set -u
+. "$1"
+. "$2"
+trap nm_handoff_snapshot_clear EXIT
+nm_handoff_decide ship1 0
+[ "$NM_HANDOFF_ACTION" = escalate ] || exit 1
+nm_handoff_publish ship1 || exit 1
+fm_wake_status_seen_commit "$STATE" "$STATE/ship1.status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || exit 1
+mark_surfaced "$STATE/ship1.status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || exit 1
+mark_status_seen "$STATE" ship1 "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || exit 1
+SH
+  ack_stopped_cycle "$state" || fail "could not acknowledge receipt transition"
+  crew_state="state: $verdict · source: run-step · validating (running)"
+  nm_watch_quiet "$state" "$fakebin" "$dir/watch.out" "$crew_state" \
+    || fail "internal receipt woke the watcher after transition to $verdict: $(cat "$dir/watch.out")"
+  [ ! -s "$state/.wake-queue" ] || { reap "$pid"; fail "receipt queued a watcher wake"; }
+  reap "$pid"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$crew_state" FM_ESCALATE_BATCH_SECS=999999 FM_HEARTBEAT_SCAN_SECS=0 \
+    bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" <<'SH' \
+      || fail "daemon exposed an internal receipt or swallowed an unrelated event"
+set -u
+. "$1"
+. "$2"
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+housekeeping "$STATE" || exit 1
+handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1
+handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1
+[ ! -s "$STATE/.subsuper-escalations" ] || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+printf 'failed [at=300]: unrelated validation failure\n' >> "$STATE/ship1.status"
+housekeeping "$STATE" || exit 1
+[ "$(grep -c -F 'unrelated validation failure' "$STATE/.subsuper-escalations")" = 1 ] || exit 1
+if grep -F 'handoff-escalated=' "$STATE/.subsuper-escalations" >/dev/null; then exit 1; fi
+SH
+  nm_no_marker "$state" || fail "receipt transition left a marker"
+  unset FM_FAKE_CREW_STATE
+  pass "internal receipt stays quiet in $mode mode with $verdict crew while unrelated failure still surfaces"
+}
+
+test_nm_handoff_receipt_transitions() {
+  local mode verdict
+  for mode in attended away; do
+    for verdict in working 'done'; do
+      nm_handoff_receipt_transition_case "$mode" "$verdict"
+    done
+  done
+}
+
+test_nm_handoff_publication_review_round() {
+  test_nm_handoff_concurrent_publishers
+  test_nm_handoff_receipt_transitions
+  test_nm_handoff_dirty_spans
+  test_nm_handoff_shared_consumers
+  test_nm_handoff_snapshot_regressions
+}
+
+test_nm_handoff_dirty_review_round() {
+  test_nm_handoff_dirty_spans
+  test_nm_handoff_shared_consumers
+  test_nm_handoff_snapshot_regressions
+  test_nm_handoff_both_lines_escalate_without_steer
+  test_nm_handoff_failed_line_wakes_and_steers
+}
+
+test_nm_handoff_review_round() {
+  test_nm_handoff_concurrent_publishers
+  test_nm_handoff_receipt_transitions
+  test_nm_handoff_dirty_spans
+  test_nm_handoff_shared_consumers
+  test_nm_handoff_snapshot_regressions
+  test_nm_handoff_first_steers_once
+  test_nm_handoff_second_escalates_once
+  test_nm_handoff_payload_review_round
+}
+
+test_nm_handoff_payload_review_round() {
+  test_nm_handoff_both_lines_escalate_without_steer
+  test_nm_handoff_utf8_note_still_escalates
+  test_nm_handoff_mixed_batch_wakes_blocked_and_escalates_once
+  test_nm_handoff_hook_after_escalation_is_quiet
+  test_nm_handoff_coalesced_hook_steers_without_wake
+  test_nm_handoff_unrelated_hook_still_wakes
+  test_nm_handoff_failed_line_wakes_and_steers
+  test_nm_handoff_reused_task_id_steers
+  test_nm_handoff_promotion_history_steers
+  test_nm_handoff_unstamped_history_still_steers
+  test_nm_handoff_head_change_hook_does_not_escalate
+  test_nm_handoff_working_failure_is_not_absorbed
+  test_nm_handoff_done_state_does_not_steer
+  test_nm_handoff_direct_and_scout_do_not_steer
+}
+
+# Recorded acceptance oracle: handoff counts are per HEAD, hooks are not
+# handoffs, and only stopped-before-validation no-mistakes ships are steered.
+# Each case enters the watcher batch or daemon wake boundary independently;
+# canned crew state and the send recorder make these fixtures, not live proofs.
+nm_handoff_gap_case() {
+  local scenario=$1 consumer=$2 mode=$3 dir state fakebin repo sha
+  dir=$(make_case "nm-gap-$scenario-$consumer-$mode"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  [ "$mode" != away ] || : > "$state/.afk"
+  cat > "$fakebin/fm-send.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+mkdir -p "$FM_STATE_OVERRIDE/$1.inbox"
+n=$(ls "$FM_STATE_OVERRIDE/$1.inbox/" | wc -l | tr -d '[:space:]')
+printf '%s\n' -- "$2" > "$FM_STATE_OVERRIDE/$1.inbox/$n.msg"
+SH
+  chmod +x "$fakebin/fm-send.sh"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" FM_NM_HANDOFF_SEND_DIR="$fakebin" \
+    FM_ESCALATE_BATCH_SECS=999999 FM_HEARTBEAT_SCAN_SECS=0 \
+    bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" "$fakebin" \
+    "$scenario" "$consumer" "$sha" "$repo" <<'SH' || fail "paired handoff gap: $scenario/$consumer/$mode"
+set -eu
+. "$1"
+. "$2"
+SCRIPT_DIR=$3
+scenario=$4 consumer=$5 sha=$6 repo=$7
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+check() {
+  "$@" || {
+    printf 'acceptance assertion failed: %s\n' "$*" >&2
+    for evidence in "$LOG" "$STATE/.subsuper-escalations" "$STATE/remaining-files"; do
+      if [ -f "$evidence" ]; then
+        printf 'consumer output %s:\n' "$evidence" >&2
+        cat "$evidence" >&2
+      fi
+    done
+    exit 1
+  }
+}
+steers() { find_count=0; for msg in "$STATE/ship1.inbox/"*.msg; do [ ! -f "$msg" ] || find_count=$((find_count+1)); done; printf '%s' "$find_count"; }
+# Drive real consumer functions, and retain their observable output for assertions.
+consume() {
+  nm_handoff_snapshot_clear
+  if [ "$consumer" = watcher ]; then
+    pending=$(scan_signals)
+    files=$*
+    signal_files_actionable "$@" || :
+    nm_handoff_apply_batch
+    printf '%s\n' "$files" > "$STATE/remaining-files"
+  else
+    handle_wake "signal: $*" "$STATE"
+  fi
+}
+check_no_escalation() { check test ! -s "$STATE/.wake-queue"; }
+check_one_escalation() {
+  check awk -F '\t' -v key="nm-handoff-$sha" -v path="$STATE/ship1.status" '
+    $3 == "signal" { all++; if ($4 == key && $5 == "signal: " path " stopped-before-validation head=" substr(key,12) " lines=100,200") n++ }
+    END { exit !(all == 1 && n == 1) }' "$STATE/.wake-queue"
+}
+case "$scenario" in
+  preloaded)
+    printf 'done [at=100] [handoff=%s]: café\ndone [at=200] [handoff=%s]: second\n' "$sha" "$sha" > "$STATE/ship1.status"
+    consume "$STATE/ship1.status"
+    check_one_escalation
+    check test "$(steers)" = 0
+    consume "$STATE/ship1.status"
+    check_one_escalation
+    ;;
+  hooks)
+    printf 'done [at=100] [handoff=%s]: first\n' "$sha" > "$STATE/ship1.status"
+    : > "$STATE/ship1.turn-ended"
+    consume "$STATE/ship1.status" "$STATE/ship1.turn-ended"
+    check test "$(steers)" = 1
+    check_no_escalation
+    if [ "$consumer" = watcher ]; then
+      check test -z "$(cat "$STATE/remaining-files")"
+    else
+      check test ! -s "$STATE/.subsuper-escalations"
+    fi
+    printf 'done [at=200] [handoff=%s]: second\n' "$sha" >> "$STATE/ship1.status"
+    consume "$STATE/ship1.status"
+    check_one_escalation
+    handle_durable_wakes fallback "$STATE"
+    check test "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1
+    printf 'later\n' >> "$STATE/ship1.turn-ended"
+    consume "$STATE/ship1.turn-ended"
+    check_no_escalation
+    check test "$(steers)" = 1
+    check test "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1
+    printf 'kind=ship\nmode=no-mistakes\n' > "$STATE/other.meta"
+    : > "$STATE/other.turn-ended"
+    consume "$STATE/other.turn-ended"
+    if [ "$consumer" = watcher ]; then
+      check grep -F "$STATE/other.turn-ended" "$STATE/remaining-files"
+    else
+      check grep -F 'other.turn-ended' "$STATE/.subsuper-escalations"
+    fi
+    printf 'next\n' >> "$repo/README.md"
+    git -C "$repo" add README.md
+    git -C "$repo" -c user.name=Tests -c user.email=tests@example.invalid commit -qm next
+    printf 'new head hook\n' >> "$STATE/ship1.turn-ended"
+    consume "$STATE/ship1.turn-ended"
+    check test "$(steers)" = 1
+    check_no_escalation
+    ;;
+esac
+SH
+  nm_no_marker "$state" || fail "paired gap left a marker: $scenario/$consumer/$mode"
+  pass "paired handoff acceptance $scenario via $consumer ($mode)"
+}
+
+test_nm_handoff_gap_preloaded() {
+  local mode consumer
+  for mode in attended away; do
+    for consumer in watcher daemon; do nm_handoff_gap_case preloaded "$consumer" "$mode"; done
+  done
+}
+
+test_nm_handoff_gap_hooks() {
+  local mode consumer
+  for mode in attended away; do
+    for consumer in watcher daemon; do nm_handoff_gap_case hooks "$consumer" "$mode"; done
+  done
+}
+
+# CI's stock macOS Bash lane sets FM_TEST_ONLY to run just the bash-3.2
+# churn-deferral regression. The rest of this file is not a 3.2 snapshot suite.
+if [ -n "${FM_TEST_ONLY:-}" ]; then
+  "$FM_TEST_ONLY"
+  exit 0
+fi
+
+
+test_status_span_actionable_classifier
+test_status_span_survives_a_later_routine_append
+test_status_span_respects_decision_closure
+test_status_span_closure_from_an_offset
+test_malformed_seen_signature_reads_the_whole_log
+test_stale_is_terminal_classifier
+test_classifier_primitives
+test_unrecognized_status_prefix_is_visible
+test_crew_is_provably_working_classifier
+test_status_is_paused_classifier
+test_crew_absorb_class_classifier
+test_crew_worktree_written_since_classifier
+test_empty_write_prune_widens_the_probe
+test_empty_write_prune_from_the_environment_widens_the_probe
+test_worktree_write_probe_is_wall_clock_bounded
+test_signal_crew_provably_working_classifier
+test_secondmate_status_routine_absorbed_routed_surfaced_classifier
+test_provably_working_signal_absorbed
+test_turn_ended_provably_working_absorbed
+test_turn_ended_not_working_surfaced
+test_turn_ended_churning_pane_absorbed
+test_turn_ended_churn_resets_prior_stale_classification
+test_turn_ended_churn_resets_wedge_state_before_stale_poll
+test_turn_ended_churn_existing_marker_absorbed
+test_turn_ended_still_pane_surfaced
+test_turn_ended_malformed_prior_hash_surfaced
+test_unknown_alive_stale_is_bounded_after_its_first_alarm
+test_unknown_alive_stale_without_progress_keeps_surfacing
+test_turn_ended_trailing_newline_prior_hash_surfaced
+test_secondmate_turn_ended_churning_pane_surfaced
+test_turn_ended_colliding_window_key_surfaced
+test_turn_ended_duplicate_endpoint_records_surfaced
+test_turn_ended_mixed_positive_evidence_batch_absorbed
+test_turn_ended_mixed_positive_evidence_batch_default_off
+test_status_and_turn_end_batch_never_uses_churn_evidence
+test_turn_ended_churn_absorb_off_by_default
+test_turn_ended_churn_absorb_bounded
+test_turn_ended_churn_timer_write_failure_surfaced
+test_turn_ended_invalid_churn_bound_surfaced
+test_turn_ended_oversized_churn_bound_surfaced
+test_turn_ended_invalid_churn_deadline_surfaced
+test_turn_ended_surfaced_batch_opens_no_partial_deadline
+test_working_note_not_working_surfaced
+test_secondmate_status_note_surfaced_despite_busy_agent
+test_secondmate_routine_progress_absorbed_then_note_surfaced
+test_secondmate_buried_block_wakes_despite_busy_agent
+test_self_announced_close_does_not_rewake_but_next_note_does
+test_self_announced_close_after_open_decisions_fold_does_not_rewake
+test_folded_worker_decision_without_home_append_still_wakes
+test_separate_self_announced_answers_after_fold_wake_once
+test_self_announced_close_after_fold_still_surfaces_folded_worker_failure
+test_self_announced_close_after_fold_still_surfaces_folded_secondmate_lines
+test_actionable_signal_surfaced
+test_needs_decision_signal_payload_marked_for_branch_exclusion
+test_needs_decision_reconciliation_required_still_marked
+test_captain_held_signal_payload_marked_for_branch_exclusion
+test_pending_reply_escalation_signal_payload_marked_for_branch_exclusion
+test_ordinary_blocked_signal_payload_remains_branch_eligible
+test_routine_signal_payload_not_marked_needs_decision
+test_actionable_signal_survives_a_later_routine_append
+test_keyed_decision_signal_reads_only_the_new_span
+test_release_completion_survives_a_later_routine_append
+test_routine_appends_after_a_classified_event_stay_absorbed
+test_unreadable_status_reports_once_per_file_state
+test_permission_recovery_surfaces_preserved_status
+test_terminal_stale_surfaced
+test_stale_terminal_status_overridden_by_active_run
+test_nonterminal_stale_provably_working_absorbed_then_escalated
+test_wedge_escalation_marks_demand_deep_inspection_after_threshold
+test_wedge_escalation_resets_when_pane_becomes_active
+test_gone_endpoint_reports_once_instead_of_escalating_forever
+test_live_and_unproven_endpoints_still_wedge_escalate
+test_wedge_guards_absent_config_keeps_the_unchanged_ladder
+test_wedge_guard_critical_defers_one_window_at_a_time_up_to_the_cap
+test_wedge_guard_failures_fail_open
+test_wedge_guard_never_defers_a_gone_endpoint
+test_gone_report_rearms_when_the_endpoint_comes_back
+test_second_death_after_a_same_window_relaunch_reports_in_full
+test_identical_dead_display_of_a_successor_still_reports
+test_term_stops_a_watcher_blocked_inside_a_poll
+test_term_stops_a_watcher_whose_cleanup_marker_lock_is_held
+test_cleanup_marker_lock_bound_is_decimal_with_zero_default
+test_busy_pane_below_turn_age_bound_is_absorbed
+test_busy_pane_stable_hash_escalates_past_turn_age_bound
+test_busy_pane_changing_hash_escalates_past_turn_age_bound
+test_busy_pane_turn_end_touch_resets_age
+test_busy_pane_native_progress_resets_age
+test_busy_pane_repeated_escalation_reaches_demand_deep_inspection
+test_busy_pane_default_turn_age_bound_is_3600s
+test_busy_declared_pause_is_rechecked_not_wedge_escalated
+test_afk_busy_declared_pause_hands_off_plain_stale
+test_afk_busy_declared_pause_ticking_pane_hands_off_once
+test_nonterminal_stale_not_working_surfaced
+test_nonterminal_stale_paused_absorbed_then_resurfaced
+test_exited_declared_pause_is_bounded_but_live_gate_surfaces
+test_own_work_wait_keeps_first_alert_then_long_cadence
+test_absorbed_replacement_wait_does_not_inherit_the_old_throttle
+test_live_declared_wait_churn_honors_the_resurface_throttle
+test_live_paused_until_controls_recheck_time
+test_wedge_threshold_defers_to_a_declared_wait_under_a_working_verdict
+test_wedge_threshold_keeps_a_wait_past_a_default_key_answer
+test_wedge_threshold_recheck_names_the_captain_for_a_held_lane
+test_wedge_threshold_defers_to_a_backlog_captain_hold
+test_wedge_threshold_defers_to_a_parked_gate_awaiting_a_human
+test_wedge_threshold_parked_gate_needs_an_unanswered_decision
+test_wedge_threshold_parked_gate_is_off_until_armed
+test_wedge_threshold_defers_to_a_worker_blocker
+test_wedge_threshold_worker_wait_is_off_until_armed
+test_wedge_defer_refuses_a_half_filled_wait_record
+test_open_captain_call_bounds_stale_churn
+test_stale_churn_without_a_captain_call_still_alarms
+test_failed_wake_append_does_not_arm_the_captain_hold_throttle
+test_reheld_captain_call_starts_its_own_resurface_window
+test_secondmate_paused_resurfaces_in_normal_mode
+test_secondmate_captain_held_resurfaces_in_normal_mode
+test_secondmate_nonpaused_stale_remains_suppressed
+test_secondmate_unpause_clears_pause_tracking
+test_nonterminal_stale_pause_transitions_reclassify_unchanged_hash
+test_nonterminal_paused_rechecks_authoritative_state
+test_paused_authoritative_working_preserves_wedge_timer
+test_nonterminal_stale_repairs_missing_or_corrupt_timer
+test_wedge_escalation_deferred_while_worktree_is_written
+test_write_deferral_resurfaces_on_the_bounded_cadence
+test_secondmate_home_supervision_churn_is_not_write_evidence
+test_timer_repair_drops_a_finished_write_deferral_chain
+test_terminal_first_sight_drops_a_finished_write_deferral_chain
+test_triage_log_size_cap_accepts_spaced_wc_counts
+test_procevent_captured_result_surfaces_proactively
+test_procevent_unacknowledged_result_redrains_until_handled
+test_procevent_marker_keys_are_injective
+test_procevent_headlines_classify_queue_keys
+test_procevent_launch_failed_episodes_are_each_delivered
+test_procevent_surface_serializes_with_drain
+test_procevent_surface_crash_boundaries
+test_procevent_marker_failure_exits_and_replays
+test_heartbeat_no_change_absorbed
+test_heartbeat_backstop_surfaces_unsurfaced_status
+test_heartbeat_backstop_surfaces_a_masked_status
+test_beacon_stays_fresh_while_absorbing
+test_afk_signal_records_heartbeat_endpoint
+test_afk_present_reverts_watcher_to_one_shot
+test_afk_paused_changed_pane_hands_off_plain_stale
+test_captain_held_never_rechecked_while_away_record_exists
+test_live_captain_held_first_sight_silenced_by_away_record
+test_backlog_hold_never_rechecked_while_away_record_exists
+test_afk_one_shot_never_hands_off_captain_held_under_away_record
+test_captain_held_rechecked_under_a_quiet_record
+test_paused_until_near_future_is_quiet_before_the_cadence
+test_paused_until_wrong_year_is_bounded_by_the_cadence
+test_paused_until_that_passed_is_rechecked_before_the_cadence
+test_paused_bg_job_without_until_stays_silent_after_the_job_ends
+test_paused_bg_job_until_timeout_rechecks_after_the_job_ends
+
+# The recorded Claude background-task exit picker. The footer is the last
+# non-blank row, which is what fm_composer_blocking_dialog requires.
 test_exit_picker_stale_names_the_dialog
 test_exit_picker_wedge_keeps_climbing
 test_quoted_exit_picker_stays_ordinary_stale
 test_secondmate_exit_picker_stays_quiet
 test_closed_exit_picker_drops_saved_dialog_name
+
+test_nm_handoff_concurrent_publishers
+test_nm_handoff_receipt_transitions
+
+test_nm_handoff_shared_consumers
+test_nm_handoff_dirty_spans
+
+test_nm_handoff_snapshot_regressions
+
+test_nm_handoff_first_steers_once
+test_nm_handoff_second_escalates_once
+test_nm_handoff_both_lines_escalate_without_steer
+test_nm_handoff_utf8_note_still_escalates
+test_nm_handoff_mixed_batch_wakes_blocked_and_escalates_once
+test_nm_handoff_hook_after_escalation_is_quiet
+test_nm_handoff_coalesced_hook_steers_without_wake
+test_nm_handoff_unrelated_hook_still_wakes
+test_nm_handoff_failed_line_wakes_and_steers
+test_nm_handoff_reused_task_id_steers
+test_nm_handoff_promotion_history_steers
+test_nm_handoff_unstamped_history_still_steers
+test_nm_handoff_head_change_hook_does_not_escalate
+test_nm_handoff_working_failure_is_not_absorbed
+test_nm_handoff_done_state_does_not_steer
+test_nm_handoff_direct_and_scout_do_not_steer
+
+test_nm_handoff_gap_preloaded
+test_nm_handoff_gap_hooks

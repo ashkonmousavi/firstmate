@@ -718,7 +718,8 @@ fm_dod_should_gate_ship_done() {  # <kind> <mode> <line>
 # True only for kind ship, mode no-mistakes or empty, verb done, a note that
 # is not a ready report, and a note with no PR reference.
 # accept() still succeeds for this shape; the named-head gate does not use it.
-# bin/fm-crew-state.sh and bin/fm-inactive-reconcile.sh are the callers.
+# bin/fm-status-append.sh, bin/fm-crew-state.sh, and bin/fm-inactive-reconcile.sh
+# are the callers.
 fm_dod_done_is_nm_handoff() {  # <kind> <mode> <line>
   local note
   [ "$1" = ship ] || return 1
@@ -732,6 +733,74 @@ fm_dod_done_is_nm_handoff() {  # <kind> <mode> <line>
     return 1
   fi
   fm_dod_note_has_pr_reference "$note" && return 1
+  return 0
+}
+
+# 0 when <value> is exactly 40 lowercase hex characters, the shape
+# `git rev-parse --verify HEAD` prints for a commit.
+fm_dod_is_sha40() {  # <value>
+  case "$1" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f])
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+# Epoch of one eligible handoff line, or nothing.
+# Eligible means one well-formed [at=<digits>] tag and one [handoff=<sha>] tag
+# equal to <head>, both before the first colon.
+# Untagged lines, other heads, and lines with no at= are not eligible.
+# This is the line rule fm_dod_nm_handoff_ids scans with. It does not read kind
+# or mode, so a scout line cannot become eligible after promotion changes meta.
+fm_dod_nm_handoff_line_epoch() {  # <line> <head>
+  local line=$1 head=$2 prefix word raw at_count=0 hand_count=0 epoch='' hand=''
+  case "$line" in *:*) ;; *) return 1 ;; esac
+  fm_dod_is_sha40 "$head" || return 1
+  prefix=${line%%:*}
+  set -f
+  # shellcheck disable=SC2086  # The prefix is split into the bracket tags it holds.
+  for word in $prefix; do
+    case "$word" in
+      \[at=[0-9]*\])
+        raw=${word#\[at=}
+        raw=${raw%\]}
+        case "$raw" in
+          *[!0-9]*) ;;
+          *) at_count=$((at_count + 1)); epoch=$raw ;;
+        esac
+        ;;
+      \[handoff=*\])
+        raw=${word#\[handoff=}
+        raw=${raw%\]}
+        if fm_dod_is_sha40 "$raw"; then
+          hand_count=$((hand_count + 1))
+          hand=$raw
+        fi
+        ;;
+    esac
+  done
+  set +f
+  [ "$at_count" -eq 1 ] && [ "$hand_count" -eq 1 ] && [ "$hand" = "$head" ] || return 1
+  printf '%s\n' "$epoch"
+}
+
+# Print the at= epoch of each eligible handoff line for <head>, in file order.
+# A line is eligible only when fm_dod_nm_handoff_line_epoch accepts it.
+# Untagged lines, tags for a different head, and lines with no at= are skipped.
+# The scan never aborts on them.
+# Exit 0 when the file is readable, including when nothing is printed.
+# Exit 1 when the file is missing or unreadable.
+# Does not read the current kind or mode.
+# bin/fm-nm-handoff-lib.sh consumes this list for both supervision paths.
+fm_dod_nm_handoff_ids() {  # <status-file> <head>
+  local f=$1 head=$2 line epoch
+  [ -f "$f" ] && [ -r "$f" ] && [ ! -L "$f" ] || return 1
+  fm_dod_is_sha40 "$head" || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    epoch=$(fm_dod_nm_handoff_line_epoch "$line" "$head") || continue
+    printf '%s\n' "$epoch"
+  done < "$f"
   return 0
 }
 

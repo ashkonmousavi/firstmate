@@ -617,6 +617,21 @@ test_external_review_done_with_backup_needs_the_copy() {
   pass "external review done with a backup: refused until HEAD is under refs/remotes/backup/backup/, then accepted"
 }
 
+test_nm_handoff_ids_keep_only_the_asked_head() {
+  local log other current out
+  log=$TMP_ROOT/handoff-ids.status
+  other=0123456789abcdef0123456789abcdef01234567
+  current=89abcdef0123456789abcdef0123456789abcdef
+  cat > "$log" <<EOF
+done [at=100]: scout report
+done [at=150] [handoff=$other]: implementation complete
+done [at=200] [handoff=$current]: implementation complete
+EOF
+  out=$(fm_dod_nm_handoff_ids "$log" "$current")
+  [ "$out" = 200 ] || fail "handoff ids were not only the current head's epoch: [$out]"
+  pass "handoff ids keep the asked head and skip untagged and other-head lines"
+}
+
 test_external_forge_is_direct_pr_only
 test_external_rule_one_forbids_every_task_push
 test_external_dod_renders_the_adapter
@@ -624,5 +639,6 @@ test_external_review_done_without_backup_is_accepted_on_the_url
 test_external_review_done_with_backup_needs_the_copy
 
 test_worker_role_names_skill_and_fallback_file
+test_nm_handoff_ids_keep_only_the_asked_head
 
 echo "all fm-dod-lib tests passed"

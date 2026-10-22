@@ -17,7 +17,8 @@
 # while an away record (state/.afk-contract, never quiet mode's) exists an
 # item held for the captain is never rechecked at all, in either posture.
 # While state/.afk exists, the daemon owns triage and this watcher queues and exits
-# on every wake. Printed reason lines:
+# on every wake, subject to the shared handoff policy in bin/fm-nm-handoff-lib.sh.
+# Printed reason lines:
 #   signal: <file>...      status/turn-end signals, surfaced when a listed status
 #                          span has a captain-relevant event OR a no-verb signal lacks
 #                          positive execution evidence, unless afk is active
@@ -237,6 +238,9 @@ WATCH_HOME_EXISTED=0
 # (inbox_steer_check below).
 # shellcheck source=bin/fm-task-inbox-lib.sh
 . "$SCRIPT_DIR/fm-task-inbox-lib.sh"
+# Shared handoff decision and delivery policy for both supervision paths.
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/fm-nm-handoff-lib.sh"
 # The away-posture record (state/.afk-contract) is the posture in both the
 # attended and the afk session; bin/fm-afk-contract.sh owns its schema and its
 # away-or-quiet reading, which is all this watcher reads (away_record_present
@@ -2631,7 +2635,7 @@ watcher_capture() {  # <backend> <target> <lines> [expected-label]
 # (docs/pi-supervision-branch.md). Stale and heartbeat rows retain their existing
 # eligibility rules.
 signal_files_actionable() {  # <status-file> ...
-  local f task record rest endpoint ident needs_decision rc found=1
+  local f task record endpoint ident needs_decision rc found=1
   FM_SIGNAL_SURFACE_ENDPOINTS=''
   FM_SIGNAL_NEEDS_DECISION_FILES=''
   for f in "$@"; do
@@ -2639,7 +2643,7 @@ signal_files_actionable() {  # <status-file> ...
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
     record=''; needs_decision=0
-    status_span_first_actionable_record "$f" \
+    nm_handoff_classify_span "$task" \
       "$(fm_wake_signal_seen_size "$STATE" "$f")" record needs_decision
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
@@ -2651,7 +2655,7 @@ signal_files_actionable() {  # <status-file> ...
       found=0
       continue
     fi
-    endpoint=${record%%$'\t'*}; rest=${record#*$'\t'}; ident=${rest%%$'\t'*}
+    endpoint=$NM_HANDOFF_END; ident=$NM_HANDOFF_IDENT
     FM_SIGNAL_SURFACE_ENDPOINTS="${FM_SIGNAL_SURFACE_ENDPOINTS}${f}"$'\t'"${endpoint}"$'\t'"${ident}"$'\n'
     if [ "$needs_decision" -eq 1 ]; then
       FM_SIGNAL_NEEDS_DECISION_FILES="${FM_SIGNAL_NEEDS_DECISION_FILES} ${f}"
@@ -2694,7 +2698,7 @@ EOF
 # is absorbed; it surfaces only an event the per-wake path absorbed by mistake -
 # the fail-safe backstop.
 heartbeat_scan_finds_actionable() {
-  local f task record rest endpoint ident rc found=1 sig marker exclude
+  local f task record endpoint ident rc found=1 sig marker exclude
   # Same self-home exclusion as scan_signals: a remote mate's parent channel
   # must not come back through the heartbeat fail-safe backstop.
   exclude=$(status_scan_parent_channel_exclude "$STATE")
@@ -2703,7 +2707,9 @@ heartbeat_scan_finds_actionable() {
     [ -e "$f" ] || [ -L "$f" ] || continue
     [ "$f" = "$exclude" ] && continue
     task=$(basename "$f"); task="${task%.status}"
-    record=$(status_span_first_actionable_record "$f" "$(hb_surfaced_offset "$task")")
+    nm_handoff_absorb_stale_pane "$task" && continue
+    record=''
+    nm_handoff_classify_span "$task" "$(hb_surfaced_offset "$task")" record
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -2714,7 +2720,7 @@ heartbeat_scan_finds_actionable() {
       found=0
       continue
     fi
-    endpoint=${record%%$'\t'*}; rest=${record#*$'\t'}; ident=${rest%%$'\t'*}
+    endpoint=$NM_HANDOFF_END; ident=$NM_HANDOFF_IDENT
     FM_HEARTBEAT_SURFACE_ENDPOINTS="${FM_HEARTBEAT_SURFACE_ENDPOINTS}${f}"$'\t'"${endpoint}"$'\t'"${ident}"$'\n'
     [ "$rc" -eq 0 ] && found=0
   done
@@ -2796,6 +2802,141 @@ event_wait_or_sleep() {
       _event_cap_fails=0
       ;;
   esac
+}
+
+# Task id of a status log or turn-end marker, or nothing.
+nm_handoff_task_of() {  # <path>
+  local base=${1##*/}
+  case "$base" in
+    *.status) printf '%s\n' "${base%.status}" ;;
+    *.turn-ended) printf '%s\n' "${base%.turn-ended}" ;;
+    *) return 1 ;;
+  esac
+}
+
+# Commit the signal seen cursor and the presentation cursor for one status log,
+# the same pair the wake branch commits, plus the turn-end signature.
+nm_handoff_commit_task() {  # <task>
+  local task=$1 sf sig f row_task end ident surface
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$f" ] || continue
+    row_task=$(nm_handoff_task_of "$f") || continue
+    [ "$row_task" = "$task" ] || continue
+    case "$f" in
+      *.status)
+        fm_wake_status_reported_commit "$STATE" "$f" "$sig" || return 1
+        mark_surface_reported "$f" "$sig" || return 1
+        surface=$(nm_handoff_surface_of "$f") || surface=
+        if [ -n "$surface" ]; then
+          end=${surface%%$'\t'*}
+          ident=${surface#*$'\t'}
+        else
+          nm_handoff_snapshot "$task" || return 1
+          end=$NM_HANDOFF_END
+          ident=$NM_HANDOFF_IDENT
+        fi
+        fm_wake_status_seen_commit "$STATE" "$f" "$end" "$ident" || return 1
+        mark_surfaced "$f" "$end" "$ident" || return 1
+        ;;
+      *) printf '%s' "$sig" > "$sf" || return 1 ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  return 0
+}
+
+nm_handoff_surface_of() {  # <status-file>
+  local file end ident
+  while IFS=$(printf '\t') read -r file end ident; do
+    [ "$file" = "$1" ] || continue
+    printf '%s\t%s\n' "$end" "$ident"
+    return 0
+  done <<EOF
+$FM_SIGNAL_SURFACE_ENDPOINTS
+EOF
+  return 1
+}
+
+# Drop absorbed and escalated tasks out of this signal batch.
+# bin/fm-nm-handoff-lib.sh owns the decision; unrelated events stay in the batch.
+# NM_HANDOFF_EXIT_REASON is set when that escalation is the only remaining wake.
+nm_handoff_apply_batch() {
+  local sf sig f task tasks="" action steer drop="" next_pending="" next_files="" row_task
+  NM_HANDOFF_EXIT_REASON=
+  [ -n "${pending:-}" ] || return 0
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$f" ] || continue
+    task=$(nm_handoff_task_of "$f") || continue
+    case " $tasks " in
+      *" $task "*) ;;
+      *) tasks="$tasks $task" ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  # shellcheck disable=SC2086
+  for task in $tasks; do
+    nm_handoff_decide "$task" "$(hb_surfaced_offset "$task")"
+    action=$NM_HANDOFF_ACTION
+    steer=$NM_HANDOFF_STEER
+    if [ "$steer" = 1 ]; then
+      if ! nm_handoff_send_steer "$task"; then
+        [ "$action" = absorb ] && action=ordinary
+      fi
+    fi
+    if [ "$action" = escalate ]; then
+      nm_handoff_publish "$task" || exit 1
+      [ -n "$NM_HANDOFF_EXIT_REASON" ] || NM_HANDOFF_EXIT_REASON=$NM_HANDOFF_PAYLOAD
+    fi
+    if [ "$action" = absorb ] || [ "$action" = escalate ]; then
+      nm_handoff_commit_task "$task" || exit 1
+    fi
+    if [ "$action" = absorb ] || [ "$action" = escalate ]; then
+      drop="$drop $task"
+    fi
+  done
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$f" ] || continue
+    row_task=$(nm_handoff_task_of "$f") || row_task=
+    if [ -n "$row_task" ]; then
+      case " $drop " in
+        *" $row_task "*) continue ;;
+      esac
+    fi
+    next_pending="${next_pending}${sf}"$'\t'"${sig}"$'\t'"${f}"$'\n'
+    case " $next_files " in
+      *" $f "*) ;;
+      *) next_files="$next_files $f" ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  pending=$next_pending
+  files=$next_files
+  reason="signal:$files"
+  if [ -n "${files// /}" ]; then
+    NM_HANDOFF_EXIT_REASON=
+  fi
+}
+
+# 0 when a stale pane for this head should be absorbed instead of waking.
+# Uses the shared handoff policy before committing the snapshot endpoint.
+nm_handoff_absorb_stale_pane() {  # <task>
+  local task=$1 status="$STATE/$1.status" action
+  nm_handoff_decide "$task" "$(hb_surfaced_offset "$task")"
+  [ "$NM_HANDOFF_ACTION" != ordinary ] || return 1
+  if [ "$NM_HANDOFF_STEER" = 1 ]; then
+    nm_handoff_send_steer "$task" || return 1
+  fi
+  action=$NM_HANDOFF_ACTION
+  if [ "$action" = escalate ]; then
+    nm_handoff_publish "$task" || exit 1
+  fi
+  fm_wake_status_seen_commit "$STATE" "$status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || return 1
+  mark_surfaced "$status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || return 1
+  [ "$action" != escalate ] || wake "$NM_HANDOFF_PAYLOAD"
+  return 0
 }
 
 # --- Main entry: the runtime below runs only when this file is executed as a
@@ -2977,6 +3118,7 @@ watcher_cleanup() {
   fm_active_check_stop || cleanup_status=1
   fm_check_output_cleanup
   fm_capture_output_cleanup
+  nm_handoff_snapshot_clear
   fm_custom_check_snapshot_cleanup
   if [ "$owns_lock" -eq 1 ] \
     && ! fm_recovery_transition "$WATCHER_DOWNTIME_MARKER" "$transition" "$WATCH_LOCK" \
@@ -3064,6 +3206,7 @@ resurface_after_downtime() {
 }
 
 while :; do
+  nm_handoff_snapshot_clear
   # Home-gone exit: a deleted home, state directory, or code root means this
   # watcher's world is gone (a torn-down temporary home or a discarded
   # disposable checkout). Exit with a logged reason rather than writing state
@@ -3409,6 +3552,18 @@ EOF
     # shellcheck disable=SC2086  # $files is a space-separated status-path list (ids carry no spaces)
     signal_files_actionable $files
     signal_actionable=$?
+    # Handoff counts are per task and come from the status log, not from a
+    # stored offset. Absorbed and escalated tasks leave this batch first, so
+    # the away-mode short circuit below cannot wake the first handoff.
+    nm_handoff_apply_batch
+    if [ -n "${NM_HANDOFF_EXIT_REASON:-}" ] && [ -z "${files// /}" ]; then
+      wake "$NM_HANDOFF_EXIT_REASON"
+    fi
+    if [ -n "${files// /}" ]; then
+      # shellcheck disable=SC2086  # $files is a space-separated status-path list (ids carry no spaces)
+      signal_files_actionable $files
+      signal_actionable=$?
+    fi
     # A decision-owned file's queued row payload is marked "needs-decision:"
     # instead of the ordinary "signal:" below (other files in the same batch
     # keep the ordinary payload). The wake reason line itself, and every
@@ -3420,7 +3575,9 @@ EOF
     # passes it to handle_wake (see the comment above handle_wake in
     # bin/fm-supervise-daemon.sh).
     # shellcheck disable=SC2086  # same space-separated status-path list
-    if afk_present || [ "$signal_actionable" -eq 0 ] \
+    if [ -z "${files// /}" ]; then
+      :
+    elif afk_present || [ "$signal_actionable" -eq 0 ] \
       || { ! signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
@@ -3540,6 +3697,11 @@ EOF
             paused) handle_paused_stale "$w" "$task" "$h" ;;
             *)      clear_pause_tracking "$key" ;;
           esac
+        elif nm_handoff_absorb_stale_pane "$task"; then
+          printf '%s' "$h" > "$sf"
+          rm -f "$ssf"
+          clear_write_tracking "$key"
+          triage_log "absorbed stale (stopped-before-validation handoff): $w"
         elif afk_present; then
           # Daemon owns triage: one-shot per distinct stale hash, as before,
           # except that a captain-held pane is never handed over while the
@@ -3594,11 +3756,11 @@ EOF
               rm -f "$ssf"
               clear_write_tracking "$key"
               stale_status="$STATE/$(window_to_task "$w" "$STATE").status"
-              stale_record=$(status_span_first_actionable_record "$stale_status" 0)
-              case $? in
-                0|1) stale_end=${stale_record%%$'\t'*}; stale_rest=${stale_record#*$'\t'}; stale_ident=${stale_rest%%$'\t'*} ;;
-                *) stale_end=''; stale_ident='' ;;
-              esac
+              stale_end=''; stale_ident=''
+              if nm_handoff_snapshot "$task"; then
+                stale_end=$NM_HANDOFF_END
+                stale_ident=$NM_HANDOFF_IDENT
+              fi
               mark_surfaced "$stale_status" "$stale_end" "$stale_ident"
               wake "$stale_reason"
             fi

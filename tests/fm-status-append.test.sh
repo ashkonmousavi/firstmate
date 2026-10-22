@@ -172,7 +172,43 @@ EOF
   pass "a second-mate note from stdin is literal, one line, and keeps the corr token"
 }
 
+test_ship_handoff_records_head_and_scout_does_not() {
+  local repo sha home line
+  repo=$TMP_ROOT/handoff-repo
+  fm_git_init_commit "$repo"
+  sha=$(git -C "$repo" rev-parse HEAD)
+  home=$TMP_ROOT/handoff-home
+  mkdir -p "$home/state"
+  fm_write_meta "$home/state/ship-task.meta" "kind=ship" "mode=no-mistakes" "worktree=$repo"
+  "$APPEND" "$home/state/ship-task.status" 'done' <<'EOF'
+implementation complete
+EOF
+  line=$(cat "$home/state/ship-task.status")
+  case "$line" in
+    *" [handoff=$sha]:"*) ;;
+    *) fail "a no-mistakes ship handoff was written without its head: $line" ;;
+  esac
+  fm_write_meta "$home/state/scout-task.meta" "kind=scout" "mode=no-mistakes" "worktree=$repo"
+  "$APPEND" "$home/state/scout-task.status" 'done' <<'EOF'
+implementation complete
+EOF
+  line=$(cat "$home/state/scout-task.status")
+  case "$line" in
+    *'[handoff='*) fail "a scout done was tagged as a ship handoff: $line" ;;
+  esac
+  fm_write_meta "$home/state/direct-task.meta" "kind=ship" "mode=direct-PR" "worktree=$repo"
+  "$APPEND" "$home/state/direct-task.status" 'done' <<'EOF'
+implementation complete
+EOF
+  line=$(cat "$home/state/direct-task.status")
+  case "$line" in
+    *'[handoff='*) fail "a direct-PR done was tagged as a no-mistakes handoff: $line" ;;
+  esac
+  pass "a ship handoff records HEAD, and a scout or direct-PR done does not"
+}
+
 test_report_text_is_literal_and_one_line
 test_key_and_corr_keep_their_places
 test_ledger_hook_fires_once
 test_secondmate_note_from_stdin_is_literal
+test_ship_handoff_records_head_and_scout_does_not
