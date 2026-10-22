@@ -1555,7 +1555,7 @@ spawn_abort_cleanup() {
       if ! fm_backend_remove_worktree orca "$ORCA_WORKTREE_ID" 2>/dev/null; then
         if [ "$SPAWN_FRESH_COMMIT_PENDING" = 1 ]; then
           if ! spawn_fresh_commit_rollback; then
-            status=1
+            [ "$status" -ne 0 ] || status=1
           fi
         fi
         mkdir -p "$STATE" 2>/dev/null || true
@@ -1591,7 +1591,7 @@ spawn_abort_cleanup() {
   fi
   if [ "$SPAWN_FRESH_COMMIT_PENDING" = 1 ]; then
     if ! spawn_fresh_commit_rollback; then
-      status=1
+      [ "$status" -ne 0 ] || status=1
     fi
   fi
   if [ "$SPAWN_META_LOCK_HELD" = 1 ]; then
