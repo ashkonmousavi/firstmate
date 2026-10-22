@@ -30,6 +30,36 @@ nm_handoff_state_token() {  # <task>
   printf '%s\n' "$state"
 }
 
+nm_handoff_receipt_head() {
+  local line=$1 head
+  case "$line" in
+    'done [handoff-escalated='*']: '*)
+      head=${line#'done [handoff-escalated='}
+      head=${head%%']:'*}
+      fm_dod_is_sha40 "$head" || return 1
+      printf '%s\n' "$head"
+      ;;
+    *) return 1 ;;
+  esac
+}
+
+nm_handoff_filter_receipts() {
+  local LC_ALL=C line rc
+  while :; do
+    line=
+    IFS= read -r line
+    rc=$?
+    [ "$rc" -eq 0 ] || [ -n "$line" ] || break
+    if nm_handoff_receipt_head "$line" >/dev/null; then
+      printf '%*s' "${#line}" '' || return 1
+    else
+      printf '%s' "$line" || return 1
+    fi
+    [ "$rc" -eq 0 ] || break
+    printf '\n' || return 1
+  done < "$1"
+}
+
 NM_HANDOFF_SNAPSHOT_DIR=
 
 nm_handoff_snapshot_clear() {
@@ -43,6 +73,7 @@ nm_handoff_snapshot() {
     NM_HANDOFF_SNAPSHOT_DIR=$(mktemp -d "$STATE/.watch-snapshot.XXXXXX") || return 1
   fi
   NM_HANDOFF_STATUS="$NM_HANDOFF_SNAPSHOT_DIR/$task.status"
+  NM_HANDOFF_RAW_STATUS="$NM_HANDOFF_STATUS.raw"
   if [ ! -f "$NM_HANDOFF_STATUS" ]; then
     [ -f "$source" ] && [ -r "$source" ] && [ ! -L "$source" ] || return 1
     ident=$(_fm_open_decisions_file_ident "$source") || return 1
@@ -56,6 +87,8 @@ nm_handoff_snapshot() {
     if [ -f "$STATE/$task.meta" ]; then
       cp "$STATE/$task.meta" "$NM_HANDOFF_SNAPSHOT_DIR/$task.meta" || return 1
     fi
+    mv "$NM_HANDOFF_STATUS.tmp" "$NM_HANDOFF_RAW_STATUS" || return 1
+    nm_handoff_filter_receipts "$NM_HANDOFF_RAW_STATUS" > "$NM_HANDOFF_STATUS.tmp" || return 1
     mv "$NM_HANDOFF_STATUS.tmp" "$NM_HANDOFF_STATUS" || return 1
   fi
   IFS=$'\t' read -r NM_HANDOFF_END NM_HANDOFF_IDENT < "$NM_HANDOFF_STATUS.endpoint"
@@ -66,7 +99,7 @@ nm_handoff_snapshot() {
 # needs-decision when that span carries a needs-decision line.
 # dirty for any other captain-relevant line that is not an eligible handoff.
 nm_handoff_span_shape() {  # <status-file> <start> <head>
-  local f=$1 start=$2 head=$3 size length tmp line verb shape=clean epoch
+  local f=$1 start=$2 head=$3 size length tmp line verb shape=clean epoch internal=0 handoffs=0
   size=$(_fm_status_file_size "$f") || { printf 'dirty\n'; return 0; }
   size=${size//[[:space:]]/}
   case "$start" in ''|*[!0-9]*) start=0 ;; esac
@@ -85,10 +118,18 @@ nm_handoff_span_shape() {  # <status-file> <start> <head>
   fi
   while IFS= read -r line || [ -n "$line" ]; do
     case "$line" in *[![:space:]]*) ;; *) continue ;; esac
+    if status_is_captain_held "$line"; then
+      shape=needs-decision
+      break
+    fi
     status_is_captain_relevant "$line" || continue
-    case "$line" in "done [handoff-escalated=$head]: "*) continue ;; esac
+    if nm_handoff_receipt_head "$line" >/dev/null; then
+      internal=1
+      continue
+    fi
     epoch=$(fm_dod_nm_handoff_line_epoch "$line" "$head") || epoch=
     if [ -n "$epoch" ]; then
+      handoffs=1
       continue
     fi
     verb=$(status_line_verb "$line")
@@ -99,6 +140,9 @@ nm_handoff_span_shape() {  # <status-file> <start> <head>
     shape=dirty
   done < "$tmp"
   rm -f "$tmp"
+  if [ "$shape" = clean ] && [ "$internal" -eq 1 ] && [ "$handoffs" -eq 0 ]; then
+    shape=internal
+  fi
   printf '%s\n' "$shape"
 }
 
@@ -114,7 +158,9 @@ fm_nm_handoff_decision() {
 $ids
 EOF
   while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in "done [handoff-escalated=$head]: "*) recorded=1 ;; esac
+    if [ "$(nm_handoff_receipt_head "$line")" = "$head" ]; then
+      recorded=1
+    fi
   done < "$snapshot"
   if [ "$count" -eq 1 ]; then
     action=steer
@@ -133,7 +179,12 @@ nm_handoff_decide() {
   NM_HANDOFF_EPOCH=
   NM_HANDOFF_PAYLOAD=
   nm_handoff_snapshot "$task" || return 0
-  status=$NM_HANDOFF_STATUS
+  status=$NM_HANDOFF_RAW_STATUS
+  shape=$(nm_handoff_span_shape "$status" "$start" '')
+  if [ "$shape" = internal ]; then
+    NM_HANDOFF_ACTION=absorb
+    return 0
+  fi
   head=$(nm_handoff_head "$task") || return 0
   [ -n "$head" ] || return 0
   decision=$(fm_nm_handoff_decision "$status" "$head") || return 0
@@ -202,8 +253,26 @@ nm_handoff_send_steer() {  # <task>
 }
 
 nm_handoff_publish() {
-  local rc=0
+  local rc=0 line recorded=0 status="$STATE/$1.status"
   fm_lock_acquire_wait "$FM_WAKE_QUEUE_LOCK"
+  if fm_wake_queued_keys_locked signal | LC_ALL=C grep -Fx "$NM_HANDOFF_KEY" >/dev/null; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    return 0
+  fi
+  if [ ! -f "$status" ] || [ ! -r "$status" ]; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    return 1
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$(nm_handoff_receipt_head "$line")" = "$NM_HANDOFF_HEAD" ]; then
+      recorded=1
+      break
+    fi
+  done < "$status"
+  if [ "$recorded" -eq 1 ]; then
+    fm_lock_release "$FM_WAKE_QUEUE_LOCK"
+    return 0
+  fi
   fm_wake_append_locked signal "$NM_HANDOFF_KEY" "$NM_HANDOFF_PAYLOAD" || rc=$?
   if [ "$rc" -eq 0 ]; then
     printf 'done [handoff-escalated=%s]: %s\n' "$NM_HANDOFF_HEAD" "$NM_HANDOFF_PAYLOAD" >> "$STATE/$1.status" || rc=$?

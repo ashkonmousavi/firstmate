@@ -7945,6 +7945,126 @@ test_nm_handoff_dirty_spans() {
   done
 }
 
+test_nm_handoff_concurrent_publishers() {
+  local dir state repo sha fakebin
+  dir=$(make_case nm-concurrent); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: first\ndone [at=200] [handoff=%s]: second\n' "$sha" "$sha" > "$state/ship1.status"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" bash -s -- "$WATCH" <<'SH' \
+      || fail "concurrent publication fixture failed"
+set -u
+. "$1"
+mkfifo "$STATE/start-watcher" "$STATE/start-daemon" || exit 1
+for publisher in watcher daemon; do
+  (
+    trap nm_handoff_snapshot_clear EXIT
+    nm_handoff_decide ship1 0
+    [ "$NM_HANDOFF_ACTION" = escalate ] || exit 1
+    : > "$STATE/ready-$publisher"
+    IFS= read -r start < "$STATE/start-$publisher" || exit 1
+    nm_handoff_publish ship1
+  ) &
+  case "$publisher" in watcher) first=$! ;; daemon) second=$! ;; esac
+done
+ready=0
+for ((attempt=0; attempt<250; attempt++)); do
+  if [ -f "$STATE/ready-watcher" ] && [ -f "$STATE/ready-daemon" ]; then ready=1; break; fi
+  sleep 0.02
+done
+[ "$ready" = 1 ] || { kill "$first" "$second"; wait; exit 1; }
+printf 'start\n' > "$STATE/start-watcher"
+printf 'start\n' > "$STATE/start-daemon"
+wait "$first" || exit 1
+wait "$second" || exit 1
+SH
+  [ "$(nm_escalation_count "$state" "$sha")" = 1 ] || fail "concurrent publishers queued duplicate handoffs"
+  ack_stopped_cycle "$state" || fail "could not acknowledge concurrent publication"
+  FM_STATE_OVERRIDE="$state" bash -s -- "$WATCH" "$sha" <<'SH' || fail "receipted publisher failed"
+set -u
+. "$1"
+NM_HANDOFF_HEAD=$2
+NM_HANDOFF_KEY="nm-handoff-$2"
+NM_HANDOFF_PAYLOAD="signal: $STATE/ship1.status stopped-before-validation head=$2 lines=100,200"
+nm_handoff_publish ship1 || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(grep -c -F "done [handoff-escalated=$2]: " "$STATE/ship1.status")" = 1 ] || exit 1
+SH
+  nm_no_marker "$state" || fail "concurrent publication left a marker"
+  pass "concurrent publishers queue once and a stale publisher respects the live receipt after acknowledgement"
+}
+
+nm_handoff_receipt_transition_case() {
+  local mode=$1 verdict=$2 dir state fakebin repo sha crew_state
+  dir=$(make_case "nm-receipt-$mode-$verdict"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: first\ndone [at=200] [handoff=%s]: second\n' "$sha" "$sha" > "$state/ship1.status"
+  [ "$mode" != away ] || : > "$state/.afk"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" <<'SH' \
+      || fail "could not publish receipt transition fixture"
+set -u
+. "$1"
+. "$2"
+trap nm_handoff_snapshot_clear EXIT
+nm_handoff_decide ship1 0
+[ "$NM_HANDOFF_ACTION" = escalate ] || exit 1
+nm_handoff_publish ship1 || exit 1
+fm_wake_status_seen_commit "$STATE" "$STATE/ship1.status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || exit 1
+mark_surfaced "$STATE/ship1.status" "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || exit 1
+mark_status_seen "$STATE" ship1 "$NM_HANDOFF_END" "$NM_HANDOFF_IDENT" || exit 1
+SH
+  ack_stopped_cycle "$state" || fail "could not acknowledge receipt transition"
+  crew_state="state: $verdict · source: run-step · validating (running)"
+  nm_watch_quiet "$state" "$fakebin" "$dir/watch.out" "$crew_state" \
+    || fail "internal receipt woke the watcher after transition to $verdict: $(cat "$dir/watch.out")"
+  [ ! -s "$state/.wake-queue" ] || { reap "$pid"; fail "receipt queued a watcher wake"; }
+  reap "$pid"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$crew_state" FM_ESCALATE_BATCH_SECS=999999 FM_HEARTBEAT_SCAN_SECS=0 \
+    bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" <<'SH' \
+      || fail "daemon exposed an internal receipt or swallowed an unrelated event"
+set -u
+. "$1"
+. "$2"
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+housekeeping "$STATE" || exit 1
+handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1
+handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1
+[ ! -s "$STATE/.subsuper-escalations" ] || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+printf 'failed [at=300]: unrelated validation failure\n' >> "$STATE/ship1.status"
+housekeeping "$STATE" || exit 1
+[ "$(grep -c -F 'unrelated validation failure' "$STATE/.subsuper-escalations")" = 1 ] || exit 1
+if grep -F 'handoff-escalated=' "$STATE/.subsuper-escalations" >/dev/null; then exit 1; fi
+SH
+  nm_no_marker "$state" || fail "receipt transition left a marker"
+  unset FM_FAKE_CREW_STATE
+  pass "internal receipt stays quiet in $mode mode with $verdict crew while unrelated failure still surfaces"
+}
+
+test_nm_handoff_receipt_transitions() {
+  local mode verdict
+  for mode in attended away; do
+    for verdict in working done; do
+      nm_handoff_receipt_transition_case "$mode" "$verdict"
+    done
+  done
+}
+
+test_nm_handoff_publication_review_round() {
+  test_nm_handoff_concurrent_publishers
+  test_nm_handoff_receipt_transitions
+  test_nm_handoff_dirty_spans
+  test_nm_handoff_shared_consumers
+  test_nm_handoff_snapshot_regressions
+}
+
 test_nm_handoff_dirty_review_round() {
   test_nm_handoff_dirty_spans
   test_nm_handoff_shared_consumers
@@ -7954,6 +8074,8 @@ test_nm_handoff_dirty_review_round() {
 }
 
 test_nm_handoff_review_round() {
+  test_nm_handoff_concurrent_publishers
+  test_nm_handoff_receipt_transitions
   test_nm_handoff_dirty_spans
   test_nm_handoff_shared_consumers
   test_nm_handoff_snapshot_regressions
@@ -8147,6 +8269,9 @@ test_exit_picker_wedge_keeps_climbing
 test_quoted_exit_picker_stays_ordinary_stale
 test_secondmate_exit_picker_stays_quiet
 test_closed_exit_picker_drops_saved_dialog_name
+
+test_nm_handoff_concurrent_publishers
+test_nm_handoff_receipt_transitions
 
 test_nm_handoff_shared_consumers
 test_nm_handoff_dirty_spans
