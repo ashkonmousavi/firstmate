@@ -170,7 +170,7 @@ nm_handoff_span_shape() {  # <status-file> <start> <head>
 }
 
 fm_nm_handoff_decision() {
-  local snapshot=$1 head=$2 ids epoch line count=0 epochs= action=none recorded=0
+  local snapshot=$1 head=$2 ids epoch line count=0 epochs='' action=none recorded=0
   fm_dod_is_sha40 "$head" || { printf 'none||\n'; return 0; }
   ids=$(fm_dod_nm_handoff_ids "$snapshot" "$head") || return 1
   while IFS= read -r epoch; do
