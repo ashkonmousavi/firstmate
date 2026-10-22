@@ -1,0 +1,65 @@
+Open PR refuses cleanup and names merge guidance
+Open PR refuses explicit discard
+Open PR refuses in manual backlog
+Open PR refuses with absent backlog
+Open PR keep-open returns real pool slot and records merge wait
+Open PR keep-open preserves captain question and dependents
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 78, in <module>
+    scenario('Open PR keep-open preserves captain question and dependents',opts=['--keep-open'],deps=True,captain=True)
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 40, in scenario
+    task('add','task-other','Other prerequisite','--kind','ship');task('add','child-a','Handle 6" screen, carefully','--kind','ship');task('block','child-a','--by','task-x1,task-other')
+                                                                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 20, in task
+    def task(*a):return run(['tasks-axi',*a,'--file',lab/'data/backlog.md'])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 10, in run
+    if check and p.returncode:raise Exception(str(args)+'\n'+p.stdout)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Exception: ['tasks-axi', 'block', 'child-a', '--by', 'task-x1,task-other', '--file', PosixPath('~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md')]
+error: "Invalid id \"task-x1,task-other\" - ids must be slug-shaped (letters, digits, \"._-\") with no spaces"
+code: VALIDATION_ERROR
+help[1]: Use an existing task slug like `treehouse-lease-t4`
+
+Open PR keep-open preserves captain question and dependents
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 73, in <module>
+    scenario('Open PR keep-open preserves captain question and dependents',opts=['--keep-open'],deps=True,captain=True)
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 62, in scenario
+    if captain:assert 'hold_kind: captain' in s and 'Choose release scope?' in s
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+Open PR keep-open preserves captain question and dependents
+Merged PR closes item and returns real pool slot
+Traceback (most recent call last):
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 78, in <module>
+    scenario('Merged PR closes item and returns real pool slot',state='merged')
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 35, in scenario
+    if state=='merged':api(path+'/merge',{'Do':'merge'},'POST')
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/live.py", line 15, in api
+    with U.urlopen(r,timeout=30) as f:return json.load(f) if f.status!=204 else None
+                                             ^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+Merged PR closes item and returns real pool slot
+Closed unmerged PR refuses keep-open
+Closed unmerged PR explicit discard closes item
+Unreadable PR refuses explicit discard in manual backlog
+Unreadable PR refuses keep-open with absent backlog
+Dependents with escaped title refuse cleanup and are all named
+Dependents prevent explicit discard
+Keep-open cleans merged lane and keeps dependents blocked
+Manual backlog keep-open cleans and gives merge-hold instructions
+Absent backlog keep-open cleans and gives merge-hold instructions
+Scout dependent prevents cleanup and is named

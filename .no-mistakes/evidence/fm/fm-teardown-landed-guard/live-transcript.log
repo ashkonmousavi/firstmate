@@ -1,0 +1,745 @@
+
+SCENARIO: Open PR refuses cleanup and names merge guidance
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/final0/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/final0/pulls/1 is still open; clean up after it merges.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO: Open PR refuses explicit discard
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/final1/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --force
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/final1/pulls/1 is still open; clean up after it merges.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO: Open PR refuses in manual backlog
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/final2/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/final2/pulls/1 is still open; clean up after it merges.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO: Open PR refuses with absent backlog
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/final3/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/final3/pulls/1 is still open; clean up after it merges.
+EXIT=1
+
+SCENARIO: Open PR keep-open returns real pool slot and records merge wait
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/final4/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/final4: already current
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/final4-pool/.treehouse/final4-3cc414/1/final4)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md, held awaiting merge https://127.0.0.1/labuser/final4/pulls/1.
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: "Live cleanup validation https://127.0.0.1/labuser/final4/pulls/1"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "awaiting merge https://127.0.0.1/labuser/final4/pulls/1"
+  hold_kind: external
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://127.0.0.1/labuser/final4/pulls/1"
+  body: "Deliverable of the finished work: PR https://127.0.0.1/labuser/final4/pulls/1"
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/final4-pool/.treehouse/final4-3cc414/1/final4","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Open PR keep-open preserves captain question and dependents
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/final5/pulls/1"}
+
+SCENARIO: Open PR keep-open preserves captain question and dependents
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume5/pulls/1"}
+$ bash bin/fm-captain-hold.sh hold task-x1 --reason Choose release scope?
+task-x1
+EXIT=0
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 4s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume5: already current
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume5-pool/.treehouse/resume5-52d325/1/resume5)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md, held awaiting merge https://127.0.0.1/labuser/resume5/pulls/1, because other items still list it in blocked-by: child-a,child-z.
+Backlog: task-x1 is also still held for the captain with its question preserved. Relay the question and close it only with bin/fm-captain-hold.sh answer.
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: "Live cleanup validation https://127.0.0.1/labuser/resume5/pulls/1"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:Q2hvb3NlIHJlbGVhc2Ugc2NvcGU/"
+  hold_kind: captain
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://127.0.0.1/labuser/resume5/pulls/1"
+  body: "Captain hold set: 2026-10-21T23:42:42Z\n\nDeliverable of the finished work: awaiting merge https://127.0.0.1/labuser/resume5/pulls/1\n\nDeliverable of the finished work: PR https://127.0.0.1/labuser/resume5/pulls/1"
+
+SCENARIO: Open PR keep-open preserves captain question and dependents
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume-b5/pulls/1"}
+$ bash bin/fm-captain-hold.sh hold task-x1 --reason Choose release scope?
+task-x1
+EXIT=0
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-b5: already current
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-b5-pool/.treehouse/resume-b5-f4f847/1/resume-b5)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md, held awaiting merge https://127.0.0.1/labuser/resume-b5/pulls/1, because other items still list it in blocked-by: child-a,child-z.
+Backlog: task-x1 is also still held for the captain with its question preserved. Relay the question and close it only with bin/fm-captain-hold.sh answer.
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: "Live cleanup validation https://127.0.0.1/labuser/resume-b5/pulls/1"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: yes
+  hold_reason: "fm-hold-v1:Q2hvb3NlIHJlbGVhc2Ugc2NvcGU/"
+  hold_kind: captain
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://127.0.0.1/labuser/resume-b5/pulls/1"
+  body: "Captain hold set: 2026-10-21T23:43:15Z\n\nDeliverable of the finished work: awaiting merge https://127.0.0.1/labuser/resume-b5/pulls/1\n\nDeliverable of the finished work: PR https://127.0.0.1/labuser/resume-b5/pulls/1"
+$ bash bin/fm-captain-hold.sh open task-x1 --identity
+2026-10-21T23:43:15Z#0
+EXIT=0
+task:
+  id: child-a
+  title: "Handle 6\" screen, carefully"
+  state: queued
+  blocked: yes
+  blocked_by: "task-x1,task-other"
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: "blocked-by:task-x1,blocked-by:task-other"
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unblock child-a --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to clear a blocker
+  - Run `tasks-axi start child-a --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to move it to in flight
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-b5-pool/.treehouse/resume-b5-f4f847/1/resume-b5","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Merged PR closes item and returns real pool slot
+
+SCENARIO: Merged PR closes item and returns real pool slot
+Real Forgejo PR: {"state": "closed", "merged": true, "url": "http://127.0.0.1:18371/labuser/resume-c6/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c6: synced 751f917..47ca9a1
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c6-pool/.treehouse/resume-c6-4e9967/1/resume-c6)
+Backlog: task-x1 is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: "Live cleanup validation https://127.0.0.1/labuser/resume-c6/pulls/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-21
+  deps: none
+  links: "pr:https://127.0.0.1/labuser/resume-c6/pulls/1"
+  body: ""
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c6-pool/.treehouse/resume-c6-4e9967/1/resume-c6","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Closed unmerged PR refuses keep-open
+Real Forgejo PR: {"state": "closed", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume-c7/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 4s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/resume-c7/pulls/1 is closed without merging.
+Refusing cleanup unless the captain explicitly discards it with --force.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO: Closed unmerged PR explicit discard closes item
+Real Forgejo PR: {"state": "closed", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume-c8/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --force
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c8: already current
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c8-pool/.treehouse/resume-c8-f4aef1/1/resume-c8)
+Backlog: task-x1 is closed in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md. Run bin/fm-tasks-axi.sh ready for dependency-cleared candidates, check date gates, and dispatch only work whose blockers are gone and date is due.
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: "Live cleanup validation https://127.0.0.1/labuser/resume-c8/pulls/1"
+  state: done
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: "-"
+  closed: 2026-10-21
+  deps: none
+  links: "pr:https://127.0.0.1/labuser/resume-c8/pulls/1"
+  body: ""
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c8-pool/.treehouse/resume-c8-f4aef1/1/resume-c8","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Unreadable PR refuses explicit discard in manual backlog
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume-c9/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --force
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/resume-c9/pulls/99999 could not be read, so teardown will not close task-x1.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+
+SCENARIO: Unreadable PR refuses keep-open with absent backlog
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume-c10/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 1s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: pull request https://127.0.0.1/labuser/resume-c10/pulls/99999 could not be read, so teardown will not close task-x1.
+EXIT=1
+
+SCENARIO: Dependents with escaped title refuse cleanup and are all named
+Real Forgejo PR: {"state": "closed", "merged": true, "url": "http://127.0.0.1:18371/labuser/resume-c11/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: task-x1 is listed in blocked-by of: child-a,child-z.
+Refusing to close it while those items depend on it.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+task:
+  id: child-a
+  title: "Handle 6\" screen, carefully"
+  state: queued
+  blocked: yes
+  blocked_by: "task-x1,task-other"
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: "blocked-by:task-x1,blocked-by:task-other"
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unblock child-a --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to clear a blocker
+  - Run `tasks-axi start child-a --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to move it to in flight
+
+SCENARIO: Dependents prevent explicit discard
+Real Forgejo PR: {"state": "closed", "merged": false, "url": "http://127.0.0.1:18371/labuser/resume-c12/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --force
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: task-x1 is listed in blocked-by of: child-a,child-z.
+Refusing to close it while those items depend on it.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+task:
+  id: child-a
+  title: "Handle 6\" screen, carefully"
+  state: queued
+  blocked: yes
+  blocked_by: "task-x1,task-other"
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: "blocked-by:task-x1,blocked-by:task-other"
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unblock child-a --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to clear a blocker
+  - Run `tasks-axi start child-a --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to move it to in flight
+
+SCENARIO: Keep-open cleans merged lane and keeps dependents blocked
+Real Forgejo PR: {"state": "closed", "merged": true, "url": "http://127.0.0.1:18371/labuser/resume-c13/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c13: synced 9f51fa8..abdd196
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c13-pool/.treehouse/resume-c13-f69588/1/resume-c13)
+Backlog: task-x1 stays open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md because other items still list it in blocked-by: child-a,child-z.
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: "Live cleanup validation https://127.0.0.1/labuser/resume-c13/pulls/1"
+  state: queued
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: "pr:https://127.0.0.1/labuser/resume-c13/pulls/1"
+  body: "Deliverable of the finished work: PR https://127.0.0.1/labuser/resume-c13/pulls/1"
+task:
+  id: child-a
+  title: "Handle 6\" screen, carefully"
+  state: queued
+  blocked: yes
+  blocked_by: "task-x1,task-other"
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: "blocked-by:task-x1,blocked-by:task-other"
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unblock child-a --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to clear a blocker
+  - Run `tasks-axi start child-a --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to move it to in flight
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/resume-c13-pool/.treehouse/resume-c13-f69588/1/resume-c13","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Manual backlog keep-open cleans and gives merge-hold instructions
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/extra14/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 2s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/extra14: already current
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/extra14-pool/.treehouse/extra14-c2a47b/1/extra14)
+Backlog: keep task-x1 open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md and hold it awaiting merge https://127.0.0.1/labuser/extra14/pulls/1 (config/backlog-backend selects manual editing).
+EXIT=0
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/extra14-pool/.treehouse/extra14-c2a47b/1/extra14","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Absent backlog keep-open cleans and gives merge-hold instructions
+Real Forgejo PR: {"state": "open", "merged": false, "url": "http://127.0.0.1:18371/labuser/extra15/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1 --keep-open
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 3s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+🌳 Worktree returned to pool.
+~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/extra15: already current
+teardown task-x1 complete (window primary:fm-task-x1, worktree ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/extra15-pool/.treehouse/extra15-e7dfd8/1/extra15)
+Backlog: keep task-x1 open in ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md and hold it awaiting merge https://127.0.0.1/labuser/extra15/pulls/1 (this home keeps no markdown backlog at ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md).
+EXIT=0
+REAL TREEHOUSE POOL:
+A new version of treehouse is available: v3.1.4 → v3.1.5
+Run "treehouse update" to update
+
+[{"name":"1","path":"~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/extra15-pool/.treehouse/extra15-e7dfd8/1/extra15","status":"available","branch":"","detached":true,"flavor":"git","lease_id":"","lease_holder":"","leased_at":null,"processes":[]}]
+
+SCENARIO: Scout dependent prevents cleanup and is named
+Real Forgejo PR: {"state": "closed", "merged": true, "url": "http://127.0.0.1:18371/labuser/extra16/pulls/1"}
+$ bash bin/fm-teardown.sh task-x1
+fm-gate-refuse: gate agent lifecycle permitted only against lab home ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 5s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: task-x1 is listed in blocked-by of: child-a,child-z.
+Refusing to close it while those items depend on it.
+EXIT=1
+PERSISTED BACKLOG:
+task:
+  id: task-x1
+  title: Live cleanup validation
+  state: in_flight
+  blocked: no
+  blocked_by: none
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: scout
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: none
+  links: none
+  body: ""
+task:
+  id: child-a
+  title: "Handle 6\" screen, carefully"
+  state: queued
+  blocked: yes
+  blocked_by: "task-x1,task-other"
+  held: no
+  hold_reason: "-"
+  hold_kind: "-"
+  hold_until: "-"
+  kind: ship
+  repo: "-"
+  priority: "-"
+  created: 2026-10-21
+  closed: "-"
+  deps: "blocked-by:task-x1,blocked-by:task-other"
+  links: none
+  body: ""
+help[2]:
+  - Run `tasks-axi unblock child-a --by <other> --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to clear a blocker
+  - Run `tasks-axi start child-a --file=~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.l/data/backlog.md` to move it to in flight

@@ -1,0 +1,32 @@
+Live teardown validation
+
+Oracle: the supplied user intent and recorded fix decisions. The driver asserted cleanup refusal or completion, exact dependency identities, preserved backlog state, decoded captain question, private tmux endpoint presence, and real Treehouse pool availability.
+
+Isolation: marked disposable FM_HOME inside the worktree; private fm-lab tmux socket; workspace-local Forgejo 11.0.0 and tea 0.16.0; actual tasks-axi and Treehouse executables. No harness or forge response was mocked in these live scenarios.
+
+Results:
+- PASS: Open PR refuses cleanup and names merge guidance
+- PASS: Open PR refuses explicit discard
+- PASS: Open PR refuses in manual backlog
+- PASS: Open PR refuses with absent backlog
+- PASS: Open PR keep-open returns real pool slot and records merge wait
+- PASS: Open PR keep-open preserves captain question and dependents
+- PASS: Merged PR closes item and returns real pool slot
+- PASS: Closed unmerged PR refuses keep-open
+- PASS: Closed unmerged PR explicit discard closes item
+- PASS: Unreadable PR refuses explicit discard in manual backlog
+- PASS: Unreadable PR refuses keep-open with absent backlog
+- PASS: Dependents with escaped title refuse cleanup and are all named
+- PASS: Dependents prevent explicit discard
+- PASS: Keep-open cleans merged lane and keeps dependents blocked
+- PASS: Manual backlog keep-open cleans and gives merge-hold instructions
+- PASS: Absent backlog keep-open cleans and gives merge-hold instructions
+- PASS: Scout dependent prevents cleanup and is named
+
+Evidence: live-transcript.log contains real Forgejo state responses, actual teardown output, persisted tasks-axi state, captain-hold discovery, and real pool status. The driver also checked endpoint window presence through the private socket.
+
+Setup corrections: replaced an incompatible tea version; passed the private tmux socket to product calls; used one dependency edge per tasks-axi block command; decoded the documented hold field; accepted empty successful Forgejo merge responses. Each affected case was rerun successfully.
+
+Baseline regression attempts with an explicitly workspace-local TMPDIR hit the existing prohibition against removing a nested home inside the repository. The normal-temp rerun passed that setup boundary, then was intentionally stopped to run only the change-specific guard cases. No source files were modified.
+
+All 18 focused guard regressions passed, including malformed protocol rows, control/metadata lock retention, preserved captain question identity, and both PR delivery modes across manual and absent backlogs. The temporary driver invoked the existing regression functions directly; no permanent runner interface was added. Disposable workspace files were removed after testing.

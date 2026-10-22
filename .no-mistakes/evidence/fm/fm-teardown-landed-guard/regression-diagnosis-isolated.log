@@ -1,0 +1,9 @@
+FAIL: missing-child-source: the refusal did not name the missing source
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no live watcher process holds this home lock (last beat: 4s ago).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REFUSED: unsafe secondmate home removal target ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5GB57757JK64TSF66H7P8M3/.live-test-tools/fm-teardown-tests.KoFIKM/missing-child-adapter-sibling/secondmate-home is inside the firstmate repo

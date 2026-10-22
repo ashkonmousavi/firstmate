@@ -1,0 +1,18 @@
+ok - an open pull request refuses teardown and keeps the backlog item
+ok - --force does not close a ship whose pull request is still open
+ok - --keep-open cleans an open pull request and holds the item awaiting merge
+ok - a direct-PR ship with an open pull request refuses teardown
+ok - a merged pull request on an already reachable branch closes the item
+ok - a closed unmerged pull request refuses unless --force discards it
+ok - an unreadable pull request refuses teardown, including --force and --keep-open
+ok - teardown refuses to close an item another item lists in blocked-by, and names it
+ok - teardown names every blocked-by dependent
+ok - --keep-open cleans an item other items still list in blocked-by and leaves it open
+ok - --keep-open holds an open pull request and names the items that still list it
+ok - teardown refuses to close a scout another item lists in blocked-by
+ok - escaped titles preserve every blocker
+ok - malformed dependency rows fail closed
+ok - merge hold retains lifecycle serialization through cleanup
+ok - merge waits preserve captain questions and hold lifecycles with and without dependents
+ok - PR refusals apply in manual and absent backlogs across delivery modes and overrides
+ok - --keep-open requests the manual merge hold when automatic backlog transitions are disabled

@@ -1,0 +1,121 @@
+[
+  {
+    "name": "Open PR refuses cleanup and names merge guidance",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Open PR refuses explicit discard",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Open PR refuses in manual backlog",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Open PR refuses with absent backlog",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Open PR keep-open returns real pool slot and records merge wait",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Open PR keep-open preserves captain question and dependents",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Merged PR closes item and returns real pool slot",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Closed unmerged PR refuses keep-open",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Closed unmerged PR explicit discard closes item",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Unreadable PR refuses explicit discard in manual backlog",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Unreadable PR refuses keep-open with absent backlog",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Dependents with escaped title refuse cleanup and are all named",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Dependents prevent explicit discard",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Keep-open cleans merged lane and keeps dependents blocked",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Manual backlog keep-open cleans and gives merge-hold instructions",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Absent backlog keep-open cleans and gives merge-hold instructions",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  },
+  {
+    "name": "Scout dependent prevents cleanup and is named",
+    "result": "pass",
+    "live": true,
+    "evidence": "live-transcript.log",
+    "reason": ""
+  }
+]
