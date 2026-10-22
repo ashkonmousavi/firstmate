@@ -7474,7 +7474,8 @@ test_nm_handoff_both_lines_escalate_without_steer() {
   nm_watch_exit "$state" "$fakebin" "$out" || fail "two handoffs already on disk did not wake: $(cat "$out")"
   [ "$(nm_steer_count "$state" ship1 "$(nm_steer_text 100 "$sha")")" -eq 0 ] || fail "two handoffs on the first poll sent a steer"
   [ "$(nm_escalation_count "$state" "$sha")" -eq 1 ] || fail "two handoffs did not write one escalation: $(cat "$state/.wake-queue" 2>/dev/null)"
-  grep -F "signal: $state/ship1.status" "$state/.wake-queue" >/dev/null && fail "two handoffs also wrote an ordinary signal row: $(cat "$state/.wake-queue")"
+  awk -F '\t' '$3 == "signal" && $4 == "ship1.status" { found=1 } END { exit found }' "$state/.wake-queue" \
+    || fail "two handoffs also wrote an ordinary signal row: $(cat "$state/.wake-queue")"
   unset FM_FAKE_CREW_STATE
   pass "two handoffs already on disk escalate once and do not steer"
 }
@@ -7774,7 +7775,7 @@ pending=$(scan_signals)
 files="$STATE/ship1.status"
 signal_files_actionable $files
 nm_handoff_apply_batch
-[ "$NM_HANDOFF_EXIT_REASON" = "signal: ship1.status stopped-before-validation head=$RACE_SHA lines=100,200" ]
+[ "$NM_HANDOFF_EXIT_REASON" = "signal: $STATE/ship1.status stopped-before-validation head=$RACE_SHA lines=100,200" ]
 [ "$(wc -l < "$STATE/sends" | tr -d '[:space:]')" = 1 ]
 SH
   [ "$(nm_escalation_count "$state" "$sha")" = 1 ] || fail "$when race did not escalate exactly once"
@@ -7793,10 +7794,102 @@ test_nm_handoff_snapshot_regressions() {
   test_nm_handoff_mixed_batch_wakes_blocked_and_escalates_once afk
 }
 
+nm_handoff_consumer_case() {
+  local mode=$1 race=$2 dir state fakebin repo sha
+  dir=$(make_case "nm-consumers-$mode-$race"); state="$dir/state"; fakebin="$dir/fakebin"
+  repo=$dir/repo
+  sha=$(nm_repo_sha "$repo")
+  nm_ship_meta "$state" ship1 "$repo"
+  printf 'done [at=100] [handoff=%s]: café\n' "$sha" > "$state/ship1.status"
+  [ "$mode" != away ] || : > "$state/.afk"
+  cat > "$fakebin/fm-send.sh" <<'SH'
+#!/usr/bin/env bash
+set -eu
+mkdir -p "$FM_STATE_OVERRIDE/$1.inbox"
+printf '%s\n' -- "$2" > "$FM_STATE_OVERRIDE/$1.inbox/1.msg"
+printf 'sent\n' >> "$FM_STATE_OVERRIDE/sends"
+if [ "$RACE_WHEN" = send ]; then
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$FM_STATE_OVERRIDE/$1.status"
+fi
+SH
+  chmod +x "$fakebin/fm-send.sh"
+  FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_FAKE_CREW_STATE="$NM_STOPPED" FM_NM_HANDOFF_SEND_DIR="$fakebin" \
+    RACE_WHEN="$race" RACE_SHA="$sha" FM_ESCALATE_BATCH_SECS=999999 \
+    FM_HEARTBEAT_SCAN_SECS=0 bash -s -- "$WATCH" "$ROOT/bin/fm-supervise-daemon.sh" "$fakebin" <<'SH' \
+      || fail "handoff consumers failed: $mode/$race"
+set -u
+. "$1"
+. "$2"
+SCRIPT_DIR=$3
+LOG="$STATE/daemon.log"
+trap nm_handoff_snapshot_clear EXIT
+first_end=$(wc -c < "$STATE/ship1.status" | tr -d '[:space:]')
+pending=$(scan_signals)
+files="$STATE/ship1.status"
+signal_files_actionable $files
+if [ "$RACE_WHEN" = scan ]; then
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$STATE/ship1.status"
+fi
+nm_handoff_apply_batch
+nm_handoff_absorb_stale_pane ship1 || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(hb_surfaced_offset ship1)" = "$first_end" ] || exit 1
+nm_handoff_snapshot_clear
+if [ "$RACE_WHEN" = normal ]; then
+  housekeeping "$STATE" || exit 1
+  [ ! -s "$STATE/.subsuper-escalations" ] || exit 1
+  [ ! -s "$STATE/.wake-queue" ] || exit 1
+  case "$(classify_signal "$STATE/ship1.status" "$STATE")" in self\|*) ;; *) exit 1 ;; esac
+  printf 'done [at=200] [handoff=%s]: second\n' "$RACE_SHA" >> "$STATE/ship1.status"
+  pending=$(scan_signals)
+  files="$STATE/ship1.status"
+  signal_files_actionable $files
+  nm_handoff_apply_batch
+  nm_handoff_snapshot_clear
+else
+  housekeeping "$STATE" || exit 1
+fi
+awk -F '\t' -v key="nm-handoff-$RACE_SHA" -v path="$STATE/ship1.status" '
+  $3 == "signal" && $4 == key && $5 == "signal: " path " stopped-before-validation head=" substr(key,12) " lines=100,200" { n++ }
+  END { exit n != 1 }
+' "$STATE/.wake-queue" || exit 1
+[ "$(wc -l < "$STATE/sends" | tr -d '[:space:]')" = 1 ] || exit 1
+handle_durable_wakes fallback "$STATE" || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1 ] || exit 1
+grep -F "signal: $STATE/ship1.status stopped-before-validation head=$RACE_SHA lines=100,200" "$STATE/.subsuper-escalations" >/dev/null || exit 1
+housekeeping "$STATE" || exit 1
+handle_wake "signal: $STATE/ship1.status" "$STATE" || exit 1
+handle_wake 'stale: test:fm-ship1' "$STATE" || exit 1
+[ ! -s "$STATE/.wake-queue" ] || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 1 ] || exit 1
+printf 'blocked [at=300]: unrelated disk failure\n' > "$STATE/other.status"
+handle_wake "signal: $STATE/other.status" "$STATE" || exit 1
+[ "$(wc -l < "$STATE/.subsuper-escalations" | tr -d '[:space:]')" = 2 ] || exit 1
+SH
+  nm_no_marker "$state" || fail "consumer fixture left a marker"
+  pass "watcher and daemon share one steer and escalation in $mode mode ($race append)"
+}
+
+test_nm_handoff_shared_consumers() {
+  local mode race
+  for mode in attended away; do
+    for race in normal send scan; do
+      nm_handoff_consumer_case "$mode" "$race"
+    done
+  done
+}
+
 test_nm_handoff_review_round() {
+  test_nm_handoff_shared_consumers
   test_nm_handoff_snapshot_regressions
   test_nm_handoff_first_steers_once
   test_nm_handoff_second_escalates_once
+  test_nm_handoff_payload_review_round
+}
+
+test_nm_handoff_payload_review_round() {
   test_nm_handoff_both_lines_escalate_without_steer
   test_nm_handoff_utf8_note_still_escalates
   test_nm_handoff_mixed_batch_wakes_blocked_and_escalates_once

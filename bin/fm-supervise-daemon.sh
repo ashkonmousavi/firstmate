@@ -186,6 +186,8 @@ FM_HOME="${FM_HOME:-${FM_ROOT_OVERRIDE:-$FM_ROOT}}"
 # classification predicates have exactly one definition.
 # shellcheck source=bin/fm-classify-lib.sh
 . "$FM_DAEMON_DIR/fm-classify-lib.sh"
+# shellcheck source=bin/fm-nm-handoff-lib.sh
+. "$FM_DAEMON_DIR/fm-nm-handoff-lib.sh"
 # The away-posture record owner: while state/.afk-contract exists an item held
 # for the captain is never rechecked (the watcher applies the same rule).
 # shellcheck source=bin/fm-afk-contract.sh
@@ -358,7 +360,7 @@ _collapse_newlines() {  # <text>
 # them exactly as before; the away launcher reuses the identical resolution to
 # pass the captain pane in as FM_SUPERVISOR_TARGET.
 
-# --- classification helpers (PURE: no side effects, testable) ---------------
+# --- classification helpers ------------------------------------------------
 # last_status_line, status_is_captain_relevant, window_to_task, and the
 # status-span reader come from bin/fm-classify-lib.sh (sourced above),
 # the single classifier shared with bin/fm-watch.sh. The decision-string wrappers
@@ -370,13 +372,14 @@ _collapse_newlines() {  # <text>
 # summary firstmate would otherwise have to re-read.
 
 classify_signal() {  # <reason-after-colon> <state>
+  local NM_HANDOFF_SNAPSHOT_DIR=''
   local reason=$1 state=$2 f last event record rest endpoint ident rc distilled="" rel="" seen_rel="" task sig marker
   for f in $reason; do
     case "$f" in *.status) ;; *) continue ;; esac
     [ -e "$f" ] || [ -L "$f" ] || continue
     task=$(basename "$f"); task="${task%.status}"
-    record=$(status_span_first_actionable_record "$f" \
-      "$(status_seen_offset "$state" "$task")")
+    record=''
+    nm_handoff_daemon_span "$task" "$state" "$(status_seen_offset "$state" "$task")" record
     rc=$?
     [ "$rc" -eq 1 ] && [ -z "$record" ] && continue
     if [ "$rc" -eq 2 ]; then
@@ -408,6 +411,7 @@ classify_signal() {  # <reason-after-colon> <state>
     # dedupe, so no separate seen-marker comparison is needed.
     status_is_captain_relevant "$last" && seen_rel=1
   done
+  nm_handoff_snapshot_clear
   # strip a trailing " | " separator so the distilled line is clean
   distilled="${distilled% | }"
   if [ -n "$rel" ]; then
@@ -425,12 +429,13 @@ classify_signal() {  # <reason-after-colon> <state>
 # first sight of a non-terminal stale it returns "self" and the caller records a
 # timestamp marker; persistence is escalated by housekeeping's recheck, not here.
 classify_stale() {  # <window> <state> [<span-record> <span-status>]
+  local NM_HANDOFF_SNAPSHOT_DIR=''
   local win=$1 state=$2 record=${3-} rc=${4-} task last declared event rest
   task=$(window_to_task "$win" "$state")
   if [ -z "$rc" ]; then
-    record=$(status_span_first_actionable_record "$state/$task.status" \
-      "$(status_seen_offset "$state" "$task")")
+    nm_handoff_daemon_span "$task" "$state" "$(status_seen_offset "$state" "$task")" record
     rc=$?
+    nm_handoff_snapshot_clear
   fi
   last=$(last_status_line "$state/$task.status")
   if [ "$rc" -eq 2 ]; then
@@ -1209,6 +1214,7 @@ _oldest_line_age() {  # <buf> -> seconds since the oldest buffered item first ar
 #  3) heartbeat scan: every HEARTBEAT_SCAN_SECS, run the catch-all status scan in
 #     the block below and escalate what it finds; that block owns its file set.
 housekeeping() {  # <state>
+  local NM_HANDOFF_SNAPSHOT_DIR=''
   local state=$1 now due f key task win marker age last max_defer oldest pause_secs marker_epoch until bounded_until pause_reason dialog_name persisted
   now=$(_now)
   migrate_watcher_pause_markers "$state"
@@ -1381,8 +1387,8 @@ housekeeping() {  # <state>
       [ -e "$f" ] || [ -L "$f" ] || continue
       [ "$f" = "$exclude" ] && continue
       task=$(basename "$f"); task="${task%.status}"
-      record=$(status_span_first_actionable_record "$f" \
-        "$(status_seen_offset "$state" "$task")")
+      record=''
+      nm_handoff_daemon_span "$task" "$state" "$(status_seen_offset "$state" "$task")" record
       rc=$?
       if [ "$rc" -eq 2 ]; then
         ident=$(status_observed_signature "$f")
@@ -1406,6 +1412,7 @@ housekeeping() {  # <state>
       fi
     done
   fi
+  nm_handoff_snapshot_clear
 }
 
 # Find a recorded or live window target whose task id matches the marker key.
@@ -1571,7 +1578,8 @@ is_wake_reason() {  # <reason>
 # signal:<files> (bin/fm-watch.sh). Classify it as a signal so the capture file
 # is populated, suppression markers commit, and the digest names the decision
 # instead of "unknown wake:".
-handle_wake() {  # <reason> <state>
+handle_wake() {  # <reason> <state> [queue-key]
+  local NM_HANDOFF_SNAPSHOT_DIR=''
   local reason=$1 state=$2 decision action distilled task last stale_detail dialog_name=''
   local capture="$state/.subsuper-classified-end.$$" span_record='' span_rc='' endpoint ident rest sig marker
   local kind="" arg="" classification_failed=0 span_failure_repeat=0
@@ -1588,7 +1596,10 @@ handle_wake() {  # <reason> <state>
                 needs-decision:*) arg="${reason#needs-decision: }" ;;
                 *) arg="${reason#signal: }" ;;
               esac
-              decision=$(FM_STATUS_SPAN_ENDPOINT_FILE="$capture" classify_signal "$arg" "$state") ;;
+              case "${3:-}" in
+                nm-handoff-*) decision="escalate|$reason" ;;
+                *) decision=$(FM_STATUS_SPAN_ENDPOINT_FILE="$capture" classify_signal "$arg" "$state") ;;
+              esac ;;
     stale:*" (unread firstmate instruction: stuck-busy "*|stale:*" (steering-inbox busy bookkeeping unwritable: "*)
               decision="escalate|${reason#stale: }" ;;
     stale:*)  kind=stale; arg="${reason#stale: }"; stale_detail="${arg#"$arg"}"
@@ -1596,8 +1607,7 @@ handle_wake() {  # <reason> <state>
               dialog_name=$(stale_dialog_name "$stale_detail") || dialog_name=''
               task=$(window_to_task "$arg" "$state")
               if [ -n "$task" ]; then
-                span_record=$(status_span_first_actionable_record "$state/$task.status" \
-                  "$(status_seen_offset "$state" "$task")")
+                nm_handoff_daemon_span "$task" "$state" "$(status_seen_offset "$state" "$task")" span_record
                 span_rc=$?
                 case "$span_rc" in
                   0|1)
@@ -1733,6 +1743,7 @@ handle_wake() {  # <reason> <state>
     mark_escalated_seen "$state" "$capture" || classification_failed=1
   fi
   rm -f "$capture"
+  nm_handoff_snapshot_clear
   [ "$classification_failed" -eq 0 ]
 }
 
@@ -1752,7 +1763,7 @@ handle_durable_wakes() {  # <watcher-reason> <state>
     case "$epoch" in ''|*[!0-9]*) continue ;; esac
     case "$sequence" in ''|*[!0-9]*) continue ;; esac
     case "$kind" in signal|stale|check|heartbeat) ;; *) continue ;; esac
-    handle_wake "$payload" "$state" || failed=1
+    handle_wake "$payload" "$state" "$key" || failed=1
     handled=$((handled + 1))
   done < "$out"
   if [ "$handled" -eq 0 ]; then handle_wake "$fallback_reason" "$state" || failed=1; fi
