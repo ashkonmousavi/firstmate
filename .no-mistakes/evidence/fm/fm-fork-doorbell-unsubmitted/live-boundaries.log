@@ -1,0 +1,52 @@
+stale: lab:fm-exited (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.hNiQvx/state/exited.inbox/001.msg is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)
+Exited recipient wake queue after three checks:
+1792655975	1	stale	lab:fm-exited	stale: lab:fm-exited (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.hNiQvx/state/exited.inbox/001.msg is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)
+No re-ring state was created; the instruction remains unhandled.
+Real shell screen:
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Crew-state against the current real gate run and exited shell:
+state: unknown · source: pane · harness state unavailable (unknown cursor-transcript)

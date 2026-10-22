@@ -1,0 +1,58 @@
+stale: lab:fm-exited (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.3qcy7t/state/exited.inbox/001.msg is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)
+Exited recipient wake queue after three checks:
+1792655999	1	stale	lab:fm-exited	stale: lab:fm-exited (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.3qcy7t/state/exited.inbox/001.msg is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)
+No re-ring state was created; the instruction remains unhandled.
+Real shell screen:
+bash-5.2$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Foreign-draft budget against a real idle Cursor interface:
+Ring state after two skipped attempts:
+001.msg	2	1792656022
+stale: lab:fm-draft (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.3qcy7t/state/draft.inbox/001.msg still unhandled after 2 doorbell delivery attempts with an idle pane; inspect the worker)
+Wake queue after budget and repeat check:
+1792655999	1	stale	lab:fm-exited	stale: lab:fm-exited (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.3qcy7t/state/exited.inbox/001.msg is unhandled and the worker's agent has exited or its endpoint is missing, so the doorbell was not typed; recover the worker)
+1792656026	2	stale	lab:fm-draft	stale: lab:fm-draft (unread firstmate instruction: ~/.no-mistakes/worktrees/11bdc1ed0d7a/01M5H0602RYM6MA32MJ8ABYCP8/.test-tmp/fm-lab.3qcy7t/state/draft.inbox/001.msg still unhandled after 2 doorbell delivery attempts with an idle pane; inspect the worker)
+Draft remains pending and message remains unhandled.
