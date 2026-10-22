@@ -12,6 +12,8 @@
 # the pane busy-signature) and reconciles the possibly-stale log against it.
 # A ship `done:` is current-state done only when bin/fm-dod-lib.sh accepts the
 # named head as reachable outside the worker's disposable copy; otherwise blocked.
+# A no-mistakes handoff with a positive no-run is stopped-before-validation
+# (fm_dod_done_is_nm_handoff). A missing or unreadable no-mistakes binary is not.
 #
 # The determinism lives entirely here - run-step / pane / log reads, fixed
 # mapping logic, and terminal passed-run PR detail from bounded evidence only,
@@ -24,7 +26,7 @@
 # Output is one stable, parseable, token-tight line firstmate can read every
 # heartbeat:
 #
-#   state: <working|parked|done|blocked|paused|failed|unknown> · source: <run-step|pane|status-log|remote-endpoint|none> · <detail>
+#   state: <working|parked|done|blocked|paused|failed|unknown|stopped-before-validation> · source: <run-step|pane|status-log|remote-endpoint|none> · <detail>
 #
 # Logic, in order:
 #   1. Resolve worktree + backend target + kind from state/<id>.meta. A meta
@@ -967,6 +969,9 @@ nm_run_head_matches_worktree() {
 }
 
 HAVE_RUN=0
+# 1 only when axi status answered this branch with runs_on_current_branch: 0.
+# A missing binary, an empty reply, and an unreadable inventory are not this.
+NM_POSITIVE_NO_RUN=0
 # RUN_SOURCE distinguishes the two ways HAVE_RUN=1 can happen: "full" means
 # $RUN_OUT is real `axi status` TOON with step/gate detail (including a
 # same-branch run the strict head rule rejected but the ledger proved is this
@@ -997,6 +1002,7 @@ if [ "$KIND" = ship ] && [ -n "$CREW_BRANCH" ] && command -v no-mistakes >/dev/n
     if [ "$(strip_quotes "$(nm_field current_branch)")" = "$CREW_BRANCH" ] \
       && [ "$(strip_quotes "$(nm_field runs_on_current_branch)")" = 0 ]; then
       run_choice="status-absent"
+      NM_POSITIVE_NO_RUN=1
     else
       overview_ok=1
       run_overview=$(fm_nm_run_checked "$WT" "$NM_TIMEOUT" axi) || overview_ok=0
@@ -1370,6 +1376,11 @@ fi
 # the verb->state mapping (including the configurable paused verb), so reusing its
 # `unknown` verdict as the "not a state" test needs no second verb list here.
 if [ -n "$LOG_VERB" ]; then
+  # Positive absence only. A passed run never reaches this fallback.
+  if [ "$LOG_VERB" = "done" ] && [ "$NM_POSITIVE_NO_RUN" = 1 ] \
+    && fm_dod_done_is_nm_handoff "$KIND" "$(meta_value mode)" "$LOG_LINE"; then
+    emit stopped-before-validation status-log stopped-before-validation
+  fi
   if [ "$LOG_VERB" = "done" ]; then
     emit_ship_status_done
   fi

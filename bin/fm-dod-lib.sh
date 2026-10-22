@@ -618,12 +618,13 @@ fm_dod_ref_contains() {  # <repo> <ref-namespace> <sha>
   [ -n "$hit" ]
 }
 
-# 0 when a done: note reports the no-mistakes CI-ready PR (`PR <url> checks
-# green`, with any surrounding text). bin/fm-crew-state.sh takes its CI-ready
-# path on this same test, so every CI-ready line it acts on is gated.
+# 0 when a done: note reports the no-mistakes CI-ready PR (`checks green` or
+# `CI is green`, with any surrounding text, plus a PR reference).
+# bin/fm-crew-state.sh takes its CI-ready path on this same test, so every
+# CI-ready line it acts on is gated.
 fm_dod_note_reports_ci_ready() {  # <note>
   case "$1" in
-    *"checks green"*) ;;
+    *"checks green"*|*"CI is green"*) ;;
     *) return 1 ;;
   esac
   fm_dod_note_has_pr_reference "$1"
@@ -711,6 +712,27 @@ fm_dod_should_gate_ship_done() {  # <kind> <mode> <line>
       fm_dod_note_reports_ci_ready "$note" || fm_dod_note_reports_published_change "$note" ;;
     *) return 1 ;;
   esac
+}
+
+# 0 when this ship done: is the no-mistakes pipeline handoff.
+# True only for kind ship, mode no-mistakes or empty, verb done, a note that
+# is not a ready report, and a note with no PR reference.
+# accept() still succeeds for this shape; the named-head gate does not use it.
+# bin/fm-crew-state.sh and bin/fm-inactive-reconcile.sh are the callers.
+fm_dod_done_is_nm_handoff() {  # <kind> <mode> <line>
+  local note
+  [ "$1" = ship ] || return 1
+  [ "$(status_line_verb "$3")" = "done" ] || return 1
+  case "$2" in
+    no-mistakes|'') ;;
+    *) return 1 ;;
+  esac
+  note=$(status_line_note "$3")
+  if fm_dod_note_reports_ci_ready "$note" || fm_dod_note_reports_published_change "$note"; then
+    return 1
+  fi
+  fm_dod_note_has_pr_reference "$note" && return 1
+  return 0
 }
 
 # The PR/MR URL from a `done: PR <url>...` note, or empty.

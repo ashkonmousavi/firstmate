@@ -2430,7 +2430,101 @@ test_stale_terminal_status_overridden_by_active_run() {
   grep -F "stale: $window" "$out" >/dev/null || fail "escalation did not print a stale wake"
   grep -F "possible wedge" "$out" >/dev/null || fail "escalation did not flag a possible wedge"
   unset FM_FAKE_CREW_STATE
+  [ "$(inbox_msg_count "$state" validating)" = 0 ] \
+    || fail "an active run sent a start-validation steer"
   pass "a stale terminal-looking status is overridden and absorbed while a run is actively working, then wedge-escalated"
+}
+
+inbox_msg_count() {  # <state> <task>
+  find "$1/$2.inbox" -maxdepth 1 -name '*.msg' 2>/dev/null | wc -l | tr -d '[:space:]'
+}
+
+test_nm_handoff_first_steer_then_one_escalation() {
+  local dir state fakebin out capture_file window status_file pid i count
+  dir=$(make_case nm-handoff); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"; capture_file="$dir/pane.txt"
+  window="test:fm-handoff"
+  status_file="$state/handoff.status"
+  printf 'idle\n' > "$capture_file"
+  printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\n' "$window" > "$state/handoff.meta"
+  printf 'done: implementation complete\n' > "$status_file"
+  export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
+  PATH="$fakebin:$PATH" FM_FAKE_TMUX_WINDOW="$window" FM_FAKE_TMUX_CAPTURE="$capture_file" \
+    FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=1 \
+    "$WATCH" > "$out" &
+  pid=$!
+  i=0
+  while [ "$i" -lt 200 ]; do
+    [ "$(cat "$state/.heartbeat-streak" 2>/dev/null || echo 0)" -ge 1 ] \
+      && [ "$(inbox_msg_count "$state" handoff)" = 1 ] && break
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 0.1
+    i=$((i + 1))
+  done
+  if ! kill -0 "$pid" 2>/dev/null; then
+    fail "the first handoff done woke instead of steering: $(cat "$out")"
+  fi
+  [ "$(inbox_msg_count "$state" handoff)" = 1 ] || fail "the first handoff did not send one steer"
+  grep -F 'Start /no-mistakes now. The done line was the handoff and is not completion.' \
+    "$state"/handoff.inbox/*.msg >/dev/null || fail "the steer did not say to start validation"
+  [ ! -s "$state/.wake-queue" ] || fail "the first handoff queued a wake: $(cat "$state/.wake-queue")"
+  [ ! -s "$out" ] || fail "the first handoff printed a wake: $(cat "$out")"
+  [ "$(status_presentation_marker_offset "$state/.hb-surfaced-handoff" "$status_file")" = \
+    "$(size_of "$status_file")" ] || fail "the first handoff did not mark the span surfaced"
+  [ "$(cat "$state/.heartbeat-streak" 2>/dev/null || echo 0)" -ge 1 ] \
+    || fail "the heartbeat after the steer did not absorb"
+  count=$(inbox_msg_count "$state" handoff)
+  printf 'done: committed again, validation still not started\n' >> "$status_file"
+  wait_for_exit "$pid" 200 || { reap "$pid"; fail "the second handoff done did not escalate: $(cat "$out")"; }
+  grep -F "signal: $status_file" "$out" >/dev/null || fail "the second handoff did not wake: $(cat "$out")"
+  [ "$(inbox_msg_count "$state" handoff)" = "$count" ] || fail "the second handoff sent another steer"
+  [ -f "$state/.nm-handoff-escalated-handoff" ] || fail "the second handoff did not record its one escalation"
+  unset FM_FAKE_CREW_STATE
+  pass "the first handoff done steers once and the second escalates once"
+}
+
+test_direct_pr_and_scout_done_do_not_steer() {
+  local kind mode dir state fakebin out window status_file pid task
+  for kind in ship scout; do
+    if [ "$kind" = ship ]; then mode=direct-PR; task=direct; else mode=scout; task=scout; fi
+    dir=$(make_case "no-steer-$task"); state="$dir/state"; fakebin="$dir/fakebin"
+    out="$dir/watch.out"
+    window="test:fm-$task"
+    status_file="$state/$task.status"
+    printf 'window=%s\nkind=%s\nmode=%s\nharness=claude\n' "$window" "$kind" "$mode" > "$state/$task.meta"
+    printf 'done: implementation complete\n' > "$status_file"
+    export FM_FAKE_CREW_STATE='state: done · source: status-log · implementation complete'
+    PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+      FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+      "$WATCH" > "$out" &
+    pid=$!
+    wait_for_exit "$pid" 100 || fail "$kind done did not surface"
+    grep -F "signal: $status_file" "$out" >/dev/null || fail "$kind done did not wake: $(cat "$out")"
+    [ "$(inbox_msg_count "$state" "$task")" = 0 ] || fail "$kind done sent a start-validation steer"
+  done
+  unset FM_FAKE_CREW_STATE
+  pass "a direct-PR done and a scout done do not steer"
+}
+
+test_handoff_with_blocked_still_wakes() {
+  local dir state fakebin out window status_file pid
+  dir=$(make_case nm-handoff-blocked); state="$dir/state"; fakebin="$dir/fakebin"
+  out="$dir/watch.out"
+  window="test:fm-both"
+  status_file="$state/both.status"
+  printf 'window=%s\nkind=ship\nmode=no-mistakes\nharness=claude\n' "$window" > "$state/both.meta"
+  printf 'done: implementation complete\nblocked: release approval required\n' > "$status_file"
+  export FM_FAKE_CREW_STATE='state: stopped-before-validation · source: status-log · stopped-before-validation'
+  PATH="$fakebin:$PATH" FM_STATE_OVERRIDE="$state" FM_CREW_STATE_BIN="$fakebin/fm-crew-state.sh" \
+    FM_POLL=1 FM_SIGNAL_GRACE=1 FM_CHECK_INTERVAL=999999 FM_HEARTBEAT=999999 \
+    "$WATCH" > "$out" &
+  pid=$!
+  wait_for_exit "$pid" 100 || fail "a handoff span that also says blocked did not wake"
+  grep -F "signal: $status_file" "$out" >/dev/null || fail "the blocked span did not wake: $(cat "$out")"
+  [ "$(inbox_msg_count "$state" both)" = 1 ] || fail "the blocked handoff span did not steer once"
+  unset FM_FAKE_CREW_STATE
+  pass "a handoff span that also contains blocked still wakes"
 }
 
 # --- non-terminal stale, crew provably working: absorbed, then wedge-escalated ---
@@ -7236,6 +7330,9 @@ test_unreadable_status_reports_once_per_file_state
 test_permission_recovery_surfaces_preserved_status
 test_terminal_stale_surfaced
 test_stale_terminal_status_overridden_by_active_run
+test_nm_handoff_first_steer_then_one_escalation
+test_direct_pr_and_scout_done_do_not_steer
+test_handoff_with_blocked_still_wakes
 test_nonterminal_stale_provably_working_absorbed_then_escalated
 test_wedge_escalation_marks_demand_deep_inspection_after_threshold
 test_wedge_escalation_resets_when_pane_becomes_active

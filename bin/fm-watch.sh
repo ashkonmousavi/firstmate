@@ -2674,6 +2674,182 @@ EOF
   return "$rc"
 }
 
+# One start-validation steer for an idle no-mistakes ship whose done line is
+# the pipeline handoff. The classification is fm-crew-state.sh's
+# stopped-before-validation state; fm_dod_done_is_nm_handoff owns who that is.
+# The first such line is steered and marked surfaced, so the heartbeat backstop
+# does not wake it. A later handoff done line escalates once and does not steer
+# again. A span that also contains needs-decision or blocked still wakes.
+# NM_HANDOFF_ESCALATIONS lists tasks whose escalation marker is written only
+# after that wake is queued.
+NM_HANDOFF_ESCALATIONS=""
+NM_HANDOFF_STEER_TEXT='Start /no-mistakes now. The done line was the handoff and is not completion.'
+
+nm_handoff_is_stopped() {  # <task>
+  local line state
+  line=$("$FM_CREW_STATE_BIN" "$1" 2>/dev/null) || return 1
+  case "$line" in state:*) ;; *) return 1 ;; esac
+  state=${line#state: }
+  state=${state%% *}
+  [ "$state" = stopped-before-validation ]
+}
+
+nm_handoff_span_verbs() {  # <status-file> <verb>
+  local f=$1 verb=$2 task start line
+  task=$(basename "$f" .status)
+  start=$(hb_surfaced_offset "$task")
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$(status_line_verb "$line")" = "$verb" ] && return 0
+  done <<EOF
+$(tail -c +"$((start + 1))" "$f" 2>/dev/null || true)
+EOF
+  return 1
+}
+
+nm_handoff_span_has_done() {  # <status-file>
+  nm_handoff_span_verbs "$1" "done"
+}
+
+nm_handoff_span_demands_wake() {  # <status-file>
+  nm_handoff_span_verbs "$1" needs-decision && return 0
+  nm_handoff_span_verbs "$1" blocked
+}
+
+nm_handoff_has_done_past() {  # <status-file> <offset>
+  local f=$1 offset=$2 line pos=0
+  case "$offset" in ''|*[!0-9]*) return 1 ;; esac
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [ "$pos" -ge "$offset" ] && [ "$(status_line_verb "$line")" = "done" ]; then
+      return 0
+    fi
+    pos=$((pos + ${#line} + 1))
+  done < "$f"
+  return 1
+}
+
+nm_handoff_steer_once() {  # <task> <status-file>
+  local task=$1 statusf=$2 marker size
+  marker="$STATE/.nm-handoff-steered-$task"
+  [ -f "$marker" ] && return 0
+  # The text must not start with "/": fm-send keeps a leading slash off the inbox.
+  FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" "$SCRIPT_DIR/fm-send.sh" "$task" \
+    "$NM_HANDOFF_STEER_TEXT" >/dev/null || return 1
+  size=$(wc -c < "$statusf" | tr -d '[:space:]')
+  printf '%s\n' "$size" > "$marker"
+}
+
+nm_handoff_note_escalation_if_new() {  # <task> <status-file>
+  local task=$1 statusf=$2 steered
+  [ -f "$STATE/.nm-handoff-steered-$task" ] || return 0
+  [ -f "$STATE/.nm-handoff-escalated-$task" ] && return 0
+  steered=$(cat "$STATE/.nm-handoff-steered-$task" 2>/dev/null || true)
+  nm_handoff_has_done_past "$statusf" "$steered" || return 0
+  case " $NM_HANDOFF_ESCALATIONS " in
+    *" $task "*) return 0 ;;
+  esac
+  NM_HANDOFF_ESCALATIONS="${NM_HANDOFF_ESCALATIONS:+$NM_HANDOFF_ESCALATIONS }$task"
+}
+
+# 0 when the caller should wake, 1 when this handoff is absorbed.
+nm_handoff_decide() {  # <task> <status-file>
+  local task=$1 statusf=$2 steered
+  nm_handoff_is_stopped "$task" || return 0
+  if nm_handoff_span_demands_wake "$statusf"; then
+    nm_handoff_steer_once "$task" "$statusf" || true
+    nm_handoff_note_escalation_if_new "$task" "$statusf"
+    return 0
+  fi
+  if [ ! -f "$STATE/.nm-handoff-steered-$task" ]; then
+    nm_handoff_steer_once "$task" "$statusf" || return 0
+    return 1
+  fi
+  steered=$(cat "$STATE/.nm-handoff-steered-$task" 2>/dev/null || true)
+  case "$steered" in ''|*[!0-9]*) return 0 ;; esac
+  if nm_handoff_has_done_past "$statusf" "$steered"; then
+    if [ ! -f "$STATE/.nm-handoff-escalated-$task" ]; then
+      nm_handoff_note_escalation_if_new "$task" "$statusf"
+      return 0
+    fi
+    return 1
+  fi
+  return 1
+}
+
+# 0 when this file should still wake. A span with no new done line is not a
+# handoff absorb: the caller's ordinary rule wakes it.
+nm_handoff_file_should_wake() {  # <task> <status-file>
+  nm_handoff_span_has_done "$2" || return 0
+  nm_handoff_decide "$1" "$2"
+}
+
+# 0 when the signal batch must wake, 1 when every file is an absorbed handoff.
+nm_handoff_batch_should_wake() {  # <status-file>...
+  local f task saw=0
+  NM_HANDOFF_ESCALATIONS=""
+  [ "$#" -gt 0 ] || return 0
+  for f in "$@"; do
+    [ -n "$f" ] || continue
+    saw=1
+    case "$f" in
+      *.status) ;;
+      *) return 0 ;;
+    esac
+    task=$(basename "$f" .status)
+    nm_handoff_file_should_wake "$task" "$f" && return 0
+  done
+  [ "$saw" -eq 1 ] || return 0
+  return 1
+}
+
+# 0 when a stale terminal pane's handoff is already steered or not this state.
+nm_handoff_stale_suppressed() {  # <task> <status-file>
+  local task=$1 statusf=$2
+  NM_HANDOFF_ESCALATIONS=""
+  [ -n "$task" ] && [ -f "$statusf" ] || return 1
+  [ "$(status_line_verb "$(last_status_line "$statusf")")" = "done" ] || return 1
+  if nm_handoff_decide "$task" "$statusf"; then
+    return 1
+  fi
+  NM_HANDOFF_ESCALATIONS=""
+  return 0
+}
+
+nm_handoff_commit_escalations() {
+  local task statusf size
+  [ -n "${NM_HANDOFF_ESCALATIONS:-}" ] || return 0
+  # shellcheck disable=SC2086  # task ids are single tokens separated by spaces
+  for task in $NM_HANDOFF_ESCALATIONS; do
+    statusf="$STATE/$task.status"
+    [ -f "$statusf" ] || continue
+    size=$(wc -c < "$statusf" | tr -d '[:space:]')
+    printf '%s\n' "$size" > "$STATE/.nm-handoff-escalated-$task"
+  done
+  NM_HANDOFF_ESCALATIONS=""
+}
+
+nm_handoff_commit_signal_markers() {
+  local sf sig f surface_end surface_ident
+  while IFS=$(printf '\t') read -r sf sig f; do
+    [ -n "$sf" ] || continue
+    case "$f" in
+      *.status)
+        fm_wake_status_reported_commit "$STATE" "$f" "$sig" || true
+        mark_surface_reported "$f" "$sig" || true
+        ;;
+      *) printf '%s' "$sig" > "$sf" ;;
+    esac
+  done <<EOF
+$pending
+EOF
+  while IFS=$(printf '\t') read -r f surface_end surface_ident; do
+    [ -n "$f" ] || continue
+    fm_wake_status_seen_commit "$STATE" "$f" "$surface_end" "$surface_ident" || true
+    mark_surfaced "$f" "$surface_end" "$surface_ident"
+  done <<EOF
+$FM_SIGNAL_SURFACE_ENDPOINTS
+EOF
+}
+
 # Cheap heartbeat fleet-scan (the always-on twin of the daemon's catch-all). 0 if
 # any status log carries a captain-relevant event past the position already
 # surfaced to firstmate (.hb-surfaced-<task>). It walks every log rather than only
@@ -3367,6 +3543,11 @@ EOF
     # shellcheck disable=SC2086  # same space-separated status-path list
     if afk_present || [ "$signal_actionable" -eq 0 ] \
       || { ! signal_crew_provably_working $files && ! signal_turnend_panes_churned $files; }; then
+      # shellcheck disable=SC2086  # same space-separated status-path list
+      if ! nm_handoff_batch_should_wake $files; then
+        nm_handoff_commit_signal_markers
+        triage_log "absorbed handoff done (start-validation steer): $reason"
+      else
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
         file_reason="$reason"
@@ -3399,7 +3580,9 @@ EOF
       done <<EOF
 $FM_SIGNAL_SURFACE_ENDPOINTS
 EOF
+      nm_handoff_commit_escalations
       wake "$reason"
+      fi
     else
       while IFS=$(printf '\t') read -r sf sig f; do
         [ -n "$sf" ] || continue
@@ -3532,13 +3715,27 @@ EOF
               clear_write_tracking "$key"
               triage_log "absorbed stale (open captain call already surfaced for this status): $w"
             else
+              stale_task=$(window_to_task "$w" "$STATE")
+              stale_status="$STATE/$stale_task.status"
+              if nm_handoff_stale_suppressed "$stale_task" "$stale_status"; then
+                printf '%s' "$h" > "$sf"
+                rm -f "$ssf"
+                clear_write_tracking "$key"
+                stale_record=$(status_span_first_actionable_record "$stale_status" 0)
+                case $? in
+                  0|1) stale_end=${stale_record%%$'\t'*}; stale_rest=${stale_record#*$'\t'}; stale_ident=${stale_rest%%$'\t'*} ;;
+                  *) stale_end=''; stale_ident='' ;;
+                esac
+                mark_surfaced "$stale_status" "$stale_end" "$stale_ident"
+                triage_log "absorbed stale (start-validation steer): $w"
+              else
               stale_reason=$(stale_reason_naming_dialog "stale: $w" "$dialog")
               fm_wake_append stale "$w" "$stale_reason" || exit 1
+              nm_handoff_commit_escalations
               stale_wait_record "$key"
               printf '%s' "$h" > "$sf"
               rm -f "$ssf"
               clear_write_tracking "$key"
-              stale_status="$STATE/$(window_to_task "$w" "$STATE").status"
               stale_record=$(status_span_first_actionable_record "$stale_status" 0)
               case $? in
                 0|1) stale_end=${stale_record%%$'\t'*}; stale_rest=${stale_record#*$'\t'}; stale_ident=${stale_rest%%$'\t'*} ;;
@@ -3546,6 +3743,7 @@ EOF
               esac
               mark_surfaced "$stale_status" "$stale_end" "$stale_ident"
               wake "$stale_reason"
+              fi
             fi
           elif [ -e "$ssf" ]; then
             # This exact hash was already overridden as provably-working (a

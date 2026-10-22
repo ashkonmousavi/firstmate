@@ -94,6 +94,26 @@ test_no_mistakes_prevalidation_done_is_not_gated() {
   pass "no-mistakes pre-validation done: is not gated"
 }
 
+test_nm_handoff_predicate() {
+  fm_dod_done_is_nm_handoff ship no-mistakes 'done: implementation complete' \
+    || fail "no-mistakes handoff was not recognized"
+  fm_dod_done_is_nm_handoff ship '' 'done: implementation complete' \
+    || fail "empty-mode handoff was not recognized"
+  if fm_dod_done_is_nm_handoff ship no-mistakes 'done: CI is green https://github.com/o/r/pull/9'; then
+    fail "CI is green with a PR was treated as a handoff"
+  fi
+  if fm_dod_done_is_nm_handoff ship no-mistakes 'done: PR https://github.com/o/r/pull/9 checks green'; then
+    fail "checks green was treated as a handoff"
+  fi
+  if fm_dod_done_is_nm_handoff ship direct-PR 'done: implementation complete'; then
+    fail "direct-PR done was treated as a handoff"
+  fi
+  if fm_dod_done_is_nm_handoff scout no-mistakes 'done: implementation complete'; then
+    fail "scout done was treated as a handoff"
+  fi
+  pass "the handoff predicate is only an idle no-mistakes done with no PR reference"
+}
+
 test_local_only_linked_branch_is_accepted() {
   local repo wt
   repo="$TMP_ROOT/local-repo"
@@ -270,11 +290,16 @@ test_ci_ready_requires_pr_reference() {
     'PR #12 checks green' \
     'checks green: PR#12' \
     'https://gitlab.com/o/r/-/merge_requests/5 checks green' \
-    'https://git.example.org/team/repo/pulls/12 checks green'; do
+    'https://git.example.org/team/repo/pulls/12 checks green' \
+    'CI is green https://github.com/o/r/pull/9' \
+    'PR https://github.com/o/r/pull/9 CI is green'; do
     fm_dod_note_reports_ci_ready "$note" \
       || fail "CI-ready PR reference rejected: $note"
   done
-  pass "CI-ready notes require checks green and an actual PR reference"
+  if fm_dod_note_reports_ci_ready 'CI is green'; then
+    fail "CI is green without a PR reference was accepted"
+  fi
+  pass "CI-ready notes require checks green or CI is green, and an actual PR reference"
 }
 
 test_ci_ready_variants_are_gated() {
@@ -451,6 +476,7 @@ EOF
 test_scout_done_is_not_gated
 test_unpushed_ship_done_is_refused
 test_no_mistakes_prevalidation_done_is_not_gated
+test_nm_handoff_predicate
 test_remote_containing_named_head_is_accepted
 test_moved_branch_without_named_head_is_refused
 test_free_text_sha_is_not_the_named_head
