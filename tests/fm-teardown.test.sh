@@ -2,10 +2,10 @@
 # Tests for bin/fm-teardown.sh's landed-work safety and stale-lock recovery.
 #
 # The check refuses to tear down a worktree whose work has not LANDED, because
-# treehouse return hard-resets the worktree. "Landed" means reachable from a remote
-# OR - for a normal ship task whose commits are not so reachable - its PR is merged
-# and GitHub reports a PR head that contains the current local work, or its content
-# is already in the up-to-date default branch.
+# treehouse return hard-resets the worktree. The copy may be freed when the head
+# is reachable from a remote. That reachability is not a landed close when the
+# recorded pull request is still OPEN: the item stays open and the merge watch
+# stays armed. A merged PR, or content already in the default branch, still closes.
 #
 # Covers three fixes:
 #   - local-only fork-remote: a fork IS a remote, so fork-pushed upstream-
@@ -3503,6 +3503,53 @@ test_forced_secondmate_herdr_child_retains_records_when_close_unconfirmed() {
   pass "forced secondmate teardown retains Herdr child identity until exact pane disappearance"
 }
 
+test_open_herdr_child_survives_unconfirmed_close_and_forced_cleanup() {
+  local case_dir home log closed rc representation
+  for representation in original released; do
+    case_dir=$(make_case "open-herdr-child-$representation")
+    write_meta "$case_dir" local-only secondmate
+    configure_secondmate_with_herdr_child "$case_dir"
+    install_github_pr_class "$case_dir" open
+    push_task_branch "$case_dir"
+    home="$case_dir/secondmate-home"
+    printf '%s\n' 'schema=fm-secondmate-parent.v1' 'route=remote' > "$home/.fm-secondmate-parent"
+    printf '%s\n' 'spawn_gen=open-herdr-child' 'pr=https://github.com/example/repo/pull/7' \
+      >> "$home/state/child-herdr.meta"
+    printf '%s\n' 'version=1' 'task_id=child-herdr' 'projection_id=AbCdEfGhIjKlMnOpQrStUv' \
+      > "$home/state/child-herdr.herdr-presentation"
+    log="$case_dir/herdr.log"; closed="$case_dir/closed"; : > "$log"
+    rc=0
+    FM_HOME="$home" FM_ROOT_OVERRIDE="$ROOT" FM_STATE_OVERRIDE="$home/state" \
+      FM_DATA_OVERRIDE="$home/data" FM_CONFIG_OVERRIDE="$home/config" \
+      FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_CLOSED="$closed" FM_FAKE_HERDR_PRESENCE_UNKNOWN=1 \
+      PATH="$case_dir/fakebin:$PATH" "$TEARDOWN" child-herdr \
+      > "$case_dir/child.stdout" 2> "$case_dir/child.stderr" || rc=$?
+    [ "$rc" -ne 0 ] || fail "$representation: unconfirmed child close reported success"
+    assert_grep 'not confirmed gone' "$case_dir/child.stderr" "$representation: child did not reach endpoint confirmation"
+    assert_present "$closed" "$representation: child close was not attempted"
+    assert_grep "worktree=$case_dir/wt" "$home/state/child-herdr.meta" \
+      "$representation: copy release marker preceded endpoint confirmation"
+    if [ "$representation" = released ]; then
+      sed "s|^worktree=.*|worktree=$home/state/child-herdr.released-copy|" \
+        "$home/state/child-herdr.meta" > "$case_dir/child.meta.tmp"
+      mv "$case_dir/child.meta.tmp" "$home/state/child-herdr.meta"
+    fi
+    mv "$closed" "$case_dir/child-close-attempt"
+    rc=0
+    FM_FAKE_HERDR_LOG="$log" FM_FAKE_HERDR_CLOSED="$closed" FM_FAKE_HERDR_PRESENCE_UNKNOWN=1 \
+      run_teardown "$case_dir" --force > "$case_dir/stdout" 2> "$case_dir/stderr" || rc=$?
+    [ "$rc" -ne 0 ] || fail "$representation: forced cleanup erased an unconfirmed child endpoint"
+    assert_grep "retaining that child's durable identity records" "$case_dir/stderr" \
+      "$representation: forced cleanup bypassed child endpoint confirmation: $(cat "$case_dir/stderr")"
+    assert_present "$home/state/child-herdr.meta" "$representation: child metadata was erased"
+    assert_present "$home/state/child-herdr.herdr-presentation" "$representation: pane record was erased"
+    assert_present "$case_dir/state/task-x1.meta" "$representation: parent metadata was erased"
+    [ -d "$home" ] || fail "$representation: secondmate home was removed"
+    assert_grep 'herdr_pane_id=wC:p1' "$home/state/child-herdr.meta" "$representation: pane identity was lost"
+  done
+  pass "open Herdr children retain endpoint identity and home through unconfirmed and forced cleanup"
+}
+
 configure_nested_secondmate_with_herdr_grandchild() {  # <case-dir>
   local case_dir=$1 home="$1/secondmate-home" nested_home="$1/secondmate-home/nested-home"
   mkdir -p "$home/state" "$home/data" "$home/config" "$home/projects"
@@ -5295,6 +5342,10 @@ case "\${1:-} \${2:-}" in
     printf '%s\n' 'state=$gql_state' 'merged=$gql_merged'
     exit 0
     ;;
+  "pr view")
+    printf '%s\n' '$gql_state'
+    exit 0
+    ;;
 esac
 echo "error: pull request not found" >&2
 exit 1
@@ -5357,16 +5408,15 @@ test_open_pr_refuses_close_and_keeps_the_record() {
   local case_dir
   case_dir=$(prepare_recorded_github_pr open-pr-refuses)
   install_github_pr_class "$case_dir" open
+  wt_commit_file "$case_dir" open-work.txt "not on a remote" "unpushed open work"
   teardown_capture "$case_dir"
-  expect_code 1 "$TEARDOWN_CAPTURE_RC" "open-pr: an open pull request must refuse teardown"
-  assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" \
-    "open-pr: the refusal did not name the pull request URL"
-  assert_grep 'clean up after it merges' "$case_dir/stderr" \
-    "open-pr: the refusal did not say to clean up after it merges"
+  expect_code 1 "$TEARDOWN_CAPTURE_RC" "open-pr: unpushed work on an open pull request must refuse teardown"
+  assert_grep 'not landed' "$case_dir/stderr" \
+    "open-pr: the refusal did not say the work is not landed"
   assert_present "$case_dir/state/task-x1.meta" "open-pr: the refusal removed the task record"
   [ "$(backlog_row_state "$case_dir")" = in_flight ] \
     || fail "open-pr: the refusal closed the backlog item"
-  pass "an open pull request refuses teardown and keeps the backlog item"
+  pass "an open pull request with unpushed commits refuses teardown and keeps the backlog item"
 }
 
 test_open_pr_force_still_refuses() {
@@ -5389,7 +5439,7 @@ test_open_pr_keep_open_cleans_and_holds() {
   install_github_pr_class "$case_dir" open
   teardown_capture "$case_dir" --keep-open
   expect_code 0 "$TEARDOWN_CAPTURE_RC" "open-pr-keep: --keep-open should clean an open pull request"$'\n'"$(cat "$case_dir/stderr")"
-  assert_absent "$case_dir/state/task-x1.meta" "open-pr-keep: the task record was left behind"
+  assert_present "$case_dir/state/task-x1.meta" "open-pr-keep: the task record was removed while the pull request is still open"
   [ "$(backlog_row_state "$case_dir")" != "done" ] \
     || fail "open-pr-keep: --keep-open closed the backlog item"
   reason=$(shown_hold_reason "$case_dir")
@@ -5401,15 +5451,18 @@ test_open_pr_keep_open_cleans_and_holds() {
 }
 
 test_direct_pr_open_refuses_the_same_way() {
-  local case_dir
+  local case_dir reason
   case_dir=$(prepare_recorded_github_pr direct-pr-open direct-PR)
   install_github_pr_class "$case_dir" open
   teardown_capture "$case_dir"
-  expect_code 1 "$TEARDOWN_CAPTURE_RC" "direct-pr-open: an open pull request must refuse"
-  assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" \
-    "direct-pr-open: the refusal did not name the pull request URL"
-  assert_present "$case_dir/state/task-x1.meta" "direct-pr-open: the refusal removed the task record"
-  pass "a direct-PR ship with an open pull request refuses teardown"
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "direct-pr-open: a pushed open pull request should free the copy"$'\n'"$(cat "$case_dir/stderr")"
+  assert_present "$case_dir/state/task-x1.meta" "direct-pr-open: the task record was removed"
+  [ "$(backlog_row_state "$case_dir")" != "done" ] \
+    || fail "direct-pr-open: teardown closed the backlog item"
+  reason=$(shown_hold_reason "$case_dir")
+  [ "$reason" = "awaiting merge https://github.com/example/repo/pull/7" ] \
+    || fail "direct-pr-open: hold reason was '$reason'"
+  pass "a direct-PR ship with a pushed open pull request frees the copy and keeps the item"
 }
 
 test_merged_pr_on_a_reachable_branch_closes() {
@@ -5422,6 +5475,184 @@ test_merged_pr_on_a_reachable_branch_closes() {
     || fail "merged-pr: teardown left the item at $(backlog_row_state "$case_dir")"
   assert_absent "$case_dir/state/task-x1.meta" "merged-pr: the task record was left behind"
   pass "a merged pull request on an already reachable branch closes the item"
+}
+
+push_task_branch() {
+  local case_dir=$1
+  wt_commit "$case_dir" "pushed branch work"
+  git -C "$case_dir/wt" push -q origin fm/task-x1
+  git -C "$case_dir/project" fetch -q origin
+}
+
+arm_registered_merge_watch() {
+  local case_dir=$1
+  # shellcheck source=bin/fm-pr-lib.sh disable=SC1091
+  . "$ROOT/bin/fm-pr-lib.sh"
+  fm_pr_poll_prepare "$case_dir/state" task-x1 github \
+    https://github.com/example/repo/pull/7 github.com example/repo 7 \
+    "$ROOT/bin/fm-pr-poll.sh" \
+    || fail "could not prepare the merge watch"
+  fm_pr_poll_publish_prepared || fail "could not publish the merge watch"
+}
+
+test_pushed_open_pr_keeps_the_item_and_the_merge_watch() {
+  local case_dir mode poll
+  for mode in no-mistakes local-only; do
+    case_dir=$(prepare_recorded_github_pr "pushed-open-$mode" "$mode")
+    install_github_pr_class "$case_dir" open
+    push_task_branch "$case_dir"
+    arm_registered_merge_watch "$case_dir"
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$mode pushed-open: cleanup should free the copy and keep the item"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(backlog_row_state "$case_dir")" != "done" ] \
+      || fail "$mode pushed-open: cleanup closed the item"
+    assert_present "$case_dir/state/task-x1.meta" "$mode pushed-open: the task record was removed"
+    assert_present "$case_dir/state/task-x1.check.sh" "$mode pushed-open: the check file was removed"
+    assert_present "$case_dir/state/task-x1.pr-poll" "$mode pushed-open: the poll sidecar was removed"
+    assert_present "$case_dir/state/task-x1.pr-poll-registration" "$mode pushed-open: the check is no longer registered"
+    if grep -F "worktree=$case_dir/wt" "$case_dir/state/task-x1.meta" >/dev/null; then
+      fail "$mode pushed-open: the freed copy is still named by the task record"
+    fi
+    fm_pr_poll_snapshot_capture "$case_dir/state" task-x1 "$ROOT/bin/fm-pr-poll.sh" \
+      || fail "$mode pushed-open: the merge watch is no longer registered"
+    install_github_pr_class "$case_dir" merged
+    poll=$(PATH="$case_dir/fakebin:$PATH" "$ROOT/bin/fm-pr-poll.sh" --validated \
+      github https://github.com/example/repo/pull/7 github.com example/repo 7)
+    [ "$poll" = merged ] || fail "$mode pushed-open: a later merge did not fire the watch (got '${poll:-}')"
+  done
+  pass "a pushed open pull request keeps the item and the merge watch, and the watch fires when it later merges"
+}
+
+test_pr_classification_is_reused_when_forge_becomes_unavailable() {
+  local case_dir class
+  for class in open merged; do
+    case_dir=$(prepare_recorded_github_pr "cached-pr-$class")
+    install_github_pr_class "$case_dir" "$class"
+    push_task_branch "$case_dir"
+    arm_registered_merge_watch "$case_dir"
+    mv "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-response"
+    cat > "$case_dir/fakebin/gh" <<'SH'
+#!/usr/bin/env bash
+case_dir=$(cd "$(dirname "$0")/.." && pwd)
+case "${1:-} ${2:-}" in
+  'api graphql')
+    printf '%s\n' lookup >> "$case_dir/pr-lookups"
+    [ ! -e "$case_dir/forge-unavailable" ] || exit 1
+    : > "$case_dir/forge-unavailable"
+    exec "$case_dir/fakebin/gh-response" "$@"
+    ;;
+  *) exit 1 ;;
+esac
+SH
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$case_dir/fakebin/gh-axi"
+    chmod +x "$case_dir/fakebin/gh" "$case_dir/fakebin/gh-axi"
+    teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$class: cached PR state should survive later forge failure"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(wc -l < "$case_dir/pr-lookups" | tr -d ' ')" = 1 ] || fail "$class: teardown repeated the PR-state lookup"
+    if [ "$class" = open ]; then
+      [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "cached OPEN classification closed the item"
+      assert_present "$case_dir/state/task-x1.meta" "cached OPEN classification lost the record"
+      assert_present "$case_dir/state/task-x1.pr-poll-registration" "cached OPEN classification lost the watch"
+    else
+      [ "$(backlog_row_state "$case_dir")" = "done" ] || fail "cached MERGED classification left the item open"
+      assert_absent "$case_dir/state/task-x1.meta" "cached MERGED classification retained the record"
+      assert_absent "$case_dir/state/task-x1.pr-poll-registration" "cached MERGED classification retained the watch"
+    fi
+  done
+  pass "teardown reuses its first PR classification when the forge becomes unavailable"
+}
+
+test_released_copy_completes_after_merge() {
+  local case_dir backend calls interrupted=${1:-0}
+  for backend in tmux orca; do
+    case_dir=$(prepare_recorded_github_pr "released-copy-$backend-$interrupted")
+    install_github_pr_class "$case_dir" open
+    push_task_branch "$case_dir"
+    arm_registered_merge_watch "$case_dir"
+    if [ "$backend" = orca ]; then
+      sed 's/^window=.*/window=fm-task-x1/' "$case_dir/state/task-x1.meta" > "$case_dir/meta.tmp"
+      mv "$case_dir/meta.tmp" "$case_dir/state/task-x1.meta"
+      printf '%s\n' 'backend=orca' 'terminal=term-7' \
+        "orca_worktree_id=wt-7::$case_dir/wt" >> "$case_dir/state/task-x1.meta"
+      cat > "$case_dir/fakebin/orca" <<'SH'
+#!/usr/bin/env bash
+case_dir=$(cd "$(dirname "$0")/.." && pwd)
+printf '%s\n' "$*" >> "$case_dir/orca.log"
+case "${1:-} ${2:-}" in
+  'worktree show')
+    [ -d "$case_dir/wt" ] || exit 1
+    printf '{"ok":true,"result":{"worktree":{"path":"%s/wt"}}}\n' "$case_dir"
+    ;;
+  'worktree rm')
+    [ -d "$case_dir/wt" ] || exit 1
+    git -C "$case_dir/project" worktree remove --force "$case_dir/wt" || exit 1
+    printf '%s\n' '{"ok":true}'
+    ;;
+  'terminal close') printf '%s\n' '{"ok":true}' ;;
+  *) exit 1 ;;
+esac
+SH
+      chmod +x "$case_dir/fakebin/orca"
+    fi
+    if [ "$interrupted" = 1 ]; then
+      printf '%s\n' mate > "$case_dir/.fm-secondmate-home"
+      printf '%s\n' 'schema=fm-secondmate-parent.v1' 'route=remote' > "$case_dir/.fm-secondmate-parent"
+      printf '%s\n' 'failed: fixture terminal outcome' > "$case_dir/state/task-x1.status"
+      mkdir "$case_dir/state/parent-replies.status"
+    fi
+    FM_HOME="$case_dir" teardown_capture "$case_dir"
+    if [ "$interrupted" = 1 ]; then
+      expect_code 1 "$TEARDOWN_CAPTURE_RC" "$backend: parent reporting should interrupt cleanup"
+      assert_grep 'final outcome has not reached the parent channel' "$case_dir/stderr" \
+        "$backend: cleanup did not reach parent reporting"
+      assert_grep "worktree=$case_dir/state/task-x1.released-copy" "$case_dir/state/task-x1.meta" \
+        "$backend: successful release was not durable before reporting failed"
+      rmdir "$case_dir/state/parent-replies.status"
+    else
+      expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: initial release failed"$'\n'"$(cat "$case_dir/stderr")"
+    fi
+    assert_present "$case_dir/state/task-x1.meta" "$backend: open PR lost its record"
+    assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: open PR lost its watch"
+    if [ "$backend" = orca ]; then
+      assert_absent "$case_dir/wt" "Orca did not release its copy"
+      calls=$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")
+    fi
+    FM_HOME="$case_dir" teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: repeated open cleanup failed"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "$backend: repeated cleanup closed an open PR"
+    assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: repeated cleanup lost its watch"
+    install_github_pr_class "$case_dir" merged
+    FM_HOME="$case_dir" teardown_capture "$case_dir"
+    expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented merge completion"$'\n'"$(cat "$case_dir/stderr")"
+    [ "$(backlog_row_state "$case_dir")" = "done" ] || fail "$backend: merged item did not close"
+    assert_absent "$case_dir/state/task-x1.meta" "$backend: completed record remained"
+    assert_absent "$case_dir/state/task-x1.pr-poll-registration" "$backend: completed watch remained"
+    if [ "$backend" = orca ]; then
+      [ "$(grep -E '^(worktree (show|rm)|terminal close) ' "$case_dir/orca.log")" = "$calls" ] \
+        || fail "Orca touched the already released copy or endpoint: $(cat "$case_dir/orca.log")"
+    fi
+  done
+  pass "released copies stay open until merge and complete without a second removal (interrupted=$interrupted)"
+}
+
+test_interrupted_release_completes_after_merge() {
+  test_released_copy_completes_after_merge 1
+}
+
+test_pushed_merged_pr_still_closes() {
+  local case_dir
+  case_dir=$(prepare_recorded_github_pr pushed-merged)
+  install_github_pr_class "$case_dir" merged
+  push_task_branch "$case_dir"
+  arm_registered_merge_watch "$case_dir"
+  teardown_capture "$case_dir"
+  expect_code 0 "$TEARDOWN_CAPTURE_RC" "pushed-merged: a merged pull request should still close"$'\n'"$(cat "$case_dir/stderr")"
+  [ "$(backlog_row_state "$case_dir")" = "done" ] \
+    || fail "pushed-merged: teardown left the item at $(backlog_row_state "$case_dir")"
+  assert_absent "$case_dir/state/task-x1.meta" "pushed-merged: the task record was left behind"
+  assert_absent "$case_dir/state/task-x1.check.sh" "pushed-merged: the merge watch was left armed"
+  assert_absent "$case_dir/state/task-x1.pr-poll-registration" "pushed-merged: the registration was left behind"
+  pass "a merged pull request on a pushed branch still closes and retires the watch"
 }
 
 test_closed_unmerged_pr_refuses_unless_force() {
@@ -5631,7 +5862,7 @@ SH
     || fail "merge hold reason was not retained"
   tasks-axi show task-x1 --file "$case_dir/data/backlog.md" | grep -F 'hold_kind: external' >/dev/null \
     || fail "awaiting merge must be an external hold"
-  assert_absent "$case_dir/state/task-x1.meta" "merge hold did not complete cleanup"
+  assert_present "$case_dir/state/task-x1.meta" "merge hold removed the open PR record"
   pass "merge hold retains lifecycle serialization through cleanup"
 }
 
@@ -5651,7 +5882,7 @@ test_merge_wait_preserves_existing_captain_hold() {
     fi
     teardown_capture "$case_dir" --keep-open
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "captain merge wait must allow cleanup"$'\n'"$(cat "$case_dir/stderr")"
-    assert_absent "$case_dir/state/task-x1.meta" "captain merge wait left the task record"
+    assert_present "$case_dir/state/task-x1.meta" "captain merge wait removed the open PR record"
     [ "$(shown_hold_reason "$case_dir")" = "$reason" ] \
       || fail "merge wait replaced the captain question"
     after_identity=$(FM_HOME="$case_dir" bash "$ROOT/bin/fm-captain-hold.sh" open task-x1 --identity) \
@@ -5693,6 +5924,18 @@ test_pr_refusals_apply_without_automatic_backlog() {
             force) teardown_capture "$case_dir" --force ;;
             keep-open) teardown_capture "$case_dir" --keep-open ;;
           esac
+          if [ "$pr_class" = open ] && [ "$option" = normal ]; then
+            expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backlog_mode $mode open normal should free the copy"$'\n'"$(cat "$case_dir/stderr")"
+            assert_present "$case_dir/state/task-x1.meta" "open copy-free removed the task record"
+            assert_grep 'hold it awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" \
+              "open copy-free omitted the manual merge hold"
+            if [ "$backlog_mode" = manual ]; then
+              [ "$(backlog_row_state "$case_dir")" = in_flight ] || fail "manual backlog was mutated"
+            else
+              assert_absent "$case_dir/data/backlog.md" "absent backlog was created"
+            fi
+            continue
+          fi
           expect_code 1 "$TEARDOWN_CAPTURE_RC" "$backlog_mode $mode $pr_class $option must refuse cleanup"
           assert_present "$case_dir/state/task-x1.meta" "PR refusal removed the task record"
           assert_grep 'https://github.com/example/repo/pull/7' "$case_dir/stderr" "PR refusal omitted the URL"
@@ -5718,7 +5961,7 @@ test_keep_open_without_automatic_backlog_requests_merge_hold() {
     fi
     teardown_capture "$case_dir" --keep-open
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backlog_mode --keep-open should clean the endpoint"$'\n'"$(cat "$case_dir/stderr")"
-    assert_absent "$case_dir/state/task-x1.meta" "$backlog_mode --keep-open left the task record"
+    assert_present "$case_dir/state/task-x1.meta" "$backlog_mode --keep-open removed the task record"
     assert_grep 'hold it awaiting merge https://github.com/example/repo/pull/7' "$case_dir/stdout" "manual merge-hold instruction omitted"
     if [ "$backlog_mode" = manual ]; then
       [ "$(backlog_row_state "$case_dir")" = in_flight ] || fail "manual backlog was mutated"
@@ -5761,6 +6004,7 @@ test_herdr_teardown_presentation_lock_namespace_is_per_account
 test_forced_secondmate_herdr_child_preflight_refuses_before_changes
 test_forced_secondmate_teardown_holds_descendant_lifecycle_locks
 test_forced_secondmate_herdr_child_retains_records_when_close_unconfirmed
+test_open_herdr_child_survives_unconfirmed_close_and_forced_cleanup
 test_forced_teardown_retains_nested_secondmate_home_when_grandchild_close_unconfirmed
 test_herdr_projection_teardown_retires_journal_only_after_confirmed_close
 test_herdr_projection_teardown_retains_journal_when_close_unconfirmed
@@ -5861,6 +6105,11 @@ test_open_pr_force_still_refuses
 test_open_pr_keep_open_cleans_and_holds
 test_direct_pr_open_refuses_the_same_way
 test_merged_pr_on_a_reachable_branch_closes
+test_pushed_open_pr_keeps_the_item_and_the_merge_watch
+test_pr_classification_is_reused_when_forge_becomes_unavailable
+test_released_copy_completes_after_merge
+test_interrupted_release_completes_after_merge
+test_pushed_merged_pr_still_closes
 test_closed_unmerged_pr_refuses_unless_force
 test_unreadable_pr_refuses_even_with_force
 test_blocked_by_dependent_refuses_and_names_it

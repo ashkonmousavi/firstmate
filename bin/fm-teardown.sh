@@ -41,11 +41,13 @@
 # lift the deferral (it authorizes discarding unlanded WORK, never the
 # captain's question), and bin/fm-captain-hold.sh answer stays the only act
 # that closes the call.
-# REFUSES if the worktree holds work that has not LANDED, because cleanup
-# hard-resets/removes the worktree and kills its processes. Work has landed when it is
-# reachable from any remote-tracking branch (a fork counts as a remote, so
-# upstream-contribution PRs pushed to a fork satisfy this in any mode), OR - for a
-# normal ship task whose commits are not so reachable - when its PR is merged and
+# REFUSES if the worktree holds commits that are not on a remote and have not
+# landed, because cleanup hard-resets/removes the worktree and kills its
+# processes. The local copy may be freed when the commits are reachable from
+# any remote-tracking branch (a fork counts as a remote, so upstream-contribution
+# PRs pushed to a fork satisfy this in any mode). That reachability is not a
+# landed close when the task's recorded pr= is OPEN or unreadable. A normal ship
+# task whose commits are not reachable has landed only when its PR is merged and
 # GitHub reports a PR head that contains the current local work, or its content is
 # already present in the up-to-date default branch. This recognizes the common
 # squash-merge-then-delete-branch flow, where the branch's own commits live nowhere
@@ -68,18 +70,33 @@
 # A gh lookup error falls back to the content check; if that is also inconclusive,
 # teardown refuses rather than risk discarding unlanded work.
 # Reachability from a remote-tracking branch is not enough to close the backlog
-# item. A ship in a PR delivery mode (no-mistakes or direct-PR) with a recorded
-# pr= reads that pull request through bin/fm-pr-lib.sh (gh, glab, tea, or
-# gerrit-axi) before the close. MERGED closes as before. OPEN refuses and keeps
-# every record, naming the URL and saying to clean up after it merges, unless
-# --keep-open is given: then the endpoint and worktree are cleaned, because the
-# pushed branch remains, and the item stays open, held "awaiting merge <url>".
-# An existing captain hold and its question are preserved; the merge wait is
-# recorded in the item's note instead of replacing that hold.
+# item. Every ship with a recorded pr=, in every delivery mode, reads that pull
+# request through bin/fm-pr-lib.sh (gh, glab, tea, or gerrit-axi) before the
+# close. validate_worktree_teardown_safety owns that landed decision: an empty
+# `git log HEAD --not --remotes` means the copy may be freed, and it does not
+# mean the work has landed while the recorded pull request is OPEN.
+# MERGED closes as before and retires the merge watch. OPEN never closes the
+# item. When the commits are already on a remote and the worktree is clean, the
+# local copy may still be freed: the item stays open, held "awaiting merge
+# <url>", the task record stays so the merge watch remains registered, and the
+# recorded worktree path is released so the pool slot is not still named here.
+# The retained record uses worktree=<absolute-state-directory>/<id>.released-copy
+# as a sentinel, not an actual worktree. A later teardown
+# rechecks the PR and, once merged, closes the item and retires its watch without
+# removing the released copy again. Release is persisted before fallible parent
+# reporting or artifact retirement, so an interrupted cleanup can be retried.
+# Only Orca skips endpoint closure for that sentinel: it closes its terminal
+# before releasing the copy. Other backends still close and confirm the endpoint
+# before persisting the sentinel.
+# An OPEN pull request whose commits are not on a remote still refuses.
+# --force does not close an OPEN pull request. An existing captain hold and its
+# question are preserved; the merge wait is recorded in the item's note instead
+# of replacing that hold.
 # CLOSED without a merge refuses unless --force, the captain's explicit discard.
 # An unreadable state refuses, and neither --force nor --keep-open overrides that.
 # These PR checks apply even in manual-backend homes and markdown homes without
-# a backlog file; --keep-open then prints the merge hold owed as a manual edit.
+# a backlog file; freeing an OPEN pull request's copy then prints the merge hold
+# owed as a manual edit.
 # When the automatic backlog transition gate applies, the same close refuses
 # while any other open item in this home lists this id in blocked-by, naming
 # those items. --keep-open still cleans and leaves this item open, so those
@@ -113,9 +130,9 @@
 # to stderr, and then exits 4.
 # Before destructive cleanup, teardown validates task check artifacts as
 # ordinary single-link files on the state device. It refuses and preserves
-# task state when that proof fails; otherwise it removes the task's check,
-# trust record, PR sidecar, and publication record with the rest of the
-# volatile state.
+# task state when that proof fails. Record-removing cleanup retires the task's
+# check, trust record, PR sidecar, and publication record with the rest of the
+# volatile state; the OPEN-copy release path above retains its merge watch.
 # That volatile state includes the watcher's per-task .seen-* signature for
 # the task's turn-ended file, minted by bin/fm-wake-lib.sh (the .seen-*
 # signature for its status file and its .hb-surfaced- heartbeat marker are
@@ -219,8 +236,8 @@
 #   checks, and discards secondmate child work for kind=secondmate. Only use it
 #   when the captain has explicitly said to discard the work. It is also the
 #   explicit discard for a recorded pull request that is closed without merging.
-#   It does not close an item other items still list in blocked-by, and it does
-#   not override an unreadable pull-request state.
+#   It does not close an OPEN pull request or an item other items still list in
+#   blocked-by, and it does not override an unreadable pull-request state.
 #   --keep-open cleans the endpoint and worktree of a ship whose recorded pull
 #   request is still open, or of an item other open items still list in
 #   blocked-by, and leaves that backlog item open. It does not discard unlanded
@@ -436,6 +453,9 @@ FORCE=
 KEEP_OPEN=0
 TEARDOWN_KEEP_OPEN=0
 TEARDOWN_KEEP_OPEN_HOLD=0
+TEARDOWN_KEEP_MERGE_WATCH=0
+TEARDOWN_PUSHED_OPEN_PR=0
+TEARDOWN_RECORDED_PR_CLASS=
 TEARDOWN_DEPENDENTS=
 LEGACY_RECORD_GIVEN=0
 shift
@@ -1528,6 +1548,24 @@ validate_pr_poll_cleanup() {
   fi
 }
 
+teardown_recorded_copy_released() {
+  local meta=$1 state=$2 id=$3
+  [ "$(meta_value "$meta" worktree)" = "$state/$id.released-copy" ]
+}
+
+teardown_release_recorded_copy() {
+  [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] || return 0
+  local tmp line
+  tmp=$(umask 077; mktemp "$STATE/.fm-teardown-release.XXXXXX") || return 1
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      worktree=*) printf 'worktree=%s\n' "$STATE/$ID.released-copy" ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done < "$META" > "$tmp" || { rm -f "$tmp"; return 1; }
+  mv -f "$tmp" "$META"
+}
+
 remove_pr_poll_artifacts() {
   local state_dir=$1 id=$2
   validate_pr_poll_cleanup "$state_dir" "$id" || return 1
@@ -1745,6 +1783,14 @@ teardown_recorded_pr_class() {
   teardown_pr_class_from_record
 }
 
+# One read per teardown. The landed test and the close guard both need the class,
+# and a second forge read must not be able to disagree with the first.
+teardown_recorded_pr_class_cached() {
+  if [ -z "$TEARDOWN_RECORDED_PR_CLASS" ]; then
+    TEARDOWN_RECORDED_PR_CLASS=$(teardown_recorded_pr_class)
+  fi
+}
+
 # Ids of other open items whose blocked-by lists $1. List text is on stdin.
 # Rows are tasks-axi's quoted TOON table; the id is the first field and
 # blocked-by is the last, so a comma inside a title cannot hide a dependent.
@@ -1828,21 +1874,24 @@ teardown_guard_unlanded_close() {
     teardown_collect_dependents || return 1
   fi
 
-  if [ "$KIND" = ship ]; then
-    case "$MODE" in
-      no-mistakes|direct-PR)
-        if [ -n "$PR_URL" ]; then
-          class=$(teardown_recorded_pr_class)
-        fi
-        ;;
-    esac
+  if [ "$KIND" = ship ] && [ -n "$PR_URL" ]; then
+    teardown_recorded_pr_class_cached
+    class=$TEARDOWN_RECORDED_PR_CLASS
   fi
 
   case "$class" in
     ''|merged) ;;
     open)
-      if [ "$KEEP_OPEN" = 1 ]; then
+      # A pushed head is not a landed close. --force still must not close it.
+      # The copy may be freed only when the landed test already proved the
+      # commits are on a remote, or when --keep-open asked for that free.
+      if [ "$FORCE" = --force ]; then
+        echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
+        pr_refused=1
+      elif [ "$KEEP_OPEN" = 1 ] || [ "$TEARDOWN_PUSHED_OPEN_PR" = 1 ] \
+          || teardown_recorded_copy_released "$META" "$STATE" "$ID"; then
         TEARDOWN_KEEP_OPEN=1
+        TEARDOWN_KEEP_MERGE_WATCH=1
       else
         echo "REFUSED: pull request $PR_URL is still open; clean up after it merges." >&2
         pr_refused=1
@@ -2284,6 +2333,18 @@ validate_worktree_teardown_safety() {
       echo "Push the branch, land its PR, or get the captain's explicit OK to discard, then --force." >&2
       return 1
     fi
+  fi
+
+  # An empty unpushed list is the only proof the commits are on a remote.
+  # Content already in the default branch is not that proof: an OPEN pull
+  # request is still not landed, and its copy may be freed only when the
+  # commits themselves are reachable from a remote. The caller then keeps
+  # the item and the merge watch.
+  if [ -z "$unpushed" ] && [ "$KIND" = ship ] && [ -n "$PR_URL" ]; then
+    teardown_recorded_pr_class_cached
+    case "$TEARDOWN_RECORDED_PR_CLASS" in
+      open) TEARDOWN_PUSHED_OPEN_PR=1 ;;
+    esac
   fi
 }
 
@@ -2781,7 +2842,8 @@ require_owned_task_worktree_slot() {
 }
 
 teardown_owns_worktree() {
-  [ "$TEARDOWN_SLOT_REASSIGNED" != 1 ]
+  [ "$TEARDOWN_SLOT_REASSIGNED" != 1 ] \
+    && [ "$WT" != "$STATE/$ID.released-copy" ]
 }
 
 firstmate_home_has_treehouse_slot() {
@@ -3338,6 +3400,8 @@ validate_firstmate_home_children_removal() {
       [ -n "$child_home" ] || child_home=$child_wt
       validate_firstmate_home_for_removal "$child_home" "child firstmate home" "$child_id" >/dev/null || return 1
       validate_firstmate_home_children_removal "$child_home" || return 1
+    elif teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
+      :
     elif [ "$child_backend" = orca ]; then
       child_orca_worktree_id=$(require_orca_worktree_id "$child_meta") || return 1
       if [ -n "$child_wt" ] && [ -e "$child_wt" ]; then
@@ -3545,13 +3609,16 @@ cleanup_firstmate_home_children() {
     else
       child_t=$(fm_backend_target_of_meta "$child_meta")
     fi
-    if [ "$child_backend" = orca ] && [ "$child_kind" != secondmate ]; then
+    if [ "$child_backend" = orca ] && [ "$child_kind" != secondmate ] \
+        && ! teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
       child_orca_worktree_id=$(require_orca_worktree_id "$child_meta") || return 1
       if [ -n "$child_wt" ] && [ -e "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
       fi
     fi
-    if [ -n "$child_t" ]; then
+    if [ -n "$child_t" ] \
+        && { [ "$child_backend" != orca ] \
+          || ! teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; }; then
       if [ "$child_backend" = herdr ]; then
         fm_backend_herdr_parse_target "$child_t" || return 1
         if ! teardown_herdr_session_lock_held "$FM_BACKEND_HERDR_SESSION"; then
@@ -3580,6 +3647,8 @@ cleanup_firstmate_home_children() {
         cleanup_firstmate_home_children "$child_home" || return $?
         remove_firstmate_home "$child_home" "child firstmate home" "$child_id" || return $?
       fi
+    elif teardown_recorded_copy_released "$child_meta" "$sub_state" "$child_id"; then
+      :
     elif [ "$child_backend" = orca ]; then
       if [ -n "$child_wt" ] && [ -d "$child_wt" ]; then
         validate_child_worktree_for_removal "$child_wt" "$child_proj" >/dev/null || return 1
@@ -3768,7 +3837,8 @@ if [ -n "$X_REQUEST" ]; then
   echo "warning: task $ID still carries an unreconciled Relay request link ($X_REQUEST) on its task record." >&2
 fi
 
-if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] && [ "$FORCE" != "--force" ]; then
+if [ "$BACKEND" = orca ] && [ "$KIND" != scout ] && [ "$KIND" != secondmate ] \
+    && teardown_owns_worktree && [ "$FORCE" != "--force" ]; then
   if ! inspectable_git_worktree "$WT"; then
     echo "REFUSED: Orca ship task $ID has no inspectable git worktree at ${WT:-<missing>}." >&2
     echo "Cannot verify dirty or unlanded work; restore the worktree path or get explicit OK to discard, then --force." >&2
@@ -3817,7 +3887,12 @@ BACKLOG_TRANSITION=$TEARDOWN_BACKLOG_TRANSITION
 BACKLOG_TRANSITION_FLAGS=()
 [ "$BACKLOG_TRANSITION" = close ] || BACKLOG_TRANSITION_FLAGS=(--retain)
 BACKLOG_SKIP_REASON=
-if [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+if [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ] && [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
+  # The guard already held the item. Writing the close marker would replay
+  # into deleting the task record, and the merge watch is registered only
+  # while that record remains.
+  BACKLOG_CLOSED=1
+elif [ "$TEARDOWN_BACKLOG_APPLIES" = 1 ]; then
   backlog_done_args || {
     echo "error: the pending backlog $BACKLOG_TRANSITION for $ID is not replayable; refusing destructive teardown" >&2
     exit 1
@@ -3914,7 +3989,7 @@ fi
 "$SCRIPT_DIR/fm-remote-job-reap-orphans.sh" >&2 || true
 
 # Best-effort: drop the local task branch so the shared repo does not accumulate refs.
-if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
+if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ] && teardown_owns_worktree; then
   if [ "$ORCA_PATH_MATCH_VERIFIED" != 1 ]; then
     require_orca_worktree_path_match_if_present "$ORCA_WORKTREE_ID" "$WT" || exit 1
     ORCA_PATH_MATCH_VERIFIED=1
@@ -3936,6 +4011,7 @@ if [ "$BACKEND" = orca ] && [ "$KIND" != secondmate ]; then
       || { endpoint_close_refusal "$ID" "$BACKEND" "$T" 0; exit 1; }
   fi
   fm_backend_remove_worktree "$BACKEND" "$ORCA_WORKTREE_ID"
+  teardown_release_recorded_copy || exit 1
 elif [ "$KIND" != secondmate ] && ! teardown_owns_worktree; then
   :
 elif [ -d "$WT" ] && [ "$KIND" != secondmate ]; then
@@ -4065,6 +4141,9 @@ if [ "$BACKEND" = herdr ]; then
     exit 1
   fi
 fi
+if [ "$BACKEND" != orca ]; then
+  teardown_release_recorded_copy || exit 1
+fi
 if [ "$KIND" != secondmate ]; then
   if ! FM_HOME="$FM_HOME" FM_STATE_OVERRIDE="$STATE" FM_DATA_OVERRIDE="$DATA" \
       "$SCRIPT_DIR/fm-inactive-reconcile.sh" report "$ID"; then
@@ -4121,7 +4200,9 @@ LAUNCH_HOME_TOKEN=$(teardown_launch_home_token "$FM_HOME") || LAUNCH_HOME_TOKEN=
 if [ -n "$LAUNCH_HOME_TOKEN" ]; then
   rm -rf "/tmp/fm-$ID+$LAUNCH_HOME_TOKEN"
 fi
-remove_pr_poll_artifacts "$STATE" "$ID" || exit 1
+if [ "$TEARDOWN_KEEP_MERGE_WATCH" != 1 ]; then
+  remove_pr_poll_artifacts "$STATE" "$ID" || exit 1
+fi
 retire_busy_state "$STATE" "$ID" "$BUSY_GEN" || exit 1
 # Opt-in fleet activity ledger (docs/fleet-ledger.md), before the status log is
 # retired so its last lines are captured; off costs one file test.
@@ -4171,7 +4252,9 @@ fi
 # racing the same id stays serialized exactly as it was before. A captain-held
 # row takes the retain transition here instead of the close: same record, same
 # ordering, the row returns to Queued with its deliverable recorded.
-if [ "$BACKLOG_CLOSED" = 1 ]; then
+if [ "$TEARDOWN_KEEP_MERGE_WATCH" = 1 ]; then
+  :
+elif [ "$BACKLOG_CLOSED" = 1 ]; then
   BACKLOG_CLOSE_MARKER=$(fm_backlog_close_marker_path "$STATE" "$ID") || exit 1
   if ! fm_backlog_atomic_transition "$BACKLOG_TRANSITION" "$STATE/$ID.meta" "$BACKLOG_CLOSE_MARKER" \
       "$DATA" "$ID" "$STATE" "${BACKLOG_DONE_ARGS[@]+"${BACKLOG_DONE_ARGS[@]}"}"; then
@@ -4211,6 +4294,8 @@ if [ "$TEARDOWN_POOL_SLOT_LOST" = 1 ]; then
   echo "teardown $ID finished its cleanup and removed its task record, but a returned pool slot did not come back clean (see the warning above); clear those paths so the pool can reuse the slot" >&2
 elif [ "$TEARDOWN_LEGACY_ACCEPTED" = 1 ]; then
   echo "teardown $ID complete (window ${T:-none}, worktree $WT, legacy record accepted without spawn_gen: endpoint $TEARDOWN_LEGACY_ENDPOINT, incarnation $TEARDOWN_META_SPAWN_GEN)"
+elif [ "$WT" = "$STATE/$ID.released-copy" ]; then
+  echo "teardown $ID complete (local copy already released)"
 elif teardown_owns_worktree; then
   echo "teardown $ID complete (window ${T:-none}, worktree $WT)"
 else
