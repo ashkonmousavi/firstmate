@@ -896,6 +896,15 @@ case "\${1:-}" in
     printf '  id: %s\n' "$id"
     printf '%s\n' '  state: in_flight' '  held: no' '  blocked: no'
     ;;
+  list)
+    case " \$* " in
+      *" --file "*)
+        printf '%s\n' 'error: beads list received a markdown file override' >&2
+        exit 1
+        ;;
+    esac
+    printf '%s\n' 'count: 0'
+    ;;
   done)
     [ "\${2:-}" = "$id" ] || exit 1
     case " \$* " in
@@ -2952,6 +2961,11 @@ test_dispatch_and_completion_are_structural() {
 
   meta="$home/state/$id.meta"
   printf 'pr=%s\n' "$pr" >> "$meta"
+  cat > "$case_dir/fakebin/gh-axi" <<'SH'
+#!/usr/bin/env bash
+printf 'pull_request:\n  state: merged\n'
+SH
+  chmod +x "$case_dir/fakebin/gh-axi"
   out=$(run_teardown "$case_dir" "$id") \
     || fail "structural teardown failed: $out"
   [ "$(row_state "$case_dir" "$id")" = "done" ] \
