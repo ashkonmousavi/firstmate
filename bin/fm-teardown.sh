@@ -130,9 +130,9 @@
 # to stderr, and then exits 4.
 # Before destructive cleanup, teardown validates task check artifacts as
 # ordinary single-link files on the state device. It refuses and preserves
-# task state when that proof fails; otherwise it removes the task's check,
-# trust record, PR sidecar, and publication record with the rest of the
-# volatile state.
+# task state when that proof fails. Record-removing cleanup retires the task's
+# check, trust record, PR sidecar, and publication record with the rest of the
+# volatile state; the OPEN-copy release path above retains its merge watch.
 # That volatile state includes the watcher's per-task .seen-* signature for
 # the task's turn-ended file, minted by bin/fm-wake-lib.sh (the .seen-*
 # signature for its status file and its .hb-surfaced- heartbeat marker are
