@@ -1,0 +1,9 @@
+done [at=1792686348]: scout report before promotion
+done [at=1792686348] [handoff=816f04964962211f2e771d7102bc778e36883369]: café: complete before validation
+done [at=1792686348] [handoff=4261d67163899b09257d29263e0b3560ffda57f5]: handoff on new head
+done [at=1792686349]: direct PR complete
+Persisted status contract verified: promotion stamps only the ship event; UTF-8 is retained; a changed HEAD gets its own stamp; direct-PR stays untagged.
+Isolated no-mistakes inventory attempt (exit 1):
+error: repo not initialized (run 'no-mistakes init' first)
+help[1]: Run `no-mistakes init` to set up the gate in this repository
+

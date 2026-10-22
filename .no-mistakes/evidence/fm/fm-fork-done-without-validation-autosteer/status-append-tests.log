@@ -1,0 +1,5 @@
+ok - report text is written literally, and a multi-line report becomes one line
+ok - key and corr stay in the documented before-colon order
+ok - the ledger hook records each new status line once
+ok - a second-mate note from stdin is literal, one line, and keeps the corr token
+ok - a ship handoff records HEAD, and a scout or direct-PR done does not

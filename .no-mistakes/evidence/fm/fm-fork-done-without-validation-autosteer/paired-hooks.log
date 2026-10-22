@@ -1,0 +1,28 @@
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+ /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-watcher-attended/state/other.turn-ended
+ok - paired handoff acceptance hooks via watcher (attended)
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+●  WATCHER DOWN - SUPERVISION IS OFF
+●  1 task(s) in flight, but no watcher has a fresh beacon (last beat: never, grace 300s).
+●  Trust the emitted supervision protocol for this harness; do not use shell & for watcher repair.
+●  This is a supervision warning only; the guarded operation WILL still run.
+●  After draining queued wakes, repair missing watcher supervision according to the session-start block for this harness; do not use shell &.
+●━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WARNING: queued wakes pending - drain them with bin/fm-wake-drain.sh before anything else.
+acceptance assertion failed: grep -F other.turn-ended /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/.subsuper-escalations
+consumer output /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/daemon.log:
+[2026-10-22T09:47:33-0700] self-handle: signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.status /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.turn-ended -> signal already escalated (catch-all scan): ship1.status: done [at=100] [handoff=6fa8e03e921f68f3fb0fc54f79d0b495b49947fb]: first
+[2026-10-22T09:47:34-0700] self-handle: signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.status -> signal already escalated (catch-all scan): ship1.status: done [handoff-escalated=6fa8e03e921f68f3fb0fc54f79d0b495b49947fb]: signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.status stopped-before-validation head=6fa8e03e921f68f3fb0fc54f79d0b495b49947fb lines=100,200
+[2026-10-22T09:47:38-0700] escalate: signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.status stopped-before-validation head=6fa8e03e921f68f3fb0fc54f79d0b495b49947fb lines=100,200 -> signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.status stopped-before-validation head=6fa8e03e921f68f3fb0fc54f79d0b495b49947fb lines=100,200
+[2026-10-22T09:47:39-0700] self-handle: signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.turn-ended -> routine signal: 
+[2026-10-22T09:47:39-0700] self-handle: signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/other.turn-ended -> routine signal: 
+consumer output /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/.subsuper-escalations:
+signal: /tmp/fm-watch-triage-tests.y45qhm/nm-gap-hooks-daemon-attended/state/ship1.status stopped-before-validation head=6fa8e03e921f68f3fb0fc54f79d0b495b49947fb lines=100,200
+not ok - paired handoff gap: hooks/daemon/attended
