@@ -9,6 +9,9 @@
 # local commit. When merge-tree cannot run, the pull request's own file list
 # is used instead. FILES and BLAST RADIUS path lines supply paths when SCOPE
 # is absent. A brief without planned paths receives an unchecked note.
+# Both comparison paths retain rename sources and destinations.
+# This checks up to 200 open GitHub pull requests and requires gh and jq.
+# It leaves branches and refs unchanged but rewrites the brief's note.
 # Listing failures, a missing tool, and a brief that cannot be rewritten are
 # recorded in the note or skipped. This script exits 0 either way, so a spawn
 # is never blocked on it.

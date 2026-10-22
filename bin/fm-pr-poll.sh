@@ -2,9 +2,10 @@
 # Static watcher program for a validated pull request, merge request, or Gerrit
 # change poll sidecar.
 # It emits exactly one merged line for a merged change.
-# On GitHub, when the change is not merged, it also emits exactly one of
+# On GitHub, only while the pull request is OPEN, it also emits exactly one of
 # `conflict:<added-at>` (a label named conflict has been applied for at least 15 minutes)
 # or `conflict-clear` (the label is absent or still younger than that).
+# CLOSED and other non-open, non-merged states emit nothing.
 # GitHub label lookup and JSON failures return nonzero. An unproved label age
 # emits no observation, so it cannot be read as a merge or as a conflict.
 # The provider-tagged identity is data in the sidecar and is never

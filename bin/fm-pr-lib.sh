@@ -17,12 +17,13 @@
 #
 # A validated exact merged result is retired through a private receipt only
 # after its durable wake is appended.
-# A GitHub conflict label older than 15 minutes is one episode per task,
-# stored beside the poll. bin/fm-pr-poll.sh owns the observation words.
-# This file owns the episode marker. bin/fm-watch.sh steers a live worker,
-# relaunches an exited one, or raises the single wake.
 # The receipt binds the terminal observation to the canonical registration and
 # lets a restart finish fixed-path removal without executing state-file bytes.
+#
+# This file owns the conflict-episode marker beside the poll, bound to the
+# task, provider, host, repository, PR number, and label's added-at time.
+# bin/fm-pr-poll.sh owns conflict eligibility and observation words;
+# bin/fm-watch.sh routes observations through this file's recovery handler.
 
 FM_PR_PROVIDER=
 FM_PR_URL=

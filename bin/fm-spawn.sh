@@ -29,9 +29,9 @@
 #   `## Captain's intent` line opening with a Captain label or address.
 #   Every ship or scout spawn renders `launch-brief.md`; for a no-mistakes ship
 #   it also carries the current `--intent` contract and the extracted captain
-#   intent. Before that render, bin/fm-pr-overlap.sh may append a SHARED note
-#   of open pull requests that touch the brief's SCOPE paths. The note is
-#   read-only and a failure there does not stop the spawn. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
+#   intent. Before that render, bin/fm-pr-overlap.sh annotates the brief with
+#   a best-effort SHARED note; its header owns path selection and comparison
+#   limits. A legacy mixed Task is accepted there only under bin/fm-dod-lib.sh's
 #   provenance-marking rules; unmarked legacy Tasks stop for migration rather
 #   than becoming intent. That library owns the parsing and intent rules. When
 #   the explicit mode carries less rigor than the project's standing posture, a
