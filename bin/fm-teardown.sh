@@ -80,6 +80,14 @@
 # local copy may still be freed: the item stays open, held "awaiting merge
 # <url>", the task record stays so the merge watch remains registered, and the
 # recorded worktree path is released so the pool slot is not still named here.
+# The retained record uses worktree=<absolute-state-directory>/<id>.released-copy
+# as a sentinel, not an actual worktree. A later teardown
+# rechecks the PR and, once merged, closes the item and retires its watch without
+# removing the released copy again. Release is persisted before fallible parent
+# reporting or artifact retirement, so an interrupted cleanup can be retried.
+# Only Orca skips endpoint closure for that sentinel: it closes its terminal
+# before releasing the copy. Other backends still close and confirm the endpoint
+# before persisting the sentinel.
 # An OPEN pull request whose commits are not on a remote still refuses.
 # --force does not close an OPEN pull request. An existing captain hold and its
 # question are preserved; the merge wait is recorded in the item's note instead
@@ -228,8 +236,8 @@
 #   checks, and discards secondmate child work for kind=secondmate. Only use it
 #   when the captain has explicitly said to discard the work. It is also the
 #   explicit discard for a recorded pull request that is closed without merging.
-#   It does not close an item other items still list in blocked-by, and it does
-#   not override an unreadable pull-request state.
+#   It does not close an OPEN pull request or an item other items still list in
+#   blocked-by, and it does not override an unreadable pull-request state.
 #   --keep-open cleans the endpoint and worktree of a ship whose recorded pull
 #   request is still open, or of an item other open items still list in
 #   blocked-by, and leaves that backlog item open. It does not discard unlanded
