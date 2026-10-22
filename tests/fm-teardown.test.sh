@@ -5550,11 +5550,11 @@ SH
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$class: cached PR state should survive later forge failure"$'\n'"$(cat "$case_dir/stderr")"
     [ "$(wc -l < "$case_dir/pr-lookups" | tr -d ' ')" = 1 ] || fail "$class: teardown repeated the PR-state lookup"
     if [ "$class" = open ]; then
-      [ "$(backlog_row_state "$case_dir")" != done ] || fail "cached OPEN classification closed the item"
+      [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "cached OPEN classification closed the item"
       assert_present "$case_dir/state/task-x1.meta" "cached OPEN classification lost the record"
       assert_present "$case_dir/state/task-x1.pr-poll-registration" "cached OPEN classification lost the watch"
     else
-      [ "$(backlog_row_state "$case_dir")" = done ] || fail "cached MERGED classification left the item open"
+      [ "$(backlog_row_state "$case_dir")" = "done" ] || fail "cached MERGED classification left the item open"
       assert_absent "$case_dir/state/task-x1.meta" "cached MERGED classification retained the record"
       assert_absent "$case_dir/state/task-x1.pr-poll-registration" "cached MERGED classification retained the watch"
     fi
@@ -5619,12 +5619,12 @@ SH
     fi
     FM_HOME="$case_dir" teardown_capture "$case_dir"
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: repeated open cleanup failed"$'\n'"$(cat "$case_dir/stderr")"
-    [ "$(backlog_row_state "$case_dir")" != done ] || fail "$backend: repeated cleanup closed an open PR"
+    [ "$(backlog_row_state "$case_dir")" != "done" ] || fail "$backend: repeated cleanup closed an open PR"
     assert_present "$case_dir/state/task-x1.pr-poll-registration" "$backend: repeated cleanup lost its watch"
     install_github_pr_class "$case_dir" merged
     FM_HOME="$case_dir" teardown_capture "$case_dir"
     expect_code 0 "$TEARDOWN_CAPTURE_RC" "$backend: released copy prevented merge completion"$'\n'"$(cat "$case_dir/stderr")"
-    [ "$(backlog_row_state "$case_dir")" = done ] || fail "$backend: merged item did not close"
+    [ "$(backlog_row_state "$case_dir")" = "done" ] || fail "$backend: merged item did not close"
     assert_absent "$case_dir/state/task-x1.meta" "$backend: completed record remained"
     assert_absent "$case_dir/state/task-x1.pr-poll-registration" "$backend: completed watch remained"
     if [ "$backend" = orca ]; then
