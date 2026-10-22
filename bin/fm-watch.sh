@@ -2540,6 +2540,7 @@ run_check_capture() {
   local pgid
   fm_check_output_cleanup
   FM_CHECK_RESULT=
+  FM_CHECK_EXIT_STATUS=0
   FM_CHECK_OUTPUT=$(mktemp "$STATE/.fm-check-output.XXXXXX") || return 1
   chmod 0600 "$FM_CHECK_OUTPUT" || { fm_check_output_cleanup; return 1; }
   FM_CHECK_SIGNAL_PENDING=
@@ -2560,7 +2561,7 @@ run_check_capture() {
     fm_check_output_cleanup
     return 1
   fi
-  wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || true
+  wait "$FM_ACTIVE_CHECK_PID" 2>/dev/null || FM_CHECK_EXIT_STATUS=$?
   FM_ACTIVE_CHECK_PID=
   fm_active_check_stop || return 1
   FM_CHECK_RESULT=$(cat "$FM_CHECK_OUTPUT" 2>/dev/null || true)
@@ -3216,9 +3217,49 @@ while :; do
             triage_log "PR poll for $id changed before its validated check; skipping the stale snapshot"
             continue
           fi
+          if ! cmp -s "$SCRIPT_DIR/fm-pr-poll.sh" "$STATE/$id.check.sh"; then
+            PR_POLL_PUBLISH_LOCK="$STATE/.pr-poll-publish-$id.lock"
+            fm_lock_acquire_wait "$PR_POLL_PUBLISH_LOCK" || exit 1
+            fm_pr_poll_snapshot_matches "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh" \
+              && fm_pr_poll_prepare "$STATE" "$id" "$provider" "$url" "$host" "$path" "$number" \
+                "$SCRIPT_DIR/fm-pr-poll.sh" \
+              && fm_pr_poll_publish_prepared \
+              && fm_pr_poll_snapshot_capture "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh" || exit 1
+            pr_poll_publish_release || exit 1
+          fi
           run_check_capture "$SCRIPT_DIR/fm-pr-poll.sh" --validated \
             "$provider" "$url" "$host" "$path" "$number" || exit 1
+          if [ "$FM_CHECK_EXIT_STATUS" -ne 0 ]; then
+            echo "watcher: PR poll for $id failed (exit status $FM_CHECK_EXIT_STATUS)" >&2
+            exit "$FM_CHECK_EXIT_STATUS"
+          fi
           out=$FM_CHECK_RESULT
+          # conflict is one episode: steer a live worker, relaunch an exited
+          # one, or leave out=conflict so the check wake below fires once.
+          # conflict-clear removes the episode and stays quiet.
+          case "$out" in
+            conflict:*|conflict-clear)
+              if [ "$(fm_meta_get "$STATE/$id.meta" kind)" = secondmate ]; then
+                fm_pr_conflict_episode_remove "$STATE" "$id" || true
+                pr_poll_control_release || exit 1
+                continue
+              fi
+              conflict_added_at=${out#conflict:}
+              pr_poll_control_release || exit 1
+              conflict_decision=$(fm_pr_conflict_handle "$STATE" "$id" \
+                "$provider" "$host" "$path" "$number" "$url" "$out" || true)
+              PR_POLL_CONTROL_LOCK="$STATE/.control-$id.lock"
+              fm_lock_acquire_wait "$PR_POLL_CONTROL_LOCK" || exit 1
+              if ! fm_pr_poll_snapshot_matches "$STATE" "$id" "$SCRIPT_DIR/fm-pr-poll.sh"; then
+                pr_poll_control_release || exit 1
+                continue
+              fi
+              case "$conflict_decision" in
+                quiet) out='' ;;
+                *) out=conflict ;;
+              esac
+              ;;
+          esac
         elif fm_custom_check_snapshot_prepare "$STATE" "$id"; then
           custom_snapshot=$FM_CUSTOM_CHECK_SNAPSHOT
           run_check_capture "$custom_snapshot" || exit 1
@@ -3257,6 +3298,7 @@ EOF
             # persistent worker, never landed work, and the merge it detected
             # belongs to a task in the mate's own home. Retire the poll with no
             # outcome and no wake; bin/fm-pr-check.sh refuses to arm another.
+            fm_pr_conflict_episode_remove "$STATE" "$id" || true
             retire_merged_pr_poll "$id"
             pr_poll_control_release || exit 1
             touch "$STATE/.last-check"
@@ -3283,6 +3325,7 @@ EOF
             triage_log "published merge outcome for $id but could not retire its authority record"
             exit 1
           fi
+          fm_pr_conflict_episode_remove "$STATE" "$id" || true
           retire_merged_pr_poll "$id"
           pr_poll_control_release || exit 1
           touch "$STATE/.last-check"
@@ -3292,8 +3335,12 @@ EOF
           fi
           wake "$reason"
         fi
-        pr_poll_control_release || exit 1
         fm_wake_append check "$c" "$reason" || exit 1
+        if [ "$is_pr_poll" -eq 1 ] && [ "$out" = conflict ]; then
+          fm_pr_conflict_episode_open "$STATE" "$id" \
+            "$provider" "$host" "$path" "$number" "$conflict_added_at" || exit 1
+        fi
+        pr_poll_control_release || exit 1
         touch "$STATE/.last-check"
         wake "$reason"
       fi

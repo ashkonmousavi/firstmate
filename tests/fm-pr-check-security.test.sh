@@ -989,7 +989,9 @@ test_static_poll_contract() {
   done
   out=$(FM_TEST_GH_STATE=MERGED run_poll "$dir")
   [ "$out" = merged ] || fail "static poll did not emit exactly one merged line"
-  out=$(FM_TEST_GH_FAIL=1 run_poll "$dir")
+  rc=0
+  out=$(FM_TEST_GH_FAIL=1 run_poll "$dir") || rc=$?
+  [ "$rc" -ne 0 ] || fail "static poll hid the gh failure"
   [ -z "$out" ] || fail "static poll emitted after gh failure"
 
   mv "$dir/home/state/task-a.pr-poll" "$dir/home/state/task-a.pr-poll.missing"
@@ -2806,15 +2808,24 @@ test_external_merge_transition_retires_only_terminal_poll() {
         FM_TEST_GH_FAIL=1 run_watcher_bounded "$dir/home" "$dir/fakebin" > "$dir/$label.out" 2> "$dir/$label.err"
         ;;
       malformed)
-        FM_TEST_GH_STATE=NOT_A_FORGE_STATE run_watcher_bounded "$dir/home" "$dir/fakebin" > "$dir/$label.out" 2> "$dir/$label.err"
+        # The preceding forge failure was handled above; resume its watcher.
+        FM_WATCH_HANDLING_SUCCESSOR=1 FM_TEST_GH_STATE=NOT_A_FORGE_STATE \
+          run_watcher_bounded "$dir/home" "$dir/fakebin" > "$dir/$label.out" 2> "$dir/$label.err"
         ;;
     esac
     rc=$?
     set -e
-    [ "$rc" -eq 0 ] || fail "$label watcher cycle failed: $(cat "$dir/$label.err")"
-    case "$(cat "$dir/$label.out")" in check:*z-stop.check.sh:*stop-cycle) ;; *) fail "$label did not reach the control check" ;; esac
+    if [ "$label" = forge-error ]; then
+      [ "$rc" -ne 0 ] || fail "forge lookup failure was reported as success"
+      assert_grep 'watcher: PR poll for task-a failed (exit status 1)' "$dir/$label.err" \
+        "forge lookup failure lost its diagnostic"
+      [ ! -s "$dir/$label.out" ] || fail "forge lookup failure emitted a check observation"
+    else
+      [ "$rc" -eq 0 ] || fail "$label watcher cycle failed: $(cat "$dir/$label.err")"
+      case "$(cat "$dir/$label.out")" in check:*z-stop.check.sh:*stop-cycle) ;; *) fail "$label did not reach the control check" ;; esac
+      ack_watcher_cycle "$state" || fail "$label control wake acknowledgement failed"
+    fi
     [ "$(poll_artifact_snapshot "$state" task-a)" = "$before" ] || fail "$label changed the armed poll"
-    ack_watcher_cycle "$state" || fail "$label control wake acknowledgement failed"
   done
 
   rm -f "$state/z-stop.check.sh" "$state/z-stop.check-trust" "$state/.last-check"

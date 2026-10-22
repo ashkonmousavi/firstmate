@@ -19,6 +19,11 @@
 # after its durable wake is appended.
 # The receipt binds the terminal observation to the canonical registration and
 # lets a restart finish fixed-path removal without executing state-file bytes.
+#
+# This file owns the conflict-episode marker beside the poll, bound to the
+# task, provider, host, repository, PR number, and label's added-at time.
+# bin/fm-pr-poll.sh owns conflict eligibility and observation words;
+# bin/fm-watch.sh routes observations through this file's recovery handler.
 
 FM_PR_PROVIDER=
 FM_PR_URL=
@@ -717,7 +722,12 @@ fm_pr_poll_artifacts_content_valid() {
   fm_pr_private_file_valid "$registration" 600 "$state_device" || return 1
   [ -f "$meta" ] && [ ! -L "$meta" ] || return 1
   [ "$(fm_pr_file_link_count "$meta")" = 1 ] || return 1
-  cmp -s "$template" "$check" || return 1
+  if ! cmp -s "$template" "$check"; then
+    case "$(fm_pr_sha256 "$check")" in
+      1ecb514c04dca8c7ff1d253998499335c162d73b76b143a2506d7b3627466dfe|05e9e742af771c84d2ed2b41045de7f555cd30bbbb8d19f09f257bd527c0fd57|94228329982651f15be03d57855c48efd5c7ec811a6c803435358205360d87fe|27772d546ce1ad230190c72277aa5d4e571cc8515539777c598e3410bda03fa0) ;;
+      *) return 1 ;;
+    esac
+  fi
   fm_pr_poll_data_parse "$data" || return 1
   data_hash=$(fm_pr_sha256 "$data") || return 1
   template_hash=$(fm_pr_sha256 "$check") || return 1
@@ -1523,4 +1533,206 @@ fm_pr_poll_merge_notified_remove() {  # <state> <id>
   [ -e "$marker" ] || [ -L "$marker" ] || return 0
   [ -f "$marker" ] && [ ! -L "$marker" ] || return 1
   rm -f -- "$marker"
+}
+
+fm_pr_conflict_episode_path() {  # <state> <id>
+  printf '%s\n' "$1/$2.pr-conflict-episode"
+}
+
+fm_pr_conflict_identity_lines_valid() {
+  local provider=$1 host=$2 path=$3 number=$4 added_at=$5
+  case "$provider$host$path$number$added_at" in
+    *$'\n'*|'') return 1 ;;
+  esac
+  [ -n "$provider" ] && [ -n "$host" ] && [ -n "$path" ] && [ -n "$number" ] \
+    && [ -n "$added_at" ]
+}
+
+fm_pr_conflict_episode_matches() {
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local marker state_device
+  fm_pr_task_id_valid "$id" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
+  [ -d "$state" ] && [ ! -L "$state" ] || return 1
+  state_device=$(fm_pr_file_device "$state") || return 1
+  marker=$(fm_pr_conflict_episode_path "$state" "$id")
+  fm_pr_conflict_episode_matches_file "$marker" "$state_device" \
+    "$provider" "$host" "$path" "$number" "$added_at"
+}
+
+fm_pr_conflict_episode_open() {
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local marker tmp state_device
+  fm_pr_task_id_valid "$id" || return 1
+  fm_pr_conflict_identity_lines_valid "$provider" "$host" "$path" "$number" "$added_at" || return 1
+  [ -d "$state" ] && [ ! -L "$state" ] || return 1
+  state_device=$(fm_pr_file_device "$state") || return 1
+  marker=$(fm_pr_conflict_episode_path "$state" "$id")
+  fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" || return 1
+  umask 077
+  tmp=$(mktemp "$state/.fm-pr-conflict-episode.XXXXXX") || return 1
+  if ! printf '%s\n%s\n%s\n%s\n%s\n%s\n' \
+      fm-pr-conflict-episode-v2 "$provider" "$host" "$path" "$number" "$added_at" > "$tmp" \
+    || ! chmod 0600 "$tmp" \
+    || ! fm_pr_conflict_episode_matches_file "$tmp" "$state_device" \
+      "$provider" "$host" "$path" "$number" "$added_at" \
+    || ! fm_pr_regular_destination_on_device_or_absent "$marker" "$state_device" \
+    || ! mv -f -- "$tmp" "$marker" \
+    || ! fm_pr_conflict_episode_matches "$state" "$id" \
+      "$provider" "$host" "$path" "$number" "$added_at"; then
+    rm -f -- "$tmp"
+    return 1
+  fi
+}
+
+fm_pr_conflict_episode_matches_file() {
+  local marker=$1 device=$2 provider=$3 host=$4 path=$5 number=$6 added_at=$7
+  local version got_provider got_host got_path got_number got_added_at
+  fm_pr_private_file_valid "$marker" 600 "$device" || return 1
+  exec 9< "$marker" || return 1
+  IFS= read -r version <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_provider <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_host <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_path <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_number <&9 || { exec 9<&-; return 1; }
+  IFS= read -r got_added_at <&9 || { exec 9<&-; return 1; }
+  if IFS= read -r _extra <&9; then
+    exec 9<&-
+    return 1
+  fi
+  exec 9<&-
+  [ "$version" = fm-pr-conflict-episode-v2 ] \
+    && [ "$got_provider" = "$provider" ] \
+    && [ "$got_host" = "$host" ] \
+    && [ "$got_path" = "$path" ] \
+    && [ "$got_number" = "$number" ] \
+    && [ "$got_added_at" = "$added_at" ]
+}
+
+fm_pr_conflict_episode_remove() {  # <state> <id>
+  local state=$1 id=$2 marker
+  fm_pr_task_id_valid "$id" || return 1
+  marker=$(fm_pr_conflict_episode_path "$state" "$id")
+  [ -e "$marker" ] || [ -L "$marker" ] || return 0
+  [ -f "$marker" ] && [ ! -L "$marker" ] || return 1
+  rm -f -- "$marker"
+}
+
+# live: the recorded endpoint's agent is alive.
+# exited: that agent is positively dead.
+# none: no endpoint to steer or relaunch.
+# unknown: liveness could not be proved, so the caller wakes instead of
+# relaunching a worker that might still be in the middle of a turn.
+fm_pr_conflict_posture() {  # <state> <id>
+  local state=$1 id=$2 meta target backend alive
+  if ! type fm_backend_target_of_meta >/dev/null 2>&1; then
+    printf 'none\n'
+    return 0
+  fi
+  meta="$state/$id.meta"
+  [ -f "$meta" ] && [ ! -L "$meta" ] || { printf 'none\n'; return 0; }
+  target=$(fm_backend_target_of_meta "$meta" 2>/dev/null || true)
+  [ -n "$target" ] || { printf 'none\n'; return 0; }
+  backend=$(fm_backend_of_meta "$meta" 2>/dev/null || true)
+  [ -n "$backend" ] || backend=tmux
+  alive=$(fm_backend_agent_alive "$backend" "$target" 2>/dev/null || true)
+  case "$alive" in
+    alive) printf 'live\n' ;;
+    dead) printf 'exited\n' ;;
+    *) printf 'unknown\n' ;;
+  esac
+}
+
+fm_pr_conflict_instruction() {  # <url> <base-branch-or-empty>
+  local url=$1 base=$2
+  printf '%s\n' "The pull request $url has carried the conflict label for more than 15 minutes."
+  if [ -n "$base" ]; then
+    printf '%s\n' "Merge origin/$base into the branch with a merge commit, regenerate generated files, run their tests, and push once."
+  else
+    printf '%s\n' "Merge the pull request's base branch into the branch with a merge commit, regenerate generated files, run their tests, and push once."
+  fi
+  printf '%s\n' "Do not rebase." "Do not force-push."
+}
+
+fm_pr_conflict_bin_dir() {
+  CDPATH='' cd -- "${BASH_SOURCE[0]%/*}" && pwd
+}
+
+# FM_PR_CONFLICT_SEND, when set, is the command used instead of fm-send.sh.
+# Tests point it at a recorder. Ordinary supervision leaves it unset.
+fm_pr_conflict_steer() {  # <state> <id> <url>
+  local state=$1 id=$2 url=$3 meta base text send dir
+  meta="$state/$id.meta"
+  base=
+  if [ -f "$meta" ] && [ ! -L "$meta" ]; then
+    base=$(grep '^base_branch=' "$meta" 2>/dev/null | tail -1 | cut -d= -f2- || true)
+  fi
+  text=$(fm_pr_conflict_instruction "$url" "$base")
+  if [ -n "${FM_PR_CONFLICT_SEND:-}" ]; then
+    send=$FM_PR_CONFLICT_SEND
+  else
+    dir=$(fm_pr_conflict_bin_dir) || return 1
+    send=$dir/fm-send.sh
+  fi
+  [ -n "$text" ] || return 1
+  "$send" "$id" "$text" >&2
+}
+
+# FM_PR_CONFLICT_RELAUNCH, when set, is the command used instead of
+# fm-control.sh. Tests point it at a recorder. Ordinary supervision leaves it unset.
+fm_pr_conflict_relaunch() {  # <id> <url>
+  local id=$1 url=$2 cmd dir note
+  if [ -n "${FM_PR_CONFLICT_RELAUNCH:-}" ]; then
+    cmd=$FM_PR_CONFLICT_RELAUNCH
+  else
+    dir=$(fm_pr_conflict_bin_dir) || return 1
+    cmd=$dir/fm-control.sh
+  fi
+  note=$(fm_pr_conflict_instruction "$url" "")
+  "$cmd" "$id" relaunch --note "$note" >&2
+}
+
+# Print quiet when this observation needs no wake, or wake when supervision
+# must dispatch the worker itself.
+fm_pr_conflict_handle() {  # <state> <id> <provider> <host> <path> <number> <url> <result>
+  local state=$1 id=$2 provider=$3 host=$4 path=$5 number=$6 url=$7 result=$8
+  local posture='' added_at=''
+  case "$result" in
+    conflict-clear)
+      fm_pr_conflict_episode_remove "$state" "$id" || true
+      printf 'quiet\n'
+      return 0
+      ;;
+    conflict:*) added_at=${result#conflict:} ;;
+    *)
+      printf 'quiet\n'
+      return 0
+      ;;
+  esac
+  posture=$(fm_pr_conflict_posture "$state" "$id")
+  if [ "$posture" != exited ] \
+    && fm_pr_conflict_episode_matches "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at"; then
+    printf 'quiet\n'
+    return 0
+  fi
+  case "$posture" in
+    live)
+      if fm_pr_conflict_steer "$state" "$id" "$url"; then
+        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at"; then
+          printf 'quiet\n'
+          return 0
+        fi
+      fi
+      ;;
+    exited)
+      if fm_pr_conflict_steer "$state" "$id" "$url" \
+        && fm_pr_conflict_relaunch "$id" "$url"; then
+        if fm_pr_conflict_episode_open "$state" "$id" "$provider" "$host" "$path" "$number" "$added_at"; then
+          printf 'quiet\n'
+          return 0
+        fi
+      fi
+      ;;
+  esac
+  printf 'wake\n'
 }

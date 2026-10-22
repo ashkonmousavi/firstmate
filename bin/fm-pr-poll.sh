@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Static watcher program for a validated pull request, merge request, or Gerrit
 # change poll sidecar.
-# It emits exactly one merged line for a merged change and stays silent
-# otherwise, including on every error, so a failed lookup can never be read as
-# a merge. The provider-tagged identity is data in the sidecar and is never
+# It emits exactly one merged line for a merged change.
+# On GitHub, only while the pull request is OPEN, it also emits exactly one of
+# `conflict:<added-at>` (a label named conflict has been applied for at least 15 minutes)
+# or `conflict-clear` (the label is absent or still younger than that).
+# CLOSED and other non-open, non-merged states emit nothing.
+# GitHub label lookup and JSON failures return nonzero. An unproved label age
+# emits no observation, so it cannot be read as a merge or as a conflict.
+# The provider-tagged identity is data in the sidecar and is never
 # interpolated into this source: these bytes are identical for every task.
 # Each provider is read through its own standard CLI, gh for GitHub, glab for
 # GitLab, gerrit-axi for Gerrit, and tea for Forgejo, so an upstream checkout
@@ -13,6 +18,99 @@
 set -u
 LC_ALL=C
 export LC_ALL
+
+# Seconds a GitHub label named conflict must already have been applied before
+# this poll reports it. Younger than this, and a pull request with no such
+# label, both report conflict-clear so the watcher stays quiet.
+FM_PR_POLL_CONFLICT_MIN_AGE=900
+
+fm_pr_poll_epoch() {  # <iso8601>
+  local ts=$1 epoch
+  case "$ts" in
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) ;;
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9].*Z) ;;
+    *) return 1 ;;
+  esac
+  epoch=$(date -u -d "$ts" +%s 2>/dev/null) || {
+    command -v python3 >/dev/null 2>&1 || return 1
+    epoch=$(python3 -c 'import datetime, sys
+s = sys.argv[1]
+if s.endswith("Z"):
+    s = s[:-1] + "+00:00"
+print(int(datetime.datetime.fromisoformat(s).timestamp()))' "$ts" 2>/dev/null) || return 1
+  }
+  case "$epoch" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  printf '%s\n' "$epoch"
+}
+
+# Print conflict or conflict-clear. Silence (no output, success) means the
+# conflict label is present but its age cannot be proved.
+fm_pr_poll_github_conflict() {  # <owner> <repo> <number>
+  local owner=$1 repo=$2 number=$3 raw line present='' labeled_at='' unlabeled_at=''
+  local now='' applied='' age='' query jqprog
+  query=$(cat <<'EOF'
+query($owner: String!, $repo: String!, $number: Int!, $endCursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      labels(first: 100) { nodes { name } }
+      timelineItems(first: 100, after: $endCursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT]) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          __typename
+          ... on LabeledEvent { createdAt label { name } }
+          ... on UnlabeledEvent { createdAt label { name } }
+        }
+      }
+    }
+  }
+}
+EOF
+)
+  jqprog=$(cat <<'EOF'
+.data.repository.pullRequest as $pr
+| if $pr == null then error("no pull request") else
+  "present=\($pr.labels.nodes // [] | map(.name) | index("conflict") != null)",
+  ($pr.timelineItems.nodes[]?
+    | select(.label.name == "conflict")
+    | if .__typename == "LabeledEvent" then "labeled_at=\(.createdAt)"
+      elif .__typename == "UnlabeledEvent" then "unlabeled_at=\(.createdAt)"
+      else empty end)
+  end
+EOF
+)
+  raw=$(gh api graphql --paginate -f owner="$owner" -f repo="$repo" -F number="$number" \
+    -f query="$query" --jq "$jqprog") || return $?
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      present=*) present=${line#present=} ;;
+      labeled_at=*) labeled_at=${line#labeled_at=} ;;
+      unlabeled_at=*) unlabeled_at=${line#unlabeled_at=} ;;
+    esac
+  done <<EOF
+$raw
+EOF
+  case "$present" in
+    false) printf '%s\n' conflict-clear; return 0 ;;
+    true) ;;
+    *) return 0 ;;
+  esac
+  if [ -z "$labeled_at" ] || { [ -n "$unlabeled_at" ] && [[ "$unlabeled_at" > "$labeled_at" ]]; }; then
+    return 0
+  fi
+  now=$(date -u +%s 2>/dev/null) || return 0
+  case "$now" in
+    ''|*[!0-9]*) return 0 ;;
+  esac
+  applied=$(fm_pr_poll_epoch "$labeled_at") || return 0
+  age=$((now - applied))
+  if [ "$age" -ge "$FM_PR_POLL_CONFLICT_MIN_AGE" ]; then
+    printf 'conflict:%s\n' "$labeled_at"
+  else
+    printf '%s\n' conflict-clear
+  fi
+}
 
 if [ "$#" -eq 6 ] && [ "$1" = --validated ]; then
   provider=$2
@@ -66,8 +164,12 @@ case "$provider" in
       .|..|*[!A-Za-z0-9._-]*) exit 0 ;;
     esac
     [ "$url" = "https://github.com/$owner/$repo/pull/$number" ] || exit 0
-    state=$(gh pr view "$url" --json state -q .state 2>/dev/null) || exit 0
-    [ "$state" = MERGED ] && printf '%s\n' merged
+    state=$(gh pr view "$url" --json state -q .state) || exit $?
+    if [ "$state" = MERGED ]; then
+      printf '%s\n' merged
+    elif [ "$state" = OPEN ]; then
+      fm_pr_poll_github_conflict "$owner" "$repo" "$number" || exit $?
+    fi
     ;;
   gitlab)
     [ "${#host}" -ge 1 ] && [ "${#host}" -le 253 ] || exit 0

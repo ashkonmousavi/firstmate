@@ -2093,12 +2093,22 @@ SH
     if [ "$brief_kind" = heading ]; then
       assert_grep 'Follow the project instructions' "$prompt" "$kind command dropped the authored role section"
     fi
-    cmp -s "$CASE_DIR/brief-before" "$HOME_DIR/data/$id/brief.md" || fail "spawn rewrote the authored brief"
+    # The brief is generated output: dispatch preserves the authored task and
+    # adds the required overlap disclosure when no planned paths are present.
+    cat "$CASE_DIR/brief-before" > "$CASE_DIR/brief-expected"
+    cat >> "$CASE_DIR/brief-expected" <<'EOF'
+<!-- fm-pr-overlap:start -->
+## SHARED
+Overlap was not checked: no planned paths found in SCOPE, FILES, or BLAST RADIUS.
+<!-- fm-pr-overlap:end -->
+EOF
+    cmp -s "$CASE_DIR/brief-expected" "$HOME_DIR/data/$id/brief.md" \
+      || fail "spawn changed the authored task or omitted its overlap disclosure"
     if [ "${FM_TEST_EVIDENCE:-0}" = 1 ]; then
       printf '# evidence begin: %s %s worker\n%s\n' "$brief_kind" "$kind" "$out"
       printf 'launch command executed with an argv-capture harness:\n%s\nreceived arguments and final prompt:\n' "$launch"
       cat "$prompt"
-      printf 'authored brief remains byte-identical\n# evidence end\n'
+      printf 'authored task preserved with overlap disclosure\n# evidence end\n'
     fi
   done
   done

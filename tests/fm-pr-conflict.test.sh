@@ -1,0 +1,702 @@
+#!/usr/bin/env bash
+# Conflict-label observations and the read-only pull-request overlap note.
+set -u
+
+# shellcheck source=tests/lib.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+# shellcheck source=/dev/null
+. "$ROOT/bin/fm-pr-lib.sh"
+
+POLL="$ROOT/bin/fm-pr-poll.sh"
+OVERLAP="$ROOT/bin/fm-pr-overlap.sh"
+LEGACY_POLL="$ROOT/tests/fixtures/fm-pr-poll-v1.sh"
+CONFLICT_ADDED_AT=2026-01-01T00:00:00Z
+TMP_ROOT=$(fm_test_tmproot fm-pr-conflict)
+FAKEBIN=$(fm_fakebin "$TMP_ROOT")
+fm_git_identity fmtest fmtest@example.invalid
+unset FM_PR_CONFLICT_SEND FM_PR_CONFLICT_RELAUNCH
+
+FM_TEST_JQ_BIN=$(command -v jq) || fail "jq is required to build the label fixtures"
+export FM_TEST_JQ_BIN
+
+cat > "$FAKEBIN/gh" <<'SH'
+#!/usr/bin/env bash
+set -o pipefail
+case "${1:-} ${2:-}" in
+  "pr view")
+    printf '%s\n' "${FM_TEST_GH_STATE-OPEN}"
+    ;;
+  "api graphql")
+    slurp=0
+    filter=0
+    prog=
+    prev=
+    for arg in "$@"; do
+      [ "$arg" != --slurp ] || slurp=1
+      [ "$arg" != --jq ] || filter=1
+      [ "$prev" != --jq ] || prog=$arg
+      prev=$arg
+    done
+    if [ "$slurp" -eq 1 ] && [ "$filter" -eq 1 ]; then
+      printf 'cannot use --slurp with --jq\n' >&2
+      exit 91
+    fi
+    if [ "${FM_TEST_GRAPHQL_FAIL:-0}" = 1 ]; then
+      printf 'fixture lookup failed\n' >&2
+      exit 47
+    fi
+    [ -n "$prog" ] || exit 91
+    "$FM_TEST_JQ_BIN" -r "$prog" "$FM_CONFLICT_JSON"
+    ;;
+  "pr list")
+    cat "$FM_OVERLAP_PRS"
+    ;;
+  "api repos/"*)
+    endpoint=${2%/files}
+    number=${endpoint##*/}
+    list="$FM_OVERLAP_DIFF_DIR/$number"
+    [ -f "$list" ] || exit 91
+    "$FM_TEST_JQ_BIN" -r "$5" "$list"
+    ;;
+  *)
+    printf 'unexpected gh: %s\n' "$*" >&2
+    exit 91
+    ;;
+esac
+SH
+chmod +x "$FAKEBIN/gh"
+cat > "$FAKEBIN/jq" <<'SH'
+#!/usr/bin/env bash
+if [ "${FM_TEST_NO_STANDALONE_JQ:-0}" = 1 ] \
+  && { [ "${FM_CHECK_OWNED_GROUP:-0}" = 1 ] || [ "${FM_TEST_DIRECT_POLL:-0}" = 1 ]; }; then
+  printf 'standalone jq called\n' >> "$FM_TEST_JQ_CALLS"
+  exit 97
+fi
+exec "$FM_TEST_JQ_BIN" "$@"
+SH
+chmod +x "$FAKEBIN/jq"
+
+
+reset_lib() {
+  # shellcheck source=/dev/null
+  . "$ROOT/bin/fm-pr-lib.sh"
+  unset FM_PR_CONFLICT_SEND FM_PR_CONFLICT_RELAUNCH
+}
+
+write_label_json() {  # <file> <present: yes|no> <labeled-at> [unlabeled-at]
+  local file=$1 present=$2 labeled=$3 unlabeled=${4:-}
+  if [ "$present" = yes ]; then
+    jq -n --arg labeled "$labeled" --arg unlabeled "$unlabeled" '
+      {
+        data: { repository: { pullRequest: {
+          labels: { nodes: [{name: "conflict"}] },
+          timelineItems: { nodes: (
+            [{__typename: "LabeledEvent", createdAt: $labeled, label: {name: "conflict"}}]
+            + (if $unlabeled == "" then [] else
+                [{__typename: "UnlabeledEvent", createdAt: $unlabeled, label: {name: "conflict"}}]
+              end)
+          ) }
+        } } }
+      }' > "$file"
+  else
+    jq -n --arg labeled "$labeled" --arg unlabeled "$unlabeled" '
+      {
+        data: { repository: { pullRequest: {
+          labels: { nodes: [] },
+          timelineItems: { nodes: (
+            (if $labeled == "" then [] else
+              [{__typename: "LabeledEvent", createdAt: $labeled, label: {name: "conflict"}}]
+            end)
+            + (if $unlabeled == "" then [] else
+                [{__typename: "UnlabeledEvent", createdAt: $unlabeled, label: {name: "conflict"}}]
+              end)
+          ) }
+        } } }
+      }' > "$file"
+  fi
+}
+
+run_poll() {
+  FM_TEST_DIRECT_POLL=1 PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="${FM_CONFLICT_JSON:-}" "$POLL" --validated github \
+    https://github.com/o/r/pull/7 github.com o/r 7
+}
+
+setup_task() {
+  local state=$1
+  mkdir -p "$state"
+  fm_write_meta "$state/lane.meta" 'base_branch=curated'
+}
+
+test_graphql_failure_and_flag_contract() {
+  local json out rc
+  json="$TMP_ROOT/graphql-failure.json"
+  write_label_json "$json" yes "$CONFLICT_ADDED_AT"
+  rc=0
+  FM_TEST_DIRECT_POLL=1 PATH="$FAKEBIN:$PATH" FM_CONFLICT_JSON="$json" gh api graphql --slurp --jq . \
+    > "$TMP_ROOT/invalid-flags.out" 2> "$TMP_ROOT/invalid-flags.err" || rc=$?
+  [ "$rc" -eq 91 ] || fail "the GitHub recorder accepted mutually exclusive flags"
+  rc=0
+  out=$(FM_CONFLICT_JSON="$json" FM_TEST_GRAPHQL_FAIL=1 run_poll 2> "$TMP_ROOT/lookup.err") || rc=$?
+  [ "$rc" -eq 47 ] && [ -z "$out" ] || fail "lookup failure became a successful observation"
+  grep -qx 'fixture lookup failed' "$TMP_ROOT/lookup.err" || fail "lookup diagnostics were lost"
+  printf '{broken json\n' > "$json"
+  rc=0
+  out=$(FM_CONFLICT_JSON="$json" run_poll 2> "$TMP_ROOT/parse.err") || rc=$?
+  [ "$rc" -ne 0 ] && [ -z "$out" ] || fail "invalid API JSON became a successful observation"
+  pass "GraphQL rejects conflicting flags and preserves lookup and JSON failures"
+}
+
+test_gh_only_poll_and_terminal_states() {
+  local json old out pr_state
+  json="$TMP_ROOT/gh-only.json"
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$json" yes "$old"
+  out=$(FM_CONFLICT_JSON="$json" FM_TEST_NO_STANDALONE_JQ=1 \
+    FM_TEST_JQ_CALLS="$TMP_ROOT/jq.calls" run_poll) \
+    || fail "GitHub conflict polling required standalone jq"
+  [ "$out" = "conflict:$old" ] || fail "gh-only polling lost the label application"
+  [ ! -e "$TMP_ROOT/jq.calls" ] || fail "the poll invoked standalone jq"
+  for pr_state in CLOSED UNKNOWN ''; do
+    out=$(FM_TEST_GH_STATE="$pr_state" FM_TEST_GRAPHQL_FAIL=1 run_poll) \
+      || fail "a non-open PR reached the label API ($pr_state)"
+    [ -z "$out" ] || fail "a non-open PR produced recovery output ($pr_state)"
+  done
+  out=$(FM_TEST_GH_STATE=MERGED FM_TEST_GRAPHQL_FAIL=1 run_poll) \
+    || fail "merge polling reached the label API"
+  [ "$out" = merged ] || fail "merged PR lost its observation"
+  pass "gh-only polling works and terminal PRs never emit conflict observations"
+}
+
+test_old_label_wakes_once_and_clear_removes_it() {
+  local state json old out decision
+  reset_lib
+  state="$TMP_ROOT/wake-state"
+  json="$TMP_ROOT/old.json"
+  rm -rf "$state"
+  setup_task "$state"
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$json" yes "$old"
+  FM_CONFLICT_JSON=$json
+  out=$(run_poll)
+  [ "$out" = "conflict:$old" ] || fail "a conflict label older than 15 minutes must report conflict, got: $out"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] || fail "with no live worker the old label must wake once, got: $decision"
+  [ ! -e "$state/lane.pr-conflict-episode" ] || fail "an unpublished wake must remain retryable"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = wake ] || fail "interruption before publication must retry the wake"
+  fm_pr_conflict_episode_open "$state" lane github github.com o/r 7 "$CONFLICT_ADDED_AT" \
+    || fail "could not commit the published wake episode"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "a second look at the same conflict must stay quiet, got: $decision"
+  write_label_json "$json" no "$old" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  out=$(run_poll)
+  [ "$out" = conflict-clear ] || fail "removing the label must report conflict-clear, got: $out"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 conflict-clear)
+  [ "$decision" = quiet ] || fail "clearing the label must not wake, got: $decision"
+  [ ! -e "$state/lane.pr-conflict-episode" ] || fail "clearing the label must remove the episode"
+  pass "conflict label older than 15 minutes wakes once, and removal clears it"
+}
+
+test_young_label_is_quiet() {
+  local state json young out decision
+  reset_lib
+  state="$TMP_ROOT/young-state"
+  json="$TMP_ROOT/young.json"
+  rm -rf "$state"
+  setup_task "$state"
+  young=$(jq -nr 'now - 300 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$json" yes "$young"
+  FM_CONFLICT_JSON=$json
+  out=$(run_poll)
+  [ "$out" = conflict-clear ] || fail "a conflict label younger than 15 minutes must not report conflict, got: $out"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "$out")
+  [ "$decision" = quiet ] || fail "a young conflict label must stay quiet, got: $decision"
+  [ ! -e "$state/lane.pr-conflict-episode" ] || fail "a young conflict label must not open an episode"
+  pass "a conflict label younger than 15 minutes stays quiet"
+}
+
+test_live_worker_is_steered_once() {
+  local state json old decision log text
+  reset_lib
+  state="$TMP_ROOT/steer-state"
+  json="$TMP_ROOT/steer.json"
+  log="$TMP_ROOT/steer.log"
+  rm -rf "$state" "$log"
+  setup_task "$state"
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$json" yes "$old"
+  cat > "$TMP_ROOT/send.sh" <<SH
+#!/usr/bin/env bash
+printf 'steered lane\\n'
+printf 'CALLED\\n' >> "$log"
+printf '%s\\n' "\$2" >> "$log"
+SH
+  chmod +x "$TMP_ROOT/send.sh"
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_steer
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/send.sh
+  # shellcheck disable=SC2329 # replaced for this case; fm_pr_conflict_handle calls it
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "a live worker must be steered instead of woken, got: $decision"
+  text=$(cat "$log")
+  printf '%s\n' "$text" | grep -qx CALLED || fail "the live worker was not steered"
+  printf '%s\n' "$text" | grep -F 'https://github.com/o/r/pull/7' >/dev/null \
+    || fail "the steer did not name the pull request"
+  printf '%s\n' "$text" | grep -F 'Merge origin/curated into the branch with a merge commit' >/dev/null \
+    || fail "the steer did not say to merge the base with a merge commit"
+  printf '%s\n' "$text" | grep -Fx 'Do not rebase.' >/dev/null || fail "the steer did not forbid rebase"
+  printf '%s\n' "$text" | grep -Fx 'Do not force-push.' >/dev/null || fail "the steer did not forbid force-push"
+  : > "$log"
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "the second steer look must stay quiet, got: $decision"
+  [ ! -s "$log" ] || fail "the same conflict episode steered the worker twice"
+  pass "a live worker is steered once to merge the base"
+}
+
+test_exited_worker_is_relaunched() {
+  local state old decision send_log relaunch_log
+  reset_lib
+  state="$TMP_ROOT/relaunch-state"
+  send_log="$TMP_ROOT/relaunch-send.log"
+  relaunch_log="$TMP_ROOT/relaunch.log"
+  rm -rf "$state" "$send_log" "$relaunch_log"
+  setup_task "$state"
+  old=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$TMP_ROOT/relaunch.json" yes "$old"
+  cat > "$TMP_ROOT/send-relaunch.sh" <<SH
+#!/usr/bin/env bash
+printf 'steered lane\\n'
+printf 'CALLED\\n' >> "$send_log"
+SH
+  cat > "$TMP_ROOT/relaunch.sh" <<SH
+#!/usr/bin/env bash
+[ "\$1" = lane ] && [ "\$2" = relaunch ] && [ "\$3" = --note ] && [ -n "\${4:-}" ] || exit 92
+printf 'relaunched lane\\n'
+printf '%s\\n' "\$4" >> "$relaunch_log"
+SH
+  chmod +x "$TMP_ROOT/send-relaunch.sh" "$TMP_ROOT/relaunch.sh"
+  # shellcheck disable=SC2034 # read by fm_pr_conflict_steer and fm_pr_conflict_relaunch
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
+  # shellcheck disable=SC2034
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/relaunch.sh
+  # shellcheck disable=SC2329 # replaced for this case; fm_pr_conflict_handle calls it
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "an exited worker must be relaunched instead of woken, got: $decision"
+  grep -qx CALLED "$send_log" || fail "the relaunch did not leave the merge instruction"
+  [ -s "$relaunch_log" ] || fail "the exited worker was not relaunched with a progress note"
+  : > "$relaunch_log"
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] && [ ! -s "$relaunch_log" ] \
+    || fail "the relaunched live worker must remain quiet"
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] && [ -s "$relaunch_log" ] \
+    || fail "an unresolved episode must recover again after the worker exits"
+  pass "an exited worker relaunches with a note despite a prior episode"
+}
+
+test_steered_worker_exit_recovers() {
+  local state decision
+  reset_lib
+  state="$TMP_ROOT/steer-exit-state"
+  setup_task "$state"
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/relaunch.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] || fail "initial steering failed"
+  : > "$TMP_ROOT/relaunch.log"
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf 'exited\n'; }
+  decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+    https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT")
+  [ "$decision" = quiet ] && [ -s "$TMP_ROOT/relaunch.log" ] \
+    || fail "a worker exiting before handling its steer must relaunch"
+  pass "a steered worker exiting before handling the inbox recovers"
+}
+
+test_action_failures_preserve_decision_protocol() {
+  local state decision action_posture
+  reset_lib
+  state="$TMP_ROOT/action-failure-state"
+  setup_task "$state"
+  cat > "$TMP_ROOT/action-failure.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'action status on stdout\n'
+printf 'action diagnostic on stderr\n' >&2
+exit 1
+SH
+  chmod +x "$TMP_ROOT/action-failure.sh"
+  # shellcheck disable=SC2034 # read by the imported fm_pr_conflict_relaunch
+  FM_PR_CONFLICT_RELAUNCH=$TMP_ROOT/action-failure.sh
+  # shellcheck disable=SC2329 # called by the imported fm_pr_conflict_handle
+  fm_pr_conflict_posture() { printf '%s\n' "$action_posture"; }
+  for action_posture in live exited; do
+    if [ "$action_posture" = live ]; then
+      FM_PR_CONFLICT_SEND=$TMP_ROOT/action-failure.sh
+    else
+      FM_PR_CONFLICT_SEND=$TMP_ROOT/send-relaunch.sh
+    fi
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "conflict:$CONFLICT_ADDED_AT" 2> "$state/diagnostics")
+    [ "$decision" = wake ] || fail "failed $action_posture recovery contaminated the wake decision: $decision"
+    grep -qx 'action status on stdout' "$state/diagnostics" \
+      || fail "action stdout was not preserved as diagnostics"
+    grep -qx 'action diagnostic on stderr' "$state/diagnostics" \
+      || fail "action stderr was lost"
+    [ ! -e "$state/lane.pr-conflict-episode" ] || fail "failed recovery suppressed a future attempt"
+  done
+  pass "failed steering and relaunch preserve decisions, diagnostics, and retryability"
+}
+
+test_relabel_starts_a_new_episode() {
+  local state json first second out decision cleared
+  reset_lib
+  state="$TMP_ROOT/relabel-state"
+  json="$TMP_ROOT/relabel.json"
+  setup_task "$state"
+  FM_CONFLICT_JSON=$json
+  # shellcheck disable=SC2034 # read by the imported fm_pr_conflict_steer
+  FM_PR_CONFLICT_SEND=$TMP_ROOT/send.sh
+  fm_pr_conflict_posture() { printf 'live\n'; }
+  first=$(jq -nr 'now - 3600 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  second=$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')
+  write_label_json "$json" yes "$first"
+  jq '.data.repository.pullRequest.timelineItems.nodes = []' "$json" > "$TMP_ROOT/last-page.json"
+  cat "$TMP_ROOT/last-page.json" >> "$json"
+  [ "$(run_poll)" = "conflict:$first" ] \
+    || fail "pagination lost the application identity from an earlier timeline page"
+  for cleared in no yes; do
+    write_label_json "$json" yes "$first"
+    out=$(run_poll)
+    [ "$out" = "conflict:$first" ] || fail "poll lost the first application identity"
+    fm_pr_conflict_episode_open "$state" lane github github.com o/r 7 "$first" \
+      || fail "could not save first application"
+    : > "$TMP_ROOT/steer.log"
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "$out")
+    [ "$decision" = quiet ] && [ ! -s "$TMP_ROOT/steer.log" ] \
+      || fail "one application should be suppressed after publication"
+    if [ "$cleared" = yes ]; then
+      write_label_json "$json" no "$first" "$second"
+      out=$(run_poll)
+      decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+        https://github.com/o/r/pull/7 "$out")
+      [ "$decision" = quiet ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "clear did not retire the first episode"
+    fi
+    write_label_json "$json" yes "$second"
+    out=$(run_poll)
+    [ "$out" = "conflict:$second" ] || fail "poll lost the new application identity"
+    decision=$(fm_pr_conflict_handle "$state" lane github github.com o/r 7 \
+      https://github.com/o/r/pull/7 "$out")
+    [ "$decision" = quiet ] && [ -s "$TMP_ROOT/steer.log" ] \
+      || fail "a new label application was suppressed (clear observed: $cleared)"
+  done
+  write_label_json "$json" yes ''
+  [ -z "$(run_poll)" ] || fail "an unknown label application must not invent an episode identity"
+  pass "relabel raises a new fix-now episode with or without an observed clear"
+}
+
+test_legacy_poll_authentication() {
+  local state check
+  reset_lib
+  state="$TMP_ROOT/legacy-state"
+  setup_task "$state"
+  printf 'pr=https://github.com/o/r/pull/7\n' >> "$state/lane.meta"
+  if ! fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
+    github.com o/r 7 "$LEGACY_POLL" || ! fm_pr_poll_publish_prepared; then
+    fail "could not arm the historical poll protocol fixture"
+  fi
+  fm_pr_poll_snapshot_capture "$state" lane "$POLL" \
+    || fail "a legacy registration lost authentication"
+  check="$state/lane.check.sh"
+  [ "$(PATH="$FAKEBIN:$PATH" FM_TEST_GH_STATE=MERGED bash "$check")" = merged ] \
+    || fail "the legacy poll lost merge notifications"
+  printf '\n' >> "$check"
+  if fm_pr_poll_snapshot_capture "$state" lane "$POLL"; then
+    fail "legacy compatibility accepted modified program bytes"
+  fi
+  pass "legacy polls authenticate and report merges while tampered programs fail"
+}
+
+test_watcher_conflict_recovery() {
+  local home state mode pid i template gh_state endpoint graphql_fail watch_rc
+  reset_lib
+  cat > "$FAKEBIN/tmux" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = list-windows ]; then
+  [ "${FM_TEST_ENDPOINT:-}" != live ] || printf 'fm-lane\n'
+  exit 0
+fi
+if [ "${FM_TEST_ENDPOINT:-}" = live ] && [ "${1:-}" = display-message ]; then
+  printf 'codex\n'
+  exit 0
+fi
+exit 1
+SH
+  cat > "$TMP_ROOT/watch-send.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'steered lane\n'
+printf 'steered\n' > "$FM_HOME/steered"
+exit 0
+SH
+  cat > "$TMP_ROOT/watch-relaunch.sh" <<'SH'
+#!/usr/bin/env bash
+[ "$1" = lane ] && [ "$2" = relaunch ] && [ "$3" = --note ] && [ -n "${4:-}" ] || exit 92
+mkdir "$FM_HOME/state/.control-lane.lock" || exit 93
+rmdir "$FM_HOME/state/.control-lane.lock" || exit 94
+printf 'relaunched lane\n'
+printf '%s\n' "$4" > "$FM_HOME/relaunched"
+SH
+  chmod +x "$FAKEBIN/tmux" "$TMP_ROOT/watch-send.sh" "$TMP_ROOT/watch-relaunch.sh"
+  write_label_json "$TMP_ROOT/watch.json" yes \
+    "$(jq -nr 'now - 1200 | strftime("%Y-%m-%dT%H:%M:%SZ")')"
+  for mode in wake relaunch legacy-conflict legacy-merged secondmate-live secondmate-exited secondmate-none current-failure legacy-failure closed; do
+    home="$TMP_ROOT/watch-$mode"
+    state="$home/state"
+    mkdir -p "$home/config" "$home/data"
+    setup_task "$state"
+    if [ "$mode" = relaunch ]; then
+      fm_write_meta "$state/lane.meta" 'base_branch=curated' 'window=firstmate:fm-lane'
+    fi
+    endpoint=
+    case "$mode" in
+      secondmate-*)
+        fm_write_meta "$state/lane.meta" 'base_branch=curated' 'kind=secondmate'
+        endpoint=${mode#secondmate-}
+        [ "$endpoint" = none ] || printf 'window=firstmate:fm-lane\n' >> "$state/lane.meta"
+        ;;
+    esac
+    printf 'pr=https://github.com/o/r/pull/7\n' >> "$state/lane.meta"
+    template=$POLL
+    gh_state=OPEN
+    graphql_fail=0
+    case "$mode" in *-failure) graphql_fail=1 ;; closed) gh_state=CLOSED ;; esac
+    case "$mode" in legacy-*|secondmate-*) template=$LEGACY_POLL ;; esac
+    [ "$mode" != legacy-merged ] || gh_state=MERGED
+    if ! fm_pr_poll_prepare "$state" lane github https://github.com/o/r/pull/7 \
+      github.com o/r 7 "$template" || ! fm_pr_poll_publish_prepared; then
+      fail "could not arm the watcher fixture"
+    fi
+    fm_test_track_watcher_state "$state"
+    PATH="$FAKEBIN:$PATH" FM_HOME="$home" FM_STATE_OVERRIDE="$state" \
+      FM_PR_CONFLICT_SEND="$TMP_ROOT/watch-send.sh" \
+      FM_PR_CONFLICT_RELAUNCH="$TMP_ROOT/watch-relaunch.sh" \
+      FM_TEST_NO_STANDALONE_JQ=1 FM_TEST_JQ_CALLS="$home/jq.calls" FM_TEST_GRAPHQL_FAIL="$graphql_fail" \
+      FM_TEST_ENDPOINT="$endpoint" FM_TEST_GH_STATE="$gh_state" FM_CONFLICT_JSON="$TMP_ROOT/watch.json" FM_CHECK_INTERVAL=0 \
+      FM_POLL=0.05 FM_HEARTBEAT=999999 FM_SIGNAL_GRACE=0 \
+      bash "$ROOT/bin/fm-watch.sh" > "$home/out" 2> "$home/err" &
+    pid=$!
+    i=0
+    while [ "$i" -lt 600 ]; do
+      if [ "$mode" = relaunch ]; then
+        [ ! -s "$home/relaunched" ] || break
+      elif [ "$mode" = legacy-merged ]; then
+        [ ! -s "$home/out" ] || break
+      elif [ -n "$endpoint" ] || [ "$mode" = closed ]; then
+        [ ! -f "$state/.last-check" ] || break
+      else
+        [ ! -f "$state/lane.pr-conflict-episode" ] || break
+      fi
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.05
+      i=$((i + 1))
+    done
+    kill "$pid" 2>/dev/null || true
+    watch_rc=0
+    wait "$pid" 2>/dev/null || watch_rc=$?
+    [ ! -e "$home/jq.calls" ] || fail "watcher polling required standalone jq ($mode)"
+    if [ "$mode" = relaunch ]; then
+      [ -s "$home/relaunched" ] \
+        || fail "watcher could not relaunch with its control lock and note requirements: $(cat "$home/err")"
+    elif [ "$graphql_fail" -eq 1 ]; then
+      [ "$watch_rc" -eq 47 ] || fail "$mode watcher swallowed the failed gh invocation ($watch_rc)"
+      [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "failed polling published successful conflict recovery"
+    elif [ "$mode" = closed ]; then
+      [ -f "$state/.last-check" ] || fail "closed fixture never completed its poll"
+      [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
+        && [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "a closed pull request triggered conflict recovery"
+    elif [ -n "$endpoint" ]; then
+      [ -f "$state/.last-check" ] || fail "secondmate fixture never completed its poll"
+      [ ! -e "$home/steered" ] && [ ! -e "$home/relaunched" ] \
+        || fail "a secondmate conflict reached its parent worker ($endpoint)"
+      [ ! -s "$state/.wake-queue" ] && [ ! -e "$state/lane.pr-conflict-episode" ] \
+        || fail "a secondmate conflict published fallback recovery ($endpoint)"
+    elif [ "$mode" = legacy-merged ]; then
+      grep -q 'lane.check.sh: merged' "$home/out" \
+        || fail "a legacy-armed watcher lost its merge notification: output=$(cat "$home/out") errors=$(cat "$home/err") triage=$(cat "$state/.watch-triage.log" 2>/dev/null)"
+    else
+      [ -f "$state/lane.pr-conflict-episode" ] \
+        || fail "watcher did not commit the fallback episode: $(cat "$home/err")"
+      awk -F '\t' '$3 == "check" && $5 ~ /lane.check.sh: conflict$/ { found=1 } END { exit !found }' \
+        "$state/.wake-queue" || fail "watcher suppressed a conflict without durable notification"
+      if [ "$mode" = legacy-conflict ]; then
+        cmp -s "$POLL" "$state/lane.check.sh" || fail "legacy poll was not upgraded through publication"
+      fi
+    fi
+  done
+  pass "watcher publishes fallback wakes and releases the relaunch lock"
+}
+
+test_overlap_names_both_pull_requests() {
+  local repo brief sha1 sha2 sha4 prs out variant
+  reset_lib
+  repo="$TMP_ROOT/overlap-repo"
+  brief="$TMP_ROOT/overlap-brief.md"
+  prs="$TMP_ROOT/overlap-prs.json"
+  rm -rf "$repo" "$TMP_ROOT/overlap-diffs"
+  mkdir -p "$TMP_ROOT/overlap-diffs"
+  git init -q -b main "$repo"
+  printf 'base\n' > "$repo/shared.txt"
+  printf 'keep\n' > "$repo/other.txt"
+  git -C "$repo" add shared.txt other.txt
+  git -C "$repo" commit -qm base
+  git -C "$repo" checkout -q -b pr1
+  printf 'one\n' > "$repo/shared.txt"
+  git -C "$repo" commit -qam pr1
+  sha1=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  git -C "$repo" checkout -q -b pr2
+  printf 'two\n' > "$repo/shared.txt"
+  git -C "$repo" commit -qam pr2
+  sha2=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  git -C "$repo" checkout -q -b pr4
+  printf 'side\n' > "$repo/other.txt"
+  git -C "$repo" commit -qam pr4
+  sha4=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  printf '[{"filename":"shared.txt"}]\n' > "$TMP_ROOT/overlap-diffs/3"
+  jq -n --arg sha1 "$sha1" --arg sha2 "$sha2" --arg sha4 "$sha4" '[
+    {number: 2, url: "https://github.com/o/r/pull/2", headRefOid: $sha2},
+    {number: 1, url: "https://github.com/o/r/pull/1", headRefOid: $sha1},
+    {number: 4, url: "https://github.com/o/r/pull/4", headRefOid: $sha4},
+    {number: 3, url: "https://github.com/o/r/pull/3", headRefOid: "0123456789abcdef0123456789abcdef01234567"},
+    {number: 5, url: "https://github.com/o/r/pull/5", headRefOid: "0123456789abcdef0123456789abcdef01234567"}
+  ]' > "$prs"
+  cat > "$brief" <<'EOF'
+# Task
+## SCOPE
+shared.txt
+
+## Firstmate spec
+ship the change
+EOF
+  FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
+    PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+    || fail "the overlap helper must not fail the caller"
+  out=$(cat "$brief")
+  printf '%s\n' "$out" | grep -F 'https://github.com/o/r/pull/1' >/dev/null \
+    || fail "the overlap note did not name the first pull request: $out"
+  printf '%s\n' "$out" | grep -F 'https://github.com/o/r/pull/2' >/dev/null \
+    || fail "the overlap note did not name the second pull request: $out"
+  printf '%s\n' "$out" | grep -F 'https://github.com/o/r/pull/3' >/dev/null \
+    || fail "the overlap note did not name the pull request whose file list was the fallback: $out"
+  printf '%s\n' "$out" | grep -F 'https://github.com/o/r/pull/4' >/dev/null \
+    && fail "the overlap note named a pull request that does not touch the planned file"
+  [ "$(printf '%s\n' "$out" | grep -c '^## SHARED$')" -eq 1 ] \
+    || fail "the overlap note was not a single SHARED section"
+  FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
+    PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+    || fail "a second overlap pass must not fail"
+  [ "$(grep -c '^## SHARED$' "$brief")" -eq 1 ] \
+    || fail "a second overlap pass duplicated the SHARED note"
+  grep -F 'https://github.com/o/r/pull/5 (unchecked:' "$brief" >/dev/null \
+    || fail "a failed PR lookup was not reported as unchecked"
+  for variant in "FILES: \`shared.txt\`" 'BLAST RADIUS: shared.txt' $'## FILES\n- `shared.txt`' $'## BLAST RADIUS\n- shared.txt'; do
+    printf '# Task\n## Firstmate spec\n%s\n' "$variant" > "$brief"
+    FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
+      PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+      || fail "overlap blocked an ordinary brief"
+    grep -F 'https://github.com/o/r/pull/1 (shared.txt)' "$brief" >/dev/null \
+      || fail "planned paths in $variant were not compared"
+  done
+  printf '# Task\nNo paths declared.\n' > "$brief"
+  PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+    || fail "missing planned paths blocked dispatch"
+  grep -F 'Overlap was not checked: no planned paths' "$brief" >/dev/null \
+    || fail "missing planned paths were silently skipped"
+  [ "$(grep -c '^## SHARED$' "$brief")" -eq 1 ] || fail "missing paths duplicated SHARED"
+  printf '## SCOPE\nshared.txt\n' > "$brief"
+  printf '[{"number":5,"url":"https://github.com/o/r/pull/5"}]\n' > "$prs"
+  FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
+    PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+    || fail "failed lookups blocked dispatch"
+  grep -F 'No overlap found among 0 compared open pull requests.' "$brief" >/dev/null \
+    || fail "an unchecked PR was counted as compared"
+  grep -F 'https://github.com/o/r/pull/5 (unchecked:' "$brief" >/dev/null \
+    || fail "an unread PR was reported clean"
+  printf '[]\n' > "$TMP_ROOT/overlap-diffs/5"
+  FM_OVERLAP_PRS=$prs FM_OVERLAP_DIFF_DIR=$TMP_ROOT/overlap-diffs \
+    PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+    || fail "an empty PR file list blocked dispatch"
+  grep -F 'No overlap found among 1 compared open pull requests.' "$brief" >/dev/null \
+    || fail "a successfully read empty file list was counted as unchecked"
+  pass "overlap handles ordinary briefs and distinguishes compared from unchecked PRs"
+}
+
+test_rename_overlap_endpoints() {
+  local repo brief prs head mode path
+  repo="$TMP_ROOT/rename-repo"
+  brief="$TMP_ROOT/rename-brief.md"
+  prs="$TMP_ROOT/rename-prs.json"
+  mkdir -p "$repo" "$TMP_ROOT/rename-files"
+  git init -q -b main "$repo"
+  printf 'preserve this content\n' > "$repo/old.txt"
+  git -C "$repo" add old.txt
+  git -C "$repo" commit -qm base
+  git -C "$repo" checkout -qb rename
+  git -C "$repo" mv old.txt new.txt
+  git -C "$repo" commit -qm rename
+  head=$(git -C "$repo" rev-parse HEAD)
+  git -C "$repo" checkout -q main
+  printf '[{"filename":"new.txt","previous_filename":"old.txt","status":"renamed"}]\n' \
+    > "$TMP_ROOT/rename-files/6"
+  for mode in merge-tree fallback; do
+    [ "$mode" != fallback ] || head=0123456789abcdef0123456789abcdef01234567
+    jq -n --arg head "$head" \
+      '[{number:6,url:"https://github.com/o/r/pull/6",headRefOid:$head}]' > "$prs"
+    for path in old.txt new.txt; do
+      printf '## SCOPE\n%s\n' "$path" > "$brief"
+      FM_OVERLAP_PRS="$prs" FM_OVERLAP_DIFF_DIR="$TMP_ROOT/rename-files" \
+        PATH="$FAKEBIN:$PATH" "$OVERLAP" --project "$repo" --brief "$brief" \
+        || fail "rename overlap blocked dispatch"
+      grep -Fx -- "- https://github.com/o/r/pull/6 ($path)" "$brief" >/dev/null \
+        || fail "$mode lost rename endpoint $path"
+    done
+  done
+  pass "merge-tree and GitHub fallback report both rename endpoints"
+}
+
+test_graphql_failure_and_flag_contract
+test_gh_only_poll_and_terminal_states
+test_old_label_wakes_once_and_clear_removes_it
+test_young_label_is_quiet
+test_live_worker_is_steered_once
+test_exited_worker_is_relaunched
+test_steered_worker_exit_recovers
+test_action_failures_preserve_decision_protocol
+test_legacy_poll_authentication
+test_relabel_starts_a_new_episode
+test_watcher_conflict_recovery
+test_overlap_names_both_pull_requests
+test_rename_overlap_endpoints
