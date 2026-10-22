@@ -1022,7 +1022,7 @@ This guard is the refresh command after any harness upgrade; it spends a small n
 The doorbell no longer prints the inbox's absolute path, so its length no longer grows with the home's depth.
 It names the inbox as `"$FM_TASK_INBOX"`, which `bin/fm-spawn.sh` exports into every launch as the absolute `state/<task>.inbox` path, followed by the short `<task>.inbox` name; the brief's full path remains the fallback for a worker launched without that export.
 The guard now launches each worker with `FM_TASK_INBOX` exported and no brief, so the worker must resolve the inbox from the doorbell and its environment alone.
-It is the refresh command for that shape, which has not yet been recorded live here.
+The 2026-10-21 results below cover that shape and recovery of an unsubmitted own-doorbell draft.
 The run below, on 2026-09-30 on tmux 3.6, Linux (WSL2), with the same command, covered the earlier brief-primed shape, whose doorbell named only the short `<task>.inbox` name and whose guard gave each worker the brief's steering-inbox sentence before the steer:
 
 ```text
@@ -1036,6 +1036,60 @@ ok - opencode (1.18.33): the doorbell reached a real worker, which acted and ack
 
 OpenCode needed `FM_SEND_INBOX_LIVE_TIMEOUT=560` because its configured model was still mid-turn at the default 240 seconds.
 Pi 0.87.1 was installed but not verified: its configured model returned an account error (`The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account`) before it read the inbox.
+
+### Unsubmitted doorbell recovery
+
+On 2026-10-21, the guard exercised the installed harnesses on Linux x86_64 with tmux 3.4, using isolated worker directories inside the review worktree.
+Each harness has a fresh-send case through `fm-send.sh` and a pending-draft case through `fm_task_inbox_ring`.
+The pending case writes a durable record, types its doorbell without Enter, proves the composer is pending with exactly that line and neither action nor acknowledgement has occurred, then invokes the production ring once.
+Both cases require the instruction's named file to exist and the record to move into `handled/`; a successful send return alone cannot pass.
+The pending case has no later fresh-send retry that could mask a failed recovery.
+
+Exact commands:
+
+```sh
+mkdir -p .review-doorbell-tmp
+TMPDIR="$PWD/.review-doorbell-tmp" FM_SEND_INBOX_LIVE_E2E=1 bash tests/fm-send-inbox-doorbell-live-e2e.test.sh > .review-doorbell-tmp/results.log 2>&1
+```
+
+The guard exited 1, with four passing cases and eight failures across six installed harnesses.
+Exact result lines, omitting pane captures and retry notes:
+
+```text
+ok - cursor (2026.10.19-6bbf2c4): fresh doorbell reached a real worker, which acted and acked with the mv
+ok - cursor (2026.10.19-6bbf2c4): pending doorbell reached a real worker, which acted and acked with the mv
+not ok - claude (2.1.308 (Claude Code)): composer stayed visibly pending; the pane is not steerable
+not ok - claude (2.1.308 (Claude Code)): composer stayed visibly pending; the pane is not steerable
+not ok - codex (codex-cli 0.160.0): doorbell not honored within 240s (acted=no acked=no)
+ok - codex (codex-cli 0.160.0): pending doorbell reached a real worker, which acted and acked with the mv
+# harness absent, not verified here: opencode
+ok - pi (1.0.0): fresh doorbell reached a real worker, which acted and acked with the mv
+not ok - pi (1.0.0): could not prove an unsubmitted own-doorbell draft
+# harness absent, not verified here: pi-signed
+not ok - grok (grok 1.0.67 (2fe064390d07)): doorbell not honored within 240s (acted=no acked=no)
+not ok - grok (grok 1.0.67 (2fe064390d07) [stable]): doorbell not honored within 240s (acted=no acked=no)
+not ok - kimi (2.0.0): doorbell not honored within 240s (acted=no acked=no)
+not ok - kimi (2.0.0): could not prove an unsubmitted own-doorbell draft
+# harness absent, not verified here: muse
+# harness absent, not verified here: omp
+# harness absent, not verified here: gemini
+# harness absent, not verified here: rovo
+# harness absent, not verified here: agy
+# harness absent, not verified here: devin
+# harness absent, not verified here: commandcode
+# harness absent, not verified here: polytoken
+not ok - live steering-inbox doorbell guard found failures above
+```
+
+Cursor's fresh and pending cases passed, and Codex's pending case passed, proving real-worker action and acknowledgement after the seeded draft was submitted by the production ring.
+Codex's fresh case left two doorbell lines visible and neither acted nor acknowledged within its budget, so the fresh-send guarantee remains unverified for 0.160.0.
+Claude's two cases remained behind an external-import consent dialog.
+Pi's fresh case passed after the midpoint retry, but its pending case remained behind a folder-trust dialog and could not prove the draft precondition.
+Pi also displayed unrelated MCP startup warnings: Figma needed sign-in, and 21st could not resolve its `API_KEY_21ST` header variable.
+Grok displayed its weekly-limit screen and neither case acted or acknowledged within its budget.
+Kimi displayed a folder-trust dialog; its fresh case timed out and its pending case could not prove the draft precondition.
+No account, remembered trust, or user-level tool configuration was changed to obtain these results.
+The failed and absent surfaces are not verified by this run; refresh this guard before claiming a pass for them.
 
 ## Waiting-worker command ceilings
 
